@@ -17,11 +17,6 @@ public class NopInstruction implements Instruction {
     }
 
     @Override
-    public int getGroupCount() {
-        return PATTERN.matcher("").groupCount();
-    }
-
-    @Override
     public void execute(ExecutionContext ectx, String... args) {
         log.info("nop nop!");
         ectx.incrementPosition();
