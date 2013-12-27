@@ -10,8 +10,8 @@ public class NopInstruction implements Instruction {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    // nop, comments, directives and labels
-    private static final Pattern PATTERN = Pattern.compile("^\\s*(?:nop|#.*|\\.\\S+)?");
+    // nop, comments, directives and empty lines
+    private static final Pattern PATTERN = Pattern.compile("^\\s*(?:nop|#.*|\\..*)?");
 
     @Override
     public Pattern getPattern() {
@@ -20,7 +20,6 @@ public class NopInstruction implements Instruction {
 
     @Override
     public void execute(ExecutionContext ectx, String... args) {
-        log.info("nop nop!");
         ectx.incrementPosition();
     }
 

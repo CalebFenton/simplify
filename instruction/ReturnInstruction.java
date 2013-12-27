@@ -25,7 +25,7 @@ public class ReturnInstruction implements Instruction {
         }
         // else return-void
 
-        ectx.setPosition(-1);
+        ectx.exitMethod();
     }
 
 }

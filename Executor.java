@@ -11,8 +11,8 @@ public class Executor {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private int localMaxDepth;
-    private int externalMaxDepth;
+    private int maxLocalJumps;
+    private int maxCallDepth;
 
     private final MethodContainer methods;
     private final List<Instruction> instructions;
@@ -21,16 +21,16 @@ public class Executor {
         this.methods = methods;
         this.instructions = instructions;
 
-        localMaxDepth = 10;
-        externalMaxDepth = 5;
+        maxLocalJumps = 100;
+        maxCallDepth = 5;
     }
 
     public void setLocalMaxDepth(int depth) {
-        localMaxDepth = depth;
+        maxLocalJumps = depth;
     }
 
     public void setExternalMaxDepth(int depth) {
-        externalMaxDepth = depth;
+        maxCallDepth = depth;
     }
 
     public void execute() {
@@ -52,19 +52,24 @@ public class Executor {
 
         Set<String> signatures = methods.getMethodSignatures();
         for (String signature : signatures) {
-            ExecutionContext ectx = new ExecutionContext(signature);
+            ExecutionContext ectx = new ExecutionContext(methods, signature);
 
-            executeMethod(ectx);
+            try {
+                executeMethod(ectx);
+            } catch (MaxCallDepthExceeded | MaxLocalJumpsExceeded | UnsupportedInstruction e) {
+                log.severe(e.toString());
+            }
         }
     }
 
-    public void executeMethod(ExecutionContext ectx) {
+    public void executeMethod(ExecutionContext ectx) throws MaxCallDepthExceeded, MaxLocalJumpsExceeded,
+                    UnsupportedInstruction {
         log.fine("Executing method: " + ectx.getMethod());
 
-        while (ectx.getPosition() >= 0) {
+        while (ectx.getPosition() != null) {
             String line = methods.getLine(ectx.getMethod(), ectx.getPosition());
 
-            log.finer("\tparsing line: " + line);
+            log.finer("\tparsing line: '" + line.trim() + "'");
 
             boolean matched = false;
             for (Instruction instruction : instructions) {
@@ -77,15 +82,22 @@ public class Executor {
                     }
 
                     instruction.execute(ectx, args);
+
+                    if (ectx.getCallDepth() > this.maxCallDepth) {
+                        throw new MaxCallDepthExceeded("Last instruction: " + line.trim());
+                    }
+
+                    if (ectx.getLocalJumps() > this.maxLocalJumps) {
+                        throw new MaxLocalJumpsExceeded("Last instruction: " + line.trim());
+                    }
+
                     matched = true;
                     break;
                 }
             }
 
             if (!matched) {
-                log.warning("Aborting method, unrecognized instruction: " + line);
-                ectx.incrementPosition();
-                // System.exit(0);
+                throw new UnsupportedInstruction(line.trim());
             }
         }
     }

@@ -18,7 +18,7 @@ import simplify.instruction.ReturnInstruction;
 public class Simplifier {
     private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINEST;
+    private static final Level LOG_LEVEL = Level.FINER;
 
     public static void main(String[] argv) throws IOException {
         log.setLevel(LOG_LEVEL);

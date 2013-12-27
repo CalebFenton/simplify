@@ -19,9 +19,8 @@ public class GotoInstruction implements Instruction {
 
     @Override
     public void execute(ExecutionContext ectx, String... args) {
-        log.fine("args2: " + args[2]);
-
-        ectx.incrementPosition();
+        String label = args[2];
+        ectx.setPosition(label);
     }
 
 }

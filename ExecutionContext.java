@@ -6,6 +6,8 @@ import java.util.Deque;
 public class ExecutionContext {
     private boolean hitAmbiguousBranch;
 
+    private int currentLocalJumps;
+
     private final Deque<RegisterContainer> registerStack;
     private final Deque<Integer> positionStack;
     private final Deque<String> methodStack;
@@ -13,6 +15,8 @@ public class ExecutionContext {
 
     public ExecutionContext(MethodContainer methods, String signature) {
         hitAmbiguousBranch = false;
+
+        currentLocalJumps = 0;
 
         registerStack = new ArrayDeque<RegisterContainer>();
         positionStack = new ArrayDeque<Integer>();
@@ -27,9 +31,17 @@ public class ExecutionContext {
         return positionStack.peekFirst();
     }
 
-    public void setPosition(int position) {
-        positionStack.pop();
-        positionStack.addFirst(position);
+    public int getLocalJumps() {
+        return currentLocalJumps;
+    }
+
+    public int getCallDepth() {
+        return methodStack.size();
+    }
+
+    public void setPosition(String label) {
+        currentLocalJumps++;
+        setPosition(getJumpPosition(label));
     }
 
     public void incrementPosition() {
@@ -48,10 +60,6 @@ public class ExecutionContext {
 
     public String getMethod() {
         return methodStack.getFirst();
-    }
-
-    public int getJumpPosition(String label) {
-        return methods.getJumpPosition(getMethod(), label);
     }
 
     public void setAmbiguousBranch() {
@@ -73,6 +81,15 @@ public class ExecutionContext {
     public String getRegisterValue(String register) {
         // update used
         return null;
+    }
+
+    private void setPosition(int position) {
+        positionStack.pop();
+        positionStack.addFirst(position);
+    }
+
+    private int getJumpPosition(String label) {
+        return methods.getJumpPosition(getMethod(), label);
     }
 
 }
