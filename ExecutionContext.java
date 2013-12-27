@@ -62,6 +62,21 @@ public class ExecutionContext {
         return methodStack.getFirst();
     }
 
+    public String getStackTrace() {
+        StringBuilder sb = new StringBuilder();
+
+        String[] m = methodStack.toArray(new String[methodStack.size()]);
+        Integer[] p = positionStack.toArray(new Integer[positionStack.size()]);
+
+        for (int i = 0; i < m.length; i++) {
+            String signature = m[i];
+            Method method = methods.getMethod(signature);
+            sb.append(signature).append('[').append(method.getParentFile()).append(':').append(p[i]).append("]\n");
+        }
+
+        return sb.deleteCharAt(sb.length() - 1).toString();
+    }
+
     public void setAmbiguousBranch() {
         hitAmbiguousBranch = true;
     }

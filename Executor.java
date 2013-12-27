@@ -87,11 +87,11 @@ public class Executor {
                     instruction.execute(ectx, args);
 
                     if (ectx.getCallDepth() > this.maxCallDepth) {
-                        throw new MaxCallDepthExceeded("Last instruction: " + line.trim());
+                        throw new MaxCallDepthExceeded(ectx.getStackTrace());
                     }
 
                     if (ectx.getLocalJumps() > this.maxLocalJumps) {
-                        throw new MaxLocalJumpsExceeded("Last instruction: " + line.trim());
+                        throw new MaxLocalJumpsExceeded(ectx.getStackTrace());
                     }
 
                     matched = true;
