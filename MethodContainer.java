@@ -9,45 +9,34 @@ import java.util.Set;
 public class MethodContainer {
 
     private final Map<String, Method> methods;
-    private final Set<String> modifiedMethods;
 
     public MethodContainer() {
-        modifiedMethods = new HashSet<String>();
         methods = new HashMap<String, Method>();
     }
 
     public void addMethod(String signature, String parentFile, List<String> lines, Map<String, Integer> jumps) {
-        Method m = new Method(parentFile, lines, jumps);
+        Method m = new Method(parentFile, signature, lines, jumps);
         methods.put(signature, m);
-    }
-
-    // returns null if no more instructions
-    public String getLine(String signature, int line) {
-        return methods.get(signature).getLine(line);
-    }
-
-    public int getJumpPosition(String signature, String label) {
-        return methods.get(signature).getJumpPosition(label);
     }
 
     public Set<String> getMethodSignatures() {
         return methods.keySet();
     }
 
-    public void setLine(String signature, int line, String value) {
-        methods.get(signature).setLine(line, value);
-    }
-
-    public void removeLine(String signature, int line) {
-        methods.get(signature).removeLine(line);
-    }
-
-    public String getParentFile(String signature) {
-        return methods.get(signature).getParentFile();
+    public Method getMethod(String signature) {
+        return methods.get(signature);
     }
 
     public Set<String> getModifiedMethods() {
-        return modifiedMethods;
+        Set<String> result = new HashSet<String>();
+
+        for (String signature : methods.keySet()) {
+            if (methods.get(signature).isModified()) {
+                result.add(signature);
+            }
+        }
+
+        return result;
     }
 
 }

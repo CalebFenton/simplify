@@ -6,11 +6,17 @@ import java.util.Map;
 public class Method {
 
     private final String parentFile;
+    private final String signature;
     private final List<String> lines;
     private final Map<String, Integer> jumps;
 
-    public Method(String parentFile, List<String> lines, Map<String, Integer> jumps) {
+    private boolean modified;
+
+    public Method(String parentFile, String signature, List<String> lines, Map<String, Integer> jumps) {
+        modified = false;
+
         this.parentFile = parentFile;
+        this.signature = signature;
         this.lines = lines;
         this.jumps = jumps;
     }
@@ -36,11 +42,21 @@ public class Method {
     }
 
     public void setLine(int line, String value) {
+        modified = true;
         lines.set(line, value);
     }
 
     public void removeLine(int line) {
+        modified = true;
         lines.remove(line);
     }
 
+    public boolean isModified() {
+        return modified;
+    }
+
+    @Override
+    public String toString() {
+        return signature;
+    }
 }

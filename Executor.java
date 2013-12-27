@@ -55,19 +55,22 @@ public class Executor {
             ExecutionContext ectx = new ExecutionContext(methods, signature);
 
             try {
-                executeMethod(ectx);
+                Method method = methods.getMethod(signature);
+                executeMethod(ectx, method);
+
+                MethodSimplifier.simplify(ectx, method);
             } catch (MaxCallDepthExceeded | MaxLocalJumpsExceeded | UnsupportedInstruction e) {
                 log.severe(e.toString());
             }
         }
     }
 
-    public void executeMethod(ExecutionContext ectx) throws MaxCallDepthExceeded, MaxLocalJumpsExceeded,
+    public void executeMethod(ExecutionContext ectx, Method method) throws MaxCallDepthExceeded, MaxLocalJumpsExceeded,
                     UnsupportedInstruction {
-        log.fine("Executing method: " + ectx.getMethod());
+        log.fine("Executing method: " + ectx.getMethodSignature());
 
         while (ectx.getPosition() != null) {
-            String line = methods.getLine(ectx.getMethod(), ectx.getPosition());
+            String line = method.getLine(ectx.getPosition());
 
             log.finer("\tparsing line: '" + line.trim() + "'");
 

@@ -58,7 +58,7 @@ public class ExecutionContext {
         methodStack.pop();
     }
 
-    public String getMethod() {
+    public String getMethodSignature() {
         return methodStack.getFirst();
     }
 
@@ -89,7 +89,6 @@ public class ExecutionContext {
     }
 
     private int getJumpPosition(String label) {
-        return methods.getJumpPosition(getMethod(), label);
+        return methods.getMethod(getMethodSignature()).getJumpPosition(label);
     }
-
 }
