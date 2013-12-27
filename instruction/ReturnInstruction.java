@@ -6,11 +6,11 @@ import java.util.regex.Pattern;
 import simplify.ExecutionContext;
 import simplify.Simplifier;
 
-public class ConstantInstruction implements Instruction {
+public class ReturnInstruction implements Instruction {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Pattern PATTERN = Pattern.compile("^\\s*const[^ ]* ([vp]\\d+), (.*)");
+    private static final Pattern PATTERN = Pattern.compile("^\\s*(return[^ ]*)( [vp]\\d+)?");
 
     @Override
     public Pattern getPattern() {
@@ -19,9 +19,13 @@ public class ConstantInstruction implements Instruction {
 
     @Override
     public void execute(ExecutionContext ectx, String... args) {
-        log.fine("args0: " + args[0]);
 
-        ectx.incrementPosition();
+        if (args.length == 3) {
+            ectx.getRegisterValue(args[2]);
+        }
+        // else return-void
+
+        ectx.setPosition(-1);
     }
 
 }

@@ -1,8 +1,6 @@
 package simplify;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -54,17 +52,18 @@ public class Executor {
 
         Set<String> signatures = methods.getMethodSignatures();
         for (String signature : signatures) {
-            executeMethod(signature);
+            ExecutionContext ectx = new ExecutionContext(signature);
+
+            executeMethod(ectx);
         }
     }
 
-    public void executeMethod(String signature) {
-        log.fine("Executing method: " + signature);
-
-        ExecutionContext ectx = new ExecutionContext(signature);
+    public void executeMethod(ExecutionContext ectx) {
+        log.fine("Executing method: " + ectx.getMethod());
 
         while (ectx.getPosition() >= 0) {
-            String line = methods.getLine(signature, ectx.getPosition());
+            String line = methods.getLine(ectx.getMethod(), ectx.getPosition());
+
             log.finer("\tparsing line: " + line);
 
             boolean matched = false;
@@ -84,19 +83,11 @@ public class Executor {
             }
 
             if (!matched) {
-                log.warning("Unrecognized instruction: " + line);
-                System.exit(0);
+                log.warning("Aborting method, unrecognized instruction: " + line);
+                ectx.incrementPosition();
+                // System.exit(0);
             }
         }
-    }
-
-    public static Map<String, Instruction> buildInstructionMap(List<Instruction> instructions) {
-        Map<String, Instruction> result = new HashMap<String, Instruction>();
-        for (Instruction instruction : instructions) {
-            result.put(instruction.getPatternString(), instruction);
-        }
-
-        return result;
     }
 
 }

@@ -7,9 +7,13 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import simplify.instruction.ConstantInstruction;
+import simplify.instruction.GotoInstruction;
 import simplify.instruction.Instruction;
+import simplify.instruction.LabelInstruction;
 import simplify.instruction.NewInstanceInsturction;
 import simplify.instruction.NopInstruction;
+import simplify.instruction.ReturnInstruction;
 
 public class Simplifier {
     private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
@@ -35,11 +39,14 @@ public class Simplifier {
 
     private static List<Instruction> getInstructions() {
         List<Instruction> instructions = new ArrayList<Instruction>();
-        instructions.add(new NewInstanceInsturction());
         instructions.add(new NopInstruction());
+        instructions.add(new ConstantInstruction());
+        instructions.add(new GotoInstruction());
+        instructions.add(new LabelInstruction());
+        instructions.add(new ReturnInstruction());
+        instructions.add(new NewInstanceInsturction());
         // instructions.add(new SomeInstruction());
 
         return instructions;
     }
-
 }

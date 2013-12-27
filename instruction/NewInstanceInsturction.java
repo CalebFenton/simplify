@@ -10,7 +10,7 @@ public class NewInstanceInsturction implements Instruction {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    public static final Pattern PATTERN = Pattern.compile("^\\s*new-instance ([vp]\\d+), (L[^;]+;)");
+    private static final Pattern PATTERN = Pattern.compile("^\\s*new-instance ([vp]\\d+), (L[^;]+;)");
 
     @Override
     public Pattern getPattern() {

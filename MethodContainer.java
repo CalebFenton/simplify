@@ -8,12 +8,17 @@ import java.util.Set;
 
 public class MethodContainer {
 
-    private Map<String, Method> methods;
-    private Set<String> modifiedMethods;
+    private final Map<String, Method> methods;
+    private final Set<String> modifiedMethods;
 
     public MethodContainer() {
         modifiedMethods = new HashSet<String>();
         methods = new HashMap<String, Method>();
+    }
+
+    public void addMethod(String signature, String parentFile, List<String> lines, Map<String, Integer> jumps) {
+        Method m = new Method(parentFile, lines, jumps);
+        methods.put(signature, m);
     }
 
     // returns null if no more instructions
@@ -21,12 +26,8 @@ public class MethodContainer {
         return methods.get(signature).getLine(line);
     }
 
-    public String getParentFile(String signature) {
-        return methods.get(signature).getParentFile();
-    }
-
-    public Set<String> getModifiedMethods() {
-        return modifiedMethods;
+    public int getJumpPosition(String signature, String label) {
+        return methods.get(signature).getJumpPosition(label);
     }
 
     public Set<String> getMethodSignatures() {
@@ -41,9 +42,12 @@ public class MethodContainer {
         methods.get(signature).removeLine(line);
     }
 
-    public void addMethod(String signature, String parentFile, List<String> lines) {
-        Method m = new Method(parentFile, lines);
-        methods.put(signature, m);
+    public String getParentFile(String signature) {
+        return methods.get(signature).getParentFile();
+    }
+
+    public Set<String> getModifiedMethods() {
+        return modifiedMethods;
     }
 
 }

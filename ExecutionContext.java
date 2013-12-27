@@ -6,52 +6,60 @@ import java.util.Deque;
 public class ExecutionContext {
     private boolean hitAmbiguousBranch;
 
-    private final Deque<RegisterContainer> registers;
-    private final Deque<Integer> positions;
-    private final Deque<String> methods;
+    private final Deque<RegisterContainer> registerStack;
+    private final Deque<Integer> positionStack;
+    private final Deque<String> methodStack;
+    private final MethodContainer methods;
 
-    public ExecutionContext(String signature) {
+    public ExecutionContext(MethodContainer methods, String signature) {
         hitAmbiguousBranch = false;
 
-        registers = new ArrayDeque<RegisterContainer>();
-        positions = new ArrayDeque<Integer>();
-        methods = new ArrayDeque<String>();
+        registerStack = new ArrayDeque<RegisterContainer>();
+        positionStack = new ArrayDeque<Integer>();
+        methodStack = new ArrayDeque<String>();
 
-        pushMethod(signature);
-        pushPosition(0);
+        this.methods = methods;
+
+        enterMethod(signature);
     }
 
-    public int getPosition() {
-        return positions.getFirst();
+    public Integer getPosition() {
+        return positionStack.peekFirst();
     }
 
     public void setPosition(int position) {
-        positions.pop();
-        positions.addFirst(position);
+        positionStack.pop();
+        positionStack.addFirst(position);
     }
 
     public void incrementPosition() {
         setPosition(getPosition() + 1);
     }
 
-    public void pushPosition(int position) {
-        positions.push(position);
+    public void enterMethod(String signature) {
+        methodStack.push(signature);
+        positionStack.push(0);
     }
 
-    public void pushMethod(String signature) {
-        methods.push(signature);
-    }
-
-    public String popMethod() {
-        return methods.pop();
+    public void exitMethod() {
+        positionStack.pop();
+        methodStack.pop();
     }
 
     public String getMethod() {
-        return methods.getFirst();
+        return methodStack.getFirst();
+    }
+
+    public int getJumpPosition(String label) {
+        return methods.getJumpPosition(getMethod(), label);
     }
 
     public void setAmbiguousBranch() {
         hitAmbiguousBranch = true;
+    }
+
+    public boolean inAmbiguousBranch() {
+        return hitAmbiguousBranch;
     }
 
     public void addRegister(String register, String type, String value) {
