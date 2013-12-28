@@ -2,8 +2,12 @@ package simplify;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.logging.Logger;
 
 public class ExecutionContext {
+
+    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+
     private boolean hitAmbiguousBranch;
 
     private int currentLocalJumps;
@@ -28,7 +32,7 @@ public class ExecutionContext {
     }
 
     public Integer getPosition() {
-        return positionStack.peekFirst();
+        return positionStack.peek();
     }
 
     public int getLocalJumps() {
@@ -51,11 +55,15 @@ public class ExecutionContext {
     public void enterMethod(String signature) {
         methodStack.push(signature);
         positionStack.push(0);
+        registerStack.push(new RegisterContainer());
     }
 
     public void exitMethod() {
-        positionStack.pop();
+        log.info("Exiting method with context:\n" + this.toString());
+
         methodStack.pop();
+        positionStack.pop();
+        registerStack.pop();
     }
 
     public String getMethodSignature() {
@@ -85,17 +93,21 @@ public class ExecutionContext {
         return hitAmbiguousBranch;
     }
 
-    public void addRegister(String register, String type, String value) {
-        // update referenced
+    public void addOrUpdateRegister(String name, Object value, String type) {
+        RegisterContainer registers = registerStack.peek();
+        registers.set(name, value, type, getPosition());
     }
 
-    public void updateRegister(String register, String value) {
-        // update referenced
+    public Object getRegister(String name) {
+        RegisterContainer registers = registerStack.peek();
+        return registers.get(name, getPosition());
     }
 
-    public String getRegisterValue(String register) {
-        // update used
-        return null;
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        return registerStack.peek().toString();
     }
 
     private void setPosition(int position) {
