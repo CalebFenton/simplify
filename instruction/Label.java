@@ -6,11 +6,11 @@ import java.util.regex.Pattern;
 import simplify.ExecutionContext;
 import simplify.Simplifier;
 
-public class NewInstanceInsturction implements Instruction {
+public class Label implements Instruction {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Pattern PATTERN = Pattern.compile("^\\s*new-instance ([vp]\\d+), (L[^;]+;)");
+    private static final Pattern PATTERN = Pattern.compile(":(\\w+)");
 
     @Override
     public Pattern getPattern() {
@@ -19,9 +19,7 @@ public class NewInstanceInsturction implements Instruction {
 
     @Override
     public void execute(ExecutionContext ectx, String... args) {
-        log.fine("args0: " + args[0]);
 
-        ectx.incrementPosition();
     }
 
 }

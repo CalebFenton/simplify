@@ -9,11 +9,11 @@ import simplify.ExecutionContext;
 import simplify.Method;
 import simplify.Simplifier;
 
-public class ReturnInstruction implements ControlInstruction {
+public class IfInstruction implements ControlInstruction {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Pattern PATTERN = Pattern.compile("(return[^ ]*)[ ]?([vp]\\d+)?");
+    private static final Pattern PATTERN = Pattern.compile("(if-[^ ]+) ([vp]\\d+), :(\\w+)");
 
     @Override
     public Pattern getPattern() {
@@ -22,17 +22,17 @@ public class ReturnInstruction implements ControlInstruction {
 
     @Override
     public void execute(ExecutionContext ectx, String... args) {
-        String op = args[1];
-        String name = args[2];
-
-        if (!op.equals("return-void")) {
-            ectx.getRegister(args[2]);
-        }
     }
 
     @Override
     public List<String> getPossibleBranchLabels(Method method, String... args) {
-        return new ArrayList<String>();
+        String label = args[3];
+
+        List<String> result = new ArrayList<String>();
+        result.add(label);
+        result.add("[next]"); // hack to include next line as branch
+
+        return result;
     }
 
 }

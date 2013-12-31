@@ -1,40 +1,53 @@
 package simplify;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+
+import simplify.graph.Node;
 
 public class Method {
 
-    private final String parentFile;
+    private final String classFile;
     private final String signature;
     private final List<String> lines;
-    private final Map<String, Integer> jumps;
+    private final Map<Integer, Node> lineNodeMap;
+    private final Map<String, Integer> jumpTable;
 
     private boolean modified;
 
-    public Method(String parentFile, String signature, List<String> lines, Map<String, Integer> jumps) {
-        modified = false;
-
-        this.parentFile = parentFile;
+    public Method(String classFile, String signature, List<String> lines) {
+        this.classFile = classFile;
         this.signature = signature;
         this.lines = lines;
-        this.jumps = jumps;
+
+        lineNodeMap = new TreeMap<Integer, Node>();
+        jumpTable = new HashMap<String, Integer>();
+
+        modified = false;
     }
 
-    public String getParentFile() {
-        return parentFile;
+    public String getClassFile() {
+        return classFile;
     }
 
     public String getLine(int line) {
         return lines.get(line);
     }
 
-    public void addJump(String label, int line) {
-        jumps.put(label, line);
+    public Map<Integer, Node> getLineNodeMap() {
+        return lineNodeMap;
     }
 
-    public int getJumpPosition(String label) {
-        return jumps.get(label);
+    public Node getRootNode() {
+        Node root = null;
+        for (Integer key : lineNodeMap.keySet()) {
+            root = lineNodeMap.get(key);
+            break;
+        }
+
+        return root;
     }
 
     public List<String> getLines() {
@@ -53,6 +66,18 @@ public class Method {
 
     public boolean isModified() {
         return modified;
+    }
+
+    public void addNode(int line, Node node) {
+        lineNodeMap.put(line, node);
+    }
+
+    public void addJump(String label, int line) {
+        jumpTable.put(label, line);
+    }
+
+    public Integer getJump(String label) {
+        return jumpTable.get(label);
     }
 
     @Override

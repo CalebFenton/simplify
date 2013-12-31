@@ -14,8 +14,8 @@ public class MethodContainer {
         methods = new HashMap<String, Method>();
     }
 
-    public void addMethod(String signature, String parentFile, List<String> lines, Map<String, Integer> jumps) {
-        Method m = new Method(parentFile, signature, lines, jumps);
+    public void addMethod(String signature, String parentFile, List<String> lines) {
+        Method m = new Method(parentFile, signature, lines);
         methods.put(signature, m);
     }
 

@@ -10,7 +10,7 @@ public class ConstantInstruction implements Instruction {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Pattern PATTERN = Pattern.compile("^\\s*(const[^ ]*) ([vp]\\d+), (.*)");
+    private static final Pattern PATTERN = Pattern.compile("(const[^ ]*) ([vp]\\d+), (.*)");
 
     @Override
     public Pattern getPattern() {
@@ -42,9 +42,7 @@ public class ConstantInstruction implements Instruction {
             log.warning("should be made ambiguous: " + op);
         }
 
-        ectx.addOrUpdateRegister(name, value, type);
-
-        ectx.incrementPosition();
+        ectx.addRegister(name, value, type);
     }
 
 }

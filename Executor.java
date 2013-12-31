@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 
+import simplify.graph.CallGraphBuilder;
 import simplify.instruction.Instruction;
 
 public class Executor {
@@ -34,21 +35,11 @@ public class Executor {
     }
 
     public void execute() {
-        // TODO: we're doing this elsewhere for sequence matching
-        // Map<Integer, Instruction> instrMap = new HashMap<Integer, Instruction>();
-        // int position = 1;
-        // StringBuilder sb = new StringBuilder("(?:");
-        // for (Instruction instruction : instructions) {
-        // int endPosition = position + 1 + instruction.getGroupCount();
-        // for (; position < endPosition; position++) {
-        // instrMap.put(position, instruction);
-        // }
-        // sb.append("(").append(instruction.getRegex()).append(")|");
-        //
-        // }
-        // sb.deleteCharAt(sb.length() - 1);
-        // sb.append(")");
-        // Pattern instrPattern = Pattern.compile(sb.toString());
+        buildCallGraphs();
+
+        if (1 == 1) {
+            return;
+        }
 
         Set<String> signatures = methods.getMethodSignatures();
         for (String signature : signatures) {
@@ -62,6 +53,15 @@ public class Executor {
             } catch (MaxCallDepthExceeded | MaxLocalJumpsExceeded | UnsupportedInstruction e) {
                 log.severe(e.toString());
             }
+        }
+    }
+
+    private void buildCallGraphs() {
+        Set<String> signatures = methods.getMethodSignatures();
+        for (String signature : signatures) {
+            Method method = methods.getMethod(signature);
+            CallGraphBuilder.build(method);
+            System.out.println(method.getRootNode().toGraph());
         }
     }
 

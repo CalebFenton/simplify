@@ -7,7 +7,7 @@ public class MethodSaver {
     public static void saveMethods(MethodContainer container) {
         Set<String> signatures = container.getModifiedMethods();
         for (String signature : signatures) {
-            String parent = container.getMethod(signature).getParentFile();
+            String parent = container.getMethod(signature).getClassFile();
 
             // load parent file to string
 

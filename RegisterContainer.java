@@ -50,14 +50,23 @@ public class RegisterContainer {
         registers = new HashMap<String, Register>();
     }
 
-    public void set(String name, Object value, String type, int line) {
+    public void add(String name, Object value, String type, int line) {
+        Register r = new Register(value, type);
+        registers.put(name, r);
+
+        r.referenced(line);
+    }
+
+    public void update(String name, Object value, String type, int line) {
         Register r = registers.get(name);
         if (r == null) {
             r = new Register(value, type);
             registers.put(name, r);
+        } else {
+            r.value = value;
         }
+
         r.referenced(line);
-        r.value = value;
     }
 
     public Object get(String name, int line) {
