@@ -24,6 +24,7 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
+import simplify.exec.VirtualExecutor;
 import simplify.graph.CallGraphBuilder;
 import simplify.graph.Node;
 
@@ -33,6 +34,8 @@ public class Simplifier {
     private static final Level LOG_LEVEL = Level.FINEST;
 
     private static final int API_LEVEL = 15;
+    private static final int MAX_LOCAL_JUMPS = 100;
+    private static final int MAX_CALL_DEPTH = 5;
 
     public static void main(String[] argv) throws Exception {
         setupLogger();
@@ -49,6 +52,9 @@ public class Simplifier {
             BuilderClassDef classDef = dexifySmaliFile(smaliFile, dexBuilder);
             callGraphs.putAll(buildCallGraphs(classDef));
         }
+
+        VirtualExecutor ve = new VirtualExecutor(callGraphs, MAX_LOCAL_JUMPS, MAX_CALL_DEPTH);
+        ve.execute();
 
         String outputDexFile = "out_simple.dex";
         log.info("Writing result to " + outputDexFile);
