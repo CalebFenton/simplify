@@ -1,4 +1,4 @@
-package simplify;
+package simplify.exec;
 
 public class MaxLocalJumpsExceeded extends Exception {
 

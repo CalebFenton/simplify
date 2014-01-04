@@ -4,16 +4,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class Node {
 
     private List<Node> parents;
     private List<Node> children;
 
-    private String instruction;
+    private BuilderInstruction instruction;
     private boolean visited;
 
-    public Node(String instruction) {
+    public Node(BuilderInstruction instruction) {
         this.instruction = instruction;
         visited = false;
         parents = new ArrayList<Node>();
@@ -37,28 +38,26 @@ public class Node {
         return children;
     }
 
-    public String getLine() {
-        return instruction;
-    }
-
     public boolean wasVisited() {
         return visited;
     }
 
     @Override
     public String toString() {
-        return instruction;
+        return instruction.getOpcode() + "@" + instruction.getLocation().getIndex();
     }
 
     public String toGraph() {
-        return getGraph(this, new ArrayList<String>()).toString();
+        // For GraphViz
+        return "digraph {\n" + getGraph(this, new ArrayList<String>()) + "}";
     }
 
     private static StringBuilder getGraph(Node root, List<String> visitedEdges) {
         StringBuilder result = new StringBuilder();
+
         for (Node child : root.getChildren()) {
             StringBuilder edge = new StringBuilder();
-            edge.append("\"").append(StringEscapeUtils.escapeJava(root.toString())).append("\" -> \"");
+            edge.append("\t\"").append(StringEscapeUtils.escapeJava(root.toString())).append("\" -> \"");
             edge.append(StringEscapeUtils.escapeJava(child.toString())).append("\"\n");
 
             if (visitedEdges.contains(edge.toString())) {
