@@ -8,17 +8,19 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class Node {
 
-    private List<Node> parents;
-    private List<Node> children;
+    private final List<Node> parents;
+    private final List<Node> children;
 
     private BuilderInstruction instruction;
-    private boolean visited;
+    private int visits;
 
     public Node(BuilderInstruction instruction) {
-        this.instruction = instruction;
-        visited = false;
         parents = new ArrayList<Node>();
         children = new ArrayList<Node>();
+
+        visits = 0;
+
+        this.instruction = instruction;
     }
 
     public void addChild(Node child) {
@@ -44,7 +46,7 @@ public class Node {
 
     @Override
     public String toString() {
-        return instruction.getOpcode() + "@" + instruction.getLocation().getIndex();
+        return instruction.getOpcode().name + " @" + instruction.getLocation().getIndex();
     }
 
     public String toGraph() {
@@ -72,4 +74,20 @@ public class Node {
 
         return result;
     }
+
+    @Override
+    public Node clone() {
+        return cloneOf(this);
+    }
+
+    public static Node cloneOf(Node rootNode) {
+        Node clone = new Node(rootNode.instruction);
+
+        for (Node child : rootNode.getChildren()) {
+            clone.addChild(cloneOf(child));
+        }
+
+        return clone;
+    }
+
 }
