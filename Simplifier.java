@@ -2,6 +2,7 @@ package simplify;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,6 +16,7 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
+import org.apache.commons.io.FileUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -24,18 +26,21 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
-import simplify.exec.VirtualExecutor;
+import simplify.exec.MethodExecutor;
 import simplify.graph.CallGraphBuilder;
-import simplify.graph.Node;
+import simplify.graph.InstructionNode;
+
+import com.google.common.collect.Multimap;
 
 public class Simplifier {
+
     private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
     private static final Level LOG_LEVEL = Level.FINEST;
 
     private static final int API_LEVEL = 15;
-    private static final int MAX_LOCAL_JUMPS = 100;
-    private static final int MAX_CALL_DEPTH = 5;
+    private static final int MAX_NODE_VISITS = 1000;
+    private static final int MAX_CALL_DEPTH = 10;
 
     public static void main(String[] argv) throws Exception {
         setupLogger();
@@ -44,17 +49,28 @@ public class Simplifier {
         files.add(argv[0]);
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(API_LEVEL);
-        Map<BuilderMethod, Node> callGraphs = new HashMap<BuilderMethod, Node>();
+        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
         for (String file : files) {
             File smaliFile = new File(file);
-            log.info("Simplifying: " + smaliFile);
+            log.info("Dexifying: " + smaliFile);
 
             BuilderClassDef classDef = dexifySmaliFile(smaliFile, dexBuilder);
-            callGraphs.putAll(buildCallGraphs(classDef));
+            methods.addAll(classDef.getMethods());
         }
 
-        VirtualExecutor ve = new VirtualExecutor(callGraphs, MAX_LOCAL_JUMPS, MAX_CALL_DEPTH);
-        ve.execute();
+        MethodExecutor me = new MethodExecutor(MAX_NODE_VISITS, MAX_CALL_DEPTH);
+        for (int i = 0; i < methods.size();) {
+            BuilderMethod method = methods.get(i);
+
+            Multimap<Integer, InstructionNode> nodes = me.execute(method);
+
+            if (MethodSimplifier.simplify(method, nodes)) {
+                // Changes were made. Do it again.
+                continue;
+            }
+
+            i++;
+        }
 
         String outputDexFile = "out_simple.dex";
         log.info("Writing result to " + outputDexFile);
@@ -96,10 +112,19 @@ public class Simplifier {
         return classDef;
     }
 
-    private static Map<BuilderMethod, Node> buildCallGraphs(BuilderClassDef classDef) {
-        Map<BuilderMethod, Node> result = new HashMap<BuilderMethod, Node>();
+    private static Map<BuilderMethod, InstructionNode> buildCallGraphs(BuilderClassDef classDef) {
+        Map<BuilderMethod, InstructionNode> result = new HashMap<BuilderMethod, InstructionNode>();
         for (BuilderMethod method : classDef.getMethods()) {
-            Node rootNode = CallGraphBuilder.build(method);
+            InstructionNode rootNode = CallGraphBuilder.build(method);
+
+            String graphs = rootNode.toGraph();
+            try {
+                FileUtils.write(new File("graphs/" + method.getDefiningClass() + "-" + method.getName() + ".txt"),
+                                graphs);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
             result.put(method, rootNode);
         }
 

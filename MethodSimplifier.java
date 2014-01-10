@@ -1,12 +1,16 @@
 package simplify;
 
-import org.jf.dexlib2.iface.Method;
+import org.jf.dexlib2.writer.builder.BuilderMethod;
 
-import simplify.exec.ExecutionContext;
+import simplify.graph.InstructionNode;
+
+import com.google.common.collect.Multimap;
 
 public class MethodSimplifier {
 
-    public static void simplify(ExecutionContext ectx, Method method) {
-
+    public static boolean simplify(BuilderMethod method, Multimap<Integer, InstructionNode> nodes) {
+        // return true if changes made
+        return false;
     }
+
 }
