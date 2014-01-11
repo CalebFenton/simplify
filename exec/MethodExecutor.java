@@ -79,7 +79,7 @@ public class MethodExecutor {
             }
         }
 
-        System.out.println(rootNode.toGraph());
+        // System.out.println(rootNode.toGraph());
 
         return nodes;
     }

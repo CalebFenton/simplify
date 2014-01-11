@@ -15,4 +15,9 @@ public class UnknownValue {
     public String toString() {
         return "*unknown*";
     }
+
+    @Override
+    public boolean equals(Object other) {
+        return false;
+    }
 }

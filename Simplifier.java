@@ -48,10 +48,10 @@ public class Simplifier {
         List<String> files = new ArrayList<String>();
         files.add(argv[0]);
 
-        // Object A = new Long(6);
-        // Object B = new Long(5);
+        // Object A = new String("asdf");
+        // Object B = new String("asdf");
         //
-        // System.out.println(CompareToBuilder.reflectionCompare(A, B));
+        // System.out.println(A.equals(B));
         //
         // System.exit(0);
 

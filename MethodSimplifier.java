@@ -7,14 +7,13 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction11x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction31i;
-import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
 import simplify.exec.ExecutionContext;
-import simplify.exec.UnknownValue;
 import simplify.graph.InstructionNode;
 
 import com.google.common.collect.LinkedListMultimap;
@@ -25,7 +24,10 @@ public class MethodSimplifier {
 
     private static final String[] OpsToMakeConst = new String[] { "move", "neg-", "not-", "int-to", "long-to",
                     "float-to", "double-to", "add-", "sub-", "mul-", "div-", "rem-", "and-", "or-", "xor-", "shl-",
-                    "shr-", "ushr-", "rsub-" };
+                    "shr-", "ushr-", "rsub-", "return" };
+
+    private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
+                    "java.lang.String", "java.lang.Class" };
 
     // return true if changes made
     public static boolean simplify(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {
@@ -41,52 +43,51 @@ public class MethodSimplifier {
             List<InstructionNode> multiverse = nodes.get(index);
 
             InstructionNode firstNode = multiverse.get(0);
-            Instruction instruction = firstNode.getInstruction();
-            if (!instruction.getOpcode().setsRegister()) {
-                System.out.println("skipping non set: " + firstNode);
+            log.finer("Propagate constants: " + firstNode);
+
+            BuilderInstruction instruction = firstNode.getInstruction();
+            String opName = instruction.getOpcode().name;
+            if (opName.startsWith("const") || opName.equals("return-void")) {
                 continue;
             }
 
-            if (instruction.getOpcode().name.startsWith("const")) {
-                System.out.println("skipping non const: " + firstNode);
+            if (!opCouldMakeConstant(instruction.getOpcode())) {
                 continue;
             }
 
-            if (!opCouldBeConstant(instruction.getOpcode())) {
-                System.out.println("couldn't be a constant: " + firstNode);
-                continue;
-            }
-
-            int registerA = ((OneRegisterInstruction) instruction).getRegisterA();
             ExecutionContext ectx = firstNode.getContext();
-            Object value = ectx.getRegisterValue(registerA);
+            int registerA = ((OneRegisterInstruction) instruction).getRegisterA();
             String type = ectx.getRegisterType(registerA);
+            if (!canEmitType(type)) {
+                continue;
+            }
+
+            Object value = ectx.getRegisterValue(registerA);
             String valueStr = value.toString();
             boolean identical = true;
             for (InstructionNode node : multiverse) {
-                if (value instanceof UnknownValue) {
-                    log.info("unknown value for: " + node);
+                Object other = node.getContext().getRegisterValue(registerA).toString();
+                String otherStr = other.toString();
+                if (!valueStr.equals(otherStr)) {
+                    log.finer("Not all values equal, " + valueStr + " != " + otherStr);
                     identical = false;
-                    break;
-                }
-
-                ectx = node.getContext();
-                if (!valueStr.equals(ectx.getRegisterValue(registerA).toString())) {
-                    identical = false;
-                    log.info("not all values identical for: " + node + ", looking for: " + valueStr);
                     break;
                 }
             }
 
             if (identical) {
-                log.info("would emit constant: " + valueStr + " at: " + firstNode);
-
                 BuilderInstruction constantInstruction = getConstantInstruction(registerA, type, value);
-                log.info("going to emit: " + constantInstruction.getOpcode());
                 MutableMethodImplementation impl = ((MutableMethodImplementation) method.getImplementation());
-                impl.replaceInstruction(index, constantInstruction);
 
-                // emit constant
+                log.fine("Emitting: " + constantInstruction + " @" + index);
+
+                if (opName.startsWith("return")) {
+                    impl.replaceInstruction(index, constantInstruction);
+                    BuilderInstruction newReturn = new BuilderInstruction11x(instruction.getOpcode(), registerA);
+                    impl.addInstruction(index + 1, newReturn);
+                } else {
+                    impl.replaceInstruction(index, constantInstruction);
+                }
             }
         }
     }
@@ -137,7 +138,7 @@ public class MethodSimplifier {
         return s;
     }
 
-    private static boolean opCouldBeConstant(Opcode opcode) {
+    private static boolean opCouldMakeConstant(Opcode opcode) {
         // probably wasteful of cycles but I do what I want
         String opName = opcode.name;
         for (String start : OpsToMakeConst) {
@@ -147,6 +148,16 @@ public class MethodSimplifier {
         }
 
         return false;
+    }
+
+    private static boolean canEmitType(String type) {
+        for (String s : ConstantValueTypes) {
+            if (type.equals(s)) {
+                return true;
+            }
+        }
+
+        return true;
     }
 
     private static void removeUnused(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {

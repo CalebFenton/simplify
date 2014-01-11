@@ -578,6 +578,7 @@ public class InstructionExecutor {
     }
 
     private static int[] handle_IF(ExecutionContext ectx, Instruction22t instruction, int index) {
+        // TODO: combine with handle_IFZ
         Object A = ectx.getRegisterValue(instruction.getRegisterA(), index);
         Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
 
