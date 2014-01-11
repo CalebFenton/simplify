@@ -1,24 +1,19 @@
 package simplify.exec;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
-import org.jf.dexlib2.iface.instruction.OffsetInstruction;
-import org.jf.dexlib2.iface.instruction.SwitchElement;
-import org.jf.dexlib2.iface.instruction.SwitchPayload;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.util.SparseArray;
 
 import simplify.Simplifier;
 import simplify.graph.InstructionNode;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.LinkedListMultimap;
 
 public class MethodExecutor {
 
@@ -32,13 +27,24 @@ public class MethodExecutor {
         this.maxCallDepth = maxCallDepth;
     }
 
-    public Multimap<Integer, InstructionNode> execute(BuilderMethod method) throws MaxNodeVisitsExceeded {
-        return execute(method, new ExecutionContext());
+    public LinkedListMultimap<Integer, InstructionNode> execute(BuilderMethod method) throws MaxNodeVisitsExceeded {
+        ExecutionContext ectx = new ExecutionContext();
+        // List<? extends BuilderMethodParameter> parameters = method.getParameters();
+        int paramIndexStop = method.getImplementation().getRegisterCount();
+        int paramIndexStart = paramIndexStop - method.getParameters().size();
+        for (int i = paramIndexStart; i < paramIndexStop; i++) {
+            // TODO: we could get register type here by looking at method.getParameters()
+            ectx.addRegister(i, "?", new UnknownValue(), -1);
+        }
+
+        return execute(method, ectx);
     }
 
-    protected Multimap<Integer, InstructionNode> execute(BuilderMethod method, ExecutionContext ectx)
+    protected LinkedListMultimap<Integer, InstructionNode> execute(BuilderMethod method, ExecutionContext ectx)
                     throws MaxNodeVisitsExceeded {
-        Multimap<Integer, InstructionNode> nodes = ArrayListMultimap.create();
+        log.fine("Executing method: " + method.getName());
+
+        LinkedListMultimap<Integer, InstructionNode> nodes = LinkedListMultimap.create();
         List<BuilderInstruction> instructions = ((MutableMethodImplementation) method.getImplementation())
                         .getInstructions();
         if (instructions.size() == 0) {
@@ -52,7 +58,7 @@ public class MethodExecutor {
 
         while (executeStack.peek() != null) {
             InstructionNode currentNode = executeStack.poll();
-            List<Integer> childOffsets = executeInstruction(currentNode);
+            List<Integer> childOffsets = InstructionExecutor.execute(currentNode);
 
             int idx = currentNode.getInstruction().getLocation().getIndex();
             nodes.put(idx, currentNode);
@@ -76,29 +82,6 @@ public class MethodExecutor {
         System.out.println(rootNode.toGraph());
 
         return nodes;
-    }
-
-    private List<Integer> executeInstruction(InstructionNode node) {
-        log.fine("Executing instruction: " + node);
-
-        List<Integer> childOffsets = new ArrayList<Integer>();
-        BuilderInstruction instruction = node.getInstruction();
-        if (instruction instanceof OffsetInstruction) {
-            int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-            int codeAddress = instruction.getLocation().getCodeAddress();
-            childOffsets.add(codeAddress + branchOffset);
-        } else if (instruction instanceof SwitchPayload) {
-            List<? extends SwitchElement> elements = ((SwitchPayload) instruction).getSwitchElements();
-            for (SwitchElement element : elements) {
-                childOffsets.add(element.getOffset());
-            }
-        }
-
-        if (instruction.getOpcode().canContinue()) {
-            childOffsets.add(-1);
-        }
-
-        return childOffsets;
     }
 
     private static SparseArray<BuilderInstruction> getInstructionOffsets(List<BuilderInstruction> instructions) {

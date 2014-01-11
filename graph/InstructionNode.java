@@ -64,8 +64,10 @@ public class InstructionNode {
 
         for (InstructionNode child : root.getChildren()) {
             StringBuilder edge = new StringBuilder();
-            edge.append("\t\"").append(StringEscapeUtils.escapeJava(root.toString())).append("\" -> \"");
-            edge.append(StringEscapeUtils.escapeJava(child.toString())).append("\"\n");
+            edge.append("\t\"").append(StringEscapeUtils.escapeJava(root.toString())).append("\n")
+                            .append(root.getContext().toString()).append("\" -> \"");
+            edge.append(StringEscapeUtils.escapeJava(child.toString())).append("\n")
+                            .append(child.getContext().toString()).append("\"\n");
 
             if (visitedEdges.contains(edge.toString())) {
                 continue;

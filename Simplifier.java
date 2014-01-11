@@ -30,7 +30,7 @@ import simplify.exec.MethodExecutor;
 import simplify.graph.CallGraphBuilder;
 import simplify.graph.InstructionNode;
 
-import com.google.common.collect.Multimap;
+import com.google.common.collect.LinkedListMultimap;
 
 public class Simplifier {
 
@@ -48,6 +48,13 @@ public class Simplifier {
         List<String> files = new ArrayList<String>();
         files.add(argv[0]);
 
+        // Object A = new Long(6);
+        // Object B = new Long(5);
+        //
+        // System.out.println(CompareToBuilder.reflectionCompare(A, B));
+        //
+        // System.exit(0);
+
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(API_LEVEL);
         List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
         for (String file : files) {
@@ -62,11 +69,15 @@ public class Simplifier {
         for (int i = 0; i < methods.size();) {
             BuilderMethod method = methods.get(i);
 
-            Multimap<Integer, InstructionNode> nodes = me.execute(method);
+            LinkedListMultimap<Integer, InstructionNode> nodes = me.execute(method);
 
             if (MethodSimplifier.simplify(method, nodes)) {
                 // Changes were made. Do it again.
                 continue;
+            }
+
+            if (1 == 1) {
+                break;
             }
 
             i++;
