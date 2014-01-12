@@ -8,12 +8,16 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11x;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction31i;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.jf.dexlib2.writer.builder.BuilderStringReference;
+import org.jf.dexlib2.writer.builder.BuilderTypeReference;
+import org.jf.dexlib2.writer.builder.DexBuilder;
 
-import simplify.exec.ExecutionContext;
+import simplify.exec.MethodExecutionContext;
 import simplify.exec.UnknownValue;
 import simplify.graph.InstructionNode;
 
@@ -31,15 +35,17 @@ public class MethodSimplifier {
                     "java.lang.String", "java.lang.Class" };
 
     // return true if changes made
-    public static boolean simplify(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {
-        propagateConstants(method, nodes);
+    public static boolean simplify(DexBuilder dexBuilder, BuilderMethod method,
+                    LinkedListMultimap<Integer, InstructionNode> nodes) {
+        propagateConstants(dexBuilder, method, nodes);
 
         removeUnused(method, nodes);
 
         return false;
     }
 
-    private static void propagateConstants(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {
+    private static void propagateConstants(DexBuilder dexBuilder, BuilderMethod method,
+                    LinkedListMultimap<Integer, InstructionNode> nodes) {
         for (Integer index : nodes.keySet()) {
             List<InstructionNode> multiverse = nodes.get(index);
 
@@ -56,7 +62,7 @@ public class MethodSimplifier {
                 continue;
             }
 
-            ExecutionContext ectx = firstNode.getContext();
+            MethodExecutionContext ectx = firstNode.getContext();
             int registerA = ((OneRegisterInstruction) instruction).getRegisterA();
             String type = ectx.peekRegisterType(registerA);
             if (!canEmitType(type)) {
@@ -83,7 +89,7 @@ public class MethodSimplifier {
 
             if (identical) {
                 System.out.println("registerA: " + registerA + " type: " + type + " value: " + value);
-                BuilderInstruction constantInstruction = getConstantInstruction(registerA, type, value);
+                BuilderInstruction constantInstruction = getConstantInstruction(dexBuilder, registerA, type, value);
                 MutableMethodImplementation impl = ((MutableMethodImplementation) method.getImplementation());
 
                 log.fine("Emitting: " + constantInstruction.getOpcode() + " @" + index);
@@ -99,10 +105,12 @@ public class MethodSimplifier {
         }
     }
 
-    private static BuilderInstruction getConstantInstruction(int registerA, String type, Object value) {
+    private static BuilderInstruction getConstantInstruction(DexBuilder dexBuilder, int registerA, String type,
+                    Object value) {
         BuilderInstruction result = null;
 
-        if (type.equals("I")) {
+        if (type.equals("I") || type.equals("B") || type.equals("S") || type.equals("C")) {
+            // Bytes, shorts and characters are all represented by const/4 or const/16.
             int literal = (Integer) value;
             int bitSize = getBitSize(literal);
 
@@ -116,12 +124,6 @@ public class MethodSimplifier {
         } else if (type.equals("Z")) {
             boolean literal = ((Boolean) value);
             result = new BuilderInstruction11n(Opcode.CONST_4, registerA, literal ? 1 : 0);
-        } else if (type.equals("B")) {
-
-        } else if (type.equals("S")) {
-
-        } else if (type.equals("C")) {
-
         } else if (type.equals("J")) {
 
         } else if (type.equals("F")) {
@@ -129,9 +131,11 @@ public class MethodSimplifier {
         } else if (type.equals("D")) {
 
         } else if (type.equals("java.lang.String")) {
-            // jumbo?
+            BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
+            result = new BuilderInstruction21c(Opcode.CONST_STRING, registerA, stringRef);
         } else if (type.equals("java.lang.Class")) {
-            // const-class
+            BuilderTypeReference typeRef = dexBuilder.internTypeReference(value.toString());
+            result = new BuilderInstruction21c(Opcode.CONST_CLASS, registerA, typeRef);
         }
 
         return result;

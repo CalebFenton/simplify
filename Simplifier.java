@@ -48,20 +48,18 @@ public class Simplifier {
         List<String> files = new ArrayList<String>();
         files.add(argv[0]);
 
-        // Object A = new String("asdf");
-        // Object B = new String("asdf");
-        //
-        // System.out.println(A.equals(B));
-        //
-        // System.exit(0);
-
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(API_LEVEL);
-        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
+        List<BuilderClassDef> classes = new ArrayList<BuilderClassDef>();
         for (String file : files) {
             File smaliFile = new File(file);
             log.info("Dexifying: " + smaliFile);
 
             BuilderClassDef classDef = dexifySmaliFile(smaliFile, dexBuilder);
+            classes.add(classDef);
+        }
+
+        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
+        for (BuilderClassDef classDef : classes) {
             methods.addAll(classDef.getMethods());
         }
 
@@ -69,9 +67,9 @@ public class Simplifier {
         for (int i = 0; i < methods.size();) {
             BuilderMethod method = methods.get(i);
 
-            LinkedListMultimap<Integer, InstructionNode> nodes = me.execute(method);
+            LinkedListMultimap<Integer, InstructionNode> nodes = me.execute(classes, method);
 
-            if (MethodSimplifier.simplify(method, nodes)) {
+            if (MethodSimplifier.simplify(dexBuilder, method, nodes)) {
                 // Changes were made. Do it again.
                 continue;
             }

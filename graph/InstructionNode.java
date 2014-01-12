@@ -6,17 +6,17 @@ import java.util.List;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 
-import simplify.exec.ExecutionContext;
+import simplify.exec.MethodExecutionContext;
 
 public class InstructionNode {
 
     private final List<InstructionNode> parents;
     private final List<InstructionNode> children;
-    private final ExecutionContext ectx;
+    private final MethodExecutionContext ectx;
 
     private BuilderInstruction instruction;
 
-    public InstructionNode(BuilderInstruction instruction, ExecutionContext ectx) {
+    public InstructionNode(BuilderInstruction instruction, MethodExecutionContext ectx) {
         parents = new ArrayList<InstructionNode>();
         children = new ArrayList<InstructionNode>();
 
@@ -24,7 +24,7 @@ public class InstructionNode {
         this.instruction = instruction;
     }
 
-    public ExecutionContext getContext() {
+    public MethodExecutionContext getContext() {
         return ectx;
     }
 

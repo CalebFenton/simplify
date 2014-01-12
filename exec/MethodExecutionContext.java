@@ -7,20 +7,30 @@ import simplify.Simplifier;
 
 import com.google.common.collect.LinkedListMultimap;
 
-public class ExecutionContext {
+public class MethodExecutionContext {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
     private final LinkedListMultimap<Integer, RegisterStore> registers;
     private final int registerCount;
     private final int parameterCount;
+    private final int remainingCallDepth;
     private RegisterStore returnRegister;
     private RegisterStore methodReturnRegister;
 
-    public ExecutionContext(int registerCount, int parameterCount) {
+    public MethodExecutionContext(int registerCount, int parameterCount, int remainingCallDepth) {
         registers = LinkedListMultimap.create();
         this.registerCount = registerCount;
         this.parameterCount = parameterCount;
+        this.remainingCallDepth = remainingCallDepth;
+    }
+
+    public int getRemaingCallDepth() {
+        return remainingCallDepth;
+    }
+
+    public int getRegisterCount() {
+        return registerCount;
     }
 
     protected void addRegister(int register, RegisterStore rs) {
@@ -43,12 +53,11 @@ public class ExecutionContext {
     }
 
     @Override
-    public ExecutionContext clone() {
-        ExecutionContext myClone = new ExecutionContext(this.registerCount, this.parameterCount);
+    public MethodExecutionContext clone() {
+        MethodExecutionContext myClone = new MethodExecutionContext(this.registerCount, this.parameterCount,
+                        this.remainingCallDepth);
         for (Integer register : registers.keySet()) {
-            System.out.println("clone reg: " + register);
             for (RegisterStore rs : registers.get(register)) {
-                System.out.println(" rs: " + rs);
                 myClone.addRegister(register, rs.clone());
             }
         }
@@ -68,7 +77,7 @@ public class ExecutionContext {
         return registerCount - parameterCount;
     }
 
-    protected RegisterStore getRegister(int register, int index) {
+    public RegisterStore getRegister(int register, int index) {
         List<RegisterStore> historical = registers.get(register);
 
         if (historical.size() == 0) {
@@ -101,7 +110,7 @@ public class ExecutionContext {
         return current.getValue();
     }
 
-    protected RegisterStore getReturnRegister() {
+    public RegisterStore getReturnRegister() {
         return returnRegister;
     }
 

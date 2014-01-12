@@ -1,7 +1,7 @@
 package simplify.emulate;
 
-import simplify.exec.ExecutionContext;
+import simplify.exec.MethodExecutionContext;
 
 public interface EmulatedVirtualMethod extends EmulatedMethod {
-    public void execute(ExecutionContext ectx);
+    public void execute(MethodExecutionContext ectx);
 }

@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
+import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.util.SparseArray;
 
@@ -27,10 +28,11 @@ public class MethodExecutor {
         this.maxCallDepth = maxCallDepth;
     }
 
-    public LinkedListMultimap<Integer, InstructionNode> execute(BuilderMethod method) throws MaxNodeVisitsExceeded {
+    public LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method)
+                    throws MaxNodeVisitsExceeded {
         int registerCount = method.getImplementation().getRegisterCount();
         int parameterCount = method.getParameters().size();
-        ExecutionContext ectx = new ExecutionContext(registerCount, parameterCount);
+        MethodExecutionContext ectx = new MethodExecutionContext(registerCount, parameterCount, maxCallDepth);
         // List<? extends BuilderMethodParameter> parameters = method.getParameters();
         int paramIndexStop = method.getImplementation().getRegisterCount();
         int paramIndexStart = paramIndexStop - method.getParameters().size();
@@ -39,11 +41,11 @@ public class MethodExecutor {
             ectx.addRegister(i, "?", new UnknownValue(), -1);
         }
 
-        return execute(method, ectx);
+        return execute(classes, method, ectx);
     }
 
-    protected LinkedListMultimap<Integer, InstructionNode> execute(BuilderMethod method, ExecutionContext ectx)
-                    throws MaxNodeVisitsExceeded {
+    protected LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method,
+                    MethodExecutionContext ectx) throws MaxNodeVisitsExceeded {
         log.fine("Executing method: " + method.getName());
 
         LinkedListMultimap<Integer, InstructionNode> nodes = LinkedListMultimap.create();
@@ -58,9 +60,9 @@ public class MethodExecutor {
         Deque<InstructionNode> executeStack = new ArrayDeque<InstructionNode>();
         executeStack.push(rootNode);
 
-        while (executeStack.peek() != null) {
-            InstructionNode currentNode = executeStack.poll();
-            List<Integer> childOffsets = InstructionExecutor.execute(currentNode);
+        InstructionNode currentNode;
+        while ((currentNode = executeStack.poll()) != null) {
+            List<Integer> childOffsets = InstructionExecutor.execute(classes, currentNode);
 
             int idx = currentNode.getInstruction().getLocation().getIndex();
             nodes.put(idx, currentNode);
