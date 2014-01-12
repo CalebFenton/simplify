@@ -14,6 +14,7 @@ import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
 import simplify.exec.ExecutionContext;
+import simplify.exec.UnknownValue;
 import simplify.graph.InstructionNode;
 
 import com.google.common.collect.LinkedListMultimap;
@@ -57,16 +58,21 @@ public class MethodSimplifier {
 
             ExecutionContext ectx = firstNode.getContext();
             int registerA = ((OneRegisterInstruction) instruction).getRegisterA();
-            String type = ectx.getRegisterType(registerA);
+            String type = ectx.peekRegisterType(registerA);
             if (!canEmitType(type)) {
                 continue;
             }
 
-            Object value = ectx.getRegisterValue(registerA);
+            Object value = ectx.peekRegisterValue(registerA);
+
+            if (value instanceof UnknownValue) {
+                continue;
+            }
+
             String valueStr = value.toString();
             boolean identical = true;
             for (InstructionNode node : multiverse) {
-                Object other = node.getContext().getRegisterValue(registerA).toString();
+                Object other = node.getContext().peekRegisterValue(registerA).toString();
                 String otherStr = other.toString();
                 if (!valueStr.equals(otherStr)) {
                     log.finer("Not all values equal, " + valueStr + " != " + otherStr);
@@ -76,10 +82,11 @@ public class MethodSimplifier {
             }
 
             if (identical) {
+                System.out.println("registerA: " + registerA + " type: " + type + " value: " + value);
                 BuilderInstruction constantInstruction = getConstantInstruction(registerA, type, value);
                 MutableMethodImplementation impl = ((MutableMethodImplementation) method.getImplementation());
 
-                log.fine("Emitting: " + constantInstruction + " @" + index);
+                log.fine("Emitting: " + constantInstruction.getOpcode() + " @" + index);
 
                 if (opName.startsWith("return")) {
                     impl.replaceInstruction(index, constantInstruction);

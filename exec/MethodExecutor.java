@@ -28,7 +28,9 @@ public class MethodExecutor {
     }
 
     public LinkedListMultimap<Integer, InstructionNode> execute(BuilderMethod method) throws MaxNodeVisitsExceeded {
-        ExecutionContext ectx = new ExecutionContext();
+        int registerCount = method.getImplementation().getRegisterCount();
+        int parameterCount = method.getParameters().size();
+        ExecutionContext ectx = new ExecutionContext(registerCount, parameterCount);
         // List<? extends BuilderMethodParameter> parameters = method.getParameters();
         int paramIndexStop = method.getImplementation().getRegisterCount();
         int paramIndexStart = paramIndexStop - method.getParameters().size();

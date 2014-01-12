@@ -1,11 +1,13 @@
 package simplify.exec;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
 import org.jf.dexlib2.iface.instruction.SwitchPayload;
@@ -17,10 +19,15 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22b;
+import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
+import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
+import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.iface.reference.StringReference;
+import org.jf.dexlib2.iface.reference.TypeReference;
 
 import simplify.Simplifier;
 import simplify.graph.InstructionNode;
@@ -227,18 +234,14 @@ public class InstructionExecutor {
             handled = true;
             break;
         case IGET:
-            break;
         case IGET_BOOLEAN:
-            break;
         case IGET_BYTE:
-            break;
         case IGET_CHAR:
-            break;
         case IGET_OBJECT:
-            break;
         case IGET_SHORT:
-            break;
         case IGET_WIDE:
+            handle_IGET(ectx, (Instruction22c) instruction, index);
+            handled = true;
             break;
         case INSTANCE_OF:
             break;
@@ -255,38 +258,28 @@ public class InstructionExecutor {
         case INT_TO_SHORT:
             break;
         case INVOKE_DIRECT:
+        case INVOKE_INTERFACE:
+        case INVOKE_STATIC:
+        case INVOKE_SUPER:
+        case INVOKE_VIRTUAL:
+            handle_INVOKE(ectx, instruction, index);
             break;
         case INVOKE_DIRECT_RANGE:
-            break;
-        case INVOKE_INTERFACE:
-            break;
         case INVOKE_INTERFACE_RANGE:
-            break;
-        case INVOKE_STATIC:
-            break;
         case INVOKE_STATIC_RANGE:
-            break;
-        case INVOKE_SUPER:
-            break;
         case INVOKE_SUPER_RANGE:
-            break;
-        case INVOKE_VIRTUAL:
-            break;
         case INVOKE_VIRTUAL_RANGE:
+            handle_INVOKE(ectx, instruction, index);
             break;
         case IPUT:
-            break;
         case IPUT_BOOLEAN:
-            break;
         case IPUT_BYTE:
-            break;
         case IPUT_CHAR:
-            break;
         case IPUT_OBJECT:
-            break;
         case IPUT_SHORT:
-            break;
         case IPUT_WIDE:
+            handle_IPUT(ectx, (Instruction22c) instruction, index);
+            handled = true;
             break;
         case LONG_TO_DOUBLE:
             break;
@@ -315,6 +308,8 @@ public class InstructionExecutor {
         case MOVE_RESULT:
         case MOVE_RESULT_OBJECT:
         case MOVE_RESULT_WIDE:
+            handle_MOVE_RESULT(ectx, (Instruction11x) instruction, index);
+            handled = true;
             break;
         case MUL_DOUBLE:
             break;
@@ -347,6 +342,8 @@ public class InstructionExecutor {
         case NEW_ARRAY:
             break;
         case NEW_INSTANCE:
+            handle_NEW_INSTANCE(ectx, (Instruction21c) instruction, index);
+            handled = true;
             break;
         case NOP:
             break;
@@ -394,6 +391,7 @@ public class InstructionExecutor {
         case RETURN_WIDE:
         case RETURN_OBJECT:
             handle_RETURN(ectx, (Instruction11x) instruction, index);
+            handled = true;
             break;
         case RETURN_VOID:
             handled = true;
@@ -403,18 +401,14 @@ public class InstructionExecutor {
         case RSUB_INT_LIT8:
             break;
         case SGET:
-            break;
         case SGET_BOOLEAN:
-            break;
         case SGET_BYTE:
-            break;
         case SGET_CHAR:
-            break;
         case SGET_OBJECT:
-            break;
         case SGET_SHORT:
-            break;
         case SGET_WIDE:
+            handle_SGET(ectx, (Instruction21c) instruction, index);
+            handled = true;
             break;
         case SHL_INT:
             break;
@@ -441,18 +435,14 @@ public class InstructionExecutor {
         case SPARSE_SWITCH_PAYLOAD:
             break;
         case SPUT:
-            break;
         case SPUT_BOOLEAN:
-            break;
         case SPUT_BYTE:
-            break;
         case SPUT_CHAR:
-            break;
         case SPUT_OBJECT:
-            break;
         case SPUT_SHORT:
-            break;
         case SPUT_WIDE:
+            handle_SPUT(ectx, (Instruction21c) instruction, index);
+            handled = true;
             break;
         case SUB_DOUBLE:
             break;
@@ -552,21 +542,33 @@ public class InstructionExecutor {
     }
 
     private static void handle_ADD_INT_2ADDR(ExecutionContext ectx, Instruction12x instruction, int index) {
-        Integer A = (Integer) ectx.getRegisterValue(instruction.getRegisterA(), index);
-        Integer B = (Integer) ectx.getRegisterValue(instruction.getRegisterB(), index);
-        ectx.updateOrAddRegister(instruction.getRegisterA(), "I", A + B, index);
+        Object A = ectx.getRegisterValue(instruction.getRegisterA(), index);
+        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
+        if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
+            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+        } else {
+            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) A + (Integer) B, index);
+        }
     }
 
     private static void handle_ADD_INT_LIT16(ExecutionContext ectx, Instruction22s instruction, int index) {
-        Integer B = (Integer) ectx.getRegisterValue(instruction.getRegisterB(), index);
-        int C = instruction.getNarrowLiteral();
-        ectx.updateOrAddRegister(instruction.getRegisterA(), "I", B + C, index);
+        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
+        if ((B instanceof UnknownValue)) {
+            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+        } else {
+            int C = instruction.getNarrowLiteral();
+            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
+        }
     }
 
     private static void handle_ADD_INT_LIT8(ExecutionContext ectx, Instruction22b instruction, int index) {
-        Integer B = (Integer) ectx.getRegisterValue(instruction.getRegisterB(), index);
-        int C = instruction.getNarrowLiteral();
-        ectx.updateOrAddRegister(instruction.getRegisterA(), "I", B + C, index);
+        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
+        if ((B instanceof UnknownValue)) {
+            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+        } else {
+            int C = instruction.getNarrowLiteral();
+            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
+        }
     }
 
     private static void handle_RETURN(ExecutionContext ectx, Instruction11x instruction, int index) {
@@ -591,7 +593,7 @@ public class InstructionExecutor {
         }
 
         int cmp = CompareToBuilder.reflectionCompare(A, B);
-        System.out.println("comparing: " + A + " vs " + B + " = " + cmp);
+        log.finer("IF - comparing: " + A + " vs " + B + " = " + cmp);
         String ifType = instruction.getOpcode().name;
         int result[] = new int[1];
         if (ifType.endsWith("eq")) {
@@ -624,6 +626,9 @@ public class InstructionExecutor {
         }
 
         Integer A = (Integer) registerA;
+
+        log.finer("IFz - comparing: " + A);
+
         String ifType = instruction.getOpcode().name;
         int[] result = new int[1];
         if (ifType.endsWith("eqz")) {
@@ -643,4 +648,97 @@ public class InstructionExecutor {
         return result;
     }
 
+    private static void handle_IGET(ExecutionContext ectx, Instruction22c instruction, int index) {
+        // We can't be sure what a member variable might have at any given time.
+        // Another thread could have modified it.
+        ectx.addRegister(instruction.getRegisterA(), "?", new UnknownValue(), index);
+    }
+
+    private static void handle_IPUT(ExecutionContext ectx, Instruction22c instruction, int index) {
+        // No use setting instance member values, since can't be sure they're not changed.
+    }
+
+    private static void handle_SGET(ExecutionContext ectx, Instruction21c instruction, int index) {
+        ectx.addRegister(instruction.getRegisterA(), "?", new UnknownValue(), index);
+    }
+
+    private static void handle_SPUT(ExecutionContext ectx, Instruction21c instruction, int index) {
+        // Not implemented.
+    }
+
+    private static void handle_INVOKE(ExecutionContext ectx, Instruction instruction, int index) {
+        System.out.println("invoke " + instruction.getOpcode());
+
+        int[] invokeRegisters;
+        MethodReference method;
+        if (instruction.getOpcode().name.endsWith("range")) {
+            Instruction3rc instr = (Instruction3rc) instruction;
+            invokeRegisters = new int[instr.getRegisterCount()];
+            method = (MethodReference) instr.getReference();
+
+            int start = instr.getStartRegister();
+            for (int i = 0; i < invokeRegisters.length; i++) {
+                invokeRegisters[i] = start + i;
+            }
+        } else {
+            Instruction35c instr = (Instruction35c) instruction;
+            invokeRegisters = new int[instr.getRegisterCount()];
+            method = (MethodReference) instr.getReference();
+
+            switch (invokeRegisters.length) {
+            case 5:
+                invokeRegisters[4] = instr.getRegisterG();
+            case 4:
+                invokeRegisters[3] = instr.getRegisterF();
+            case 3:
+                invokeRegisters[2] = instr.getRegisterE();
+            case 2:
+                invokeRegisters[1] = instr.getRegisterD();
+            case 1:
+                invokeRegisters[0] = instr.getRegisterC();
+            }
+        }
+
+        List<? extends CharSequence> parameterTypes = method.getParameterTypes();
+        String methodSignature = MethodEmulator.getMethodSignature(method.getDefiningClass(), method.getName(),
+                        parameterTypes);
+        if (MethodEmulator.canEmulate(methodSignature)) {
+            ExecutionContext calledMethodContext = new ExecutionContext(invokeRegisters.length, invokeRegisters.length);
+            boolean isStatic = instruction.getOpcode().name.startsWith("invoke-static");
+            if (!isStatic) {
+                RegisterStore rs = ectx.getRegister(invokeRegisters[0], index);
+                calledMethodContext.addParameterRegister(0, rs);
+                invokeRegisters = Arrays.copyOfRange(invokeRegisters, 1, invokeRegisters.length);
+            }
+
+            for (int i = 0; i < invokeRegisters.length; i++) {
+                Object value = ectx.getRegisterValue(invokeRegisters[i], index);
+                if (!isStatic) {
+                    calledMethodContext.addParameterRegister(i + 1, parameterTypes.get(i).toString(), value);
+                } else {
+                    calledMethodContext.addParameterRegister(i, parameterTypes.get(i).toString(), value);
+                }
+            }
+
+            MethodEmulator.emulate(calledMethodContext, methodSignature);
+
+            if (!method.getReturnType().equals("V")) {
+                System.out.println(calledMethodContext);
+                ectx.setMethodReturnRegister(calledMethodContext.getReturnRegister());
+            }
+        } else {
+            if (!method.getReturnType().equals("V")) {
+                ectx.setMethodReturnRegister(new RegisterStore("?", new UnknownValue()));
+            }
+        }
+    }
+
+    private static void handle_MOVE_RESULT(ExecutionContext ectx, Instruction11x instruction, int index) {
+        ectx.addRegister(instruction.getRegisterA(), ectx.getMethodReturnRegister());
+    }
+
+    private static void handle_NEW_INSTANCE(ExecutionContext ectx, Instruction21c instruction, int index) {
+        String type = ((TypeReference) instruction.getReference()).toString();
+        ectx.addRegister(instruction.getRegisterA(), type, null, index);
+    }
 }

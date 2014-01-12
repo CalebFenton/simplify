@@ -12,51 +12,60 @@ public class ExecutionContext {
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
     private final LinkedListMultimap<Integer, RegisterStore> registers;
+    private final int registerCount;
+    private final int parameterCount;
     private RegisterStore returnRegister;
+    private RegisterStore methodReturnRegister;
 
-    public ExecutionContext() {
+    public ExecutionContext(int registerCount, int parameterCount) {
         registers = LinkedListMultimap.create();
+        this.registerCount = registerCount;
+        this.parameterCount = parameterCount;
+    }
+
+    protected void addRegister(int register, RegisterStore rs) {
+        registers.put(register, rs);
+    }
+
+    public void addParameterRegister(int parameterIndex, RegisterStore rs) {
+        registers.put(getParameterStart() + parameterIndex, rs);
+    }
+
+    public void addParameterRegister(int parameterIndex, String type, Object value) {
+        RegisterStore current = new RegisterStore(type, value);
+        registers.put(getParameterStart() + parameterIndex, current);
     }
 
     public void addRegister(int register, String type, Object value, int index) {
         RegisterStore current = new RegisterStore(type, value);
-        current.referenced.add(index);
+        current.getReferenced().add(index);
         registers.put(register, current);
     }
 
-    protected void addRegister(int register, RegisterStore value) {
-        registers.put(register, value);
-    }
-
-    public void updateOrAddRegister(int register, String type, Object value, int index) {
-        // "update" means type is unchanged
-        RegisterStore current = getRegister(register, index);
-        if (current == null) {
-            addRegister(register, type, value, index);
-            current = getRegister(register, index);
+    @Override
+    public ExecutionContext clone() {
+        ExecutionContext myClone = new ExecutionContext(this.registerCount, this.parameterCount);
+        for (Integer register : registers.keySet()) {
+            System.out.println("clone reg: " + register);
+            for (RegisterStore rs : registers.get(register)) {
+                System.out.println(" rs: " + rs);
+                myClone.addRegister(register, rs.clone());
+            }
         }
-        current.value = value;
+
+        if (methodReturnRegister != null) {
+            myClone.methodReturnRegister = this.methodReturnRegister.clone();
+        }
+
+        if (returnRegister != null) {
+            myClone.returnRegister = this.returnRegister.clone();
+        }
+
+        return myClone;
     }
 
-    public Object getRegisterValue(int register, int index) {
-        RegisterStore current = getRegister(register, index);
-        current.used.add(index);
-        return current.value;
-    }
-
-    public Object getRegisterValue(int register) {
-        // Only used with simplifier
-        List<RegisterStore> historical = registers.get(register);
-        RegisterStore current = historical.get(historical.size() - 1);
-
-        return current.value;
-    }
-
-    public String getRegisterType(int register) {
-        List<RegisterStore> historical = registers.get(register);
-        RegisterStore current = historical.get(historical.size() - 1);
-
-        return current.type;
+    public int getParameterStart() {
+        return registerCount - parameterCount;
     }
 
     protected RegisterStore getRegister(int register, int index) {
@@ -67,41 +76,80 @@ public class ExecutionContext {
         }
 
         RegisterStore current = historical.get(historical.size() - 1);
-        current.referenced.add(index);
+        current.getReferenced().add(index);
 
         return current;
     }
 
-    protected void setReturnRegister(int register, int index) {
-        returnRegister = getRegister(register, index);
-        returnRegister.used.add(index);
+    public String peekRegisterType(int register) {
+        List<RegisterStore> historical = registers.get(register);
+        RegisterStore current = historical.get(historical.size() - 1);
+
+        return current.getType();
     }
 
-    protected RegisterStore getReturnRegister(int index) {
+    public Object peekRegisterValue(int register) {
+        List<RegisterStore> historical = registers.get(register);
+        RegisterStore current = historical.get(historical.size() - 1);
+
+        return current.getValue();
+    }
+
+    public Object getRegisterValue(int register, int index) {
+        RegisterStore current = getRegister(register, index);
+        current.getUsed().add(index);
+        return current.getValue();
+    }
+
+    protected RegisterStore getReturnRegister() {
         return returnRegister;
     }
 
-    @Override
-    public ExecutionContext clone() {
-        ExecutionContext myClone = new ExecutionContext();
-        for (Integer register : registers.keySet()) {
-            for (RegisterStore value : registers.get(register)) {
-                myClone.addRegister(register, value.clone());
-            }
-        }
+    public void setMethodReturnRegister(RegisterStore rs) {
+        methodReturnRegister = new RegisterStore(rs.getType(), rs.getValue());
+    }
 
-        return myClone;
+    public RegisterStore getMethodReturnRegister() {
+        RegisterStore methodReturn = methodReturnRegister;
+        methodReturnRegister = null;
+
+        return methodReturn;
+    }
+
+    public void setReturnRegister(int register, int index) {
+        returnRegister = getRegister(register, index);
+        returnRegister.getUsed().add(index);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (Integer key : registers.keySet()) {
+            sb.append("[");
             for (RegisterStore register : registers.get(key)) {
-                sb.append("r").append(key).append(": ").append(register).append("\n");
+                sb.append("r").append(key).append(": ").append(register).append(",\n");
+            }
+            sb.delete(sb.length() - 2, sb.length()).append("]\n");
+
+            if (methodReturnRegister != null) {
+                sb.append("methodReturn").append(": ").append(methodReturnRegister).append("\n");
+            }
+
+            if (returnRegister != null) {
+                sb.append("return").append(": ").append(returnRegister).append("\n");
             }
         }
 
         return sb.deleteCharAt(sb.length() - 1).toString();
+    }
+
+    public void updateOrAddRegister(int register, String type, Object value, int index) {
+        // "update" means type is unchanged
+        RegisterStore current = getRegister(register, index);
+        if (current == null) {
+            addRegister(register, type, value, index);
+            current = getRegister(register, index);
+        }
+        current.setValue(value);
     }
 }
