@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
+import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
 import org.jf.dexlib2.iface.instruction.SwitchPayload;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
@@ -26,7 +27,7 @@ import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
 import simplify.Simplifier;
-import simplify.exec.instr.InvokeInstruction;
+import simplify.exec.instruction.InvokeInstruction;
 import simplify.graph.InstructionNode;
 
 public class InstructionExecutor {
@@ -490,8 +491,6 @@ public class InstructionExecutor {
         }
 
         if (!handled) {
-            // TODO: actually implement this
-
             if (instruction instanceof OffsetInstruction) {
                 int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
                 int codeAddress = instruction.getLocation().getCodeAddress();
@@ -501,6 +500,15 @@ public class InstructionExecutor {
                 for (SwitchElement element : elements) {
                     childOffsets.add(element.getOffset());
                 }
+            }
+
+            if (instruction.getOpcode().setsRegister()) {
+                OneRegisterInstruction instr = (OneRegisterInstruction) instruction;
+                ectx.addRegister(instr.getRegisterA(), "?", new UnknownValue(), index);
+            }
+
+            if (instruction.getOpcode().setsResult()) {
+                ectx.setResultRegister(new RegisterStore("?", new UnknownValue()));
             }
         }
 
@@ -663,7 +671,7 @@ public class InstructionExecutor {
     }
 
     private static void handle_MOVE_RESULT(MethodExecutionContext ectx, Instruction11x instruction, int index) {
-        ectx.addRegister(instruction.getRegisterA(), ectx.getMethodReturnRegister());
+        ectx.addRegister(instruction.getRegisterA(), ectx.getResultRegister());
     }
 
     private static void handle_NEW_INSTANCE(MethodExecutionContext ectx, Instruction21c instruction, int index) {

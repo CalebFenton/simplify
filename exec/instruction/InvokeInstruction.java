@@ -1,4 +1,4 @@
-package simplify.exec.instr;
+package simplify.exec.instruction;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public class InvokeInstruction {
             MethodEmulator.emulate(calledMethodContext, methodDescriptor);
 
             if (!method.getReturnType().equals("V")) {
-                ectx.setMethodReturnRegister(calledMethodContext.getReturnRegister());
+                ectx.setResultRegister(calledMethodContext.getReturnRegister());
             }
         } else {
             List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
@@ -55,7 +55,7 @@ public class InvokeInstruction {
 
             // If the method isn't emulated or implemented in target, we don't know the return value.
             if (!method.getReturnType().equals("V")) {
-                ectx.setMethodReturnRegister(new RegisterStore("?", new UnknownValue()));
+                ectx.setResultRegister(new RegisterStore("?", new UnknownValue()));
             }
 
             // Also, any non-final classes passed as non-final parameters could have changed.

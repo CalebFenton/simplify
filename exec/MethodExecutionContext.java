@@ -16,7 +16,7 @@ public class MethodExecutionContext {
     private final int parameterCount;
     private final int remainingCallDepth;
     private RegisterStore returnRegister;
-    private RegisterStore methodReturnRegister;
+    private RegisterStore resultRegister;
 
     public MethodExecutionContext(int registerCount, int parameterCount, int remainingCallDepth) {
         registers = LinkedListMultimap.create();
@@ -62,8 +62,8 @@ public class MethodExecutionContext {
             }
         }
 
-        if (methodReturnRegister != null) {
-            myClone.methodReturnRegister = this.methodReturnRegister.clone();
+        if (resultRegister != null) {
+            myClone.resultRegister = this.resultRegister.clone();
         }
 
         if (returnRegister != null) {
@@ -114,15 +114,15 @@ public class MethodExecutionContext {
         return returnRegister;
     }
 
-    public void setMethodReturnRegister(RegisterStore rs) {
-        methodReturnRegister = new RegisterStore(rs.getType(), rs.getValue());
+    public void setResultRegister(RegisterStore rs) {
+        resultRegister = new RegisterStore(rs.getType(), rs.getValue());
     }
 
-    public RegisterStore getMethodReturnRegister() {
-        RegisterStore methodReturn = methodReturnRegister;
-        methodReturnRegister = null;
+    public RegisterStore getResultRegister() {
+        RegisterStore result = resultRegister;
+        resultRegister = null;
 
-        return methodReturn;
+        return result;
     }
 
     public void setReturnRegister(int register, int index) {
@@ -140,8 +140,8 @@ public class MethodExecutionContext {
             }
             sb.delete(sb.length() - 2, sb.length()).append("]\n");
 
-            if (methodReturnRegister != null) {
-                sb.append("methodReturn").append(": ").append(methodReturnRegister).append("\n");
+            if (resultRegister != null) {
+                sb.append("result").append(": ").append(resultRegister).append("\n");
             }
 
             if (returnRegister != null) {
