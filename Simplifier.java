@@ -26,6 +26,7 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
+import simplify.exec.MaxNodeVisitsExceeded;
 import simplify.exec.MethodExecutor;
 import simplify.graph.CallGraphBuilder;
 import simplify.graph.InstructionNode;
@@ -36,10 +37,10 @@ public class Simplifier {
 
     private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINEST;
+    private static final Level LOG_LEVEL = Level.FINER;
 
     private static final int API_LEVEL = 15;
-    private static final int MAX_NODE_VISITS = 1000;
+    private static final int MAX_NODE_VISITS = 10;
     private static final int MAX_CALL_DEPTH = 10;
 
     public static void main(String[] argv) throws Exception {
@@ -67,16 +68,23 @@ public class Simplifier {
         for (int i = 0; i < methods.size();) {
             BuilderMethod method = methods.get(i);
 
-            LinkedListMultimap<Integer, InstructionNode> nodes = me.execute(classes, method);
-
-            if (MethodSimplifier.simplify(dexBuilder, method, nodes)) {
-                // Changes were made. Do it again.
+            LinkedListMultimap<Integer, InstructionNode> nodes;
+            try {
+                nodes = me.execute(classes, method);
+            } catch (MaxNodeVisitsExceeded e) {
+                log.warning("Skipping " + method.getName() + "\n" + e.getMessage());
+                i++;
                 continue;
             }
 
-            if (1 == 1) {
-                break;
+            if (MethodSimplifier.simplify(dexBuilder, method, nodes)) {
+                log.info("Changes were made simplifying " + method.getName() + ", repeating...");
+                continue;
             }
+
+            // if (1 == 1) {
+            // break;
+            // }
 
             i++;
         }

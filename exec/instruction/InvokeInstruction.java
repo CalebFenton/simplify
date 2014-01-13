@@ -27,15 +27,13 @@ public class InvokeInstruction {
 
     public static void execute(MethodExecutionContext ectx, Instruction instruction, int index,
                     List<BuilderClassDef> classes) {
-        System.out.println("invoke " + instruction.getOpcode());
-
         MethodReference method = getMethodReference(instruction);
         // Build called method context even before we know it's emulated because we'll
         // need to know types later to mark them as unknown if it's not emulated.
         MethodExecutionContext calledMethodContext = buildCalledMethodContext(ectx, instruction, method, index);
-
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         if (MethodEmulator.canEmulate(methodDescriptor)) {
+            log.fine("Emulating " + methodDescriptor);
             MethodEmulator.emulate(calledMethodContext, methodDescriptor);
 
             if (!method.getReturnType().equals("V")) {
@@ -63,10 +61,12 @@ public class InvokeInstruction {
             for (int i = paramStart; i < calledMethodContext.getRegisterCount(); i++) {
                 RegisterStore rs = calledMethodContext.getRegister(i, 0);
                 if (!isImmutableClass(classes, rs.getType())) {
-                    log.finer("r" + i + " (" + rs.getType() + ") is mutable and passed as param, marking as unknown");
+                    log.finer("r" + i + " (" + rs.getType()
+                                    + ") is mutable or unknown and passed as param, marking as unknown");
                     ectx.addRegister(i, "?", new UnknownValue(), index);
                 } else {
-                    log.finer("r" + i + " (" + rs.getType() + ") is immutable and passed as param, retaining value");
+                    log.finer("r" + i + " (" + rs.getType()
+                                    + ") is known + immutable and passed as param, retaining value");
                 }
             }
         }
@@ -108,8 +108,9 @@ public class InvokeInstruction {
         int[] invokeRegisters = getInvokeRegisters(instruction);
         MethodExecutionContext calledMethodContext = new MethodExecutionContext(invokeRegisters.length,
                         invokeRegisters.length, ectx.getRemaingCallDepth() - 1);
+
         boolean isStatic = instruction.getOpcode().name.startsWith("invoke-static");
-        if (!isStatic) {
+        if (!isStatic && (invokeRegisters.length > 0)) {
             RegisterStore rs = ectx.getRegister(invokeRegisters[0], index);
             calledMethodContext.addParameterRegister(0, rs);
             invokeRegisters = Arrays.copyOfRange(invokeRegisters, 1, invokeRegisters.length);

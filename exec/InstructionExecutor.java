@@ -28,6 +28,7 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
 import simplify.Simplifier;
 import simplify.exec.instruction.InvokeInstruction;
+import simplify.exec.instruction.MoveInstruction;
 import simplify.graph.InstructionNode;
 
 public class InstructionExecutor {
@@ -297,7 +298,7 @@ public class InstructionExecutor {
         case MOVE_WIDE:
         case MOVE_WIDE_16:
         case MOVE_WIDE_FROM16:
-            handle_MOVE(ectx, (TwoRegisterInstruction) instruction, index);
+            MoveInstruction.execute(ectx, (TwoRegisterInstruction) instruction, index);
             handled = true;
             break;
         case MOVE_EXCEPTION:
@@ -532,7 +533,7 @@ public class InstructionExecutor {
 
     private static void handle_CONST_STRING(MethodExecutionContext ectx, Instruction21c instruction, int index) {
         StringReference stringRef = (StringReference) instruction.getReference();
-        ectx.addRegister(instruction.getRegisterA(), "java.lang.String", stringRef.getString(), index);
+        ectx.addRegister(instruction.getRegisterA(), "Ljava/lang/String", stringRef.getString(), index);
     }
 
     private static void handle_ADD_INT(MethodExecutionContext ectx, Instruction23x instruction, int index) {
@@ -577,10 +578,6 @@ public class InstructionExecutor {
 
     private static void handle_RETURN(MethodExecutionContext ectx, Instruction11x instruction, int index) {
         ectx.setReturnRegister(instruction.getRegisterA(), index);
-    }
-
-    private static void handle_MOVE(MethodExecutionContext ectx, TwoRegisterInstruction instruction, int index) {
-        ectx.addRegister(instruction.getRegisterA(), ectx.getRegister(instruction.getRegisterB(), index));
     }
 
     private static int[] handle_IF(MethodExecutionContext ectx, Instruction22t instruction, int index) {

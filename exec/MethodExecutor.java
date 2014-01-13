@@ -5,6 +5,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
@@ -30,18 +31,32 @@ public class MethodExecutor {
 
     public LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method)
                     throws MaxNodeVisitsExceeded {
+
+        MethodExecutionContext ectx = buildMethodContext(method);
+        return execute(classes, method, ectx);
+    }
+
+    private MethodExecutionContext buildMethodContext(BuilderMethod method) {
         int registerCount = method.getImplementation().getRegisterCount();
         int parameterCount = method.getParameters().size();
         MethodExecutionContext ectx = new MethodExecutionContext(registerCount, parameterCount, maxCallDepth);
-        // List<? extends BuilderMethodParameter> parameters = method.getParameters();
-        int paramIndexStop = method.getImplementation().getRegisterCount();
+        int paramIndexStop = method.getImplementation().getRegisterCount() - 1;
         int paramIndexStart = paramIndexStop - method.getParameters().size();
+
+        // Non-static methods have p0 "this" reference
+        // Just going to set it to unknown value, since put/get methods aren't ever going to work.
+        if ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) == 0) {
+            paramIndexStop++;
+        }
+
+        // System.out.println("method: " + method.getName() + " start: " + paramIndexStart + "  stop: " +
+        // paramIndexStop);
         for (int i = paramIndexStart; i < paramIndexStop; i++) {
             // TODO: we could get register type here by looking at method.getParameters()
             ectx.addRegister(i, "?", new UnknownValue(), -1);
         }
 
-        return execute(classes, method, ectx);
+        return ectx;
     }
 
     protected LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method,

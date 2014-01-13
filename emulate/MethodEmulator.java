@@ -11,19 +11,19 @@ public class MethodEmulator {
     static {
         emulatedMethods = new HashMap<String, EmulatedMethod>();
 
-        emulatedMethods.put("Ljava/lang/Integer;-><init>(I)", new java_lang_Integer_init());
-        emulatedMethods.put("Ljava/lang/Integer;->intValue()", new java_lang_Integer_intValue());
+        emulatedMethods.put("Ljava/lang/Integer;-><init>(I)V", new java_lang_Integer_init());
+        emulatedMethods.put("Ljava/lang/Integer;->intValue()I", new java_lang_Integer_intValue());
     }
 
     public MethodEmulator() {
     }
 
-    public static boolean canEmulate(String methodSignature) {
-        return emulatedMethods.containsKey(methodSignature);
+    public static boolean canEmulate(String methodDescriptor) {
+        return emulatedMethods.containsKey(methodDescriptor);
     }
 
-    public static void emulate(MethodExecutionContext ectx, String methodSignature) {
-        EmulatedMethod em = emulatedMethods.get(methodSignature);
+    public static void emulate(MethodExecutionContext ectx, String methodDescriptor) {
+        EmulatedMethod em = emulatedMethods.get(methodDescriptor);
         if (em instanceof EmulatedVirtualMethod) {
             EmulatedVirtualMethod evm = (EmulatedVirtualMethod) em;
             evm.execute(ectx);

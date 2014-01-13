@@ -1,6 +1,8 @@
 package simplify.exec;
 
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import simplify.Simplifier;
@@ -33,23 +35,24 @@ public class MethodExecutionContext {
         return registerCount;
     }
 
-    protected void addRegister(int register, RegisterStore rs) {
+    public void addRegister(int register, RegisterStore rs) {
+        // log.fine("adding register @" + register + " rs:" + rs);
         registers.put(register, rs);
     }
 
     public void addParameterRegister(int parameterIndex, RegisterStore rs) {
-        registers.put(getParameterStart() + parameterIndex, rs);
+        addRegister(getParameterStart() + parameterIndex, rs);
     }
 
     public void addParameterRegister(int parameterIndex, String type, Object value) {
         RegisterStore current = new RegisterStore(type, value);
-        registers.put(getParameterStart() + parameterIndex, current);
+        addRegister(getParameterStart() + parameterIndex, current);
     }
 
     public void addRegister(int register, String type, Object value, int index) {
         RegisterStore current = new RegisterStore(type, value);
         current.getReferenced().add(index);
-        registers.put(register, current);
+        addRegister(register, current);
     }
 
     @Override
@@ -57,7 +60,9 @@ public class MethodExecutionContext {
         MethodExecutionContext myClone = new MethodExecutionContext(this.registerCount, this.parameterCount,
                         this.remainingCallDepth);
         for (Integer register : registers.keySet()) {
-            for (RegisterStore rs : registers.get(register)) {
+            List<RegisterStore> stores = registers.get(register);
+            // System.out.println("cloning register idx: " + register);
+            for (RegisterStore rs : stores) {
                 myClone.addRegister(register, rs.clone());
             }
         }
@@ -133,20 +138,21 @@ public class MethodExecutionContext {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        for (Integer key : registers.keySet()) {
+        SortedSet<Integer> keys = new TreeSet<Integer>(registers.keySet());
+        for (Integer key : keys) {
             sb.append("[");
             for (RegisterStore register : registers.get(key)) {
                 sb.append("r").append(key).append(": ").append(register).append(",\n");
             }
             sb.delete(sb.length() - 2, sb.length()).append("]\n");
+        }
 
-            if (resultRegister != null) {
-                sb.append("result").append(": ").append(resultRegister).append("\n");
-            }
+        if (resultRegister != null) {
+            sb.append("result").append(": ").append(resultRegister).append("\n");
+        }
 
-            if (returnRegister != null) {
-                sb.append("return").append(": ").append(returnRegister).append("\n");
-            }
+        if (returnRegister != null) {
+            sb.append("return").append(": ").append(returnRegister).append("\n");
         }
 
         return sb.deleteCharAt(sb.length() - 1).toString();

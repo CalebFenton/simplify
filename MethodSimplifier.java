@@ -32,20 +32,23 @@ public class MethodSimplifier {
                     "shr-", "ushr-", "rsub-", "return" };
 
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
-                    "java.lang.String", "java.lang.Class" };
+                    "Ljava/lang/String;", "Ljava/lang/Class;" };
 
-    // return true if changes made
     public static boolean simplify(DexBuilder dexBuilder, BuilderMethod method,
                     LinkedListMultimap<Integer, InstructionNode> nodes) {
-        propagateConstants(dexBuilder, method, nodes);
+        boolean changed = false;
 
-        removeUnused(method, nodes);
+        changed |= propagateConstants(dexBuilder, method, nodes);
 
-        return false;
+        changed |= removeUnused(method, nodes);
+
+        return changed;
     }
 
-    private static void propagateConstants(DexBuilder dexBuilder, BuilderMethod method,
+    private static boolean propagateConstants(DexBuilder dexBuilder, BuilderMethod method,
                     LinkedListMultimap<Integer, InstructionNode> nodes) {
+        boolean changed = false;
+
         for (Integer index : nodes.keySet()) {
             List<InstructionNode> multiverse = nodes.get(index);
 
@@ -88,21 +91,43 @@ public class MethodSimplifier {
             }
 
             if (identical) {
-                System.out.println("registerA: " + registerA + " type: " + type + " value: " + value);
                 BuilderInstruction constantInstruction = getConstantInstruction(dexBuilder, registerA, type, value);
                 MutableMethodImplementation impl = ((MutableMethodImplementation) method.getImplementation());
 
                 log.fine("Emitting: " + constantInstruction.getOpcode() + " @" + index);
 
                 if (opName.startsWith("return")) {
-                    impl.replaceInstruction(index, constantInstruction);
-                    BuilderInstruction newReturn = new BuilderInstruction11x(instruction.getOpcode(), registerA);
-                    impl.addInstruction(index + 1, newReturn);
+                    /*
+                     * Only emit a constant before a return if instruction directly before it is not a constant. This
+                     * will cover some cases of an "unknown" return, but many "known" cases look like this as well.
+                     * That's fine because this step will *ensure* previous instruction is a constant if it's known. So
+                     * this should only happen once, at most.
+                     */
+                    boolean constParents = true;
+                    if (index > 0) {
+                        List<InstructionNode> parents = nodes.get(index - 1);
+                        for (InstructionNode parent : parents) {
+                            if (!parent.getInstruction().getOpcode().name.startsWith("const")) {
+                                constParents = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!constParents) {
+                        impl.replaceInstruction(index, constantInstruction);
+                        BuilderInstruction newReturn = new BuilderInstruction11x(instruction.getOpcode(), registerA);
+                        impl.addInstruction(index + 1, newReturn);
+                        changed = true;
+                    }
                 } else {
                     impl.replaceInstruction(index, constantInstruction);
+                    changed = true;
                 }
             }
         }
+
+        return changed;
     }
 
     private static BuilderInstruction getConstantInstruction(DexBuilder dexBuilder, int registerA, String type,
@@ -130,10 +155,10 @@ public class MethodSimplifier {
 
         } else if (type.equals("D")) {
 
-        } else if (type.equals("java.lang.String")) {
+        } else if (type.equals("Ljava/lang/String;")) {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_STRING, registerA, stringRef);
-        } else if (type.equals("java.lang.Class")) {
+        } else if (type.equals("Ljava/lang/Class;")) {
             BuilderTypeReference typeRef = dexBuilder.internTypeReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_CLASS, registerA, typeRef);
         }
@@ -171,8 +196,8 @@ public class MethodSimplifier {
         return true;
     }
 
-    private static void removeUnused(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {
-
+    private static boolean removeUnused(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {
+        return false;
     }
 
 }
