@@ -1,5 +1,7 @@
 package simplify.emulate;
 
-public interface EmulatedMethod {
+import simplify.exec.MethodExecutionContext;
 
+public interface EmulatedMethod {
+    public void execute(MethodExecutionContext ectx);
 }

@@ -37,10 +37,10 @@ public class Simplifier {
 
     private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINER;
+    private static final Level LOG_LEVEL = Level.INFO;
 
     private static final int API_LEVEL = 15;
-    private static final int MAX_NODE_VISITS = 10;
+    private static final int MAX_NODE_VISITS = 100;
     private static final int MAX_CALL_DEPTH = 10;
 
     public static void main(String[] argv) throws Exception {

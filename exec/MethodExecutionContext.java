@@ -111,6 +111,9 @@ public class MethodExecutionContext {
 
     public Object getRegisterValue(int register, int index) {
         RegisterStore current = getRegister(register, index);
+        if (current == null) {
+            System.out.println("Register " + register + " is null, context:\n" + this);
+        }
         current.getUsed().add(index);
         return current.getValue();
     }
@@ -138,6 +141,10 @@ public class MethodExecutionContext {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+
+        sb.append("registers: ").append(registerCount).append(", parameters: ").append(parameterCount)
+                        .append(", remaing call depth: ").append(remainingCallDepth).append("\n");
+
         SortedSet<Integer> keys = new TreeSet<Integer>(registers.keySet());
         for (Integer key : keys) {
             sb.append("[");
@@ -160,11 +167,14 @@ public class MethodExecutionContext {
 
     public void updateOrAddRegister(int register, String type, Object value, int index) {
         // "update" means type is unchanged
+        // TODO: the concept of updating is probably flawed
+        // can probably optimize just fine with proper used /references and repeated iterations
         RegisterStore current = getRegister(register, index);
         if (current == null) {
             addRegister(register, type, value, index);
             current = getRegister(register, index);
         }
+
         current.setValue(value);
     }
 }

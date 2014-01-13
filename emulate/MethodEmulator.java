@@ -13,9 +13,10 @@ public class MethodEmulator {
 
         emulatedMethods.put("Ljava/lang/Integer;-><init>(I)V", new java_lang_Integer_init());
         emulatedMethods.put("Ljava/lang/Integer;->intValue()I", new java_lang_Integer_intValue());
-    }
 
-    public MethodEmulator() {
+        emulatedMethods.put("Ljava/lang/Boolean;->booleanValue()Z", new java_lang_Integer_intValue());
+
+        emulatedMethods.put("Ljava/lang/Class;->forName()Ljava/lang/Class;", new java_lang_Integer_intValue());
     }
 
     public static boolean canEmulate(String methodDescriptor) {
@@ -24,9 +25,8 @@ public class MethodEmulator {
 
     public static void emulate(MethodExecutionContext ectx, String methodDescriptor) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
-        if (em instanceof EmulatedVirtualMethod) {
-            EmulatedVirtualMethod evm = (EmulatedVirtualMethod) em;
-            evm.execute(ectx);
+        if (em instanceof EmulatedMethod) {
+            em.execute(ectx);
         }
     }
 }

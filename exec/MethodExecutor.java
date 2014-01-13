@@ -40,17 +40,17 @@ public class MethodExecutor {
         int registerCount = method.getImplementation().getRegisterCount();
         int parameterCount = method.getParameters().size();
         MethodExecutionContext ectx = new MethodExecutionContext(registerCount, parameterCount, maxCallDepth);
-        int paramIndexStop = method.getImplementation().getRegisterCount() - 1;
+        int paramIndexStop = method.getImplementation().getRegisterCount();
         int paramIndexStart = paramIndexStop - method.getParameters().size();
 
         // Non-static methods have p0 "this" reference
         // Just going to set it to unknown value, since put/get methods aren't ever going to work.
-        if ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) == 0) {
-            paramIndexStop++;
+        boolean isStatic = (method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0;
+        if (!isStatic) {
+            paramIndexStart--;
         }
 
-        // System.out.println("method: " + method.getName() + " start: " + paramIndexStart + "  stop: " +
-        // paramIndexStop);
+        System.out.println("method: " + method.getName() + " start: " + paramIndexStart + "  stop: " + paramIndexStop);
         for (int i = paramIndexStart; i < paramIndexStop; i++) {
             // TODO: we could get register type here by looking at method.getParameters()
             ectx.addRegister(i, "?", new UnknownValue(), -1);
@@ -61,7 +61,7 @@ public class MethodExecutor {
 
     protected LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method,
                     MethodExecutionContext ectx) throws MaxNodeVisitsExceeded {
-        log.fine("Executing method: " + method.getName());
+        log.info("Executing method: " + method.getName());
 
         LinkedListMultimap<Integer, InstructionNode> nodes = LinkedListMultimap.create();
         List<BuilderInstruction> instructions = ((MutableMethodImplementation) method.getImplementation())

@@ -1,9 +1,25 @@
 package simplify.exec.instruction;
 
+import java.util.logging.Logger;
+
+import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
+import org.jf.dexlib2.iface.reference.TypeReference;
+
+import simplify.Simplifier;
+import simplify.exec.MethodExecutionContext;
+
 public class CheckCastInstruction {
 
-    public CheckCastInstruction() {
-        // TODO Auto-generated constructor stub
+    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+
+    public static void execute(MethodExecutionContext ectx, Instruction21c instruction, int index) {
+        int registerA = instruction.getRegisterA();
+        TypeReference typeRef = (TypeReference) instruction.getReference();
+        String type = typeRef.getType();
+        Object value = ectx.getRegisterValue(registerA, index);
+
+        log.info("CheckCast to " + type + " of " + value);
+        ectx.addRegister(registerA, type, value, index);
     }
 
 }

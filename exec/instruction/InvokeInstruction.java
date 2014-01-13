@@ -22,6 +22,8 @@ import simplify.exec.MethodExecutionContext;
 import simplify.exec.RegisterStore;
 import simplify.exec.UnknownValue;
 
+import com.google.common.primitives.Ints;
+
 public class InvokeInstruction {
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
@@ -46,8 +48,8 @@ public class InvokeInstruction {
             }
             BuilderMethod targetMethod = getMethodFromDescriptor(methods, methodDescriptor);
             if (targetMethod != null) {
-                // TODO: Execute method if in methods.
-                log.warning("Found " + methodDescriptor + " but holding off on executing it.");
+                // TODO: Build up a context and execute the method.
+                log.fine("Found " + methodDescriptor + " but holding off on executing it.");
             }
             // else (assume always else, for now)
 
@@ -72,7 +74,8 @@ public class InvokeInstruction {
         }
     }
 
-    private static int[] getInvokeRegisters(Instruction instruction) {
+    private static int[] getInvokeRegisters(Instruction instruction, List<? extends CharSequence> typesList,
+                    boolean isStatic) {
         int[] result;
         if (instruction.getOpcode().name.endsWith("range")) {
             Instruction3rc instr = (Instruction3rc) instruction;
@@ -100,16 +103,38 @@ public class InvokeInstruction {
             }
         }
 
+        List<String> types = new ArrayList<String>(typesList.size());
+        if (!isStatic) {
+            // Non static method's first parameter is an instance reference
+            types.add("this");
+        }
+        for (CharSequence cs : typesList) {
+            types.add(cs.toString());
+        }
+
+        List<Integer> registerList = new ArrayList<Integer>();
+        for (int i = 0; i < result.length; i++) {
+            registerList.add(result[i]);
+
+            String type = types.get(i);
+            if (type.equals("J") || type.equals("D")) {
+                // Long and Double types take up two registers, skip the next one
+                i++;
+            }
+        }
+
+        result = Ints.toArray(registerList);
+
         return result;
     }
 
     private static MethodExecutionContext buildCalledMethodContext(MethodExecutionContext ectx,
                     Instruction instruction, MethodReference method, int index) {
-        int[] invokeRegisters = getInvokeRegisters(instruction);
+        boolean isStatic = instruction.getOpcode().name.startsWith("invoke-static");
+        int[] invokeRegisters = getInvokeRegisters(instruction, method.getParameterTypes(), isStatic);
         MethodExecutionContext calledMethodContext = new MethodExecutionContext(invokeRegisters.length,
                         invokeRegisters.length, ectx.getRemaingCallDepth() - 1);
 
-        boolean isStatic = instruction.getOpcode().name.startsWith("invoke-static");
         if (!isStatic && (invokeRegisters.length > 0)) {
             RegisterStore rs = ectx.getRegister(invokeRegisters[0], index);
             calledMethodContext.addParameterRegister(0, rs);
