@@ -1,19 +1,17 @@
 package simplify.exec;
 
-import java.util.List;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.logging.Logger;
 
-import simplify.Simplifier;
+import org.jf.util.SparseArray;
 
-import com.google.common.collect.LinkedListMultimap;
+import simplify.Simplifier;
 
 public class MethodExecutionContext {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private final LinkedListMultimap<Integer, RegisterStore> registers;
+    private final SparseArray<RegisterStore> registers;
+    // private final LinkedListMultimap<Integer, RegisterStore> registers;
     private final int registerCount;
     private final int parameterCount;
     private final int remainingCallDepth;
@@ -21,23 +19,10 @@ public class MethodExecutionContext {
     private RegisterStore resultRegister;
 
     public MethodExecutionContext(int registerCount, int parameterCount, int remainingCallDepth) {
-        registers = LinkedListMultimap.create();
+        registers = new SparseArray<RegisterStore>(registerCount);
         this.registerCount = registerCount;
         this.parameterCount = parameterCount;
         this.remainingCallDepth = remainingCallDepth;
-    }
-
-    public int getRemaingCallDepth() {
-        return remainingCallDepth;
-    }
-
-    public int getRegisterCount() {
-        return registerCount;
-    }
-
-    public void addRegister(int register, RegisterStore rs) {
-        // log.fine("adding register @" + register + " rs:" + rs);
-        registers.put(register, rs);
     }
 
     public void addParameterRegister(int parameterIndex, RegisterStore rs) {
@@ -47,6 +32,17 @@ public class MethodExecutionContext {
     public void addParameterRegister(int parameterIndex, String type, Object value) {
         RegisterStore current = new RegisterStore(type, value);
         addRegister(getParameterStart() + parameterIndex, current);
+    }
+
+    public void addRegister(int register, RegisterStore rs) {
+        StackTraceElement[] ste = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder();
+        // for (int i = 2; i < ste.length; i++) {
+        // sb.append("\n\t").append(ste[i]);
+        // }
+        log.finer("Adding register @" + register + " rs:" + rs + sb.toString());
+
+        registers.put(register, rs);
     }
 
     public void addRegister(int register, String type, Object value, int index) {
@@ -59,12 +55,14 @@ public class MethodExecutionContext {
     public MethodExecutionContext clone() {
         MethodExecutionContext myClone = new MethodExecutionContext(this.registerCount, this.parameterCount,
                         this.remainingCallDepth);
-        for (Integer register : registers.keySet()) {
-            List<RegisterStore> stores = registers.get(register);
-            // System.out.println("cloning register idx: " + register);
-            for (RegisterStore rs : stores) {
-                myClone.addRegister(register, rs.clone());
+
+        for (int i = 0; i < registerCount; i++) {
+            RegisterStore rs = registers.get(i);
+            if (rs == null) {
+                continue;
             }
+
+            myClone.registers.put(i, rs.clone());
         }
 
         if (resultRegister != null) {
@@ -83,47 +81,28 @@ public class MethodExecutionContext {
     }
 
     public RegisterStore getRegister(int register, int index) {
-        List<RegisterStore> historical = registers.get(register);
+        RegisterStore rs = peekRegister(register);
 
-        if (historical.size() == 0) {
-            return null;
-        }
+        /*
+         * Indexed access to a register implies it's being "read" by some instruction. Mark it as used at this
+         * instruction index so the nop code optimizer knows not to remove this line.
+         */
+        rs.getReferenced().add(index);
 
-        RegisterStore current = historical.get(historical.size() - 1);
-        current.getReferenced().add(index);
-
-        return current;
-    }
-
-    public String peekRegisterType(int register) {
-        List<RegisterStore> historical = registers.get(register);
-        RegisterStore current = historical.get(historical.size() - 1);
-
-        return current.getType();
-    }
-
-    public Object peekRegisterValue(int register) {
-        List<RegisterStore> historical = registers.get(register);
-        RegisterStore current = historical.get(historical.size() - 1);
-
-        return current.getValue();
+        return rs;
     }
 
     public Object getRegisterValue(int register, int index) {
-        RegisterStore current = getRegister(register, index);
-        if (current == null) {
-            System.out.println("Register " + register + " is null, context:\n" + this);
-        }
-        current.getUsed().add(index);
-        return current.getValue();
+        // Convenience for those who don't care about the type
+        return getRegister(register, index).getValue();
     }
 
-    public RegisterStore getReturnRegister() {
-        return returnRegister;
+    public int getRegisterCount() {
+        return registerCount;
     }
 
-    public void setResultRegister(RegisterStore rs) {
-        resultRegister = new RegisterStore(rs.getType(), rs.getValue());
+    public int getRemaingCallDepth() {
+        return remainingCallDepth;
     }
 
     public RegisterStore getResultRegister() {
@@ -133,7 +112,38 @@ public class MethodExecutionContext {
         return result;
     }
 
+    public RegisterStore getReturnRegister() {
+        return returnRegister;
+    }
+
+    public RegisterStore peekRegister(int register) {
+        RegisterStore rs = registers.get(register);
+
+        if (rs == null) {
+            log.warning("r" + register + "is being read but is null, likely a mistake!\n" + this);
+        }
+
+        return rs;
+    }
+
+    public String peekRegisterType(int register) {
+        RegisterStore rs = peekRegister(register);
+
+        return rs.getType();
+    }
+
+    public Object peekRegisterValue(int register) {
+        RegisterStore rs = peekRegister(register);
+
+        return rs.getValue();
+    }
+
+    public void setResultRegister(RegisterStore rs) {
+        resultRegister = new RegisterStore(rs.getType(), rs.getValue());
+    }
+
     public void setReturnRegister(int register, int index) {
+        // Use get rather than peek because this counts as a usage.
         returnRegister = getRegister(register, index);
         returnRegister.getUsed().add(index);
     }
@@ -145,13 +155,13 @@ public class MethodExecutionContext {
         sb.append("registers: ").append(registerCount).append(", parameters: ").append(parameterCount)
                         .append(", remaing call depth: ").append(remainingCallDepth).append("\n");
 
-        SortedSet<Integer> keys = new TreeSet<Integer>(registers.keySet());
-        for (Integer key : keys) {
-            sb.append("[");
-            for (RegisterStore register : registers.get(key)) {
-                sb.append("r").append(key).append(": ").append(register).append(",\n");
+        for (int i = 0; i < this.registerCount; i++) {
+            RegisterStore rs = registers.get(i);
+            if (rs == null) {
+                continue;
             }
-            sb.delete(sb.length() - 2, sb.length()).append("]\n");
+
+            sb.append("[").append("r").append(i).append(": ").append(rs).append(",\n");
         }
 
         if (resultRegister != null) {
@@ -165,16 +175,4 @@ public class MethodExecutionContext {
         return sb.deleteCharAt(sb.length() - 1).toString();
     }
 
-    public void updateOrAddRegister(int register, String type, Object value, int index) {
-        // "update" means type is unchanged
-        // TODO: the concept of updating is probably flawed
-        // can probably optimize just fine with proper used /references and repeated iterations
-        RegisterStore current = getRegister(register, index);
-        if (current == null) {
-            addRegister(register, type, value, index);
-            current = getRegister(register, index);
-        }
-
-        current.setValue(value);
-    }
 }

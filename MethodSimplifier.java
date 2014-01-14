@@ -73,7 +73,6 @@ public class MethodSimplifier {
             }
 
             Object value = ectx.peekRegisterValue(registerA);
-
             if (value instanceof UnknownValue) {
                 continue;
             }

@@ -6,6 +6,7 @@ import java.util.Set;
 import com.rits.cloning.Cloner;
 
 public class RegisterStore {
+
     private final Set<Integer> used;
     private final Set<Integer> referenced;
     private final String type;
@@ -26,16 +27,15 @@ public class RegisterStore {
     public RegisterStore clone() {
         Cloner cloner = new Cloner();
         Object valueClone = cloner.shallowClone(getValue());
-        // Object newValue = ValueUtils.tryToClone(type, value);
-        RegisterStore myClone = new RegisterStore(getType(), valueClone, new HashSet<Integer>(getUsed()), new HashSet<Integer>(
-                        getReferenced()));
+        Set<Integer> newUsed = new HashSet<Integer>(getUsed());
+        Set<Integer> newReferenced = new HashSet<Integer>(getReferenced());
 
-        return myClone;
+        return new RegisterStore(getType(), valueClone, newUsed, newReferenced);
     }
 
     @Override
     public String toString() {
-        return "type=" + getType() + ", value=" + getValue() + ", used=" + getUsed() + ", referenced=" + getReferenced();
+        return "type=" + getType() + ", value=" + getValue() + ", used=" + getUsed() + ", refs=" + getReferenced();
     }
 
     public Set<Integer> getUsed() {
@@ -57,4 +57,5 @@ public class RegisterStore {
     public void setValue(Object value) {
         this.value = value;
     }
+
 }

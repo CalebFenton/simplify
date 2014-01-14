@@ -533,16 +533,16 @@ public class InstructionExecutor {
 
     private static void handle_CONST_STRING(MethodExecutionContext ectx, Instruction21c instruction, int index) {
         StringReference stringRef = (StringReference) instruction.getReference();
-        ectx.addRegister(instruction.getRegisterA(), "Ljava/lang/String", stringRef.getString(), index);
+        ectx.addRegister(instruction.getRegisterA(), "Ljava/lang/String;", stringRef.getString(), index);
     }
 
     private static void handle_ADD_INT(MethodExecutionContext ectx, Instruction23x instruction, int index) {
         Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
         Object C = ectx.getRegisterValue(instruction.getRegisterC(), index);
         if ((B instanceof UnknownValue) || (C instanceof UnknownValue)) {
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
         } else {
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) B + (Integer) C, index);
+            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) B + (Integer) C, index);
         }
     }
 
@@ -550,29 +550,29 @@ public class InstructionExecutor {
         Object A = ectx.getRegisterValue(instruction.getRegisterA(), index);
         Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
         if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
         } else {
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) A + (Integer) B, index);
+            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) A + (Integer) B, index);
         }
     }
 
     private static void handle_ADD_INT_LIT16(MethodExecutionContext ectx, Instruction22s instruction, int index) {
         Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
         if ((B instanceof UnknownValue)) {
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
         } else {
             int C = instruction.getNarrowLiteral();
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
+            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
         }
     }
 
     private static void handle_ADD_INT_LIT8(MethodExecutionContext ectx, Instruction22b instruction, int index) {
         Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
         if ((B instanceof UnknownValue)) {
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
+            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
         } else {
             int C = instruction.getNarrowLiteral();
-            ectx.updateOrAddRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
+            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
         }
     }
 
@@ -673,6 +673,8 @@ public class InstructionExecutor {
 
     private static void handle_NEW_INSTANCE(MethodExecutionContext ectx, Instruction21c instruction, int index) {
         String type = ((TypeReference) instruction.getReference()).toString();
-        ectx.addRegister(instruction.getRegisterA(), type, null, index);
+
+        // Use UnknownValue since type is all that really matters and null is not expected.
+        ectx.addRegister(instruction.getRegisterA(), type, new UnknownValue(), index);
     }
 }

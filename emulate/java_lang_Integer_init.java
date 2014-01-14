@@ -1,6 +1,7 @@
 package simplify.emulate;
 
 import simplify.exec.MethodExecutionContext;
+import simplify.exec.RegisterStore;
 
 public class java_lang_Integer_init implements EmulatedMethod {
 
@@ -8,7 +9,9 @@ public class java_lang_Integer_init implements EmulatedMethod {
         int paramStart = ectx.getParameterStart();
         Object value = ectx.peekRegisterValue(paramStart + 1);
 
-        ectx.updateOrAddRegister(paramStart, "Ljava/lang/Integer;", value, 0);
+        // Modify ourselves with the new value
+        RegisterStore thiz = ectx.peekRegister(0);
+        thiz.setValue(value);
     }
 
 }

@@ -2,7 +2,6 @@ package simplify.exec.instruction;
 
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -33,6 +32,7 @@ public class InvokeInstruction {
         // Build called method context even before we know it's emulated because we'll
         // need to know types later to mark them as unknown if it's not emulated.
         MethodExecutionContext calledMethodContext = buildCalledMethodContext(ectx, instruction, method, index);
+
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             log.fine("Emulating " + methodDescriptor);
@@ -135,20 +135,22 @@ public class InvokeInstruction {
         MethodExecutionContext calledMethodContext = new MethodExecutionContext(invokeRegisters.length,
                         invokeRegisters.length, ectx.getRemaingCallDepth() - 1);
 
-        if (!isStatic && (invokeRegisters.length > 0)) {
+        int startRegister = 0;
+        if (!isStatic) {
+            // Pass a reference to ectx's register store, not a clone, because it may be modified.
             RegisterStore rs = ectx.getRegister(invokeRegisters[0], index);
             calledMethodContext.addParameterRegister(0, rs);
-            invokeRegisters = Arrays.copyOfRange(invokeRegisters, 1, invokeRegisters.length);
+
+            // Make the next loop to skip this parameter because type info won't be in the
+            // method parameters, it's explicit in the instance type.
+            startRegister++;
         }
 
         List<? extends CharSequence> parameterTypes = method.getParameterTypes();
-        for (int i = 0; i < invokeRegisters.length; i++) {
+        for (int i = startRegister; i < invokeRegisters.length; i++) {
             Object value = ectx.getRegisterValue(invokeRegisters[i], index);
-            if (!isStatic) {
-                calledMethodContext.addParameterRegister(i + 1, parameterTypes.get(i).toString(), value);
-            } else {
-                calledMethodContext.addParameterRegister(i, parameterTypes.get(i).toString(), value);
-            }
+            String type = parameterTypes.get(i - startRegister).toString();
+            calledMethodContext.addParameterRegister(i, type, value);
         }
 
         return calledMethodContext;
