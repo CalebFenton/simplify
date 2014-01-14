@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.iface.ExceptionHandler;
+import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
@@ -28,7 +31,6 @@ import simplify.exec.instruction.InvokeInstruction;
 import simplify.exec.instruction.MoveInstruction;
 import simplify.exec.instruction.NewArrayInstruction;
 import simplify.exec.instruction.NewInstanceInstruction;
-import simplify.graph.InstructionNode;
 
 public class InstructionExecutor {
 
@@ -36,19 +38,14 @@ public class InstructionExecutor {
 
     public static final int NEXT_INSTRUCTION = -1;
 
-    public InstructionExecutor() {
-        // TODO Auto-generated constructor stub
-    }
+    public static List<Integer> execute(List<BuilderClassDef> classes,
+                    List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks, MethodExecutionContext ectx,
+                    BuilderInstruction instruction) {
 
-    public static List<Integer> execute(List<BuilderClassDef> classes, InstructionNode node) {
-        log.fine("Executing instruction: " + node);
+        int index = instruction.getLocation().getIndex();
+        log.fine("Executing instruction: " + instruction.getOpcode().name + " @" + index);
 
         List<Integer> childOffsets = new ArrayList<Integer>();
-
-        BuilderInstruction instruction = node.getInstruction();
-        MethodExecutionContext ectx = node.getContext();
-        int index = instruction.getLocation().getIndex();
-
         boolean handled = false;
         int[] offsets;
         switch (instruction.getOpcode()) {
@@ -483,12 +480,30 @@ public class InstructionExecutor {
             break;
         }
 
-        if (instruction.getOpcode().canContinue() && (childOffsets.size() == 0)) {
+        Opcode op = instruction.getOpcode();
+        if (op.canContinue() && (childOffsets.size() == 0)) {
             childOffsets.add(NEXT_INSTRUCTION);
         }
 
-        if (instruction.getOpcode().canThrow()) {
-            // TODO: consider try/catch blocks. assume all ops could throw.
+        if (op.canThrow()) {
+            // Lazy mode: Assume any op that *could* throw *might* throw by adding it to children.
+            // TODO: make this more accurate. will probably need massive table of which ops can throw what instructions,
+            // and combined with dynamically looking up method exceptions and checking against them
+            int address = instruction.getLocation().getCodeAddress();
+            for (TryBlock<? extends ExceptionHandler> tryBlock : tryBlocks) {
+                int start = tryBlock.getStartCodeAddress();
+                int end = start + tryBlock.getCodeUnitCount();
+                if ((address < start) || (address > end)) {
+                    continue;
+                }
+
+                List<? extends ExceptionHandler> handlers = tryBlock.getExceptionHandlers();
+                for (ExceptionHandler handler : handlers) {
+                    System.out.println(op.name + " @" + instruction.getLocation().getIndex()
+                                    + ", adding exception offset: " + handler.getHandlerCodeAddress());
+                    childOffsets.add(handler.getHandlerCodeAddress());
+                }
+            }
         }
 
         // If the op is unhandled, take any branches or set any values to unknown.
@@ -504,12 +519,12 @@ public class InstructionExecutor {
                 }
             }
 
-            if (instruction.getOpcode().setsRegister()) {
+            if (op.setsRegister()) {
                 OneRegisterInstruction instr = (OneRegisterInstruction) instruction;
                 ectx.addRegister(instr.getRegisterA(), "?", new UnknownValue(), index);
             }
 
-            if (instruction.getOpcode().setsResult()) {
+            if (op.setsResult()) {
                 ectx.setResultRegister(new RegisterStore("?", new UnknownValue()));
             }
         }

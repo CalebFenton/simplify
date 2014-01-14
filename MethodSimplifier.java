@@ -1,5 +1,6 @@
 package simplify;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -198,7 +199,27 @@ public class MethodSimplifier {
     }
 
     private static boolean removeUnused(BuilderMethod method, LinkedListMultimap<Integer, InstructionNode> nodes) {
+
+        List<Integer> terminalIndicies = new ArrayList<Integer>();
+        for (Integer index : nodes.keySet()) {
+            // Only need the first node. They all have the same opcode.
+            InstructionNode node = nodes.get(index).get(0);
+
+            Opcode op = node.getInstruction().getOpcode();
+            if (!op.canContinue()) {
+                terminalIndicies.add(index);
+            }
+        }
+
+        for (Integer index : terminalIndicies) {
+            // Reconstruct node stack "multiverse" from here, working backwards through parents.
+        }
+
         return false;
+    }
+
+    private static void mergeContexts(MethodExecutionContext ectx1, MethodExecutionContext ectx2) {
+
     }
 
 }

@@ -7,6 +7,7 @@ import java.util.logging.Logger;
 
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
@@ -64,36 +65,39 @@ public class MethodExecutor {
         log.info("Executing method: " + method.getName());
 
         LinkedListMultimap<Integer, InstructionNode> nodes = LinkedListMultimap.create();
-        List<BuilderInstruction> instructions = ((MutableMethodImplementation) method.getImplementation())
-                        .getInstructions();
+        MutableMethodImplementation methodImpl = (MutableMethodImplementation) method.getImplementation();
+        List<BuilderInstruction> instructions = methodImpl.getInstructions();
+
         if (instructions.size() == 0) {
             return nodes;
         }
 
+        List<BuilderTryBlock> tryBlocks = methodImpl.getTryBlocks();
         SparseArray<BuilderInstruction> instructionOffsets = getInstructionOffsets(instructions);
-        InstructionNode rootNode = new InstructionNode(instructions.get(0), ectx);
         Deque<InstructionNode> executeStack = new ArrayDeque<InstructionNode>();
-        executeStack.push(rootNode);
+        executeStack.push(new InstructionNode(instructions.get(0), ectx));
 
-        InstructionNode currentNode;
-        while ((currentNode = executeStack.poll()) != null) {
-            List<Integer> childOffsets = InstructionExecutor.execute(classes, currentNode);
+        InstructionNode node;
+        while ((node = executeStack.poll()) != null) {
+            // Determining successors is kind of messy, so delegate to the instruction executor.
+            List<Integer> childOffsets = InstructionExecutor.execute(classes, tryBlocks, node.getContext(),
+                            node.getInstruction());
 
-            int idx = currentNode.getInstruction().getLocation().getIndex();
-            nodes.put(idx, currentNode);
+            int index = node.getInstruction().getLocation().getIndex();
+            nodes.put(index, node);
 
-            if (nodes.get(idx).size() > maxNodeVisits) {
-                throw new MaxNodeVisitsExceeded("Node: " + currentNode);
+            if (nodes.get(index).size() > maxNodeVisits) {
+                throw new MaxNodeVisitsExceeded("Node: " + node);
             }
 
             for (int childOffset : childOffsets) {
                 if (childOffset == -1) {
-                    childOffset = instructions.get(idx + 1).getLocation().getCodeAddress();
+                    childOffset = instructions.get(index + 1).getLocation().getCodeAddress();
                 }
 
-                InstructionNode child = new InstructionNode(instructionOffsets.get(childOffset), currentNode
-                                .getContext().clone());
-                currentNode.addChild(child);
+                InstructionNode child = new InstructionNode(instructionOffsets.get(childOffset), node.getContext()
+                                .clone());
+                node.addChild(child);
                 executeStack.push(child);
             }
         }
