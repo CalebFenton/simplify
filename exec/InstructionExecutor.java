@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
@@ -16,26 +15,26 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21s;
-import org.jf.dexlib2.iface.instruction.formats.Instruction21t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22b;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.jf.dexlib2.iface.reference.StringReference;
-import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
 import simplify.Simplifier;
+import simplify.exec.instruction.IfInstruction;
 import simplify.exec.instruction.InvokeInstruction;
 import simplify.exec.instruction.MoveInstruction;
+import simplify.exec.instruction.NewArrayInstruction;
+import simplify.exec.instruction.NewInstanceInstruction;
 import simplify.graph.InstructionNode;
 
 public class InstructionExecutor {
 
     private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
-    private static final int NEXT_INSTRUCTION = -1;
+    public static final int NEXT_INSTRUCTION = -1;
 
     public InstructionExecutor() {
         // TODO Auto-generated constructor stub
@@ -214,19 +213,13 @@ public class InstructionExecutor {
         case IF_LE:
         case IF_LT:
         case IF_NE:
-            offsets = handle_IF(ectx, (Instruction22t) instruction, index);
-            for (int offset : offsets) {
-                childOffsets.add(offset);
-            }
-            handled = true;
-            break;
         case IF_EQZ:
         case IF_GEZ:
         case IF_GTZ:
         case IF_LEZ:
         case IF_LTZ:
         case IF_NEZ:
-            offsets = handle_IFZ(ectx, (Instruction21t) instruction, index);
+            offsets = IfInstruction.execute(ectx, instruction, index);
             for (int offset : offsets) {
                 childOffsets.add(offset);
             }
@@ -338,12 +331,15 @@ public class InstructionExecutor {
         case NEG_LONG:
             break;
         case NEW_ARRAY:
+            NewArrayInstruction.execute(ectx, (Instruction22c) instruction, index);
+            handled = true;
             break;
         case NEW_INSTANCE:
-            handle_NEW_INSTANCE(ectx, (Instruction21c) instruction, index);
+            NewInstanceInstruction.execute(ectx, (Instruction21c) instruction, index);
             handled = true;
             break;
         case NOP:
+            handled = true;
             break;
         case NOT_INT:
             break;
@@ -483,14 +479,19 @@ public class InstructionExecutor {
         case XOR_LONG_2ADDR:
             break;
         default:
+            log.warning("Unknown instruction to dexlib. Shouldn't happen.");
             break;
-
         }
 
         if (instruction.getOpcode().canContinue() && (childOffsets.size() == 0)) {
             childOffsets.add(NEXT_INSTRUCTION);
         }
 
+        if (instruction.getOpcode().canThrow()) {
+            // TODO: consider try/catch blocks. assume all ops could throw.
+        }
+
+        // If the op is unhandled, take any branches or set any values to unknown.
         if (!handled) {
             if (instruction instanceof OffsetInstruction) {
                 int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
@@ -580,75 +581,6 @@ public class InstructionExecutor {
         ectx.setReturnRegister(instruction.getRegisterA(), index);
     }
 
-    private static int[] handle_IF(MethodExecutionContext ectx, Instruction22t instruction, int index) {
-        // TODO: combine with handle_IFZ
-        Object A = ectx.getRegisterValue(instruction.getRegisterA(), index);
-        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
-
-        int codeAddress = ((BuilderInstruction) instruction).getLocation().getCodeAddress();
-        int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = codeAddress + branchOffset;
-
-        if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
-            return new int[] { targetAddress, -1 };
-        }
-
-        int cmp = CompareToBuilder.reflectionCompare(A, B);
-        log.finer("IF - comparing: " + A + " vs " + B + " = " + cmp);
-        String ifType = instruction.getOpcode().name;
-        int result[] = new int[1];
-        if (ifType.endsWith("eq")) {
-            result[0] = cmp == 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("ne")) {
-            result[0] = cmp != 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("lt")) {
-            result[0] = cmp == -1 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("ge")) {
-            result[0] = cmp >= 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("gt")) {
-            result[0] = cmp == 1 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("le")) {
-            result[0] = cmp == -1 ? targetAddress : NEXT_INSTRUCTION;
-        }
-
-        return result;
-    }
-
-    private static int[] handle_IFZ(MethodExecutionContext ectx, Instruction21t instruction, int index) {
-        // ASSUME: *z if's are always integers..
-        Object registerA = ectx.getRegisterValue(instruction.getRegisterA(), index);
-
-        int codeAddress = ((BuilderInstruction) instruction).getLocation().getCodeAddress();
-        int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = codeAddress + branchOffset;
-
-        if (registerA instanceof UnknownValue) {
-            return new int[] { targetAddress, NEXT_INSTRUCTION };
-        }
-
-        Integer A = (Integer) registerA;
-
-        log.finer("IFz - comparing: " + A);
-
-        String ifType = instruction.getOpcode().name;
-        int[] result = new int[1];
-        if (ifType.endsWith("eqz")) {
-            result[0] = A == 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("nez")) {
-            result[0] = A != 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("ltz")) {
-            result[0] = A < 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("gez")) {
-            result[0] = A >= 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("gtz")) {
-            result[0] = A > 0 ? targetAddress : NEXT_INSTRUCTION;
-        } else if (ifType.endsWith("lez")) {
-            result[0] = A <= 0 ? targetAddress : NEXT_INSTRUCTION;
-        }
-
-        return result;
-    }
-
     private static void handle_IGET(MethodExecutionContext ectx, Instruction22c instruction, int index) {
         // We can't be sure what a member variable might have at any given time.
         // Another thread could have modified it.
@@ -660,6 +592,7 @@ public class InstructionExecutor {
     }
 
     private static void handle_SGET(MethodExecutionContext ectx, Instruction21c instruction, int index) {
+        // TODO: static gets of framework classes can safely be retrieved
         ectx.addRegister(instruction.getRegisterA(), "?", new UnknownValue(), index);
     }
 
@@ -671,10 +604,4 @@ public class InstructionExecutor {
         ectx.addRegister(instruction.getRegisterA(), ectx.getResultRegister());
     }
 
-    private static void handle_NEW_INSTANCE(MethodExecutionContext ectx, Instruction21c instruction, int index) {
-        String type = ((TypeReference) instruction.getReference()).toString();
-
-        // Use UnknownValue since type is all that really matters and null is not expected.
-        ectx.addRegister(instruction.getRegisterA(), type, new UnknownValue(), index);
-    }
 }
