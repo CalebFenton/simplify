@@ -1,15 +1,15 @@
 package simplify.emulate;
 
 import simplify.exec.MethodExecutionContext;
+import simplify.exec.RegisterStore;
 
-public class java_lang_Boolean_booleanValue {
+public class java_lang_Boolean_booleanValue implements EmulatedMethod {
 
     public void execute(MethodExecutionContext ectx) {
-        int paramStart = ectx.getParameterStart();
-        Object value = ectx.getRegisterValue(paramStart, 0);
+        RegisterStore thiz = ectx.peekRegister(0);
+        RegisterStore result = new RegisterStore("Z", thiz.getValue());
 
-        ectx.addRegister(paramStart, "Z", value, 0);
-        ectx.setReturnRegister(paramStart, 0);
+        ectx.setReturnRegister(result);
     }
 
 }

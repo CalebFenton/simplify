@@ -135,7 +135,6 @@ public class Simplifier {
                 FileUtils.write(new File("graphs/" + method.getDefiningClass() + "-" + method.getName() + ".txt"),
                                 graphs);
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
             result.put(method, rootNode);

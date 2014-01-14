@@ -14,7 +14,8 @@ public class MethodEmulator {
         emulatedMethods.put("Ljava/lang/Integer;-><init>(I)V", new java_lang_Integer_init());
         emulatedMethods.put("Ljava/lang/Integer;->intValue()I", new java_lang_Integer_intValue());
 
-        emulatedMethods.put("Ljava/lang/Boolean;->booleanValue()Z", new java_lang_Integer_intValue());
+        emulatedMethods.put("Ljava/lang/Boolean;->booleanValue()Z", new java_lang_Boolean_booleanValue());
+        emulatedMethods.put("Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;", new java_lang_Boolean_valueOf());
 
         emulatedMethods.put("Ljava/lang/Class;->forName()Ljava/lang/Class;", new java_lang_Integer_intValue());
     }

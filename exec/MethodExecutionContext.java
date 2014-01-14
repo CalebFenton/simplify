@@ -145,7 +145,11 @@ public class MethodExecutionContext {
     public void setReturnRegister(int register, int index) {
         // Use get rather than peek because this counts as a usage.
         returnRegister = getRegister(register, index);
-        returnRegister.getUsed().add(index);
+    }
+
+    public void setReturnRegister(RegisterStore rs) {
+        // Emulated methods maintain registers outside of a context (can't reference a register)
+        returnRegister = rs;
     }
 
     @Override

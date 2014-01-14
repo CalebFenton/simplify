@@ -35,7 +35,9 @@ public class InvokeInstruction {
 
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         if (MethodEmulator.canEmulate(methodDescriptor)) {
-            log.fine("Emulating " + methodDescriptor);
+            log.info("Emulating " + methodDescriptor + " @" + index);
+            // log.info(ectx.toString());
+
             MethodEmulator.emulate(calledMethodContext, methodDescriptor);
 
             if (!method.getReturnType().equals("V")) {
