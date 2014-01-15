@@ -16,8 +16,8 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
 import simplify.Simplifier;
-import simplify.emulate.MethodEmulator;
 import simplify.exec.MethodExecutionContext;
+import simplify.exec.MethodReflector;
 import simplify.exec.RegisterStore;
 import simplify.exec.UnknownValue;
 
@@ -28,54 +28,56 @@ public class InvokeInstruction {
 
     public static void execute(MethodExecutionContext ectx, Instruction instruction, int index,
                     List<BuilderClassDef> classes) {
-        MethodReference method = getMethodReference(instruction);
         // Build called method context even before we know it's emulated because we'll
         // need to know types later to mark them as unknown if it's not emulated.
-        MethodExecutionContext calledMethodContext = buildCalledMethodContext(ectx, instruction, method, index);
+        MethodReference methodRef = getMethodReference(instruction);
+        MethodExecutionContext calledContext = buildCalledMethodContext(ectx, instruction, methodRef, index);
 
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        if (MethodEmulator.canEmulate(methodDescriptor)) {
-            log.info("Emulating " + methodDescriptor + " @" + index);
-            // log.info(ectx.toString());
+        BuilderMethod method = getMethodFromRef(classes, methodRef);
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodRef);
+        String returnType = methodRef.getReturnType();
+        if (method != null) {
+            // TODO: execute method with MethodExecutor
+            log.fine("Found " + methodDescriptor + " but holding off on executing it.");
+        } else if (MethodReflector.canReflect(methodDescriptor)) {
+            // Method not defined, but may be white listed method in the framework
+            MethodReflector.reflect(calledContext, methodRef.getParameterTypes(), methodDescriptor);
 
-            MethodEmulator.emulate(calledMethodContext, methodDescriptor);
-
-            if (!method.getReturnType().equals("V")) {
-                // Non-void method should have a return type.
-                ectx.setResultRegister(calledMethodContext.getReturnRegister());
+            if (!returnType.equals("V")) {
+                ectx.setResultRegister(calledContext.getReturnRegister());
             }
         } else {
-            // Not an emulated method
-            List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
-            for (BuilderClassDef classDef : classes) {
-                methods.addAll(classDef.getMethods());
-            }
-            BuilderMethod targetMethod = getMethodFromDescriptor(methods, methodDescriptor);
-            if (targetMethod != null) {
-                // TODO: Build up a context and execute the method.
-                log.fine("Found " + methodDescriptor + " but holding off on executing it.");
-            }
-            // else (assume always else, for now)
-
             // If the method isn't emulated or implemented in target, we don't know the return value.
-            if (!method.getReturnType().equals("V")) {
-                ectx.setResultRegister(new RegisterStore("?", new UnknownValue()));
+            if (!returnType.equals("V")) {
+                ectx.setResultRegister(new RegisterStore(returnType, new UnknownValue()));
             }
 
             // Any non-final classes passed as non-final parameters could have changed.
-            int paramStart = calledMethodContext.getParameterStart();
-            for (int i = paramStart; i < calledMethodContext.getRegisterCount(); i++) {
-                RegisterStore rs = calledMethodContext.getRegister(i, 0);
+            int paramStart = calledContext.getParameterStart();
+            for (int i = paramStart; i < calledContext.getRegisterCount(); i++) {
+                RegisterStore rs = calledContext.getRegister(i, 0);
                 if (!isImmutableClass(classes, rs.getType())) {
-                    log.finer("r" + i + " (" + rs.getType()
-                                    + ") is mutable or unknown and passed as param, marking as unknown");
-                    ectx.addRegister(i, "?", new UnknownValue(), index);
+                    log.finer("r" + i + " (" + rs.getType() + ") is mutable/unknown and parameter, marking unknown");
+                    ectx.addRegister(i, returnType, new UnknownValue(), index);
                 } else {
-                    log.finer("r" + i + " (" + rs.getType()
-                                    + ") is known + immutable and passed as param, retaining value");
+                    log.finer("r" + i + " (" + rs.getType() + ") is immutable and parameter, retaining value");
                 }
             }
+
         }
+
+        // String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodRef);
+        // if (MethodEmulator.canEmulate(methodDescriptor)) {
+        // log.info("Emulating " + methodDescriptor + " @" + index);
+        // // log.info(ectx.toString());
+        //
+        // MethodEmulator.emulate(calledMethodContext, methodDescriptor);
+        //
+        // if (!methodRef.getReturnType().equals("V")) {
+        // // Non-void method should have a return type.
+        // ectx.setResultRegister(calledMethodContext.getReturnRegister());
+        // }
+        // } else {
     }
 
     private static int[] getInvokeRegisters(Instruction instruction, List<? extends CharSequence> typesList,
@@ -191,6 +193,7 @@ public class InvokeInstruction {
             return true;
         }
 
+        // Look in dex classes first because they'd overload framework classes.
         BuilderClassDef classDef = getClassFromType(classes, type);
         if (classDef != null) {
             return (classDef.getAccessFlags() & AccessFlags.FINAL.getValue()) != 0;
@@ -205,5 +208,29 @@ public class InvokeInstruction {
         }
 
         return false;
+    }
+
+    private static boolean isClassDefined(List<BuilderClassDef> classDefs, String type) {
+        BuilderClassDef classDef = getClassFromType(classDefs, type);
+
+        if (classDef == null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static BuilderMethod getMethodFromRef(List<BuilderClassDef> classDefs, MethodReference methodRef) {
+        String target = ReferenceUtil.getMethodDescriptor(methodRef);
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String descriptor = ReferenceUtil.getMethodDescriptor(method);
+                if (target.equals(descriptor)) {
+                    return method;
+                }
+            }
+        }
+
+        return null;
     }
 }
