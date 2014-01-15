@@ -18,6 +18,19 @@ public class MethodEmulator {
         emulatedMethods.put("Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;", new java_lang_Boolean_valueOf());
 
         emulatedMethods.put("Ljava/lang/Class;->forName()Ljava/lang/Class;", new java_lang_Integer_intValue());
+
+        emulatedMethods.put("Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;",
+                        new java_lang_String_valueOf());
+        emulatedMethods.put("Ljava/lang/String;->charAt(I)C", new java_lang_String_charAt());
+
+        emulatedMethods.put("Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V",
+                        new java_lang_StringBuilder_init());
+        emulatedMethods.put("Ljava/lang/StringBuilder;->append(C)Ljava/lang/StringBuilder;",
+                        new java_lang_StringBuilder_append());
+        emulatedMethods.put("Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;",
+                        new java_lang_StringBuilder_append());
+        emulatedMethods.put("Ljava/lang/StringBuilder;->toString()Ljava/lang/String;",
+                        new java_lang_StringBuilder_toString());
     }
 
     public static boolean canEmulate(String methodDescriptor) {

@@ -506,7 +506,7 @@ public class InstructionExecutor {
             }
         }
 
-        // If the op is unhandled, take any branches or set any values to unknown.
+        // If the op is unhandled, take all possible branches or set any values to unknown.
         if (!handled) {
             if (instruction instanceof OffsetInstruction) {
                 int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();

@@ -62,7 +62,35 @@ public class MethodExecutionContext {
                 continue;
             }
 
-            myClone.registers.put(i, rs.clone());
+            if (myClone.registers.get(i) != null) {
+                // Already cloned this one because it shared object reference with an other register.
+                continue;
+            }
+
+            /*
+             * Some registers may share the same object reference so this relationship must persist in clones. The
+             * relationship will not persist after the children of an initial branch, however, but this won't be a
+             * problem because each will be self-consistent and since each represents a possible execution path, they
+             * shouldn't need to examine each other except at optimization.
+             */
+            RegisterStore rsClone = rs.clone();
+            for (int j = 0; j < registerCount; j++) {
+                if (j == i) {
+                    continue;
+                }
+
+                RegisterStore possibleMatch = registers.get(j);
+                if (possibleMatch == null) {
+                    continue;
+                }
+
+                if (rs.getValue() == possibleMatch.getValue()) {
+                    log.finer("context clone, r" + j + " == r" + i);
+                    myClone.registers.put(j, rsClone);
+                }
+            }
+
+            myClone.registers.put(i, rsClone);
         }
 
         if (resultRegister != null) {

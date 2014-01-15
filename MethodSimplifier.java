@@ -98,8 +98,8 @@ public class MethodSimplifier {
 
                 if (opName.startsWith("return")) {
                     /*
-                     * Only emit a constant before a return if instruction directly before it is not a constant. This
-                     * will cover some cases of an "unknown" return, but many "known" cases look like this as well.
+                     * Only emit a constant before a "return" if instruction directly before it is not a constant type.
+                     * This will cover some cases of an "unknown" return, but many "known" cases look like this as well.
                      * That's fine because this step will *ensure* previous instruction is a constant if it's known. So
                      * this should only happen once, at most.
                      */

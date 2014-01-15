@@ -4,7 +4,7 @@ import simplify.exec.MethodExecutionContext;
 import simplify.exec.RegisterStore;
 import simplify.exec.UnknownValue;
 
-public class java_lang_Integer_init implements EmulatedMethod {
+public class java_lang_StringBuilder_init implements EmulatedMethod {
 
     public void execute(MethodExecutionContext ectx) {
         int paramStart = ectx.getParameterStart();

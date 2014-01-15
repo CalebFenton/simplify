@@ -8,11 +8,23 @@ import simplify.exec.UnknownValue;
 
 public class NewInstanceInstruction {
 
+    /*
+     * Use an actual new instance for framework classes, but since reflection isn't available for dex classes, and we
+     * don't maintain class state, just use UnknownValue().
+     */
     public static void execute(MethodExecutionContext ectx, Instruction21c instruction, int index) {
         String type = ((TypeReference) instruction.getReference()).toString();
 
-        // Use UnknownValue since type is all that really matters and null is not expected.
-        ectx.addRegister(instruction.getRegisterA(), type, new UnknownValue(), index);
+        Class<?> clazz = null;
+        Object value = new UnknownValue();
+        try {
+            String classStr = type.substring(1, type.length() - 1).replaceAll("/", ".");
+            clazz = Class.forName(classStr);
+            value = clazz.newInstance();
+        } catch (Exception e) {
+        }
+
+        ectx.addRegister(instruction.getRegisterA(), type, value, index);
     }
 
 }

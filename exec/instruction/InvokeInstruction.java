@@ -41,9 +41,11 @@ public class InvokeInstruction {
             MethodEmulator.emulate(calledMethodContext, methodDescriptor);
 
             if (!method.getReturnType().equals("V")) {
+                // Non-void method should have a return type.
                 ectx.setResultRegister(calledMethodContext.getReturnRegister());
             }
         } else {
+            // Not an emulated method
             List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
             for (BuilderClassDef classDef : classes) {
                 methods.addAll(classDef.getMethods());
@@ -60,7 +62,7 @@ public class InvokeInstruction {
                 ectx.setResultRegister(new RegisterStore("?", new UnknownValue()));
             }
 
-            // Also, any non-final classes passed as non-final parameters could have changed.
+            // Any non-final classes passed as non-final parameters could have changed.
             int paramStart = calledMethodContext.getParameterStart();
             for (int i = paramStart; i < calledMethodContext.getRegisterCount(); i++) {
                 RegisterStore rs = calledMethodContext.getRegister(i, 0);

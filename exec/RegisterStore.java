@@ -26,7 +26,7 @@ public class RegisterStore {
     @Override
     public RegisterStore clone() {
         Cloner cloner = new Cloner();
-        Object valueClone = cloner.shallowClone(getValue());
+        Object valueClone = cloner.deepClone(getValue());
         Set<Integer> newUsed = new HashSet<Integer>(getUsed());
         Set<Integer> newReferenced = new HashSet<Integer>(getReferenced());
 
