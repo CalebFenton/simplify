@@ -21,7 +21,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
-import simplify.Simplifier;
+import simplify.Main;
 import simplify.exec.instruction.BinaryMathInstruction;
 import simplify.exec.instruction.IfInstruction;
 import simplify.exec.instruction.InvokeInstruction;
@@ -31,7 +31,7 @@ import simplify.exec.instruction.NewInstanceInstruction;
 
 public class InstructionExecutor {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static final int NEXT_INSTRUCTION = -1;
 

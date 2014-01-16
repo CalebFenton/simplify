@@ -26,7 +26,7 @@ import com.google.common.collect.LinkedListMultimap;
 
 public class MethodSimplifier {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String[] OpsToMakeConst = new String[] { "move", "neg-", "not-", "int-to", "long-to",
                     "float-to", "double-to", "add-", "sub-", "mul-", "div-", "rem-", "and-", "or-", "xor-", "shl-",

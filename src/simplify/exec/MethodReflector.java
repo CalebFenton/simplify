@@ -9,11 +9,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
-import simplify.Simplifier;
+import simplify.Main;
 
 public class MethodReflector {
 
-    private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static List<String> SafeClasses;
     private static List<String> SafeMethods;

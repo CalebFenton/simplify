@@ -15,7 +15,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
-import simplify.Simplifier;
+import simplify.Main;
 import simplify.exec.MethodExecutionContext;
 import simplify.exec.MethodReflector;
 import simplify.exec.RegisterStore;
@@ -24,7 +24,7 @@ import simplify.exec.UnknownValue;
 import com.google.common.primitives.Ints;
 
 public class InvokeInstruction {
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static void execute(MethodExecutionContext ectx, Instruction instruction, int index,
                     List<BuilderClassDef> classes) {

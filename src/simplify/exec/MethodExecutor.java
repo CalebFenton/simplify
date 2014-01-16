@@ -13,14 +13,14 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.util.SparseArray;
 
-import simplify.Simplifier;
+import simplify.Main;
 import simplify.graph.InstructionNode;
 
 import com.google.common.collect.LinkedListMultimap;
 
 public class MethodExecutor {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private final int maxNodeVisits;
     private final int maxCallDepth;

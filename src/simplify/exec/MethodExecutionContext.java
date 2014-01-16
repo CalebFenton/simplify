@@ -4,14 +4,17 @@ import java.util.logging.Logger;
 
 import org.jf.util.SparseArray;
 
-import simplify.Simplifier;
+import simplify.Main;
 
 public class MethodExecutionContext {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
+    // TODO: argument object references should be updated with final states
+    // if final states all have same value for some reference, update register store with new value
+    // if not, update register store value with unknown value.
+    // can use a map of original object and maintain it every clone
     private final SparseArray<RegisterStore> registers;
-    // private final LinkedListMultimap<Integer, RegisterStore> registers;
     private final int registerCount;
     private final int parameterCount;
     private final int remainingCallDepth;

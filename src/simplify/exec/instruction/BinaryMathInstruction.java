@@ -9,12 +9,12 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction22b;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
-import simplify.Simplifier;
+import simplify.Main;
 import simplify.exec.MethodExecutionContext;
 
 public class BinaryMathInstruction {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static void execute(MethodExecutionContext ectx, TwoRegisterInstruction instruction, int index) {
         int destination = instruction.getRegisterA();

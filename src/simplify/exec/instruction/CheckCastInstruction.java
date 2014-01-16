@@ -5,12 +5,12 @@ import java.util.logging.Logger;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
-import simplify.Simplifier;
+import simplify.Main;
 import simplify.exec.MethodExecutionContext;
 
 public class CheckCastInstruction {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static void execute(MethodExecutionContext ectx, Instruction21c instruction, int index) {
         int registerA = instruction.getRegisterA();

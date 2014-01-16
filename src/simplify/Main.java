@@ -33,9 +33,9 @@ import simplify.graph.InstructionNode;
 
 import com.google.common.collect.LinkedListMultimap;
 
-public class Simplifier {
+public class Main {
 
-    private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final Level LOG_LEVEL = Level.INFO;
 

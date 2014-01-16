@@ -11,11 +11,11 @@ import org.jf.dexlib2.iface.instruction.SwitchPayload;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.util.SparseArray;
 
-import simplify.Simplifier;
+import simplify.Main;
 
 public class CallGraphBuilder {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static InstructionNode build(BuilderMethod method) {
         log.fine("Building graph for: " + method.getName());

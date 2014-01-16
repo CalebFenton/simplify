@@ -9,14 +9,14 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 
-import simplify.Simplifier;
+import simplify.Main;
 import simplify.exec.InstructionExecutor;
 import simplify.exec.MethodExecutionContext;
 import simplify.exec.UnknownValue;
 
 public class IfInstruction {
 
-    private static final Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static int[] execute(MethodExecutionContext ectx, Instruction instruction, int index) {
         Object A;
