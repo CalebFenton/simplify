@@ -15,17 +15,14 @@ import org.jf.dexlib2.iface.instruction.SwitchPayload;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction11n;
 import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
-import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21s;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22b;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
-import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
 import simplify.Simplifier;
+import simplify.exec.instruction.BinaryMathInstruction;
 import simplify.exec.instruction.IfInstruction;
 import simplify.exec.instruction.InvokeInstruction;
 import simplify.exec.instruction.MoveInstruction;
@@ -50,32 +47,90 @@ public class InstructionExecutor {
         int[] offsets;
         switch (instruction.getOpcode()) {
         case ADD_DOUBLE:
-            break;
         case ADD_DOUBLE_2ADDR:
-            break;
         case ADD_FLOAT:
-            break;
         case ADD_FLOAT_2ADDR:
-            break;
         case ADD_INT:
-            handle_ADD_INT(ectx, (Instruction23x) instruction, index);
-            handled = true;
-            break;
         case ADD_INT_2ADDR:
-            handle_ADD_INT_2ADDR(ectx, (Instruction12x) instruction, index);
-            handled = true;
-            break;
         case ADD_INT_LIT16:
-            handle_ADD_INT_LIT16(ectx, (Instruction22s) instruction, index);
-            handled = true;
-            break;
         case ADD_INT_LIT8:
-            handle_ADD_INT_LIT8(ectx, (Instruction22b) instruction, index);
-            handled = true;
-            break;
         case ADD_LONG:
-            break;
         case ADD_LONG_2ADDR:
+        case AND_INT:
+        case AND_INT_2ADDR:
+        case AND_INT_LIT16:
+        case AND_INT_LIT8:
+        case AND_LONG:
+        case AND_LONG_2ADDR:
+        case DIV_DOUBLE:
+        case DIV_DOUBLE_2ADDR:
+        case DIV_FLOAT:
+        case DIV_FLOAT_2ADDR:
+        case DIV_INT:
+        case DIV_INT_2ADDR:
+        case DIV_INT_LIT16:
+        case DIV_INT_LIT8:
+        case DIV_LONG:
+        case DIV_LONG_2ADDR:
+        case MUL_DOUBLE:
+        case MUL_DOUBLE_2ADDR:
+        case MUL_FLOAT:
+        case MUL_FLOAT_2ADDR:
+        case MUL_INT:
+        case MUL_INT_2ADDR:
+        case MUL_INT_LIT16:
+        case MUL_INT_LIT8:
+        case MUL_LONG:
+        case MUL_LONG_2ADDR:
+        case OR_INT:
+        case OR_INT_2ADDR:
+        case OR_INT_LIT16:
+        case OR_INT_LIT8:
+        case OR_LONG:
+        case OR_LONG_2ADDR:
+        case REM_DOUBLE:
+        case REM_DOUBLE_2ADDR:
+        case REM_FLOAT:
+        case REM_FLOAT_2ADDR:
+        case REM_INT:
+        case REM_INT_2ADDR:
+        case REM_INT_LIT16:
+        case REM_INT_LIT8:
+        case REM_LONG:
+        case REM_LONG_2ADDR:
+        case RSUB_INT:
+        case RSUB_INT_LIT8:
+        case SHL_INT:
+        case SHL_INT_2ADDR:
+        case SHL_INT_LIT8:
+        case SHL_LONG:
+        case SHL_LONG_2ADDR:
+        case SHR_INT:
+        case SHR_INT_2ADDR:
+        case SHR_INT_LIT8:
+        case SHR_LONG:
+        case SHR_LONG_2ADDR:
+        case SUB_DOUBLE:
+        case SUB_DOUBLE_2ADDR:
+        case SUB_FLOAT:
+        case SUB_FLOAT_2ADDR:
+        case SUB_INT:
+        case SUB_INT_2ADDR:
+        case SUB_LONG:
+        case SUB_LONG_2ADDR:
+        case USHR_INT:
+        case USHR_INT_2ADDR:
+        case USHR_INT_LIT8:
+        case USHR_LONG:
+        case USHR_LONG_2ADDR:
+        case XOR_INT:
+        case XOR_INT_2ADDR:
+        case XOR_INT_LIT16:
+        case XOR_INT_LIT8:
+        case XOR_LONG:
+        case XOR_LONG_2ADDR:
+            BinaryMathInstruction.execute(ectx, (TwoRegisterInstruction) instruction, index);
+            handled = true;
             break;
         case AGET:
             break;
@@ -90,18 +145,6 @@ public class InstructionExecutor {
         case AGET_SHORT:
             break;
         case AGET_WIDE:
-            break;
-        case AND_INT:
-            break;
-        case AND_INT_2ADDR:
-            break;
-        case AND_INT_LIT16:
-            break;
-        case AND_INT_LIT8:
-            break;
-        case AND_LONG:
-            break;
-        case AND_LONG_2ADDR:
             break;
         case APUT:
             break;
@@ -159,26 +202,6 @@ public class InstructionExecutor {
         case CONST_WIDE_32:
             break;
         case CONST_WIDE_HIGH16:
-            break;
-        case DIV_DOUBLE:
-            break;
-        case DIV_DOUBLE_2ADDR:
-            break;
-        case DIV_FLOAT:
-            break;
-        case DIV_FLOAT_2ADDR:
-            break;
-        case DIV_INT:
-            break;
-        case DIV_INT_2ADDR:
-            break;
-        case DIV_INT_LIT16:
-            break;
-        case DIV_INT_LIT8:
-            break;
-        case DIV_LONG:
-            break;
-        case DIV_LONG_2ADDR:
             break;
         case DOUBLE_TO_FLOAT:
             break;
@@ -299,26 +322,6 @@ public class InstructionExecutor {
             handle_MOVE_RESULT(ectx, (Instruction11x) instruction, index);
             handled = true;
             break;
-        case MUL_DOUBLE:
-            break;
-        case MUL_DOUBLE_2ADDR:
-            break;
-        case MUL_FLOAT:
-            break;
-        case MUL_FLOAT_2ADDR:
-            break;
-        case MUL_INT:
-            break;
-        case MUL_INT_2ADDR:
-            break;
-        case MUL_INT_LIT16:
-            break;
-        case MUL_INT_LIT8:
-            break;
-        case MUL_LONG:
-            break;
-        case MUL_LONG_2ADDR:
-            break;
         case NEG_DOUBLE:
             break;
         case NEG_FLOAT:
@@ -342,41 +345,9 @@ public class InstructionExecutor {
             break;
         case NOT_LONG:
             break;
-        case OR_INT:
-            break;
-        case OR_INT_2ADDR:
-            break;
-        case OR_INT_LIT16:
-            break;
-        case OR_INT_LIT8:
-            break;
-        case OR_LONG:
-            break;
-        case OR_LONG_2ADDR:
-            break;
         case PACKED_SWITCH:
             break;
         case PACKED_SWITCH_PAYLOAD:
-            break;
-        case REM_DOUBLE:
-            break;
-        case REM_DOUBLE_2ADDR:
-            break;
-        case REM_FLOAT:
-            break;
-        case REM_FLOAT_2ADDR:
-            break;
-        case REM_INT:
-            break;
-        case REM_INT_2ADDR:
-            break;
-        case REM_INT_LIT16:
-            break;
-        case REM_INT_LIT8:
-            break;
-        case REM_LONG:
-            break;
-        case REM_LONG_2ADDR:
             break;
         case RETURN:
         case RETURN_WIDE:
@@ -387,10 +358,6 @@ public class InstructionExecutor {
         case RETURN_VOID:
             handled = true;
             break;
-        case RSUB_INT:
-            break;
-        case RSUB_INT_LIT8:
-            break;
         case SGET:
         case SGET_BOOLEAN:
         case SGET_BYTE:
@@ -400,26 +367,6 @@ public class InstructionExecutor {
         case SGET_WIDE:
             handle_SGET(ectx, (Instruction21c) instruction, index);
             handled = true;
-            break;
-        case SHL_INT:
-            break;
-        case SHL_INT_2ADDR:
-            break;
-        case SHL_INT_LIT8:
-            break;
-        case SHL_LONG:
-            break;
-        case SHL_LONG_2ADDR:
-            break;
-        case SHR_INT:
-            break;
-        case SHR_INT_2ADDR:
-            break;
-        case SHR_INT_LIT8:
-            break;
-        case SHR_LONG:
-            break;
-        case SHR_LONG_2ADDR:
             break;
         case SPARSE_SWITCH:
             break;
@@ -435,45 +382,7 @@ public class InstructionExecutor {
             handle_SPUT(ectx, (Instruction21c) instruction, index);
             handled = true;
             break;
-        case SUB_DOUBLE:
-            break;
-        case SUB_DOUBLE_2ADDR:
-            break;
-        case SUB_FLOAT:
-            break;
-        case SUB_FLOAT_2ADDR:
-            break;
-        case SUB_INT:
-            break;
-        case SUB_INT_2ADDR:
-            break;
-        case SUB_LONG:
-            break;
-        case SUB_LONG_2ADDR:
-            break;
         case THROW:
-            break;
-        case USHR_INT:
-            break;
-        case USHR_INT_2ADDR:
-            break;
-        case USHR_INT_LIT8:
-            break;
-        case USHR_LONG:
-            break;
-        case USHR_LONG_2ADDR:
-            break;
-        case XOR_INT:
-            break;
-        case XOR_INT_2ADDR:
-            break;
-        case XOR_INT_LIT16:
-            break;
-        case XOR_INT_LIT8:
-            break;
-        case XOR_LONG:
-            break;
-        case XOR_LONG_2ADDR:
             break;
         default:
             log.warning("Unknown instruction to dexlib. Shouldn't happen.");
@@ -561,46 +470,6 @@ public class InstructionExecutor {
     private static void handle_CONST_STRING(MethodExecutionContext ectx, Instruction21c instruction, int index) {
         StringReference stringRef = (StringReference) instruction.getReference();
         ectx.addRegister(instruction.getRegisterA(), "Ljava/lang/String;", stringRef.getString(), index);
-    }
-
-    private static void handle_ADD_INT(MethodExecutionContext ectx, Instruction23x instruction, int index) {
-        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
-        Object C = ectx.getRegisterValue(instruction.getRegisterC(), index);
-        if ((B instanceof UnknownValue) || (C instanceof UnknownValue)) {
-            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
-        } else {
-            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) B + (Integer) C, index);
-        }
-    }
-
-    private static void handle_ADD_INT_2ADDR(MethodExecutionContext ectx, Instruction12x instruction, int index) {
-        Object A = ectx.getRegisterValue(instruction.getRegisterA(), index);
-        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
-        if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
-            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
-        } else {
-            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) A + (Integer) B, index);
-        }
-    }
-
-    private static void handle_ADD_INT_LIT16(MethodExecutionContext ectx, Instruction22s instruction, int index) {
-        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
-        if ((B instanceof UnknownValue)) {
-            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
-        } else {
-            int C = instruction.getNarrowLiteral();
-            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
-        }
-    }
-
-    private static void handle_ADD_INT_LIT8(MethodExecutionContext ectx, Instruction22b instruction, int index) {
-        Object B = ectx.getRegisterValue(instruction.getRegisterB(), index);
-        if ((B instanceof UnknownValue)) {
-            ectx.addRegister(instruction.getRegisterA(), "I", new UnknownValue(), index);
-        } else {
-            int C = instruction.getNarrowLiteral();
-            ectx.addRegister(instruction.getRegisterA(), "I", (Integer) B + C, index);
-        }
     }
 
     private static void handle_RETURN(MethodExecutionContext ectx, Instruction11x instruction, int index) {
