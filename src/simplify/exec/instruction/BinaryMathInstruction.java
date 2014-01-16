@@ -11,6 +11,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 import simplify.Main;
 import simplify.exec.MethodExecutionContext;
+import simplify.exec.UnknownValue;
 
 public class BinaryMathInstruction {
 
@@ -24,9 +25,16 @@ public class BinaryMathInstruction {
         Object rhs = args[1];
 
         String opName = instruction.getOpcode().name;
-        Object result = getResult(opName, lhs, rhs);
+        log.finest(opName + " lhs:" + lhs + ", rhs:" + rhs);
 
-        log.warning("Goof in binary math because null result!");
+        Object result = new UnknownValue();
+        if (!(lhs instanceof UnknownValue) && !(rhs instanceof UnknownValue)) {
+            result = getResult(opName, lhs, rhs);
+
+            if (result == null) {
+                log.warning("Goof in binary math because null result!");
+            }
+        }
 
         // Destination register should be same as lhs op
         String type = ectx.peekRegisterType(instruction.getRegisterB());
@@ -128,7 +136,7 @@ public class BinaryMathInstruction {
             result = (Integer) rhs - (Integer) lhs;
         }
 
-        return null;
+        return result;
     }
 
     private static Object[] getLeftAndRight(MethodExecutionContext ectx, Instruction instruction, int index) {

@@ -37,7 +37,7 @@ public class Main {
 
     private static Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.INFO;
+    private static final Level LOG_LEVEL = Level.FINER;
 
     private static final int API_LEVEL = 15;
     private static final int MAX_NODE_VISITS = 10000;
