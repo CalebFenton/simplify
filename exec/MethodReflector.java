@@ -7,8 +7,13 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
+
+import simplify.Simplifier;
 
 public class MethodReflector {
+
+    private static Logger log = Logger.getLogger(Simplifier.class.getSimpleName());
 
     private static List<String> SafeClasses;
     private static List<String> SafeMethods;
@@ -34,7 +39,7 @@ public class MethodReflector {
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
     }
 
-    public static boolean canReflect(String methodDescriptor) {
+    public static boolean isSafeToReflect(String methodDescriptor) {
         String[] parts = methodDescriptor.split("->");
         String className = parts[0];
 
@@ -61,8 +66,7 @@ public class MethodReflector {
             Class<?>[] paramClasses = getParameterClasses(parameterTypes);
             Object[] args = getArguments(ectx);
             if (methodName.equals("<init>")) {
-                // Init class isn't actually defined. Interpret as newInstance
-                // First parameter will be instance reference, which we don't need.
+                // A call to this class must be interpted as a newInstance.
                 result = getNewInstance(clazz, paramClasses, args);
 
                 // This isn't a clone. It's a reference to the caller method's register store.
@@ -94,13 +98,14 @@ public class MethodReflector {
             args = Arrays.copyOfRange(args, 1, args.length);
         }
 
+        log.finer("reflecting " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
         return targetMethod.invoke(target, args);
     }
 
     private static Object getNewInstance(Class<?> clazz, Class<?>[] paramClasses, Object[] args)
                     throws NoSuchMethodException, SecurityException, InstantiationException, IllegalAccessException,
                     IllegalArgumentException, InvocationTargetException {
-        // First parameter and arg will be an instance reference and isn't needed.
+        // First parameter will be instance reference, not an argument.
         if (paramClasses.length > 0) {
             paramClasses = Arrays.copyOfRange(paramClasses, 1, paramClasses.length);
         }

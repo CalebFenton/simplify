@@ -33,14 +33,23 @@ public class InvokeInstruction {
         MethodReference methodRef = getMethodReference(instruction);
         MethodExecutionContext calledContext = buildCalledMethodContext(ectx, instruction, methodRef, index);
 
-        BuilderMethod method = getMethodFromRef(classes, methodRef);
+        boolean hasUnknownArgument = false;
+        for (int i = 0; i < calledContext.getRegisterCount(); i++) {
+            if (calledContext.peekRegister(i).getValue() instanceof UnknownValue) {
+                hasUnknownArgument = true;
+                break;
+            }
+        }
+
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodRef);
         String returnType = methodRef.getReturnType();
+
+        BuilderMethod method = getMethodFromRef(classes, methodRef);
         if (method != null) {
             // TODO: execute method with MethodExecutor
             log.fine("Found " + methodDescriptor + " but holding off on executing it.");
-        } else if (MethodReflector.canReflect(methodDescriptor)) {
-            // Method not defined, but may be white listed method in the framework
+        } else if (MethodReflector.isSafeToReflect(methodDescriptor) && !hasUnknownArgument) {
+            // Method not defined, but all arguments are known and method has been declared safe.
             MethodReflector.reflect(calledContext, methodRef.getParameterTypes(), methodDescriptor);
 
             if (!returnType.equals("V")) {

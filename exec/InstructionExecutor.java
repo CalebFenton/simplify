@@ -486,24 +486,7 @@ public class InstructionExecutor {
         }
 
         if (op.canThrow()) {
-            // Lazy mode: Assume any op that *could* throw *might* throw by adding it to children.
-            // TODO: make this more accurate. will probably need massive table of which ops can throw what instructions,
-            // and combined with dynamically looking up method exceptions and checking against them
-            int address = instruction.getLocation().getCodeAddress();
-            for (TryBlock<? extends ExceptionHandler> tryBlock : tryBlocks) {
-                int start = tryBlock.getStartCodeAddress();
-                int end = start + tryBlock.getCodeUnitCount();
-                if ((address < start) || (address > end)) {
-                    continue;
-                }
-
-                List<? extends ExceptionHandler> handlers = tryBlock.getExceptionHandlers();
-                for (ExceptionHandler handler : handlers) {
-                    System.out.println(op.name + " @" + instruction.getLocation().getIndex()
-                                    + ", adding exception offset: " + handler.getHandlerCodeAddress());
-                    childOffsets.add(handler.getHandlerCodeAddress());
-                }
-            }
+            childOffsets.addAll(handlePotentialExceptions(instruction, tryBlocks));
         }
 
         // If the op is unhandled, take all possible branches or set any values to unknown.
@@ -530,6 +513,34 @@ public class InstructionExecutor {
         }
 
         return childOffsets;
+    }
+
+    private static List<Integer> handlePotentialExceptions(BuilderInstruction instruction,
+                    List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks) {
+        /*
+         * Lazy mode: Assume any op that *could* throw *might* throw by adding it to children. TODO: make this more
+         * accurate. will probably need massive table of which ops can throw what instructions, and combined with
+         * dynamically looking up method exceptions and checking against them
+         */
+        List<Integer> result = new ArrayList<Integer>();
+        Opcode op = instruction.getOpcode();
+        int address = instruction.getLocation().getCodeAddress();
+        for (TryBlock<? extends ExceptionHandler> tryBlock : tryBlocks) {
+            int start = tryBlock.getStartCodeAddress();
+            int end = start + tryBlock.getCodeUnitCount();
+            if ((address < start) || (address > end)) {
+                continue;
+            }
+
+            List<? extends ExceptionHandler> handlers = tryBlock.getExceptionHandlers();
+            for (ExceptionHandler handler : handlers) {
+                log.finest(op.name + " @" + instruction.getLocation().getIndex() + ", adding exception offset: "
+                                + handler.getHandlerCodeAddress());
+                result.add(handler.getHandlerCodeAddress());
+            }
+        }
+
+        return result;
     }
 
     private static int handle_GOTO(BuilderInstruction instruction) {
