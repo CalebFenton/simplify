@@ -22,22 +22,26 @@ public class MethodExecutor {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private final int maxNodeVisits;
-    private final int maxCallDepth;
+    private static final int MAX_NODE_VISITS_DEFAULT = 10000;
 
-    public MethodExecutor(int maxNodeVisits, int maxCallDepth) {
-        this.maxNodeVisits = maxNodeVisits;
-        this.maxCallDepth = maxCallDepth;
+    private final int maxNodeVisits;
+
+    public MethodExecutor() {
+        this(MAX_NODE_VISITS_DEFAULT);
     }
 
-    public LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method)
-                    throws MaxNodeVisitsExceeded {
+    public MethodExecutor(int maxNodeVisits) {
+        this.maxNodeVisits = maxNodeVisits;
+    }
 
-        MethodExecutionContext ectx = buildMethodContext(method);
+    public LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method,
+                    int maxCallDepth) throws MaxNodeVisitsExceeded {
+
+        MethodExecutionContext ectx = buildMethodContext(method, maxCallDepth);
         return execute(classes, method, ectx);
     }
 
-    private MethodExecutionContext buildMethodContext(BuilderMethod method) {
+    private MethodExecutionContext buildMethodContext(BuilderMethod method, int maxCallDepth) {
         int registerCount = method.getImplementation().getRegisterCount();
         int parameterCount = method.getParameters().size();
         MethodExecutionContext ectx = new MethodExecutionContext(registerCount, parameterCount, maxCallDepth);
@@ -60,7 +64,7 @@ public class MethodExecutor {
         return ectx;
     }
 
-    protected LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method,
+    public LinkedListMultimap<Integer, InstructionNode> execute(List<BuilderClassDef> classes, BuilderMethod method,
                     MethodExecutionContext ectx) throws MaxNodeVisitsExceeded {
         log.info("Executing method: " + method.getName());
 

@@ -2,12 +2,9 @@ package simplify;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -16,7 +13,6 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
-import org.apache.commons.io.FileUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -28,7 +24,6 @@ import org.jf.smali.smaliTreeWalker;
 
 import simplify.exec.MaxNodeVisitsExceeded;
 import simplify.exec.MethodExecutor;
-import simplify.graph.CallGraphBuilder;
 import simplify.graph.InstructionNode;
 
 import com.google.common.collect.LinkedListMultimap;
@@ -37,7 +32,7 @@ public class Main {
 
     private static Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINER;
+    private static final Level LOG_LEVEL = Level.OFF;
 
     private static final int API_LEVEL = 15;
     private static final int MAX_NODE_VISITS = 10000;
@@ -64,13 +59,13 @@ public class Main {
             methods.addAll(classDef.getMethods());
         }
 
-        MethodExecutor me = new MethodExecutor(MAX_NODE_VISITS, MAX_CALL_DEPTH);
+        MethodExecutor me = new MethodExecutor(MAX_NODE_VISITS);
         for (int i = 0; i < methods.size();) {
             BuilderMethod method = methods.get(i);
 
             LinkedListMultimap<Integer, InstructionNode> nodes;
             try {
-                nodes = me.execute(classes, method);
+                nodes = me.execute(classes, method, MAX_CALL_DEPTH);
             } catch (MaxNodeVisitsExceeded e) {
                 log.warning("Skipping " + method.getName() + "\n" + e.getMessage());
                 i++;
@@ -123,24 +118,6 @@ public class Main {
         }
 
         return classDef;
-    }
-
-    private static Map<BuilderMethod, InstructionNode> buildCallGraphs(BuilderClassDef classDef) {
-        Map<BuilderMethod, InstructionNode> result = new HashMap<BuilderMethod, InstructionNode>();
-        for (BuilderMethod method : classDef.getMethods()) {
-            InstructionNode rootNode = CallGraphBuilder.build(method);
-
-            String graphs = rootNode.toGraph();
-            try {
-                FileUtils.write(new File("graphs/" + method.getDefiningClass() + "-" + method.getName() + ".txt"),
-                                graphs);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            result.put(method, rootNode);
-        }
-
-        return result;
     }
 
     private static void setupLogger() {

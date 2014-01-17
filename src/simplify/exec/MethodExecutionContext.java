@@ -88,7 +88,7 @@ public class MethodExecutionContext {
                 }
 
                 if (rs.getValue() == possibleMatch.getValue()) {
-                    log.finer("context clone, r" + j + " == r" + i);
+                    log.finest("context clone, r" + j + " == r" + i);
                     myClone.registers.put(j, rsClone);
                 }
             }
@@ -151,7 +151,7 @@ public class MethodExecutionContext {
         RegisterStore rs = registers.get(register);
 
         if (rs == null) {
-            log.warning("r" + register + "is being read but is null, likely a mistake!\n" + this);
+            log.warning("r" + register + " is being read but is null, likely a mistake!\n" + this);
         }
 
         return rs;
@@ -170,6 +170,7 @@ public class MethodExecutionContext {
     }
 
     public void setResultRegister(RegisterStore rs) {
+        // Basically make a shallow copy. Don't want updates to this to update the argument.
         resultRegister = new RegisterStore(rs.getType(), rs.getValue());
     }
 

@@ -492,6 +492,7 @@ public class InstructionExecutor {
     }
 
     private static void handle_SPUT(MethodExecutionContext ectx, Instruction21c instruction, int index) {
+        // int registerA = instruction.getRegisterA();
         // Not implemented.
     }
 

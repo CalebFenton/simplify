@@ -1,42 +1,42 @@
 .class Linvoke;
 .super Ljava/lang/Object;
 
-.method private ambig2(Ljava/lang/Integer;)I
-    .locals 2
+.method public caller()I
+    .locals 3
 
     .prologue
-    .line 16
-    new-instance v0, Ljava/lang/Integer;
+    .line 4
+    move-object v0, p0
 
-    const/4 v1, 0x5
+    move-object v1, v0
 
-    invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
+    const/4 v2, 0x1
 
-    .line 17
-    invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
+    invoke-virtual {v1, v2}, Linvoke;->callee(I)I
 
-    move-result v0
+    move-result v1
+
+    move v0, v1
 
     return v0
 .end method
 
-
-# virtual methods
-.method public ambig()I
-    .locals 2
+.method public callee(I)I
+    .locals 4
 
     .prologue
-    .line 10
-    new-instance v0, Ljava/lang/Integer;
+    .line 8
+    move-object v0, p0
 
-    const/16 v1, 0xa
+    move v1, p1
 
-    invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
+    move v2, v1
 
-    .line 12
-    invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
+    const/4 v3, 0x5
 
-    move-result v0
+    mul-int/lit8 v2, v2, 0x5
+
+    move v0, v2
 
     return v0
 .end method

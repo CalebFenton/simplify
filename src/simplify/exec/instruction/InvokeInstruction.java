@@ -16,7 +16,10 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
 import simplify.Main;
+import simplify.SmaliClassUtils;
+import simplify.exec.MaxNodeVisitsExceeded;
 import simplify.exec.MethodExecutionContext;
+import simplify.exec.MethodExecutor;
 import simplify.exec.MethodReflector;
 import simplify.exec.RegisterStore;
 import simplify.exec.UnknownValue;
@@ -28,68 +31,64 @@ public class InvokeInstruction {
 
     public static void execute(MethodExecutionContext ectx, Instruction instruction, int index,
                     List<BuilderClassDef> classes) {
-        // Build called method context even before we know it's emulated because we'll
-        // need to know types later to mark them as unknown if it's not emulated.
         MethodReference methodRef = getMethodReference(instruction);
-        MethodExecutionContext calledContext = buildCalledMethodContext(ectx, instruction, methodRef, index);
-
-        boolean hasUnknownArgument = false;
-        for (int i = 0; i < calledContext.getRegisterCount(); i++) {
-            if (calledContext.peekRegister(i).getValue() instanceof UnknownValue) {
-                hasUnknownArgument = true;
-                break;
-            }
-        }
-
+        List<? extends CharSequence> parameterTypes = methodRef.getParameterTypes();
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodRef);
         String returnType = methodRef.getReturnType();
+        RegisterStore returnRS = new RegisterStore(returnType, new UnknownValue());
 
         BuilderMethod method = getMethodFromRef(classes, methodRef);
         if (method != null) {
-            // TODO: execute method with MethodExecutor
-            log.fine("Found " + methodDescriptor + " but holding off on executing it.");
-        } else if (MethodReflector.isSafeToReflect(methodDescriptor) && !hasUnknownArgument) {
-            // Method not defined, but all arguments are known and method has been declared safe.
-            MethodReflector.reflect(calledContext, methodRef.getParameterTypes(), methodDescriptor);
+            log.fine("Found " + methodDescriptor + " defined in smali and executing..");
 
-            if (!returnType.equals("V")) {
-                ectx.setResultRegister(calledContext.getReturnRegister());
+            int registerCount = method.getImplementation().getRegisterCount();
+            MethodExecutionContext calledContext = buildCalledContext(ectx, instruction, parameterTypes, registerCount,
+                            index);
+
+            MethodExecutor me = new MethodExecutor();
+            try {
+                // TODO: need to examine exit nodes and see if all return registers agree
+                me.execute(classes, method, calledContext);
+                // returnRS = calledContext.getReturnRegister();
+                log.info("called " + methodDescriptor + " and it returned: " + returnRS);
+            } catch (MaxNodeVisitsExceeded e) {
+                e.printStackTrace();
+            }
+        } else if (MethodReflector.isSafeToReflect(methodDescriptor)) {
+            // With just a method reference, we can't know the register count. We just need to allocate enough for
+            // parameters and instance variable.
+            int registerCount = parameterTypes.size();
+            if (!instruction.getOpcode().name.startsWith("invoke-static")) {
+                registerCount++; // +1 for instance variable
+            }
+            MethodExecutionContext calledContext = buildCalledContext(ectx, instruction, parameterTypes, registerCount,
+                            index);
+
+            if (allArgumentsKnown(calledContext)) {
+                // Method not defined in Smali, but all arguments are known and method has been declared safe.
+                // Execute it from current class loader.
+                MethodReflector.reflect(calledContext, methodRef.getParameterTypes(), methodDescriptor);
+                returnRS = ectx.getReturnRegister();
             }
         } else {
-            // If the method isn't emulated or implemented in target, we don't know the return value.
-            if (!returnType.equals("V")) {
-                ectx.setResultRegister(new RegisterStore(returnType, new UnknownValue()));
-            }
-
             // Any non-final classes passed as non-final parameters could have changed.
-            int paramStart = calledContext.getParameterStart();
-            for (int i = paramStart; i < calledContext.getRegisterCount(); i++) {
-                RegisterStore rs = calledContext.getRegister(i, 0);
-                if (!isImmutableClass(classes, rs.getType())) {
-                    log.finer("r" + i + " (" + rs.getType() + ") is mutable/unknown and parameter, marking unknown");
+            for (int i = 0; i < parameterTypes.size(); i++) {
+                String type = parameterTypes.get(i).toString();
+                if (!isImmutableClass(classes, type)) {
+                    log.finer("r" + i + " (" + type + ") is mutable/unknown and parameter, marking unknown");
                     ectx.addRegister(i, returnType, new UnknownValue(), index);
                 } else {
-                    log.finer("r" + i + " (" + rs.getType() + ") is immutable and parameter, retaining value");
+                    log.finer("r" + i + " (" + type + ") is immutable and parameter, retaining value");
                 }
             }
-
         }
 
-        // String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodRef);
-        // if (MethodEmulator.canEmulate(methodDescriptor)) {
-        // log.info("Emulating " + methodDescriptor + " @" + index);
-        // // log.info(ectx.toString());
-        //
-        // MethodEmulator.emulate(calledMethodContext, methodDescriptor);
-        //
-        // if (!methodRef.getReturnType().equals("V")) {
-        // // Non-void method should have a return type.
-        // ectx.setResultRegister(calledMethodContext.getReturnRegister());
-        // }
-        // } else {
+        if (!returnType.equals("V")) {
+            ectx.setResultRegister(returnRS);
+        }
     }
 
-    private static int[] getInvokeRegisters(Instruction instruction, List<? extends CharSequence> typesList,
+    private static int[] getParameterRegistersIndicies(Instruction instruction, List<? extends CharSequence> typesList,
                     boolean isStatic) {
         int[] result;
         if (instruction.getOpcode().name.endsWith("range")) {
@@ -143,47 +142,35 @@ public class InvokeInstruction {
         return result;
     }
 
-    private static MethodExecutionContext buildCalledMethodContext(MethodExecutionContext ectx,
-                    Instruction instruction, MethodReference method, int index) {
+    private static MethodExecutionContext buildCalledContext(MethodExecutionContext callerContext,
+                    Instruction instruction, List<? extends CharSequence> parameterTypes, int registerCount, int index) {
         boolean isStatic = instruction.getOpcode().name.startsWith("invoke-static");
-        int[] invokeRegisters = getInvokeRegisters(instruction, method.getParameterTypes(), isStatic);
-        MethodExecutionContext calledMethodContext = new MethodExecutionContext(invokeRegisters.length,
-                        invokeRegisters.length, ectx.getRemaingCallDepth() - 1);
+        int[] paramRegisters = getParameterRegistersIndicies(instruction, parameterTypes, isStatic);
 
-        int startRegister = 0;
+        int remaingCallDepth = callerContext.getRemaingCallDepth() - 1;
+        MethodExecutionContext calledContext = new MethodExecutionContext(registerCount, paramRegisters.length,
+                        remaingCallDepth);
+
+        int startOffset = 0;
         if (!isStatic) {
             // Pass a reference to ectx's register store, not a clone, because it may be modified.
-            RegisterStore rs = ectx.getRegister(invokeRegisters[0], index);
-            calledMethodContext.addParameterRegister(0, rs);
+            RegisterStore rs = callerContext.getRegister(paramRegisters[0], index);
+            calledContext.addParameterRegister(0, rs);
 
-            // Make the next loop to skip this parameter because type info won't be in the
-            // method parameters, it's explicit in the instance type.
-            startRegister++;
+            startOffset = 1;
         }
 
-        List<? extends CharSequence> parameterTypes = method.getParameterTypes();
-        for (int i = startRegister; i < invokeRegisters.length; i++) {
-            Object value = ectx.getRegisterValue(invokeRegisters[i], index);
-            String type = parameterTypes.get(i - startRegister).toString();
-            calledMethodContext.addParameterRegister(i, type, value);
+        for (int i = startOffset; i < paramRegisters.length; i++) {
+            Object value = callerContext.getRegisterValue(paramRegisters[i], index);
+            String type = parameterTypes.get(i - startOffset).toString();
+            calledContext.addParameterRegister(i, type, value);
         }
 
-        return calledMethodContext;
+        return calledContext;
     }
 
     private static MethodReference getMethodReference(Instruction instruction) {
         return (MethodReference) ((ReferenceInstruction) instruction).getReference();
-    }
-
-    private static BuilderMethod getMethodFromDescriptor(List<BuilderMethod> methods, String methodDescriptor) {
-        for (BuilderMethod method : methods) {
-            String md = ReferenceUtil.getMethodDescriptor(method);
-            if (md.equals(methodDescriptor)) {
-                return method;
-            }
-        }
-
-        return null;
     }
 
     private static BuilderClassDef getClassFromType(List<BuilderClassDef> classes, String type) {
@@ -197,12 +184,11 @@ public class InvokeInstruction {
     }
 
     private static boolean isImmutableClass(List<BuilderClassDef> classes, String type) {
-        if (type.length() == 1) {
-            // Primitive type, e.g. I, Z, B, etc.
+        if (SmaliClassUtils.isPrimitiveType(type)) {
             return true;
         }
 
-        // Look in dex classes first because they'd overload framework classes.
+        // Look in Smali classes first because they'd overload framework classes.
         BuilderClassDef classDef = getClassFromType(classes, type);
         if (classDef != null) {
             return (classDef.getAccessFlags() & AccessFlags.FINAL.getValue()) != 0;
@@ -210,7 +196,7 @@ public class InvokeInstruction {
 
         String javaName = type.substring(1, type.length() - 1).replaceAll("/", ".");
         try {
-            Class clazz = Class.forName(javaName);
+            Class<?> clazz = Class.forName(javaName);
 
             return (clazz.getModifiers() & Modifier.FINAL) != 0;
         } catch (ClassNotFoundException e) {
@@ -219,15 +205,25 @@ public class InvokeInstruction {
         return false;
     }
 
-    private static boolean isClassDefined(List<BuilderClassDef> classDefs, String type) {
-        BuilderClassDef classDef = getClassFromType(classDefs, type);
-
-        if (classDef == null) {
-            return false;
+    private static boolean allArgumentsKnown(MethodExecutionContext ectx) {
+        for (int i = 0; i < ectx.getRegisterCount(); i++) {
+            if (ectx.peekRegister(i).getValue() instanceof UnknownValue) {
+                return false;
+            }
         }
 
         return true;
     }
+
+    // private static boolean isClassDefined(List<BuilderClassDef> classDefs, String type) {
+    // BuilderClassDef classDef = getClassFromType(classDefs, type);
+    //
+    // if (classDef == null) {
+    // return false;
+    // }
+    //
+    // return true;
+    // }
 
     private static BuilderMethod getMethodFromRef(List<BuilderClassDef> classDefs, MethodReference methodRef) {
         String target = ReferenceUtil.getMethodDescriptor(methodRef);

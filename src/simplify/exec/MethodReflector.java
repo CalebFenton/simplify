@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
+import simplify.SmaliClassUtils;
 import simplify.Main;
 
 public class MethodReflector {
@@ -30,10 +31,17 @@ public class MethodReflector {
         SafeClasses.add("Ljava/lang/Number;");
         SafeClasses.add("Ljava/lang/Short;");
         SafeClasses.add("Ljava/lang/String;");
+
         SafeClasses.add("Ljava/lang/StringBuffer;");
         SafeClasses.add("Ljava/lang/StringBuilder;");
+
         SafeClasses.add("Ljava/math/BigDecimal;");
         SafeClasses.add("Ljava/math/BigInteger;");
+
+        SafeClasses.add("Ljava/util/Map;");
+        SafeClasses.add("Ljava/util/HashMap;");
+        SafeClasses.add("Ljava/util/List;");
+        SafeClasses.add("Ljava/util/ArrayList;");
 
         SafeMethods = new ArrayList<String>();
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
@@ -57,16 +65,18 @@ public class MethodReflector {
     public static void reflect(MethodExecutionContext ectx, List<? extends CharSequence> parameterTypes,
                     String methodDescriptor) {
         String[] parts = methodDescriptor.split("->");
-        String className = dexClassToJava(parts[0]);
+        String className = parts[0];
         String methodName = parts[1].substring(0, parts[1].indexOf("("));
+
+        log.finer("Reflectting " + methodDescriptor + " with context\n" + ectx);
 
         Object result = null;
         try {
-            Class<?> clazz = Class.forName(className);
+            Class<?> clazz = SmaliClassUtils.getClass(className);
             Class<?>[] paramClasses = getParameterClasses(parameterTypes);
             Object[] args = getArguments(ectx);
             if (methodName.equals("<init>")) {
-                // A call to this class must be interpted as a newInstance.
+                // A call to this class must be interpreted as a newInstance.
                 result = getNewInstance(clazz, paramClasses, args);
 
                 // This isn't a clone. It's a reference to the caller method's register store.
@@ -74,11 +84,12 @@ public class MethodReflector {
                 rs.setValue(result);
             } else {
                 Method targetMethod = clazz.getDeclaredMethod(methodName, paramClasses);
+                System.out.println("before invoke ctx: " + ectx);
                 result = invokeMethod(targetMethod, args);
 
                 Class<?> returnType = targetMethod.getReturnType();
                 if (!returnType.equals(Void.TYPE)) {
-                    String resultType = javaClassToDex(returnType.getName());
+                    String resultType = SmaliClassUtils.javaClassToSmali(returnType.getName());
                     ectx.setReturnRegister(new RegisterStore(resultType, result));
                 }
             }
@@ -99,6 +110,7 @@ public class MethodReflector {
         }
 
         log.finer("reflecting " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
+
         return targetMethod.invoke(target, args);
     }
 
@@ -133,18 +145,10 @@ public class MethodReflector {
         Class<?>[] classes = new Class<?>[parameterTypes.size()];
         for (int i = 0; i < parameterTypes.size(); i++) {
             String paramType = parameterTypes.get(i).toString();
-            paramType = dexClassToJava(paramType);
-            classes[i] = Class.forName(paramType);
+            classes[i] = SmaliClassUtils.getClass(paramType);
         }
 
         return classes;
     }
 
-    private static String dexClassToJava(String dexClassName) {
-        return dexClassName.substring(1, dexClassName.length() - 1).replaceAll("/", ".");
-    }
-
-    private static String javaClassToDex(String javaClassName) {
-        return "L" + javaClassName.replaceAll("\\.", "/") + ";";
-    }
 }

@@ -15,6 +15,9 @@ public class MoveInstruction {
     public static void execute(MethodExecutionContext ectx, TwoRegisterInstruction instruction, int index) {
         int registerA = instruction.getRegisterA();
         int registerB = instruction.getRegisterB();
+
+        log.finer("moving r" + registerB + " to r" + registerA);
+
         RegisterStore rs = ectx.getRegister(registerB, index);
         ectx.addRegister(registerA, rs);
     }
