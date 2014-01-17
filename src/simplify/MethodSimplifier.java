@@ -134,7 +134,7 @@ public class MethodSimplifier {
                     Object value) {
         BuilderInstruction result = null;
 
-        System.out.println("get constant for " + registerA + " + type: " + type + " value: " + value);
+        log.fine("build constant for r" + registerA + ", type=" + type + ", value=" + value);
 
         if (type.equals("I") || type.equals("B") || type.equals("S") || type.equals("C")) {
             // Bytes, shorts and characters are all represented by const/4 or const/16.

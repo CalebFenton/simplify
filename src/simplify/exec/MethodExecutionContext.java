@@ -170,7 +170,6 @@ public class MethodExecutionContext {
     }
 
     public void setResultRegister(RegisterStore rs) {
-        // Basically make a shallow copy. Don't want updates to this to update the argument.
         resultRegister = new RegisterStore(rs.getType(), rs.getValue());
     }
 

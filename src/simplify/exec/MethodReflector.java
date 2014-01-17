@@ -9,8 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
-import simplify.SmaliClassUtils;
 import simplify.Main;
+import simplify.SmaliClassUtils;
 
 public class MethodReflector {
 
@@ -68,7 +68,7 @@ public class MethodReflector {
         String className = parts[0];
         String methodName = parts[1].substring(0, parts[1].indexOf("("));
 
-        log.finer("Reflectting " + methodDescriptor + " with context\n" + ectx);
+        log.finer("Reflecting " + methodDescriptor + " with context:\n" + ectx);
 
         Object result = null;
         try {
@@ -84,7 +84,6 @@ public class MethodReflector {
                 rs.setValue(result);
             } else {
                 Method targetMethod = clazz.getDeclaredMethod(methodName, paramClasses);
-                System.out.println("before invoke ctx: " + ectx);
                 result = invokeMethod(targetMethod, args);
 
                 Class<?> returnType = targetMethod.getReturnType();
@@ -109,7 +108,7 @@ public class MethodReflector {
             args = Arrays.copyOfRange(args, 1, args.length);
         }
 
-        log.finer("reflecting " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
+        log.finer("Reflecting method " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
 
         return targetMethod.invoke(target, args);
     }
@@ -117,14 +116,13 @@ public class MethodReflector {
     private static Object getNewInstance(Class<?> clazz, Class<?>[] paramClasses, Object[] args)
                     throws NoSuchMethodException, SecurityException, InstantiationException, IllegalAccessException,
                     IllegalArgumentException, InvocationTargetException {
-        // First parameter will be instance reference, not an argument.
-        if (paramClasses.length > 0) {
-            paramClasses = Arrays.copyOfRange(paramClasses, 1, paramClasses.length);
-        }
-
+        // First parameter will be instance reference, not an actual argument.
         if (args.length > 0) {
+            // paramClasses = Arrays.copyOfRange(paramClasses, 1, paramClasses.length);
             args = Arrays.copyOfRange(args, 1, args.length);
         }
+
+        log.finer("Reflecting newInstance of " + clazz.getName() + " with args=" + Arrays.toString(args));
 
         Constructor<?> ctor = clazz.getConstructor(paramClasses);
 

@@ -5,6 +5,7 @@ import java.util.Map;
 
 public class SmaliClassUtils {
 
+    // TODO: arrays!
     private static Map<String, Class<?>> PrimitiveTypes;
     static {
         PrimitiveTypes = new HashMap<String, Class<?>>(8);
@@ -35,8 +36,11 @@ public class SmaliClassUtils {
     }
 
     public static String javaClassToSmali(String className) {
-        if (isPrimitiveType(className)) {
-            return className;
+        for (String key : PrimitiveTypes.keySet()) {
+            String typeName = PrimitiveTypes.get(key).getName();
+            if (typeName.equals(className)) {
+                return key;
+            }
         }
 
         return "L" + className.replaceAll("\\.", "/") + ";";

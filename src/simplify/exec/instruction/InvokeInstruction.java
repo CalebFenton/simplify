@@ -64,11 +64,12 @@ public class InvokeInstruction {
             MethodExecutionContext calledContext = buildCalledContext(ectx, instruction, parameterTypes, registerCount,
                             index);
 
-            if (allArgumentsKnown(calledContext)) {
-                // Method not defined in Smali, but all arguments are known and method has been declared safe.
+            if (allArgumentsKnown(calledContext) || methodDescriptor.contains("<init>")) {
+                // Method not defined in Smali, but all arguments are known OR this is an init method, which doesn't
+                // need known arguments, and method has been declared safe.
                 // Execute it from current class loader.
                 MethodReflector.reflect(calledContext, methodRef.getParameterTypes(), methodDescriptor);
-                returnRS = ectx.getReturnRegister();
+                returnRS = calledContext.getReturnRegister();
             }
         } else {
             // Any non-final classes passed as non-final parameters could have changed.

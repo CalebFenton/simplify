@@ -1,22 +1,22 @@
 package simplify.exec;
 
-import java.util.HashSet;
-import java.util.Set;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 import com.rits.cloning.Cloner;
 
 public class RegisterStore {
 
-    private final Set<Integer> used;
-    private final Set<Integer> referenced;
+    private final TIntSet used;
+    private final TIntSet referenced;
     private final String type;
     private Object value;
 
     public RegisterStore(String type, Object value) {
-        this(type, value, new HashSet<Integer>(), new HashSet<Integer>());
+        this(type, value, new TIntHashSet(), new TIntHashSet());
     }
 
-    public RegisterStore(String type, Object value, Set<Integer> used, Set<Integer> referenced) {
+    public RegisterStore(String type, Object value, TIntSet used, TIntSet referenced) {
         this.type = type;
         this.setValue(value);
         this.used = used;
@@ -27,8 +27,8 @@ public class RegisterStore {
     public RegisterStore clone() {
         Cloner cloner = new Cloner();
         Object valueClone = cloner.deepClone(getValue());
-        Set<Integer> newUsed = new HashSet<Integer>(getUsed());
-        Set<Integer> newReferenced = new HashSet<Integer>(getReferenced());
+        TIntSet newUsed = new TIntHashSet(getUsed());
+        TIntSet newReferenced = new TIntHashSet(getReferenced());
 
         return new RegisterStore(getType(), valueClone, newUsed, newReferenced);
     }
@@ -38,11 +38,11 @@ public class RegisterStore {
         return "type=" + getType() + ", value=" + getValue() + ", used=" + getUsed() + ", refs=" + getReferenced();
     }
 
-    public Set<Integer> getUsed() {
+    public TIntSet getUsed() {
         return used;
     }
 
-    public Set<Integer> getReferenced() {
+    public TIntSet getReferenced() {
         return referenced;
     }
 
