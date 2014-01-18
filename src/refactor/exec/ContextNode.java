@@ -54,4 +54,8 @@ public class ContextNode {
         return children;
     }
 
+    @Override
+    public String toString() {
+        return handler.toString();
+    }
 }

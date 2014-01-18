@@ -13,6 +13,7 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
 import simplify.Main;
+import simplify.exec.MaxNodeVisitsExceeded;
 
 public class VirtualMachine {
 
@@ -23,8 +24,13 @@ public class VirtualMachine {
     private final List<ClassExecutionContext> clinitContexts;
     private final MethodExecutor methodExecutor;
     private final List<String> enteredClasses;
+    private final int maxNodeVisits;
+    private final int maxCallDepth;
 
-    public VirtualMachine(List<BuilderClassDef> classDefs) {
+    public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
+        this.maxNodeVisits = maxNodeVisits;
+        this.maxCallDepth = maxCallDepth;
+
         methodInstructionGraphs = buildInstructionGraphs(classDefs);
 
         methodToTryCatchList = buildTryCatchList(classDefs);
@@ -35,7 +41,7 @@ public class VirtualMachine {
         enteredClasses = new ArrayList<String>(classDefs.size());
     }
 
-    public ContextGraph execute(String methodDescriptor) {
+    public ContextGraph execute(String methodDescriptor) throws MaxNodeVisitsExceeded {
         clinitMethodClassIfNecessary(methodDescriptor);
 
         ContextGraph result = methodExecutor.execute(methodDescriptor);
@@ -73,15 +79,28 @@ public class VirtualMachine {
         if (enteredClasses.contains(className)) {
             return;
         }
+        enteredClasses.add(className);
 
         String clinitDescriptor = className + "-><clinit>()V";
-        ContextGraph clinitGraph = execute(clinitDescriptor);
+        if (!methodInstructionGraphs.containsKey(clinitDescriptor)) {
+            // No clinit for this class
+            return;
+        }
+
+        ContextGraph clinitGraph = null;
+        try {
+            clinitGraph = execute(clinitDescriptor);
+        } catch (MaxNodeVisitsExceeded ex) {
+            log.warning("Node visits exceeded  " + clinitDescriptor + ", skipping.\n" + ex.getMessage());
+            ex.printStackTrace();
+        }
 
         ClassExecutionContext ctx = buildClassContext(clinitGraph);
         clinitContexts.add(ctx);
     }
 
     private ClassExecutionContext buildClassContext(ContextGraph graph) {
+        // graph may be null!
         // TODO Auto-generated method stub
         return null;
     }

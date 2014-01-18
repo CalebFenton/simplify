@@ -21,17 +21,20 @@ public class ContextGraph {
 
     private final TIntIntHashMap indexToAddress;
     private final SparseArray<List<ContextNode>> indexToNodePile;
+    private final String methodDescriptor;
 
     ContextGraph(VirtualMachine vm, BuilderMethod method) {
+        methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         List<BuilderInstruction> instructions = implementation.getInstructions();
         indexToAddress = buildIndexToAddress(instructions);
 
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         indexToNodePile = buildIndexToNodes(vm, methodDescriptor, instructions);
     }
 
     ContextGraph(ContextGraph other) {
+        methodDescriptor = other.methodDescriptor;
         indexToAddress = other.indexToAddress;
 
         indexToNodePile = new SparseArray<List<ContextNode>>(other.indexToNodePile.size());
@@ -42,7 +45,13 @@ public class ContextGraph {
             for (ContextNode otherNode : otherNodePile) {
                 nodePile.add(new ContextNode(otherNode));
             }
+
+            indexToNodePile.put(index, nodePile);
         }
+    }
+
+    public String getMethodDescriptor() {
+        return methodDescriptor;
     }
 
     private static TIntIntHashMap buildIndexToAddress(List<BuilderInstruction> instructions) {

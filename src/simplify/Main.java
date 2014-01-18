@@ -13,6 +13,7 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
+import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -22,11 +23,9 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
+import refactor.exec.ContextGraph;
+import refactor.exec.VirtualMachine;
 import simplify.exec.MaxNodeVisitsExceeded;
-import simplify.exec.MethodExecutor;
-import simplify.graph.InstructionNode;
-
-import com.google.common.collect.LinkedListMultimap;
 
 public class Main {
 
@@ -44,37 +43,36 @@ public class Main {
         List<String> files = new ArrayList<String>();
         files.add(argv[0]);
 
-        System.exit(-1);
-
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(API_LEVEL);
-        List<BuilderClassDef> classes = new ArrayList<BuilderClassDef>();
+        List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>();
+        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
         for (String file : files) {
             File smaliFile = new File(file);
             log.info("Dexifying: " + smaliFile);
 
             BuilderClassDef classDef = dexifySmaliFile(smaliFile, dexBuilder);
-            classes.add(classDef);
-        }
-
-        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
-        for (BuilderClassDef classDef : classes) {
+            classDefs.add(classDef);
             methods.addAll(classDef.getMethods());
         }
 
-        MethodExecutor me = new MethodExecutor(MAX_NODE_VISITS);
-        for (int i = 0; i < methods.size();) {
-            BuilderMethod method = methods.get(i);
+        VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
 
-            LinkedListMultimap<Integer, InstructionNode> nodes;
+        for (int i = 0; i < methods.size(); i++) {
+            BuilderMethod method = methods.get(i);
+            String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+
+            ContextGraph graph = null;
             try {
-                nodes = me.execute(classes, method, MAX_CALL_DEPTH);
-            } catch (MaxNodeVisitsExceeded e) {
-                log.warning("Skipping " + method.getName() + "\n" + e.getMessage());
+                graph = vm.execute(methodDescriptor);
+            } catch (MaxNodeVisitsExceeded ex) {
+                log.warning("Node visits exceeded  " + methodDescriptor + ", skipping.\n" + ex.getMessage());
                 i++;
                 continue;
             }
 
-            if (MethodSimplifier.simplify(dexBuilder, method, nodes)) {
+            boolean madeChanges = MethodSimplifier.simplify(dexBuilder, method, graph);
+
+            if (madeChanges) {
                 log.info("Changes were made simplifying " + method.getName() + ", repeating...");
                 continue;
             }

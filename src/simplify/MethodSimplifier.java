@@ -18,6 +18,7 @@ import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
+import refactor.exec.ContextGraph;
 import simplify.exec.MethodExecutionContext;
 import simplify.exec.UnknownValue;
 import simplify.graph.InstructionNode;
@@ -218,8 +219,9 @@ public class MethodSimplifier {
         return false;
     }
 
-    private static void mergeContexts(MethodExecutionContext ectx1, MethodExecutionContext ectx2) {
-
+    public static boolean simplify(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
+        // TODO Auto-generated method stub
+        return false;
     }
 
 }
