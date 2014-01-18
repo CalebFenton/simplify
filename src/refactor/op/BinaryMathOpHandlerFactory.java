@@ -9,7 +9,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 final class BinaryMathOpHandlerFactory {
 
-    protected static BinaryMathOpHandler getInstance(Instruction instruction, int index) {
+    static BinaryMathOpHandler create(Instruction instruction, int index) {
         String opName = instruction.getOpcode().name;
         TwoRegisterInstruction instr = (TwoRegisterInstruction) instruction;
         int destRegister = instr.getRegisterA();

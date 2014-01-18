@@ -14,17 +14,17 @@ public class ExecutionContext {
     private final SparseArray<RegisterStore> registers;
     private final int callDepth;
 
-    public ExecutionContext(int callDepth) {
+    ExecutionContext(int callDepth) {
         this(callDepth, 0);
     }
 
-    public ExecutionContext(int callDepth, int registerCount) {
+    ExecutionContext(int callDepth, int registerCount) {
         registers = new SparseArray<RegisterStore>(registerCount);
 
         this.callDepth = callDepth;
     }
 
-    public ExecutionContext(ExecutionContext ectx) {
+    ExecutionContext(ExecutionContext ectx) {
         registers = new SparseArray<RegisterStore>(ectx.registers.size());
         for (int i = 0; i < registers.size(); i++) {
             int key = ectx.registers.keyAt(i);

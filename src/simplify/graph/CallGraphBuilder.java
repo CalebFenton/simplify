@@ -74,7 +74,7 @@ public class CallGraphBuilder {
         SparseArray<InstructionNode> result = new SparseArray<InstructionNode>(instructions.size());
 
         for (BuilderInstruction instruction : instructions) {
-            // result.put(instruction.getLocation().getIndex(), new InstructionNode(instruction));
+            // result.put(instruction.getLocation().getIndex(), new ContextNode(instruction));
         }
 
         return result;

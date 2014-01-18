@@ -3,8 +3,7 @@ package refactor.op;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
-import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
+import org.jf.dexlib2.iface.instruction.Instruction;
 
 import refactor.exec.VirtualMachine;
 import simplify.Main;
@@ -13,18 +12,44 @@ public final class OpHandlerFactory {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
+    private enum FactoryType {
+        BINARY_MATH,
+        CONST,
+        IF,
+        UNIMPLEMENTED
+    };
+
     private final VirtualMachine vm;
 
-    public OpHandlerFactory(VirtualMachine vm) {
+    public OpHandlerFactory(VirtualMachine vm, String methodDescriptor) {
+        // vm gives class and try/catch block access to factory type factories
         this.vm = vm;
     }
 
-    public OpHandler getHandler(BuilderInstruction instruction, int index) {
-        Opcode op = instruction.getOpcode();
-        String opName = op.name;
-        int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
+    public OpHandler create(Instruction instruction, int index) {
+        OpHandler result = null;
+        FactoryType factoryType = getFactoryType(instruction.getOpcode());
+        switch (factoryType) {
+        case BINARY_MATH:
+            result = BinaryMathOpHandlerFactory.create(instruction, index);
+            break;
+        case CONST:
+            result = ConstOpHandlerFactory.create(instruction, index);
+            break;
+        case IF:
+            break;
+        case UNIMPLEMENTED:
+            result = UnimplementedOpHandlerFactory.create(instruction, index);
+            break;
+        }
 
-        OpHandler result = new UnknownOpHandler(destRegister, op.setsRegister(), op.canContinue(), op.canThrow(), index);
+        return result;
+    }
+
+    @SuppressWarnings("incomplete-switch")
+    private static FactoryType getFactoryType(Opcode op) {
+        FactoryType result = FactoryType.UNIMPLEMENTED;
+
         switch (op) {
         case ADD_DOUBLE:
         case ADD_DOUBLE_2ADDR:
@@ -109,7 +134,7 @@ public final class OpHandlerFactory {
         case XOR_INT_LIT8:
         case XOR_LONG:
         case XOR_LONG_2ADDR:
-            result = BinaryMathOpHandlerFactory.getInstance(instruction, index);
+            result = FactoryType.BINARY_MATH;
             break;
 
         case AGET:
@@ -136,8 +161,8 @@ public final class OpHandlerFactory {
             break;
         case CHECK_CAST:
             break;
+
         case CMPG_DOUBLE:
-            break;
         case CMPG_FLOAT:
         case CMPL_DOUBLE:
         case CMPL_FLOAT:
@@ -155,7 +180,7 @@ public final class OpHandlerFactory {
         case CONST_WIDE_16:
         case CONST_WIDE_32:
         case CONST_WIDE_HIGH16:
-            result = ConstOpHandlerFactory.getInstance(instruction, index);
+            result = FactoryType.CONST;
             break;
 
         case DOUBLE_TO_FLOAT:
@@ -199,6 +224,7 @@ public final class OpHandlerFactory {
         case IF_LEZ:
         case IF_LTZ:
         case IF_NEZ:
+            result = FactoryType.IF;
             break;
 
         case IGET:
@@ -311,4 +337,5 @@ public final class OpHandlerFactory {
 
         return result;
     }
+
 }
