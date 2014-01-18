@@ -4,23 +4,12 @@ import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction11n;
-import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
-import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
-import org.jf.dexlib2.iface.instruction.formats.Instruction21s;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
+import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 
 import refactor.exec.VirtualMachine;
 import simplify.Main;
-import simplify.exec.instruction.BinaryMathInstruction;
-import simplify.exec.instruction.IfInstruction;
-import simplify.exec.instruction.InvokeInstruction;
-import simplify.exec.instruction.MoveInstruction;
-import simplify.exec.instruction.NewArrayInstruction;
-import simplify.exec.instruction.NewInstanceInstruction;
 
-public class OpHandlerFactory {
+public final class OpHandlerFactory {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
@@ -32,7 +21,10 @@ public class OpHandlerFactory {
 
     public OpHandler getHandler(BuilderInstruction instruction, int index) {
         Opcode op = instruction.getOpcode();
+        String opName = op.name;
+        int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
 
+        OpHandler result = new UnknownOpHandler(destRegister, op.setsRegister(), op.canContinue(), op.canThrow(), index);
         switch (op) {
         case ADD_DOUBLE:
         case ADD_DOUBLE_2ADDR:
@@ -117,38 +109,27 @@ public class OpHandlerFactory {
         case XOR_INT_LIT8:
         case XOR_LONG:
         case XOR_LONG_2ADDR:
-            if
-            BinaryMathInstruction.execute(ectx, (TwoRegisterInstruction) instruction, index);
-            handled = true;
+            result = BinaryMathOpHandlerFactory.getInstance(instruction, index);
             break;
+
         case AGET:
-            break;
         case AGET_BOOLEAN:
-            break;
         case AGET_BYTE:
-            break;
         case AGET_CHAR:
-            break;
         case AGET_OBJECT:
-            break;
         case AGET_SHORT:
-            break;
         case AGET_WIDE:
             break;
+
         case APUT:
-            break;
         case APUT_BOOLEAN:
-            break;
         case APUT_BYTE:
-            break;
         case APUT_CHAR:
-            break;
         case APUT_OBJECT:
-            break;
         case APUT_SHORT:
-            break;
         case APUT_WIDE:
             break;
+
         case ARRAY_LENGTH:
             break;
         case ARRAY_PAYLOAD:
@@ -158,64 +139,54 @@ public class OpHandlerFactory {
         case CMPG_DOUBLE:
             break;
         case CMPG_FLOAT:
-            break;
         case CMPL_DOUBLE:
-            break;
         case CMPL_FLOAT:
-            break;
         case CMP_LONG:
             break;
-        case CONST:
-            break;
-        case CONST_16:
-            handle_CONST_16(ectx, (Instruction21s) instruction, index);
-            handled = true;
-            break;
-        case CONST_4:
-            handle_CONST_4(ectx, (Instruction11n) instruction, index);
-            handled = true;
-            break;
+
+        case CONST: // 31i
+        case CONST_16: // 21s
+        case CONST_4: // 11n
         case CONST_CLASS:
-            break;
         case CONST_HIGH16:
-            break;
         case CONST_STRING:
-            handle_CONST_STRING(ectx, (Instruction21c) instruction, index);
-            handled = true;
         case CONST_STRING_JUMBO:
-            break;
         case CONST_WIDE:
-            break;
         case CONST_WIDE_16:
-            break;
         case CONST_WIDE_32:
-            break;
         case CONST_WIDE_HIGH16:
+            result = ConstOpHandlerFactory.getInstance(instruction, index);
             break;
+
         case DOUBLE_TO_FLOAT:
-            break;
         case DOUBLE_TO_INT:
-            break;
         case DOUBLE_TO_LONG:
+        case FLOAT_TO_DOUBLE:
+        case FLOAT_TO_INT:
+        case FLOAT_TO_LONG:
+        case INT_TO_BYTE:
+        case INT_TO_CHAR:
+        case INT_TO_DOUBLE:
+        case INT_TO_FLOAT:
+        case INT_TO_LONG:
+        case INT_TO_SHORT:
+        case LONG_TO_DOUBLE:
+        case LONG_TO_FLOAT:
+        case LONG_TO_INT:
             break;
+
         case FILLED_NEW_ARRAY:
             break;
         case FILLED_NEW_ARRAY_RANGE:
             break;
         case FILL_ARRAY_DATA:
             break;
-        case FLOAT_TO_DOUBLE:
-            break;
-        case FLOAT_TO_INT:
-            break;
-        case FLOAT_TO_LONG:
-            break;
+
         case GOTO:
         case GOTO_16:
         case GOTO_32:
-            childOffsets.add(handle_GOTO(instruction));
-            handled = true;
             break;
+
         case IF_EQ:
         case IF_GE:
         case IF_GT:
@@ -228,12 +199,8 @@ public class OpHandlerFactory {
         case IF_LEZ:
         case IF_LTZ:
         case IF_NEZ:
-            offsets = IfInstruction.execute(ectx, instruction, index);
-            for (int offset : offsets) {
-                childOffsets.add(offset);
-            }
-            handled = true;
             break;
+
         case IGET:
         case IGET_BOOLEAN:
         case IGET_BYTE:
@@ -241,23 +208,11 @@ public class OpHandlerFactory {
         case IGET_OBJECT:
         case IGET_SHORT:
         case IGET_WIDE:
-            handle_IGET(ectx, (Instruction22c) instruction, index);
-            handled = true;
             break;
+
         case INSTANCE_OF:
             break;
-        case INT_TO_BYTE:
-            break;
-        case INT_TO_CHAR:
-            break;
-        case INT_TO_DOUBLE:
-            break;
-        case INT_TO_FLOAT:
-            break;
-        case INT_TO_LONG:
-            break;
-        case INT_TO_SHORT:
-            break;
+
         case INVOKE_DIRECT:
         case INVOKE_INTERFACE:
         case INVOKE_STATIC:
@@ -268,9 +223,8 @@ public class OpHandlerFactory {
         case INVOKE_STATIC_RANGE:
         case INVOKE_SUPER_RANGE:
         case INVOKE_VIRTUAL_RANGE:
-            InvokeInstruction.execute(ectx, instruction, index, classes);
-            handled = true;
             break;
+
         case IPUT:
         case IPUT_BOOLEAN:
         case IPUT_BYTE:
@@ -278,15 +232,8 @@ public class OpHandlerFactory {
         case IPUT_OBJECT:
         case IPUT_SHORT:
         case IPUT_WIDE:
-            handle_IPUT(ectx, (Instruction22c) instruction, index);
-            handled = true;
             break;
-        case LONG_TO_DOUBLE:
-            break;
-        case LONG_TO_FLOAT:
-            break;
-        case LONG_TO_INT:
-            break;
+
         case MONITOR_ENTER:
             break;
         case MONITOR_EXIT:
@@ -300,16 +247,13 @@ public class OpHandlerFactory {
         case MOVE_WIDE:
         case MOVE_WIDE_16:
         case MOVE_WIDE_FROM16:
-            MoveInstruction.execute(ectx, (TwoRegisterInstruction) instruction, index);
-            handled = true;
             break;
+
         case MOVE_EXCEPTION:
             break;
         case MOVE_RESULT:
         case MOVE_RESULT_OBJECT:
         case MOVE_RESULT_WIDE:
-            handle_MOVE_RESULT(ectx, (Instruction11x) instruction, index);
-            handled = true;
             break;
         case NEG_DOUBLE:
             break;
@@ -320,15 +264,11 @@ public class OpHandlerFactory {
         case NEG_LONG:
             break;
         case NEW_ARRAY:
-            NewArrayInstruction.execute(ectx, (Instruction22c) instruction, index);
-            handled = true;
             break;
         case NEW_INSTANCE:
-            NewInstanceInstruction.execute(ectx, (Instruction21c) instruction, index);
-            handled = true;
             break;
+
         case NOP:
-            handled = true;
             break;
         case NOT_INT:
             break;
@@ -341,11 +281,8 @@ public class OpHandlerFactory {
         case RETURN:
         case RETURN_WIDE:
         case RETURN_OBJECT:
-            handle_RETURN(ectx, (Instruction11x) instruction, index);
-            handled = true;
             break;
         case RETURN_VOID:
-            handled = true;
             break;
         case SGET:
         case SGET_BOOLEAN:
@@ -354,9 +291,8 @@ public class OpHandlerFactory {
         case SGET_OBJECT:
         case SGET_SHORT:
         case SGET_WIDE:
-            handle_SGET(ectx, (Instruction21c) instruction, index);
-            handled = true;
             break;
+
         case SPARSE_SWITCH:
             break;
         case SPARSE_SWITCH_PAYLOAD:
@@ -368,14 +304,11 @@ public class OpHandlerFactory {
         case SPUT_OBJECT:
         case SPUT_SHORT:
         case SPUT_WIDE:
-            handle_SPUT(ectx, (Instruction21c) instruction, index);
-            handled = true;
             break;
         case THROW:
             break;
-        default:
-            log.warning("Unknown instruction to dexlib. Shouldn't happen.");
-            break;
         }
+
+        return result;
     }
 }

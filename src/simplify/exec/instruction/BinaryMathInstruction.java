@@ -44,6 +44,7 @@ public class BinaryMathInstruction {
     private static Object getResult(String opName, Object lhs, Object rhs) {
         Object result = null;
 
+        // ADD-INT
         // TODO: shifts are different from this : http://source.android.com/devices/tech/dalvik/dalvik-bytecode.html
         if (opName.startsWith("add")) {
             if (opName.contains("-int")) {

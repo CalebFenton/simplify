@@ -44,6 +44,8 @@ public class Main {
         List<String> files = new ArrayList<String>();
         files.add(argv[0]);
 
+        System.exit(-1);
+
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(API_LEVEL);
         List<BuilderClassDef> classes = new ArrayList<BuilderClassDef>();
         for (String file : files) {

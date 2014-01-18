@@ -18,7 +18,7 @@ public class CallGraphBuilder {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static InstructionNode build(BuilderMethod method) {
-        log.fine("Building graph for: " + method.getName());
+        log.fine("Building refactor.graph for: " + method.getName());
 
         MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
         List<BuilderInstruction> instructions = impl.getInstructions();
