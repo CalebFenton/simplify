@@ -1,9 +1,17 @@
 package refactor.handler;
 
+import org.jf.dexlib2.iface.instruction.Instruction;
+
 import refactor.vm.MethodContext;
 import refactor.vm.VirtualMachine;
 
 public class ConstOpHandler extends OpHandler {
+
+    static ConstOpHandler create(Instruction instruction, int index) {
+        ConstOpHandler result = null;
+
+        return result;
+    }
 
     private final int index;
 
@@ -18,9 +26,8 @@ public class ConstOpHandler extends OpHandler {
     }
 
     @Override
-    public String toString() {
-        // TODO Auto-generated method stub
-        return null;
+    public int getIndex() {
+        return index;
     }
 
     @Override
@@ -29,8 +36,9 @@ public class ConstOpHandler extends OpHandler {
     }
 
     @Override
-    public int getIndex() {
-        return index;
+    public String toString() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

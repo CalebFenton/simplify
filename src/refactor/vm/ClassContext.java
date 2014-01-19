@@ -1,6 +1,10 @@
 package refactor.vm;
 
+public class ClassContext extends VirtualMachineContext {
 
-public class ClassContext {
+    ClassContext(int callDepth) {
+        super(callDepth);
+        // TODO Auto-generated constructor stub
+    }
 
 }

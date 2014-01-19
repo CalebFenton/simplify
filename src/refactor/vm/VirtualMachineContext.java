@@ -12,16 +12,13 @@ public class VirtualMachineContext {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private final SparseArray<RegisterStore> registers;
-    private final int callDepth;
 
-    VirtualMachineContext(int callDepth) {
-        this(callDepth, 0);
+    VirtualMachineContext() {
+        this(0);
     }
 
-    VirtualMachineContext(int callDepth, int registerCount) {
+    VirtualMachineContext(int registerCount) {
         registers = new SparseArray<RegisterStore>(registerCount);
-
-        this.callDepth = callDepth;
     }
 
     VirtualMachineContext(VirtualMachineContext ectx) {
@@ -31,8 +28,6 @@ public class VirtualMachineContext {
             RegisterStore value = ectx.registers.get(key);
             registers.put(key, value);
         }
-
-        this.callDepth = ectx.callDepth;
     }
 
     public int getRegisterCount() {
@@ -73,10 +68,6 @@ public class VirtualMachineContext {
         return getRegister(register, index).getValue();
     }
 
-    public int getCallDepth() {
-        return callDepth;
-    }
-
     public RegisterStore peekRegister(int register) {
         RegisterStore rs = registers.get(register);
 
@@ -104,7 +95,6 @@ public class VirtualMachineContext {
         StringBuilder sb = new StringBuilder();
 
         sb.append("registers: ").append(registers.size());
-        sb.append(", call depth: ").append(callDepth).append("\n");
 
         for (int i = 0; i < registers.size(); i++) {
             RegisterStore rs = registers.get(i);

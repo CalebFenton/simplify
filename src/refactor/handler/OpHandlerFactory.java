@@ -31,15 +31,15 @@ public final class OpHandlerFactory {
         FactoryType factoryType = getFactoryType(instruction.getOpcode());
         switch (factoryType) {
         case BINARY_MATH:
-            result = BinaryMathOpHandlerFactory.create(instruction, index);
+            result = BinaryMathOpHandler.create(instruction, index);
             break;
         case CONST:
-            result = ConstOpHandlerFactory.create(instruction, index);
+            result = ConstOpHandler.create(instruction, index);
             break;
         case IF:
             break;
         case UNIMPLEMENTED:
-            result = UnimplementedOpHandlerFactory.create(instruction, index);
+            result = UnimplementedOpHandler.create(instruction, index);
             break;
         }
 

@@ -1,9 +1,27 @@
 package refactor.handler;
 
+import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.iface.instruction.Instruction;
+import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
+
 import refactor.vm.MethodContext;
 import refactor.vm.VirtualMachine;
 
 class UnimplementedOpHandler extends OpHandler {
+
+    static UnimplementedOpHandler create(Instruction instruction, int index) {
+        Opcode op = instruction.getOpcode();
+        UnimplementedOpHandler result = null;
+        if (op.setsRegister()) {
+            // Can assume it has at least one register
+            int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
+            result = new UnimplementedOpHandler(index, op.name, op.canContinue(), op.canThrow(), destRegister);
+        } else {
+            result = new UnimplementedOpHandler(index, op.name, op.canContinue(), op.canThrow());
+        }
+
+        return result;
+    }
 
     private final int index;
     private final boolean canContinue;
@@ -33,8 +51,8 @@ class UnimplementedOpHandler extends OpHandler {
     }
 
     @Override
-    public String toString() {
-        return opName + " (unimplmented) @" + index;
+    public int getIndex() {
+        return index;
     }
 
     @Override
@@ -44,8 +62,8 @@ class UnimplementedOpHandler extends OpHandler {
     }
 
     @Override
-    public int getIndex() {
-        return index;
+    public String toString() {
+        return opName + " (unimplmented) @" + index;
     }
 
 }

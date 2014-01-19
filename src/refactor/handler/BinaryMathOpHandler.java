@@ -2,6 +2,13 @@ package refactor.handler;
 
 import java.util.logging.Logger;
 
+import org.jf.dexlib2.iface.instruction.Instruction;
+import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.jf.dexlib2.iface.instruction.formats.Instruction22b;
+import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
+import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+
 import refactor.vm.MethodContext;
 import refactor.vm.VirtualMachine;
 import simplify.Main;
@@ -9,7 +16,12 @@ import simplify.exec.UnknownValue;
 
 public class BinaryMathOpHandler extends OpHandler {
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static enum MathOperandType {
+        INT,
+        LONG,
+        FLOAT,
+        DOUBLE
+    }
 
     private static enum MathOperator {
         ADD,
@@ -26,105 +38,52 @@ public class BinaryMathOpHandler extends OpHandler {
         RSUB
     };
 
-    private static enum MathOperandType {
-        INT,
-        LONG,
-        FLOAT,
-        DOUBLE
-    };
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());;
 
-    private final int index;
-    private final String opName;
-    private final MathOperator mathOperator;
-    private final MathOperandType mathOperandType;
-    private final int destRegister;
-    private final int arg1Register;
-
-    private int arg2Register;
-    private int narrowLiteral;
-    private long wideLiteral;
-    private boolean hasWideLiteral;
-    private boolean hasNarrowLiteral;
-
-    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register) {
-        this.index = index;
-        this.opName = opName;
-        this.destRegister = destRegister;
-        this.arg1Register = arg1Register;
-
-        mathOperator = getMathOp(opName);
-        mathOperandType = getMathOperandType(opName);
-    }
-
-    BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, int otherValue, boolean hasLiteral) {
-        this(index, opName, destRegister, arg1Register);
-
-        hasNarrowLiteral = hasLiteral;
-
-        if (hasNarrowLiteral) {
-            narrowLiteral = otherValue;
-        } else {
-            arg2Register = otherValue;
-        }
-    }
-
-    BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, long wideLiteral) {
-        this(index, opName, destRegister, arg1Register);
-
-        this.wideLiteral = wideLiteral;
-
-        hasWideLiteral = true;
-    }
-
-    @Override
-    public int[] execute(MethodContext mectx) {
-        Object lhs = mectx.getRegisterValue(arg1Register, index);
-        Object rhs = null;
-        if (hasWideLiteral) {
-            rhs = wideLiteral;
-        } else if (hasNarrowLiteral) {
-            rhs = narrowLiteral;
-        } else {
-            rhs = mectx.getRegisterValue(arg2Register, index);
-        }
-
-        log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
-
-        Object result = new UnknownValue();
-        if (!(lhs instanceof UnknownValue) && !(rhs instanceof UnknownValue)) {
-            result = getResult(lhs, rhs);
-
-            if (result == null) {
-                log.warning("Null result in binary math. Not possibruuu!");
-            }
-        }
-
-        // Destination register should be same as lhs op
-        String type = mectx.peekRegisterType(arg1Register);
-        mectx.addRegister(destRegister, type, result, index);
-
-        return new int[] { VirtualMachine.ContinueNextInstruction };
-    }
-
-    private Object getResult(Object lhs, Object rhs) {
+    private static Object doOperation(MathOperator mathOperator, Double lhs, Double rhs) {
         Object result = null;
+        switch (mathOperator) {
+        case ADD:
+            result = lhs + rhs;
+            break;
+        case DIV:
+            result = lhs / rhs;
+            break;
+        case MUL:
+            result = lhs * rhs;
+            break;
+        case REM:
+            result = lhs % rhs;
+            break;
+        case SUB:
+            result = lhs - rhs;
+            break;
+        default:
+            break;
+        }
 
-        // TODO: shifts are different from this : http://source.android.com/devices/tech/dalvik/dalvik-bytecode.html
-        // test shifts carefully
-        switch (mathOperandType) {
-        case INT:
-            result = doOperation(mathOperator, (Integer) lhs, (Integer) rhs);
+        return result;
+    }
+
+    private static Object doOperation(MathOperator mathOperator, Float lhs, Float rhs) {
+        Object result = null;
+        switch (mathOperator) {
+        case ADD:
+            result = lhs + rhs;
             break;
-        case LONG:
-            result = doOperation(mathOperator, (Long) lhs, (Long) rhs);
+        case DIV:
+            result = lhs / rhs;
             break;
-        case FLOAT:
-            result = doOperation(mathOperator, (Float) lhs, (Float) rhs);
+        case MUL:
+            result = lhs * rhs;
             break;
-        case DOUBLE:
-            result = doOperation(mathOperator, (Double) lhs, (Double) rhs);
+        case REM:
+            result = lhs % rhs;
             break;
-        default: // return null and it'll get caught later
+        case SUB:
+            result = lhs - rhs;
+            break;
+        default:
             break;
         }
 
@@ -223,71 +182,6 @@ public class BinaryMathOpHandler extends OpHandler {
         return result;
     }
 
-    private static Object doOperation(MathOperator mathOperator, Float lhs, Float rhs) {
-        Object result = null;
-        switch (mathOperator) {
-        case ADD:
-            result = lhs + rhs;
-            break;
-        case DIV:
-            result = lhs / rhs;
-            break;
-        case MUL:
-            result = lhs * rhs;
-            break;
-        case REM:
-            result = lhs % rhs;
-            break;
-        case SUB:
-            result = lhs - rhs;
-            break;
-        default:
-            break;
-        }
-
-        return result;
-    }
-
-    private static Object doOperation(MathOperator mathOperator, Double lhs, Double rhs) {
-        Object result = null;
-        switch (mathOperator) {
-        case ADD:
-            result = lhs + rhs;
-            break;
-        case DIV:
-            result = lhs / rhs;
-            break;
-        case MUL:
-            result = lhs * rhs;
-            break;
-        case REM:
-            result = lhs % rhs;
-            break;
-        case SUB:
-            result = lhs - rhs;
-            break;
-        default:
-            break;
-        }
-
-        return result;
-    }
-
-    private static MathOperandType getMathOperandType(String opName) {
-        MathOperandType result = null;
-        if (opName.contains("-int")) {
-            result = MathOperandType.INT;
-        } else if (opName.contains("-double")) {
-            result = MathOperandType.DOUBLE;
-        } else if (opName.contains("-float")) {
-            result = MathOperandType.FLOAT;
-        } else if (opName.contains("-long")) {
-            result = MathOperandType.LONG;
-        }
-
-        return result;
-    }
-
     private static MathOperator getMathOp(String opName) {
         MathOperator result = null;
         if (opName.startsWith("add")) {
@@ -319,6 +213,131 @@ public class BinaryMathOpHandler extends OpHandler {
         return result;
     }
 
+    private static MathOperandType getMathOperandType(String opName) {
+        MathOperandType result = null;
+        if (opName.contains("-int")) {
+            result = MathOperandType.INT;
+        } else if (opName.contains("-double")) {
+            result = MathOperandType.DOUBLE;
+        } else if (opName.contains("-float")) {
+            result = MathOperandType.FLOAT;
+        } else if (opName.contains("-long")) {
+            result = MathOperandType.LONG;
+        }
+
+        return result;
+    }
+
+    static BinaryMathOpHandler create(Instruction instruction, int index) {
+        String opName = instruction.getOpcode().name;
+        TwoRegisterInstruction instr = (TwoRegisterInstruction) instruction;
+        int destRegister = instr.getRegisterA();
+        int arg1Register = instr.getRegisterB();
+
+        BinaryMathOpHandler result = null;
+        if (instruction instanceof Instruction23x) {
+            // add-int vAA, vBB, vCC
+            int arg2Register = ((Instruction23x) instruction).getRegisterC();
+            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Register, false);
+        } else if (instruction instanceof Instruction12x) {
+            // add-int/2addr vAA, vBB
+            int arg2Register = ((Instruction12x) instruction).getRegisterB();
+            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Register, false);
+        } else if (instruction instanceof Instruction22b) {
+            // add-int/lit8 vAA, vBB, #CC
+            int arg2Literal = ((Instruction22b) instruction).getNarrowLiteral();
+            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Literal, true);
+        } else if (instruction instanceof Instruction22s) {
+            // add-int/lit16 vAA, vBB, #CCCC
+            long arg2Literal = ((Instruction22s) instruction).getWideLiteral();
+            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Literal);
+        }
+
+        return result;
+    }
+
+    private final int index;
+    private final String opName;
+    private final MathOperator mathOperator;
+    private final MathOperandType mathOperandType;
+    private final int destRegister;
+    private final int arg1Register;
+    private int arg2Register;
+    private int narrowLiteral;
+    private long wideLiteral;
+    private boolean hasWideLiteral;
+    private boolean hasNarrowLiteral;
+
+    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register) {
+        this.index = index;
+        this.opName = opName;
+        this.destRegister = destRegister;
+        this.arg1Register = arg1Register;
+
+        mathOperator = getMathOp(opName);
+        mathOperandType = getMathOperandType(opName);
+    }
+
+    BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, int otherValue, boolean hasLiteral) {
+        this(index, opName, destRegister, arg1Register);
+
+        hasNarrowLiteral = hasLiteral;
+
+        if (hasNarrowLiteral) {
+            narrowLiteral = otherValue;
+        } else {
+            arg2Register = otherValue;
+        }
+    }
+
+    BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, long wideLiteral) {
+        this(index, opName, destRegister, arg1Register);
+
+        this.wideLiteral = wideLiteral;
+
+        hasWideLiteral = true;
+    }
+
+    @Override
+    public int[] execute(MethodContext mectx) {
+        Object lhs = mectx.getRegisterValue(arg1Register, index);
+        Object rhs = null;
+        if (hasWideLiteral) {
+            rhs = wideLiteral;
+        } else if (hasNarrowLiteral) {
+            rhs = narrowLiteral;
+        } else {
+            rhs = mectx.getRegisterValue(arg2Register, index);
+        }
+
+        log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
+
+        Object result = new UnknownValue();
+        if (!(lhs instanceof UnknownValue) && !(rhs instanceof UnknownValue)) {
+            result = getResult(lhs, rhs);
+
+            if (result == null) {
+                log.warning("Null result in binary math. Not possibruuu!");
+            }
+        }
+
+        // Destination register should be same as lhs op
+        String type = mectx.peekRegisterType(arg1Register);
+        mectx.addRegister(destRegister, type, result, index);
+
+        return new int[] { VirtualMachine.ContinueNextInstruction };
+    }
+
+    @Override
+    public int getIndex() {
+        return index;
+    }
+
+    @Override
+    public int[] getPossibleChildren() {
+        return new int[] { VirtualMachine.ContinueNextInstruction };
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(opName);
@@ -339,13 +358,28 @@ public class BinaryMathOpHandler extends OpHandler {
         return sb.toString();
     }
 
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { VirtualMachine.ContinueNextInstruction };
-    }
+    private Object getResult(Object lhs, Object rhs) {
+        Object result = null;
 
-    @Override
-    public int getIndex() {
-        return index;
+        // TODO: shifts are different from this : http://source.android.com/devices/tech/dalvik/dalvik-bytecode.html
+        // test shifts carefully
+        switch (mathOperandType) {
+        case INT:
+            result = doOperation(mathOperator, (Integer) lhs, (Integer) rhs);
+            break;
+        case LONG:
+            result = doOperation(mathOperator, (Long) lhs, (Long) rhs);
+            break;
+        case FLOAT:
+            result = doOperation(mathOperator, (Float) lhs, (Float) rhs);
+            break;
+        case DOUBLE:
+            result = doOperation(mathOperator, (Double) lhs, (Double) rhs);
+            break;
+        default: // return null and it'll get caught later
+            break;
+        }
+
+        return result;
     }
 }
