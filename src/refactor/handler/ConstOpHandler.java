@@ -15,7 +15,7 @@ public class ConstOpHandler extends OpHandler {
 
     private final int index;
 
-    ConstOpHandler(int index) {
+    private ConstOpHandler(int index) {
         this.index = index;
     }
 

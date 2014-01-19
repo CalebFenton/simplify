@@ -1,5 +1,8 @@
 package refactor.vm;
 
+import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.hash.TIntIntHashMap;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.logging.Logger;
@@ -21,7 +24,7 @@ public class MethodExecutor {
         log.info("Executing " + methodDescriptor);
 
         ContextGraph graph = vm.getInstructionGraph(methodDescriptor);
-
+        TIntIntMap indexToNodeVisitCounts = new TIntIntHashMap(graph.getNodeCount());
         Deque<ContextNode> executeStack = new ArrayDeque<ContextNode>();
         executeStack.push(graph.getRootNode());
 
@@ -29,12 +32,26 @@ public class MethodExecutor {
             ContextNode currentNode = executeStack.poll();
             log.fine("Handling " + currentNode);
 
+            recordNodeVisitation(indexToNodeVisitCounts, currentNode, vm.getMaxNodeVisits());
+
             int[] childAddresses = currentNode.execute();
 
             addChildNodes(executeStack, graph, childAddresses, currentNode.getIndex());
         } while (executeStack.peek() != null);
 
         return graph;
+    }
+
+    private static void recordNodeVisitation(TIntIntMap indexToNodeVisitCount, ContextNode node, int maxNodeVisits)
+                    throws MaxNodeVisitsExceeded {
+        int index = node.getIndex();
+        int visitCount = indexToNodeVisitCount.get(index);
+
+        if (visitCount > maxNodeVisits) {
+            throw new MaxNodeVisitsExceeded(node.toString());
+        }
+
+        indexToNodeVisitCount.put(index, visitCount + 1);
     }
 
     private static void addChildNodes(Deque<ContextNode> executeStack, ContextGraph graph, int[] childAddresses,
@@ -48,7 +65,9 @@ public class MethodExecutor {
                 childNode = graph.getTemplateNodeByAddress(address);
             }
 
-            executeStack.push(childNode);
+            // Every node visit means a new clone on the pile. This way, piles can be examined by the optimizer for
+            // stuff like consensus of certain register values.
+            executeStack.push(new ContextNode(childNode));
         }
     }
 }

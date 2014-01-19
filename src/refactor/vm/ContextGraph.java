@@ -77,7 +77,8 @@ public class ContextGraph {
             OpHandler handler = handlerFactory.create(instruction, index);
             ContextNode node = new ContextNode(handler);
 
-            List<ContextNode> nodePile = new ArrayList<ContextNode>();
+            // Most node piles will be a template node and one node with context.
+            List<ContextNode> nodePile = new ArrayList<ContextNode>(2);
             nodePile.add(node);
 
             result.put(index, nodePile);
@@ -112,6 +113,10 @@ public class ContextGraph {
     ContextNode getRootNode() {
         // There is only one entry point for a method.
         return indexToNodePile.get(0).get(0);
+    }
+
+    int getNodeCount() {
+        return indexToNodePile.size();
     }
 
     void setRootContext(MethodContext mectx) {

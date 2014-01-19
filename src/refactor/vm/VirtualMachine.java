@@ -158,4 +158,12 @@ public class VirtualMachine {
         // TODO: implement
         return null;
     }
+
+    public int getMaxNodeVisits() {
+        return maxNodeVisits;
+    }
+
+    public int getMaxCallDepth() {
+        return maxCallDepth;
+    }
 }

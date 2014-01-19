@@ -278,7 +278,8 @@ public class BinaryMathOpHandler extends OpHandler {
         mathOperandType = getMathOperandType(opName);
     }
 
-    BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, int otherValue, boolean hasLiteral) {
+    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, int otherValue,
+                    boolean hasLiteral) {
         this(index, opName, destRegister, arg1Register);
 
         hasNarrowLiteral = hasLiteral;
@@ -290,7 +291,7 @@ public class BinaryMathOpHandler extends OpHandler {
         }
     }
 
-    BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, long wideLiteral) {
+    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, long wideLiteral) {
         this(index, opName, destRegister, arg1Register);
 
         this.wideLiteral = wideLiteral;

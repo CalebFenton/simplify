@@ -12,10 +12,11 @@ public final class OpHandlerFactory {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private enum FactoryType {
+    private enum OpType {
         BINARY_MATH,
         CONST,
         IF,
+        GOTO,
         UNIMPLEMENTED
     };
 
@@ -28,7 +29,7 @@ public final class OpHandlerFactory {
 
     public OpHandler create(Instruction instruction, int index) {
         OpHandler result = null;
-        FactoryType factoryType = getFactoryType(instruction.getOpcode());
+        OpType factoryType = getFactoryType(instruction.getOpcode());
         switch (factoryType) {
         case BINARY_MATH:
             result = BinaryMathOpHandler.create(instruction, index);
@@ -36,7 +37,11 @@ public final class OpHandlerFactory {
         case CONST:
             result = ConstOpHandler.create(instruction, index);
             break;
+        case GOTO:
+            result = GotoOpHandler.create(instruction, index);
+            break;
         case IF:
+            result = IfOpHandler.create(instruction, index);
             break;
         case UNIMPLEMENTED:
             result = UnimplementedOpHandler.create(instruction, index);
@@ -47,8 +52,8 @@ public final class OpHandlerFactory {
     }
 
     @SuppressWarnings("incomplete-switch")
-    private static FactoryType getFactoryType(Opcode op) {
-        FactoryType result = FactoryType.UNIMPLEMENTED;
+    private static OpType getFactoryType(Opcode op) {
+        OpType result = OpType.UNIMPLEMENTED;
 
         switch (op) {
         case ADD_DOUBLE:
@@ -134,7 +139,7 @@ public final class OpHandlerFactory {
         case XOR_INT_LIT8:
         case XOR_LONG:
         case XOR_LONG_2ADDR:
-            result = FactoryType.BINARY_MATH;
+            result = OpType.BINARY_MATH;
             break;
 
         case AGET:
@@ -180,7 +185,7 @@ public final class OpHandlerFactory {
         case CONST_WIDE_16:
         case CONST_WIDE_32:
         case CONST_WIDE_HIGH16:
-            // result = FactoryType.CONST;
+            // result = OpType.CONST;
             break;
 
         case DOUBLE_TO_FLOAT:
@@ -210,6 +215,7 @@ public final class OpHandlerFactory {
         case GOTO:
         case GOTO_16:
         case GOTO_32:
+            result = OpType.GOTO;
             break;
 
         case IF_EQ:
@@ -224,7 +230,7 @@ public final class OpHandlerFactory {
         case IF_LEZ:
         case IF_LTZ:
         case IF_NEZ:
-            result = FactoryType.IF;
+            result = OpType.IF;
             break;
 
         case IGET:

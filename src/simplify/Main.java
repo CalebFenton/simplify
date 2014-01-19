@@ -65,7 +65,8 @@ public class Main {
             try {
                 graph = vm.execute(methodDescriptor);
             } catch (MaxNodeVisitsExceeded ex) {
-                log.warning("Node visits exceeded  " + methodDescriptor + ", skipping.\n" + ex.getMessage());
+                log.warning("Exceeded max node visits for " + ex.getMessage() + " in " + methodDescriptor
+                                + ", skipping.");
                 i++;
                 continue;
             }
