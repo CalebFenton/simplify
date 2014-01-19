@@ -15,6 +15,7 @@ public class ContextNode {
     ContextNode(OpHandler handler) {
         this.handler = handler;
 
+        // Most nodes will only have one child.
         children = new ArrayList<ContextNode>(1);
     }
 
@@ -44,6 +45,10 @@ public class ContextNode {
 
     private void setParent(ContextNode parent) {
         this.parent = parent;
+    }
+
+    public int getIndex() {
+        return handler.getIndex();
     }
 
     public ContextNode getParent() {

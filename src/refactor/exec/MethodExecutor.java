@@ -27,18 +27,28 @@ public class MethodExecutor {
 
         do {
             ContextNode currentNode = executeStack.poll();
-            log.info("Handling " + currentNode);
+            log.fine("Handling " + currentNode);
 
-            int[] childOffsets = currentNode.execute();
-            for (int offset : childOffsets) {
-                // ContextNode childNode = graph.g
-            }
+            int[] childAddresses = currentNode.execute();
+
+            addChildNodes(executeStack, graph, childAddresses, currentNode.getIndex());
         } while (executeStack.peek() != null);
-
-        // for every method that's called, check if that class has been static init'ed
-        // for every static field ref, also static init' the class (sget / sput need vm)
 
         return graph;
     }
 
+    private static void addChildNodes(Deque<ContextNode> executeStack, ContextGraph graph, int[] childAddresses,
+                    int currentIndex) {
+        for (int address : childAddresses) {
+            ContextNode childNode;
+            if (address == VirtualMachine.ContinueNextInstruction) {
+                int index = currentIndex + 1;
+                childNode = graph.getTemplateNodeByIndex(index);
+            } else {
+                childNode = graph.getTemplateNodeByAddress(address);
+            }
+
+            executeStack.push(childNode);
+        }
+    }
 }

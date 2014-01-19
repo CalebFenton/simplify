@@ -3,6 +3,7 @@ package refactor.op;
 import java.util.logging.Logger;
 
 import refactor.exec.MethodExecutionContext;
+import refactor.exec.VirtualMachine;
 import simplify.Main;
 import simplify.exec.UnknownValue;
 
@@ -102,7 +103,7 @@ public class BinaryMathOpHandler extends OpHandler {
         String type = mectx.peekRegisterType(arg1Register);
         mectx.addRegister(destRegister, type, result, index);
 
-        return new int[] { OpHandler.ContinueNextInstruction };
+        return new int[] { VirtualMachine.ContinueNextInstruction };
     }
 
     private Object getResult(Object lhs, Object rhs) {
@@ -336,5 +337,15 @@ public class BinaryMathOpHandler extends OpHandler {
         }
 
         return sb.toString();
+    }
+
+    @Override
+    public int[] getPossibleChildren() {
+        return new int[] { VirtualMachine.ContinueNextInstruction };
+    }
+
+    @Override
+    public int getIndex() {
+        return index;
     }
 }

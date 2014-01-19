@@ -12,9 +12,9 @@ public class UnimplementedOpHandlerFactory {
         if (op.setsRegister()) {
             // Can assume it has at least one register
             int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
-            result = new UnimplementedOpHandler(index, op.canContinue(), op.canThrow(), op.name, destRegister);
+            result = new UnimplementedOpHandler(index, op.name, op.canContinue(), op.canThrow(), destRegister);
         } else {
-            result = new UnimplementedOpHandler(index, op.canContinue(), op.canThrow(), op.name);
+            result = new UnimplementedOpHandler(index, op.name, op.canContinue(), op.canThrow());
         }
 
         return result;

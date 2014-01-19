@@ -30,7 +30,7 @@ public class ContextGraph {
         List<BuilderInstruction> instructions = implementation.getInstructions();
         indexToAddress = buildIndexToAddress(instructions);
 
-        indexToNodePile = buildIndexToNodes(vm, methodDescriptor, instructions);
+        indexToNodePile = buildIndexToNodePile(vm, methodDescriptor, instructions);
     }
 
     ContextGraph(ContextGraph other) {
@@ -39,7 +39,7 @@ public class ContextGraph {
 
         indexToNodePile = new SparseArray<List<ContextNode>>(other.indexToNodePile.size());
         for (int i = 0; i < other.indexToNodePile.size(); i++) {
-            int index = indexToNodePile.keyAt(i);
+            int index = i;
             List<ContextNode> otherNodePile = other.indexToNodePile.get(index);
             List<ContextNode> nodePile = new ArrayList<ContextNode>(otherNodePile.size());
             for (ContextNode otherNode : otherNodePile) {
@@ -67,7 +67,7 @@ public class ContextGraph {
         return indicies;
     }
 
-    private static SparseArray<List<ContextNode>> buildIndexToNodes(VirtualMachine vm, String methodDescriptor,
+    private static SparseArray<List<ContextNode>> buildIndexToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
         OpHandlerFactory handlerFactory = new OpHandlerFactory(vm, methodDescriptor);
 
@@ -87,7 +87,10 @@ public class ContextGraph {
     }
 
     public List<ContextNode> getNodePileByIndex(int index) {
-        return indexToNodePile.get(index);
+        List<ContextNode> result = indexToNodePile.get(index);
+        result = result.subList(1, result.size()); // remove template node
+
+        return result;
     }
 
     public List<ContextNode> getNodePileByAddress(int address) {
@@ -96,8 +99,14 @@ public class ContextGraph {
         return getNodePileByIndex(index);
     }
 
-    ContextNode getBottomNode(int address) {
-        return getNodePileByAddress(address).get(0);
+    ContextNode getTemplateNodeByAddress(int address) {
+        int index = indexToAddress.get(address);
+
+        return getTemplateNodeByIndex(index);
+    }
+
+    ContextNode getTemplateNodeByIndex(int index) {
+        return indexToNodePile.get(index).get(0);
     }
 
     ContextNode getRootNode() {

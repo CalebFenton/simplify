@@ -180,7 +180,7 @@ public final class OpHandlerFactory {
         case CONST_WIDE_16:
         case CONST_WIDE_32:
         case CONST_WIDE_HIGH16:
-            result = FactoryType.CONST;
+            // result = FactoryType.CONST;
             break;
 
         case DOUBLE_TO_FLOAT:

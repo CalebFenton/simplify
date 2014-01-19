@@ -10,6 +10,7 @@ import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
+import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 
 import simplify.Main;
@@ -21,11 +22,13 @@ public class VirtualMachine {
 
     private final Map<String, ContextGraph> methodInstructionGraphs;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodToTryCatchList;
-    private final List<ClassExecutionContext> clinitContexts;
+    private final Map<String, ClassExecutionContext> classNameToClassContext;
     private final MethodExecutor methodExecutor;
-    private final List<String> enteredClasses;
     private final int maxNodeVisits;
     private final int maxCallDepth;
+    private final List<String> initializedClasses;
+
+    public static final int ContinueNextInstruction = -1;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;
@@ -33,18 +36,31 @@ public class VirtualMachine {
 
         methodInstructionGraphs = buildInstructionGraphs(classDefs);
 
+        classNameToClassContext = buildNameToClassContext(classDefs);
+        initializedClasses = new ArrayList<String>(classDefs.size());
+
         methodToTryCatchList = buildTryCatchList(classDefs);
 
         methodExecutor = new MethodExecutor(this);
-
-        clinitContexts = new ArrayList<ClassExecutionContext>(classDefs.size());
-        enteredClasses = new ArrayList<String>(classDefs.size());
     }
 
     public ContextGraph execute(String methodDescriptor) throws MaxNodeVisitsExceeded {
-        clinitMethodClassIfNecessary(methodDescriptor);
+        // Invoking a method (including <init>) is a reason to statually initialize a class.
+        staticallyInitializeMethodClassIfNecessary(methodDescriptor);
 
         ContextGraph result = methodExecutor.execute(methodDescriptor);
+
+        return result;
+    }
+
+    private Map<String, ClassExecutionContext> buildNameToClassContext(List<BuilderClassDef> classDefs) {
+        Map<String, ClassExecutionContext> result = new HashMap<String, ClassExecutionContext>(classDefs.size());
+
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderField field : classDef.getFields()) {
+                // TODO: implement this and class contexts, make sure array is totally populated
+            }
+        }
 
         return result;
     }
@@ -57,6 +73,14 @@ public class VirtualMachine {
 
     public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
         return methodToTryCatchList;
+    }
+
+    public ClassExecutionContext getClassExecutionContext(String methodDescriptor) {
+        // Since this is called for the use or assignment of a class' field, clinit the class
+        staticallyInitializeMethodClassIfNecessary(methodDescriptor);
+
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        return classNameToClassContext.get(className);
     }
 
     private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildTryCatchList(
@@ -74,12 +98,18 @@ public class VirtualMachine {
 
     }
 
-    private void clinitMethodClassIfNecessary(String methodDescriptor) {
+    void staticallyInitializeMethodClassIfNecessary(String methodDescriptor) {
+        // This method should be called when a class is first used. A usage is:
+        // 1.) The invocation of a method declared by the class (not inherited from a superclass)
+        // 2.) The invocation of a constructor of the class (covered by #1)
+        // 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
+        // that are both static and final, and are initialized by a compile-time constant expression.
+
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        if (enteredClasses.contains(className)) {
+        if (initializedClasses.contains(className)) {
             return;
         }
-        enteredClasses.add(className);
+        initializedClasses.add(className);
 
         String clinitDescriptor = className + "-><clinit>()V";
         if (!methodInstructionGraphs.containsKey(clinitDescriptor)) {
@@ -87,16 +117,13 @@ public class VirtualMachine {
             return;
         }
 
-        ContextGraph clinitGraph = null;
         try {
-            clinitGraph = execute(clinitDescriptor);
+            // Don't need the graph. get/put methods will be setting up the class contexts.
+            execute(clinitDescriptor);
         } catch (MaxNodeVisitsExceeded ex) {
             log.warning("Node visits exceeded  " + clinitDescriptor + ", skipping.\n" + ex.getMessage());
             ex.printStackTrace();
         }
-
-        ClassExecutionContext ctx = buildClassContext(clinitGraph);
-        clinitContexts.add(ctx);
     }
 
     private ClassExecutionContext buildClassContext(ContextGraph graph) {

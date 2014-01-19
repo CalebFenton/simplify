@@ -4,10 +4,12 @@ import refactor.exec.MethodExecutionContext;
 
 public abstract class OpHandler {
 
-    static final int ContinueNextInstruction = -1;
-
     public abstract int[] execute(MethodExecutionContext mectx);
 
     @Override
     public abstract String toString();
+
+    public abstract int[] getPossibleChildren();
+
+    public abstract int getIndex();
 }
