@@ -1,16 +1,16 @@
-package refactor.exec;
+package refactor.vm;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import refactor.op.OpHandler;
+import refactor.handler.OpHandler;
 
 public class ContextNode {
 
     private final OpHandler handler;
     private final List<ContextNode> children;
     private ContextNode parent;
-    private MethodExecutionContext mectx;
+    private MethodContext mectx;
 
     ContextNode(OpHandler handler) {
         this.handler = handler;
@@ -22,7 +22,7 @@ public class ContextNode {
     ContextNode(ContextNode node) {
         this(node.handler);
         if (node.mectx != null) {
-            mectx = new MethodExecutionContext(node.mectx);
+            mectx = new MethodContext(node.mectx);
         }
     }
 
@@ -30,11 +30,11 @@ public class ContextNode {
         return handler.execute(mectx);
     }
 
-    void setContext(MethodExecutionContext mectx) {
+    void setContext(MethodContext mectx) {
         this.mectx = mectx;
     }
 
-    public MethodExecutionContext getContext() {
+    public MethodContext getContext() {
         return mectx;
     }
 

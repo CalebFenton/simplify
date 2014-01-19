@@ -18,7 +18,7 @@ import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
-import refactor.exec.ContextGraph;
+import refactor.vm.ContextGraph;
 import simplify.exec.MethodExecutionContext;
 import simplify.exec.UnknownValue;
 import simplify.graph.InstructionNode;

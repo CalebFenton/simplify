@@ -1,7 +1,7 @@
-package refactor.op;
+package refactor.handler;
 
-import refactor.exec.MethodExecutionContext;
-import refactor.exec.VirtualMachine;
+import refactor.vm.MethodContext;
+import refactor.vm.VirtualMachine;
 
 class UnimplementedOpHandler extends OpHandler {
 
@@ -24,7 +24,7 @@ class UnimplementedOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodExecutionContext mectx) {
+    public int[] execute(MethodContext mectx) {
         if (canContinue) {
             return new int[] { VirtualMachine.ContinueNextInstruction };
         } else {

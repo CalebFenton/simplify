@@ -1,4 +1,4 @@
-package refactor.exec;
+package refactor.vm;
 
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;

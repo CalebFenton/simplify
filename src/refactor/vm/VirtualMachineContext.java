@@ -1,4 +1,4 @@
-package refactor.exec;
+package refactor.vm;
 
 import java.util.logging.Logger;
 
@@ -7,24 +7,24 @@ import org.jf.util.SparseArray;
 import simplify.Main;
 import simplify.exec.RegisterStore;
 
-public class ExecutionContext {
+public class VirtualMachineContext {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private final SparseArray<RegisterStore> registers;
     private final int callDepth;
 
-    ExecutionContext(int callDepth) {
+    VirtualMachineContext(int callDepth) {
         this(callDepth, 0);
     }
 
-    ExecutionContext(int callDepth, int registerCount) {
+    VirtualMachineContext(int callDepth, int registerCount) {
         registers = new SparseArray<RegisterStore>(registerCount);
 
         this.callDepth = callDepth;
     }
 
-    ExecutionContext(ExecutionContext ectx) {
+    VirtualMachineContext(VirtualMachineContext ectx) {
         registers = new SparseArray<RegisterStore>(ectx.registers.size());
         for (int i = 0; i < registers.size(); i++) {
             int key = ectx.registers.keyAt(i);

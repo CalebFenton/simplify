@@ -1,4 +1,4 @@
-package refactor.exec;
+package refactor.vm;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,7 +22,7 @@ public class VirtualMachine {
 
     private final Map<String, ContextGraph> methodInstructionGraphs;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodToTryCatchList;
-    private final Map<String, ClassExecutionContext> classNameToClassContext;
+    private final Map<String, ClassContext> classNameToClassContext;
     private final MethodExecutor methodExecutor;
     private final int maxNodeVisits;
     private final int maxCallDepth;
@@ -53,8 +53,8 @@ public class VirtualMachine {
         return result;
     }
 
-    private Map<String, ClassExecutionContext> buildNameToClassContext(List<BuilderClassDef> classDefs) {
-        Map<String, ClassExecutionContext> result = new HashMap<String, ClassExecutionContext>(classDefs.size());
+    private Map<String, ClassContext> buildNameToClassContext(List<BuilderClassDef> classDefs) {
+        Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
 
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderField field : classDef.getFields()) {
@@ -75,7 +75,7 @@ public class VirtualMachine {
         return methodToTryCatchList;
     }
 
-    public ClassExecutionContext getClassExecutionContext(String methodDescriptor) {
+    public ClassContext getClassExecutionContext(String methodDescriptor) {
         // Since this is called for the use or assignment of a class' field, clinit the class
         staticallyInitializeMethodClassIfNecessary(methodDescriptor);
 
@@ -126,7 +126,7 @@ public class VirtualMachine {
         }
     }
 
-    private ClassExecutionContext buildClassContext(ContextGraph graph) {
+    private ClassContext buildClassContext(ContextGraph graph) {
         // graph may be null!
         // TODO Auto-generated method stub
         return null;
@@ -153,7 +153,7 @@ public class VirtualMachine {
         return result;
     }
 
-    private static MethodExecutionContext buildRootContext(BuilderMethod method) {
+    private static MethodContext buildRootContext(BuilderMethod method) {
         method.getParameters();
         // TODO: implement
         return null;

@@ -1,7 +1,7 @@
-package refactor.op;
+package refactor.handler;
 
-import refactor.exec.MethodExecutionContext;
-import refactor.exec.VirtualMachine;
+import refactor.vm.MethodContext;
+import refactor.vm.VirtualMachine;
 
 public class ConstOpHandler extends OpHandler {
 
@@ -12,7 +12,7 @@ public class ConstOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodExecutionContext mectx) {
+    public int[] execute(MethodContext mectx) {
         // TODO Auto-generated method stub
         return null;
     }

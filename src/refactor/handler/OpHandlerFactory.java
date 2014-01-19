@@ -1,11 +1,11 @@
-package refactor.op;
+package refactor.handler;
 
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.iface.instruction.Instruction;
 
-import refactor.exec.VirtualMachine;
+import refactor.vm.VirtualMachine;
 import simplify.Main;
 
 public final class OpHandlerFactory {

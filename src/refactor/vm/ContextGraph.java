@@ -1,4 +1,4 @@
-package refactor.exec;
+package refactor.vm;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
@@ -14,8 +14,8 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.util.SparseArray;
 
-import refactor.op.OpHandler;
-import refactor.op.OpHandlerFactory;
+import refactor.handler.OpHandler;
+import refactor.handler.OpHandlerFactory;
 
 public class ContextGraph {
 
@@ -114,7 +114,7 @@ public class ContextGraph {
         return indexToNodePile.get(0).get(0);
     }
 
-    void setRootContext(MethodExecutionContext mectx) {
+    void setRootContext(MethodContext mectx) {
         getRootNode().setContext(mectx);
     }
 

@@ -1,10 +1,10 @@
-package refactor.op;
+package refactor.handler;
 
-import refactor.exec.MethodExecutionContext;
+import refactor.vm.MethodContext;
 
 public abstract class OpHandler {
 
-    public abstract int[] execute(MethodExecutionContext mectx);
+    public abstract int[] execute(MethodContext mectx);
 
     @Override
     public abstract String toString();

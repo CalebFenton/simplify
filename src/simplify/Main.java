@@ -23,8 +23,8 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
-import refactor.exec.ContextGraph;
-import refactor.exec.VirtualMachine;
+import refactor.vm.ContextGraph;
+import refactor.vm.VirtualMachine;
 import simplify.exec.MaxNodeVisitsExceeded;
 
 public class Main {

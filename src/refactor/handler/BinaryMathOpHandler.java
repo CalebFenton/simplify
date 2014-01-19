@@ -1,9 +1,9 @@
-package refactor.op;
+package refactor.handler;
 
 import java.util.logging.Logger;
 
-import refactor.exec.MethodExecutionContext;
-import refactor.exec.VirtualMachine;
+import refactor.vm.MethodContext;
+import refactor.vm.VirtualMachine;
 import simplify.Main;
 import simplify.exec.UnknownValue;
 
@@ -77,7 +77,7 @@ public class BinaryMathOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodExecutionContext mectx) {
+    public int[] execute(MethodContext mectx) {
         Object lhs = mectx.getRegisterValue(arg1Register, index);
         Object rhs = null;
         if (hasWideLiteral) {
