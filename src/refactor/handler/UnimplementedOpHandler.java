@@ -13,15 +13,15 @@ class UnimplementedOpHandler extends OpHandler {
     static UnimplementedOpHandler create(Instruction instruction, int address) {
         UnimplementedOpHandler result = null;
         Opcode op = instruction.getOpcode();
-        int nextInstructionAddress = address + instruction.getCodeUnits();
+        int childAddress = address + instruction.getCodeUnits();
         if (op.setsRegister()) {
             // Can assume it has at least one register
             int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
-            result = new UnimplementedOpHandler(address, op.name, nextInstructionAddress, op.canContinue(),
-                            op.canThrow(), op.setsResult(), destRegister);
+            result = new UnimplementedOpHandler(address, op.name, childAddress, op.canContinue(), op.canThrow(),
+                            op.setsResult(), destRegister);
         } else {
-            result = new UnimplementedOpHandler(address, op.name, nextInstructionAddress, op.canContinue(),
-                            op.canThrow(), op.setsResult());
+            result = new UnimplementedOpHandler(address, op.name, childAddress, op.canContinue(), op.canThrow(),
+                            op.setsResult());
         }
 
         return result;
@@ -29,22 +29,22 @@ class UnimplementedOpHandler extends OpHandler {
 
     private final int address;
     private final String opName;
-    private final int nextInstructionAddress;
+    private final int childAddress;
     private final boolean canContinue;
     private final boolean canThrow;
     private final boolean setsResult;
     private final int destRegister;
 
-    UnimplementedOpHandler(int address, String opName, int nextInstructionAddress, boolean canContinue,
-                    boolean canThrow, boolean setsResult) {
-        this(address, opName, nextInstructionAddress, canContinue, canThrow, setsResult, -1);
+    UnimplementedOpHandler(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
+                    boolean setsResult) {
+        this(address, opName, childAddress, canContinue, canThrow, setsResult, -1);
     }
 
-    UnimplementedOpHandler(int address, String opName, int nextInstructionAddress, boolean canContinue,
-                    boolean canThrow, boolean setsResult, int destRegister) {
+    UnimplementedOpHandler(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
+                    boolean setsResult, int destRegister) {
         this.address = address;
         this.opName = opName;
-        this.nextInstructionAddress = nextInstructionAddress;
+        this.childAddress = childAddress;
         this.canContinue = canContinue;
         this.canThrow = canThrow;
         this.setsResult = setsResult;
@@ -62,7 +62,7 @@ class UnimplementedOpHandler extends OpHandler {
         }
 
         if (canContinue) {
-            return new int[] { nextInstructionAddress };
+            return new int[] { childAddress };
         } else {
             return new int[0];
         }

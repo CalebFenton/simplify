@@ -23,7 +23,7 @@ public class ConstOpHandler extends OpHandler {
 
     static ConstOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
-        int nextInstructionAddress = address + instruction.getCodeUnits();
+        int childAddress = address + instruction.getCodeUnits();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
 
         ConstType constType = null;
@@ -46,41 +46,40 @@ public class ConstOpHandler extends OpHandler {
             constType = ConstType.NARROW;
         }
 
-        return new ConstOpHandler(address, opName, nextInstructionAddress, destRegister, constType, literal);
+        return new ConstOpHandler(address, opName, childAddress, destRegister, constType, literal);
     }
 
     private final int address;
     private final String opName;
-    private final int nextInstructionAddress;
+    private final int childAddress;
     private final int destRegister;
     private final ConstType constType;
     private final Object literal;
 
-    private ConstOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
-                    ConstType constType, Object literal) {
+    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, ConstType constType,
+                    Object literal) {
         this.address = address;
         this.opName = opName;
-        this.nextInstructionAddress = nextInstructionAddress;
+        this.childAddress = childAddress;
         this.destRegister = destRegister;
         this.constType = constType;
         this.literal = literal;
     }
 
-    private ConstOpHandler(int address, String opName, int nextInstructionAddress, int destRegister, String literal) {
-        this(address, opName, nextInstructionAddress, destRegister, ConstType.STRING, literal);
+    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, String literal) {
+        this(address, opName, childAddress, destRegister, ConstType.STRING, literal);
     }
 
-    private ConstOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
-                    TypeReference classRef) {
-        this(address, opName, nextInstructionAddress, destRegister, ConstType.CLASS, classRef);
+    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, TypeReference classRef) {
+        this(address, opName, childAddress, destRegister, ConstType.CLASS, classRef);
     }
 
-    private ConstOpHandler(int address, String opName, int nextInstructionAddress, int destRegister, int literal) {
-        this(address, opName, nextInstructionAddress, destRegister, ConstType.NARROW, literal);
+    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, int literal) {
+        this(address, opName, childAddress, destRegister, ConstType.NARROW, literal);
     }
 
-    private ConstOpHandler(int address, String opName, int nextInstructionAddress, int destRegister, long literal) {
-        this(address, opName, nextInstructionAddress, destRegister, ConstType.WIDE, literal);
+    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, long literal) {
+        this(address, opName, childAddress, destRegister, ConstType.WIDE, literal);
     }
 
     @Override
@@ -108,7 +107,7 @@ public class ConstOpHandler extends OpHandler {
 
     @Override
     public int[] getPossibleChildren() {
-        return new int[] { nextInstructionAddress };
+        return new int[] { childAddress };
     }
 
     @Override

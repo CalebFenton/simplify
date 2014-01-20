@@ -229,7 +229,7 @@ public class BinaryMathOpHandler extends OpHandler {
 
     static BinaryMathOpHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
-        int nextInstructionAddress = address + instruction.getCodeUnits();
+        int childAddress = address + instruction.getCodeUnits();
         TwoRegisterInstruction instr = (TwoRegisterInstruction) instruction;
         int destRegister = instr.getRegisterA();
         int arg1Register = instr.getRegisterB();
@@ -238,22 +238,22 @@ public class BinaryMathOpHandler extends OpHandler {
         if (instruction instanceof Instruction23x) {
             // add-int vAA, vBB, vCC
             int arg2Register = ((Instruction23x) instruction).getRegisterC();
-            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register,
                             arg2Register, false);
         } else if (instruction instanceof Instruction12x) {
             // add-int/2addr vAA, vBB
             int arg2Register = ((Instruction12x) instruction).getRegisterB();
-            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register,
                             arg2Register, false);
         } else if (instruction instanceof Instruction22b) {
             // add-int/lit8 vAA, vBB, #CC
             int arg2Literal = ((Instruction22b) instruction).getNarrowLiteral();
-            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register,
                             arg2Literal, true);
         } else if (instruction instanceof Instruction22s) {
             // add-int/lit16 vAA, vBB, #CCCC
             long arg2Literal = ((Instruction22s) instruction).getWideLiteral();
-            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register,
                             arg2Literal);
         }
 
@@ -262,7 +262,7 @@ public class BinaryMathOpHandler extends OpHandler {
 
     private final int address;
     private final String opName;
-    private final int nextInstructionAddress;
+    private final int childAddress;
     private final MathOperator mathOperator;
     private final MathOperandType mathOperandType;
     private final int destRegister;
@@ -273,11 +273,11 @@ public class BinaryMathOpHandler extends OpHandler {
     private boolean hasWideLiteral;
     private boolean hasNarrowLiteral;
 
-    private BinaryMathOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
+    private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister,
                     int arg1Register) {
         this.address = address;
         this.opName = opName;
-        this.nextInstructionAddress = nextInstructionAddress;
+        this.childAddress = childAddress;
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
 
@@ -285,9 +285,9 @@ public class BinaryMathOpHandler extends OpHandler {
         mathOperandType = getMathOperandType(opName);
     }
 
-    private BinaryMathOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
+    private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister,
                     int arg1Register, int otherValue, boolean hasLiteral) {
-        this(address, opName, nextInstructionAddress, destRegister, arg1Register);
+        this(address, opName, childAddress, destRegister, arg1Register);
 
         hasNarrowLiteral = hasLiteral;
 
@@ -298,9 +298,9 @@ public class BinaryMathOpHandler extends OpHandler {
         }
     }
 
-    private BinaryMathOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
+    private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister,
                     int arg1Register, long wideLiteral) {
-        this(address, opName, nextInstructionAddress, destRegister, arg1Register);
+        this(address, opName, childAddress, destRegister, arg1Register);
 
         this.wideLiteral = wideLiteral;
 
@@ -344,7 +344,7 @@ public class BinaryMathOpHandler extends OpHandler {
 
     @Override
     public int[] getPossibleChildren() {
-        return new int[] { nextInstructionAddress };
+        return new int[] { childAddress };
     }
 
     @Override
