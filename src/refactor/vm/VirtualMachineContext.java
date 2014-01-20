@@ -28,8 +28,40 @@ public class VirtualMachineContext {
         registers = new SparseArray<RegisterStore>(registerCount);
 
         for (int i = 0; i < registerCount; i++) {
-            RegisterStore registerStore = other.registers.get(i);
-            registers.put(i, registerStore);
+            RegisterStore otherRS = other.registers.get(i);
+            if (otherRS == null) {
+                continue;
+            }
+
+            if (registers.get(i) != null) {
+                // If this register is already populated, it was cloned in the coming inner loop for sharing the same
+                // value object reference with another register store.
+                continue;
+            }
+
+            /*
+             * Some registers may share the same object reference so this relationship must persist in clones. The
+             * relationship will not persist after the children of an initial branch, however, but this won't be a
+             * problem because each will be self-consistent and since each represents a possible execution path, they
+             * shouldn't need to examine each other except at optimization.
+             */
+            RegisterStore rsClone = new RegisterStore(otherRS);
+            for (int j = 0; j < registerCount; j++) {
+                if (j == i) {
+                    // Identity
+                    continue;
+                }
+
+                RegisterStore possibleMatch = registers.get(j);
+                if (possibleMatch == null) {
+                    continue;
+                }
+
+                if (otherRS.getValue() == possibleMatch.getValue()) {
+                    log.finest("context clone, r" + j + " == r" + i);
+                    registers.put(j, rsClone);
+                }
+            }
         }
     }
 

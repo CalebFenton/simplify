@@ -24,14 +24,16 @@ public class RegisterStore {
         this.referenced = referenced;
     }
 
-    @Override
-    public RegisterStore clone() {
+    RegisterStore(RegisterStore other) {
         Cloner cloner = new Cloner();
         Object valueClone = cloner.deepClone(getValue());
         TIntSet newUsed = new TIntHashSet(getUsed());
         TIntSet newReferenced = new TIntHashSet(getReferenced());
 
-        return new RegisterStore(getType(), valueClone, newUsed, newReferenced);
+        this.type = other.type;
+        this.setValue(valueClone);
+        this.used = newUsed;
+        this.referenced = newReferenced;
     }
 
     @Override
