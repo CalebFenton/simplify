@@ -29,7 +29,6 @@ public final class OpHandlerFactory {
         INVOKE,
         MONITOR,
         MOVE,
-        MOVE_RESULT,
         NEW_ARRAY,
         NEW_INSTANCE,
         RETURN,
@@ -272,14 +271,11 @@ public final class OpHandlerFactory {
         case MOVE_WIDE:
         case MOVE_WIDE_16:
         case MOVE_WIDE_FROM16:
-            break;
-
         case MOVE_EXCEPTION:
-            break;
-
         case MOVE_RESULT:
         case MOVE_RESULT_OBJECT:
         case MOVE_RESULT_WIDE:
+            result = OpType.MOVE;
             break;
 
         case NEW_ARRAY:
@@ -288,6 +284,7 @@ public final class OpHandlerFactory {
             break;
 
         case NOP:
+            // Handled by default.
             break;
 
         case PACKED_SWITCH:
@@ -303,7 +300,11 @@ public final class OpHandlerFactory {
         case RETURN:
         case RETURN_WIDE:
         case RETURN_OBJECT:
+            result = OpType.RETURN;
+            break;
+
         case RETURN_VOID:
+            // Like nop, it's handled fine by default.
             break;
 
         case SGET:
@@ -389,14 +390,14 @@ public final class OpHandlerFactory {
         case MONITOR:
             break;
         case MOVE:
-            break;
-        case MOVE_RESULT:
+            result = MoveOpHandler.create(instruction, address);
             break;
         case NEW_ARRAY:
             break;
         case NEW_INSTANCE:
             break;
         case RETURN:
+            result = ReturnOpHandler.create(instruction, address);
             break;
         case UNARY_MATH:
             break;
