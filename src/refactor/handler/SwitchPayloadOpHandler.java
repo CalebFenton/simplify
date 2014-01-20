@@ -45,8 +45,8 @@ public class SwitchPayloadOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodContext mectx) {
-        Object targetValue = mectx.getResultRegister().getValue();
+    public int[] execute(MethodContext mctx) {
+        Object targetValue = mctx.getResultRegister().getValue();
 
         if (targetValue instanceof UnknownValue) {
             return getPossibleChildren();

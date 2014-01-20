@@ -158,8 +158,6 @@ public final class OpHandlerFactory {
         case AGET_OBJECT:
         case AGET_SHORT:
         case AGET_WIDE:
-            break;
-
         case APUT:
         case APUT_BOOLEAN:
         case APUT_BYTE:
@@ -173,6 +171,7 @@ public final class OpHandlerFactory {
             break;
         case ARRAY_PAYLOAD:
             break;
+
         case CHECK_CAST:
             break;
 
@@ -212,10 +211,15 @@ public final class OpHandlerFactory {
         case LONG_TO_DOUBLE:
         case LONG_TO_FLOAT:
         case LONG_TO_INT:
+        case NEG_DOUBLE:
+        case NEG_FLOAT:
+        case NEG_INT:
+        case NEG_LONG:
+        case NOT_INT:
+        case NOT_LONG:
             break;
 
         case FILLED_NEW_ARRAY:
-            break;
         case FILLED_NEW_ARRAY_RANGE:
             break;
         case FILL_ARRAY_DATA:
@@ -249,6 +253,13 @@ public final class OpHandlerFactory {
         case IGET_OBJECT:
         case IGET_SHORT:
         case IGET_WIDE:
+        case IPUT:
+        case IPUT_BOOLEAN:
+        case IPUT_BYTE:
+        case IPUT_CHAR:
+        case IPUT_OBJECT:
+        case IPUT_SHORT:
+        case IPUT_WIDE:
             break;
 
         case INSTANCE_OF:
@@ -266,19 +277,11 @@ public final class OpHandlerFactory {
         case INVOKE_VIRTUAL_RANGE:
             break;
 
-        case IPUT:
-        case IPUT_BOOLEAN:
-        case IPUT_BYTE:
-        case IPUT_CHAR:
-        case IPUT_OBJECT:
-        case IPUT_SHORT:
-        case IPUT_WIDE:
-            break;
-
         case MONITOR_ENTER:
             break;
         case MONITOR_EXIT:
             break;
+
         case MOVE:
         case MOVE_16:
         case MOVE_FROM16:
@@ -292,18 +295,12 @@ public final class OpHandlerFactory {
 
         case MOVE_EXCEPTION:
             break;
+
         case MOVE_RESULT:
         case MOVE_RESULT_OBJECT:
         case MOVE_RESULT_WIDE:
             break;
-        case NEG_DOUBLE:
-            break;
-        case NEG_FLOAT:
-            break;
-        case NEG_INT:
-            break;
-        case NEG_LONG:
-            break;
+
         case NEW_ARRAY:
             break;
         case NEW_INSTANCE:
@@ -311,10 +308,7 @@ public final class OpHandlerFactory {
 
         case NOP:
             break;
-        case NOT_INT:
-            break;
-        case NOT_LONG:
-            break;
+
         case PACKED_SWITCH:
         case SPARSE_SWITCH:
             result = OpType.SWITCH;
@@ -338,8 +332,6 @@ public final class OpHandlerFactory {
         case SGET_OBJECT:
         case SGET_SHORT:
         case SGET_WIDE:
-            break;
-
         case SPUT:
         case SPUT_BOOLEAN:
         case SPUT_BYTE:
@@ -348,6 +340,7 @@ public final class OpHandlerFactory {
         case SPUT_SHORT:
         case SPUT_WIDE:
             break;
+
         case THROW:
             break;
         }

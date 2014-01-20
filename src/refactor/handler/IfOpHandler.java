@@ -119,13 +119,13 @@ public class IfOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodContext mectx) {
-        Object A = mectx.getRegisterValue(register1, address);
+    public int[] execute(MethodContext mctx) {
+        Object A = mctx.getRegisterValue(register1, address);
         Object B;
         if (compareToZero) {
             B = 0;
         } else {
-            B = mectx.getRegisterValue(register2, address);
+            B = mctx.getRegisterValue(register2, address);
         }
 
         // Ambiguous predicate. Must assume either branch.
