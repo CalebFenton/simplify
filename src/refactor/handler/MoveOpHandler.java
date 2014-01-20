@@ -58,18 +58,24 @@ public class MoveOpHandler extends OpHandler {
     @Override
     public int[] execute(MethodContext mctx) {
         RegisterStore target = null;
+        String type = null;
+        Object value = null;
         switch (moveType) {
         case EXCEPTION:
-            // TODO: implement with try/catch stuff
-            mctx.setRegister(destRegister, new RegisterStore("Ljava/lang/Exception;", new UnknownValue()));
-            break;
-        case REGISTER:
-            target = mctx.getResultRegister();
-            mctx.setRegister(destRegister, target);
+            // TODO: implement with try/catch stuff?
+            type = "Ljava/lang/Exception;";
+            value = new UnknownValue();
+            mctx.setRegister(destRegister, type, value, address);
             break;
         case RESULT:
+            target = mctx.getResultRegister(address);
+            mctx.setResultRegister(target);
+            break;
+        case REGISTER:
             target = mctx.getRegister(targetRegister, address);
-            mctx.setRegister(destRegister, target);
+            type = target.getType();
+            value = target.getValue();
+            mctx.setRegister(destRegister, type, value, address);
             break;
         }
 

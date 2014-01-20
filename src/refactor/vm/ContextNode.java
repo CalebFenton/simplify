@@ -28,8 +28,11 @@ public class ContextNode {
     }
 
     public int[] execute() {
+        System.out.println("executing with: " + mctx);
+
         int[] result = handler.execute(mctx);
 
+        System.out.println("after executing: " + mctx);
         return result;
     }
 
@@ -47,6 +50,8 @@ public class ContextNode {
     }
 
     private void setParent(ContextNode parent) {
+        // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
+        // Each execution of an instruction will have a new state.
         this.parent = parent;
     }
 

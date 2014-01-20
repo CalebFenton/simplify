@@ -9,7 +9,6 @@ import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
 import refactor.vm.MethodContext;
-import refactor.vm.RegisterStore;
 import refactor.vm.VirtualMachine;
 
 public class ConstOpHandler extends OpHandler {
@@ -100,7 +99,7 @@ public class ConstOpHandler extends OpHandler {
             break;
         }
 
-        mctx.setRegister(destRegister, new RegisterStore(type, literal));
+        mctx.setRegister(destRegister, type, literal, address);
 
         return getPossibleChildren();
     }

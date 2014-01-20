@@ -25,7 +25,6 @@ import org.jf.smali.smaliTreeWalker;
 
 import refactor.vm.ContextGraph;
 import refactor.vm.VirtualMachine;
-import simplify.exec.MaxNodeVisitsExceeded;
 
 public class Main {
 
@@ -61,12 +60,10 @@ public class Main {
             BuilderMethod method = methods.get(i);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
 
-            ContextGraph graph = null;
-            try {
-                graph = vm.execute(methodDescriptor);
-            } catch (MaxNodeVisitsExceeded ex) {
-                log.warning("Exceeded max node visits for " + ex.getMessage() + " in " + methodDescriptor
-                                + ", skipping.");
+            ContextGraph graph = vm.execute(methodDescriptor);
+
+            if (graph == null) {
+                log.info("Skipping " + methodDescriptor);
                 i++;
                 continue;
             }

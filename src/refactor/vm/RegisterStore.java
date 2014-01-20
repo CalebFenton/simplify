@@ -17,7 +17,7 @@ public class RegisterStore {
         this(type, value, new TIntHashSet(), new TIntHashSet());
     }
 
-    public RegisterStore(String type, Object value, TIntSet used, TIntSet referenced) {
+    RegisterStore(String type, Object value, TIntSet used, TIntSet referenced) {
         this.type = type;
         this.setValue(value);
         this.used = used;
@@ -26,9 +26,9 @@ public class RegisterStore {
 
     RegisterStore(RegisterStore other) {
         Cloner cloner = new Cloner();
-        Object valueClone = cloner.deepClone(getValue());
-        TIntSet newUsed = new TIntHashSet(getUsed());
-        TIntSet newReferenced = new TIntHashSet(getReferenced());
+        Object valueClone = cloner.deepClone(other.getValue());
+        TIntSet newUsed = new TIntHashSet(other.getUsed());
+        TIntSet newReferenced = new TIntHashSet(other.getReferenced());
 
         this.type = other.type;
         this.setValue(valueClone);

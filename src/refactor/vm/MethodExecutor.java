@@ -20,13 +20,18 @@ public class MethodExecutor {
         this.vm = vm;
     }
 
-    ContextGraph execute(String methodDescriptor) throws MaxNodeVisitsExceeded {
+    ContextGraph execute(String methodDescriptor, MethodContext mctx) throws MaxNodeVisitsExceeded {
         log.info("Executing " + methodDescriptor);
 
         ContextGraph graph = vm.getInstructionGraph(methodDescriptor);
         TIntIntMap indexToNodeVisitCounts = new TIntIntHashMap(graph.getNodeCount());
         Deque<ContextNode> executeStack = new ArrayDeque<ContextNode>();
-        executeStack.push(graph.getRootNode());
+        ContextNode rootNode = graph.getRootNode();
+        if (mctx != null) {
+            // If called with a context, it means we're being invoked from within another method.
+            rootNode.setContext(mctx);
+        }
+        executeStack.push(rootNode);
 
         do {
             ContextNode currentNode = executeStack.poll();
@@ -35,15 +40,15 @@ public class MethodExecutor {
             recordNodeVisitation(indexToNodeVisitCounts, currentNode, vm.getMaxNodeVisits());
 
             int[] childAddresses = currentNode.execute();
-
             for (int address : childAddresses) {
                 // Every node visit means a new clone on the pile. This way, piles can be examined by the optimizer for
                 // stuff like consensus of certain register values.
-                ContextNode childNode = new ContextNode(graph.getTemplateNode(address));
-                childNode.setContext(new MethodContext(currentNode.getContext()));
-
-                executeStack.push(childNode);
+                ContextNode child = new ContextNode(graph.getTemplateNode(address));
+                child.setContext(new MethodContext(currentNode.getContext()));
+                currentNode.addChild(child);
             }
+
+            executeStack.addAll(currentNode.getChildren());
         } while (executeStack.peek() != null);
 
         return graph;

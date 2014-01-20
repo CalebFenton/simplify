@@ -44,11 +44,20 @@ public class VirtualMachine {
         methodExecutor = new MethodExecutor(this);
     }
 
-    public ContextGraph execute(String methodDescriptor) throws MaxNodeVisitsExceeded {
+    public ContextGraph execute(String methodDescriptor) {
+        return execute(methodDescriptor, null);
+    }
+
+    public ContextGraph execute(String methodDescriptor, MethodContext mctx) {
         // Invoking a method (including <init>) is a reason to statually initialize a class.
         staticallyInitializeMethodClassIfNecessary(methodDescriptor);
 
-        ContextGraph result = methodExecutor.execute(methodDescriptor);
+        ContextGraph result = null;
+        try {
+            result = methodExecutor.execute(methodDescriptor, mctx);
+        } catch (MaxNodeVisitsExceeded e) {
+            log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor);
+        }
 
         return result;
     }
@@ -117,13 +126,9 @@ public class VirtualMachine {
             return;
         }
 
-        try {
-            // Don't need the graph. get/put methods will be setting up the class contexts.
-            execute(clinitDescriptor);
-        } catch (MaxNodeVisitsExceeded ex) {
-            log.warning("Node visits exceeded  " + clinitDescriptor + ", skipping.\n" + ex.getMessage());
-            ex.printStackTrace();
-        }
+        // Just need to execute, don't need the resulting graph. Any class member sets will be recorded by the op
+        // handler in the ClassContext.
+        execute(clinitDescriptor);
     }
 
     private ClassContext buildClassContext(ContextGraph graph) {
@@ -158,7 +163,7 @@ public class VirtualMachine {
         int registerCount = method.getImplementation().getRegisterCount();
         int parameterCount = parameters.size();
 
-        MethodContext result = new MethodContext(registerCount, parameterCount);
+        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
 
         // Assume all input values are unknown.
         for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
@@ -168,6 +173,10 @@ public class VirtualMachine {
         }
 
         return result;
+    }
+
+    public boolean isMethodDefined(String methodDescriptor) {
+        return methodInstructionGraphs.containsKey(methodDescriptor);
     }
 
     public int getMaxNodeVisits() {
