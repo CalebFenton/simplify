@@ -16,7 +16,7 @@
 .method public static packed_switch(I)V
     .locals 1
 
-	packed-switch p1, :pswitch_data_0
+	packed-switch p0, :pswitch_data_0
 
 	:pswitch_0
 	const/4 v0, 0x0
@@ -47,7 +47,7 @@
 .method public static sparse_switch(I)V
     .locals 1
 
-	sparse-switch p1, :sswitch_data_0
+	sparse-switch p0, :sswitch_data_0
 
 	:sswitch_0
 	const/4 v0, 0x0
