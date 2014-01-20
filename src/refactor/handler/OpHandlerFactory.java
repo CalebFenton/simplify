@@ -3,7 +3,7 @@ package refactor.handler;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
-import org.jf.dexlib2.iface.instruction.Instruction;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 import refactor.vm.VirtualMachine;
 import simplify.Main;
@@ -17,6 +17,8 @@ public final class OpHandlerFactory {
         CONST,
         IF,
         GOTO,
+        SWITCH,
+        SWITCH_PAYLOAD,
         UNIMPLEMENTED
     };
 
@@ -27,24 +29,31 @@ public final class OpHandlerFactory {
         this.vm = vm;
     }
 
-    public OpHandler create(Instruction instruction, int index) {
+    public OpHandler create(BuilderInstruction instruction, int address) {
         OpHandler result = null;
+
         OpType factoryType = getFactoryType(instruction.getOpcode());
         switch (factoryType) {
         case BINARY_MATH:
-            result = BinaryMathOpHandler.create(instruction, index);
+            result = BinaryMathOpHandler.create(instruction, address);
             break;
         case CONST:
-            result = ConstOpHandler.create(instruction, index);
+            result = ConstOpHandler.create(instruction, address);
             break;
         case GOTO:
-            result = GotoOpHandler.create(instruction, index);
+            result = GotoOpHandler.create(instruction, address);
             break;
         case IF:
-            result = IfOpHandler.create(instruction, index);
+            result = IfOpHandler.create(instruction, address);
+            break;
+        case SWITCH:
+            result = SwitchOpHandler.create(instruction, address);
+            break;
+        case SWITCH_PAYLOAD:
+            result = SwitchPayloadOpHandler.create(instruction, address);
             break;
         case UNIMPLEMENTED:
-            result = UnimplementedOpHandler.create(instruction, index);
+            result = UnimplementedOpHandler.create(instruction, address);
             break;
         }
 
@@ -307,15 +316,21 @@ public final class OpHandlerFactory {
         case NOT_LONG:
             break;
         case PACKED_SWITCH:
+        case SPARSE_SWITCH:
+            result = OpType.SWITCH;
             break;
+
         case PACKED_SWITCH_PAYLOAD:
+        case SPARSE_SWITCH_PAYLOAD:
+            result = OpType.SWITCH_PAYLOAD;
             break;
+
         case RETURN:
         case RETURN_WIDE:
         case RETURN_OBJECT:
-            break;
         case RETURN_VOID:
             break;
+
         case SGET:
         case SGET_BOOLEAN:
         case SGET_BYTE:
@@ -325,10 +340,6 @@ public final class OpHandlerFactory {
         case SGET_WIDE:
             break;
 
-        case SPARSE_SWITCH:
-            break;
-        case SPARSE_SWITCH_PAYLOAD:
-            break;
         case SPUT:
         case SPUT_BOOLEAN:
         case SPUT_BYTE:

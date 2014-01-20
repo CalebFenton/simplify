@@ -1,6 +1,5 @@
 package refactor.handler;
 
-import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
@@ -8,22 +7,21 @@ import refactor.vm.MethodContext;
 
 public class GotoOpHandler extends OpHandler {
 
-    static GotoOpHandler create(Instruction instruction, int index) {
+    static GotoOpHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
 
-        int codeAddress = ((BuilderInstruction) instruction).getLocation().getCodeAddress();
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = codeAddress + branchOffset;
+        int targetAddress = address + branchOffset;
 
-        return new GotoOpHandler(index, opName, targetAddress);
+        return new GotoOpHandler(address, opName, targetAddress);
     }
 
-    private final int index;
+    private final int address;
     private final String opName;
     private final int targetAddress;
 
-    private GotoOpHandler(int index, String opName, int targetAddress) {
-        this.index = index;
+    private GotoOpHandler(int address, String opName, int targetAddress) {
+        this.address = address;
         this.opName = opName;
         this.targetAddress = targetAddress;
     }
@@ -34,8 +32,8 @@ public class GotoOpHandler extends OpHandler {
     }
 
     @Override
-    public int getIndex() {
-        return index;
+    public int getAddress() {
+        return address;
     }
 
     @Override

@@ -3,7 +3,6 @@ package refactor.handler;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.builder.CompareToBuilder;
-import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
@@ -25,7 +24,7 @@ public class IfOpHandler extends OpHandler {
         GREATOR_OR_EQUAL
     }
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());;
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static IfType getIfType(String opName) {
         IfType result = null;
@@ -74,10 +73,9 @@ public class IfOpHandler extends OpHandler {
         return result;
     }
 
-    static IfOpHandler create(Instruction instruction, int index) {
-        int codeAddress = ((BuilderInstruction) instruction).getLocation().getCodeAddress();
+    static IfOpHandler create(Instruction instruction, int address) {
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = codeAddress + branchOffset;
+        int targetAddress = address + branchOffset;
 
         String opName = instruction.getOpcode().name;
         IfType ifType = getIfType(opName);
@@ -87,14 +85,14 @@ public class IfOpHandler extends OpHandler {
             // if-* vA, vB, :label
             Instruction22t instr = (Instruction22t) instruction;
 
-            return new IfOpHandler(index, opName, ifType, targetAddress, register1, instr.getRegisterB());
+            return new IfOpHandler(address, opName, ifType, targetAddress, register1, instr.getRegisterB());
         } else {
             // if-*z vA, vB, :label (Instruction 21t)
-            return new IfOpHandler(index, opName, ifType, targetAddress, register1);
+            return new IfOpHandler(address, opName, ifType, targetAddress, register1);
         }
     }
 
-    private final int index;
+    private final int address;
     private final String opName;
     private final int targetAddress;
     private final IfType ifType;
@@ -105,8 +103,8 @@ public class IfOpHandler extends OpHandler {
 
     private boolean compareToZero;
 
-    private IfOpHandler(int index, String opName, IfType ifType, int targetAddress, int register1) {
-        this.index = index;
+    private IfOpHandler(int address, String opName, IfType ifType, int targetAddress, int register1) {
+        this.address = address;
         this.opName = opName;
         this.ifType = ifType;
         this.targetAddress = targetAddress;
@@ -114,20 +112,20 @@ public class IfOpHandler extends OpHandler {
         compareToZero = true;
     }
 
-    private IfOpHandler(int index, String opName, IfType ifType, int targetAddress, int register1, int register2) {
-        this(index, opName, ifType, targetAddress, register1);
+    private IfOpHandler(int address, String opName, IfType ifType, int targetAddress, int register1, int register2) {
+        this(address, opName, ifType, targetAddress, register1);
         this.register2 = register2;
         compareToZero = false;
     }
 
     @Override
     public int[] execute(MethodContext mectx) {
-        Object A = mectx.getRegisterValue(register1, index);
+        Object A = mectx.getRegisterValue(register1, address);
         Object B;
         if (compareToZero) {
             B = 0;
         } else {
-            B = mectx.getRegisterValue(register2, index);
+            B = mectx.getRegisterValue(register2, address);
         }
 
         // Ambiguous predicate. Must assume either branch.
@@ -147,8 +145,8 @@ public class IfOpHandler extends OpHandler {
     }
 
     @Override
-    public int getIndex() {
-        return index;
+    public int getAddress() {
+        return address;
     }
 
     @Override

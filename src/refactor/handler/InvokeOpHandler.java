@@ -35,7 +35,7 @@ public class InvokeOpHandler extends OpHandler {
     }
 
     @Override
-    public int getIndex() {
+    public int getAddress() {
         // TODO Auto-generated method stub
         return 0;
     }

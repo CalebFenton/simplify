@@ -34,7 +34,7 @@ public class Main {
     private static final Level LOG_LEVEL = Level.FINE;
 
     private static final int API_LEVEL = 15;
-    private static final int MAX_NODE_VISITS = 1000;
+    private static final int MAX_NODE_VISITS = 10;
     private static final int MAX_CALL_DEPTH = 10;
 
     public static void main(String[] argv) throws Exception {

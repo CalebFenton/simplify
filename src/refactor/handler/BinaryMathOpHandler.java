@@ -10,7 +10,6 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 import refactor.vm.MethodContext;
-import refactor.vm.VirtualMachine;
 import simplify.Main;
 import simplify.exec.UnknownValue;
 
@@ -228,8 +227,9 @@ public class BinaryMathOpHandler extends OpHandler {
         return result;
     }
 
-    static BinaryMathOpHandler create(Instruction instruction, int index) {
+    static BinaryMathOpHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
+        int nextInstructionAddress = address + instruction.getCodeUnits();
         TwoRegisterInstruction instr = (TwoRegisterInstruction) instruction;
         int destRegister = instr.getRegisterA();
         int arg1Register = instr.getRegisterB();
@@ -238,26 +238,31 @@ public class BinaryMathOpHandler extends OpHandler {
         if (instruction instanceof Instruction23x) {
             // add-int vAA, vBB, vCC
             int arg2Register = ((Instruction23x) instruction).getRegisterC();
-            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Register, false);
+            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+                            arg2Register, false);
         } else if (instruction instanceof Instruction12x) {
             // add-int/2addr vAA, vBB
             int arg2Register = ((Instruction12x) instruction).getRegisterB();
-            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Register, false);
+            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+                            arg2Register, false);
         } else if (instruction instanceof Instruction22b) {
             // add-int/lit8 vAA, vBB, #CC
             int arg2Literal = ((Instruction22b) instruction).getNarrowLiteral();
-            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Literal, true);
+            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+                            arg2Literal, true);
         } else if (instruction instanceof Instruction22s) {
             // add-int/lit16 vAA, vBB, #CCCC
             long arg2Literal = ((Instruction22s) instruction).getWideLiteral();
-            result = new BinaryMathOpHandler(index, opName, destRegister, arg1Register, arg2Literal);
+            result = new BinaryMathOpHandler(address, opName, nextInstructionAddress, destRegister, arg1Register,
+                            arg2Literal);
         }
 
         return result;
     }
 
-    private final int index;
+    private final int address;
     private final String opName;
+    private final int nextInstructionAddress;
     private final MathOperator mathOperator;
     private final MathOperandType mathOperandType;
     private final int destRegister;
@@ -268,9 +273,11 @@ public class BinaryMathOpHandler extends OpHandler {
     private boolean hasWideLiteral;
     private boolean hasNarrowLiteral;
 
-    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register) {
-        this.index = index;
+    private BinaryMathOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
+                    int arg1Register) {
+        this.address = address;
         this.opName = opName;
+        this.nextInstructionAddress = nextInstructionAddress;
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
 
@@ -278,9 +285,9 @@ public class BinaryMathOpHandler extends OpHandler {
         mathOperandType = getMathOperandType(opName);
     }
 
-    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, int otherValue,
-                    boolean hasLiteral) {
-        this(index, opName, destRegister, arg1Register);
+    private BinaryMathOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
+                    int arg1Register, int otherValue, boolean hasLiteral) {
+        this(address, opName, nextInstructionAddress, destRegister, arg1Register);
 
         hasNarrowLiteral = hasLiteral;
 
@@ -291,8 +298,9 @@ public class BinaryMathOpHandler extends OpHandler {
         }
     }
 
-    private BinaryMathOpHandler(int index, String opName, int destRegister, int arg1Register, long wideLiteral) {
-        this(index, opName, destRegister, arg1Register);
+    private BinaryMathOpHandler(int address, String opName, int nextInstructionAddress, int destRegister,
+                    int arg1Register, long wideLiteral) {
+        this(address, opName, nextInstructionAddress, destRegister, arg1Register);
 
         this.wideLiteral = wideLiteral;
 
@@ -301,14 +309,14 @@ public class BinaryMathOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mectx) {
-        Object lhs = mectx.getRegisterValue(arg1Register, index);
+        Object lhs = mectx.getRegisterValue(arg1Register, address);
         Object rhs = null;
         if (hasWideLiteral) {
             rhs = wideLiteral;
         } else if (hasNarrowLiteral) {
             rhs = narrowLiteral;
         } else {
-            rhs = mectx.getRegisterValue(arg2Register, index);
+            rhs = mectx.getRegisterValue(arg2Register, address);
         }
 
         log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
@@ -324,19 +332,19 @@ public class BinaryMathOpHandler extends OpHandler {
 
         // Destination register should be same as lhs op
         String type = mectx.peekRegisterType(arg1Register);
-        mectx.addRegister(destRegister, type, result, index);
+        mectx.setRegister(destRegister, type, result, address);
 
-        return new int[] { VirtualMachine.ContinueNextInstruction };
+        return getPossibleChildren();
     }
 
     @Override
-    public int getIndex() {
-        return index;
+    public int getAddress() {
+        return address;
     }
 
     @Override
     public int[] getPossibleChildren() {
-        return new int[] { VirtualMachine.ContinueNextInstruction };
+        return new int[] { nextInstructionAddress };
     }
 
     @Override

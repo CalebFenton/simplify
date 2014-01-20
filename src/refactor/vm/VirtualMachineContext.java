@@ -5,13 +5,13 @@ import java.util.logging.Logger;
 import org.jf.util.SparseArray;
 
 import simplify.Main;
-import simplify.exec.RegisterStore;
 
 public class VirtualMachineContext {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private final SparseArray<RegisterStore> registers;
+    private final int registerCount;
 
     VirtualMachineContext() {
         this(0);
@@ -19,36 +19,39 @@ public class VirtualMachineContext {
 
     VirtualMachineContext(int registerCount) {
         registers = new SparseArray<RegisterStore>(registerCount);
+
+        this.registerCount = registerCount;
     }
 
-    VirtualMachineContext(VirtualMachineContext ectx) {
-        registers = new SparseArray<RegisterStore>(ectx.registers.size());
-        for (int i = 0; i < registers.size(); i++) {
-            int key = ectx.registers.keyAt(i);
-            RegisterStore value = ectx.registers.get(key);
-            registers.put(key, value);
+    VirtualMachineContext(VirtualMachineContext other) {
+        registerCount = other.getRegisterCount();
+        registers = new SparseArray<RegisterStore>(registerCount);
+
+        for (int i = 0; i < registerCount; i++) {
+            RegisterStore registerStore = other.registers.get(i);
+            registers.put(i, registerStore);
         }
     }
 
     public int getRegisterCount() {
-        return registers.size();
+        return registerCount;
     }
 
-    public void addRegister(int register, RegisterStore rs) {
+    public void setRegister(int register, RegisterStore rs) {
         StackTraceElement[] ste = Thread.currentThread().getStackTrace();
         StringBuilder sb = new StringBuilder();
         // for (int i = 2; i < ste.length; i++) {
         // sb.append("\n\t").append(ste[i]);
         // }
-        log.finer("Adding register @" + register + " rs:" + rs + sb.toString());
+        log.info("Setting register @" + register + " rs:" + rs + sb.toString());
 
         registers.put(register, rs);
     }
 
-    public void addRegister(int register, String type, Object value, int index) {
+    public void setRegister(int register, String type, Object value, int index) {
         RegisterStore current = new RegisterStore(type, value);
         current.getReferenced().add(index);
-        addRegister(register, current);
+        setRegister(register, current);
     }
 
     public RegisterStore getRegister(int register, int index) {
@@ -72,7 +75,7 @@ public class VirtualMachineContext {
         RegisterStore rs = registers.get(register);
 
         if (rs == null) {
-            log.warning("r" + register + " is being read but is null, likely a mistake!\n" + this);
+            log.warning("r" + register + " is being read but is null, likely a mistake! Context:\n" + this);
         }
 
         return rs;
@@ -94,18 +97,25 @@ public class VirtualMachineContext {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        sb.append("registers: ").append(registers.size());
+        int registerCount = getRegisterCount();
+        sb.append("registers: ").append(registerCount);
 
-        for (int i = 0; i < registers.size(); i++) {
+        if (registerCount > 0) {
+            sb.append("\n");
+        }
+
+        for (int i = 0; i < registerCount; i++) {
             RegisterStore rs = registers.get(i);
             if (rs == null) {
                 continue;
             }
 
-            sb.append("[").append("r").append(i).append(": ").append(rs).append(",\n");
+            int register = registers.keyAt(i);
+            sb.append("[").append("r").append(register).append(": ").append(rs).append(",\n");
         }
+        sb.setLength(sb.length() - 2);
+        sb.append("]");
 
-        return sb.deleteCharAt(sb.length() - 1).toString();
+        return sb.toString();
     }
-
 }

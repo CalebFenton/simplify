@@ -36,7 +36,14 @@ public class MethodExecutor {
 
             int[] childAddresses = currentNode.execute();
 
-            addChildNodes(executeStack, graph, childAddresses, currentNode.getIndex());
+            for (int address : childAddresses) {
+                // Every node visit means a new clone on the pile. This way, piles can be examined by the optimizer for
+                // stuff like consensus of certain register values.
+                ContextNode childNode = new ContextNode(graph.getTemplateNode(address));
+                childNode.setContext(new MethodContext(currentNode.getContext()));
+
+                executeStack.push(childNode);
+            }
         } while (executeStack.peek() != null);
 
         return graph;
@@ -54,20 +61,4 @@ public class MethodExecutor {
         indexToNodeVisitCount.put(index, visitCount + 1);
     }
 
-    private static void addChildNodes(Deque<ContextNode> executeStack, ContextGraph graph, int[] childAddresses,
-                    int currentIndex) {
-        for (int address : childAddresses) {
-            ContextNode childNode;
-            if (address == VirtualMachine.ContinueNextInstruction) {
-                int index = currentIndex + 1;
-                childNode = graph.getTemplateNodeByIndex(index);
-            } else {
-                childNode = graph.getTemplateNodeByAddress(address);
-            }
-
-            // Every node visit means a new clone on the pile. This way, piles can be examined by the optimizer for
-            // stuff like consensus of certain register values.
-            executeStack.push(new ContextNode(childNode));
-        }
-    }
 }

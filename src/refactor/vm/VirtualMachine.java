@@ -12,9 +12,11 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 
 import simplify.Main;
 import simplify.exec.MaxNodeVisitsExceeded;
+import simplify.exec.UnknownValue;
 
 public class VirtualMachine {
 
@@ -27,8 +29,6 @@ public class VirtualMachine {
     private final int maxNodeVisits;
     private final int maxCallDepth;
     private final List<String> initializedClasses;
-
-    public static final int ContinueNextInstruction = -1;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;
@@ -154,9 +154,20 @@ public class VirtualMachine {
     }
 
     private static MethodContext buildRootContext(BuilderMethod method) {
-        method.getParameters();
-        // TODO: implement
-        return null;
+        List<? extends BuilderMethodParameter> parameters = method.getParameters();
+        int registerCount = method.getImplementation().getRegisterCount();
+        int parameterCount = parameters.size();
+
+        MethodContext result = new MethodContext(registerCount, parameterCount);
+
+        // Assume all input values are unknown.
+        for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
+            BuilderMethodParameter parameter = parameters.get(paramRegister);
+            String type = parameter.getType();
+            result.setParameter(paramRegister, new RegisterStore(type, new UnknownValue()));
+        }
+
+        return result;
     }
 
     public int getMaxNodeVisits() {

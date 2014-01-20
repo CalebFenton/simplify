@@ -10,7 +10,7 @@ public class ContextNode {
     private final OpHandler handler;
     private final List<ContextNode> children;
     private ContextNode parent;
-    private MethodContext mectx;
+    private MethodContext mctx;
 
     ContextNode(OpHandler handler) {
         this.handler = handler;
@@ -21,21 +21,24 @@ public class ContextNode {
 
     ContextNode(ContextNode node) {
         this(node.handler);
-        if (node.mectx != null) {
-            mectx = new MethodContext(node.mectx);
+
+        if (node.mctx != null) {
+            mctx = new MethodContext(node.mctx);
         }
     }
 
     public int[] execute() {
-        return handler.execute(mectx);
+        int[] result = handler.execute(mctx);
+
+        return result;
     }
 
     void setContext(MethodContext mectx) {
-        this.mectx = mectx;
+        this.mctx = mectx;
     }
 
     public MethodContext getContext() {
-        return mectx;
+        return mctx;
     }
 
     public void addChild(ContextNode child) {
@@ -48,7 +51,7 @@ public class ContextNode {
     }
 
     public int getIndex() {
-        return handler.getIndex();
+        return handler.getAddress();
     }
 
     public ContextNode getParent() {

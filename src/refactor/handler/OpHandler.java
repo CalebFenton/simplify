@@ -11,5 +11,5 @@ public abstract class OpHandler {
 
     public abstract int[] getPossibleChildren();
 
-    public abstract int getIndex();
+    public abstract int getAddress();
 }
