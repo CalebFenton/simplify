@@ -52,13 +52,13 @@ class UnimplementedOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodContext mectx) {
+    public int[] execute(MethodContext mctx) {
         if (setsResult) {
-            mectx.setResultRegister(new RegisterStore("?", new UnknownValue()));
+            mctx.setResultRegister(new RegisterStore("?", new UnknownValue()));
         }
 
         if (destRegister >= 0) {
-            mectx.setRegister(destRegister, "?", new UnknownValue(), address);
+            mctx.setRegister(destRegister, "?", new UnknownValue(), address);
         }
 
         if (canContinue) {

@@ -308,15 +308,15 @@ public class BinaryMathOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodContext mectx) {
-        Object lhs = mectx.getRegisterValue(arg1Register, address);
+    public int[] execute(MethodContext mctx) {
+        Object lhs = mctx.getRegisterValue(arg1Register, address);
         Object rhs = null;
         if (hasWideLiteral) {
             rhs = wideLiteral;
         } else if (hasNarrowLiteral) {
             rhs = narrowLiteral;
         } else {
-            rhs = mectx.getRegisterValue(arg2Register, address);
+            rhs = mctx.getRegisterValue(arg2Register, address);
         }
 
         log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
@@ -331,8 +331,8 @@ public class BinaryMathOpHandler extends OpHandler {
         }
 
         // Destination register should be same as lhs op
-        String type = mectx.peekRegisterType(arg1Register);
-        mectx.setRegister(destRegister, type, result, address);
+        String type = mctx.peekRegisterType(arg1Register);
+        mctx.setRegister(destRegister, type, result, address);
 
         return getPossibleChildren();
     }

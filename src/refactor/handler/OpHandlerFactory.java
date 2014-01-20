@@ -38,7 +38,7 @@ public final class OpHandlerFactory {
             result = BinaryMathOpHandler.create(instruction, address);
             break;
         case CONST:
-            result = ConstOpHandler.create(instruction, address);
+            result = ConstOpHandler.create(instruction, address, vm);
             break;
         case GOTO:
             result = GotoOpHandler.create(instruction, address);
@@ -194,7 +194,7 @@ public final class OpHandlerFactory {
         case CONST_WIDE_16:
         case CONST_WIDE_32:
         case CONST_WIDE_HIGH16:
-            // result = OpType.CONST;
+            result = OpType.CONST;
             break;
 
         case DOUBLE_TO_FLOAT:

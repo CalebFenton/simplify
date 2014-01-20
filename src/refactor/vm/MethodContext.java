@@ -19,13 +19,13 @@ public class MethodContext extends VirtualMachineContext {
         this.callDepth = callDepth;
     }
 
-    MethodContext(MethodContext mectx) {
-        super(mectx);
+    MethodContext(MethodContext mctx) {
+        super(mctx);
 
-        parameterCount = mectx.parameterCount;
-        callDepth = mectx.callDepth;
-        resultRegister = mectx.resultRegister;
-        returnRegister = mectx.returnRegister;
+        parameterCount = mctx.parameterCount;
+        callDepth = mctx.callDepth;
+        resultRegister = mctx.resultRegister;
+        returnRegister = mctx.returnRegister;
     }
 
     public int getCallDepth() {

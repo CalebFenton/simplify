@@ -33,8 +33,8 @@ public class ContextNode {
         return result;
     }
 
-    void setContext(MethodContext mectx) {
-        this.mctx = mectx;
+    void setContext(MethodContext mctx) {
+        this.mctx = mctx;
     }
 
     public MethodContext getContext() {
@@ -50,16 +50,16 @@ public class ContextNode {
         this.parent = parent;
     }
 
-    public int getIndex() {
-        return handler.getAddress();
-    }
-
     public ContextNode getParent() {
         return parent;
     }
 
     public List<ContextNode> getChildren() {
         return children;
+    }
+
+    public int getAddress() {
+        return handler.getAddress();
     }
 
     @Override

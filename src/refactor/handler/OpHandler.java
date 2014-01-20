@@ -4,7 +4,7 @@ import refactor.vm.MethodContext;
 
 public abstract class OpHandler {
 
-    public abstract int[] execute(MethodContext mectx);
+    public abstract int[] execute(MethodContext mctx);
 
     @Override
     public abstract String toString();

@@ -90,8 +90,8 @@ public class ContextGraph {
         return addressToNodePile.size();
     }
 
-    void setRootContext(MethodContext mectx) {
-        getRootNode().setContext(mectx);
+    void setRootContext(MethodContext mctx) {
+        getRootNode().setContext(mctx);
     }
 
     public TIntList getTerminalIndicies() {

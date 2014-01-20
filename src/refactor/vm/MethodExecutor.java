@@ -49,16 +49,16 @@ public class MethodExecutor {
         return graph;
     }
 
-    private static void recordNodeVisitation(TIntIntMap indexToNodeVisitCount, ContextNode node, int maxNodeVisits)
+    private static void recordNodeVisitation(TIntIntMap addressToNodeVisitCount, ContextNode node, int maxNodeVisits)
                     throws MaxNodeVisitsExceeded {
-        int index = node.getIndex();
-        int visitCount = indexToNodeVisitCount.get(index);
+        int address = node.getAddress();
+        int visitCount = addressToNodeVisitCount.get(address);
 
         if (visitCount > maxNodeVisits) {
             throw new MaxNodeVisitsExceeded(node.toString());
         }
 
-        indexToNodeVisitCount.put(index, visitCount + 1);
+        addressToNodeVisitCount.put(address, visitCount + 1);
     }
 
 }
