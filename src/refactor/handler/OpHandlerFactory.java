@@ -10,55 +10,36 @@ import simplify.Main;
 
 public final class OpHandlerFactory {
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
-
     private enum OpType {
+        ACCESS_ARRAY,
+        ACCESS_INSTANCE,
+        ACCESS_STATIC,
+        ARRAY_LENGTH,
+        ARRAY_PAYLOAD,
         BINARY_MATH,
+        CHECK_CAST,
+        COMPARE,
         CONST,
-        IF,
+        FILL_ARRAY_DATA,
+        FILLED_NEW_ARRAY,
         GOTO,
+        IF,
+        INSTANCE_ACCESS,
+        INSTANCE_OF,
+        INVOKE,
+        MONITOR,
+        MOVE,
+        MOVE_RESULT,
+        NEW_ARRAY,
+        NEW_INSTANCE,
+        RETURN,
         SWITCH,
         SWITCH_PAYLOAD,
+        UNARY_MATH,
         UNIMPLEMENTED
-    };
-
-    private final VirtualMachine vm;
-
-    public OpHandlerFactory(VirtualMachine vm, String methodDescriptor) {
-        // vm gives class and try/catch block access to factory type factories
-        this.vm = vm;
     }
 
-    public OpHandler create(BuilderInstruction instruction, int address) {
-        OpHandler result = null;
-
-        OpType factoryType = getFactoryType(instruction.getOpcode());
-        switch (factoryType) {
-        case BINARY_MATH:
-            result = BinaryMathOpHandler.create(instruction, address);
-            break;
-        case CONST:
-            result = ConstOpHandler.create(instruction, address, vm);
-            break;
-        case GOTO:
-            result = GotoOpHandler.create(instruction, address);
-            break;
-        case IF:
-            result = IfOpHandler.create(instruction, address);
-            break;
-        case SWITCH:
-            result = SwitchOpHandler.create(instruction, address);
-            break;
-        case SWITCH_PAYLOAD:
-            result = SwitchPayloadOpHandler.create(instruction, address);
-            break;
-        case UNIMPLEMENTED:
-            result = UnimplementedOpHandler.create(instruction, address);
-            break;
-        }
-
-        return result;
-    }
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());;
 
     @SuppressWarnings("incomplete-switch")
     private static OpType getFactoryType(Opcode op) {
@@ -342,6 +323,82 @@ public final class OpHandlerFactory {
             break;
 
         case THROW:
+            break;
+        }
+
+        return result;
+    }
+
+    private final VirtualMachine vm;
+
+    public OpHandlerFactory(VirtualMachine vm, String methodDescriptor) {
+        // vm gives class and try/catch block access to factory type factories
+        this.vm = vm;
+    }
+
+    public OpHandler create(BuilderInstruction instruction, int address) {
+        OpHandler result = null;
+
+        OpType factoryType = getFactoryType(instruction.getOpcode());
+        switch (factoryType) {
+        case BINARY_MATH:
+            result = BinaryMathOpHandler.create(instruction, address);
+            break;
+        case CONST:
+            result = ConstOpHandler.create(instruction, address, vm);
+            break;
+        case GOTO:
+            result = GotoOpHandler.create(instruction, address);
+            break;
+        case IF:
+            result = IfOpHandler.create(instruction, address);
+            break;
+        case SWITCH:
+            result = SwitchOpHandler.create(instruction, address);
+            break;
+        case SWITCH_PAYLOAD:
+            result = SwitchPayloadOpHandler.create(instruction, address);
+            break;
+        case UNIMPLEMENTED:
+            result = UnimplementedOpHandler.create(instruction, address);
+            break;
+        case ACCESS_ARRAY:
+            break;
+        case ACCESS_INSTANCE:
+            break;
+        case ACCESS_STATIC:
+            break;
+        case ARRAY_LENGTH:
+            break;
+        case ARRAY_PAYLOAD:
+            break;
+        case CHECK_CAST:
+            break;
+        case COMPARE:
+            break;
+        case FILLED_NEW_ARRAY:
+            break;
+        case FILL_ARRAY_DATA:
+            break;
+        case INSTANCE_ACCESS:
+            break;
+        case INSTANCE_OF:
+            break;
+        case INVOKE:
+            break;
+        case MONITOR:
+            break;
+        case MOVE:
+            break;
+        case MOVE_RESULT:
+            break;
+        case NEW_ARRAY:
+            break;
+        case NEW_INSTANCE:
+            break;
+        case RETURN:
+            break;
+        case UNARY_MATH:
             break;
         }
 

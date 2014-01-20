@@ -48,27 +48,27 @@ public class VirtualMachineContext {
         registers.put(register, rs);
     }
 
-    public void setRegister(int register, String type, Object value, int index) {
+    public void setRegister(int register, String type, Object value, int address) {
         RegisterStore current = new RegisterStore(type, value);
-        current.getReferenced().add(index);
+        current.getReferenced().add(address);
         setRegister(register, current);
     }
 
-    public RegisterStore getRegister(int register, int index) {
+    public RegisterStore getRegister(int register, int address) {
         RegisterStore rs = peekRegister(register);
 
         /*
-         * Indexed access to a register implies it's being "read" by some instruction. Mark it as used at this
-         * instruction index so the nop code optimizer knows not to remove this line.
+         * Addressed access to a register implies it's being "read" by some instruction. The optimizer needs to know if
+         * a register was used and wear for no-op removal.
          */
-        rs.getReferenced().add(index);
+        rs.getReferenced().add(address);
 
         return rs;
     }
 
-    public Object getRegisterValue(int register, int index) {
+    public Object getRegisterValue(int register, int address) {
         // Convenience for those who don't care about the type
-        return getRegister(register, index).getValue();
+        return getRegister(register, address).getValue();
     }
 
     public RegisterStore peekRegister(int register) {
