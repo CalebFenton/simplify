@@ -46,6 +46,7 @@ public class MethodExecutor {
                 ContextNode child = new ContextNode(graph.getTemplateNode(address));
                 child.setContext(new MethodContext(currentNode.getContext()));
                 currentNode.addChild(child);
+                graph.addNode(child, address);
             }
 
             executeStack.addAll(currentNode.getChildren());

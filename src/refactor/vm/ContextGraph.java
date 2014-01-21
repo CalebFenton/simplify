@@ -108,6 +108,10 @@ public class ContextGraph {
         return addressToNodePile.get(0).get(0);
     }
 
+    public MethodContext getRootContext() {
+        return getRootNode().getContext();
+    }
+
     int getNodeCount() {
         return addressToNodePile.size();
     }
@@ -142,6 +146,7 @@ public class ContextGraph {
 
     public RegisterStore getConsensusRegister(int register) {
         TIntList terminating = getConnectedTerminatingAddresses();
+        System.out.println("terminating: " + getNodePile(terminating.get(0)));
         ContextNode fistNode = getNodePile(terminating.get(0)).get(0);
         RegisterStore registerStore = fistNode.getContext().peekRegister(register);
         String type = registerStore.getType();
@@ -158,6 +163,10 @@ public class ContextGraph {
         }
 
         return registerStore;
+    }
+
+    public void addNode(ContextNode child, int address) {
+        addressToNodePile.get(address).add(child);
     }
 
 }

@@ -56,12 +56,11 @@ public class Main {
 
         VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
 
-        for (int i = 0; i < methods.size(); i++) {
+        for (int i = 0; i < methods.size();) {
             BuilderMethod method = methods.get(i);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
 
             ContextGraph graph = vm.execute(methodDescriptor);
-
             if (graph == null) {
                 log.info("Skipping " + methodDescriptor);
                 i++;
@@ -69,7 +68,6 @@ public class Main {
             }
 
             boolean madeChanges = MethodSimplifier.simplify(dexBuilder, method, graph);
-
             if (madeChanges) {
                 log.info("Changes were made simplifying " + method.getName() + ", repeating...");
                 continue;

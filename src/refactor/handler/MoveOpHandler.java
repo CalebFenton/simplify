@@ -68,15 +68,18 @@ public class MoveOpHandler extends OpHandler {
             break;
         case RESULT:
             target = mctx.getResultRegister(address);
+            type = target.getType();
+            value = target.getValue();
             mctx.setResultRegister(target);
             break;
         case REGISTER:
             target = mctx.getRegister(targetRegister, address);
             type = target.getType();
             value = target.getValue();
-            mctx.setRegister(destRegister, type, value, address);
             break;
         }
+
+        mctx.setRegister(destRegister, target, address);
 
         return getPossibleChildren();
     }

@@ -35,12 +35,12 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public void setResultRegister(RegisterStore registerStore) {
-        setRegister(ResultRegister, registerStore);
+        pokeRegister(ResultRegister, registerStore);
     }
 
     public RegisterStore getResultRegister(int address) {
         RegisterStore result = getRegister(ResultRegister, address);
-        setRegister(ResultRegister, null);
+        pokeRegister(ResultRegister, null);
 
         return result;
     }
@@ -51,7 +51,7 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public void setReturnRegister(RegisterStore registerStore) {
-        setRegister(ReturnRegister, registerStore);
+        pokeRegister(ReturnRegister, registerStore);
     }
 
     @Override
@@ -74,7 +74,7 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public void setParameter(int paramRegister, RegisterStore registerStore) {
-        setRegister(getParameterStart() + paramRegister, registerStore);
+        pokeRegister(getParameterStart() + paramRegister, registerStore);
     }
 
     public int getParameterStart() {

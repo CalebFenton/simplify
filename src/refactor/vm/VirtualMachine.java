@@ -25,14 +25,72 @@ public class VirtualMachine {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private final Map<String, ContextGraph> methodInstructionGraphs;
-    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodToTryCatchList;
+    private static List<String> buildImmutableClasses(List<BuilderClassDef> classDefs) {
+        List<String> result = new ArrayList<String>();
+        for (BuilderClassDef classDef : classDefs) {
+            boolean isImmutable = (classDef.getAccessFlags() & AccessFlags.FINAL.getValue()) != 0;
+            if (isImmutable) {
+                result.add(classDef.getType());
+            }
+        }
+
+        return result;
+    }
+
+    private static MethodContext buildRootContext(BuilderMethod method) {
+        List<? extends BuilderMethodParameter> parameters = method.getParameters();
+        int registerCount = method.getImplementation().getRegisterCount();
+        int parameterCount = parameters.size();
+
+        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
+
+        boolean isStatic = ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0);
+        if (!isStatic) {
+            // First parameter (p0) is instance reference for non-static methods
+            String type = method.getDefiningClass();
+            result.setParameter(-1, new RegisterStore(type, "this"));
+        }
+        // Assume all input values are unknown.
+        for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
+            BuilderMethodParameter parameter = parameters.get(paramRegister);
+            String type = parameter.getType();
+            result.setParameter(paramRegister, new RegisterStore(type, new UnknownValue()));
+        }
+
+        return result;
+    }
+
+    private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildTryCatchList(
+                    List<BuilderClassDef> classDefs) {
+        Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> result = new HashMap<String, List<? extends TryBlock<? extends ExceptionHandler>>>();
+
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                result.put(methodDescriptor, method.getImplementation().getTryBlocks());
+            }
+        }
+
+        return result;
+
+    }
+
+    private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
+        return methodDescriptor.split("->", 2)[0];
+    }
+
     private final Map<String, ClassContext> classNameToClassContext;
-    private final MethodExecutor methodExecutor;
-    private final int maxNodeVisits;
-    private final int maxCallDepth;
-    private final List<String> initializedClasses;
     private final List<String> immutableClasses;
+    private final List<String> initializedClasses;
+    private final int maxCallDepth;
+
+    private final int maxNodeVisits;
+
+    private final MethodExecutor methodExecutor;
+
+    private final Map<String, ContextGraph> methodInstructionGraphs;
+
+    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodToTryCatchList;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;
@@ -53,18 +111,6 @@ public class VirtualMachine {
 
     }
 
-    private static List<String> buildImmutableClasses(List<BuilderClassDef> classDefs) {
-        List<String> result = new ArrayList<String>();
-        for (BuilderClassDef classDef : classDefs) {
-            boolean isImmutable = (classDef.getAccessFlags() & AccessFlags.FINAL.getValue()) != 0;
-            if (isImmutable) {
-                result.add(classDef.getType());
-            }
-        }
-
-        return result;
-    }
-
     public ContextGraph execute(String methodDescriptor) {
         return execute(methodDescriptor, null);
     }
@@ -83,6 +129,73 @@ public class VirtualMachine {
         return result;
     }
 
+    public ClassContext getClassExecutionContext(String methodDescriptor) {
+        // Since this is called for the use or assignment of a class' field, clinit the class
+        staticallyInitializeMethodClassIfNecessary(methodDescriptor);
+
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        return classNameToClassContext.get(className);
+    }
+
+    public int getMaxCallDepth() {
+        return maxCallDepth;
+    }
+
+    public int getMaxNodeVisits() {
+        return maxNodeVisits;
+    }
+
+    public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
+        return methodToTryCatchList;
+    }
+
+    public boolean isImmutableClass(String className) {
+        if (SmaliClassUtils.isPrimitiveType(className)) {
+            return true;
+        }
+
+        if (immutableClasses.contains(className)) {
+            return true;
+        }
+
+        String javaName = SmaliClassUtils.smaliClassToJava(className);
+        try {
+            Class<?> clazz = Class.forName(javaName);
+
+            return (clazz.getModifiers() & Modifier.FINAL) != 0;
+        } catch (ClassNotFoundException e) {
+        }
+
+        return false;
+    }
+
+    public boolean isMethodDefined(String methodDescriptor) {
+        return methodInstructionGraphs.containsKey(methodDescriptor);
+    }
+
+    private ClassContext buildClassContext(ContextGraph graph) {
+        // graph may be null!
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    private Map<String, ContextGraph> buildInstructionGraphs(final List<BuilderClassDef> classDefs) {
+        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>();
+
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                ContextGraph graph = new ContextGraph(this, method);
+
+                graph.setRootContext(buildRootContext(method));
+
+                result.put(methodDescriptor, graph);
+            }
+        }
+
+        return result;
+    }
+
     private Map<String, ClassContext> buildNameToClassContext(List<BuilderClassDef> classDefs) {
         Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
 
@@ -95,37 +208,10 @@ public class VirtualMachine {
         return result;
     }
 
-    ContextGraph getInstructionGraph(String methodDescriptor) {
+    public ContextGraph getInstructionGraph(String methodDescriptor) {
         ContextGraph result = new ContextGraph(methodInstructionGraphs.get(methodDescriptor));
 
         return result;
-    }
-
-    public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
-        return methodToTryCatchList;
-    }
-
-    public ClassContext getClassExecutionContext(String methodDescriptor) {
-        // Since this is called for the use or assignment of a class' field, clinit the class
-        staticallyInitializeMethodClassIfNecessary(methodDescriptor);
-
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        return classNameToClassContext.get(className);
-    }
-
-    private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildTryCatchList(
-                    List<BuilderClassDef> classDefs) {
-        Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> result = new HashMap<String, List<? extends TryBlock<? extends ExceptionHandler>>>();
-
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                result.put(methodDescriptor, method.getImplementation().getTryBlocks());
-            }
-        }
-
-        return result;
-
     }
 
     void staticallyInitializeMethodClassIfNecessary(String methodDescriptor) {
@@ -150,81 +236,5 @@ public class VirtualMachine {
         // Just need to execute, don't need the resulting graph. Any class member sets will be recorded by the op
         // handler in the ClassContext.
         execute(clinitDescriptor);
-    }
-
-    private ClassContext buildClassContext(ContextGraph graph) {
-        // graph may be null!
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
-        return methodDescriptor.split("->", 2)[0];
-    }
-
-    private Map<String, ContextGraph> buildInstructionGraphs(final List<BuilderClassDef> classDefs) {
-        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>();
-
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                ContextGraph graph = new ContextGraph(this, method);
-
-                graph.setRootContext(buildRootContext(method));
-
-                result.put(methodDescriptor, graph);
-            }
-        }
-
-        return result;
-    }
-
-    private static MethodContext buildRootContext(BuilderMethod method) {
-        List<? extends BuilderMethodParameter> parameters = method.getParameters();
-        int registerCount = method.getImplementation().getRegisterCount();
-        int parameterCount = parameters.size();
-
-        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
-
-        // Assume all input values are unknown.
-        for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
-            BuilderMethodParameter parameter = parameters.get(paramRegister);
-            String type = parameter.getType();
-            result.setParameter(paramRegister, new RegisterStore(type, new UnknownValue()));
-        }
-
-        return result;
-    }
-
-    public boolean isMethodDefined(String methodDescriptor) {
-        return methodInstructionGraphs.containsKey(methodDescriptor);
-    }
-
-    public boolean isImmutableClass(String className) {
-        if (SmaliClassUtils.isPrimitiveType(className)) {
-            return true;
-        }
-
-        if (immutableClasses.contains(className)) {
-            return true;
-        }
-
-        String javaName = SmaliClassUtils.smaliClassToJava(className);
-        try {
-            Class<?> clazz = Class.forName(javaName);
-
-            return (clazz.getModifiers() & Modifier.FINAL) != 0;
-        } catch (ClassNotFoundException e) {
-        }
-
-        return false;
-    }
-
-    public int getMaxNodeVisits() {
-        return maxNodeVisits;
-    }
-
-    public int getMaxCallDepth() {
-        return maxCallDepth;
     }
 }

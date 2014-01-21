@@ -66,7 +66,7 @@ public class VirtualMachineContext {
                 }
 
                 if (otherRS.getValue() == possibleMatch.getValue()) {
-                    log.fine("context clone, r" + innerKey + " == r" + outerKey);
+                    log.finer("context clone, r" + innerKey + " == r" + outerKey);
                     registers.put(innerKey, rsClone);
                 }
             }
@@ -79,7 +79,7 @@ public class VirtualMachineContext {
         return registerCount;
     }
 
-    public void setRegister(int register, RegisterStore registerStore) {
+    public void pokeRegister(int register, RegisterStore registerStore) {
         StackTraceElement[] ste = Thread.currentThread().getStackTrace();
         StringBuilder sb = new StringBuilder();
         // for (int i = 2; i < ste.length; i++) {
@@ -90,10 +90,15 @@ public class VirtualMachineContext {
         registers.put(register, registerStore);
     }
 
+    public void setRegister(int register, RegisterStore registerStore, int address) {
+        registerStore.getReferenced().add(address);
+        pokeRegister(register, registerStore);
+    }
+
     public void setRegister(int register, String type, Object value, int address) {
-        RegisterStore current = new RegisterStore(type, value);
-        current.getReferenced().add(address);
-        setRegister(register, current);
+        RegisterStore registerStore = new RegisterStore(type, value);
+        registerStore.getReferenced().add(address);
+        pokeRegister(register, registerStore);
     }
 
     public RegisterStore getRegister(int register, int address) {
