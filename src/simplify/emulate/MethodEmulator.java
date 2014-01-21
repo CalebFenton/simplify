@@ -3,7 +3,7 @@ package simplify.emulate;
 import java.util.HashMap;
 import java.util.Map;
 
-import refactor.vm.MethodContext;
+import simplify.vm.MethodContext;
 
 public class MethodEmulator {
 

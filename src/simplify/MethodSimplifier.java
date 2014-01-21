@@ -18,10 +18,8 @@ import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
-import refactor.vm.ContextGraph;
-import simplify.exec.MethodExecutionContext;
-import simplify.exec.UnknownValue;
-import simplify.graph.InstructionNode;
+import simplify.vm.ContextGraph;
+import simplify.vm.UnknownValue;
 
 import com.google.common.collect.LinkedListMultimap;
 

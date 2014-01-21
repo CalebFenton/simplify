@@ -1,6 +1,6 @@
 package simplify.emulate;
 
-import refactor.vm.MethodContext;
+import simplify.vm.MethodContext;
 
 public interface EmulatedMethod {
 
