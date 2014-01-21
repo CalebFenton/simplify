@@ -54,7 +54,7 @@ public class InvokeInstruction {
             } catch (MaxNodeVisitsExceeded e) {
                 e.printStackTrace();
             }
-        } else if (MethodReflector.isSafeToReflect(methodDescriptor)) {
+        } else if (MethodReflector.canReflect(methodDescriptor)) {
             // With just a method reference, we can't know the register count. We just need to allocate enough for
             // parameters and instance variable.
             int registerCount = parameterTypes.size();

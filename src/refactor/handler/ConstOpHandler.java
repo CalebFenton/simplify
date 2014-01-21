@@ -1,5 +1,7 @@
 package refactor.handler;
 
+import java.util.logging.Logger;
+
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
@@ -10,8 +12,11 @@ import org.jf.dexlib2.iface.reference.TypeReference;
 
 import refactor.vm.MethodContext;
 import refactor.vm.VirtualMachine;
+import simplify.Main;
 
 public class ConstOpHandler extends OpHandler {
+
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static enum ConstType {
         NARROW,

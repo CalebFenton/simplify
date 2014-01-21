@@ -114,13 +114,13 @@ public class VirtualMachineContext {
     }
 
     public RegisterStore peekRegister(int register) {
-        RegisterStore rs = registers.get(register);
+        RegisterStore registerStore = registers.get(register);
 
-        if ((rs == null) && (register >= 0)) {
+        if ((registerStore == null) && (register >= 0)) {
             log.warning("r" + register + " is being read but is null, likely a mistake! Context:\n" + this);
         }
 
-        return rs;
+        return registerStore;
     }
 
     public String peekRegisterType(int register) {
@@ -130,7 +130,9 @@ public class VirtualMachineContext {
     }
 
     public Object peekRegisterValue(int register) {
+        System.out.println("peeking value @" + register);
         RegisterStore rs = peekRegister(register);
+        System.out.println("rs is now: " + rs.getValue());
 
         return rs.getValue();
     }

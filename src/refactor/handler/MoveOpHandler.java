@@ -19,7 +19,6 @@ public class MoveOpHandler extends OpHandler {
     static MoveOpHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
-
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
 
         MoveType moveType = null;

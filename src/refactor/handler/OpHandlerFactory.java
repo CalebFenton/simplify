@@ -255,6 +255,7 @@ public final class OpHandlerFactory {
         case INVOKE_STATIC_RANGE:
         case INVOKE_SUPER_RANGE:
         case INVOKE_VIRTUAL_RANGE:
+            result = OpType.INVOKE;
             break;
 
         case MONITOR_ENTER:
@@ -281,6 +282,7 @@ public final class OpHandlerFactory {
         case NEW_ARRAY:
             break;
         case NEW_INSTANCE:
+            result = OpType.NEW_INSTANCE;
             break;
 
         case NOP:
@@ -386,6 +388,7 @@ public final class OpHandlerFactory {
         case INSTANCE_OF:
             break;
         case INVOKE:
+            result = InvokeOpHandler.create(instruction, address, vm);
             break;
         case MONITOR:
             break;
@@ -395,6 +398,7 @@ public final class OpHandlerFactory {
         case NEW_ARRAY:
             break;
         case NEW_INSTANCE:
+            result = NewInstanceOpHandler.create(instruction, address);
             break;
         case RETURN:
             result = ReturnOpHandler.create(instruction, address);

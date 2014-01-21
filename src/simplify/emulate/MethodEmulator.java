@@ -3,7 +3,7 @@ package simplify.emulate;
 import java.util.HashMap;
 import java.util.Map;
 
-import simplify.exec.MethodExecutionContext;
+import refactor.vm.MethodContext;
 
 public class MethodEmulator {
 
@@ -18,10 +18,10 @@ public class MethodEmulator {
         return emulatedMethods.containsKey(methodDescriptor);
     }
 
-    public static void emulate(MethodExecutionContext ectx, String methodDescriptor) {
+    public static void emulate(MethodContext mctx, String methodDescriptor) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
         if (em instanceof EmulatedMethod) {
-            em.execute(ectx);
+            em.execute(mctx);
         }
     }
 }

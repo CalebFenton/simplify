@@ -1,6 +1,5 @@
 package refactor.vm;
 
-
 public class MethodContext extends VirtualMachineContext {
 
     public static final int ResultRegister = -1;
@@ -47,8 +46,8 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public RegisterStore getReturnRegister() {
-        // Result register is stored outside of the method being analyzed, so address is irrelevant.
-        return getRegister(ResultRegister, 0);
+        // Return register is stored outside of the method being analyzed, so address is irrelevant.
+        return getRegister(ReturnRegister, 0);
     }
 
     public void setReturnRegister(RegisterStore registerStore) {
@@ -75,9 +74,11 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public void setParameter(int paramRegister, RegisterStore registerStore) {
-        int parameterStart = getRegisterCount() - parameterCount;
+        setRegister(getParameterStart() + paramRegister, registerStore);
+    }
 
-        setRegister(parameterStart + paramRegister, registerStore);
+    public int getParameterStart() {
+        return getRegisterCount() - parameterCount;
     }
 
 }

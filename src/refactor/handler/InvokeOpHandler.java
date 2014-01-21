@@ -1,27 +1,32 @@
 package refactor.handler;
 
+import java.util.logging.Logger;
+
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
+import org.jf.dexlib2.iface.reference.MethodReference;
+import org.jf.dexlib2.util.ReferenceUtil;
 
 import refactor.vm.ContextGraph;
 import refactor.vm.MethodContext;
 import refactor.vm.RegisterStore;
 import refactor.vm.VirtualMachine;
+import simplify.Main;
+import simplify.emulate.MethodEmulator;
+import simplify.exec.MethodReflector;
+import simplify.exec.UnknownValue;
 
 public class InvokeOpHandler extends OpHandler {
 
-    private static enum InvokeType {
-        REFLECT,
-        EMULATE,
-        INVOKE
-    };
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static InvokeOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
         int childAddress = address + instruction.getCodeUnits();
         String opName = instruction.getOpcode().name;
 
         int[] registers = null;
+        MethodReference methodReference = null;
         if (opName.contains("/range")) {
             Instruction3rc instr = (Instruction3rc) instruction;
             int registerCount = instr.getRegisterCount();
@@ -32,6 +37,8 @@ public class InvokeOpHandler extends OpHandler {
             for (int i = start; i < end; i++) {
                 registers[i - start] = i;
             }
+
+            methodReference = (MethodReference) instr.getReference();
         } else {
             Instruction35c instr = (Instruction35c) instruction;
             int registerCount = instr.getRegisterCount();
@@ -50,58 +57,143 @@ public class InvokeOpHandler extends OpHandler {
                 registers[0] = instr.getRegisterC();
                 break;
             }
+
+            methodReference = (MethodReference) instr.getReference();
         }
 
-        return null;
+        return new InvokeOpHandler(address, opName, childAddress, methodReference, registers, vm);
     }
 
     private final int address;
     private final String opName;
     private final int childAddress;
-    private final String methodDescriptor;
+    private final MethodReference methodReference;
     private final int[] registers;
-    private final boolean returnsVoid;
-    private VirtualMachine vm;
+    private final VirtualMachine vm;
+    private final boolean isStatic;
 
-    private InvokeOpHandler(int address, String opName, int childAddress, String methodDescriptor, int[] registers) {
+    private InvokeOpHandler(int address, String opName, int childAddress, MethodReference methodReference,
+                    int[] registers, VirtualMachine vm) {
         this.address = address;
         this.opName = opName;
         this.childAddress = childAddress;
-        this.methodDescriptor = methodDescriptor;
+        this.methodReference = methodReference;
         this.registers = registers;
-
-        if (methodDescriptor.endsWith(")V")) {
-            returnsVoid = true;
-        } else {
-            returnsVoid = false;
-        }
-    }
-
-    private InvokeOpHandler(int address, String opName, int childAddress, String methodDescriptor, int[] registers,
-                    VirtualMachine vm) {
-        this(address, opName, childAddress, methodDescriptor, registers);
         this.vm = vm;
+        isStatic = opName.contains("-static");
     }
 
     @Override
     public int[] execute(MethodContext mctx) {
         MethodContext calleeContext = buildCalleeContext(mctx, registers, address);
-        if (vm != null) {
+
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+        boolean returnsVoid = methodReference.getReturnType().equals("V");
+        if (vm.isMethodDefined(methodDescriptor)) {
             // VM has this method, so it knows how to execute it.
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
+
+            if (graph == null) {
+                // Couldn't execute the method. Maybe node visits exceeded?
+                log.info("Problem internally executing " + methodReference + ", propigating ambiguity.");
+                assumeMaximumUnknown(vm, mctx, registers, returnsVoid);
+                return getPossibleChildren();
+            }
+
+            updateInstanceAndMutableArguments(vm, mctx, graph, isStatic);
 
             if (!returnsVoid) {
                 RegisterStore registerStore = graph.getConsensusRegister(MethodContext.ReturnRegister);
                 mctx.setResultRegister(registerStore);
             }
         } else {
-            // Is it emulated?
-            // Is it whitelisted as safe for reflection?
+            boolean allArgumentsKnown = allArgumentsKnown(mctx);
+            if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
+                MethodEmulator.emulate(calleeContext, methodDescriptor);
+            } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
+                MethodReflector.reflect(calleeContext, methodReference);
+            } else {
+                // Method not found and either all arguments are not known, couldn't emulate or reflect
+                log.info("Unknown argument or couldn't find/emulate/reflect " + methodDescriptor
+                                + " so propigating ambiguity.");
+                assumeMaximumUnknown(vm, mctx, registers, returnsVoid);
+                return getPossibleChildren();
+            }
 
-            // Not found, mark everything as ambiguous.
+            updateInstanceAndMutableArguments(vm, mctx, calleeContext, isStatic);
+
+            if (!returnsVoid) {
+                System.out.println("working with: " + calleeContext);
+                RegisterStore returnRegister = calleeContext.getReturnRegister();
+                mctx.setResultRegister(returnRegister);
+            }
         }
 
         return getPossibleChildren();
+    }
+
+    private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext mctx,
+                    MethodContext calleeContext, boolean isStatic) {
+        if (!isStatic) {
+            RegisterStore registerStore = mctx.peekRegister(0);
+            Object value = calleeContext.peekRegisterValue(0);
+            registerStore.setValue(value);
+            log.fine("updating instance value: " + registerStore);
+        }
+
+        for (int i = 0; i < mctx.getRegisterCount(); i++) {
+            RegisterStore registerStore = mctx.peekRegister(i);
+            if (!vm.isImmutableClass(registerStore.getType())) {
+                Object value = calleeContext.peekRegisterValue(i);
+                registerStore.setValue(value);
+                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
+            }
+        }
+
+    }
+
+    private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext mctx, ContextGraph graph,
+                    boolean isStatic) {
+        if (!isStatic) {
+            RegisterStore registerStore = mctx.peekRegister(0);
+            Object value = graph.getConsensusRegister(0).getValue();
+            registerStore.setValue(value);
+            log.fine("updating instance value: " + registerStore);
+        }
+
+        for (int i = 0; i < mctx.getRegisterCount(); i++) {
+            RegisterStore registerStore = mctx.peekRegister(i);
+            if (!vm.isImmutableClass(registerStore.getType())) {
+                Object value = graph.getConsensusRegister(i).getValue();
+                registerStore.setValue(value);
+                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
+            }
+        }
+    }
+
+    private static boolean allArgumentsKnown(MethodContext mctx) {
+        for (int i = 0; i < mctx.getRegisterCount(); i++) {
+            RegisterStore registerStore = mctx.peekRegister(i);
+            if (registerStore.getValue() instanceof UnknownValue) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext mctx, int[] registers, boolean returnsVoid) {
+        for (int register : registers) {
+            String className = mctx.peekRegisterType(register);
+            if (vm.isImmutableClass(className)) {
+                log.info(className + " is immutable");
+                continue;
+            }
+
+            log.info(className + " is mutable and passed into strange method, marking unknown");
+            RegisterStore registerStore = new RegisterStore(className, new UnknownValue());
+            mctx.setRegister(register, registerStore);
+        }
     }
 
     private static MethodContext buildCalleeContext(MethodContext mctx, int[] registers, int address) {
@@ -109,7 +201,12 @@ public class InvokeOpHandler extends OpHandler {
         MethodContext calleeContext = new MethodContext(parameterCount, parameterCount, mctx.getCallDepth() + 1);
 
         for (int register : registers) {
+            // TODO: we shallow clone here to prevent used / referenced set from getting dirty
+            // but we need a better way of getting end-state for object references
+            // eg. if the object changes in the method, we need to examine terminating states and compare values with
+            // the originals.
             RegisterStore registerStore = mctx.getRegister(register, address);
+            registerStore = new RegisterStore(registerStore.getType(), registerStore.getValue());
             calleeContext.setRegister(register, registerStore);
         }
 
@@ -120,7 +217,7 @@ public class InvokeOpHandler extends OpHandler {
     public String toString() {
         StringBuilder sb = new StringBuilder(opName);
 
-        sb.append("{");
+        sb.append(" {");
         if (opName.contains("/range")) {
             sb.append("r").append(registers[0]).append(" .. r").append(registers[registers.length - 1]);
         } else {
@@ -129,7 +226,7 @@ public class InvokeOpHandler extends OpHandler {
             }
             sb.setLength(sb.length() - 2);
         }
-        sb.append("}, ").append(methodDescriptor);
+        sb.append("}, ").append(ReferenceUtil.getMethodDescriptor(methodReference));
 
         return sb.toString();
     }

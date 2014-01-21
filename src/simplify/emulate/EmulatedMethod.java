@@ -1,9 +1,9 @@
 package simplify.emulate;
 
-import simplify.exec.MethodExecutionContext;
+import refactor.vm.MethodContext;
 
 public interface EmulatedMethod {
 
-    public void execute(MethodExecutionContext ectx);
+    public void execute(MethodContext mctx);
 
 }

@@ -9,6 +9,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.jf.dexlib2.iface.reference.MethodReference;
+import org.jf.dexlib2.util.ReferenceUtil;
+
+import refactor.vm.MethodContext;
+import refactor.vm.RegisterStore;
 import simplify.Main;
 import simplify.SmaliClassUtils;
 
@@ -47,7 +52,7 @@ public class MethodReflector {
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
     }
 
-    public static boolean isSafeToReflect(String methodDescriptor) {
+    public static boolean canReflect(String methodDescriptor) {
         String[] parts = methodDescriptor.split("->");
         String className = parts[0];
 
@@ -62,34 +67,40 @@ public class MethodReflector {
         return false;
     }
 
-    public static void reflect(MethodExecutionContext ectx, List<? extends CharSequence> parameterTypes,
-                    String methodDescriptor) {
-        String[] parts = methodDescriptor.split("->");
-        String className = parts[0];
-        String methodName = parts[1].substring(0, parts[1].indexOf("("));
+    public static void reflect(MethodContext mctx, MethodReference methodReference) {
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+        boolean returnsVoid = methodReference.getReturnType().equals("V");
 
-        log.finer("Reflecting " + methodDescriptor + " with context:\n" + ectx);
+        log.finer("Reflecting " + methodDescriptor + " with context:\n" + mctx);
 
         Object result = null;
         try {
-            Class<?> clazz = SmaliClassUtils.getClass(className);
-            Class<?>[] paramClasses = getParameterClasses(parameterTypes);
-            Object[] args = getArguments(ectx);
+            Class<?> clazz = SmaliClassUtils.getClass(methodReference.getDefiningClass());
+
+            Object[] args = getArguments(mctx);
+            List<? extends CharSequence> paramTypes = methodReference.getParameterTypes();
+            Class<?>[] paramClasses = new Class<?>[paramTypes.size()];
+            for (int i = 0; i < paramClasses.length; i++) {
+                String className = paramTypes.get(i).toString();
+                paramClasses[i] = SmaliClassUtils.getClass(className);
+            }
+
+            String methodName = methodReference.getName();
             if (methodName.equals("<init>")) {
-                // A call to this class must be interpreted as a newInstance.
+                // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
                 result = getNewInstance(clazz, paramClasses, args);
 
-                // This isn't a clone. It's a reference to the caller method's register store.
-                RegisterStore rs = ectx.peekRegister(ectx.getParameterStart());
+                // This isn't a clone. It's a reference to the caller method's register store. This way any other
+                // objects pointing to this register store also get updated.
+                RegisterStore rs = mctx.peekRegister(mctx.getParameterStart());
                 rs.setValue(result);
             } else {
                 Method targetMethod = clazz.getDeclaredMethod(methodName, paramClasses);
+
                 result = invokeMethod(targetMethod, args);
 
-                Class<?> returnType = targetMethod.getReturnType();
-                if (!returnType.equals(Void.TYPE)) {
-                    String resultType = SmaliClassUtils.javaClassToSmali(returnType.getName());
-                    ectx.setReturnRegister(new RegisterStore(resultType, result));
+                if (!returnsVoid) {
+                    mctx.setReturnRegister(new RegisterStore(methodReference.getReturnType(), result));
                 }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
@@ -104,11 +115,12 @@ public class MethodReflector {
         boolean isStatic = (targetMethod.getModifiers() & Modifier.STATIC) != 0;
         Object target = null;
         if (!isStatic) {
+            // First parameter will be instance reference, not an actual argument.
             target = args[0];
             args = Arrays.copyOfRange(args, 1, args.length);
         }
 
-        log.finer("Reflecting method " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
+        log.fine("Reflecting method " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
 
         return targetMethod.invoke(target, args);
     }
@@ -122,31 +134,22 @@ public class MethodReflector {
             args = Arrays.copyOfRange(args, 1, args.length);
         }
 
-        log.finer("Reflecting newInstance of " + clazz.getName() + " with args=" + Arrays.toString(args));
+        log.fine("Reflecting newInstance of " + clazz.getName() + " with args=" + Arrays.toString(args));
 
         Constructor<?> ctor = clazz.getConstructor(paramClasses);
 
         return ctor.newInstance(args);
     }
 
-    private static Object[] getArguments(MethodExecutionContext ectx) {
-        Object[] args = new Object[ectx.getRegisterCount()];
+    private static Object[] getArguments(MethodContext mctx) {
+        System.out.println("get args, size=" + mctx.getRegisterCount());
+        System.out.println("context: " + mctx);
+        Object[] args = new Object[mctx.getRegisterCount()];
         for (int i = 0; i < args.length; i++) {
-            args[i] = ectx.peekRegisterValue(i);
+            args[i] = mctx.peekRegisterValue(i);
         }
 
         return args;
-    }
-
-    private static Class<?>[] getParameterClasses(List<? extends CharSequence> parameterTypes)
-                    throws ClassNotFoundException {
-        Class<?>[] classes = new Class<?>[parameterTypes.size()];
-        for (int i = 0; i < parameterTypes.size(); i++) {
-            String paramType = parameterTypes.get(i).toString();
-            classes[i] = SmaliClassUtils.getClass(paramType);
-        }
-
-        return classes;
     }
 
 }

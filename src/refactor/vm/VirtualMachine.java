@@ -1,11 +1,13 @@
 package refactor.vm;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -15,6 +17,7 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 
 import simplify.Main;
+import simplify.SmaliClassUtils;
 import simplify.exec.MaxNodeVisitsExceeded;
 import simplify.exec.UnknownValue;
 
@@ -29,19 +32,37 @@ public class VirtualMachine {
     private final int maxNodeVisits;
     private final int maxCallDepth;
     private final List<String> initializedClasses;
+    private final List<String> immutableClasses;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;
         this.maxCallDepth = maxCallDepth;
 
-        methodInstructionGraphs = buildInstructionGraphs(classDefs);
-
-        classNameToClassContext = buildNameToClassContext(classDefs);
-        initializedClasses = new ArrayList<String>(classDefs.size());
-
         methodToTryCatchList = buildTryCatchList(classDefs);
 
+        classNameToClassContext = buildNameToClassContext(classDefs);
+
         methodExecutor = new MethodExecutor(this);
+
+        initializedClasses = new ArrayList<String>(classDefs.size());
+
+        immutableClasses = buildImmutableClasses(classDefs);
+
+        // Build graphs last because some handlers need access to a fully-instantiated VM.
+        methodInstructionGraphs = buildInstructionGraphs(classDefs);
+
+    }
+
+    private static List<String> buildImmutableClasses(List<BuilderClassDef> classDefs) {
+        List<String> result = new ArrayList<String>();
+        for (BuilderClassDef classDef : classDefs) {
+            boolean isImmutable = (classDef.getAccessFlags() & AccessFlags.FINAL.getValue()) != 0;
+            if (isImmutable) {
+                result.add(classDef.getType());
+            }
+        }
+
+        return result;
     }
 
     public ContextGraph execute(String methodDescriptor) {
@@ -177,6 +198,26 @@ public class VirtualMachine {
 
     public boolean isMethodDefined(String methodDescriptor) {
         return methodInstructionGraphs.containsKey(methodDescriptor);
+    }
+
+    public boolean isImmutableClass(String className) {
+        if (SmaliClassUtils.isPrimitiveType(className)) {
+            return true;
+        }
+
+        if (immutableClasses.contains(className)) {
+            return true;
+        }
+
+        String javaName = SmaliClassUtils.smaliClassToJava(className);
+        try {
+            Class<?> clazz = Class.forName(javaName);
+
+            return (clazz.getModifiers() & Modifier.FINAL) != 0;
+        } catch (ClassNotFoundException e) {
+        }
+
+        return false;
     }
 
     public int getMaxNodeVisits() {
