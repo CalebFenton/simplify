@@ -81,7 +81,15 @@ class UnimplementedOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        return opName + " (unimplmented) @" + address;
+        StringBuilder sb = new StringBuilder(opName);
+
+        if (destRegister >= 0) {
+            sb.append(" r").append(destRegister);
+        }
+
+        sb.append(" (unimplmented) @").append(address);
+
+        return sb.toString();
     }
 
 }

@@ -19,8 +19,13 @@ public class MethodExecutor {
         this.vm = vm;
     }
 
-    ContextGraph execute(String methodDescriptor, MethodContext mctx) throws MaxNodeVisitsExceeded {
-        log.info("Executing " + methodDescriptor);
+    ContextGraph execute(String methodDescriptor, MethodContext mctx) throws MaxNodeVisitsExceeded,
+                    MaxCallDepthExceeded {
+        log.info("Executing " + methodDescriptor + ", depth=" + mctx.getCallDepth());
+
+        if (mctx.getCallDepth() > vm.getMaxCallDepth()) {
+            throw new MaxCallDepthExceeded(methodDescriptor);
+        }
 
         ContextGraph graph = vm.getInstructionGraph(methodDescriptor);
         TIntIntMap indexToNodeVisitCounts = new TIntIntHashMap(graph.getNodeCount());
@@ -34,7 +39,6 @@ public class MethodExecutor {
 
         do {
             ContextNode currentNode = executeStack.poll();
-            log.fine("Handling " + currentNode);
 
             recordNodeVisitation(indexToNodeVisitCounts, currentNode, vm.getMaxNodeVisits());
 

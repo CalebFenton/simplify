@@ -2,10 +2,14 @@ package simplify.vm;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
+import simplify.Main;
 import simplify.handlers.OpHandler;
 
 public class ContextNode {
+
+    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private final OpHandler handler;
     private final List<ContextNode> children;
@@ -28,11 +32,12 @@ public class ContextNode {
     }
 
     public int[] execute() {
-        System.out.println("executing with: " + mctx);
+        log.fine("Handling : " + handler + ", context before: ");
 
         int[] result = handler.execute(mctx);
 
-        System.out.println("after executing: " + mctx);
+        log.fine("Context after: " + mctx);
+
         return result;
     }
 
@@ -70,5 +75,10 @@ public class ContextNode {
     @Override
     public String toString() {
         return handler.toString();
+    }
+
+    public String toGraph() {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

@@ -1,14 +1,13 @@
 package simplify;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.apache.commons.beanutils.ConstructorUtils;
+import org.apache.commons.beanutils.MethodUtils;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 
@@ -43,8 +42,12 @@ public class MethodReflector {
 
         SafeClasses.add("Ljava/util/Map;");
         SafeClasses.add("Ljava/util/HashMap;");
+
         SafeClasses.add("Ljava/util/List;");
         SafeClasses.add("Ljava/util/ArrayList;");
+
+        SafeClasses.add("Ljava/util/Set;");
+        SafeClasses.add("Ljava/util/HashSet;");
 
         SafeMethods = new ArrayList<String>();
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
@@ -65,89 +68,110 @@ public class MethodReflector {
         return false;
     }
 
-    public static void reflect(MethodContext mctx, MethodReference methodReference) {
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
-        boolean returnsVoid = methodReference.getReturnType().equals("V");
+    private final String methodDescriptor;
+    private final String methodName;
+    private final String className;
+    private final String returnType;
+    private final boolean isStatic;
+    private final List<String> parameterTypes;
 
+    public MethodReflector(MethodReference methodReference, boolean isStatic) {
+        methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+        methodName = methodReference.getName();
+
+        // ClassUtils expects Lthis.class.Format;
+        className = methodReference.getDefiningClass().replaceAll("/", ".");
+
+        returnType = methodReference.getReturnType();
+        this.isStatic = isStatic;
+
+        List<? extends CharSequence> paramTypes = methodReference.getParameterTypes();
+        parameterTypes = new ArrayList<String>(paramTypes.size());
+        for (CharSequence type : paramTypes) {
+            parameterTypes.add(type.toString());
+        }
+    }
+
+    public void reflect(MethodContext mctx) {
         log.finer("Reflecting " + methodDescriptor + " with context:\n" + mctx);
 
         Object result = null;
         try {
-            Class<?> clazz = SmaliClassUtils.getClass(methodReference.getDefiningClass());
+            // Class<?> clazz = ClassUtils.getClass(className, false);
+            Class<?> clazz = Class.forName(className.substring(1, className.length() - 1));
 
-            Object[] args = getArguments(mctx);
-            List<? extends CharSequence> paramTypes = methodReference.getParameterTypes();
-            Class<?>[] paramClasses = new Class<?>[paramTypes.size()];
-            for (int i = 0; i < paramClasses.length; i++) {
-                String className = paramTypes.get(i).toString();
-                paramClasses[i] = SmaliClassUtils.getClass(className);
-            }
+            Object target = getTarget(mctx, isStatic);
+            Object[] args = getArguments(mctx, isStatic, parameterTypes);
 
-            String methodName = methodReference.getName();
+            // List<Class<?>> paramClasses = ClassUtils.convertClassNamesToClasses(parameterTypes);
+            log.fine("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args)
+                            + ", static=" + isStatic);
             if (methodName.equals("<init>")) {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
-                result = getNewInstance(clazz, paramClasses, args);
+                result = ConstructorUtils.invokeConstructor(clazz, args);
 
                 // This isn't a clone. It's a reference to the caller method's register store. This way any other
                 // objects pointing to this register store also get updated.
-                RegisterStore rs = mctx.peekRegister(mctx.getParameterStart());
-                rs.setValue(result);
+                RegisterStore registerStore = mctx.peekRegister(mctx.getParameterStart());
+                registerStore.setValue(result);
             } else {
-                Method targetMethod = clazz.getDeclaredMethod(methodName, paramClasses);
+                if (isStatic) {
+                    result = MethodUtils.invokeStaticMethod(clazz, methodName, args);
+                } else {
+                    result = MethodUtils.invokeMethod(target, methodName, args);
+                }
 
-                result = invokeMethod(targetMethod, args);
-
+                boolean returnsVoid = returnType.equals("V");
                 if (!returnsVoid) {
-                    mctx.setReturnRegister(new RegisterStore(methodReference.getReturnType(), result));
+                    mctx.setReturnRegister(new RegisterStore(returnType, result));
                 }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
                         | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             e.printStackTrace();
         }
-
     }
 
-    private static Object invokeMethod(Method targetMethod, Object[] args) throws IllegalAccessException,
-                    IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
-        boolean isStatic = (targetMethod.getModifiers() & Modifier.STATIC) != 0;
-        Object target = null;
+    private static Object getTarget(MethodContext mctx, boolean isStatic) {
+        if (isStatic) {
+            return null;
+        }
+
+        RegisterStore registerStore = mctx.peekRegister(0);
+
+        if (registerStore.getValue() == null) {
+        }
+        return mctx.peekRegisterValue(0);
+    }
+
+    private static Object[] getArguments(MethodContext mctx, boolean isStatic, List<String> parameterTypes) {
+        int offset = 0;
         if (!isStatic) {
-            // First parameter will be instance reference, not an actual argument.
-            target = args[0];
-            args = Arrays.copyOfRange(args, 1, args.length);
+            // First element in context will be instance reference if non-static method.
+            offset = 1;
         }
 
-        log.fine("Reflecting method " + targetMethod + " with " + target + " args=" + Arrays.toString(args));
+        List<Object> args = new ArrayList<Object>(mctx.getRegisterCount() - offset);
+        for (int i = offset; i < mctx.getRegisterCount(); i++) {
+            RegisterStore registerStore = mctx.peekRegister(i);
+            Object value = registerStore.getValue();
 
-        return targetMethod.invoke(target, args);
-    }
+            String paramType = parameterTypes.get(i - offset);
+            if (paramType.equals("Z") || paramType.equals("Ljava/lang/Boolean;")) {
+                if (value.getClass() == Integer.class) {
+                    int intValue = (Integer) value;
+                    value = intValue == 0 ? false : true;
+                }
+            }
+            args.add(value);
 
-    private static Object getNewInstance(Class<?> clazz, Class<?>[] paramClasses, Object[] args)
-                    throws NoSuchMethodException, SecurityException, InstantiationException, IllegalAccessException,
-                    IllegalArgumentException, InvocationTargetException {
-        // First parameter will be instance reference, not an actual argument.
-        if (args.length > 0) {
-            // paramClasses = Arrays.copyOfRange(paramClasses, 1, paramClasses.length);
-            args = Arrays.copyOfRange(args, 1, args.length);
+            if (registerStore.getType().equals("J")) {
+                // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
+                i++;
+            }
         }
 
-        log.fine("Reflecting newInstance of " + clazz.getName() + " with args=" + Arrays.toString(args));
-
-        Constructor<?> ctor = clazz.getConstructor(paramClasses);
-
-        return ctor.newInstance(args);
-    }
-
-    private static Object[] getArguments(MethodContext mctx) {
-        System.out.println("get args, size=" + mctx.getRegisterCount());
-        System.out.println("context: " + mctx);
-        Object[] args = new Object[mctx.getRegisterCount()];
-        for (int i = 0; i < args.length; i++) {
-            args[i] = mctx.peekRegisterValue(i);
-        }
-
-        return args;
+        return args.toArray();
     }
 
 }

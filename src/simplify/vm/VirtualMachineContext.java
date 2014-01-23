@@ -85,7 +85,7 @@ public class VirtualMachineContext {
         // for (int i = 2; i < ste.length; i++) {
         // sb.append("\n\t").append(ste[i]);
         // }
-        log.info("Setting register @" + register + " rs:" + registerStore + sb.toString());
+        log.fine("Setting register @" + register + " rs:" + registerStore + sb.toString());
 
         registers.put(register, registerStore);
     }
@@ -119,27 +119,25 @@ public class VirtualMachineContext {
     }
 
     public RegisterStore peekRegister(int register) {
-        RegisterStore registerStore = registers.get(register);
+        RegisterStore result = registers.get(register);
 
-        if ((registerStore == null) && (register >= 0)) {
+        if ((result == null) && (register >= 0)) {
             log.warning("r" + register + " is being read but is null, likely a mistake! Context:\n" + this);
         }
 
-        return registerStore;
+        return result;
     }
 
     public String peekRegisterType(int register) {
-        RegisterStore rs = peekRegister(register);
+        RegisterStore result = peekRegister(register);
 
-        return rs.getType();
+        return result.getType();
     }
 
     public Object peekRegisterValue(int register) {
-        System.out.println("peeking value @" + register);
-        RegisterStore rs = peekRegister(register);
-        System.out.println("rs is now: " + rs.getValue());
+        RegisterStore result = peekRegister(register);
 
-        return rs.getValue();
+        return result.getValue();
     }
 
     @Override
@@ -148,6 +146,7 @@ public class VirtualMachineContext {
 
         if (registerCount > 0) {
             sb.append("registers: ").append(registerCount).append("\n");
+            sb.append("[");
             for (int i = 0; i < registers.size(); i++) {
                 int register = registers.keyAt(i);
                 RegisterStore rs = registers.get(register);
@@ -155,12 +154,12 @@ public class VirtualMachineContext {
                     continue;
                 }
 
-                sb.append("[r").append(register).append(": ").append(rs).append(",\n");
+                sb.append("r").append(register).append(": ").append(rs).append(",\n");
             }
             if (registers.size() > 0) {
                 sb.setLength(sb.length() - 2);
-                sb.append("]");
             }
+            sb.append("]");
         }
 
         return sb.toString();

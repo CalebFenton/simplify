@@ -91,21 +91,30 @@ public class InvokeOpHandler extends OpHandler {
         if (vm.isMethodDefined(methodDescriptor)) {
             // VM has this method, so it knows how to execute it.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
-            if (isStatic) {
-                // Exclude first register since it's an instance reference and will already be a parameter.
+            // if (isStatic) {
+            // // Exclude first register since it's an instance reference and will already be a parameter.
+            // int[] registers = Arrays.copyOfRange(this.registers, 1, this.registers.length);
+            // } else {
+            // Object instance = mctx.getRegisterValue(registers[0], address)
+            // mctx.getRegister(mctx.getParameterStart() - 1, )
+            // }
+
+            if (!isStatic) {
+                // First parameter is an instance reference, which is right before the parameter register range starts.
+                RegisterStore instance = mctx.getRegister(registers[0], address);
+                calleeContext.pokeRegister(calleeContext.getParameterStart() - 1, instance);
+
                 int[] registers = Arrays.copyOfRange(this.registers, 1, this.registers.length);
                 addCalleeParameters(calleeContext, mctx, registers, address);
             } else {
                 addCalleeParameters(calleeContext, mctx, registers, address);
             }
 
-            System.out.println("executing callee: " + calleeContext);
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
-
             if (graph == null) {
-                // Couldn't execute the method. Maybe node visits exceeded?
-                log.info("Problem internally executing " + methodReference + ", propigating ambiguity.");
-                assumeMaximumUnknown(vm, mctx, registers, returnsVoid);
+                // Couldn't execute the method. Maybe node visits or call depth exceeded?
+                log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
+                assumeMaximumUnknown(vm, mctx, registers, methodReference.getReturnType());
                 return getPossibleChildren();
             }
 
@@ -118,16 +127,17 @@ public class InvokeOpHandler extends OpHandler {
             }
         } else {
             MethodContext calleeContext = buildCalleeContext(mctx, registers, address);
-            boolean allArgumentsKnown = allArgumentsKnown(mctx);
+            boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
             } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
-                MethodReflector.reflect(calleeContext, methodReference);
+                MethodReflector reflector = new MethodReflector(methodReference, isStatic);
+                reflector.reflect(calleeContext); // player play
             } else {
                 // Method not found and either all arguments are not known, couldn't emulate or reflect
-                log.info("Unknown argument or couldn't find/emulate/reflect " + methodDescriptor
+                log.fine("Unknown argument or couldn't find/emulate/reflect " + methodDescriptor
                                 + " so propigating ambiguity.");
-                assumeMaximumUnknown(vm, mctx, registers, returnsVoid);
+                assumeMaximumUnknown(vm, mctx, registers, methodReference.getReturnType());
                 return getPossibleChildren();
             }
 
@@ -135,7 +145,6 @@ public class InvokeOpHandler extends OpHandler {
             // updateInstanceAndMutableArguments(vm, mctx, calleeContext, isStatic);
 
             if (!returnsVoid) {
-                System.out.println("working with: " + calleeContext);
                 RegisterStore returnRegister = calleeContext.getReturnRegister();
                 mctx.setResultRegister(returnRegister);
             }
@@ -186,6 +195,12 @@ public class InvokeOpHandler extends OpHandler {
     private static boolean allArgumentsKnown(MethodContext mctx) {
         for (int i = 0; i < mctx.getRegisterCount(); i++) {
             RegisterStore registerStore = mctx.peekRegister(i);
+            // TODO: consider creating iterator to handle these cases
+            if (registerStore.getType().equals("J")) {
+                // This register index and the next both refer to this variable.
+                i++;
+            }
+
             if (registerStore.getValue() instanceof UnknownValue) {
                 return false;
             }
@@ -194,17 +209,27 @@ public class InvokeOpHandler extends OpHandler {
         return true;
     }
 
-    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext mctx, int[] registers, boolean returnsVoid) {
-        for (int register : registers) {
-            String className = mctx.peekRegisterType(register);
+    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext callerContext, int[] registers,
+                    String returnType) {
+        for (int i = 0; i < registers.length; i++) {
+            int register = registers[i];
+            String className = callerContext.peekRegisterType(register);
             if (vm.isImmutableClass(className)) {
-                log.info(className + " is immutable");
+                if (className.equals("J")) {
+                    i++;
+                }
+
+                log.fine(className + " is immutable");
                 continue;
             }
 
-            log.info(className + " is mutable and passed into strange method, marking unknown");
+            log.fine(className + " is mutable and passed into strange method, marking unknown");
             RegisterStore registerStore = new RegisterStore(className, new UnknownValue());
-            mctx.pokeRegister(register, registerStore);
+            callerContext.pokeRegister(register, registerStore);
+        }
+
+        if (!returnType.equals("V")) {
+            callerContext.setResultRegister(new RegisterStore(returnType, new UnknownValue()));
         }
     }
 
@@ -212,9 +237,14 @@ public class InvokeOpHandler extends OpHandler {
                     int address) {
         for (int i = 0; i < registers.length; i++) {
             int register = registers[i];
+            // Passing actual value references since they'll be updated correctly by the JVM.
             RegisterStore registerStore = callerContext.getRegister(register, address);
-            registerStore = new RegisterStore(registerStore.getType(), registerStore.getValue());
-            calleeContext.setParameter(i - 1, registerStore);
+            calleeContext.setParameter(i, registerStore);
+
+            if (registerStore.getType().equals("J")) {
+                // This register index and the next both refer to this variable.
+                i++;
+            }
         }
     }
 

@@ -168,4 +168,7 @@ public class ContextGraph {
         addressToNodePile.get(address).add(child);
     }
 
+    public String toGraph() {
+        return getRootNode().toGraph();
+    }
 }

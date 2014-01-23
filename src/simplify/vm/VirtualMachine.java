@@ -1,12 +1,12 @@
 package simplify.vm;
 
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
@@ -46,7 +46,7 @@ public class VirtualMachine {
         if (!isStatic) {
             // First parameter (p0) is instance reference for non-static methods
             String type = method.getDefiningClass();
-            result.setParameter(-1, new RegisterStore(type, "this"));
+            result.pokeRegister(result.getParameterStart() - 1, new RegisterStore(type, "this"));
         }
         // Assume all input values are unknown.
         for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
@@ -78,7 +78,6 @@ public class VirtualMachine {
     }
 
     private final Map<String, ClassContext> classNameToClassContext;
-    private final List<String> immutableClasses;
     private final List<String> initializedClasses;
     private final int maxCallDepth;
 
@@ -102,25 +101,24 @@ public class VirtualMachine {
 
         initializedClasses = new ArrayList<String>(classDefs.size());
 
-        immutableClasses = buildImmutableClasses(classDefs);
-
-        // Build graphs last because some handlers need access to a fully-instantiated VM.
+        // Build graphs last because that's when handlers are assigned and some handlers access this vm instance.
         methodInstructionGraphs = buildInstructionGraphs(classDefs);
 
     }
 
     public ContextGraph execute(String methodDescriptor) {
-        return execute(methodDescriptor, null);
+        MethodContext mctx = methodInstructionGraphs.get(methodDescriptor).getRootContext();
+        return execute(methodDescriptor, mctx);
     }
 
     public ContextGraph execute(String methodDescriptor, MethodContext mctx) {
-        // Invoking a method (including <init>) is a reason to statually initialize a class.
+        // Invoking a method (including <init>) is a reason to statically initialize a class.
         staticallyInitializeMethodClassIfNecessary(methodDescriptor);
 
         ContextGraph result = null;
         try {
             result = methodExecutor.execute(methodDescriptor, mctx);
-        } catch (MaxNodeVisitsExceeded e) {
+        } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
             log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor);
         }
 
@@ -147,20 +145,21 @@ public class VirtualMachine {
         return methodToTryCatchList;
     }
 
-    public boolean isImmutableClass(String className) {
-        if (SmaliClassUtils.isPrimitiveType(className)) {
+    public boolean isImmutableClass(String smaliClassName) {
+        if (SmaliClassUtils.isPrimitiveType(smaliClassName)) {
             return true;
         }
 
-        if (immutableClasses.contains(className)) {
+        if (smaliClassName.equals("?")) {
+            // Unknown type. Was probably lazy somewhere and didn't get implied type.
             return true;
         }
 
-        String javaName = SmaliClassUtils.smaliClassToJava(className);
+        String className = smaliClassName.replaceAll("/", ".");
         try {
-            Class<?> clazz = Class.forName(javaName);
+            Class<?> clazz = ClassUtils.getClass(className, false);
+            return ClassUtils.isPrimitiveOrWrapper(clazz);
 
-            return (clazz.getModifiers() & Modifier.FINAL) != 0;
         } catch (ClassNotFoundException e) {
         }
 

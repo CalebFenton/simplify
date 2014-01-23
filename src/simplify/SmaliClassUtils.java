@@ -5,7 +5,6 @@ import java.util.Map;
 
 public class SmaliClassUtils {
 
-    // TODO: arrays!
     private static Map<String, Class<?>> PrimitiveTypes;
     static {
         PrimitiveTypes = new HashMap<String, Class<?>>(8);
@@ -20,15 +19,19 @@ public class SmaliClassUtils {
     }
 
     public static boolean isPrimitiveType(String type) {
-        return PrimitiveTypes.containsKey(type);
-    }
-
-    public static Class<?> getPrimitiveClass(String type) {
-        return PrimitiveTypes.get(type);
+        // Remove any array qualifiers, e.g. [[B (2d byte array) becomes B
+        String baseType = type.replaceAll("\\[", "");
+        return PrimitiveTypes.containsKey(baseType);
     }
 
     public static String smaliClassToJava(String className) {
         if (isPrimitiveType(className)) {
+            return className;
+        }
+
+        if (className.equals("?")) {
+            // Probably lazy and didn't determine type.
+            // This will probably result in a Class.forName exception.
             return className;
         }
 
@@ -46,13 +49,4 @@ public class SmaliClassUtils {
         return "L" + className.replaceAll("\\.", "/") + ";";
     }
 
-    public static Class<?> getClass(String className) throws ClassNotFoundException {
-        String javaClassName = smaliClassToJava(className);
-
-        if (isPrimitiveType(javaClassName)) {
-            return getPrimitiveClass(javaClassName);
-        }
-
-        return Class.forName(javaClassName);
-    }
 }
