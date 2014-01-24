@@ -21,56 +21,6 @@ public class ContextGraph {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private final SparseArray<List<ContextNode>> addressToNodePile;
-    private final String methodDescriptor;
-    private final TIntList terminatingAddresses;
-
-    ContextGraph(VirtualMachine vm, BuilderMethod method) {
-        methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-
-        MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
-        List<BuilderInstruction> instructions = implementation.getInstructions();
-
-        addressToNodePile = buildAddressToNodePile(vm, methodDescriptor, instructions);
-
-        terminatingAddresses = buildTerminatingAddresses(instructions);
-    }
-
-    private static TIntList buildTerminatingAddresses(List<BuilderInstruction> instructions) {
-        TIntList result = new TIntArrayList(1);
-
-        for (BuilderInstruction instruction : instructions) {
-            int address = instruction.getLocation().getCodeAddress();
-            if (!instruction.getOpcode().canContinue()) {
-                result.add(address);
-            }
-        }
-
-        return result;
-    }
-
-    ContextGraph(ContextGraph other) {
-        methodDescriptor = other.methodDescriptor;
-
-        addressToNodePile = new SparseArray<List<ContextNode>>(other.addressToNodePile.size());
-        for (int i = 0; i < other.addressToNodePile.size(); i++) {
-            int address = other.addressToNodePile.keyAt(i);
-            List<ContextNode> otherNodePile = other.addressToNodePile.get(address);
-            List<ContextNode> nodePile = new ArrayList<ContextNode>(otherNodePile.size());
-            for (ContextNode otherNode : otherNodePile) {
-                nodePile.add(new ContextNode(otherNode));
-            }
-
-            addressToNodePile.put(address, nodePile);
-        }
-
-        terminatingAddresses = other.terminatingAddresses;
-    }
-
-    public String getMethodDescriptor() {
-        return methodDescriptor;
-    }
-
     private static SparseArray<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
         OpHandlerFactory handlerFactory = new OpHandlerFactory(vm, methodDescriptor);
@@ -91,32 +41,66 @@ public class ContextGraph {
         return result;
     }
 
-    public List<ContextNode> getNodePile(int address) {
-        List<ContextNode> result = addressToNodePile.get(address);
-        result = result.subList(1, result.size()); // remove template node
+    private static TIntList buildTerminatingAddresses(List<BuilderInstruction> instructions) {
+        TIntList result = new TIntArrayList(1);
+
+        for (BuilderInstruction instruction : instructions) {
+            int address = instruction.getLocation().getCodeAddress();
+            if (!instruction.getOpcode().canContinue()) {
+                result.add(address);
+            }
+        }
 
         return result;
     }
 
-    ContextNode getTemplateNode(int address) {
-        return addressToNodePile.get(address).get(0);
+    private final SparseArray<List<ContextNode>> addressToNodePile;
+
+    private final String methodDescriptor;
+
+    private final TIntList terminatingAddresses;
+
+    ContextGraph(ContextGraph other) {
+        methodDescriptor = other.methodDescriptor;
+
+        addressToNodePile = new SparseArray<List<ContextNode>>(other.addressToNodePile.size());
+        for (int i = 0; i < other.addressToNodePile.size(); i++) {
+            int address = other.addressToNodePile.keyAt(i);
+            List<ContextNode> otherNodePile = other.addressToNodePile.get(address);
+            List<ContextNode> nodePile = new ArrayList<ContextNode>(otherNodePile.size());
+            for (ContextNode otherNode : otherNodePile) {
+                nodePile.add(new ContextNode(otherNode));
+            }
+
+            addressToNodePile.put(address, nodePile);
+        }
+
+        terminatingAddresses = other.terminatingAddresses;
     }
 
-    ContextNode getRootNode() {
-        // There is only one entry point for a method.
-        return addressToNodePile.get(0).get(0);
+    ContextGraph(VirtualMachine vm, BuilderMethod method) {
+        methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+
+        MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
+        List<BuilderInstruction> instructions = implementation.getInstructions();
+
+        addressToNodePile = buildAddressToNodePile(vm, methodDescriptor, instructions);
+
+        terminatingAddresses = buildTerminatingAddresses(instructions);
     }
 
-    public MethodContext getRootContext() {
-        return getRootNode().getContext();
+    public TIntList getAddresses() {
+        TIntList addresses = new TIntArrayList(addressToNodePile.size());
+
+        for (int i = 0; i < addressToNodePile.size(); i++) {
+            addresses.add(addressToNodePile.keyAt(i));
+        }
+
+        return addresses;
     }
 
-    int getNodeCount() {
-        return addressToNodePile.size();
-    }
-
-    void setRootContext(MethodContext mctx) {
-        getRootNode().setContext(mctx);
+    public void addNode(ContextNode child, int address) {
+        addressToNodePile.get(address).add(child);
     }
 
     public TIntList getConnectedTerminatingAddresses() {
@@ -131,6 +115,54 @@ public class ContextGraph {
         return result;
     }
 
+    public RegisterStore getConsensus(int address, int register) {
+        TIntList addresses = new TIntArrayList(1);
+        addresses.add(address);
+
+        return getConsensus(addresses, register);
+    }
+
+    public RegisterStore getConsensus(TIntList addresses, int register) {
+        ContextNode fistNode = getNodePile(addresses.get(0)).get(0);
+        RegisterStore registerStore = fistNode.getContext().peekRegister(register);
+        String type = registerStore.getType();
+        Object value = registerStore.getValue();
+        for (int i = 1; i < addresses.size(); i++) {
+            int address = addresses.get(i);
+            for (ContextNode node : getNodePile(address)) {
+                RegisterStore rs = node.getContext().peekRegister(register);
+                if (!rs.getType().equals(type) || !rs.getValue().equals(value)) {
+                    log.finer("No conensus value for register #" + register + ", returning unknown");
+
+                    return new RegisterStore("?", new UnknownValue());
+                }
+            }
+        }
+
+        return registerStore;
+    }
+
+    public String getMethodDescriptor() {
+        return methodDescriptor;
+    }
+
+    public List<ContextNode> getNodePile(int address) {
+        List<ContextNode> result = addressToNodePile.get(address);
+        if (address > 0) {
+            result = result.subList(1, result.size()); // remove template node
+        }
+
+        return result;
+    }
+
+    public MethodContext getRootContext() {
+        return getRootNode().getContext();
+    }
+
+    public String toGraph() {
+        return getRootNode().toGraph();
+    }
+
     public boolean wasAddressReached(int address) {
         if (address == 0) {
             // Root is always reachable
@@ -143,32 +175,20 @@ public class ContextGraph {
         return nodePile.size() > 0;
     }
 
-    public RegisterStore getConsensusRegister(int register) {
-        TIntList terminating = getConnectedTerminatingAddresses();
-        System.out.println("terminating: " + getNodePile(terminating.get(0)));
-        ContextNode fistNode = getNodePile(terminating.get(0)).get(0);
-        RegisterStore registerStore = fistNode.getContext().peekRegister(register);
-        String type = registerStore.getType();
-        Object value = registerStore.getValue();
-        for (int i = 1; i < terminating.size(); i++) {
-            int address = terminating.get(i);
-            for (ContextNode node : getNodePile(address)) {
-                RegisterStore rs = node.getContext().peekRegister(register);
-                if (!rs.getType().equals(type) || !rs.getValue().equals(value)) {
-                    log.finer("No conensus value for register #" + register + ", returning unknown");
-                    return new RegisterStore("?", new UnknownValue());
-                }
-            }
-        }
-
-        return registerStore;
+    int getNodeCount() {
+        return addressToNodePile.size();
     }
 
-    public void addNode(ContextNode child, int address) {
-        addressToNodePile.get(address).add(child);
+    ContextNode getRootNode() {
+        // There is only one entry point for a method.
+        return addressToNodePile.get(0).get(0);
     }
 
-    public String toGraph() {
-        return getRootNode().toGraph();
+    ContextNode getTemplateNode(int address) {
+        return addressToNodePile.get(address).get(0);
+    }
+
+    void setRootContext(MethodContext mctx) {
+        getRootNode().setContext(mctx);
     }
 }

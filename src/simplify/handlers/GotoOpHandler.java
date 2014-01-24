@@ -28,7 +28,7 @@ public class GotoOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        return new int[] { targetAddress };
+        return getPossibleChildren();
     }
 
     @Override

@@ -9,12 +9,21 @@ import simplify.handlers.OpHandler;
 
 public class ContextNode {
 
-    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
-    private final OpHandler handler;
+    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
     private final List<ContextNode> children;
-    private ContextNode parent;
+    private final OpHandler handler;
     private MethodContext mctx;
+    private ContextNode parent;
+
+    ContextNode(ContextNode node) {
+        this(node.handler);
+
+        if (node.mctx != null) {
+            mctx = new MethodContext(node.mctx);
+        }
+    }
 
     ContextNode(OpHandler handler) {
         this.handler = handler;
@@ -23,12 +32,9 @@ public class ContextNode {
         children = new ArrayList<ContextNode>(1);
     }
 
-    ContextNode(ContextNode node) {
-        this(node.handler);
-
-        if (node.mctx != null) {
-            mctx = new MethodContext(node.mctx);
-        }
+    public void addChild(ContextNode child) {
+        child.setParent(this);
+        children.add(child);
     }
 
     public int[] execute() {
@@ -41,17 +47,62 @@ public class ContextNode {
         return result;
     }
 
-    void setContext(MethodContext mctx) {
-        this.mctx = mctx;
+    public int getAddress() {
+        return handler.getAddress();
+    }
+
+    public List<ContextNode> getChildren() {
+        return children;
     }
 
     public MethodContext getContext() {
         return mctx;
     }
 
-    public void addChild(ContextNode child) {
-        child.setParent(this);
-        children.add(child);
+    public OpHandler getHandler() {
+        return handler;
+    }
+
+    public ContextNode getParent() {
+        return parent;
+    }
+
+    public String toGraph() {
+        List<ContextNode> visitedNodes = new ArrayList<ContextNode>();
+
+        StringBuilder sb = new StringBuilder("digraph {\n");
+        getGraph(sb, visitedNodes);
+        sb.append("}");
+        return sb.toString();
+    }
+
+    @Override
+    public String toString() {
+        return handler.toString();
+    }
+
+    private void getGraph(StringBuilder sb, List<ContextNode> visitedNodes) {
+        if (visitedNodes.contains(this)) {
+            return;
+        }
+        visitedNodes.add(this);
+
+        for (ContextNode child : getChildren()) {
+            String op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
+            String ctx = getContext().toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
+            sb.append("\"").append(getAddress()).append("\n").append(op).append("\n").append(ctx).append("\"");
+
+            sb.append(" -> ");
+
+            op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
+            ctx = getContext().toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
+            sb.append("\"").append(getAddress()).append("\n").append(op).append("\n").append(ctx).append("\"");
+            sb.append("\n");
+            op = null;
+            ctx = null;
+
+            child.getGraph(sb, visitedNodes);
+        }
     }
 
     private void setParent(ContextNode parent) {
@@ -60,25 +111,7 @@ public class ContextNode {
         this.parent = parent;
     }
 
-    public ContextNode getParent() {
-        return parent;
-    }
-
-    public List<ContextNode> getChildren() {
-        return children;
-    }
-
-    public int getAddress() {
-        return handler.getAddress();
-    }
-
-    @Override
-    public String toString() {
-        return handler.toString();
-    }
-
-    public String toGraph() {
-        // TODO Auto-generated method stub
-        return null;
+    void setContext(MethodContext mctx) {
+        this.mctx = mctx;
     }
 }

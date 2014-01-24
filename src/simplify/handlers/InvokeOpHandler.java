@@ -1,5 +1,7 @@
 package simplify.handlers;
 
+import gnu.trove.list.TIntList;
+
 import java.util.Arrays;
 import java.util.logging.Logger;
 
@@ -122,7 +124,8 @@ public class InvokeOpHandler extends OpHandler {
             // updateInstanceAndMutableArguments(vm, mctx, graph, isStatic);
 
             if (!returnsVoid) {
-                RegisterStore registerStore = graph.getConsensusRegister(MethodContext.ReturnRegister);
+                TIntList terminating = graph.getConnectedTerminatingAddresses();
+                RegisterStore registerStore = graph.getConsensus(terminating, MethodContext.ReturnRegister);
                 mctx.setResultRegister(registerStore);
             }
         } else {
@@ -177,7 +180,7 @@ public class InvokeOpHandler extends OpHandler {
                     ContextGraph graph, boolean isStatic) {
         if (!isStatic) {
             RegisterStore registerStore = callerContext.peekRegister(0);
-            Object value = graph.getConsensusRegister(0).getValue();
+            Object value = graph.getConsensus(0, 0).getValue();
             registerStore.setValue(value);
             log.fine("updating instance value: " + registerStore);
         }
@@ -185,7 +188,7 @@ public class InvokeOpHandler extends OpHandler {
         for (int i = 0; i < callerContext.getRegisterCount(); i++) {
             RegisterStore registerStore = callerContext.peekRegister(i);
             if (!vm.isImmutableClass(registerStore.getType())) {
-                Object value = graph.getConsensusRegister(i).getValue();
+                Object value = graph.getConsensus(0, i).getValue();
                 registerStore.setValue(value);
                 log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
             }

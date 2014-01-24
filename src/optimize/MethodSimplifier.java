@@ -1,4 +1,4 @@
-package simplify;
+package optimize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,10 +18,9 @@ import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
+import simplify.Main;
 import simplify.vm.ContextGraph;
 import simplify.vm.UnknownValue;
-
-import com.google.common.collect.LinkedListMultimap;
 
 public class MethodSimplifier {
 
@@ -172,6 +171,7 @@ public class MethodSimplifier {
         while ((s < 64) && (x >= (1L << s))) {
             s++;
         }
+
         return s;
     }
 

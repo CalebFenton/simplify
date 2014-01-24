@@ -9,6 +9,8 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import optimize.Simplifier;
+
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
@@ -56,24 +58,19 @@ public class Main {
 
         VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
 
-        for (int i = 0; i < methods.size();) {
-            BuilderMethod method = methods.get(i);
+        for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
 
             ContextGraph graph = vm.execute(methodDescriptor);
             if (graph == null) {
                 log.info("Skipping " + methodDescriptor);
-                i++;
                 continue;
             }
 
-            boolean madeChanges = MethodSimplifier.simplify(dexBuilder, method, graph);
-            if (madeChanges) {
-                log.info("Changes were made simplifying " + method.getName() + ", repeating...");
-                continue;
-            }
+            // String methodName = method.getName();
+            // FileUtils.writeStringToFile(new File("graphs/" + methodName + ".dot"), graph.toGraph());
 
-            i++;
+            Simplifier.simplify(dexBuilder, method, graph);
         }
 
         String outputDexFile = "out_simple.dex";
