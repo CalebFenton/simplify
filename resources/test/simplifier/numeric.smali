@@ -65,6 +65,7 @@
     goto :otherLabel
 
     :end
+    # r0=unknown, r2=8
     return v2
 .end method
 

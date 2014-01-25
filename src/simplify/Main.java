@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -30,9 +31,9 @@ import simplify.vm.VirtualMachine;
 
 public class Main {
 
-    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.INFO;
+    private static final Level LOG_LEVEL = Level.FINE;
 
     private static final int API_LEVEL = 15;
     private static final int MAX_NODE_VISITS = 100;
@@ -41,17 +42,21 @@ public class Main {
     public static void main(String[] argv) throws Exception {
         setupLogger();
 
-        List<String> files = new ArrayList<String>();
-        files.add(argv[0]);
+        List<File> files = new ArrayList<File>();
+        File f = new File(argv[0]);
+        if (f.isDirectory()) {
+            files.addAll(Arrays.asList(f.listFiles()));
+        } else {
+            files.add(f);
+        }
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(API_LEVEL);
         List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>();
         List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
-        for (String file : files) {
-            File smaliFile = new File(file);
-            log.info("Dexifying: " + smaliFile);
+        for (File file : files) {
+            log.info("Dexifying: " + file);
 
-            BuilderClassDef classDef = dexifySmaliFile(smaliFile, dexBuilder);
+            BuilderClassDef classDef = dexifySmaliFile(file, dexBuilder);
             classDefs.add(classDef);
             methods.addAll(classDef.getMethods());
         }

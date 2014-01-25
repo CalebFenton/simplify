@@ -4,6 +4,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -17,7 +18,7 @@ import simplify.Main;
 import simplify.handlers.OpHandler;
 import simplify.handlers.OpHandlerFactory;
 
-public class ContextGraph {
+public class ContextGraph implements Iterable {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
@@ -190,5 +191,10 @@ public class ContextGraph {
 
     void setRootContext(MethodContext mctx) {
         getRootNode().setContext(mctx);
+    }
+
+    @Override
+    public Iterator<ContextNode> iterator() {
+        return new ContextGraphIterator(this);
     }
 }

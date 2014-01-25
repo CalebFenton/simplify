@@ -13,6 +13,7 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction11x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction31i;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction51l;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderStringReference;
@@ -36,7 +37,7 @@ public class ConstantPropigator {
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
                     "Ljava/lang/String;", "Ljava/lang/Class;" };
 
-    private static Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOpHandler.class,
                     UnaryMathOpHandler.class, ReturnOpHandler.class, MoveOpHandler.class };
@@ -70,27 +71,23 @@ public class ConstantPropigator {
         return false;
     }
 
-    private final SparseArray<BuilderInstruction> addressToInstruction;
     private final DexBuilder dexBuilder;
+    private final ContextGraph graph;
+    private final MutableMethodImplementation implementation;
+    private final SparseArray<BuilderInstruction> addressToInstruction;
 
     private int emitCount = 0;
-    private final ContextGraph graph;
-
-    private final MutableMethodImplementation implementation;
-
-    private final BuilderMethod method;
 
     private int peepCount = 0;
 
     ConstantPropigator(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
         this.dexBuilder = dexBuilder;
-        this.method = method;
         this.graph = graph;
 
         MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
         implementation = impl;
 
-        addressToInstruction = buildAddressToInstruction(impl.getInstructions());
+        addressToInstruction = Simplifier.buildAddressToInstruction(impl.getInstructions());
     }
 
     @Override
@@ -100,17 +97,6 @@ public class ConstantPropigator {
         sb.append("constants=").append(emitCount).append(", peeps=").append(peepCount);
 
         return sb.toString();
-    }
-
-    private SparseArray<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
-        SparseArray<BuilderInstruction> result = new SparseArray<BuilderInstruction>(instructions.size());
-
-        for (BuilderInstruction instruction : instructions) {
-            int address = instruction.getLocation().getCodeAddress();
-            result.put(address, instruction);
-        }
-
-        return result;
     }
 
     private BuilderInstruction buildConstant(int registerA, String type, Object value) {
@@ -132,10 +118,23 @@ public class ConstantPropigator {
             boolean literal = ((Boolean) value);
             result = new BuilderInstruction11n(Opcode.CONST_4, registerA, literal ? 1 : 0);
         } else if (type.equals("J")) {
-            // TODO: implement
+            long literal = (Long) value;
+            int bitSize = getBitSize(literal);
+
+            if (bitSize < 16) {
+                result = new BuilderInstruction21s(Opcode.CONST_WIDE_16, registerA, (int) literal);
+            } else if (bitSize < 32) {
+                result = new BuilderInstruction31i(Opcode.CONST_WIDE_32, registerA, (int) literal);
+            } else {
+                result = new BuilderInstruction51l(Opcode.CONST_WIDE, registerA, literal);
+            }
         } else if (type.equals("F")) {
+            float literal = (Float) value;
+            log.warning("WOOP WOOP no idea how to const floats: " + literal);
             // TODO: implement
         } else if (type.equals("D")) {
+            double literal = (Double) value;
+            log.warning("WOOP WOOP no idea how to const doubles: " + literal);
             // TODO: implement
         } else if (type.equals("Ljava/lang/String;")) {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());

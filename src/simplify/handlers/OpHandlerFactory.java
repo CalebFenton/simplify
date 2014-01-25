@@ -335,7 +335,6 @@ public final class OpHandlerFactory {
     private final VirtualMachine vm;
 
     public OpHandlerFactory(VirtualMachine vm, String methodDescriptor) {
-        // vm gives class and try/catch block access to factory type factories
         this.vm = vm;
     }
 

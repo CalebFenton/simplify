@@ -54,7 +54,7 @@
     const/16 v1, 0x47
     const/16 v2, -0x13
     const/16 v3, -0x11
-    invoke-static {v1, v2, v3}, Lcom/android/system/admin/CIlOCClc;->oCIlCll(III)Ljava/lang/String;
+    invoke-static {v1, v2, v3}, Lcom/android.util/system/admin/CIlOCClc;->oCIlCll(III)Ljava/lang/String;
     move-result-object v1
 
 #Example class instantiation (after string resolution):
@@ -63,7 +63,7 @@
     move-result-object v0
 
 #Example virtual field lookup:
-    const-string v0, "android.net.wifi.ScanResult"
+    const-string v0, "android.util.net.wifi.ScanResult"
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
     move-result-object v0
     const-string v1, "capabilities"
@@ -98,7 +98,7 @@
 
     :goto_9
     :try_start_a
-    const-string v0, "android.telephony.TelephonyManager"
+    const-string v0, "android.util.telephony.TelephonyManager"
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
     move-result-object v0
 
@@ -193,7 +193,7 @@
     # standard string decryption, must run after de-dexguard string decoding
     const-string v1, "ZmRwG1UybmF3PD5hfQ=="
 
-    invoke-static {v1}, Lcom/android/system/admin/OcOCclc;->ICOColc(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v1}, Lcom/android.util/system/admin/OcOCclc;->ICOColc(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v1
 .end method
@@ -215,7 +215,7 @@
     const/4 v3, 0x0
     aput-object v0, v2, v3
 
-    const-string v0, "android.net.wifi.WifiManager"
+    const-string v0, "android.util.net.wifi.WifiManager"
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
     move-result-object v0
 
