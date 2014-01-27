@@ -7,8 +7,8 @@ import com.rits.cloning.Cloner;
 
 public class RegisterStore {
 
-    private final TIntSet used;
-    private final TIntSet referenced;
+    private final TIntSet assigned;
+    private final TIntSet read;
     private final String type;
 
     private Object value;
@@ -17,36 +17,44 @@ public class RegisterStore {
         this(type, value, new TIntHashSet(), new TIntHashSet());
     }
 
-    RegisterStore(String type, Object value, TIntSet used, TIntSet referenced) {
+    RegisterStore(String type, Object value, TIntSet assigned, TIntSet read) {
         this.type = type;
         this.setValue(value);
-        this.used = used;
-        this.referenced = referenced;
+        this.assigned = assigned;
+        this.read = read;
     }
 
     RegisterStore(RegisterStore other) {
         Cloner cloner = new Cloner();
         Object valueClone = cloner.deepClone(other.getValue());
-        TIntSet newUsed = new TIntHashSet(other.getUsed());
-        TIntSet newReferenced = new TIntHashSet(other.getReferenced());
+        TIntSet newAssigned = new TIntHashSet(other.getAssigned());
+        TIntSet newRead = new TIntHashSet(other.getRead());
 
         this.type = other.type;
         this.setValue(valueClone);
-        this.used = newUsed;
-        this.referenced = newReferenced;
+        this.assigned = newAssigned;
+        this.read = newRead;
     }
 
     @Override
     public String toString() {
-        return "type=" + getType() + ", value=" + getValue() + ", used=" + getUsed() + ", refs=" + getReferenced();
+        return "type=" + getType() + ", value=" + getValue() + ", assigned=" + getAssigned() + ", read=" + getRead();
     }
 
-    public TIntSet getUsed() {
-        return used;
+    public TIntSet getAssigned() {
+        return assigned;
     }
 
-    public TIntSet getReferenced() {
-        return referenced;
+    public TIntSet getRead() {
+        return read;
+    }
+
+    public void addRead(int address) {
+        read.add(address);
+    }
+
+    public void addAssigned(int address) {
+        assigned.add(address);
     }
 
     public String getType() {

@@ -38,7 +38,7 @@ public class ContextNode {
     }
 
     public int[] execute() {
-        log.fine("Handling : " + handler + ", context before: ");
+        log.fine("Handling @" + handler.getAddress() + ": " + handler + ", context before: ");
 
         int[] result = handler.execute(mctx);
 

@@ -79,9 +79,25 @@ public class VirtualMachineContext {
         return registerCount;
     }
 
+    public SparseArray<RegisterStore> getRegisterToStore() {
+        SparseArray<RegisterStore> result = new SparseArray<RegisterStore>(registers.size());
+        for (int i = 0; i < result.size(); i++) {
+            int register = registers.keyAt(i);
+            RegisterStore registerStore = peekRegister(register);
+            result.put(register, registerStore);
+
+            // Longs are fat and take up two registers
+            if (registerStore.getType().equals("J")) {
+                register++;
+            }
+        }
+
+        return result;
+    }
+
     public void pokeRegister(int register, RegisterStore registerStore) {
-        StackTraceElement[] ste = Thread.currentThread().getStackTrace();
         StringBuilder sb = new StringBuilder();
+        // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
         // for (int i = 2; i < ste.length; i++) {
         // sb.append("\n\t").append(ste[i]);
         // }
@@ -91,24 +107,19 @@ public class VirtualMachineContext {
     }
 
     public void setRegister(int register, RegisterStore registerStore, int address) {
-        registerStore.getReferenced().add(address);
+        registerStore.addAssigned(address);
         pokeRegister(register, registerStore);
     }
 
     public void setRegister(int register, String type, Object value, int address) {
         RegisterStore registerStore = new RegisterStore(type, value);
-        registerStore.getReferenced().add(address);
+        registerStore.addAssigned(address);
         pokeRegister(register, registerStore);
     }
 
     public RegisterStore getRegister(int register, int address) {
         RegisterStore registerStore = peekRegister(register);
-
-        /*
-         * Addressed access to a register implies it's being "read" by some instruction. The optimizer needs to know if
-         * a register was used and wear for no-op removal.
-         */
-        registerStore.getUsed().add(address);
+        registerStore.addRead(address);
 
         return registerStore;
     }

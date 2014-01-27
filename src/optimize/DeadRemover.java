@@ -30,7 +30,7 @@ public class DeadRemover {
     private final SparseArray<SparseArray<RegisterStore>> addressRegisterToStore;
 
     private int unreachableCount = 0;
-    private int unusedCount = 0;
+    private int deadCount = 0;
 
     DeadRemover(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
         this.dexBuilder = dexBuilder;
@@ -59,7 +59,10 @@ public class DeadRemover {
                 System.out.println(address + " - context: " + mctx);
 
                 // TODO: write custom iterator pffsslffj, delete getregistercount
-                for (int register = 0; register < mctx.getRegisterCount(); register++) {
+                SparseArray<RegisterStore> registerToStores = mctx.getRegisterToStore();
+                for (int j = 0; j < registerToStores.size(); j++) {
+                    int register = registerToStores.keyAt(j);
+
                     TIntSet references = registerToReferences.get(register);
                     if (references == null) {
                         references = new TIntHashSet();
@@ -72,16 +75,11 @@ public class DeadRemover {
                         registerToUses.put(register, uses);
                     }
 
-                    RegisterStore registerStore = node.getContext().peekRegister(register);
-                    references.addAll(registerStore.getReferenced());
-                    uses.addAll(registerStore.getUsed());
+                    RegisterStore registerStore = registerToStores.get(register);
+                    references.addAll(registerStore.getRead());
+                    uses.addAll(registerStore.getAssigned());
 
                     System.out.println("refs=" + references + ", uses=" + uses);
-
-                    if (registerStore.getType().equals("J")) {
-                        // Longs are wide and take up two registers
-                        register++;
-                    }
                 }
             }
         }
@@ -97,8 +95,24 @@ public class DeadRemover {
         Iterator<ContextNode> it = graph.iterator();
         while (it.hasNext()) {
             ContextNode node = it.next();
+            int address = node.getAddress();
+            MethodContext mctx = node.getContext();
 
-            System.out.println("iterating: " + node);
+            SparseArray<RegisterStore> builtRegisterToStore = result.get(address);
+            if (builtRegisterToStore == null) {
+                builtRegisterToStore = new SparseArray<RegisterStore>(mctx.getRegisterCount());
+                result.put(address, builtRegisterToStore);
+            }
+
+            SparseArray<RegisterStore> registerToStore = mctx.getRegisterToStore();
+            for (int i = 0; i < registerToStore.size(); i++) {
+                int register = registerToStore.keyAt(i);
+                RegisterStore rs = registerToStore.get(register);
+                RegisterStore builtRS = builtRegisterToStore.get(register);
+
+                builtRS.getRead().addAll(rs.getRead());
+                builtRS.getAssigned().addAll(rs.getAssigned());
+            }
         }
 
         return result;
@@ -108,7 +122,7 @@ public class DeadRemover {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        sb.append("unreachable=").append(unreachableCount).append(", unused=").append(unusedCount);
+        sb.append("unreachable=").append(unreachableCount).append(", dead=").append(deadCount);
 
         return sb.toString();
     }

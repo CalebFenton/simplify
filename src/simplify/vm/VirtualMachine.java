@@ -146,6 +146,11 @@ public class VirtualMachine {
     }
 
     public boolean isImmutableClass(String smaliClassName) {
+        if (smaliClassName.startsWith("[")) {
+            // Array contents can be mutated, regardless of class.
+            return false;
+        }
+
         if (SmaliClassUtils.isPrimitiveType(smaliClassName)) {
             return true;
         }
