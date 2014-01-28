@@ -128,7 +128,7 @@ public class ContextGraph implements Iterable {
         RegisterStore registerStore = fistNode.getContext().peekRegister(register);
         String type = registerStore.getType();
         Object value = registerStore.getValue();
-        for (int i = 1; i < addresses.size(); i++) {
+        for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             for (ContextNode node : getNodePile(address)) {
                 RegisterStore rs = node.getContext().peekRegister(register);

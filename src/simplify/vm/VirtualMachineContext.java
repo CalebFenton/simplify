@@ -158,10 +158,10 @@ public class VirtualMachineContext {
             sb.append("[");
             for (int i = 0; i < registers.size(); i++) {
                 int register = registers.keyAt(i);
-                RegisterStore rs = registers.get(register);
                 if (register < 0) {
                     continue;
                 }
+                RegisterStore rs = registers.get(register);
 
                 sb.append("r").append(register).append(": ").append(rs).append(",\n");
             }

@@ -187,8 +187,8 @@ public class ConstantPropigator {
 
             int index = originalInstruction.getLocation().getIndex();
             if (originalInstruction.getOpcode().name.startsWith("return")) {
-                // Add const before return only if previous instruction not const, otherwise repeated sweeps will always
-                // add one.
+                // Add const before return only if previous instruction is not a const. Otherwise repeated sweeps will
+                // always add one.
                 BuilderInstruction prevInstr = implementation.getInstructions().get(index - 1);
                 boolean previousConst = prevInstr.getOpcode().name.startsWith("const");
                 if (previousConst) {

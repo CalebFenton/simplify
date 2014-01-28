@@ -69,6 +69,22 @@
     return v2
 .end method
 
+.method public static simple_loop(I)I
+    .locals 5
+
+    const/4 v0, 0x2
+
+    :start_loop
+    if-lez v0, :end
+
+    add-int/lit8 v0, v0, -0x1
+
+    goto :start_loop
+
+    :end
+    return v0
+.end method
+
 .method public static double_loop(I)I
     .locals 5
 
@@ -117,7 +133,7 @@
     return v0
 .end method
 
-.method public crazyloop(I)I
+.method public static crazyloop(I)I
     .locals 3
 
     .prologue

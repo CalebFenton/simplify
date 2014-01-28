@@ -123,7 +123,8 @@ public class VirtualMachine {
         try {
             result = methodExecutor.execute(methodDescriptor, mctx);
         } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
-            log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor);
+            log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor + "\nContext: "
+                            + mctx);
         }
 
         return result;

@@ -53,12 +53,12 @@ public class DeadRemover {
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             OpHandler handler = graph.getOpHandler(address);
-            System.out.println("Liveness test for: " + handler);
+            log.fine("Liveness test for: " + handler);
 
             // Reachability
             List<ContextNode> nodePile = graph.getNodePile(address);
             if (nodePile.size() == 0) {
-                System.out.println("Would NOP unreachable instruction: " + handler);
+                log.info("Nop unreachable instruction: " + handler);
                 nopInstruction(implementation, address, addressToInstruction);
                 unreachableCount++;
                 madeChanges = true;
@@ -83,7 +83,7 @@ public class DeadRemover {
                 }
 
                 if (allAssignmentsUnused) {
-                    System.out.println("Would replace dead assignment with NOP: " + handler);
+                    log.info("Nop dead assignment: " + handler);
                     nopInstruction(implementation, address, addressToInstruction);
                     deadCount++;
                     madeChanges = true;
@@ -105,7 +105,7 @@ public class DeadRemover {
                     }
 
                     if (unusedResult) {
-                        System.out.println("Would replace no side-effect, unused result with NOP: " + handler);
+                        log.info("Nop unused, no side-effect: " + handler);
                         nopInstruction(implementation, address, addressToInstruction);
                         deadCount++;
                         madeChanges = true;
@@ -171,9 +171,8 @@ public class DeadRemover {
                     // Assignment liveness testing happens after we skip invokes with side effects. If this has no side
                     // effects and the assignment and reading happened at the same address, it's useless.
                     if ((read.size() > 0) && !((read.size() == 1) && read.contains(assignAddress))) {
-                        System.out.println("\t>=1 register assigned @" + assignAddress + " is read @"
-                                        + node.getAddress() + ", it's alive!");
-                        System.out.println(registerStore);
+                        log.fine("\t>=1 register assigned @" + assignAddress + " is read @" + node.getAddress()
+                                        + ", it's alive!");
                         return true;
                     }
                 }
