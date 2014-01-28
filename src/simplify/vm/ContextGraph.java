@@ -116,14 +116,14 @@ public class ContextGraph implements Iterable {
         return result;
     }
 
-    public RegisterStore getConsensus(int address, int register) {
+    public RegisterStore getRegisterConsensus(int address, int register) {
         TIntList addresses = new TIntArrayList(1);
         addresses.add(address);
 
-        return getConsensus(addresses, register);
+        return getRegisterConsensus(addresses, register);
     }
 
-    public RegisterStore getConsensus(TIntList addresses, int register) {
+    public RegisterStore getRegisterConsensus(TIntList addresses, int register) {
         ContextNode fistNode = getNodePile(addresses.get(0)).get(0);
         RegisterStore registerStore = fistNode.getContext().peekRegister(register);
         String type = registerStore.getType();
@@ -154,6 +154,10 @@ public class ContextGraph implements Iterable {
         }
 
         return result;
+    }
+
+    public OpHandler getOpHandler(int address) {
+        return addressToNodePile.get(address).get(0).getHandler();
     }
 
     public MethodContext getRootContext() {

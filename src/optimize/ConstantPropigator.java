@@ -19,7 +19,6 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
-import org.jf.util.SparseArray;
 
 import simplify.Main;
 import simplify.handlers.BinaryMathOpHandler;
@@ -31,6 +30,7 @@ import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
 import simplify.vm.RegisterStore;
 import simplify.vm.UnknownValue;
+import util.SparseArray;
 
 public class ConstantPropigator {
 
@@ -71,12 +71,11 @@ public class ConstantPropigator {
         return false;
     }
 
+    private final SparseArray<BuilderInstruction> addressToInstruction;
     private final DexBuilder dexBuilder;
+    private int emitCount = 0;
     private final ContextGraph graph;
     private final MutableMethodImplementation implementation;
-    private final SparseArray<BuilderInstruction> addressToInstruction;
-
-    private int emitCount = 0;
 
     private int peepCount = 0;
 
@@ -170,7 +169,7 @@ public class ConstantPropigator {
 
             BuilderInstruction originalInstruction = addressToInstruction.get(address);
             int registerA = ((OneRegisterInstruction) originalInstruction).getRegisterA();
-            RegisterStore registerStore = graph.getConsensus(address, registerA);
+            RegisterStore registerStore = graph.getRegisterConsensus(address, registerA);
             String type = registerStore.getType();
             if (!isConstableType(type)) {
                 log.fine("Can't make type constant: " + type);
@@ -188,14 +187,23 @@ public class ConstantPropigator {
 
             int index = originalInstruction.getLocation().getIndex();
             if (originalInstruction.getOpcode().name.startsWith("return")) {
-                // Add consts directly preceding "returns"s to make the Smali even more readable
+                // Add const before return only if previous instruction not const, otherwise repeated sweeps will always
+                // add one.
+                BuilderInstruction prevInstr = implementation.getInstructions().get(index - 1);
+                boolean previousConst = prevInstr.getOpcode().name.startsWith("const");
+                if (previousConst) {
+                    continue;
+                }
+
                 // Replace the return to retain labels
                 implementation.replaceInstruction(index, constInstruction);
 
                 BuilderInstruction newReturn = new BuilderInstruction11x(originalInstruction.getOpcode(), registerA);
                 implementation.addInstruction(index + 1, newReturn);
+                madeChanges = true;
             } else {
                 implementation.replaceInstruction(index, constInstruction);
+                madeChanges = true;
             }
 
             emitCount++;

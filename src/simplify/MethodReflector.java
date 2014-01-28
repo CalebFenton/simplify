@@ -112,7 +112,7 @@ public class MethodReflector {
 
                 // This isn't a clone. It's a reference to the caller method's register store. This way any other
                 // objects pointing to this register store also get updated.
-                RegisterStore registerStore = mctx.peekRegister(mctx.getParameterStart());
+                RegisterStore registerStore = mctx.peekRegister(mctx.getParameterStart() - 1);
                 registerStore.setValue(result);
             } else {
                 if (isStatic) {
@@ -137,10 +137,6 @@ public class MethodReflector {
             return null;
         }
 
-        RegisterStore registerStore = mctx.peekRegister(0);
-
-        if (registerStore.getValue() == null) {
-        }
         return mctx.peekRegisterValue(0);
     }
 
@@ -152,6 +148,8 @@ public class MethodReflector {
         }
 
         List<Object> args = new ArrayList<Object>(mctx.getRegisterCount() - offset);
+        // For reflected methods, there are no locals. Instance and arguments start at 0.
+        // 0=[instance register or arg1], 1=[arg#], ...
         for (int i = offset; i < mctx.getRegisterCount(); i++) {
             RegisterStore registerStore = mctx.peekRegister(i);
             Object value = registerStore.getValue();

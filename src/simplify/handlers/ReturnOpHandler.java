@@ -1,12 +1,17 @@
 package simplify.handlers;
 
+import java.util.logging.Logger;
+
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
 
+import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.RegisterStore;
 
 public class ReturnOpHandler extends OpHandler {
+
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static ReturnOpHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

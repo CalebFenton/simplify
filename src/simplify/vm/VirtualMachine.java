@@ -80,13 +80,9 @@ public class VirtualMachine {
     private final Map<String, ClassContext> classNameToClassContext;
     private final List<String> initializedClasses;
     private final int maxCallDepth;
-
     private final int maxNodeVisits;
-
     private final MethodExecutor methodExecutor;
-
-    private final Map<String, ContextGraph> methodInstructionGraphs;
-
+    private final Map<String, ContextGraph> methodDescriptorToInstructionGraph;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodToTryCatchList;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
@@ -102,12 +98,20 @@ public class VirtualMachine {
         initializedClasses = new ArrayList<String>(classDefs.size());
 
         // Build graphs last because that's when handlers are assigned and some handlers access this vm instance.
-        methodInstructionGraphs = buildInstructionGraphs(classDefs);
+        methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
 
     }
 
+    public void updateInstructionGraph(BuilderMethod method) {
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+        ContextGraph graph = new ContextGraph(this, method);
+        graph.setRootContext(buildRootContext(method));
+        methodDescriptorToInstructionGraph.put(methodDescriptor, graph);
+    }
+
     public ContextGraph execute(String methodDescriptor) {
-        MethodContext mctx = methodInstructionGraphs.get(methodDescriptor).getRootContext();
+        MethodContext mctx = methodDescriptorToInstructionGraph.get(methodDescriptor).getRootContext();
+
         return execute(methodDescriptor, mctx);
     }
 
@@ -172,7 +176,7 @@ public class VirtualMachine {
     }
 
     public boolean isMethodDefined(String methodDescriptor) {
-        return methodInstructionGraphs.containsKey(methodDescriptor);
+        return methodDescriptorToInstructionGraph.containsKey(methodDescriptor);
     }
 
     private ClassContext buildClassContext(ContextGraph graph) {
@@ -181,7 +185,7 @@ public class VirtualMachine {
         return null;
     }
 
-    private Map<String, ContextGraph> buildInstructionGraphs(final List<BuilderClassDef> classDefs) {
+    private Map<String, ContextGraph> buildMethodDescriptorToInstructionGraph(final List<BuilderClassDef> classDefs) {
         Map<String, ContextGraph> result = new HashMap<String, ContextGraph>();
 
         for (BuilderClassDef classDef : classDefs) {
@@ -211,7 +215,7 @@ public class VirtualMachine {
     }
 
     public ContextGraph getInstructionGraph(String methodDescriptor) {
-        ContextGraph result = new ContextGraph(methodInstructionGraphs.get(methodDescriptor));
+        ContextGraph result = new ContextGraph(methodDescriptorToInstructionGraph.get(methodDescriptor));
 
         return result;
     }
@@ -230,7 +234,7 @@ public class VirtualMachine {
         initializedClasses.add(className);
 
         String clinitDescriptor = className + "-><clinit>()V";
-        if (!methodInstructionGraphs.containsKey(clinitDescriptor)) {
+        if (!methodDescriptorToInstructionGraph.containsKey(clinitDescriptor)) {
             // No clinit for this class
             return;
         }

@@ -2,9 +2,8 @@ package simplify.vm;
 
 import java.util.logging.Logger;
 
-import org.jf.util.SparseArray;
-
 import simplify.Main;
+import util.SparseArray;
 
 public class VirtualMachineContext {
 
@@ -61,12 +60,8 @@ public class VirtualMachineContext {
                 }
 
                 RegisterStore possibleMatch = registers.get(innerKey);
-                if (possibleMatch == null) {
-                    continue;
-                }
-
-                if (otherRS.getValue() == possibleMatch.getValue()) {
-                    log.finer("context clone, r" + innerKey + " == r" + outerKey);
+                if (otherRS.toString().equals(possibleMatch.toString())) {
+                    log.fine("context clone, r" + innerKey + " == r" + outerKey);
                     registers.put(innerKey, rsClone);
                 }
             }
@@ -79,9 +74,13 @@ public class VirtualMachineContext {
         return registerCount;
     }
 
+    void removeRegister(int register) {
+        registers.delete(register);
+    }
+
     public SparseArray<RegisterStore> getRegisterToStore() {
         SparseArray<RegisterStore> result = new SparseArray<RegisterStore>(registers.size());
-        for (int i = 0; i < result.size(); i++) {
+        for (int i = 0; i < registers.size(); i++) {
             int register = registers.keyAt(i);
             RegisterStore registerStore = peekRegister(register);
             result.put(register, registerStore);
@@ -101,7 +100,7 @@ public class VirtualMachineContext {
         // for (int i = 2; i < ste.length; i++) {
         // sb.append("\n\t").append(ste[i]);
         // }
-        log.fine("Setting register @" + register + " rs:" + registerStore + sb.toString());
+        log.fine("Setting r" + register + " -> " + registerStore + sb.toString());
 
         registers.put(register, registerStore);
     }
@@ -113,8 +112,7 @@ public class VirtualMachineContext {
 
     public void setRegister(int register, String type, Object value, int address) {
         RegisterStore registerStore = new RegisterStore(type, value);
-        registerStore.addAssigned(address);
-        pokeRegister(register, registerStore);
+        setRegister(register, registerStore, address);
     }
 
     public RegisterStore getRegister(int register, int address) {

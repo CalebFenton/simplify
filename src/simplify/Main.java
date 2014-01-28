@@ -33,7 +33,7 @@ public class Main {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINE;
+    private static final Level LOG_LEVEL = Level.INFO;
 
     private static final int API_LEVEL = 15;
     private static final int MAX_NODE_VISITS = 100;
@@ -63,19 +63,35 @@ public class Main {
 
         VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
 
-        for (BuilderMethod method : methods) {
+        outer: for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
 
-            ContextGraph graph = vm.execute(methodDescriptor);
-            if (graph == null) {
-                log.info("Skipping " + methodDescriptor);
-                continue;
-            }
+            boolean madeChanges = false;
+            int sweeps = 0;
+            do {
+                if (sweeps >= 1) {
+                    // break;
+                }
 
-            // String methodName = method.getName();
-            // FileUtils.writeStringToFile(new File("graphs/" + methodName + ".dot"), graph.toGraph());
+                ContextGraph graph = vm.execute(methodDescriptor);
+                if (graph == null) {
+                    log.info("Skipping " + methodDescriptor);
+                    continue outer;
+                }
 
-            Simplifier.simplify(dexBuilder, method, graph);
+                // String methodName = method.getName();
+                // FileUtils.writeStringToFile(new File("graphs/" + methodName + ".dot"), graph.toGraph());
+
+                madeChanges = Simplifier.simplify(dexBuilder, method, graph);
+
+                if (madeChanges) {
+                    System.out.println("!!! MADE CHANGES !!!");
+                    // Method implementations will have changed, so prepare to execute this again with the changes.
+                    vm.updateInstructionGraph(method);
+                }
+
+                sweeps++;
+            } while (madeChanges);
         }
 
         String outputDexFile = "out_simple.dex";

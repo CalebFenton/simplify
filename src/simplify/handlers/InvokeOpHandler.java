@@ -3,6 +3,7 @@ package simplify.handlers;
 import gnu.trove.list.TIntList;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -23,6 +24,144 @@ import simplify.vm.VirtualMachine;
 public class InvokeOpHandler extends OpHandler {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+
+    private static void addCalleeParameters(MethodContext calleeContext, MethodContext callerContext, int[] registers,
+                    int address, boolean isStatic) {
+        int offset = 0;
+
+        if (!isStatic) {
+            // First register is instance references.
+            int register = registers[0];
+            RegisterStore registerStore = callerContext.getRegister(register, address);
+            calleeContext.setParameter(-1, registerStore);
+            offset = 1;
+        }
+
+        for (int i = offset; i < registers.length; i++) {
+            int register = registers[i];
+            // Passing actual value references since they'll be updated correctly by the JVM.
+            RegisterStore registerStore = callerContext.getRegister(register, address);
+            calleeContext.setParameter(i - offset, registerStore);
+
+            if (registerStore.getType().equals("J")) {
+                // This register index and the next both refer to this variable.
+                i++;
+            }
+        }
+    }
+
+    private static boolean allArgumentsKnown(MethodContext mctx) {
+        List<RegisterStore> registerStores = mctx.getRegisterToStore().getValues();
+        for (RegisterStore registerStore : registerStores) {
+            if (registerStore.getValue() instanceof UnknownValue) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext callerContext, int[] registers,
+                    String returnType) {
+        for (int i = 0; i < registers.length; i++) {
+            int register = registers[i];
+            String className = callerContext.peekRegisterType(register);
+            if (vm.isImmutableClass(className)) {
+                if (className.equals("J")) {
+                    i++;
+                }
+
+                log.fine(className + " is immutable");
+                continue;
+            }
+
+            log.fine(className + " is mutable and passed into strange method, marking unknown");
+            RegisterStore registerStore = new RegisterStore(className, new UnknownValue());
+            callerContext.pokeRegister(register, registerStore);
+        }
+
+        if (!returnType.equals("V")) {
+            callerContext.setResultRegister(new RegisterStore(returnType, new UnknownValue()));
+        }
+    }
+
+    private static MethodContext buildCalleeContext(MethodContext callerContext, int[] registers, int address,
+                    boolean isStatic) {
+        int parameterCount = registers.length;
+        int registerCount = parameterCount;
+        int callDepth = callerContext.getCallDepth() + 1;
+
+        if (!isStatic && (registerCount > 0)) {
+            parameterCount--;
+        }
+
+        MethodContext calleeContext = new MethodContext(registerCount, parameterCount, callDepth);
+
+        addCalleeParameters(calleeContext, callerContext, registers, address, isStatic);
+
+        return calleeContext;
+    }
+
+    private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext callerContext,
+                    ContextGraph graph, boolean isStatic) {
+        MethodContext calleeContext = graph.getNodePile(0).get(0).getContext();
+        int calleeParamStart = calleeContext.getParameterStart();
+        TIntList addresses = graph.getConnectedTerminatingAddresses();
+
+        if (!isStatic) {
+            int register = callerContext.getParameterStart() - 1;
+            RegisterStore callerInstance = callerContext.peekRegister(register);
+            Object value = graph.getRegisterConsensus(addresses, calleeParamStart - 1).getValue();
+
+            log.fine("updating instance value: " + callerInstance + " to " + value);
+            callerInstance.setValue(value);
+        }
+
+        int callerParamStart = callerContext.getParameterStart();
+        int paramCount = callerContext.getRegisterCount() - callerParamStart;
+        for (int i = 0; i < paramCount; i++) {
+            RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
+            if (!vm.isImmutableClass(registerStore.getType())) {
+                Object value = graph.getRegisterConsensus(addresses, calleeParamStart + i).getValue();
+                registerStore.setValue(value);
+                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
+            }
+        }
+    }
+
+    private void updateInstanceAndMutableArguments(MethodContext callerContext, MethodContext calleeContext) {
+        int calleeParamStart = calleeContext.getParameterStart();
+
+        System.out.println("updating caller / callee (" + callerContext.getParameterStart() + "):\n" + callerContext
+                        + "\n" + calleeContext);
+        if (!isStatic) {
+            RegisterStore callerInstance = callerContext.peekRegister(registers[0]);
+            RegisterStore calleeInstance = calleeContext.peekRegister(calleeParamStart - 1);
+            Object value = calleeInstance.getValue();
+
+            log.fine("updating instance: " + callerInstance + " to " + value);
+            callerInstance.setValue(value);
+
+            // If this is instance initialization, regardless of mutability, consider the instance to have been assigned
+            // at this address (in addition to having been read earlier). Dead code remover will try to determine
+            // liveness from this point.
+            if (methodDescriptor.contains("<init>")) {
+                callerContext.setRegister(registers[0], callerInstance, address);
+            }
+        }
+
+        int callerParamStart = callerContext.getParameterStart();
+        int paramCount = callerContext.getRegisterCount() - callerParamStart;
+        for (int i = 0; i < paramCount; i++) {
+            RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
+            if (!vm.isImmutableClass(registerStore.getType())) {
+                Object value = calleeContext.peekRegisterValue(calleeParamStart + i);
+                registerStore.setValue(value);
+
+                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
+            }
+        }
+    }
 
     static InvokeOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
         int childAddress = address + instruction.getCodeUnits();
@@ -68,12 +207,15 @@ public class InvokeOpHandler extends OpHandler {
     }
 
     private final int address;
-    private final String opName;
     private final int childAddress;
+    private final boolean isStatic;
     private final MethodReference methodReference;
+    private final String methodDescriptor;
+    private final String returnType;
+    private final String opName;
     private final int[] registers;
     private final VirtualMachine vm;
-    private final boolean isStatic;
+    private boolean hasSideEffects;
 
     private InvokeOpHandler(int address, String opName, int childAddress, MethodReference methodReference,
                     int[] registers, VirtualMachine vm) {
@@ -81,6 +223,8 @@ public class InvokeOpHandler extends OpHandler {
         this.opName = opName;
         this.childAddress = childAddress;
         this.methodReference = methodReference;
+        this.methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+        this.returnType = methodReference.getReturnType();
         this.registers = registers;
         this.vm = vm;
         isStatic = opName.contains("-static");
@@ -88,64 +232,61 @@ public class InvokeOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
-        boolean returnsVoid = methodReference.getReturnType().equals("V");
+        hasSideEffects = true; // assume true for most cases, just to be safe
+
+        boolean returnsVoid = returnType.equals("V");
         if (vm.isMethodDefined(methodDescriptor)) {
             // VM has this method, so it knows how to execute it.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
-            // if (isStatic) {
-            // // Exclude first register since it's an instance reference and will already be a parameter.
-            // int[] registers = Arrays.copyOfRange(this.registers, 1, this.registers.length);
-            // } else {
-            // Object instance = mctx.getRegisterValue(registers[0], address)
-            // mctx.getRegister(mctx.getParameterStart() - 1, )
-            // }
 
             if (!isStatic) {
                 // First parameter is an instance reference, which is right before the parameter register range starts.
+                // Pass reference to instance so any changes can transfer to caller context.
                 RegisterStore instance = mctx.getRegister(registers[0], address);
                 calleeContext.pokeRegister(calleeContext.getParameterStart() - 1, instance);
 
                 int[] registers = Arrays.copyOfRange(this.registers, 1, this.registers.length);
-                addCalleeParameters(calleeContext, mctx, registers, address);
+                addCalleeParameters(calleeContext, mctx, registers, address, isStatic);
             } else {
-                addCalleeParameters(calleeContext, mctx, registers, address);
+                addCalleeParameters(calleeContext, mctx, registers, address, isStatic);
             }
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
                 // Couldn't execute the method. Maybe node visits or call depth exceeded?
                 log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
-                assumeMaximumUnknown(vm, mctx, registers, methodReference.getReturnType());
+                assumeMaximumUnknown(vm, mctx, registers, returnType);
+
                 return getPossibleChildren();
             }
 
-            // TODO: fix this
-            // updateInstanceAndMutableArguments(vm, mctx, graph, isStatic);
+            updateInstanceAndMutableArguments(vm, mctx, graph, isStatic);
 
             if (!returnsVoid) {
                 TIntList terminating = graph.getConnectedTerminatingAddresses();
-                RegisterStore registerStore = graph.getConsensus(terminating, MethodContext.ReturnRegister);
+                RegisterStore registerStore = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
                 mctx.setResultRegister(registerStore);
             }
         } else {
-            MethodContext calleeContext = buildCalleeContext(mctx, registers, address);
+            MethodContext calleeContext = buildCalleeContext(mctx, registers, address, isStatic);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
             } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
                 MethodReflector reflector = new MethodReflector(methodReference, isStatic);
                 reflector.reflect(calleeContext); // player play
+                // TOOD: investigate better marking of side effects. this is very conservative and depends on reflected
+                // methods not actually having side effects
+                hasSideEffects = false;
             } else {
                 // Method not found and either all arguments are not known, couldn't emulate or reflect
                 log.fine("Unknown argument or couldn't find/emulate/reflect " + methodDescriptor
                                 + " so propigating ambiguity.");
-                assumeMaximumUnknown(vm, mctx, registers, methodReference.getReturnType());
+                assumeMaximumUnknown(vm, mctx, registers, returnType);
                 return getPossibleChildren();
             }
 
-            // TODO: fix these
-            // updateInstanceAndMutableArguments(vm, mctx, calleeContext, isStatic);
+            updateInstanceAndMutableArguments(mctx, calleeContext);
 
             if (!returnsVoid) {
                 RegisterStore returnRegister = calleeContext.getReturnRegister();
@@ -156,109 +297,22 @@ public class InvokeOpHandler extends OpHandler {
         return getPossibleChildren();
     }
 
-    private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext callerContext,
-                    MethodContext calleeContext, boolean isStatic) {
-        if (!isStatic) {
-            RegisterStore registerStore = callerContext.peekRegister(0);
-            Object value = calleeContext.peekRegisterValue(0);
-            registerStore.setValue(value);
-            log.fine("updating instance value: " + registerStore);
-        }
-
-        for (int i = 0; i < callerContext.getRegisterCount(); i++) {
-            RegisterStore registerStore = callerContext.peekRegister(i);
-            if (!vm.isImmutableClass(registerStore.getType())) {
-                Object value = calleeContext.peekRegisterValue(i);
-                registerStore.setValue(value);
-                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
-            }
-        }
-
+    @Override
+    public int getAddress() {
+        return address;
     }
 
-    private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext callerContext,
-                    ContextGraph graph, boolean isStatic) {
-        if (!isStatic) {
-            RegisterStore registerStore = callerContext.peekRegister(0);
-            Object value = graph.getConsensus(0, 0).getValue();
-            registerStore.setValue(value);
-            log.fine("updating instance value: " + registerStore);
-        }
-
-        for (int i = 0; i < callerContext.getRegisterCount(); i++) {
-            RegisterStore registerStore = callerContext.peekRegister(i);
-            if (!vm.isImmutableClass(registerStore.getType())) {
-                Object value = graph.getConsensus(0, i).getValue();
-                registerStore.setValue(value);
-                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
-            }
-        }
+    @Override
+    public int[] getPossibleChildren() {
+        return new int[] { childAddress };
     }
 
-    private static boolean allArgumentsKnown(MethodContext mctx) {
-        for (int i = 0; i < mctx.getRegisterCount(); i++) {
-            RegisterStore registerStore = mctx.peekRegister(i);
-            // TODO: consider creating iterator to handle these cases
-            if (registerStore.getType().equals("J")) {
-                // This register index and the next both refer to this variable.
-                i++;
-            }
-
-            if (registerStore.getValue() instanceof UnknownValue) {
-                return false;
-            }
-        }
-
-        return true;
+    public String getReturnType() {
+        return returnType;
     }
 
-    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext callerContext, int[] registers,
-                    String returnType) {
-        for (int i = 0; i < registers.length; i++) {
-            int register = registers[i];
-            String className = callerContext.peekRegisterType(register);
-            if (vm.isImmutableClass(className)) {
-                if (className.equals("J")) {
-                    i++;
-                }
-
-                log.fine(className + " is immutable");
-                continue;
-            }
-
-            log.fine(className + " is mutable and passed into strange method, marking unknown");
-            RegisterStore registerStore = new RegisterStore(className, new UnknownValue());
-            callerContext.pokeRegister(register, registerStore);
-        }
-
-        if (!returnType.equals("V")) {
-            callerContext.setResultRegister(new RegisterStore(returnType, new UnknownValue()));
-        }
-    }
-
-    private static void addCalleeParameters(MethodContext calleeContext, MethodContext callerContext, int[] registers,
-                    int address) {
-        for (int i = 0; i < registers.length; i++) {
-            int register = registers[i];
-            // Passing actual value references since they'll be updated correctly by the JVM.
-            RegisterStore registerStore = callerContext.getRegister(register, address);
-            calleeContext.setParameter(i, registerStore);
-
-            if (registerStore.getType().equals("J")) {
-                // This register index and the next both refer to this variable.
-                i++;
-            }
-        }
-    }
-
-    private static MethodContext buildCalleeContext(MethodContext callerContext, int[] registers, int address) {
-        int parameterCount = registers.length;
-        MethodContext calleeContext = new MethodContext(parameterCount, parameterCount,
-                        callerContext.getCallDepth() + 1);
-
-        addCalleeParameters(calleeContext, callerContext, registers, address);
-
-        return calleeContext;
+    public boolean hasSideEffects() {
+        return hasSideEffects;
     }
 
     @Override
@@ -277,16 +331,6 @@ public class InvokeOpHandler extends OpHandler {
         sb.append("}, ").append(ReferenceUtil.getMethodDescriptor(methodReference));
 
         return sb.toString();
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { childAddress };
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }

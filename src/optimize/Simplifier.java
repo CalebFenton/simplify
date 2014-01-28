@@ -7,31 +7,30 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
-import org.jf.util.SparseArray;
 
 import simplify.Main;
 import simplify.vm.ContextGraph;
+import util.SparseArray;
 
 public class Simplifier {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    public static void simplify(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
-        ConstantPropigator propigator = new ConstantPropigator(dexBuilder, method, graph);
-        DeadRemover remover = new DeadRemover(dexBuilder, method, graph);
+    public static boolean simplify(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
+        boolean madeChanges = false;
 
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         System.out.println("Simplifying " + methodDescriptor);
 
-        boolean madeChanges = false;
-        do {
-            // Run the remover first since that means less work for the propigator
-            madeChanges |= remover.perform();
+        ConstantPropigator propigator = new ConstantPropigator(dexBuilder, method, graph);
+        madeChanges |= propigator.perform();
 
-            madeChanges |= propigator.perform();
+        DeadRemover remover = new DeadRemover(dexBuilder, method, graph);
+        madeChanges |= remover.perform();
 
-            System.out.println("Total optimizations: " + propigator.toString() + ", " + remover.toString());
-        } while (madeChanges);
+        System.out.println("Total optimizations: " + propigator.toString() + ", " + remover.toString());
+
+        return madeChanges;
     }
 
     protected static SparseArray<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {

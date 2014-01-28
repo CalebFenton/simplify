@@ -40,7 +40,7 @@ public class MethodContext extends VirtualMachineContext {
 
     public RegisterStore getResultRegister(int address) {
         RegisterStore result = getRegister(ResultRegister, address);
-        pokeRegister(ResultRegister, null);
+        removeRegister(ResultRegister);
 
         return result;
     }
