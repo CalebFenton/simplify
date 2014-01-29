@@ -79,7 +79,7 @@ public class MethodReflector {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
         methodName = methodReference.getName();
 
-        // ClassUtils expects Lthis.class.Format;
+        // ClassUtils expects Ljava.lang.Class;
         className = methodReference.getDefiningClass().replaceAll("/", ".");
 
         returnType = methodReference.getReturnType();
@@ -92,52 +92,58 @@ public class MethodReflector {
         }
     }
 
-    public void reflect(MethodContext mctx) {
-        log.finer("Reflecting " + methodDescriptor + " with context:\n" + mctx);
+    public void reflect(MethodContext calleeContext) {
+        log.finer("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
 
         Object result = null;
         try {
             // Class<?> clazz = ClassUtils.getClass(className, false);
             Class<?> clazz = Class.forName(className.substring(1, className.length() - 1));
 
-            Object target = getTarget(mctx, isStatic);
-            Object[] args = getArguments(mctx, isStatic, parameterTypes);
-
-            // List<Class<?>> paramClasses = ClassUtils.convertClassNamesToClasses(parameterTypes);
-            log.fine("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args)
-                            + ", static=" + isStatic);
+            Object[] args = getArguments(calleeContext, isStatic, parameterTypes);
             if (methodName.equals("<init>")) {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
+                log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                 result = ConstructorUtils.invokeConstructor(clazz, args);
 
-                // This isn't a clone. It's a reference to the caller method's register store. This way any other
-                // objects pointing to this register store also get updated.
-                RegisterStore registerStore = mctx.peekRegister(mctx.getParameterStart() - 1);
-                registerStore.setValue(result);
+                // This isn't a clone. Updating it also updates the caller context.
+                RegisterStore instanceRef = calleeContext.peekRegister(calleeContext.getParameterStart() - 1);
+                instanceRef.setValue(result);
             } else {
                 if (isStatic) {
+                    log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeStaticMethod(clazz, methodName, args);
                 } else {
+                    Object target = calleeContext.peekRegisterValue(0);
+                    log.fine("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeMethod(target, methodName, args);
                 }
 
                 boolean returnsVoid = returnType.equals("V");
                 if (!returnsVoid) {
-                    mctx.setReturnRegister(new RegisterStore(returnType, result));
+                    // If result is value of instance or an argument, the result register should be a
+                    // reference to that register store. Register stores are a klunky abstraction of an actual object
+                    // reference, and a change to the object should be reflected in all references.
+                    RegisterStore returnRegister = null;
+                    if (!SmaliClassUtils.isPrimitiveType(returnType)) {
+                        for (RegisterStore rs : calleeContext.getRegisterToStore().getValues()) {
+                            if (rs.getValue() == result) {
+                                returnRegister = rs;
+                                break;
+                            }
+                        }
+                    }
+                    if (returnRegister == null) {
+                        returnRegister = new RegisterStore(returnType, result);
+                    }
+
+                    calleeContext.setReturnRegister(returnRegister);
                 }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
                         | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             e.printStackTrace();
         }
-    }
-
-    private static Object getTarget(MethodContext mctx, boolean isStatic) {
-        if (isStatic) {
-            return null;
-        }
-
-        return mctx.peekRegisterValue(0);
     }
 
     private static Object[] getArguments(MethodContext mctx, boolean isStatic, List<String> parameterTypes) {
@@ -155,6 +161,7 @@ public class MethodReflector {
             Object value = registerStore.getValue();
 
             String paramType = parameterTypes.get(i - offset);
+            // Booleans are represented in Smali and stored internally as integers. Convert to boolean.
             if (paramType.equals("Z") || paramType.equals("Ljava/lang/Boolean;")) {
                 if (value.getClass() == Integer.class) {
                     int intValue = (Integer) value;

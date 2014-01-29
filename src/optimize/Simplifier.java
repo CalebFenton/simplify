@@ -28,7 +28,7 @@ public class Simplifier {
         DeadRemover remover = new DeadRemover(dexBuilder, method, graph);
         madeChanges |= remover.perform();
 
-        System.out.println("Total optimizations: " + propigator.toString() + ", " + remover.toString());
+        System.out.println("Optimizations: " + propigator.toString() + ", " + remover.toString());
 
         return madeChanges;
     }

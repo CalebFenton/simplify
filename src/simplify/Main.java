@@ -33,7 +33,7 @@ public class Main {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.INFO;
+    private static final Level LOG_LEVEL = Level.FINE;
 
     private static final int API_LEVEL = 15;
     private static final int MAX_NODE_VISITS = 1000;
@@ -69,7 +69,7 @@ public class Main {
             boolean madeChanges = false;
             int sweeps = 0;
             do {
-                if (sweeps >= 1) {
+                if (sweeps >= 3) {
                     // break;
                 }
 
@@ -135,6 +135,7 @@ public class Main {
 
     private static void setupLogger() {
         log.setLevel(LOG_LEVEL);
+
         for (Handler handler : Logger.getLogger("").getHandlers()) {
             handler.setLevel(LOG_LEVEL);
         }

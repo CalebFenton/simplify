@@ -1,7 +1,7 @@
 .class public Lstrings;
 .super Ljava/lang/Object;
 
-.method public sbtest()Ljava/lang/String;
+.method public stringbuilder_append_test()Ljava/lang/String;
     .locals 5
 
     .prologue

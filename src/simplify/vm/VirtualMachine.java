@@ -156,12 +156,16 @@ public class VirtualMachine {
             return false;
         }
 
-        if (SmaliClassUtils.isPrimitiveType(smaliClassName)) {
+        if (smaliClassName.equals("?")) {
+            // Unknown type. Was probably lazy somewhere and didn't get implied type.
+            return false;
+        }
+
+        if (smaliClassName.equals("Ljava/lang/String;")) {
             return true;
         }
 
-        if (smaliClassName.equals("?")) {
-            // Unknown type. Was probably lazy somewhere and didn't get implied type.
+        if (SmaliClassUtils.isPrimitiveType(smaliClassName)) {
             return true;
         }
 

@@ -2,7 +2,6 @@ package simplify.handlers;
 
 import gnu.trove.list.TIntList;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -14,6 +13,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.Main;
 import simplify.MethodReflector;
+import simplify.SmaliClassUtils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
@@ -231,44 +231,52 @@ public class InvokeOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodContext callerContext) {
         hasSideEffects = true; // assume true for most cases, just to be safe
 
         boolean returnsVoid = returnType.equals("V");
         if (vm.isMethodDefined(methodDescriptor)) {
             // VM has this method, so it knows how to execute it.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
-
-            if (!isStatic) {
-                // First parameter is an instance reference, which is right before the parameter register range starts.
-                // Pass reference to instance so any changes can transfer to caller context.
-                RegisterStore instance = mctx.getRegister(registers[0], address);
-                calleeContext.pokeRegister(calleeContext.getParameterStart() - 1, instance);
-
-                int[] registers = Arrays.copyOfRange(this.registers, 1, this.registers.length);
-                addCalleeParameters(calleeContext, mctx, registers, address, isStatic);
-            } else {
-                addCalleeParameters(calleeContext, mctx, registers, address, isStatic);
-            }
+            calleeContext.incrementCallDepth();
+            addCalleeParameters(calleeContext, callerContext, registers, address, isStatic);
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
                 // Couldn't execute the method. Maybe node visits or call depth exceeded?
                 log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
-                assumeMaximumUnknown(vm, mctx, registers, returnType);
+                assumeMaximumUnknown(vm, callerContext, registers, returnType);
 
                 return getPossibleChildren();
             }
 
-            updateInstanceAndMutableArguments(vm, mctx, graph, isStatic);
+            // TODO: fix
+            // Register value object references are passed in, but each instruction has a new clone, which doesn't point
+            // to the original. So updates to objects in callee aren't propagated back to caller.
+            // updateInstanceAndMutableArguments(vm, callerContext, graph, isStatic);
 
             if (!returnsVoid) {
+                // This also happens in method reflector.
                 TIntList terminating = graph.getConnectedTerminatingAddresses();
-                RegisterStore registerStore = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
-                mctx.setResultRegister(registerStore);
+                RegisterStore consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
+                Object value = consensus.getValue();
+                RegisterStore returnRegister = null;
+                if (!SmaliClassUtils.isPrimitiveType(returnType)) {
+                    for (RegisterStore rs : calleeContext.getRegisterToStore().getValues()) {
+                        if (rs.getValue() == value) {
+                            returnRegister = rs;
+                            break;
+                        }
+                    }
+                }
+                if (returnRegister == null) {
+                    returnRegister = new RegisterStore(returnType, value);
+                }
+
+                callerContext.setResultRegister(returnRegister);
             }
         } else {
-            MethodContext calleeContext = buildCalleeContext(mctx, registers, address, isStatic);
+            MethodContext calleeContext = buildCalleeContext(callerContext, registers, address, isStatic);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
@@ -282,15 +290,20 @@ public class InvokeOpHandler extends OpHandler {
                 // Method not found and either all arguments are not known, couldn't emulate or reflect
                 log.fine("Unknown argument or couldn't find/emulate/reflect " + methodDescriptor
                                 + " so propigating ambiguity.");
-                assumeMaximumUnknown(vm, mctx, registers, returnType);
+                assumeMaximumUnknown(vm, callerContext, registers, returnType);
                 return getPossibleChildren();
             }
 
-            updateInstanceAndMutableArguments(mctx, calleeContext);
+            if (!isStatic) {
+                // Consider the instance reference assigned here. This is so the dead code remover can check if it's
+                // used elsewhere. If it's not and there are no side-effects, it's removed.
+                RegisterStore instance = callerContext.peekRegister(registers[0]);
+                callerContext.setRegister(registers[0], instance, address);
+            }
 
             if (!returnsVoid) {
                 RegisterStore returnRegister = calleeContext.getReturnRegister();
-                mctx.setResultRegister(returnRegister);
+                callerContext.setResultRegister(returnRegister);
             }
         }
 

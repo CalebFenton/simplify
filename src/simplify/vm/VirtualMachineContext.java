@@ -46,22 +46,20 @@ public class VirtualMachineContext {
             }
 
             /*
-             * Some registers may share the same object reference so this relationship must persist in clones. The
-             * relationship will not persist after the children of an initial branch, however, but this won't be a
-             * problem because each will be self-consistent and since each represents a possible execution path, they
-             * shouldn't need to examine each other except at optimization.
+             * Some registers may point to the same object, and this must persist across context clones. They wont
+             * persist after the children of a branch. This won't be a problem because each possibility represents a
+             * different execution path and they shouldn't need to examine each other except at optimization.
              */
             RegisterStore rsClone = new RegisterStore(otherRS);
-            for (int j = 0; j < registers.size(); j++) {
-                int innerKey = registers.keyAt(j);
-                if (outerKey == innerKey) {
-                    // Identity
+            for (int j = 0; j < other.registers.size(); j++) {
+                if (i == j) {
                     continue;
                 }
 
-                RegisterStore possibleMatch = registers.get(innerKey);
-                if (otherRS.toString().equals(possibleMatch.toString())) {
-                    log.fine("context clone, r" + innerKey + " == r" + outerKey);
+                int innerKey = other.registers.keyAt(j);
+                RegisterStore possibleMatch = other.registers.get(innerKey);
+                if (otherRS == possibleMatch) {
+                    log.finer("cloning identity of r" + innerKey + " == r" + outerKey);
                     registers.put(innerKey, rsClone);
                 }
             }
@@ -100,7 +98,7 @@ public class VirtualMachineContext {
         // for (int i = 2; i < ste.length; i++) {
         // sb.append("\n\t").append(ste[i]);
         // }
-        log.fine("Setting r" + register + " -> " + registerStore + sb.toString());
+        log.finer("Setting r" + register + " -> " + registerStore + sb.toString());
 
         registers.put(register, registerStore);
     }

@@ -6,7 +6,7 @@ public class MethodContext extends VirtualMachineContext {
     public static final int ReturnRegister = -2;
 
     private final int parameterCount;
-    private final int callDepth;
+    private int callDepth;
 
     MethodContext(int parameterCount) {
         this(parameterCount, parameterCount, 0);
@@ -47,7 +47,7 @@ public class MethodContext extends VirtualMachineContext {
 
     public RegisterStore getReturnRegister() {
         // Return register is stored outside of the method being analyzed, so address is irrelevant.
-        return getRegister(ReturnRegister, 0);
+        return peekRegister(ReturnRegister);
     }
 
     public void setReturnRegister(RegisterStore registerStore) {
@@ -79,6 +79,10 @@ public class MethodContext extends VirtualMachineContext {
 
     public int getParameterStart() {
         return getRegisterCount() - parameterCount;
+    }
+
+    public void incrementCallDepth() {
+        callDepth++;
     }
 
 }

@@ -132,7 +132,14 @@ public class ContextGraph implements Iterable {
             int address = addresses.get(i);
             for (ContextNode node : getNodePile(address)) {
                 RegisterStore rs = node.getContext().peekRegister(register);
-                if (!rs.getType().equals(type) || !rs.getValue().equals(value)) {
+
+                boolean valueEquals = false;
+                if (value == null) {
+                    valueEquals = value == rs.getValue();
+                } else {
+                    valueEquals = value.equals(rs.getValue());
+                }
+                if (!rs.getType().equals(type) || !valueEquals) {
                     log.finer("No conensus value for register #" + register + ", returning unknown");
 
                     return new RegisterStore("?", new UnknownValue());

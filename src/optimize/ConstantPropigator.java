@@ -163,7 +163,7 @@ public class ConstantPropigator {
             // Check handler first since we expect to be able to cast instructions to OneRegisterInstruction
             OpHandler handler = nodePile.get(0).getHandler();
             if (!isConstableHandler(handler)) {
-                log.fine("Can't make hanlder constant: " + handler);
+                log.finer("Can't make hanlder constant: " + handler);
                 continue;
             }
 
@@ -172,17 +172,17 @@ public class ConstantPropigator {
             RegisterStore registerStore = graph.getRegisterConsensus(address, registerA);
             String type = registerStore.getType();
             if (!isConstableType(type)) {
-                log.fine("Can't make type constant: " + type);
+                log.finer("Can't make type constant: " + type);
                 continue;
             }
 
             Object value = registerStore.getValue();
             if (value instanceof UnknownValue) {
-                log.fine("Can't make unknown value constant.");
+                log.finer("Can't make unknown value constant.");
                 continue;
             }
 
-            log.info("Build constant for r" + registerA + ", type=" + type + ", value=" + value);
+            log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + value);
             BuilderInstruction constInstruction = buildConstant(registerA, type, value);
 
             int index = originalInstruction.getLocation().getIndex();

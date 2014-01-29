@@ -4,6 +4,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 
+import simplify.SmaliClassUtils;
 import simplify.vm.MethodContext;
 import simplify.vm.RegisterStore;
 import simplify.vm.UnknownValue;
@@ -56,29 +57,51 @@ public class MoveOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        RegisterStore target = null;
-        String type = null;
-        Object value = null;
         switch (moveType) {
         case EXCEPTION:
             // TODO: implement with try/catch stuff?
-            type = "Ljava/lang/Exception;";
-            value = new UnknownValue();
-            mctx.setRegister(destRegister, type, value, address);
+            moveException(mctx, address, destRegister);
             break;
         case RESULT:
-            target = mctx.getResultRegister(address);
-            type = target.getType();
-            value = target.getValue();
-            mctx.setRegister(destRegister, type, value, address);
+            moveResult(mctx, address, destRegister);
             break;
         case REGISTER:
-            target = mctx.getRegister(targetRegister, address);
-            mctx.setRegister(destRegister, target, address);
+            moveRegister(mctx, address, destRegister, targetRegister);
             break;
         }
 
         return getPossibleChildren();
+    }
+
+    private static void moveException(MethodContext mctx, int address, int destRegister) {
+        String type = "Ljava/lang/Exception;";
+        Object value = new UnknownValue();
+        mctx.setRegister(destRegister, type, value, address);
+    }
+
+    private static void moveResult(MethodContext mctx, int address, int destRegister) {
+        RegisterStore target = mctx.getResultRegister(address);
+        String type = target.getType();
+        Object value = target.getValue();
+
+        // Handle edge case when result register store was an argument or an instance of the called method.
+        if (!SmaliClassUtils.isPrimitiveType(type)) {
+            for (RegisterStore rs : mctx.getRegisterToStore().getValues()) {
+                if (value == rs.getValue()) {
+                    System.out.println("Relinking result register store.");
+                    rs.setValue(value);
+                    mctx.setRegister(destRegister, rs, address);
+                    return;
+                }
+            }
+        }
+
+        mctx.setRegister(destRegister, type, value, address);
+    }
+
+    private static void moveRegister(MethodContext mctx, int address, int destRegister, int targetRegister) {
+        RegisterStore target = mctx.getRegister(targetRegister, address);
+        mctx.setRegister(destRegister, target, address);
     }
 
     @Override

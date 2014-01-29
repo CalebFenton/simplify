@@ -1,10 +1,10 @@
 package optimize;
 
 import gnu.trove.list.TIntList;
-import gnu.trove.set.TIntSet;
+import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -58,7 +58,7 @@ public class DeadRemover {
             // Reachability
             List<ContextNode> nodePile = graph.getNodePile(address);
             if (nodePile.size() == 0) {
-                log.info("Nop unreachable instruction: " + handler);
+                log.fine("Nop unreachable instruction: " + handler);
                 nopInstruction(implementation, address, addressToInstruction);
                 unreachableCount++;
                 madeChanges = true;
@@ -75,15 +75,9 @@ public class DeadRemover {
             // Only invokes will have > 1 assignments, all others will have <= 1
             List<RegisterStore> assignments = getRegisterAssignments(nodePile, address);
             if (assignments.size() > 0) {
-                boolean allAssignmentsUnused = true;
-
-                if (areAssignmentsRead(address, graph)) {
-                    // At least one assignment from this instruction is read -> instruction alive
-                    allAssignmentsUnused = false;
-                }
-
-                if (allAssignmentsUnused) {
-                    log.info("Nop dead assignment: " + handler);
+                boolean areAnyAssignmentsRead = areAssignmentsRead(address, graph);
+                if (!areAnyAssignmentsRead) {
+                    log.info("Nop dead assignment: " + handler + ", assign=" + assignments);
                     nopInstruction(implementation, address, addressToInstruction);
                     deadCount++;
                     madeChanges = true;
@@ -113,7 +107,6 @@ public class DeadRemover {
                     }
                 }
             }
-
         }
 
         return madeChanges;
@@ -153,30 +146,47 @@ public class DeadRemover {
     }
 
     private static boolean areAssignmentsRead(int assignAddress, ContextGraph graph) {
-        Iterator<ContextNode> it = graph.iterator();
-        while (it.hasNext()) {
-            ContextNode node = it.next();
-            if (node.getAddress() == assignAddress) {
-                continue;
-            }
-
-            List<RegisterStore> registerStores = node.getContext().getRegisterToStore().getValues();
-            if (registerStores == null) {
-                continue;
-            }
-
-            for (RegisterStore registerStore : registerStores) {
-                if (registerStore.getAssigned().contains(assignAddress)) {
-                    TIntSet read = registerStore.getRead();
-                    // Assignment liveness testing happens after we skip invokes with side effects. If this has no side
-                    // effects and the assignment and reading happened at the same address, it's useless.
-                    if ((read.size() > 0) && !((read.size() == 1) && read.contains(assignAddress))) {
-                        log.fine("\t>=1 register assigned @" + assignAddress + " is read @" + node.getAddress()
-                                        + ", it's alive!");
-                        return true;
-                    }
+        for (ContextNode node : graph.getNodePile(assignAddress)) {
+            MethodContext mctx = node.getContext();
+            TIntIntMap watchedRegisterToReadSize = new TIntIntHashMap();
+            SparseArray<RegisterStore> registerToStore = mctx.getRegisterToStore();
+            for (int i = 0; i < registerToStore.size(); i++) {
+                int register = registerToStore.keyAt(i);
+                RegisterStore rs = mctx.peekRegister(register);
+                if (rs.getAssigned().contains(assignAddress)) {
+                    watchedRegisterToReadSize.put(register, rs.getRead().size());
                 }
             }
+
+            if (areRegistersRead(node, assignAddress, watchedRegisterToReadSize)) {
+                // At least one register is read in this node's children
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean areRegistersRead(ContextNode node, int assignAddress, TIntIntMap watchedRegisterToReadSize) {
+        MethodContext mctx = node.getContext();
+        for (int register : watchedRegisterToReadSize.keys()) {
+            RegisterStore rs = mctx.peekRegister(register);
+            if (rs == null) {
+                continue;
+            }
+            if (!rs.getAssigned().contains(assignAddress)) {
+                // It's the same register number as one we're looking for, but it wasn't assigned in the same place so
+                // it's not the same instance.
+                continue;
+            }
+
+            if (rs.getRead().size() > watchedRegisterToReadSize.get(register)) {
+                return true;
+            }
+        }
+
+        for (ContextNode child : node.getChildren()) {
+            return areRegistersRead(child, assignAddress, watchedRegisterToReadSize);
         }
 
         return false;
