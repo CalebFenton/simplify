@@ -1,4 +1,4 @@
-package optimize;
+package simplify.optimize;
 
 import gnu.trove.list.TIntList;
 

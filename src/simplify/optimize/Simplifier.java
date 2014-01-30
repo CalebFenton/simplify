@@ -1,4 +1,4 @@
-package optimize;
+package simplify.optimize;
 
 import java.util.List;
 import java.util.logging.Logger;

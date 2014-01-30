@@ -10,7 +10,6 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import optimize.Simplifier;
 
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
@@ -26,6 +25,7 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
+import simplify.optimize.Simplifier;
 import simplify.vm.ContextGraph;
 import simplify.vm.VirtualMachine;
 
