@@ -3,6 +3,10 @@ package simplify;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.ClassUtils;
+
+import simplify.vm.types.SmaliClassInstance;
+
 public class SmaliClassUtils {
 
     private static Map<String, Class<?>> PrimitiveTypes;
@@ -47,6 +51,47 @@ public class SmaliClassUtils {
         }
 
         return "L" + className.replaceAll("\\.", "/") + ";";
+    }
+
+    public static String getValueType(Object value) {
+        String result = null;
+        if (value instanceof SmaliClassInstance) {
+            result = ((SmaliClassInstance) value).getType();
+        } else {
+            result = value.getClass().getCanonicalName();
+        }
+
+        return result;
+    }
+
+    public static boolean isImmutableClass(String smaliClassName) {
+        if (smaliClassName.startsWith("[")) {
+            // Array contents can be mutated, regardless of class.
+            return false;
+        }
+    
+        if (smaliClassName.equals("?")) {
+            // Unknown type. Was probably lazy somewhere and didn't get implied type.
+            return false;
+        }
+    
+        if (smaliClassName.equals("Ljava/lang/String;")) {
+            return true;
+        }
+    
+        if (isPrimitiveType(smaliClassName)) {
+            return true;
+        }
+    
+        String className = smaliClassName.replaceAll("/", ".");
+        try {
+            Class<?> clazz = ClassUtils.getClass(className, false);
+            return ClassUtils.isPrimitiveOrWrapper(clazz);
+    
+        } catch (ClassNotFoundException e) {
+        }
+    
+        return false;
     }
 
 }

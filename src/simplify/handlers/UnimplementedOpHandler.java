@@ -5,7 +5,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 
 import simplify.vm.MethodContext;
-import simplify.vm.UnknownValue;
+import simplify.vm.types.UnknownValue;
 
 class UnimplementedOpHandler extends OpHandler {
 
@@ -58,14 +58,14 @@ class UnimplementedOpHandler extends OpHandler {
     @Override
     public int[] execute(MethodContext mctx) {
         if (setsResult) {
-            mctx.setResultRegister("?", new UnknownValue());
+            mctx.assignResultRegister(new UnknownValue("?"));
         }
 
         if (registerA >= 0) {
             if (setsRegister) {
-                mctx.setRegister(registerA, "?", new UnknownValue(), address);
+                mctx.assignRegister(registerA, new UnknownValue("?"));
             } else {
-                mctx.getRegister(registerA, address);
+                mctx.readRegister(registerA);
             }
         }
 

@@ -13,12 +13,13 @@ import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.Main;
 import simplify.MethodReflector;
+import simplify.SmaliClassUtils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
 import simplify.vm.RegisterStore;
-import simplify.vm.UnknownValue;
 import simplify.vm.VirtualMachine;
+import simplify.vm.types.UnknownValue;
 
 public class InvokeOpHandler extends OpHandler {
 
@@ -65,7 +66,7 @@ public class InvokeOpHandler extends OpHandler {
         for (int i = 0; i < registers.length; i++) {
             int register = registers[i];
             String className = callerContext.peekRegisterType(register);
-            if (vm.isImmutableClass(className)) {
+            if (SmaliClassUtils.isImmutableClass(className)) {
                 if (className.equals("J")) {
                     i++;
                 }
@@ -119,7 +120,7 @@ public class InvokeOpHandler extends OpHandler {
         int paramCount = callerContext.getRegisterCount() - callerParamStart;
         for (int i = 0; i < paramCount; i++) {
             RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
-            if (!vm.isImmutableClass(registerStore.getType())) {
+            if (!SmaliClassUtils.isImmutableClass(registerStore.getType())) {
                 Object value = graph.getRegisterConsensus(addresses, calleeParamStart + i).getValue();
                 registerStore.setValue(value);
                 log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
@@ -152,7 +153,7 @@ public class InvokeOpHandler extends OpHandler {
         int paramCount = callerContext.getRegisterCount() - callerParamStart;
         for (int i = 0; i < paramCount; i++) {
             RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
-            if (!vm.isImmutableClass(registerStore.getType())) {
+            if (!SmaliClassUtils.isImmutableClass(registerStore.getType())) {
                 Object value = calleeContext.peekRegisterValue(calleeParamStart + i);
                 registerStore.setValue(value);
 

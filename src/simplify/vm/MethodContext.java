@@ -5,7 +5,7 @@ public class MethodContext extends VirtualMachineContext {
     public static final int ResultRegister = -1;
     public static final int ReturnRegister = -2;
 
-    private final int parameterCount;
+    private int parameterCount;
     private int callDepth;
 
     MethodContext(int parameterCount) {
@@ -23,34 +23,34 @@ public class MethodContext extends VirtualMachineContext {
         this.callDepth = callDepth;
     }
 
-    MethodContext(MethodContext mctx) {
-        super(mctx);
+    MethodContext(MethodContext parent) {
+        super(parent);
 
-        parameterCount = mctx.parameterCount;
-        callDepth = mctx.callDepth;
+        parameterCount = parent.parameterCount;
+        callDepth = parent.callDepth;
     }
 
     public int getCallDepth() {
         return callDepth;
     }
 
-    public void setResultRegister(String type, Object value) {
-        pokeRegister(ResultRegister, type, value);
+    public void assignResultRegister(Object value) {
+        assignRegister(ResultRegister, value);
     }
 
-    public RegisterStore getResultRegister(int address) {
-        RegisterStore result = getRegister(ResultRegister, address);
+    public Object readResultRegister() {
+        Object result = readRegister(ResultRegister);
         removeRegister(ResultRegister);
 
         return result;
     }
 
-    public RegisterStore getReturnRegister() {
+    public Object readReturnRegister() {
         return peekRegister(ReturnRegister);
     }
 
-    public void setReturnRegister(String type, Object value) {
-        pokeRegister(ReturnRegister, type, value);
+    public void assignReturnRegister(Object value) {
+        pokeRegister(ReturnRegister, value);
     }
 
     @Override
@@ -59,25 +59,21 @@ public class MethodContext extends VirtualMachineContext {
 
         sb.append("\nparameters: ").append(parameterCount).append(", callDepth: ").append(callDepth).append("\n");
 
-        RegisterStore resultRegister = peekRegister(ResultRegister);
-        if (resultRegister != null) {
-            sb.append("result: ").append(resultRegister).append("\n");
+        Object resultValue = peekRegister(ResultRegister);
+        if (resultValue != null) {
+            sb.append("result: ").append(registerToString(ResultRegister)).append("\n");
         }
 
-        RegisterStore returnRegister = peekRegister(ReturnRegister);
-        if (returnRegister != null) {
-            sb.append("return: ").append(returnRegister);
+        Object returnValue = peekRegister(ReturnRegister);
+        if (returnValue != null) {
+            sb.append("return: ").append(registerToString(ReturnRegister));
         }
 
         return sb.toString();
     }
 
-    public void setParameter(int paramRegister, RegisterStore rs) {
-        pokeRegister(getParameterStart() + paramRegister, rs);
-    }
-
-    public void setParameter(int paramRegister, String type, Object value) {
-        pokeRegister(getParameterStart() + paramRegister, type, value);
+    public void setParameter(int paramRegister, Object value) {
+        pokeRegister(getParameterStart() + paramRegister, value);
     }
 
     public int getParameterStart() {

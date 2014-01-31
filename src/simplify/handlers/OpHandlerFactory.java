@@ -397,7 +397,7 @@ public final class OpHandlerFactory {
         case NEW_ARRAY:
             break;
         case NEW_INSTANCE:
-            result = NewInstanceOpHandler.create(instruction, address);
+            result = NewInstanceOpHandler.create(instruction, address, vm);
             break;
         case RETURN:
             result = ReturnOpHandler.create(instruction, address);

@@ -4,7 +4,7 @@ Simplifier
 Semantics simplification and deobfuscation
 ------------------------------------------
 
-The goal for this project is to analyze a given set of Smali files and modify instructions to be semantically equivalent but simpler. The two main techniques are constant propagation and no-op removal.
+The goal for this project is to analyze a given set of Smali files and modify instructions to be semantically equivalent but simpler. The two main techniques are constant propagation and dead code removal.
 
 ###Trivial Example
 ```
@@ -43,7 +43,7 @@ The goal for this project is to analyze a given set of Smali files and modify in
 .end method
 ```
 
-###After No-op Removal
+###After Dead Code Removal
 ```
 .method public static test1()I
     .locals 2
@@ -54,6 +54,6 @@ The goal for this project is to analyze a given set of Smali files and modify in
 .end method
 ```
 
-It should be possible to have configurable options for relaxed assumtions about ambiguity, e.g. assume values of static variables haven't changed since class initialization, or just for specific classes.
+The eventual goal is to have configurable options for relaxed assumptions of ambiguity. For example, tell Simplifier to assume static variables of some class won't be modified.
 
 It is still in early development, so don't expect everything (or anything) to work. :D

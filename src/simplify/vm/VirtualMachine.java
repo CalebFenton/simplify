@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.apache.commons.lang3.ClassUtils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
@@ -17,23 +16,12 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 
 import simplify.Main;
-import simplify.SmaliClassUtils;
+import simplify.vm.types.SmaliClassInstance;
+import simplify.vm.types.UnknownValue;
 
 public class VirtualMachine {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
-
-    private static List<String> buildImmutableClasses(List<BuilderClassDef> classDefs) {
-        List<String> result = new ArrayList<String>();
-        for (BuilderClassDef classDef : classDefs) {
-            boolean isImmutable = (classDef.getAccessFlags() & AccessFlags.FINAL.getValue()) != 0;
-            if (isImmutable) {
-                result.add(classDef.getType());
-            }
-        }
-
-        return result;
-    }
 
     private static MethodContext buildRootContext(BuilderMethod method) {
         List<? extends BuilderMethodParameter> parameters = method.getParameters();
@@ -44,15 +32,16 @@ public class VirtualMachine {
 
         boolean isStatic = ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0);
         if (!isStatic) {
-            // First parameter (p0) is instance reference for non-static methods
+            // For instance methods, the instance reference p0 is stored before the first parameter.
             String type = method.getDefiningClass();
-            result.pokeRegister(result.getParameterStart() - 1, type, "this");
+            result.pokeRegister(result.getParameterStart() - 1, new SmaliClassInstance(type));
         }
-        // Assume all input values are unknown.
+
+        // IMPORTANT: Assume all input values are unknown.
         for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
             BuilderMethodParameter parameter = parameters.get(paramRegister);
             String type = parameter.getType();
-            result.setParameter(paramRegister, type, new UnknownValue());
+            result.setParameter(paramRegister, new UnknownValue(type));
         }
 
         return result;
@@ -99,7 +88,6 @@ public class VirtualMachine {
 
         // Build graphs last because that's when handlers are assigned and some handlers access this vm instance.
         methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
-
     }
 
     public void updateInstructionGraph(BuilderMethod method) {
@@ -135,7 +123,12 @@ public class VirtualMachine {
         staticallyInitializeMethodClassIfNecessary(methodDescriptor);
 
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
+
         return classNameToClassContext.get(className);
+    }
+
+    public boolean isClassDefinedLocally(String className) {
+        return classNameToClassContext.get(className) != null;
     }
 
     public int getMaxCallDepth() {
@@ -150,36 +143,6 @@ public class VirtualMachine {
         return methodToTryCatchList;
     }
 
-    public boolean isImmutableClass(String smaliClassName) {
-        if (smaliClassName.startsWith("[")) {
-            // Array contents can be mutated, regardless of class.
-            return false;
-        }
-
-        if (smaliClassName.equals("?")) {
-            // Unknown type. Was probably lazy somewhere and didn't get implied type.
-            return false;
-        }
-
-        if (smaliClassName.equals("Ljava/lang/String;")) {
-            return true;
-        }
-
-        if (SmaliClassUtils.isPrimitiveType(smaliClassName)) {
-            return true;
-        }
-
-        String className = smaliClassName.replaceAll("/", ".");
-        try {
-            Class<?> clazz = ClassUtils.getClass(className, false);
-            return ClassUtils.isPrimitiveOrWrapper(clazz);
-
-        } catch (ClassNotFoundException e) {
-        }
-
-        return false;
-    }
-
     public boolean isMethodDefined(String methodDescriptor) {
         return methodDescriptorToInstructionGraph.containsKey(methodDescriptor);
     }
@@ -191,7 +154,7 @@ public class VirtualMachine {
     }
 
     private Map<String, ContextGraph> buildMethodDescriptorToInstructionGraph(final List<BuilderClassDef> classDefs) {
-        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>();
+        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>(classDefs.size());
 
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderMethod method : classDef.getMethods()) {

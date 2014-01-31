@@ -146,6 +146,9 @@ public class DeadRemover {
     }
 
     private static boolean areAssignmentsRead(int assignAddress, ContextGraph graph) {
+
+        // TODO: this whole thing is wrong. don't just look to see if size grows, because loops may have things read
+        // multiple times.
         for (ContextNode node : graph.getNodePile(assignAddress)) {
             MethodContext mctx = node.getContext();
             TIntIntMap watchedRegisterToReadSize = new TIntIntHashMap();

@@ -1,15 +1,19 @@
 package simplify.handlers;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
 import org.jf.dexlib2.iface.instruction.SwitchPayload;
 
+import simplify.Main;
 import simplify.vm.MethodContext;
-import simplify.vm.UnknownValue;
+import simplify.vm.types.UnknownValue;
 
 public class SwitchPayloadOpHandler extends OpHandler {
+
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static enum SwitchType {
         PACKED,
@@ -46,7 +50,7 @@ public class SwitchPayloadOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        Object targetValue = mctx.getResultRegister(address).getValue();
+        Object targetValue = mctx.readResultRegister();
 
         if (targetValue instanceof UnknownValue) {
             return getPossibleChildren();
@@ -61,6 +65,8 @@ public class SwitchPayloadOpHandler extends OpHandler {
 
         // TODO: Not sure what happens if target is not found. Maybe it continues at next instruction after
         // original call?
+        log.warning("Switch payload couldn't find target. Didn't know this could happen!");
+
         return new int[0];
     }
 

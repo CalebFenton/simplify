@@ -88,23 +88,14 @@ public class ConstOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        String type = null;
-        switch (constType) {
-        case CLASS:
-            type = "Ljava/lang/Class;";
-            break;
-        case NARROW:
-            type = "I";
-            break;
-        case STRING:
-            type = "Ljava/lang/String;";
-            break;
-        case WIDE:
-            type = "J";
-            break;
+        Object result = null;
+        if (constType == ConstType.CLASS) {
+            result = Class.class;
+        } else {
+            result = literal;
         }
 
-        mctx.setRegister(destRegister, type, literal, address);
+        mctx.assignRegister(destRegister, result);
 
         return getPossibleChildren();
     }

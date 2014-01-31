@@ -10,7 +10,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 
 import simplify.Main;
 import simplify.vm.MethodContext;
-import simplify.vm.UnknownValue;
+import simplify.vm.types.UnknownValue;
 
 public class IfOpHandler extends OpHandler {
 
@@ -123,15 +123,15 @@ public class IfOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        Object A = mctx.getRegisterValue(register1, address);
+        Object A = mctx.readRegister(register1);
         Object B;
         if (compareToZero) {
             B = 0;
         } else {
-            B = mctx.getRegisterValue(register2, address);
+            B = mctx.readRegister(register2);
         }
 
-        // Ambiguous predicate. Must assume either branch.
+        // Ambiguous predicate. Must assume we go down both branches.
         if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
             return getPossibleChildren();
         }

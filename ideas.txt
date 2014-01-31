@@ -7,7 +7,7 @@ This is a memory / time trade off. Now a context object will be smaller in memor
 
 Remove register stores
 
-The idea of a register store is flawed. Originally it was to include a string of the type, and because the JVM wouldn't have access to actual Class objects of any local smali classes that were parsed. This can be solved by mapping register indexes to object values directly and derriving the type by looking at the object class. Local smali classes can be represented by a place-holder class, say, LocalSmaliClass, which would provide access to the actual class path. This would greatly simplify some odd code that maintains register store relationships, including when cloning contexts and reflecting or invoking methods.
+The idea of a register store is flawed. Originally it was to include a string of the type, and because the JVM wouldn't have access to actual Class objects of any local smali simplify.vm.types that were parsed. This can be solved by mapping register indexes to object values directly and derriving the type by looking at the object class. Local smali simplify.vm.types can be represented by a place-holder class, say, LocalSmaliClass, which would provide access to the actual class path. This would greatly simplify some odd code that maintains register store relationships, including when cloning contexts and reflecting or invoking methods.
 
 
 

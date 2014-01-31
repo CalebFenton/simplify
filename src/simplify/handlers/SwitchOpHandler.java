@@ -5,7 +5,6 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction31t;
 
 import simplify.vm.MethodContext;
-import simplify.vm.RegisterStore;
 
 public class SwitchOpHandler extends OpHandler {
 
@@ -35,10 +34,10 @@ public class SwitchOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        // Use result register to store target register value. The payload handler will examine.
-        RegisterStore rs = mctx.getRegister(register, address);
+        // Use result register to store value to compare. Comparison will be done at payload handler.
+        Object value = mctx.readRegister(register);
 
-        mctx.setResultRegister(rs.getType(), rs.getValue());
+        mctx.assignResultRegister(value);
 
         return getPossibleChildren();
     }

@@ -7,7 +7,6 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
 
 import simplify.Main;
 import simplify.vm.MethodContext;
-import simplify.vm.RegisterStore;
 
 public class ReturnOpHandler extends OpHandler {
 
@@ -33,8 +32,7 @@ public class ReturnOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        RegisterStore rs = mctx.getRegister(register, address);
-        mctx.setReturnRegister(rs.getType(), rs.getValue());
+        mctx.assignReturnRegister(mctx.readRegister(register));
 
         return getPossibleChildren();
     }

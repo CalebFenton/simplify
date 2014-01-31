@@ -15,8 +15,10 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.util.SparseArray;
 
 import simplify.Main;
+import simplify.SmaliClassUtils;
 import simplify.handlers.OpHandler;
 import simplify.handlers.OpHandlerFactory;
+import simplify.vm.types.UnknownValue;
 
 public class ContextGraph implements Iterable {
 
@@ -116,38 +118,30 @@ public class ContextGraph implements Iterable {
         return result;
     }
 
-    public RegisterStore getRegisterConsensus(int address, int register) {
+    public Object getRegisterConsensus(int address, int register) {
         TIntList addresses = new TIntArrayList(1);
         addresses.add(address);
 
         return getRegisterConsensus(addresses, register);
     }
 
-    public RegisterStore getRegisterConsensus(TIntList addresses, int register) {
+    public Object getRegisterConsensus(TIntList addresses, int register) {
         ContextNode fistNode = getNodePile(addresses.get(0)).get(0);
-        RegisterStore registerStore = fistNode.getContext().peekRegister(register);
-        String type = registerStore.getType();
-        Object value = registerStore.getValue();
+        Object value = fistNode.getContext().peekRegister(register);
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             for (ContextNode node : getNodePile(address)) {
-                RegisterStore rs = node.getContext().peekRegister(register);
+                Object otherValue = node.getContext().peekRegister(register);
 
-                boolean valueEquals = false;
-                if (value == null) {
-                    valueEquals = value == rs.getValue();
-                } else {
-                    valueEquals = value.equals(rs.getValue());
-                }
-                if (!rs.getType().equals(type) || !valueEquals) {
+                if (value == otherValue) {
                     log.finer("No conensus value for register #" + register + ", returning unknown");
 
-                    return new RegisterStore("?", new UnknownValue());
+                    return new UnknownValue(SmaliClassUtils.getValueType(value));
                 }
             }
         }
 
-        return registerStore;
+        return value;
     }
 
     public String getMethodDescriptor() {

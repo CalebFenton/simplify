@@ -45,9 +45,10 @@ public class MethodExecutor {
             int[] childAddresses = currentNode.execute();
             for (int address : childAddresses) {
                 // Every node visit means a new clone on the pile. This way, piles can be examined by the optimizer for
-                // stuff like consensus of certain register values.
+                // stuff like consensus of register values.
                 ContextNode child = new ContextNode(graph.getTemplateNode(address));
                 child.setContext(new MethodContext(currentNode.getContext()));
+
                 currentNode.addChild(child);
                 graph.addNode(child, address);
             }

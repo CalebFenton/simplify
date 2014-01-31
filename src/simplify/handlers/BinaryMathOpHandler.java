@@ -11,7 +11,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 import simplify.Main;
 import simplify.vm.MethodContext;
-import simplify.vm.UnknownValue;
+import simplify.vm.types.UnknownValue;
 
 public class BinaryMathOpHandler extends OpHandler {
 
@@ -307,21 +307,20 @@ public class BinaryMathOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        Object lhs = mctx.getRegisterValue(arg1Register, address);
+        Object lhs = mctx.readRegister(arg1Register);
         Object rhs = null;
         if (hasWideLiteral) {
             rhs = wideLiteral;
         } else if (hasNarrowLiteral) {
             rhs = narrowLiteral;
         } else {
-            rhs = mctx.getRegisterValue(arg2Register, address);
+            rhs = mctx.readRegister(arg2Register);
         }
 
-        System.out.println("mctx now: " + mctx);
         log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
 
-        Object result = new UnknownValue();
-        if (!(lhs instanceof UnknownValue) && !(rhs instanceof UnknownValue)) {
+        Object result = new UnknownValue(getType());
+        if (!((lhs instanceof UnknownValue) || (rhs instanceof UnknownValue))) {
             result = getResult(lhs, rhs);
 
             if (result == null) {
@@ -329,18 +328,25 @@ public class BinaryMathOpHandler extends OpHandler {
             }
         }
 
-        // Destination register should be same as lhs op
-        String type = mctx.peekRegisterType(arg1Register);
-        mctx.setRegister(destRegister, type, result, address);
-
-        mctx.getRegister(arg1Register, address);
-        if (!hasWideLiteral && !hasNarrowLiteral) {
-            mctx.getRegister(arg2Register, address);
-        }
-
-        System.out.println("and NOW: " + mctx);
+        mctx.assignRegister(destRegister, result);
 
         return getPossibleChildren();
+    }
+
+    private String getType() {
+        MathOperandType operandType = getMathOperandType(opName);
+        switch (operandType) {
+        case DOUBLE:
+            return "D";
+        case FLOAT:
+            return "F";
+        case INT:
+            return "I";
+        case LONG:
+            return "J";
+        default:
+            return "?numeric?"; // should never happen
+        }
     }
 
     @Override

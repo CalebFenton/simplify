@@ -29,7 +29,7 @@ import simplify.handlers.UnaryMathOpHandler;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
 import simplify.vm.RegisterStore;
-import simplify.vm.UnknownValue;
+import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class ConstantPropigator {
