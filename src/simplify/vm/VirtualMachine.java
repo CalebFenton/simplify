@@ -46,13 +46,13 @@ public class VirtualMachine {
         if (!isStatic) {
             // First parameter (p0) is instance reference for non-static methods
             String type = method.getDefiningClass();
-            result.pokeRegister(result.getParameterStart() - 1, new RegisterStore(type, "this"));
+            result.pokeRegister(result.getParameterStart() - 1, type, "this");
         }
         // Assume all input values are unknown.
         for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
             BuilderMethodParameter parameter = parameters.get(paramRegister);
             String type = parameter.getType();
-            result.setParameter(paramRegister, new RegisterStore(type, new UnknownValue()));
+            result.setParameter(paramRegister, type, new UnknownValue());
         }
 
         return result;

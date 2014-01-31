@@ -36,9 +36,9 @@ public class SwitchOpHandler extends OpHandler {
     @Override
     public int[] execute(MethodContext mctx) {
         // Use result register to store target register value. The payload handler will examine.
-        RegisterStore registerStore = mctx.getRegister(register, address);
+        RegisterStore rs = mctx.getRegister(register, address);
 
-        mctx.setResultRegister(registerStore);
+        mctx.setResultRegister(rs.getType(), rs.getValue());
 
         return getPossibleChildren();
     }

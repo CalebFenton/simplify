@@ -93,7 +93,7 @@ public class MethodReflector {
     }
 
     public void reflect(MethodContext calleeContext) {
-        log.finer("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
+        log.fine("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
 
         Object result = null;
         try {
@@ -109,6 +109,7 @@ public class MethodReflector {
                 // This isn't a clone. Updating it also updates the caller context.
                 RegisterStore instanceRef = calleeContext.peekRegister(calleeContext.getParameterStart() - 1);
                 instanceRef.setValue(result);
+                System.out.println(calleeContext.toString());
             } else {
                 if (isStatic) {
                     log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
@@ -124,20 +125,8 @@ public class MethodReflector {
                     // If result is value of instance or an argument, the result register should be a
                     // reference to that register store. Register stores are a klunky abstraction of an actual object
                     // reference, and a change to the object should be reflected in all references.
-                    RegisterStore returnRegister = null;
-                    if (!SmaliClassUtils.isPrimitiveType(returnType)) {
-                        for (RegisterStore rs : calleeContext.getRegisterToStore().getValues()) {
-                            if (rs.getValue() == result) {
-                                returnRegister = rs;
-                                break;
-                            }
-                        }
-                    }
-                    if (returnRegister == null) {
-                        returnRegister = new RegisterStore(returnType, result);
-                    }
-
-                    calleeContext.setReturnRegister(returnRegister);
+                    calleeContext.setReturnRegister(returnType, result);
+                    System.out.println(calleeContext.toString());
                 }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException

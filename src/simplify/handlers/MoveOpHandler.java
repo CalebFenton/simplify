@@ -90,7 +90,7 @@ public class MoveOpHandler extends OpHandler {
                 if (value == rs.getValue()) {
                     System.out.println("Relinking result register store.");
                     rs.setValue(value);
-                    mctx.setRegister(destRegister, rs, address);
+                    mctx.setRegister(destRegister, rs.getType(), rs.getValue(), address);
                     return;
                 }
             }
@@ -101,7 +101,7 @@ public class MoveOpHandler extends OpHandler {
 
     private static void moveRegister(MethodContext mctx, int address, int destRegister, int targetRegister) {
         RegisterStore target = mctx.getRegister(targetRegister, address);
-        mctx.setRegister(destRegister, target, address);
+        mctx.setRegister(destRegister, target.getType(), target.getValue(), address);
     }
 
     @Override

@@ -317,6 +317,7 @@ public class BinaryMathOpHandler extends OpHandler {
             rhs = mctx.getRegisterValue(arg2Register, address);
         }
 
+        System.out.println("mctx now: " + mctx);
         log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
 
         Object result = new UnknownValue();
@@ -331,6 +332,13 @@ public class BinaryMathOpHandler extends OpHandler {
         // Destination register should be same as lhs op
         String type = mctx.peekRegisterType(arg1Register);
         mctx.setRegister(destRegister, type, result, address);
+
+        mctx.getRegister(arg1Register, address);
+        if (!hasWideLiteral && !hasNarrowLiteral) {
+            mctx.getRegister(arg2Register, address);
+        }
+
+        System.out.println("and NOW: " + mctx);
 
         return getPossibleChildren();
     }
@@ -350,9 +358,9 @@ public class BinaryMathOpHandler extends OpHandler {
         StringBuilder sb = new StringBuilder(opName);
 
         sb.append(" r").append(destRegister).append(", ");
-        if (destRegister != arg1Register) {
-            sb.append("r").append(arg1Register).append(", ");
-        }
+        // if (destRegister != arg1Register) {
+        sb.append("r").append(arg1Register).append(", ");
+        // }
 
         if (hasNarrowLiteral) {
             sb.append("0x").append(Integer.toHexString(narrowLiteral));

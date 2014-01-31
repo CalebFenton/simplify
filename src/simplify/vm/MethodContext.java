@@ -34,8 +34,8 @@ public class MethodContext extends VirtualMachineContext {
         return callDepth;
     }
 
-    public void setResultRegister(RegisterStore registerStore) {
-        pokeRegister(ResultRegister, registerStore);
+    public void setResultRegister(String type, Object value) {
+        pokeRegister(ResultRegister, type, value);
     }
 
     public RegisterStore getResultRegister(int address) {
@@ -46,12 +46,11 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public RegisterStore getReturnRegister() {
-        // Return register is stored outside of the method being analyzed, so address is irrelevant.
         return peekRegister(ReturnRegister);
     }
 
-    public void setReturnRegister(RegisterStore registerStore) {
-        pokeRegister(ReturnRegister, registerStore);
+    public void setReturnRegister(String type, Object value) {
+        pokeRegister(ReturnRegister, type, value);
     }
 
     @Override
@@ -73,8 +72,12 @@ public class MethodContext extends VirtualMachineContext {
         return sb.toString();
     }
 
-    public void setParameter(int paramRegister, RegisterStore registerStore) {
-        pokeRegister(getParameterStart() + paramRegister, registerStore);
+    public void setParameter(int paramRegister, RegisterStore rs) {
+        pokeRegister(getParameterStart() + paramRegister, rs);
+    }
+
+    public void setParameter(int paramRegister, String type, Object value) {
+        pokeRegister(getParameterStart() + paramRegister, type, value);
     }
 
     public int getParameterStart() {

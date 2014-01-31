@@ -13,7 +13,6 @@ import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.Main;
 import simplify.MethodReflector;
-import simplify.SmaliClassUtils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
@@ -76,12 +75,11 @@ public class InvokeOpHandler extends OpHandler {
             }
 
             log.fine(className + " is mutable and passed into strange method, marking unknown");
-            RegisterStore registerStore = new RegisterStore(className, new UnknownValue());
-            callerContext.pokeRegister(register, registerStore);
+            callerContext.pokeRegister(register, className, new UnknownValue());
         }
 
         if (!returnType.equals("V")) {
-            callerContext.setResultRegister(new RegisterStore(returnType, new UnknownValue()));
+            callerContext.setResultRegister(returnType, new UnknownValue());
         }
     }
 
@@ -139,14 +137,14 @@ public class InvokeOpHandler extends OpHandler {
             RegisterStore calleeInstance = calleeContext.peekRegister(calleeParamStart - 1);
             Object value = calleeInstance.getValue();
 
-            log.fine("updating instance: " + callerInstance + " to " + value);
+            log.fine("Updating instance: " + callerInstance + " to " + value);
             callerInstance.setValue(value);
 
             // If this is instance initialization, regardless of mutability, consider the instance to have been assigned
             // at this address (in addition to having been read earlier). Dead code remover will try to determine
             // liveness from this point.
             if (methodDescriptor.contains("<init>")) {
-                callerContext.setRegister(registers[0], callerInstance, address);
+                callerContext.setRegister(registers[0], callerInstance.getType(), callerInstance.getValue(), address);
             }
         }
 
@@ -260,20 +258,7 @@ public class InvokeOpHandler extends OpHandler {
                 TIntList terminating = graph.getConnectedTerminatingAddresses();
                 RegisterStore consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
                 Object value = consensus.getValue();
-                RegisterStore returnRegister = null;
-                if (!SmaliClassUtils.isPrimitiveType(returnType)) {
-                    for (RegisterStore rs : calleeContext.getRegisterToStore().getValues()) {
-                        if (rs.getValue() == value) {
-                            returnRegister = rs;
-                            break;
-                        }
-                    }
-                }
-                if (returnRegister == null) {
-                    returnRegister = new RegisterStore(returnType, value);
-                }
-
-                callerContext.setResultRegister(returnRegister);
+                callerContext.setResultRegister(returnType, value);
             }
         } else {
             MethodContext calleeContext = buildCalleeContext(callerContext, registers, address, isStatic);
@@ -283,6 +268,7 @@ public class InvokeOpHandler extends OpHandler {
             } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
                 MethodReflector reflector = new MethodReflector(methodReference, isStatic);
                 reflector.reflect(calleeContext); // player play
+
                 // TOOD: investigate better marking of side effects. this is very conservative and depends on reflected
                 // methods not actually having side effects
                 hasSideEffects = false;
@@ -298,12 +284,12 @@ public class InvokeOpHandler extends OpHandler {
                 // Consider the instance reference assigned here. This is so the dead code remover can check if it's
                 // used elsewhere. If it's not and there are no side-effects, it's removed.
                 RegisterStore instance = callerContext.peekRegister(registers[0]);
-                callerContext.setRegister(registers[0], instance, address);
+                callerContext.setRegister(registers[0], instance.getType(), instance.getValue(), address);
             }
 
             if (!returnsVoid) {
                 RegisterStore returnRegister = calleeContext.getReturnRegister();
-                callerContext.setResultRegister(returnRegister);
+                callerContext.setResultRegister(returnRegister.getType(), returnRegister.getValue());
             }
         }
 

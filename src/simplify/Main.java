@@ -10,7 +10,6 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
@@ -69,8 +68,8 @@ public class Main {
             boolean madeChanges = false;
             int sweeps = 0;
             do {
-                if (sweeps >= 3) {
-                    // break;
+                if (sweeps >= 1) {
+                    break;
                 }
 
                 ContextGraph graph = vm.execute(methodDescriptor);

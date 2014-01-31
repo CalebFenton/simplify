@@ -33,8 +33,8 @@ public class ReturnOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        RegisterStore registerStore = mctx.getRegister(register, address);
-        mctx.setReturnRegister(registerStore);
+        RegisterStore rs = mctx.getRegister(register, address);
+        mctx.setReturnRegister(rs.getType(), rs.getValue());
 
         return getPossibleChildren();
     }
