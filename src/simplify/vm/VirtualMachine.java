@@ -41,7 +41,7 @@ public class VirtualMachine {
         for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
             BuilderMethodParameter parameter = parameters.get(paramRegister);
             String type = parameter.getType();
-            result.setParameter(paramRegister, new UnknownValue(type));
+            result.assignParameter(paramRegister, new UnknownValue(type));
         }
 
         return result;

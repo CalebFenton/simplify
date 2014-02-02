@@ -12,7 +12,6 @@ import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.vm.MethodContext;
-import simplify.vm.RegisterStore;
 
 public class MethodReflector {
 
@@ -106,27 +105,20 @@ public class MethodReflector {
                 log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                 result = ConstructorUtils.invokeConstructor(clazz, args);
 
-                // This isn't a clone. Updating it also updates the caller context.
-                RegisterStore instanceRef = calleeContext.peekRegister(calleeContext.getParameterStart() - 1);
-                instanceRef.setValue(result);
-                System.out.println(calleeContext.toString());
+                calleeContext.assignParameter(-1, result);
             } else {
                 if (isStatic) {
                     log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeStaticMethod(clazz, methodName, args);
                 } else {
-                    Object target = calleeContext.peekRegisterValue(0);
+                    Object target = calleeContext.peekRegister(0);
                     log.fine("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeMethod(target, methodName, args);
                 }
 
                 boolean returnsVoid = returnType.equals("V");
                 if (!returnsVoid) {
-                    // If result is value of instance or an argument, the result register should be a
-                    // reference to that register store. Register stores are a klunky abstraction of an actual object
-                    // reference, and a change to the object should be reflected in all references.
-                    calleeContext.setReturnRegister(returnType, result);
-                    System.out.println(calleeContext.toString());
+                    calleeContext.assignReturnRegister(result);
                 }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
@@ -146,20 +138,19 @@ public class MethodReflector {
         // For reflected methods, there are no locals. Instance and arguments start at 0.
         // 0=[instance register or arg1], 1=[arg#], ...
         for (int i = offset; i < mctx.getRegisterCount(); i++) {
-            RegisterStore registerStore = mctx.peekRegister(i);
-            Object value = registerStore.getValue();
+            Object arg = mctx.peekRegister(i);
 
             String paramType = parameterTypes.get(i - offset);
             // Booleans are represented in Smali and stored internally as integers. Convert to boolean.
             if (paramType.equals("Z") || paramType.equals("Ljava/lang/Boolean;")) {
-                if (value.getClass() == Integer.class) {
-                    int intValue = (Integer) value;
-                    value = intValue == 0 ? false : true;
+                if (arg.getClass() == Integer.class) {
+                    int intValue = (Integer) arg;
+                    arg = intValue == 0 ? false : true;
                 }
             }
-            args.add(value);
+            args.add(arg);
 
-            if (registerStore.getType().equals("J")) {
+            if (paramType.equals("J")) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
                 i++;
             }

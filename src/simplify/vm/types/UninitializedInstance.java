@@ -12,4 +12,9 @@ public class UninitializedInstance implements LocalType {
         return type;
     }
 
+    @Override
+    public String toString() {
+        return type;
+    }
+
 }

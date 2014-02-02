@@ -17,7 +17,6 @@ import simplify.SmaliClassUtils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
-import simplify.vm.RegisterStore;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.UnknownValue;
 
@@ -32,18 +31,18 @@ public class InvokeOpHandler extends OpHandler {
         if (!isStatic) {
             // First register is instance references.
             int register = registers[0];
-            RegisterStore registerStore = callerContext.getRegister(register, address);
-            calleeContext.setParameter(-1, registerStore);
+            Object instance = callerContext.readRegister(register);
+            calleeContext.assignParameter(-1, instance);
             offset = 1;
         }
 
         for (int i = offset; i < registers.length; i++) {
             int register = registers[i];
             // Passing actual value references since they'll be updated correctly by the JVM.
-            RegisterStore registerStore = callerContext.getRegister(register, address);
-            calleeContext.setParameter(i - offset, registerStore);
+            Object value = callerContext.readRegister(register);
+            calleeContext.assignParameter(i - offset, value);
 
-            if (registerStore.getType().equals("J")) {
+            if (SmaliClassUtils.getValueType(value).equals("J")) {
                 // This register index and the next both refer to this variable.
                 i++;
             }
@@ -51,9 +50,9 @@ public class InvokeOpHandler extends OpHandler {
     }
 
     private static boolean allArgumentsKnown(MethodContext mctx) {
-        List<RegisterStore> registerStores = mctx.getRegisterToStore().getValues();
-        for (RegisterStore registerStore : registerStores) {
-            if (registerStore.getValue() instanceof UnknownValue) {
+        List<Object> registerValues = mctx.getRegisterToValue().getValues();
+        for (Object value : registerValues) {
+            if (value instanceof UnknownValue) {
                 return false;
             }
         }
@@ -76,11 +75,11 @@ public class InvokeOpHandler extends OpHandler {
             }
 
             log.fine(className + " is mutable and passed into strange method, marking unknown");
-            callerContext.pokeRegister(register, className, new UnknownValue());
+            callerContext.pokeRegister(register, new UnknownValue(className));
         }
 
         if (!returnType.equals("V")) {
-            callerContext.setResultRegister(returnType, new UnknownValue());
+            callerContext.assignResultRegister(new UnknownValue(returnType));
         }
     }
 
@@ -104,62 +103,28 @@ public class InvokeOpHandler extends OpHandler {
     private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext callerContext,
                     ContextGraph graph, boolean isStatic) {
         MethodContext calleeContext = graph.getNodePile(0).get(0).getContext();
-        int calleeParamStart = calleeContext.getParameterStart();
-        TIntList addresses = graph.getConnectedTerminatingAddresses();
+        // int calleeParamStart = calleeContext.getParameterStart();
+        // TIntList addresses = graph.getConnectedTerminatingAddresses();
 
-        if (!isStatic) {
-            int register = callerContext.getParameterStart() - 1;
-            RegisterStore callerInstance = callerContext.peekRegister(register);
-            Object value = graph.getRegisterConsensus(addresses, calleeParamStart - 1).getValue();
-
-            log.fine("updating instance value: " + callerInstance + " to " + value);
-            callerInstance.setValue(value);
-        }
-
-        int callerParamStart = callerContext.getParameterStart();
-        int paramCount = callerContext.getRegisterCount() - callerParamStart;
-        for (int i = 0; i < paramCount; i++) {
-            RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
-            if (!SmaliClassUtils.isImmutableClass(registerStore.getType())) {
-                Object value = graph.getRegisterConsensus(addresses, calleeParamStart + i).getValue();
-                registerStore.setValue(value);
-                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
-            }
-        }
-    }
-
-    private void updateInstanceAndMutableArguments(MethodContext callerContext, MethodContext calleeContext) {
-        int calleeParamStart = calleeContext.getParameterStart();
-
-        System.out.println("updating caller / callee (" + callerContext.getParameterStart() + "):\n" + callerContext
-                        + "\n" + calleeContext);
-        if (!isStatic) {
-            RegisterStore callerInstance = callerContext.peekRegister(registers[0]);
-            RegisterStore calleeInstance = calleeContext.peekRegister(calleeParamStart - 1);
-            Object value = calleeInstance.getValue();
-
-            log.fine("Updating instance: " + callerInstance + " to " + value);
-            callerInstance.setValue(value);
-
-            // If this is instance initialization, regardless of mutability, consider the instance to have been assigned
-            // at this address (in addition to having been read earlier). Dead code remover will try to determine
-            // liveness from this point.
-            if (methodDescriptor.contains("<init>")) {
-                callerContext.setRegister(registers[0], callerInstance.getType(), callerInstance.getValue(), address);
-            }
-        }
-
-        int callerParamStart = callerContext.getParameterStart();
-        int paramCount = callerContext.getRegisterCount() - callerParamStart;
-        for (int i = 0; i < paramCount; i++) {
-            RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
-            if (!SmaliClassUtils.isImmutableClass(registerStore.getType())) {
-                Object value = calleeContext.peekRegisterValue(calleeParamStart + i);
-                registerStore.setValue(value);
-
-                log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
-            }
-        }
+        // if (!isStatic) {
+        // int register = callerContext.getParameterStart() - 1;
+        // RegisterStore callerInstance = callerContext.peekRegister(register);
+        // Object value = graph.getRegisterConsensus(addresses, calleeParamStart - 1).getValue();
+        //
+        // log.fine("updating instance value: " + callerInstance + " to " + value);
+        // callerInstance.setValue(value);
+        // }
+        //
+        // int callerParamStart = callerContext.getParameterStart();
+        // int paramCount = callerContext.getRegisterCount() - callerParamStart;
+        // for (int i = 0; i < paramCount; i++) {
+        // RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
+        // if (!SmaliClassUtils.isImmutableClass(registerStore.getType())) {
+        // Object value = graph.getRegisterConsensus(addresses, calleeParamStart + i).getValue();
+        // registerStore.setValue(value);
+        // log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
+        // }
+        // }
     }
 
     static InvokeOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
@@ -235,14 +200,14 @@ public class InvokeOpHandler extends OpHandler {
 
         boolean returnsVoid = returnType.equals("V");
         if (vm.isMethodDefined(methodDescriptor)) {
-            // VM has this method, so it knows how to execute it.
+            // This is a locally defined method. Execute on the VM.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
             calleeContext.incrementCallDepth();
             addCalleeParameters(calleeContext, callerContext, registers, address, isStatic);
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
-                // Couldn't execute the method. Maybe node visits or call depth exceeded?
+                // Problem executing the method. Maybe node visits or call depth exceeded.
                 log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
                 assumeMaximumUnknown(vm, callerContext, registers, returnType);
 
@@ -255,11 +220,9 @@ public class InvokeOpHandler extends OpHandler {
             // updateInstanceAndMutableArguments(vm, callerContext, graph, isStatic);
 
             if (!returnsVoid) {
-                // This also happens in method reflector.
                 TIntList terminating = graph.getConnectedTerminatingAddresses();
-                RegisterStore consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
-                Object value = consensus.getValue();
-                callerContext.setResultRegister(returnType, value);
+                Object consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
+                callerContext.assignResultRegister(consensus);
             }
         } else {
             MethodContext calleeContext = buildCalleeContext(callerContext, registers, address, isStatic);
@@ -274,23 +237,29 @@ public class InvokeOpHandler extends OpHandler {
                 // methods not actually having side effects
                 hasSideEffects = false;
             } else {
-                // Method not found and either all arguments are not known, couldn't emulate or reflect
-                log.fine("Unknown argument or couldn't find/emulate/reflect " + methodDescriptor
-                                + " so propigating ambiguity.");
+                log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
+                                + ". Propigating ambiguity.");
                 assumeMaximumUnknown(vm, callerContext, registers, returnType);
+
                 return getPossibleChildren();
             }
 
             if (!isStatic) {
-                // Consider the instance reference assigned here. This is so the dead code remover can check if it's
-                // used elsewhere. If it's not and there are no side-effects, it's removed.
-                RegisterStore instance = callerContext.peekRegister(registers[0]);
-                callerContext.setRegister(registers[0], instance.getType(), instance.getValue(), address);
+                // Handle updating the instance reference
+                Object originalInstance = callerContext.peekRegister(registers[0]);
+                Object newInstance = calleeContext.peekParameter(-1);
+                if (originalInstance != newInstance) {
+                    // Instance went from UninitializedInstance class to something else.
+                    callerContext.assignRegisterAndUpdateIdentities(registers[0], newInstance);
+                } else {
+                    // The instance reference could have changed, so mark it as assigned here.
+                    callerContext.assignRegister(registers[0], newInstance);
+                }
             }
 
             if (!returnsVoid) {
-                RegisterStore returnRegister = calleeContext.getReturnRegister();
-                callerContext.setResultRegister(returnRegister.getType(), returnRegister.getValue());
+                Object returnRegister = calleeContext.readReturnRegister();
+                callerContext.assignResultRegister(returnRegister);
             }
         }
 

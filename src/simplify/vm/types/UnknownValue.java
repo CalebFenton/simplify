@@ -10,7 +10,7 @@ public class UnknownValue implements LocalType {
 
     @Override
     public String toString() {
-        return "*unknown value*, type=" + type;
+        return "*unknown*, type=" + type;
     }
 
     public String getType() {
@@ -21,4 +21,5 @@ public class UnknownValue implements LocalType {
     public boolean equals(Object other) {
         return false;
     }
+
 }

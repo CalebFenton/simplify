@@ -24,7 +24,6 @@ import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 
-import simplify.optimize.Simplifier;
 import simplify.vm.ContextGraph;
 import simplify.vm.VirtualMachine;
 
@@ -81,7 +80,7 @@ public class Main {
                 // String methodName = method.getName();
                 // FileUtils.writeStringToFile(new File("graphs/" + methodName + ".dot"), graph.toGraph());
 
-                madeChanges = Simplifier.simplify(dexBuilder, method, graph);
+                // madeChanges = Simplifier.simplify(dexBuilder, method, graph);
 
                 if (madeChanges) {
                     // Method implementations will have changed, so prepare to execute this again with the changes.

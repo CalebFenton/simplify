@@ -53,30 +53,34 @@ public class MethodContext extends VirtualMachineContext {
         pokeRegister(ReturnRegister, value);
     }
 
+    public Object peekParameter(int parameterIndex) {
+        return peekRegister(getParameterStart() + parameterIndex);
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString());
 
         sb.append("\nparameters: ").append(parameterCount).append(", callDepth: ").append(callDepth).append("\n");
 
-        Object resultValue = peekRegister(ResultRegister);
-        if (resultValue != null) {
+        if (hasRegister(ResultRegister)) {
             sb.append("result: ").append(registerToString(ResultRegister)).append("\n");
         }
 
-        Object returnValue = peekRegister(ReturnRegister);
-        if (returnValue != null) {
+        if (hasRegister(ReturnRegister)) {
             sb.append("return: ").append(registerToString(ReturnRegister));
         }
 
         return sb.toString();
     }
 
-    public void setParameter(int paramRegister, Object value) {
-        pokeRegister(getParameterStart() + paramRegister, value);
+    public void assignParameter(int parameterIndex, Object value) {
+        // TODO: Maintain parameter-over-clone mappings by intintmaps using hashcode. Use them when updating
+        // non-immutable object parameters after executing local smali method.
+        pokeRegister(getParameterStart() + parameterIndex, value);
     }
 
-    public int getParameterStart() {
+    protected int getParameterStart() {
         return getRegisterCount() - parameterCount;
     }
 
