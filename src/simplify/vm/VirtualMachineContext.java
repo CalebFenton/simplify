@@ -39,7 +39,7 @@ public class VirtualMachineContext {
     }
 
     public void assignRegister(int register, Object value) {
-        registersAssigned.add(register);
+        getRegistersAssigned().add(register);
 
         pokeRegister(register, value);
     }
@@ -139,7 +139,7 @@ public class VirtualMachineContext {
     }
 
     public Object readRegister(int register) {
-        registersRead.add(register);
+        getRegistersRead().add(register);
 
         return peekRegister(register);
     }
@@ -205,5 +205,13 @@ public class VirtualMachineContext {
     VirtualMachineContext(VirtualMachineContext parent) {
         this(parent.registerCount);
         this.parent = parent;
+    }
+
+    public TIntList getRegistersAssigned() {
+        return registersAssigned;
+    }
+
+    public TIntList getRegistersRead() {
+        return registersRead;
     }
 }

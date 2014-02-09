@@ -21,6 +21,7 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Main;
+import simplify.SmaliClassUtils;
 import simplify.handlers.BinaryMathOpHandler;
 import simplify.handlers.MoveOpHandler;
 import simplify.handlers.OpHandler;
@@ -28,8 +29,6 @@ import simplify.handlers.ReturnOpHandler;
 import simplify.handlers.UnaryMathOpHandler;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
-import simplify.vm.RegisterStore;
-import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class ConstantPropigator {
@@ -154,9 +153,8 @@ public class ConstantPropigator {
             int address = addresses.get(i);
 
             List<ContextNode> nodePile = graph.getNodePile(address);
-            if (nodePile.size() <= 0) {
+            if (nodePile.size() == 0) {
                 // Node wasn't reached.
-                log.finest("Address wasn't reached: " + address);
                 continue;
             }
 
@@ -169,21 +167,17 @@ public class ConstantPropigator {
 
             BuilderInstruction originalInstruction = addressToInstruction.get(address);
             int registerA = ((OneRegisterInstruction) originalInstruction).getRegisterA();
-            RegisterStore registerStore = graph.getRegisterConsensus(address, registerA);
-            String type = registerStore.getType();
+            Object consensus = graph.getRegisterConsensus(address, registerA);
+            String type = SmaliClassUtils.getValueType(consensus);
+            type = getUnboxedType(type);
+
             if (!isConstableType(type)) {
                 log.finer("Can't make type constant: " + type);
                 continue;
             }
 
-            Object value = registerStore.getValue();
-            if (value instanceof UnknownValue) {
-                log.finer("Can't make unknown value constant.");
-                continue;
-            }
-
-            log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + value);
-            BuilderInstruction constInstruction = buildConstant(registerA, type, value);
+            log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus);
+            BuilderInstruction constInstruction = buildConstant(registerA, type, consensus);
 
             int index = originalInstruction.getLocation().getIndex();
             if (originalInstruction.getOpcode().name.startsWith("return")) {
@@ -210,6 +204,30 @@ public class ConstantPropigator {
         }
 
         return madeChanges;
+    }
+
+    private String getUnboxedType(String type) {
+        String result = null;
+
+        if (type.equals("java.lang.Integer")) {
+            result = "I";
+        } else if (type.equals("java.lang.Byte")) {
+            result = "B";
+        } else if (type.equals("java.lang.Boolean")) {
+            result = "Z";
+        } else if (type.equals("java.lang.Long")) {
+            result = "J";
+        } else if (type.equals("java.lang.Character")) {
+            result = "C";
+        } else if (type.equals("java.lang.Float")) {
+            result = "F";
+        } else if (type.equals("java.lang.Double")) {
+            result = "D";
+        } else {
+            result = type;
+        }
+
+        return result;
     }
 
 }

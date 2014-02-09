@@ -133,7 +133,7 @@ public class ContextGraph implements Iterable {
             for (ContextNode node : getNodePile(address)) {
                 Object otherValue = node.getContext().peekRegister(register);
 
-                if (value == otherValue) {
+                if (value != otherValue) {
                     log.finer("No conensus value for register #" + register + ", returning unknown");
 
                     return new UnknownValue(SmaliClassUtils.getValueType(value));

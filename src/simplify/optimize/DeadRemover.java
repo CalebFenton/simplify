@@ -1,10 +1,11 @@
 package simplify.optimize;
 
 import gnu.trove.list.TIntList;
-import gnu.trove.map.TIntIntMap;
-import gnu.trove.map.hash.TIntIntHashMap;
+import gnu.trove.list.array.TIntArrayList;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -20,119 +21,49 @@ import simplify.handlers.InvokeOpHandler;
 import simplify.handlers.OpHandler;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
-import simplify.vm.MethodContext;
-import simplify.vm.RegisterStore;
 import util.SparseArray;
 
 public class DeadRemover {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private final DexBuilder dexBuilder;
-    private final ContextGraph graph;
-    private final MutableMethodImplementation implementation;
-    private final SparseArray<BuilderInstruction> addressToInstruction;
-
-    private int unreachableCount = 0;
-    private int deadCount = 0;
-
-    DeadRemover(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
-        this.dexBuilder = dexBuilder;
-        this.graph = graph;
-
-        MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
-        implementation = impl;
-
-        addressToInstruction = Simplifier.buildAddressToInstruction(impl.getInstructions());
-    }
-
-    boolean perform() {
-        boolean madeChanges = false;
-
-        TIntList addresses = graph.getAddresses();
-        for (int i = 0; i < addresses.size(); i++) {
-            int address = addresses.get(i);
-            OpHandler handler = graph.getOpHandler(address);
-            log.fine("Liveness test for: " + handler);
-
-            // Reachability
-            List<ContextNode> nodePile = graph.getNodePile(address);
-            if (nodePile.size() == 0) {
-                log.fine("Nop unreachable instruction: " + handler);
-                nopInstruction(implementation, address, addressToInstruction);
-                unreachableCount++;
-                madeChanges = true;
-                continue;
-            }
-
-            // Side-effects
-            if (opHasSideEffects(handler)) {
-                // This method has side effects, or assuming it does, so it can't be dead.
-                continue;
-            }
-
-            // Dead assignments
-            // Only invokes will have > 1 assignments, all others will have <= 1
-            List<RegisterStore> assignments = getRegisterAssignments(nodePile, address);
-            if (assignments.size() > 0) {
-                boolean areAnyAssignmentsRead = areAssignmentsRead(address, graph);
-                if (!areAnyAssignmentsRead) {
-                    log.info("Nop dead assignment: " + handler + ", assign=" + assignments);
-                    nopInstruction(implementation, address, addressToInstruction);
-                    deadCount++;
-                    madeChanges = true;
-                    continue;
+    private static boolean areAssignmentsRead(int address, ContextGraph graph, TIntList assigned) {
+        Deque<ContextNode> stack = new ArrayDeque<ContextNode>();
+        stack.addAll(getChildrenAtAddress(address, graph));
+        while (stack.peek() != null) {
+            ContextNode node = stack.poll();
+            TIntList read = node.getContext().getRegistersRead();
+            for (int i = 0; i < read.size(); i++) {
+                int register = read.get(i);
+                if (assigned.contains(register)) {
+                    log.info("r" + register + " is read after " + address + " at " + node.getAddress());
+                    return true;
                 }
             }
 
-            // Non-side effect invokes with unused results
-            if (handler instanceof InvokeOpHandler) {
-                String returnType = ((InvokeOpHandler) handler).getReturnType();
-                if (!returnType.equals("V")) {
-                    boolean unusedResult = true;
-                    if ((i + 1) < addresses.size()) {
-                        int nextAddress = addresses.get(i + 1);
-                        BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
-                        if (nextInstr.getOpcode().name.startsWith("move-result")) {
-                            unusedResult = false;
-                        }
-                    }
-
-                    if (unusedResult) {
-                        log.info("Nop unused, no side-effect: " + handler);
-                        nopInstruction(implementation, address, addressToInstruction);
-                        deadCount++;
-                        madeChanges = true;
-                        continue;
-                    }
-                }
-            }
+            stack.addAll(node.getChildren());
         }
 
-        return madeChanges;
+        return false;
     }
 
-    private static void nopInstruction(MutableMethodImplementation implementation, int address,
-                    SparseArray<BuilderInstruction> addressToInstruction) {
-        int index = addressToInstruction.get(address).getLocation().getIndex();
-        BuilderInstruction replacementInstruction = new BuilderInstruction10x(Opcode.NOP);
-        implementation.replaceInstruction(index, replacementInstruction);
-    }
+    private static List<ContextNode> getChildrenAtAddress(int address, ContextGraph graph) {
+        List<ContextNode> result = new ArrayList<ContextNode>();
 
-    private static List<RegisterStore> getRegisterAssignments(List<ContextNode> nodePile, int address) {
-        List<RegisterStore> result = new ArrayList<RegisterStore>();
-
+        List<ContextNode> nodePile = graph.getNodePile(address);
         for (ContextNode node : nodePile) {
-            MethodContext mctx = node.getContext();
-            List<RegisterStore> registerStores = mctx.getRegisterToStore().getValues();
-            for (RegisterStore rs : registerStores) {
-                if (rs.getAssigned().contains(address)) {
-                    result.add(rs);
-                }
-            }
+            result.addAll(node.getChildren());
         }
 
         return result;
+    }
+
+    private void nopInstruction(int address) {
+        noppedAddresses.add(address);
+
+        int index = addressToInstruction.get(address).getLocation().getIndex();
+        BuilderInstruction replacementInstruction = new BuilderInstruction10x(Opcode.NOP);
+        implementation.replaceInstruction(index, replacementInstruction);
     }
 
     private static boolean opHasSideEffects(OpHandler handler) {
@@ -145,54 +76,24 @@ public class DeadRemover {
         return false;
     }
 
-    private static boolean areAssignmentsRead(int assignAddress, ContextGraph graph) {
+    private final DexBuilder dexBuilder;
+    private final SparseArray<BuilderInstruction> addressToInstruction;
+    private final ContextGraph graph;
+    private final MutableMethodImplementation implementation;
 
-        // TODO: this whole thing is wrong. don't just look to see if size grows, because loops may have things read
-        // multiple times.
-        for (ContextNode node : graph.getNodePile(assignAddress)) {
-            MethodContext mctx = node.getContext();
-            TIntIntMap watchedRegisterToReadSize = new TIntIntHashMap();
-            SparseArray<RegisterStore> registerToStore = mctx.getRegisterToStore();
-            for (int i = 0; i < registerToStore.size(); i++) {
-                int register = registerToStore.keyAt(i);
-                RegisterStore rs = mctx.peekRegister(register);
-                if (rs.getAssigned().contains(assignAddress)) {
-                    watchedRegisterToReadSize.put(register, rs.getRead().size());
-                }
-            }
+    private int deadCount = 0;
+    private int unreachableCount = 0;
+    private TIntArrayList noppedAddresses;
 
-            if (areRegistersRead(node, assignAddress, watchedRegisterToReadSize)) {
-                // At least one register is read in this node's children
-                return true;
-            }
-        }
+    DeadRemover(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
+        this.dexBuilder = dexBuilder;
+        this.graph = graph;
 
-        return false;
-    }
+        MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
+        implementation = impl;
 
-    private static boolean areRegistersRead(ContextNode node, int assignAddress, TIntIntMap watchedRegisterToReadSize) {
-        MethodContext mctx = node.getContext();
-        for (int register : watchedRegisterToReadSize.keys()) {
-            RegisterStore rs = mctx.peekRegister(register);
-            if (rs == null) {
-                continue;
-            }
-            if (!rs.getAssigned().contains(assignAddress)) {
-                // It's the same register number as one we're looking for, but it wasn't assigned in the same place so
-                // it's not the same instance.
-                continue;
-            }
-
-            if (rs.getRead().size() > watchedRegisterToReadSize.get(register)) {
-                return true;
-            }
-        }
-
-        for (ContextNode child : node.getChildren()) {
-            return areRegistersRead(child, assignAddress, watchedRegisterToReadSize);
-        }
-
-        return false;
+        addressToInstruction = Simplifier.buildAddressToInstruction(impl.getInstructions());
+        noppedAddresses = new TIntArrayList();
     }
 
     @Override
@@ -202,6 +103,121 @@ public class DeadRemover {
         sb.append("unreachable=").append(unreachableCount).append(", dead=").append(deadCount);
 
         return sb.toString();
+    }
+
+    private TIntList getValidAddresses() {
+        TIntList result = new TIntArrayList();
+        TIntList addresses = graph.getAddresses();
+        for (int i = 0; i < addresses.size(); i++) {
+            int address = addresses.get(i);
+            if (noppedAddresses.contains(address)) {
+                continue;
+            }
+
+            OpHandler handler = graph.getOpHandler(address);
+            if (!opHasSideEffects(handler)) {
+                result.add(address);
+            }
+        }
+
+        return result;
+    }
+
+    private boolean nopDeadAssignments() {
+        boolean madeChanges = false;
+
+        TIntList addresses = getValidAddresses();
+        for (int i = 0; i < addresses.size(); i++) {
+            int address = addresses.get(i);
+            OpHandler handler = graph.getOpHandler(address);
+
+            // Only invokes will have > 1 assignments, all others will have <= 1
+            // All executions of the same instruction should set the same registers
+            TIntList assigned = graph.getNodePile(address).get(0).getContext().getRegistersAssigned();
+            if (assigned.size() > 0) {
+                log.fine("Read assignments test for: " + handler);
+
+                if (!areAssignmentsRead(address, graph, assigned)) {
+                    log.info("Nop dead assignment: " + handler + ", assign=" + assigned);
+                    nopInstruction(address);
+                    deadCount++;
+                    madeChanges = true;
+                    continue;
+                }
+            }
+        }
+
+        return madeChanges;
+    }
+
+    private boolean nopUnreachedCode() {
+        boolean madeChanges = false;
+
+        TIntList addresses = graph.getAddresses();
+        for (int i = 0; i < addresses.size(); i++) {
+            int address = addresses.get(i);
+            OpHandler handler = graph.getOpHandler(address);
+            log.fine("Reachability test for: " + handler);
+
+            List<ContextNode> nodePile = graph.getNodePile(address);
+            if (nodePile.size() == 0) {
+                log.fine("Nop unreachable instruction: " + handler);
+                nopInstruction(address);
+                unreachableCount++;
+                madeChanges = true;
+            }
+        }
+
+        return madeChanges;
+    }
+
+    private boolean nopUnusedResults() {
+        boolean madeChanges = false;
+
+        // TODO this wont work fuuuuu, because i+1 < addresses.size
+        TIntList addresses = getValidAddresses();
+        for (int i = 0; i < addresses.size(); i++) {
+            int address = addresses.get(i);
+            OpHandler handler = graph.getOpHandler(address);
+
+            if (handler instanceof InvokeOpHandler) {
+                log.fine("Results usage test for: " + handler);
+
+                String returnType = ((InvokeOpHandler) handler).getReturnType();
+                if (!returnType.equals("V")) {
+                    boolean unusedResult = true;
+                    if ((i + 1) < addresses.size()) {
+                        int nextAddress = addresses.get(i + 1);
+                        BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
+                        if (nextInstr.getOpcode().name.startsWith("move-result")) {
+                            unusedResult = false;
+                        }
+                    }
+
+                    if (unusedResult) {
+                        log.info("Nop unused, no side-effect op: " + handler);
+                        nopInstruction(address);
+                        deadCount++;
+                        madeChanges = true;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        return madeChanges;
+    }
+
+    boolean perform() {
+        boolean madeChanges = false;
+
+        madeChanges |= nopUnreachedCode();
+
+        madeChanges |= nopDeadAssignments();
+
+        madeChanges |= nopUnusedResults();
+
+        return madeChanges;
     }
 
 }
