@@ -197,7 +197,7 @@ public class VirtualMachineContext {
             int currentRegister = registerToValue.keyAt(i);
             Object currentValue = registerToValue.get(currentRegister);
             if (oldValue == currentValue) {
-                registerToValue.put(currentRegister, value);
+                assignRegister(currentRegister, value);
             }
         }
     }

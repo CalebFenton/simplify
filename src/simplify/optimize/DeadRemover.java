@@ -17,6 +17,7 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Main;
+import simplify.Utils;
 import simplify.handlers.InvokeOpHandler;
 import simplify.handlers.OpHandler;
 import simplify.vm.ContextGraph;
@@ -32,11 +33,22 @@ public class DeadRemover {
         stack.addAll(getChildrenAtAddress(address, graph));
         while (stack.peek() != null) {
             ContextNode node = stack.poll();
-            TIntList read = node.getContext().getRegistersRead();
-            for (int i = 0; i < read.size(); i++) {
-                int register = read.get(i);
+            TIntList nodeAssigned = node.getContext().getRegistersAssigned();
+            TIntList nodeRead = node.getContext().getRegistersRead();
+            for (int i = 0; i < nodeAssigned.size(); i++) {
+                int register = nodeAssigned.get(i);
+                if (assigned.contains(register) && !nodeRead.contains(register)) {
+                    log.info("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
+                                    + node.getHandler());
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < nodeRead.size(); i++) {
+                int register = nodeRead.get(i);
                 if (assigned.contains(register)) {
-                    log.info("r" + register + " is read after " + address + " at " + node.getAddress());
+                    log.info("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
+                                    + ", " + node.getHandler());
                     return true;
                 }
             }
@@ -105,31 +117,18 @@ public class DeadRemover {
         return sb.toString();
     }
 
-    private TIntList getValidAddresses() {
-        TIntList result = new TIntArrayList();
+    private TIntList getDeadAssignmentAddresses() {
+        TIntList nopAddresses = new TIntArrayList(0);
         TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
-            if (noppedAddresses.contains(address)) {
+            OpHandler handler = graph.getOpHandler(address);
+
+            // Even if assignments are made and never used, it's almost impossible to know if a method invoke can be
+            // removed because it may have side-effects. E.g. write to network, disk, etc.
+            if (opHasSideEffects(handler)) {
                 continue;
             }
-
-            OpHandler handler = graph.getOpHandler(address);
-            if (!opHasSideEffects(handler)) {
-                result.add(address);
-            }
-        }
-
-        return result;
-    }
-
-    private boolean nopDeadAssignments() {
-        boolean madeChanges = false;
-
-        TIntList addresses = getValidAddresses();
-        for (int i = 0; i < addresses.size(); i++) {
-            int address = addresses.get(i);
-            OpHandler handler = graph.getOpHandler(address);
 
             // Only invokes will have > 1 assignments, all others will have <= 1
             // All executions of the same instruction should set the same registers
@@ -139,46 +138,53 @@ public class DeadRemover {
 
                 if (!areAssignmentsRead(address, graph, assigned)) {
                     log.info("Nop dead assignment: " + handler + ", assign=" + assigned);
-                    nopInstruction(address);
-                    deadCount++;
-                    madeChanges = true;
+                    nopAddresses.add(address);
                     continue;
                 }
             }
         }
 
-        return madeChanges;
+        deadCount = nopAddresses.size();
+
+        return nopAddresses;
     }
 
-    private boolean nopUnreachedCode() {
-        boolean madeChanges = false;
-
+    private TIntList getUnreachedCodeAddresses() {
+        TIntList nopAddresses = new TIntArrayList(0);
         TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             OpHandler handler = graph.getOpHandler(address);
+
+            if (opHasSideEffects(handler)) {
+                continue;
+            }
+
             log.fine("Reachability test for: " + handler);
 
             List<ContextNode> nodePile = graph.getNodePile(address);
             if (nodePile.size() == 0) {
                 log.fine("Nop unreachable instruction: " + handler);
-                nopInstruction(address);
-                unreachableCount++;
-                madeChanges = true;
+                nopAddresses.add(address);
+                continue;
             }
         }
 
-        return madeChanges;
+        unreachableCount = nopAddresses.size();
+
+        return nopAddresses;
     }
 
-    private boolean nopUnusedResults() {
-        boolean madeChanges = false;
-
-        // TODO this wont work fuuuuu, because i+1 < addresses.size
-        TIntList addresses = getValidAddresses();
+    private TIntList getUnusedResultAddresses() {
+        TIntList nopAddresses = new TIntArrayList(0);
+        TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             OpHandler handler = graph.getOpHandler(address);
+
+            if (opHasSideEffects(handler)) {
+                continue;
+            }
 
             if (handler instanceof InvokeOpHandler) {
                 log.fine("Results usage test for: " + handler);
@@ -196,28 +202,40 @@ public class DeadRemover {
 
                     if (unusedResult) {
                         log.info("Nop unused, no side-effect op: " + handler);
-                        nopInstruction(address);
-                        deadCount++;
-                        madeChanges = true;
+                        nopAddresses.add(address);
                         continue;
                     }
                 }
             }
         }
 
-        return madeChanges;
+        deadCount = nopAddresses.size();
+
+        return nopAddresses;
+    }
+
+    private void nopInstructions(TIntList addresses) {
+        Utils.deDuplicate(addresses);
+
+        addresses.sort();
+
+        for (int i = addresses.size() - 1; i >= 0; i--) {
+            int address = addresses.get(i);
+            nopInstruction(address);
+        }
     }
 
     boolean perform() {
-        boolean madeChanges = false;
+        TIntList nopAddresses = new TIntArrayList(0);
 
-        madeChanges |= nopUnreachedCode();
+        nopAddresses.addAll(getUnreachedCodeAddresses());
 
-        madeChanges |= nopDeadAssignments();
+        nopAddresses.addAll(getDeadAssignmentAddresses());
 
-        madeChanges |= nopUnusedResults();
+        nopAddresses.addAll(getUnusedResultAddresses());
 
-        return madeChanges;
+        nopInstructions(nopAddresses);
+
+        return nopAddresses.size() > 0;
     }
-
 }
