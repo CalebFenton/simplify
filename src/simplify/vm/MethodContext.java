@@ -40,7 +40,7 @@ public class MethodContext extends VirtualMachineContext {
 
     public Object readResultRegister() {
         Object result = readRegister(ResultRegister);
-        removeRegister(ResultRegister);
+        // removeRegister(ResultRegister);
 
         return result;
     }

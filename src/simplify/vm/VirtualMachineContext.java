@@ -7,6 +7,8 @@ import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.ClassUtils;
+
 import simplify.Main;
 import simplify.SmaliClassUtils;
 import util.SparseArray;
@@ -190,7 +192,7 @@ public class VirtualMachineContext {
     public void assignRegisterAndUpdateIdentities(int register, Object value) {
         Object oldValue = peekRegister(register);
 
-        // When replacing an unintialized instance object, need to update all registers that also point to that object.
+        // When replacing an uninitialized instance object, need to update all registers that also point to that object.
         // This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
         // time.
         for (int i = 0; i < registerToValue.size(); i++) {
@@ -213,5 +215,39 @@ public class VirtualMachineContext {
 
     public TIntList getRegistersRead() {
         return registersRead;
+    }
+
+    public boolean wasRegisterAssigned(int register) {
+        return getRegistersAssigned().contains(register);
+    }
+
+    public boolean wasRegisterRead(int register) {
+        Object value = peekRegister(register);
+
+        if (ClassUtils.isPrimitiveOrWrapper(value.getClass()) || (value.getClass() == String.class)) {
+            /*
+             * This is a hack which suggests maintaining register types. Primitives are stored internally as their
+             * wrappers. They'll equals() even if they're different object instances and the check in the else below
+             * will cause any register containing a value which might also be contained in a primitive wrapper to appear
+             * to be referencing the same object, which throws off the optimizer.
+             */
+            return registersRead.contains(register);
+        } else {
+            /*
+             * It's not enough to examine registersRead for object references. v0 and v1 may contain the same object,
+             * and v0 is never read.
+             */
+            TIntList registers = getRegistersRead();
+            for (int i = 0; i < registers.size(); i++) {
+                int currentRegister = registers.get(i);
+                Object currentValue = registerToValue.get(currentRegister);
+
+                if (value == currentValue) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

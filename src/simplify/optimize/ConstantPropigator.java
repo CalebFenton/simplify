@@ -34,7 +34,7 @@ import util.SparseArray;
 public class ConstantPropigator {
 
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
-                    "Ljava/lang/String;", "Ljava/lang/Class;" };
+                    "java.lang.String", "java.lang.Class" };
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
@@ -134,10 +134,10 @@ public class ConstantPropigator {
             double literal = (Double) value;
             log.warning("WOOP WOOP no idea how to const doubles: " + literal);
             // TODO: implement
-        } else if (type.equals("Ljava/lang/String;")) {
+        } else if (type.equals("java.lang.String")) {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_STRING, registerA, stringRef);
-        } else if (type.equals("Ljava/lang/Class;")) {
+        } else if (type.equals("java.lang.Class")) {
             BuilderTypeReference typeRef = dexBuilder.internTypeReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_CLASS, registerA, typeRef);
         }
@@ -172,7 +172,7 @@ public class ConstantPropigator {
             type = getUnboxedType(type);
 
             if (!isConstableType(type)) {
-                log.finer("Can't make type constant: " + type);
+                log.warning("Can't make type constant: " + type);
                 continue;
             }
 

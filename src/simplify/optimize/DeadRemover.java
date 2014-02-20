@@ -22,6 +22,7 @@ import simplify.handlers.InvokeOpHandler;
 import simplify.handlers.OpHandler;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
+import simplify.vm.MethodContext;
 import util.SparseArray;
 
 public class DeadRemover {
@@ -31,25 +32,21 @@ public class DeadRemover {
     private static boolean areAssignmentsRead(int address, ContextGraph graph, TIntList assigned) {
         Deque<ContextNode> stack = new ArrayDeque<ContextNode>();
         stack.addAll(getChildrenAtAddress(address, graph));
+
         while (stack.peek() != null) {
             ContextNode node = stack.poll();
-            TIntList nodeAssigned = node.getContext().getRegistersAssigned();
-            TIntList nodeRead = node.getContext().getRegistersRead();
-            for (int i = 0; i < nodeAssigned.size(); i++) {
-                int register = nodeAssigned.get(i);
-                if (assigned.contains(register) && !nodeRead.contains(register)) {
-                    log.info("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
+            MethodContext ctx = node.getContext();
+
+            for (int i = 0; i < assigned.size(); i++) {
+                int assignedRegister = assigned.get(i);
+                if (ctx.wasRegisterRead(assignedRegister)) {
+                    log.info("r" + assignedRegister + " is read after this address (" + address + ") @"
+                                    + node.getAddress() + ", " + node.getHandler());
+                    return true;
+                } else if (ctx.wasRegisterAssigned(assignedRegister)) {
+                    log.info("r" + assignedRegister + " is reassigned without being read @" + node.getAddress() + ", "
                                     + node.getHandler());
                     return false;
-                }
-            }
-
-            for (int i = 0; i < nodeRead.size(); i++) {
-                int register = nodeRead.get(i);
-                if (assigned.contains(register)) {
-                    log.info("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
-                                    + ", " + node.getHandler());
-                    return true;
                 }
             }
 
