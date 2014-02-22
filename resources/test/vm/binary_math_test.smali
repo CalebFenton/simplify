@@ -65,8 +65,8 @@
 .method public static TestAndInt()I
     .locals 2
 
-    const/4 v0, 0x7
-    const/4 v1, 0x2
+    const/4 v0, 0x2
+    const/4 v1, 0x7
 
     and-int v0, v0, v1
 
@@ -77,12 +77,12 @@
 .method public static TestOrInt()I
     .locals 2
 
-    const/4 v0, 0x7
+    const/4 v0, 0x5
     const/4 v1, 0x2
 
     or-int v0, v0, v1
 
-    # 7 | 2 == 7
+    # 101 (5) | 010 (2) == 111 (7)
     return v0
 .end method
 
@@ -94,7 +94,7 @@
 
     xor-int v0, v0, v1
 
-    # 111 ^ 010 = 101 (5)
+    # 111 (7) ^ 010 (2) = 101 (5)
     return v0
 .end method
 
