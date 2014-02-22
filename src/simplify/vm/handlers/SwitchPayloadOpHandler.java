@@ -1,4 +1,4 @@
-package simplify.handlers;
+package simplify.vm.handlers;
 
 import java.util.List;
 import java.util.logging.Logger;

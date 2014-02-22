@@ -1,4 +1,4 @@
-package simplify.handlers;
+package simplify.vm.handlers;
 
 import java.util.logging.Logger;
 
@@ -403,4 +403,5 @@ public class BinaryMathOpHandler extends OpHandler {
 
         return result;
     }
+
 }

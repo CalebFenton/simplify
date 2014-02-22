@@ -1,4 +1,4 @@
-package simplify.handlers;
+package simplify.vm.handlers;
 
 import gnu.trove.list.TIntList;
 

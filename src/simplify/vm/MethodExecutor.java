@@ -50,7 +50,7 @@ public class MethodExecutor {
                 child.setContext(new MethodContext(currentNode.getContext()));
 
                 currentNode.addChild(child);
-                graph.addNode(child, address);
+                graph.addNode(address, child);
             }
 
             executeStack.addAll(currentNode.getChildren());

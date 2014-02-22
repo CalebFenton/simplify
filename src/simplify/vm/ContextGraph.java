@@ -16,8 +16,8 @@ import org.jf.util.SparseArray;
 
 import simplify.Main;
 import simplify.SmaliClassUtils;
-import simplify.handlers.OpHandler;
-import simplify.handlers.OpHandlerFactory;
+import simplify.vm.handlers.OpHandler;
+import simplify.vm.handlers.OpHandlerFactory;
 import simplify.vm.types.UnknownValue;
 
 public class ContextGraph implements Iterable {
@@ -102,7 +102,7 @@ public class ContextGraph implements Iterable {
         return addresses;
     }
 
-    public void addNode(ContextNode child, int address) {
+    public void addNode(int address, ContextNode child) {
         addressToNodePile.get(address).add(child);
     }
 

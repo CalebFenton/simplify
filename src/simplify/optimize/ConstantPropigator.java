@@ -22,13 +22,13 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Main;
 import simplify.SmaliClassUtils;
-import simplify.handlers.BinaryMathOpHandler;
-import simplify.handlers.MoveOpHandler;
-import simplify.handlers.OpHandler;
-import simplify.handlers.ReturnOpHandler;
-import simplify.handlers.UnaryMathOpHandler;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
+import simplify.vm.handlers.BinaryMathOpHandler;
+import simplify.vm.handlers.MoveOpHandler;
+import simplify.vm.handlers.OpHandler;
+import simplify.vm.handlers.ReturnOpHandler;
+import simplify.vm.handlers.UnaryMathOpHandler;
 import util.SparseArray;
 
 public class ConstantPropigator {

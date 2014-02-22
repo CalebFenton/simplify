@@ -18,11 +18,11 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Main;
 import simplify.Utils;
-import simplify.handlers.InvokeOpHandler;
-import simplify.handlers.OpHandler;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
 import simplify.vm.MethodContext;
+import simplify.vm.handlers.InvokeOpHandler;
+import simplify.vm.handlers.OpHandler;
 import util.SparseArray;
 
 public class DeadRemover {

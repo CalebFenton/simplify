@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import simplify.Main;
-import simplify.handlers.OpHandler;
+import simplify.vm.handlers.OpHandler;
 
 public class ContextNode {
 

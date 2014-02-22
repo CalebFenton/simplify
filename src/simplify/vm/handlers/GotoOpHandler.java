@@ -1,4 +1,4 @@
-package simplify.handlers;
+package simplify.vm.handlers;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
