@@ -13,12 +13,21 @@ import simplify.vm.types.UnknownValue;
 
 public class SwitchPayloadOpHandler extends OpHandler {
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
-
     private static enum SwitchType {
         PACKED,
         SPARSE
-    };
+    }
+
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());;
+
+    private static int[] determineChildren(List<? extends SwitchElement> switchElements) {
+        int[] result = new int[switchElements.size()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = switchElements.get(i).getOffset();
+        }
+
+        return result;
+    }
 
     static SwitchPayloadOpHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
@@ -34,16 +43,14 @@ public class SwitchPayloadOpHandler extends OpHandler {
 
         return new SwitchPayloadOpHandler(address, opName, switchType, instr.getSwitchElements());
     }
-
-    private final int address;
-    private final String opName;
-    private final SwitchType switchType;
     private final List<? extends SwitchElement> switchElements;
+
+    private final SwitchType switchType;
 
     private SwitchPayloadOpHandler(int address, String opName, SwitchType switchType,
                     List<? extends SwitchElement> switchElements) {
-        this.address = address;
-        this.opName = opName;
+        super(address, opName, determineChildren(switchElements));
+
         this.switchType = switchType;
         this.switchElements = switchElements;
     }
@@ -72,7 +79,7 @@ public class SwitchPayloadOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" [");
         for (SwitchElement element : switchElements) {
@@ -82,21 +89,6 @@ public class SwitchPayloadOpHandler extends OpHandler {
         sb.append("]");
 
         return sb.toString();
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        int[] result = new int[switchElements.size()];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = switchElements.get(i).getOffset();
-        }
-
-        return result;
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }

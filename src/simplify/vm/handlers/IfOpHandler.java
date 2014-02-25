@@ -93,9 +93,6 @@ public class IfOpHandler extends OpHandler {
         }
     }
 
-    private final int address;
-    private final String opName;
-    private final int childAddress;
     private final IfType ifType;
     private final int targetAddress;
     private final int register1;
@@ -105,9 +102,8 @@ public class IfOpHandler extends OpHandler {
     private boolean compareToZero;
 
     private IfOpHandler(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, new int[] { childAddress, targetAddress });
+
         this.ifType = ifType;
         this.targetAddress = targetAddress;
         this.register1 = register1;
@@ -139,7 +135,7 @@ public class IfOpHandler extends OpHandler {
         int cmp = CompareToBuilder.reflectionCompare(A, B);
         log.finer("IF compare: " + A + " vs " + B + " = " + cmp);
 
-        int result = childAddress;
+        int result = getPossibleChildren()[0];
         if (isTrue(ifType, cmp)) {
             result = targetAddress;
         }
@@ -148,18 +144,8 @@ public class IfOpHandler extends OpHandler {
     }
 
     @Override
-    public int getAddress() {
-        return address;
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { targetAddress, childAddress };
-    }
-
-    @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" r").append(register1);
         if (!compareToZero) {

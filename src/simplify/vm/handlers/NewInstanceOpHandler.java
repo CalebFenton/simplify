@@ -23,18 +23,14 @@ public class NewInstanceOpHandler extends OpHandler {
         return new NewInstanceOpHandler(address, opName, childAddress, destRegister, className, vm);
     }
 
-    private final int address;
-    private final String opName;
-    private final int childAddress;
     private final int destRegister;
     private final String className;
     private final VirtualMachine vm;
 
     NewInstanceOpHandler(int address, String opName, int childAddress, int destRegister, String className,
                     VirtualMachine vm) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, childAddress);
+
         this.destRegister = destRegister;
         this.className = className;
         this.vm = vm;
@@ -56,21 +52,11 @@ public class NewInstanceOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" r").append(destRegister).append(", ").append(className);
 
         return sb.toString();
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { childAddress };
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }

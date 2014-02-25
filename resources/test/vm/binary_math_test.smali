@@ -118,7 +118,7 @@
 
     shr-int v0, v0, v1
 
-    # 7 & 2 == 2
+    # 7 >> 2 == 1
     return v0
 .end method
 
@@ -130,6 +130,6 @@
 
     and-int v0, v0, v1
 
-    # 7 & 2 == 2
+    # 7 >>> 2 == 2
     return v0
 .end method

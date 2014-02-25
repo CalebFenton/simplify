@@ -170,22 +170,18 @@ public class InvokeOpHandler extends OpHandler {
         return new InvokeOpHandler(address, opName, childAddress, methodReference, registers, vm);
     }
 
-    private final int address;
-    private final int childAddress;
     private final boolean isStatic;
     private final MethodReference methodReference;
     private final String methodDescriptor;
     private final String returnType;
-    private final String opName;
     private final int[] registers;
     private final VirtualMachine vm;
     private boolean hasSideEffects;
 
     private InvokeOpHandler(int address, String opName, int childAddress, MethodReference methodReference,
                     int[] registers, VirtualMachine vm) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, childAddress);
+
         this.methodReference = methodReference;
         this.methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
         this.returnType = methodReference.getReturnType();
@@ -203,7 +199,7 @@ public class InvokeOpHandler extends OpHandler {
             // This is a locally defined method. Execute on the VM.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
             calleeContext.incrementCallDepth();
-            addCalleeParameters(calleeContext, callerContext, registers, address, isStatic);
+            addCalleeParameters(calleeContext, callerContext, registers, getAddress(), isStatic);
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
@@ -225,7 +221,7 @@ public class InvokeOpHandler extends OpHandler {
                 callerContext.assignResultRegister(consensus);
             }
         } else {
-            MethodContext calleeContext = buildCalleeContext(callerContext, registers, address, isStatic);
+            MethodContext calleeContext = buildCalleeContext(callerContext, registers, getAddress(), isStatic);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
@@ -266,16 +262,6 @@ public class InvokeOpHandler extends OpHandler {
         return getPossibleChildren();
     }
 
-    @Override
-    public int getAddress() {
-        return address;
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { childAddress };
-    }
-
     public String getReturnType() {
         return returnType;
     }
@@ -286,10 +272,10 @@ public class InvokeOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" {");
-        if (opName.contains("/range")) {
+        if (getOpName().contains("/range")) {
             sb.append("r").append(registers[0]).append(" .. r").append(registers[registers.length - 1]);
         } else {
             for (int register : registers) {

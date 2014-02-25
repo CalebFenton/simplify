@@ -50,7 +50,9 @@ class SmaliTester {
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 10, 1);
 
         String methodDescriptor = className + "->" + methodSignature;
+
         ContextGraph graph = vm.execute(methodDescriptor);
+
         TIntList terminalAddresses = graph.getConnectedTerminatingAddresses();
         for (int i = 0; i < registerState.size(); i++) {
             int register = registerState.keyAt(i);

@@ -29,9 +29,6 @@ class UnimplementedOpHandler extends OpHandler {
         return result;
     }
 
-    private final int address;
-    private final String opName;
-    private final int childAddress;
     private final boolean canContinue;
     private final boolean canThrow;
     private final boolean setsResult;
@@ -45,9 +42,8 @@ class UnimplementedOpHandler extends OpHandler {
 
     UnimplementedOpHandler(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
                     boolean setsResult, boolean setsRegister, int registerA) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, canContinue ? childAddress : 0);
+
         this.canContinue = canContinue;
         this.canThrow = canThrow;
         this.setsResult = setsResult;
@@ -73,22 +69,8 @@ class UnimplementedOpHandler extends OpHandler {
     }
 
     @Override
-    public int getAddress() {
-        return address;
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        if (canContinue) {
-            return new int[] { childAddress };
-        } else {
-            return new int[0];
-        }
-    }
-
-    @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         if (registerA >= 0) {
             sb.append(" r").append(registerA);

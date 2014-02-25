@@ -20,15 +20,11 @@ public class SwitchOpHandler extends OpHandler {
         return new SwitchOpHandler(address, opName, targetAddress, register);
     }
 
-    private final int address;
-    private final String opName;
-    private final int targetAddress;
     private final int register;
 
     private SwitchOpHandler(int address, String opName, int targetAddress, int register) {
-        this.address = address;
-        this.opName = opName;
-        this.targetAddress = targetAddress;
+        super(address, opName, targetAddress);
+
         this.register = register;
     }
 
@@ -44,21 +40,11 @@ public class SwitchOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
-        sb.append(" r").append(register).append(", #").append(targetAddress);
+        sb.append(" r").append(register).append(", #").append(getPossibleChildren()[0]);
 
         return sb.toString();
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { targetAddress };
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }

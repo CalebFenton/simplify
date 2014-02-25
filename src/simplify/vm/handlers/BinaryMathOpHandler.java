@@ -259,9 +259,6 @@ public class BinaryMathOpHandler extends OpHandler {
         return result;
     }
 
-    private final int address;
-    private final String opName;
-    private final int childAddress;
     private final MathOperator mathOperator;
     private final MathOperandType mathOperandType;
     private final int destRegister;
@@ -273,9 +270,8 @@ public class BinaryMathOpHandler extends OpHandler {
     private boolean hasNarrowLiteral;
 
     private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister, int arg1Register) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, childAddress);
+
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
 
@@ -334,7 +330,7 @@ public class BinaryMathOpHandler extends OpHandler {
     }
 
     private String getType() {
-        MathOperandType operandType = getMathOperandType(opName);
+        MathOperandType operandType = getMathOperandType(getOpName());
         switch (operandType) {
         case DOUBLE:
             return "D";
@@ -350,18 +346,8 @@ public class BinaryMathOpHandler extends OpHandler {
     }
 
     @Override
-    public int getAddress() {
-        return address;
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { childAddress };
-    }
-
-    @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" r").append(destRegister).append(", ");
         // if (destRegister != arg1Register) {

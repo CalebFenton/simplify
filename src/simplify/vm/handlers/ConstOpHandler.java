@@ -53,18 +53,14 @@ public class ConstOpHandler extends OpHandler {
         return new ConstOpHandler(address, opName, childAddress, destRegister, constType, literal);
     }
 
-    private final int address;
-    private final String opName;
-    private final int childAddress;
     private final int destRegister;
     private final ConstType constType;
     private final Object literal;
 
     private ConstOpHandler(int address, String opName, int childAddress, int destRegister, ConstType constType,
                     Object literal) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, childAddress);
+
         this.destRegister = destRegister;
         this.constType = constType;
         this.literal = literal;
@@ -101,13 +97,8 @@ public class ConstOpHandler extends OpHandler {
     }
 
     @Override
-    public int[] getPossibleChildren() {
-        return new int[] { childAddress };
-    }
-
-    @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" r").append(destRegister).append(", ");
         switch (constType) {
@@ -127,11 +118,6 @@ public class ConstOpHandler extends OpHandler {
         }
 
         return sb.toString();
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }

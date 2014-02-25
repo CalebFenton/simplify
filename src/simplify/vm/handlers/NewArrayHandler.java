@@ -4,16 +4,16 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 
 import simplify.vm.MethodContext;
 
-public class UnaryMathOpHandler extends OpHandler {
+public class NewArrayHandler extends OpHandler {
 
-    static UnaryMathOpHandler create(Instruction instruction, int address) {
+    static NewArrayHandler create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
 
-        return new UnaryMathOpHandler(address, opName, childAddress);
+        return new NewArrayHandler(address, opName, childAddress);
     }
 
-    UnaryMathOpHandler(int address, String opName, int childAddress) {
+    private NewArrayHandler(int address, String opName, int childAddress) {
         super(address, opName, childAddress);
     }
 

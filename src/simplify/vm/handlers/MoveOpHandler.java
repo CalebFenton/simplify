@@ -33,17 +33,12 @@ public class MoveOpHandler extends OpHandler {
         }
     }
 
-    private final int address;
-    private final String opName;
-    private final int childAddress;
     private final int toRegister;
     private final MoveType moveType;
     private int targetRegister;
 
     private MoveOpHandler(int address, String opName, int childAddress, int toRegister, MoveType moveType) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddress = childAddress;
+        super(address, opName, childAddress);
         this.toRegister = toRegister;
         this.moveType = moveType;
     }
@@ -89,23 +84,13 @@ public class MoveOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
         sb.append(" r").append(toRegister);
         if (moveType == MoveType.REGISTER) {
             sb.append(", r").append(targetRegister);
         }
 
         return sb.toString();
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { childAddress };
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }

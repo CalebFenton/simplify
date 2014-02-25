@@ -16,14 +16,8 @@ public class GotoOpHandler extends OpHandler {
         return new GotoOpHandler(address, opName, targetAddress);
     }
 
-    private final int address;
-    private final String opName;
-    private final int targetAddress;
-
     private GotoOpHandler(int address, String opName, int targetAddress) {
-        this.address = address;
-        this.opName = opName;
-        this.targetAddress = targetAddress;
+        super(address, opName, targetAddress);
     }
 
     @Override
@@ -32,20 +26,10 @@ public class GotoOpHandler extends OpHandler {
     }
 
     @Override
-    public int getAddress() {
-        return address;
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[] { targetAddress };
-    }
-
-    @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
-        sb.append(" #").append(targetAddress);
+        sb.append(" #").append(getPossibleChildren()[0]);
 
         return sb.toString();
     }

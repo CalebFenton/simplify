@@ -20,13 +20,11 @@ public class ReturnOpHandler extends OpHandler {
         return new ReturnOpHandler(address, opName, register);
     }
 
-    private final int address;
-    private final String opName;
     private final int register;
 
     ReturnOpHandler(int address, String opName, int register) {
-        this.address = address;
-        this.opName = opName;
+        super(address, opName, new int[0]);
+
         this.register = register;
     }
 
@@ -39,21 +37,11 @@ public class ReturnOpHandler extends OpHandler {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(opName);
+        StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" r").append(register);
 
         return sb.toString();
-    }
-
-    @Override
-    public int[] getPossibleChildren() {
-        return new int[0];
-    }
-
-    @Override
-    public int getAddress() {
-        return address;
     }
 
 }
