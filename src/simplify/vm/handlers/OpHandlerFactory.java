@@ -280,7 +280,9 @@ public final class OpHandlerFactory {
             break;
 
         case NEW_ARRAY:
+            result = OpType.NEW_ARRAY;
             break;
+
         case NEW_INSTANCE:
             result = OpType.NEW_INSTANCE;
             break;
@@ -395,6 +397,7 @@ public final class OpHandlerFactory {
             result = MoveOpHandler.create(instruction, address);
             break;
         case NEW_ARRAY:
+            result = NewArrayOpHandler.create(instruction, address, vm);
             break;
         case NEW_INSTANCE:
             result = NewInstanceOpHandler.create(instruction, address, vm);

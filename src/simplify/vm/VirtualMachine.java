@@ -84,9 +84,10 @@ public class VirtualMachine {
 
         methodExecutor = new MethodExecutor(this);
 
+        // No classes have been initialized yet.
         initializedClasses = new ArrayList<String>(classDefs.size());
 
-        // Build graphs last because that's when handlers are assigned and some handlers access this vm instance.
+        // Build graphs last because that's when handlers are assigned and some handlers access this VM instance.
         methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
     }
 

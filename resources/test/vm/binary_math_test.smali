@@ -13,7 +13,6 @@
     return v0
 .end method
 
-
 .method public static TestSubInt()I
     .locals 2
 

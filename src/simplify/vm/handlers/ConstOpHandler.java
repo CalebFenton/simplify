@@ -36,7 +36,7 @@ public class ConstOpHandler extends OpHandler {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             literal = ((StringReference) instr.getReference()).getString();
             constType = ConstType.STRING;
-        } else if (opName.endsWith("class")) {
+        } else if (opName.endsWith("-class")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             literal = instr.getReference();
             constType = ConstType.CLASS;
