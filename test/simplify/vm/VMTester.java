@@ -56,13 +56,14 @@ public class VMTester {
             int register = registerState.keyAt(i);
             Object value = registerState.get(register);
             Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
-            String msg = methodDescriptor + ", r" + register + " = " + consensus + ", should be " + value;
+            String msg = methodDescriptor + ", r" + register + " = " + consensus + "(" + consensus.getClass().getName()
+                            + "), should be " + value + "(" + value.getClass().getName() + ")";
 
             // Type is "object" so can't use instanceof, but you knew that.
             if (value.getClass().isArray()) {
                 Assert.assertTrue(msg, Arrays.deepEquals((Object[]) value, (Object[]) consensus));
             } else {
-                Assert.assertTrue(msg, (value == consensus));
+                Assert.assertTrue(msg, value.equals(consensus));
             }
         }
     }

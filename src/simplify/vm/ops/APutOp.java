@@ -13,18 +13,6 @@ public class APutOp extends Op {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private final int valueRegister;
-    private final int arrayRegister;
-    private final int indexRegister;
-
-    public APutOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {
-        super(address, opName, childAddress);
-
-        this.valueRegister = valueRegister;
-        this.arrayRegister = arrayRegister;
-        this.indexRegister = indexRegister;
-    }
-
     static APutOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
@@ -35,6 +23,18 @@ public class APutOp extends Op {
         int indexRegister = instr.getRegisterC();
 
         return new APutOp(address, opName, childAddress, valueRegister, arrayRegister, indexRegister);
+    }
+    private final int arrayRegister;
+    private final int indexRegister;
+
+    private final int valueRegister;
+
+    public APutOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {
+        super(address, opName, childAddress);
+
+        this.valueRegister = valueRegister;
+        this.arrayRegister = arrayRegister;
+        this.indexRegister = indexRegister;
     }
 
     @Override

@@ -80,7 +80,7 @@
 .method public static TestConstStringJumbo()V
     .locals 1
 
-    const-string/jumbo v0, "When I need to identify rebels, I look for men with principles"
+    const-string/jumbo v0, "When I need to identify JUMBO rebels, I look for JUMBO men with JUMBO principles"
 
     return-void
 .end method

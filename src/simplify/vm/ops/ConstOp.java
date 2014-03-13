@@ -2,17 +2,21 @@ package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.WideLiteralInstruction;
+import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
+import simplify.vm.types.UninitializedInstance;
 
 public class ConstOp extends Op {
 
@@ -22,6 +26,7 @@ public class ConstOp extends Op {
         NARROW,
         WIDE,
         STRING,
+        LOCAL_CLASS,
         CLASS
     };
 
@@ -32,14 +37,22 @@ public class ConstOp extends Op {
 
         ConstType constType = null;
         Object literal = null;
-        if (opName.endsWith("-string")) {
+        if (opName.matches("const-string(?:/jumbo)?")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             literal = ((StringReference) instr.getReference()).getString();
             constType = ConstType.STRING;
         } else if (opName.endsWith("-class")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
-            literal = instr.getReference();
-            constType = ConstType.CLASS;
+            Reference classRef = instr.getReference();
+            String className = ReferenceUtil.getReferenceString(classRef);
+            literal = className;
+
+            // Defer class lookup for execute. We may want to handle any possible errors there.
+            if (vm.isClassDefinedLocally(className)) {
+                constType = ConstType.LOCAL_CLASS;
+            } else {
+                constType = ConstType.CLASS;
+            }
         } else if (opName.contains("-wide")) {
             WideLiteralInstruction instr = (WideLiteralInstruction) instruction;
             literal = instr.getWideLiteral();
@@ -57,8 +70,7 @@ public class ConstOp extends Op {
     private final ConstType constType;
     private final Object literal;
 
-    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstType constType,
-                    Object literal) {
+    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstType constType, Object literal) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
@@ -68,10 +80,6 @@ public class ConstOp extends Op {
 
     private ConstOp(int address, String opName, int childAddress, int destRegister, String literal) {
         this(address, opName, childAddress, destRegister, ConstType.STRING, literal);
-    }
-
-    private ConstOp(int address, String opName, int childAddress, int destRegister, TypeReference classRef) {
-        this(address, opName, childAddress, destRegister, ConstType.CLASS, classRef);
     }
 
     private ConstOp(int address, String opName, int childAddress, int destRegister, int literal) {
@@ -86,7 +94,16 @@ public class ConstOp extends Op {
     public int[] execute(MethodContext mctx) {
         Object result = null;
         if (constType == ConstType.CLASS) {
-            result = Class.class;
+            String className = (String) literal;
+            try {
+                result = ClassUtils.getClass(className);
+            } catch (ClassNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        } else if (constType == ConstType.LOCAL_CLASS) {
+            String className = (String) literal;
+            result = new UninitializedInstance(className);
         } else {
             result = literal;
         }

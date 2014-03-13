@@ -2,7 +2,6 @@ package simplify.vm.ops;
 
 import org.junit.Test;
 
-import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import util.SparseArray;
 
@@ -11,124 +10,113 @@ public class TestBinaryMathOp {
     private static final String CLASS_NAME = "Lbinary_math_test;";
 
     @Test
-    public void BinaryMath_TestAddInt() {
+    public void TestAddInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 4);
         registerState.put(1, 7);
-        registerState.put(MethodContext.ReturnRegister, 4);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestAddInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestAddInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestSubInt() {
+    public void TestSubInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 10);
         registerState.put(1, 7);
-        registerState.put(MethodContext.ReturnRegister, 10);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestSubInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestSubInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestMulInt() {
+    public void TestMulInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, -21);
         registerState.put(1, 7);
-        registerState.put(MethodContext.ReturnRegister, -21);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestMulInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestMulInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestDivInt() {
+    public void TestDivInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 3);
         registerState.put(1, 2);
-        registerState.put(MethodContext.ReturnRegister, 3);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestDivInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestDivInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestRemInt() {
+    public void TestRemInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 2);
         registerState.put(1, 5);
-        registerState.put(MethodContext.ReturnRegister, 2);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestRemInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestRemInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestAndInt() {
+    public void TestAndInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 2);
         registerState.put(1, 7);
-        registerState.put(MethodContext.ReturnRegister, 2);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestAndInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestAndInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestOrInt() {
+    public void TestOrInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 7);
         registerState.put(1, 2);
-        registerState.put(MethodContext.ReturnRegister, 7);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestOrInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestOrInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestXorInt() {
+    public void TestXorInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 5);
         registerState.put(1, 2);
-        registerState.put(MethodContext.ReturnRegister, 5);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestXorInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestXorInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestShlInt() {
+    public void TestShlInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 20);
         registerState.put(1, 2);
-        registerState.put(MethodContext.ReturnRegister, 20);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestShlInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestShlInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestShrInt() {
+    public void TestShrInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 1);
         registerState.put(1, 2);
-        registerState.put(MethodContext.ReturnRegister, 1);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestShrInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestShrInt()V", registerState);
     }
 
     @Test
-    public void BinaryMath_TestUshrInt() {
+    public void TestUshrInt() {
         SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>(2);
+        registerState = new SparseArray<Object>();
         registerState.put(0, 2);
         registerState.put(1, 2);
-        registerState.put(MethodContext.ReturnRegister, 2);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestUshrInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestUshrInt()V", registerState);
     }
 
 }
