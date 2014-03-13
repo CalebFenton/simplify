@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
@@ -13,7 +13,7 @@ import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.types.UnknownValue;
 
-public class BinaryMathOpHandler extends OpHandler {
+public class BinaryMathOp extends Op {
 
     private static enum MathOperandType {
         INT,
@@ -227,33 +227,33 @@ public class BinaryMathOpHandler extends OpHandler {
         return result;
     }
 
-    static BinaryMathOpHandler create(Instruction instruction, int address) {
+    static BinaryMathOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
         TwoRegisterInstruction instr = (TwoRegisterInstruction) instruction;
         int destRegister = instr.getRegisterA();
         int arg1Register = instr.getRegisterB();
 
-        BinaryMathOpHandler result = null;
+        BinaryMathOp result = null;
         if (instruction instanceof Instruction23x) {
             // add-int vAA, vBB, vCC
             int arg2Register = ((Instruction23x) instruction).getRegisterC();
-            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register, arg2Register,
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register,
                             false);
         } else if (instruction instanceof Instruction12x) {
             // add-int/2addr vAA, vBB
             int arg2Register = ((Instruction12x) instruction).getRegisterB();
-            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register, arg2Register,
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register,
                             false);
         } else if (instruction instanceof Instruction22b) {
             // add-int/lit8 vAA, vBB, #CC
             int arg2Literal = ((Instruction22b) instruction).getNarrowLiteral();
-            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register, arg2Literal,
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal,
                             true);
         } else if (instruction instanceof Instruction22s) {
             // add-int/lit16 vAA, vBB, #CCCC
             long arg2Literal = ((Instruction22s) instruction).getWideLiteral();
-            result = new BinaryMathOpHandler(address, opName, childAddress, destRegister, arg1Register, arg2Literal);
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal);
         }
 
         return result;
@@ -269,7 +269,7 @@ public class BinaryMathOpHandler extends OpHandler {
     private boolean hasWideLiteral;
     private boolean hasNarrowLiteral;
 
-    private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister, int arg1Register) {
+    private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
@@ -279,7 +279,7 @@ public class BinaryMathOpHandler extends OpHandler {
         mathOperandType = getMathOperandType(opName);
     }
 
-    private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister, int arg1Register,
+    private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register,
                     int otherValue, boolean hasLiteral) {
         this(address, opName, childAddress, destRegister, arg1Register);
 
@@ -292,7 +292,7 @@ public class BinaryMathOpHandler extends OpHandler {
         }
     }
 
-    private BinaryMathOpHandler(int address, String opName, int childAddress, int destRegister, int arg1Register,
+    private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register,
                     long wideLiteral) {
         this(address, opName, childAddress, destRegister, arg1Register);
 

@@ -1,19 +1,19 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
 
 import simplify.vm.MethodContext;
 
-public class UnaryMathOpHandler extends OpHandler {
+public class UnaryMathOp extends Op {
 
-    static UnaryMathOpHandler create(Instruction instruction, int address) {
+    static UnaryMathOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
 
-        return new UnaryMathOpHandler(address, opName, childAddress);
+        return new UnaryMathOp(address, opName, childAddress);
     }
 
-    UnaryMathOpHandler(int address, String opName, int childAddress) {
+    UnaryMathOp(int address, String opName, int childAddress) {
         super(address, opName, childAddress);
     }
 

@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import gnu.trove.list.TIntList;
 
@@ -20,7 +20,7 @@ import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.UnknownValue;
 
-public class InvokeOpHandler extends OpHandler {
+public class InvokeOp extends Op {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
@@ -127,7 +127,7 @@ public class InvokeOpHandler extends OpHandler {
         // }
     }
 
-    static InvokeOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
+    static InvokeOp create(Instruction instruction, int address, VirtualMachine vm) {
         int childAddress = address + instruction.getCodeUnits();
         String opName = instruction.getOpcode().name;
 
@@ -167,7 +167,7 @@ public class InvokeOpHandler extends OpHandler {
             methodReference = (MethodReference) instr.getReference();
         }
 
-        return new InvokeOpHandler(address, opName, childAddress, methodReference, registers, vm);
+        return new InvokeOp(address, opName, childAddress, methodReference, registers, vm);
     }
 
     private final boolean isStatic;
@@ -178,7 +178,7 @@ public class InvokeOpHandler extends OpHandler {
     private final VirtualMachine vm;
     private boolean hasSideEffects;
 
-    private InvokeOpHandler(int address, String opName, int childAddress, MethodReference methodReference,
+    private InvokeOp(int address, String opName, int childAddress, MethodReference methodReference,
                     int[] registers, VirtualMachine vm) {
         super(address, opName, childAddress);
 

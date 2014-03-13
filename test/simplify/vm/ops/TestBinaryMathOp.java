@@ -1,11 +1,12 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import org.junit.Test;
 
 import simplify.vm.MethodContext;
+import simplify.vm.VMTester;
 import util.SparseArray;
 
-public class TestBinaryMath {
+public class TestBinaryMathOp {
 
     private static final String CLASS_NAME = "Lbinary_math_test;";
 
@@ -17,7 +18,7 @@ public class TestBinaryMath {
         registerState.put(1, 7);
         registerState.put(MethodContext.ReturnRegister, 4);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestAddInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestAddInt()I", registerState);
     }
 
     @Test
@@ -28,7 +29,7 @@ public class TestBinaryMath {
         registerState.put(1, 7);
         registerState.put(MethodContext.ReturnRegister, 10);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestSubInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestSubInt()I", registerState);
     }
 
     @Test
@@ -39,7 +40,7 @@ public class TestBinaryMath {
         registerState.put(1, 7);
         registerState.put(MethodContext.ReturnRegister, -21);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestMulInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestMulInt()I", registerState);
     }
 
     @Test
@@ -50,7 +51,7 @@ public class TestBinaryMath {
         registerState.put(1, 2);
         registerState.put(MethodContext.ReturnRegister, 3);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestDivInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestDivInt()I", registerState);
     }
 
     @Test
@@ -61,7 +62,7 @@ public class TestBinaryMath {
         registerState.put(1, 5);
         registerState.put(MethodContext.ReturnRegister, 2);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestRemInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestRemInt()I", registerState);
     }
 
     @Test
@@ -72,7 +73,7 @@ public class TestBinaryMath {
         registerState.put(1, 7);
         registerState.put(MethodContext.ReturnRegister, 2);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestAndInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestAndInt()I", registerState);
     }
 
     @Test
@@ -83,7 +84,7 @@ public class TestBinaryMath {
         registerState.put(1, 2);
         registerState.put(MethodContext.ReturnRegister, 7);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestOrInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestOrInt()I", registerState);
     }
 
     @Test
@@ -94,7 +95,7 @@ public class TestBinaryMath {
         registerState.put(1, 2);
         registerState.put(MethodContext.ReturnRegister, 5);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestXorInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestXorInt()I", registerState);
     }
 
     @Test
@@ -105,7 +106,7 @@ public class TestBinaryMath {
         registerState.put(1, 2);
         registerState.put(MethodContext.ReturnRegister, 20);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestShlInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestShlInt()I", registerState);
     }
 
     @Test
@@ -116,7 +117,7 @@ public class TestBinaryMath {
         registerState.put(1, 2);
         registerState.put(MethodContext.ReturnRegister, 1);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestShrInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestShrInt()I", registerState);
     }
 
     @Test
@@ -127,7 +128,7 @@ public class TestBinaryMath {
         registerState.put(1, 2);
         registerState.put(MethodContext.ReturnRegister, 2);
 
-        SmaliTester.executeAndEnsureContextState(CLASS_NAME, "TestUshrInt()I", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestUshrInt()I", registerState);
     }
 
 }

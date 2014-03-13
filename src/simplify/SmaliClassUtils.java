@@ -23,9 +23,7 @@ public class SmaliClassUtils {
     }
 
     public static boolean isPrimitiveType(String type) {
-        // Remove any array qualifiers, e.g. [[B (2d byte array) becomes B
-        String baseType = type.replaceAll("\\[", "");
-        return PrimitiveTypes.containsKey(baseType);
+        return PrimitiveTypes.containsKey(getBaseClass(type));
     }
 
     public static String smaliClassToJava(String className) {
@@ -40,6 +38,17 @@ public class SmaliClassUtils {
         }
 
         return className.substring(1, className.length() - 1).replaceAll("/", ".");
+    }
+
+    private static String getBaseClass(String className) {
+        // Remove any array qualifiers, e.g. [[B (2d byte array) becomes B
+        return className.replace("[", "");
+    }
+
+    public static String smaliPrimitiveToJavaWrapper(String className) {
+        Class<?> primitiveClass = PrimitiveTypes.get(getBaseClass(className));
+
+        return ClassUtils.primitiveToWrapper(primitiveClass).getName();
     }
 
     public static String javaClassToSmali(String className) {
@@ -69,28 +78,28 @@ public class SmaliClassUtils {
             // Array contents can be mutated, regardless of class.
             return false;
         }
-    
+
         if (smaliClassName.equals("?")) {
             // Unknown type. Was probably lazy somewhere and didn't get implied type.
             return false;
         }
-    
+
         if (smaliClassName.equals("Ljava/lang/String;")) {
             return true;
         }
-    
+
         if (isPrimitiveType(smaliClassName)) {
             return true;
         }
-    
+
         String className = smaliClassName.replaceAll("/", ".");
         try {
             Class<?> clazz = ClassUtils.getClass(className, false);
             return ClassUtils.isPrimitiveOrWrapper(clazz);
-    
+
         } catch (ClassNotFoundException e) {
         }
-    
+
         return false;
     }
 

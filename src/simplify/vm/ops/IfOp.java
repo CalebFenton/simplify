@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
@@ -12,7 +12,7 @@ import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.types.UnknownValue;
 
-public class IfOpHandler extends OpHandler {
+public class IfOp extends Op {
 
     private static enum IfType {
         EQUAL,
@@ -72,7 +72,7 @@ public class IfOpHandler extends OpHandler {
         return result;
     }
 
-    static IfOpHandler create(Instruction instruction, int address) {
+    static IfOp create(Instruction instruction, int address) {
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
         int targetAddress = address + branchOffset;
         int childAddress = address + instruction.getCodeUnits();
@@ -85,11 +85,11 @@ public class IfOpHandler extends OpHandler {
             // if-* vA, vB, :label
             Instruction22t instr = (Instruction22t) instruction;
 
-            return new IfOpHandler(address, opName, childAddress, ifType, targetAddress, register1,
+            return new IfOp(address, opName, childAddress, ifType, targetAddress, register1,
                             instr.getRegisterB());
         } else {
             // if-*z vA, vB, :label (Instruction 21t)
-            return new IfOpHandler(address, opName, childAddress, ifType, targetAddress, register1);
+            return new IfOp(address, opName, childAddress, ifType, targetAddress, register1);
         }
     }
 
@@ -101,7 +101,7 @@ public class IfOpHandler extends OpHandler {
 
     private boolean compareToZero;
 
-    private IfOpHandler(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1) {
+    private IfOp(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1) {
         super(address, opName, new int[] { childAddress, targetAddress });
 
         this.ifType = ifType;
@@ -110,7 +110,7 @@ public class IfOpHandler extends OpHandler {
         compareToZero = true;
     }
 
-    private IfOpHandler(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1,
+    private IfOp(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1,
                     int register2) {
         this(address, opName, childAddress, ifType, targetAddress, register1);
         this.register2 = register2;

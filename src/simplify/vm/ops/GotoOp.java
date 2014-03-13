@@ -1,22 +1,22 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
 import simplify.vm.MethodContext;
 
-public class GotoOpHandler extends OpHandler {
+public class GotoOp extends Op {
 
-    static GotoOpHandler create(Instruction instruction, int address) {
+    static GotoOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
 
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
         int targetAddress = address + branchOffset;
 
-        return new GotoOpHandler(address, opName, targetAddress);
+        return new GotoOp(address, opName, targetAddress);
     }
 
-    private GotoOpHandler(int address, String opName, int targetAddress) {
+    private GotoOp(int address, String opName, int targetAddress) {
         super(address, opName, targetAddress);
     }
 

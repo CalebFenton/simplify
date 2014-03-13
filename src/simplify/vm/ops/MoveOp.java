@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
@@ -7,7 +7,7 @@ import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 import simplify.vm.MethodContext;
 import simplify.vm.types.UnknownValue;
 
-public class MoveOpHandler extends OpHandler {
+public class MoveOp extends Op {
 
     private static enum MoveType {
         RESULT,
@@ -15,7 +15,7 @@ public class MoveOpHandler extends OpHandler {
         REGISTER
     };
 
-    static MoveOpHandler create(Instruction instruction, int address) {
+    static MoveOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
         int toRegister = ((OneRegisterInstruction) instruction).getRegisterA();
@@ -23,13 +23,13 @@ public class MoveOpHandler extends OpHandler {
         MoveType moveType = null;
         if (opName.contains("-result")) {
             moveType = MoveType.RESULT;
-            return new MoveOpHandler(address, opName, childAddress, toRegister, moveType);
+            return new MoveOp(address, opName, childAddress, toRegister, moveType);
         } else if (opName.contains("-exception")) {
             moveType = MoveType.EXCEPTION;
-            return new MoveOpHandler(address, opName, childAddress, toRegister, moveType);
+            return new MoveOp(address, opName, childAddress, toRegister, moveType);
         } else {
             int targetRegister = ((TwoRegisterInstruction) instruction).getRegisterB();
-            return new MoveOpHandler(address, opName, childAddress, toRegister, targetRegister);
+            return new MoveOp(address, opName, childAddress, toRegister, targetRegister);
         }
     }
 
@@ -37,13 +37,13 @@ public class MoveOpHandler extends OpHandler {
     private final MoveType moveType;
     private int targetRegister;
 
-    private MoveOpHandler(int address, String opName, int childAddress, int toRegister, MoveType moveType) {
+    private MoveOp(int address, String opName, int childAddress, int toRegister, MoveType moveType) {
         super(address, opName, childAddress);
         this.toRegister = toRegister;
         this.moveType = moveType;
     }
 
-    private MoveOpHandler(int address, String opName, int nextInstructionAddress, int toRegister, int targetRegister) {
+    private MoveOp(int address, String opName, int nextInstructionAddress, int toRegister, int targetRegister) {
         this(address, opName, nextInstructionAddress, toRegister, MoveType.REGISTER);
         this.targetRegister = targetRegister;
     }

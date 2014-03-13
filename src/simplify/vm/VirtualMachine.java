@@ -11,7 +11,6 @@ import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
-import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 
@@ -175,9 +174,11 @@ public class VirtualMachine {
         Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
 
         for (BuilderClassDef classDef : classDefs) {
-            for (BuilderField field : classDef.getFields()) {
-                // TODO: implement this and class contexts, make sure array is totally populated
-            }
+            String className = ReferenceUtil.getReferenceString(classDef);
+
+            // TODO: make sure class context is initialized correctly
+            // class context will need at least as many registers as fields
+            result.put(className, new ClassContext(classDef.getFields().size()));
         }
 
         return result;

@@ -1,18 +1,18 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import simplify.vm.MethodContext;
 
-public abstract class OpHandler {
+public abstract class Op {
 
     private final int address;
     private final String opName;
     private final int[] childAddresses;
 
-    OpHandler(int address, String opName, int childAddress) {
+    Op(int address, String opName, int childAddress) {
         this(address, opName, new int[] { childAddress });
     }
 
-    OpHandler(int address, String opName, int[] childAddresses) {
+    Op(int address, String opName, int[] childAddresses) {
         this.address = address;
         this.opName = opName;
         this.childAddresses = childAddresses;

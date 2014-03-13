@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
@@ -8,7 +8,7 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 import simplify.Main;
 import simplify.vm.VirtualMachine;
 
-public final class OpHandlerFactory {
+public final class OpFactory {
 
     private enum OpType {
         ACCESS_ARRAY,
@@ -31,6 +31,7 @@ public final class OpHandlerFactory {
         MOVE,
         NEW_ARRAY,
         NEW_INSTANCE,
+        APUT,
         RETURN,
         SWITCH,
         SWITCH_PAYLOAD,
@@ -138,6 +139,8 @@ public final class OpHandlerFactory {
         case AGET_OBJECT:
         case AGET_SHORT:
         case AGET_WIDE:
+            break;
+
         case APUT:
         case APUT_BOOLEAN:
         case APUT_BYTE:
@@ -145,6 +148,7 @@ public final class OpHandlerFactory {
         case APUT_OBJECT:
         case APUT_SHORT:
         case APUT_WIDE:
+            result = OpType.APUT;
             break;
 
         case ARRAY_LENGTH:
@@ -304,11 +308,8 @@ public final class OpHandlerFactory {
         case RETURN:
         case RETURN_WIDE:
         case RETURN_OBJECT:
-            result = OpType.RETURN;
-            break;
-
         case RETURN_VOID:
-            // Like nop, it's handled fine by default.
+            result = OpType.RETURN;
             break;
 
         case SGET:
@@ -336,35 +337,35 @@ public final class OpHandlerFactory {
 
     private final VirtualMachine vm;
 
-    public OpHandlerFactory(VirtualMachine vm, String methodDescriptor) {
+    public OpFactory(VirtualMachine vm, String methodDescriptor) {
         this.vm = vm;
     }
 
-    public OpHandler create(BuilderInstruction instruction, int address) {
-        OpHandler result = null;
+    public Op create(BuilderInstruction instruction, int address) {
+        Op result = null;
 
         OpType factoryType = getFactoryType(instruction.getOpcode());
         switch (factoryType) {
         case BINARY_MATH:
-            result = BinaryMathOpHandler.create(instruction, address);
+            result = BinaryMathOp.create(instruction, address);
             break;
         case CONST:
-            result = ConstOpHandler.create(instruction, address, vm);
+            result = ConstOp.create(instruction, address, vm);
             break;
         case GOTO:
-            result = GotoOpHandler.create(instruction, address);
+            result = GotoOp.create(instruction, address);
             break;
         case IF:
-            result = IfOpHandler.create(instruction, address);
+            result = IfOp.create(instruction, address);
             break;
         case SWITCH:
-            result = SwitchOpHandler.create(instruction, address);
+            result = SwitchOp.create(instruction, address);
             break;
         case SWITCH_PAYLOAD:
-            result = SwitchPayloadOpHandler.create(instruction, address);
+            result = SwitchPayloadOp.create(instruction, address);
             break;
         case UNIMPLEMENTED:
-            result = UnimplementedOpHandler.create(instruction, address);
+            result = UnimplementedOp.create(instruction, address);
             break;
         case ACCESS_ARRAY:
             break;
@@ -389,21 +390,24 @@ public final class OpHandlerFactory {
         case INSTANCE_OF:
             break;
         case INVOKE:
-            result = InvokeOpHandler.create(instruction, address, vm);
+            result = InvokeOp.create(instruction, address, vm);
             break;
         case MONITOR:
             break;
         case MOVE:
-            result = MoveOpHandler.create(instruction, address);
+            result = MoveOp.create(instruction, address);
             break;
         case NEW_ARRAY:
-            result = NewArrayOpHandler.create(instruction, address, vm);
+            result = NewArrayOp.create(instruction, address, vm);
             break;
         case NEW_INSTANCE:
-            result = NewInstanceOpHandler.create(instruction, address, vm);
+            result = NewInstanceOp.create(instruction, address, vm);
+            break;
+        case APUT:
+            result = APutOp.create(instruction, address);
             break;
         case RETURN:
-            result = ReturnOpHandler.create(instruction, address);
+            result = ReturnOp.create(instruction, address);
             break;
         case UNARY_MATH:
             break;

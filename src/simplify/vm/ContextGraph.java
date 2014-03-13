@@ -16,8 +16,8 @@ import org.jf.util.SparseArray;
 
 import simplify.Main;
 import simplify.SmaliClassUtils;
-import simplify.vm.handlers.OpHandler;
-import simplify.vm.handlers.OpHandlerFactory;
+import simplify.vm.ops.Op;
+import simplify.vm.ops.OpFactory;
 import simplify.vm.types.UnknownValue;
 
 public class ContextGraph implements Iterable {
@@ -26,12 +26,12 @@ public class ContextGraph implements Iterable {
 
     private static SparseArray<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
-        OpHandlerFactory handlerFactory = new OpHandlerFactory(vm, methodDescriptor);
+        OpFactory handlerFactory = new OpFactory(vm, methodDescriptor);
 
         SparseArray<List<ContextNode>> result = new SparseArray<List<ContextNode>>(instructions.size());
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
-            OpHandler handler = handlerFactory.create(instruction, address);
+            Op handler = handlerFactory.create(instruction, address);
             ContextNode node = new ContextNode(handler);
 
             // Most node piles will be a template node and one node with context.
@@ -157,7 +157,7 @@ public class ContextGraph implements Iterable {
         return result;
     }
 
-    public OpHandler getOpHandler(int address) {
+    public Op getOpHandler(int address) {
         return addressToNodePile.get(address).get(0).getHandler();
     }
 

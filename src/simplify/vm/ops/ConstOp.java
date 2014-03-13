@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
@@ -14,7 +14,7 @@ import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
 
-public class ConstOpHandler extends OpHandler {
+public class ConstOp extends Op {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
@@ -25,7 +25,7 @@ public class ConstOpHandler extends OpHandler {
         CLASS
     };
 
-    static ConstOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
+    static ConstOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
@@ -50,14 +50,14 @@ public class ConstOpHandler extends OpHandler {
             constType = ConstType.NARROW;
         }
 
-        return new ConstOpHandler(address, opName, childAddress, destRegister, constType, literal);
+        return new ConstOp(address, opName, childAddress, destRegister, constType, literal);
     }
 
     private final int destRegister;
     private final ConstType constType;
     private final Object literal;
 
-    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, ConstType constType,
+    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstType constType,
                     Object literal) {
         super(address, opName, childAddress);
 
@@ -66,19 +66,19 @@ public class ConstOpHandler extends OpHandler {
         this.literal = literal;
     }
 
-    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, String literal) {
+    private ConstOp(int address, String opName, int childAddress, int destRegister, String literal) {
         this(address, opName, childAddress, destRegister, ConstType.STRING, literal);
     }
 
-    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, TypeReference classRef) {
+    private ConstOp(int address, String opName, int childAddress, int destRegister, TypeReference classRef) {
         this(address, opName, childAddress, destRegister, ConstType.CLASS, classRef);
     }
 
-    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, int literal) {
+    private ConstOp(int address, String opName, int childAddress, int destRegister, int literal) {
         this(address, opName, childAddress, destRegister, ConstType.NARROW, literal);
     }
 
-    private ConstOpHandler(int address, String opName, int childAddress, int destRegister, long literal) {
+    private ConstOp(int address, String opName, int childAddress, int destRegister, long literal) {
         this(address, opName, childAddress, destRegister, ConstType.WIDE, literal);
     }
 

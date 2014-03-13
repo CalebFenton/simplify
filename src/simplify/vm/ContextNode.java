@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import simplify.Main;
-import simplify.vm.handlers.OpHandler;
+import simplify.vm.ops.Op;
 
 public class ContextNode {
 
@@ -13,7 +13,7 @@ public class ContextNode {
 
     private static Logger log = Logger.getLogger(Main.class.getSimpleName());
     private final List<ContextNode> children;
-    private final OpHandler handler;
+    private final Op handler;
     private MethodContext mctx;
     private ContextNode parent;
 
@@ -25,7 +25,7 @@ public class ContextNode {
         }
     }
 
-    ContextNode(OpHandler handler) {
+    ContextNode(Op handler) {
         this.handler = handler;
 
         // Most nodes will only have one child.
@@ -59,7 +59,7 @@ public class ContextNode {
         return mctx;
     }
 
-    public OpHandler getHandler() {
+    public Op getHandler() {
         return handler;
     }
 

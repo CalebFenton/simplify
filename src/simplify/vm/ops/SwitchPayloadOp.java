@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -11,7 +11,7 @@ import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.types.UnknownValue;
 
-public class SwitchPayloadOpHandler extends OpHandler {
+public class SwitchPayloadOp extends Op {
 
     private static enum SwitchType {
         PACKED,
@@ -29,7 +29,7 @@ public class SwitchPayloadOpHandler extends OpHandler {
         return result;
     }
 
-    static SwitchPayloadOpHandler create(Instruction instruction, int address) {
+    static SwitchPayloadOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
 
         SwitchType switchType = null;
@@ -41,13 +41,13 @@ public class SwitchPayloadOpHandler extends OpHandler {
 
         SwitchPayload instr = (SwitchPayload) instruction;
 
-        return new SwitchPayloadOpHandler(address, opName, switchType, instr.getSwitchElements());
+        return new SwitchPayloadOp(address, opName, switchType, instr.getSwitchElements());
     }
     private final List<? extends SwitchElement> switchElements;
 
     private final SwitchType switchType;
 
-    private SwitchPayloadOpHandler(int address, String opName, SwitchType switchType,
+    private SwitchPayloadOp(int address, String opName, SwitchType switchType,
                     List<? extends SwitchElement> switchElements) {
         super(address, opName, determineChildren(switchElements));
 

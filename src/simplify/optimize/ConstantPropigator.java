@@ -24,11 +24,11 @@ import simplify.Main;
 import simplify.SmaliClassUtils;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
-import simplify.vm.handlers.BinaryMathOpHandler;
-import simplify.vm.handlers.MoveOpHandler;
-import simplify.vm.handlers.OpHandler;
-import simplify.vm.handlers.ReturnOpHandler;
-import simplify.vm.handlers.UnaryMathOpHandler;
+import simplify.vm.ops.BinaryMathOp;
+import simplify.vm.ops.MoveOp;
+import simplify.vm.ops.Op;
+import simplify.vm.ops.ReturnOp;
+import simplify.vm.ops.UnaryMathOp;
 import util.SparseArray;
 
 public class ConstantPropigator {
@@ -38,8 +38,8 @@ public class ConstantPropigator {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOpHandler.class,
-                    UnaryMathOpHandler.class, ReturnOpHandler.class, MoveOpHandler.class };
+    private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class,
+                    UnaryMathOp.class, ReturnOp.class, MoveOp.class };
 
     private static int getBitSize(long x) {
         int result = 1;
@@ -50,7 +50,7 @@ public class ConstantPropigator {
         return result;
     }
 
-    private static boolean isConstableHandler(OpHandler handler) {
+    private static boolean isConstableHandler(Op handler) {
         for (Class<?> clazz : OpHandlersToMakeConst) {
             if (handler.getClass() == clazz) {
                 return true;
@@ -159,7 +159,7 @@ public class ConstantPropigator {
             }
 
             // Check handler first since we expect to be able to cast instructions to OneRegisterInstruction
-            OpHandler handler = nodePile.get(0).getHandler();
+            Op handler = nodePile.get(0).getHandler();
             if (!isConstableHandler(handler)) {
                 log.finer("Can't make hanlder constant: " + handler);
                 continue;

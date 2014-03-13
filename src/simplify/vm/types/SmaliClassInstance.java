@@ -18,6 +18,7 @@ public class SmaliClassInstance implements LocalType {
     }
 
     public InstanceContext getContext() {
+        // isInitialized -> ctx != null ?
         return ctx;
     }
 

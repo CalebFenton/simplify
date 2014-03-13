@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
@@ -8,21 +8,25 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
 import simplify.Main;
 import simplify.vm.MethodContext;
 
-public class ReturnOpHandler extends OpHandler {
+public class ReturnOp extends Op {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    static ReturnOpHandler create(Instruction instruction, int address) {
+    static ReturnOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
-        Instruction11x instr = (Instruction11x) instruction;
-        int register = instr.getRegisterA();
 
-        return new ReturnOpHandler(address, opName, register);
+        int register = 0;
+        if (!opName.endsWith("-void")) {
+            Instruction11x instr = (Instruction11x) instruction;
+            register = instr.getRegisterA();
+        }
+
+        return new ReturnOp(address, opName, register);
     }
 
     private final int register;
 
-    ReturnOpHandler(int address, String opName, int register) {
+    ReturnOp(int address, String opName, int register) {
         super(address, opName, new int[0]);
 
         this.register = register;
@@ -30,7 +34,9 @@ public class ReturnOpHandler extends OpHandler {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        mctx.assignReturnRegister(mctx.readRegister(register));
+        if (!getOpName().endsWith("-void")) {
+            mctx.assignReturnRegister(mctx.readRegister(register));
+        }
 
         return getPossibleChildren();
     }

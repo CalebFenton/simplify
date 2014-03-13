@@ -21,8 +21,8 @@ import simplify.Utils;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
 import simplify.vm.MethodContext;
-import simplify.vm.handlers.InvokeOpHandler;
-import simplify.vm.handlers.OpHandler;
+import simplify.vm.ops.InvokeOp;
+import simplify.vm.ops.Op;
 import util.SparseArray;
 
 public class DeadRemover {
@@ -75,9 +75,9 @@ public class DeadRemover {
         implementation.replaceInstruction(index, replacementInstruction);
     }
 
-    private static boolean opHasSideEffects(OpHandler handler) {
-        if (handler instanceof InvokeOpHandler) {
-            if (((InvokeOpHandler) handler).hasSideEffects()) {
+    private static boolean opHasSideEffects(Op handler) {
+        if (handler instanceof InvokeOp) {
+            if (((InvokeOp) handler).hasSideEffects()) {
                 return true;
             }
         }
@@ -119,7 +119,7 @@ public class DeadRemover {
         TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
-            OpHandler handler = graph.getOpHandler(address);
+            Op handler = graph.getOpHandler(address);
 
             // Even if assignments are made and never used, it's almost impossible to know if a method invoke can be
             // removed because it may have side-effects. E.g. write to network, disk, etc.
@@ -151,7 +151,7 @@ public class DeadRemover {
         TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
-            OpHandler handler = graph.getOpHandler(address);
+            Op handler = graph.getOpHandler(address);
 
             if (opHasSideEffects(handler)) {
                 continue;
@@ -177,16 +177,16 @@ public class DeadRemover {
         TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
-            OpHandler handler = graph.getOpHandler(address);
+            Op handler = graph.getOpHandler(address);
 
             if (opHasSideEffects(handler)) {
                 continue;
             }
 
-            if (handler instanceof InvokeOpHandler) {
+            if (handler instanceof InvokeOp) {
                 log.fine("Results usage test for: " + handler);
 
-                String returnType = ((InvokeOpHandler) handler).getReturnType();
+                String returnType = ((InvokeOp) handler).getReturnType();
                 if (!returnType.equals("V")) {
                     boolean unusedResult = true;
                     if ((i + 1) < addresses.size()) {

@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -7,10 +7,10 @@ import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import simplify.vm.MethodContext;
 import simplify.vm.types.UnknownValue;
 
-class UnimplementedOpHandler extends OpHandler {
+class UnimplementedOp extends Op {
 
-    static UnimplementedOpHandler create(Instruction instruction, int address) {
-        UnimplementedOpHandler result = null;
+    static UnimplementedOp create(Instruction instruction, int address) {
+        UnimplementedOp result = null;
 
         int childAddress = address + instruction.getCodeUnits();
         Opcode op = instruction.getOpcode();
@@ -19,10 +19,10 @@ class UnimplementedOpHandler extends OpHandler {
             OneRegisterInstruction instr = (OneRegisterInstruction) instruction;
             int registerA = instr.getRegisterA();
 
-            result = new UnimplementedOpHandler(address, op.name, childAddress, op.canContinue(), op.canThrow(),
+            result = new UnimplementedOp(address, op.name, childAddress, op.canContinue(), op.canThrow(),
                             op.setsResult(), op.setsRegister(), registerA);
         } else {
-            result = new UnimplementedOpHandler(address, op.name, childAddress, op.canContinue(), op.canThrow(),
+            result = new UnimplementedOp(address, op.name, childAddress, op.canContinue(), op.canThrow(),
                             op.setsResult());
         }
 
@@ -35,12 +35,12 @@ class UnimplementedOpHandler extends OpHandler {
     private final boolean setsRegister;
     private final int registerA;
 
-    UnimplementedOpHandler(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
+    UnimplementedOp(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
                     boolean setsResult) {
         this(address, opName, childAddress, canContinue, canThrow, setsResult, false, -1);
     }
 
-    UnimplementedOpHandler(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
+    UnimplementedOp(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
                     boolean setsResult, boolean setsRegister, int registerA) {
         super(address, opName, canContinue ? childAddress : 0);
 

@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm;
 
 import gnu.trove.list.TIntList;
 
@@ -15,11 +15,9 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Dexifier;
-import simplify.vm.ContextGraph;
-import simplify.vm.VirtualMachine;
 import util.SparseArray;
 
-class SmaliTester {
+public class VMTester {
 
     private static final String TEST_DIRECTORY = "resources/test/vm";
 
@@ -47,7 +45,7 @@ class SmaliTester {
     public static void executeAndEnsureContextState(String className, String methodSignature,
                     SparseArray<Object> registerState) {
         BuilderClassDef classDef = classNameToDef.get(className);
-        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 10, 1);
+        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
 
         String methodDescriptor = className + "->" + methodSignature;
 
@@ -60,8 +58,12 @@ class SmaliTester {
             Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
             String msg = methodDescriptor + ", r" + register + " = " + consensus + ", should be " + value;
 
-            Assert.assertTrue(msg, (value == consensus));
+            // Type is "object" so can't use instanceof, but you knew that.
+            if (value.getClass().isArray()) {
+                Assert.assertTrue(msg, Arrays.deepEquals((Object[]) value, (Object[]) consensus));
+            } else {
+                Assert.assertTrue(msg, (value == consensus));
+            }
         }
     }
-
 }

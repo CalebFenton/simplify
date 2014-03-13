@@ -1,4 +1,4 @@
-package simplify.vm.handlers;
+package simplify.vm.ops;
 
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
@@ -9,9 +9,9 @@ import simplify.vm.VirtualMachine;
 import simplify.vm.types.SmaliClassInstance;
 import simplify.vm.types.UninitializedInstance;
 
-public class NewInstanceOpHandler extends OpHandler {
+public class NewInstanceOp extends Op {
 
-    static NewInstanceOpHandler create(Instruction instruction, int address, VirtualMachine vm) {
+    static NewInstanceOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
 
@@ -20,14 +20,14 @@ public class NewInstanceOpHandler extends OpHandler {
         TypeReference typeRef = (TypeReference) instr.getReference();
         String className = typeRef.getType();
 
-        return new NewInstanceOpHandler(address, opName, childAddress, destRegister, className, vm);
+        return new NewInstanceOp(address, opName, childAddress, destRegister, className, vm);
     }
 
     private final int destRegister;
     private final String className;
     private final VirtualMachine vm;
 
-    NewInstanceOpHandler(int address, String opName, int childAddress, int destRegister, String className,
+    NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className,
                     VirtualMachine vm) {
         super(address, opName, childAddress);
 

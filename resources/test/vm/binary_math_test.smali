@@ -1,4 +1,4 @@
-.class public final Lbinary_math_test;
+.class public Lbinary_math_test;
 .super Ljava/lang/Object;
 
 .method public static TestAddInt()I
