@@ -31,6 +31,7 @@ public final class OpFactory {
         MOVE,
         NEW_ARRAY,
         NEW_INSTANCE,
+        AGET,
         APUT,
         RETURN,
         SWITCH,
@@ -139,6 +140,7 @@ public final class OpFactory {
         case AGET_OBJECT:
         case AGET_SHORT:
         case AGET_WIDE:
+            result = OpType.AGET;
             break;
 
         case APUT:
@@ -205,7 +207,9 @@ public final class OpFactory {
 
         case FILLED_NEW_ARRAY:
         case FILLED_NEW_ARRAY_RANGE:
+            result = OpType.FILLED_NEW_ARRAY;
             break;
+
         case FILL_ARRAY_DATA:
             break;
 
@@ -382,6 +386,7 @@ public final class OpFactory {
         case COMPARE:
             break;
         case FILLED_NEW_ARRAY:
+            result = FilledNewArrayOp.create(instruction, address, vm);
             break;
         case FILL_ARRAY_DATA:
             break;
@@ -402,6 +407,9 @@ public final class OpFactory {
             break;
         case NEW_INSTANCE:
             result = NewInstanceOp.create(instruction, address, vm);
+            break;
+        case AGET:
+            result = AGetOp.create(instruction, address);
             break;
         case APUT:
             result = APutOp.create(instruction, address);

@@ -11,6 +11,7 @@ import java.util.Map;
 
 import junit.framework.Assert;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
@@ -61,10 +62,12 @@ public class VMTester {
 
             // Type is "object" so can't use instanceof, but you knew that.
             if (value.getClass().isArray()) {
-                Assert.assertTrue(msg, Arrays.deepEquals((Object[]) value, (Object[]) consensus));
+                boolean result = ArrayUtils.isEquals(value, consensus);
+                Assert.assertTrue(msg, result);
             } else {
                 Assert.assertTrue(msg, value.equals(consensus));
             }
         }
     }
+
 }

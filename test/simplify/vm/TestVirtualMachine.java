@@ -13,8 +13,9 @@ public class TestVirtualMachine {
 
     @Test
     public void test() {
-        // test class static initilization
-        // look at instruction graph
+        // test class static initialization
+        // examine instruction graph
+        // test some public methods
         fail("Not yet implemented");
     }
 

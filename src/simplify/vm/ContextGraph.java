@@ -126,8 +126,8 @@ public class ContextGraph implements Iterable {
     }
 
     public Object getRegisterConsensus(TIntList addresses, int register) {
-        ContextNode fistNode = getNodePile(addresses.get(0)).get(0);
-        Object value = fistNode.getContext().peekRegister(register);
+        ContextNode firstNode = getNodePile(addresses.get(0)).get(0);
+        Object value = firstNode.getContext().peekRegister(register);
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             for (ContextNode node : getNodePile(address)) {

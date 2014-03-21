@@ -27,8 +27,9 @@ public class SmaliClassUtils {
     }
 
     public static String smaliClassToJava(String className) {
-        if (isPrimitiveType(className)) {
-            return className;
+        Class<?> type = PrimitiveTypes.get(className);
+        if (type != null) {
+            return type.getName();
         }
 
         if (className.equals("?")) {
@@ -37,6 +38,7 @@ public class SmaliClassUtils {
             return className;
         }
 
+        // Java doesn't like Lcom/package/class;, it wants "com.package.class"
         return className.substring(1, className.length() - 1).replaceAll("/", ".");
     }
 
