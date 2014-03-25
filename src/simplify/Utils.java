@@ -75,8 +75,7 @@ public class Utils {
         Class<?> klazz = ClassUtils.getClass(massagedClassName);
         Object result = Array.newInstance(klazz, dimensions);
 
-        // TODO: this needs to happen for all leaves for multi-d arrays
-        if ((dimensionCount == 0) && isLocalClass) {
+        if (isLocalClass) {
             populateLocalTypeArray(result, baseClassName);
         }
 
@@ -85,7 +84,19 @@ public class Utils {
 
     private static void populateLocalTypeArray(Object array, String className) {
         for (int i = 0; i < Array.getLength(array); i++) {
-            Array.set(array, i, new UninitializedInstance(className));
+            Object element = Array.get(array, i);
+            if (element == null) {
+                if (array.getClass().getName().startsWith("[[")) {
+                    // Uninitialized inner array
+                    break;
+                } else {
+                    for (int j = 0; j < Array.getLength(array); j++) {
+                        Array.set(array, j, new UninitializedInstance(className));
+                    }
+                }
+            } else if (element.getClass().isArray()) {
+                populateLocalTypeArray(element, className);
+            }
         }
     }
 

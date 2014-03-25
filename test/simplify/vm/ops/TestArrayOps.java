@@ -71,16 +71,35 @@ public class TestArrayOps {
     public void TestNewArrayMultiDimensionalLocal() {
         SparseArray<Object> registerState;
         registerState = new SparseArray<Object>();
-        registerState.put(0, new UninitializedInstance[2][][]);
+        UninitializedInstance[][][] expected = new UninitializedInstance[2][][];
+        registerState.put(0, expected);
 
         VMTester.executeAndEnsureContextState(CLASS_NAME, "TestNewArrayMultiDimensionalLocal()V", registerState);
+    }
+
+    @Test
+    public void TestFilledNewArrayPrimitive() {
+        SparseArray<Object> registerState;
+        registerState = new SparseArray<Object>();
+        registerState.put(MethodContext.ResultRegister, new int[1][2][3][4][5]);
+
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFilledNewArrayPrimitive()V", registerState);
     }
 
     @Test
     public void TestFilledNewArrayLocal() {
         SparseArray<Object> registerState;
         registerState = new SparseArray<Object>();
-        registerState.put(MethodContext.ResultRegister, new int[1][2][3][4][5]);
+        UninitializedInstance[][][] expected = new UninitializedInstance[1][2][3];
+        for (UninitializedInstance[][] inner1 : expected) {
+            for (UninitializedInstance[] inner2 : inner1) {
+                for (int i = 0; i < inner2.length; i++) {
+                    inner2[i] = new UninitializedInstance(CLASS_NAME);
+                }
+            }
+        }
+
+        registerState.put(MethodContext.ResultRegister, expected);
 
         VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFilledNewArrayLocal()V", registerState);
     }

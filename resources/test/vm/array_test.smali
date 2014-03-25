@@ -96,22 +96,28 @@
     return-void
 .end method
 
-.method public static TestFilledNewArrayLocal()V
+.method public static TestFilledNewArrayPrimitive()V
     .locals 4
 
     const/4 v0, 0x1
-
     const/4 v1, 0x2
-
     const/4 v2, 0x3
-
     const/4 v3, 0x4
-
     const/4 v4, 0x5
 
     filled-new-array {v0, v1, v2, v3, v4}, [I
 
-    #result register should have a new int[1][2][3][4][5]
+    return-void
+.end method
+
+.method public static TestFilledNewArrayLocal()V
+    .locals 4
+
+    const/4 v0, 0x1
+    const/4 v1, 0x2
+    const/4 v2, 0x3
+
+    filled-new-array {v0, v1, v2}, [Larray_test;
 
     return-void
 .end method
