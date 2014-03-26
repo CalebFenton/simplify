@@ -15,7 +15,7 @@ public class ReturnOp extends Op {
     static ReturnOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
 
-        int register = 0;
+        int register = Integer.MIN_VALUE;
         if (!opName.endsWith("-void")) {
             Instruction11x instr = (Instruction11x) instruction;
             register = instr.getRegisterA();
@@ -44,8 +44,9 @@ public class ReturnOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-
-        sb.append(" r").append(register);
+        if (register != Integer.MIN_VALUE) {
+            sb.append(" r").append(register);
+        }
 
         return sb.toString();
     }

@@ -9,7 +9,6 @@ public class GotoOp extends Op {
 
     static GotoOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
-
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
         int targetAddress = address + branchOffset;
 

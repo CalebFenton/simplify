@@ -155,7 +155,9 @@ public final class OpFactory {
 
         case ARRAY_LENGTH:
             break;
+
         case ARRAY_PAYLOAD:
+            result = OpType.ARRAY_PAYLOAD;
             break;
 
         case CHECK_CAST:
@@ -211,6 +213,7 @@ public final class OpFactory {
             break;
 
         case FILL_ARRAY_DATA:
+            result = OpType.FILL_ARRAY_DATA;
             break;
 
         case GOTO:
@@ -380,6 +383,7 @@ public final class OpFactory {
         case ARRAY_LENGTH:
             break;
         case ARRAY_PAYLOAD:
+            result = FillArrayDataPayloadOp.create(instruction, address);
             break;
         case CHECK_CAST:
             break;
@@ -389,6 +393,7 @@ public final class OpFactory {
             result = FilledNewArrayOp.create(instruction, address, vm);
             break;
         case FILL_ARRAY_DATA:
+            result = FillArrayDataOp.create(instruction, address);
             break;
         case INSTANCE_ACCESS:
             break;

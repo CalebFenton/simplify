@@ -7,6 +7,7 @@ public class MethodContext extends VirtualMachineContext {
 
     private int parameterCount;
     private int callDepth;
+    private int pseudoInstructionReturnAddress;
 
     MethodContext(int parameterCount) {
         this(parameterCount, parameterCount, 0);
@@ -28,6 +29,7 @@ public class MethodContext extends VirtualMachineContext {
 
         parameterCount = parent.parameterCount;
         callDepth = parent.callDepth;
+        // pseudoInstructionReturnAddress is expected to remain in parent
     }
 
     public int getCallDepth() {
@@ -86,6 +88,20 @@ public class MethodContext extends VirtualMachineContext {
 
     public void incrementCallDepth() {
         callDepth++;
+    }
+
+    public void setPseudoInstructionReturnAddress(int address) {
+        // Pseudo instructions like array-data-payload need return addresses.
+        pseudoInstructionReturnAddress = address;
+    }
+
+    public int getPseudoInstructionReturnAddress() {
+        return pseudoInstructionReturnAddress;
+    }
+
+    @Override
+    public MethodContext getParent() {
+        return (MethodContext) super.getParent();
     }
 
 }

@@ -17,9 +17,9 @@ import com.rits.cloning.Cloner;
 
 public class VirtualMachineContext {
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
-
     private static final Cloner cloner = new Cloner();
+
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private VirtualMachineContext parent;
     private final int registerCount;
@@ -40,14 +40,46 @@ public class VirtualMachineContext {
         this.registerCount = registerCount;
     }
 
+    VirtualMachineContext(VirtualMachineContext parent) {
+        this(parent.registerCount);
+        this.parent = parent;
+    }
+
     public void assignRegister(int register, Object value) {
         getRegistersAssigned().add(register);
 
         pokeRegister(register, value);
     }
 
+    public void assignRegisterAndUpdateIdentities(int register, Object value) {
+        Object oldValue = peekRegister(register);
+
+        // When replacing an uninitialized instance object, need to update all registers that also point to that object.
+        // This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
+        // time.
+        for (int i = 0; i < registerToValue.size(); i++) {
+            int currentRegister = registerToValue.keyAt(i);
+            Object currentValue = registerToValue.get(currentRegister);
+            if (oldValue == currentValue) {
+                assignRegister(currentRegister, value);
+            }
+        }
+    }
+
+    public VirtualMachineContext getParent() {
+        return parent;
+    }
+
     public int getRegisterCount() {
         return registerCount;
+    }
+
+    public TIntList getRegistersAssigned() {
+        return registersAssigned;
+    }
+
+    public TIntList getRegistersRead() {
+        return registersRead;
     }
 
     public SparseArray<Object> getRegisterToValue() {
@@ -67,18 +99,22 @@ public class VirtualMachineContext {
         return result;
     }
 
+    public boolean hasRegister(int register) {
+        return registerToValue.indexOfKey(register) >= 0;
+    }
+
     public Object peekRegister(int register) {
         Object result = null;
         VirtualMachineContext currentContext = this;
-        TIntSet reassigned = new TIntHashSet(0);
+        TIntSet reassigned = new TIntHashSet();
         while (currentContext != null) {
-            // If register is not known here, ask ancestors.
+            // First look for value in this context. If not found, look through ancestors.
             result = currentContext.registerToValue.get(register);
             if (result != null) {
                 break;
             }
 
-            // Keep track of any registers between this and the context with the target register. When bringing down any
+            // Keep track of any registers assigned from start to context with target register. When bringing down
             // identical registers to the target, exclude them since they've been reassigned.
             for (int i = 0; i < currentContext.registerToValue.size(); i++) {
                 int key = currentContext.registerToValue.keyAt(i);
@@ -96,8 +132,8 @@ public class VirtualMachineContext {
             if (currentContext != this) {
                 // Got context from an ancestor. Store a clone to not alter history.
                 // Store any identical object references in other registers as the same clone to maintain identity.
-                Object myClone = cloner.deepClone(result);
-                registerToValue.put(register, myClone);
+                Object valueClone = cloner.deepClone(result);
+                registerToValue.put(register, valueClone);
 
                 // Ancestor may have identical registers. Bring those down too.
                 if (currentContext != null) {
@@ -110,11 +146,11 @@ public class VirtualMachineContext {
 
                         Object value = parentRegisterToValue.get(parentRegister);
                         if (result == value) {
-                            registerToValue.put(parentRegister, myClone);
+                            registerToValue.put(parentRegister, valueClone);
                         }
                     }
 
-                    result = myClone;
+                    result = valueClone;
                 }
             }
         }
@@ -146,22 +182,8 @@ public class VirtualMachineContext {
         return peekRegister(register);
     }
 
-    protected String registerToString(int register) {
-        StringBuilder result = new StringBuilder();
-
-        Object value = registerToValue.get(register);
-        result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
-                        .append(", hc=").append(value.hashCode());
-
-        return result.toString();
-    }
-
     public void removeRegister(int register) {
         registerToValue.delete(register);
-    }
-
-    public boolean hasRegister(int register) {
-        return registerToValue.indexOfKey(register) >= 0;
     }
 
     @Override
@@ -187,34 +209,6 @@ public class VirtualMachineContext {
         }
 
         return sb.toString();
-    }
-
-    public void assignRegisterAndUpdateIdentities(int register, Object value) {
-        Object oldValue = peekRegister(register);
-
-        // When replacing an uninitialized instance object, need to update all registers that also point to that object.
-        // This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
-        // time.
-        for (int i = 0; i < registerToValue.size(); i++) {
-            int currentRegister = registerToValue.keyAt(i);
-            Object currentValue = registerToValue.get(currentRegister);
-            if (oldValue == currentValue) {
-                assignRegister(currentRegister, value);
-            }
-        }
-    }
-
-    VirtualMachineContext(VirtualMachineContext parent) {
-        this(parent.registerCount);
-        this.parent = parent;
-    }
-
-    public TIntList getRegistersAssigned() {
-        return registersAssigned;
-    }
-
-    public TIntList getRegistersRead() {
-        return registersRead;
     }
 
     public boolean wasRegisterAssigned(int register) {
@@ -249,5 +243,15 @@ public class VirtualMachineContext {
         }
 
         return false;
+    }
+
+    protected String registerToString(int register) {
+        StringBuilder result = new StringBuilder();
+
+        Object value = registerToValue.get(register);
+        result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
+                        .append(", hc=").append(value.hashCode());
+
+        return result.toString();
     }
 }

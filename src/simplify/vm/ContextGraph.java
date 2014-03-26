@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -49,9 +50,15 @@ public class ContextGraph implements Iterable {
 
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
-            if (!instruction.getOpcode().canContinue()) {
-                result.add(address);
+            /*
+             * Array payload is a weird pseudo instruction. We treat it like a normal one but perhaps a better way would
+             * be to make it easier for operations to execute other operations, perhaps looking up by address. This
+             * would eliminate the need for MethodContext.pseudoInstructionReturnAddress, and Context's getParent().
+             */
+            if (instruction.getOpcode().canContinue() || (instruction.getOpcode() == Opcode.ARRAY_PAYLOAD)) {
+                continue;
             }
+            result.add(address);
         }
 
         return result;
