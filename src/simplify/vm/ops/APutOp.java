@@ -24,6 +24,7 @@ public class APutOp extends Op {
 
         return new APutOp(address, opName, childAddress, valueRegister, arrayRegister, indexRegister);
     }
+
     private final int arrayRegister;
     private final int indexRegister;
 
@@ -43,6 +44,19 @@ public class APutOp extends Op {
         Object array = mctx.readRegister(arrayRegister);
         int index = (int) mctx.readRegister(indexRegister);
 
+        if (getOpName().endsWith("-wide")) {
+            value = (long) value;
+        } else if (getOpName().endsWith("-boolean")) {
+            value = ((int) value == 1 ? true : false);
+        } else if (getOpName().endsWith("-byte")) {
+            value = (byte) ((int) value);
+        } else if (getOpName().endsWith("-char")) {
+            value = (char) ((int) value);
+        } else if (getOpName().endsWith("-short")) {
+            value = (short) ((int) value);
+        }
+
+        System.out.println(value.getClass().getName());
         Array.set(array, index, value);
 
         // This is only to let the optimizer know the array was modified.

@@ -11,6 +11,7 @@ import java.util.Map;
 
 import junit.framework.Assert;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -26,11 +27,10 @@ public class VMTester {
 
     static {
         File testDir = new File(TEST_DIRECTORY);
-        List<File> smaliFiles = new ArrayList<File>();
-        smaliFiles.addAll(Arrays.asList(testDir.listFiles()));
+        String[] extensions = new String[] { "smali" };
+        List<File> smaliFiles = new ArrayList<File>(FileUtils.listFiles(testDir, extensions, true));
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
-
         classNameToDef = new HashMap<String, BuilderClassDef>();
         try {
             List<BuilderClassDef> classDefs = Dexifier.dexifySmaliFiles(smaliFiles, dexBuilder);

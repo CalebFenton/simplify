@@ -3,10 +3,12 @@ package simplify;
 import gnu.trove.list.TIntList;
 
 import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collection;
 
 import org.apache.commons.lang3.ClassUtils;
 
-import simplify.vm.types.UninitializedInstance;
+import simplify.vm.types.LocalInstance;
 
 public class Utils {
 
@@ -19,6 +21,14 @@ public class Utils {
                 list.removeAt(lastIndex);
             }
         }
+    }
+
+    public static <E> Collection<E> makeCollection(Iterable<E> iter) {
+        Collection<E> list = new ArrayList<E>();
+        for (E item : iter) {
+            list.add(item);
+        }
+        return list;
     }
 
     private static String getClassForNameFromSmaliClass(String className, int dimensionCount) {
@@ -66,7 +76,7 @@ public class Utils {
 
         String javaClassName = null;
         if (isLocalClass) {
-            javaClassName = UninitializedInstance.class.getName();
+            javaClassName = LocalInstance.class.getName();
         } else {
             javaClassName = SmaliClassUtils.smaliClassToJava(baseClassName);
         }
@@ -76,13 +86,13 @@ public class Utils {
         Object result = Array.newInstance(klazz, dimensions);
 
         if (isLocalClass) {
-            populateLocalTypeArray(result, baseClassName);
+            populateLocalInstanceArray(result, baseClassName);
         }
 
         return result;
     }
 
-    private static void populateLocalTypeArray(Object array, String className) {
+    private static void populateLocalInstanceArray(Object array, String className) {
         for (int i = 0; i < Array.getLength(array); i++) {
             Object element = Array.get(array, i);
             if (element == null) {
@@ -91,11 +101,11 @@ public class Utils {
                     break;
                 } else {
                     for (int j = 0; j < Array.getLength(array); j++) {
-                        Array.set(array, j, new UninitializedInstance(className));
+                        Array.set(array, j, new LocalInstance(className));
                     }
                 }
             } else if (element.getClass().isArray()) {
-                populateLocalTypeArray(element, className);
+                populateLocalInstanceArray(element, className);
             }
         }
     }

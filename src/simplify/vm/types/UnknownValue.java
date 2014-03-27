@@ -1,6 +1,6 @@
 package simplify.vm.types;
 
-public class UnknownValue implements LocalType {
+public class UnknownValue implements Type {
 
     private final String type;
 

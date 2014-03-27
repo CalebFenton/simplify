@@ -5,14 +5,17 @@ import gnu.trove.list.array.TIntArrayList;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
+import org.jf.dexlib2.iface.debug.DebugItem;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
@@ -67,14 +70,6 @@ public class DeadRemover {
         return result;
     }
 
-    private void nopInstruction(int address) {
-        noppedAddresses.add(address);
-
-        int index = addressToInstruction.get(address).getLocation().getIndex();
-        BuilderInstruction replacementInstruction = new BuilderInstruction10x(Opcode.NOP);
-        implementation.replaceInstruction(index, replacementInstruction);
-    }
-
     private static boolean opHasSideEffects(Op handler) {
         if (handler instanceof InvokeOp) {
             if (((InvokeOp) handler).hasSideEffects()) {
@@ -85,14 +80,15 @@ public class DeadRemover {
         return false;
     }
 
-    private final DexBuilder dexBuilder;
     private final SparseArray<BuilderInstruction> addressToInstruction;
+
+    private int deadCount = 0;
+    private final DexBuilder dexBuilder;
     private final ContextGraph graph;
     private final MutableMethodImplementation implementation;
 
-    private int deadCount = 0;
-    private int unreachableCount = 0;
     private TIntArrayList noppedAddresses;
+    private int unreachableCount = 0;
 
     DeadRemover(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
         this.dexBuilder = dexBuilder;
@@ -211,14 +207,60 @@ public class DeadRemover {
         return nopAddresses;
     }
 
+    private void nopInstruction(int address) {
+        noppedAddresses.add(address);
+
+        int index = addressToInstruction.get(address).getLocation().getIndex();
+        BuilderInstruction replacementInstruction = new BuilderInstruction10x(Opcode.NOP);
+        implementation.replaceInstruction(index, replacementInstruction);
+    }
+
     private void nopInstructions(TIntList addresses) {
         Utils.deDuplicate(addresses);
 
         addresses.sort();
 
+        // Need to go in reverse order with regards to address to not
+        // disturb instruction addresses after this address
         for (int i = addresses.size() - 1; i >= 0; i--) {
             int address = addresses.get(i);
             nopInstruction(address);
+        }
+    }
+
+    private void nopSweep() {
+        // Turn any pair of nops to one nop
+        Collection<? extends DebugItem> d = Utils.makeCollection(implementation.getDebugItems());
+        List<BuilderInstruction> instructions = implementation.getInstructions();
+        for (int i = 0; i < (instructions.size() - 1); i++) {
+            BuilderInstruction current = instructions.get(i);
+            BuilderInstruction next = instructions.get(i + 1);
+
+            if ((current.getOpcode() == next.getOpcode()) && (current.getOpcode() == Opcode.NOP)) {
+                MethodLocation location = current.getLocation();
+                location.getDebugItems().clear();
+                implementation.removeInstruction(location.getIndex());
+            }
+        }
+    }
+
+    private void removeInstructions(TIntList addresses) {
+        // Kind of an ugly hack because everything else is built on addresses.
+        TIntList indexes = new TIntArrayList();
+        List<BuilderInstruction> instructions = implementation.getInstructions();
+        for (BuilderInstruction instruction : instructions) {
+            MethodLocation location = instruction.getLocation();
+            int address = location.getCodeAddress();
+            if (addresses.contains(address)) {
+                indexes.add(location.getIndex());
+                location.getDebugItems().clear();
+            }
+        }
+
+        indexes.sort();
+        for (int i = indexes.size() - 1; i >= 0; i--) {
+            int index = indexes.get(i);
+            implementation.removeInstruction(index);
         }
     }
 
@@ -231,7 +273,9 @@ public class DeadRemover {
 
         nopAddresses.addAll(getUnusedResultAddresses());
 
-        nopInstructions(nopAddresses);
+        removeInstructions(nopAddresses);
+        // nopInstructions(nopAddresses);
+        // nopSweep();
 
         return nopAddresses.size() > 0;
     }

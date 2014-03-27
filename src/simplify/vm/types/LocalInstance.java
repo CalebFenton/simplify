@@ -2,16 +2,34 @@ package simplify.vm.types;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 
-public class UninitializedInstance implements Type {
+import simplify.vm.InstanceContext;
+
+public class LocalInstance implements Type {
+
+    private InstanceContext ctx;
 
     private final String type;
 
-    public UninitializedInstance(String type) {
+    public LocalInstance(String type) {
         this.type = type;
+        ctx = null;
+    }
+
+    public InstanceContext getContext() {
+        // isInitialized -> ctx != null ?
+        return ctx;
     }
 
     public String getType() {
         return type;
+    }
+
+    public boolean isInitialized() {
+        return getContext() == null;
+    }
+
+    public void setContext(InstanceContext ctx) {
+        this.ctx = ctx;
     }
 
     @Override
@@ -25,12 +43,13 @@ public class UninitializedInstance implements Type {
             return false;
         } else if (other == this) {
             return true;
-        } else if (!(other instanceof UninitializedInstance)) {
+        } else if (!(other instanceof LocalInstance)) {
             return false;
         }
 
-        UninitializedInstance rhs = (UninitializedInstance) other;
+        LocalInstance rhs = (LocalInstance) other;
 
         return new EqualsBuilder().append(type, rhs.getType()).isEquals();
     }
+
 }

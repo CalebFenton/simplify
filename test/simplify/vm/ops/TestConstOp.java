@@ -3,7 +3,7 @@ package simplify.vm.ops;
 import org.junit.Test;
 
 import simplify.vm.VMTester;
-import simplify.vm.types.UninitializedInstance;
+import simplify.vm.types.LocalInstance;
 import util.SparseArray;
 
 public class TestConstOp {
@@ -39,12 +39,21 @@ public class TestConstOp {
     }
 
     @Test
-    public void TestConstClass() {
+    public void TestConstClassLocal() {
         SparseArray<Object> registerState;
         registerState = new SparseArray<Object>();
-        registerState.put(0, new UninitializedInstance("Lconst_test;"));
+        registerState.put(0, new LocalInstance("Lconst_test;"));
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestConstClass()V", registerState);
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestConstClassLocal()V", registerState);
+    }
+
+    @Test
+    public void TestConstClassSystem() {
+        SparseArray<Object> registerState;
+        registerState = new SparseArray<Object>();
+        registerState.put(0, Object.class);
+
+        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestConstClassSystem()V", registerState);
     }
 
     @Test

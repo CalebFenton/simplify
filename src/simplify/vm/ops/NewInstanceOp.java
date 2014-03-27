@@ -6,7 +6,7 @@ import org.jf.dexlib2.iface.reference.TypeReference;
 
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
-import simplify.vm.types.SmaliClassInstance;
+import simplify.vm.types.LocalInstance;
 import simplify.vm.types.UninitializedInstance;
 
 public class NewInstanceOp extends Op {
@@ -40,7 +40,7 @@ public class NewInstanceOp extends Op {
     public int[] execute(MethodContext mctx) {
         Object instance = null;
         if (vm.isClassDefinedLocally(className)) {
-            instance = new SmaliClassInstance(className);
+            instance = new LocalInstance(className);
         } else {
             instance = new UninitializedInstance(className);
         }

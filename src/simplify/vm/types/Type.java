@@ -1,6 +1,6 @@
 package simplify.vm.types;
 
-public interface LocalType {
+public interface Type {
 
     public String getType();
 

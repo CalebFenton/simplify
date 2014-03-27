@@ -10,13 +10,13 @@ import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.WideLiteralInstruction;
 import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.iface.reference.StringReference;
-import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.Main;
+import simplify.SmaliClassUtils;
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
-import simplify.vm.types.UninitializedInstance;
+import simplify.vm.types.LocalInstance;
 
 public class ConstOp extends Op {
 
@@ -26,7 +26,7 @@ public class ConstOp extends Op {
         NARROW,
         WIDE,
         STRING,
-        LOCAL_CLASS,
+        LOCAL_TYPE,
         CLASS
     };
 
@@ -49,7 +49,7 @@ public class ConstOp extends Op {
 
             // Defer class lookup for execute. We may want to handle any possible errors there.
             if (vm.isClassDefinedLocally(className)) {
-                constType = ConstType.LOCAL_CLASS;
+                constType = ConstType.LOCAL_TYPE;
             } else {
                 constType = ConstType.CLASS;
             }
@@ -96,14 +96,14 @@ public class ConstOp extends Op {
         if (constType == ConstType.CLASS) {
             String className = (String) literal;
             try {
-                result = ClassUtils.getClass(className);
+                result = ClassUtils.getClass(SmaliClassUtils.smaliClassToJava(className));
             } catch (ClassNotFoundException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
-        } else if (constType == ConstType.LOCAL_CLASS) {
+        } else if (constType == ConstType.LOCAL_TYPE) {
             String className = (String) literal;
-            result = new UninitializedInstance(className);
+            result = new LocalInstance(className);
         } else {
             result = literal;
         }
@@ -119,8 +119,9 @@ public class ConstOp extends Op {
 
         sb.append(" r").append(destRegister).append(", ");
         switch (constType) {
+        case LOCAL_TYPE:
         case CLASS:
-            sb.append(((TypeReference) literal).getType());
+            sb.append(literal);
             break;
         case NARROW:
             sb.append("0x").append(Integer.toHexString((int) literal));
@@ -130,6 +131,8 @@ public class ConstOp extends Op {
             break;
         case WIDE:
             sb.append("0x").append(Long.toHexString((long) literal));
+            break;
+        default:
             break;
 
         }

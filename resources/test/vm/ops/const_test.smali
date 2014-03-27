@@ -1,4 +1,4 @@
-.class public Lconst_test;
+.class Lconst_test;
 .super Ljava/lang/Object;
 
 .method public static TestConst4()V
@@ -85,10 +85,18 @@
     return-void
 .end method
 
-.method public static TestConstClass()V
+.method public static TestConstClassLocal()V
     .locals 1
 
     const-class v0, Lconst_test;
+
+    return-void
+.end method
+
+.method public static TestConstClassSystem()V
+    .locals 1
+
+    const-class v0, Ljava/lang/Object;
 
     return-void
 .end method

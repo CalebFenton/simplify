@@ -15,7 +15,7 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 
 import simplify.Main;
-import simplify.vm.types.SmaliClassInstance;
+import simplify.vm.types.LocalInstance;
 import simplify.vm.types.UnknownValue;
 
 public class VirtualMachine {
@@ -33,7 +33,7 @@ public class VirtualMachine {
         if (!isStatic) {
             // For instance methods, the instance reference p0 is stored before the first parameter.
             String type = method.getDefiningClass();
-            result.pokeRegister(result.getParameterStart() - 1, new SmaliClassInstance(type));
+            result.pokeRegister(result.getParameterStart() - 1, new LocalInstance(type));
         }
 
         // IMPORTANT: Assume all input values are unknown.
