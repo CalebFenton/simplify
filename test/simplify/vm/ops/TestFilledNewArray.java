@@ -22,7 +22,7 @@ public class TestFilledNewArray {
         registerState = new SparseArray<Object>();
         registerState.put(MethodContext.ResultRegister, new int[1][2][3][4][5]);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFilledNewArrayPrimitive()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFilledNewArrayPrimitive()V", registerState);
     }
 
     @Test
@@ -40,7 +40,7 @@ public class TestFilledNewArray {
 
         registerState.put(MethodContext.ResultRegister, expected);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFilledNewArrayLocal()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFilledNewArrayLocal()V", registerState);
     }
 
 }

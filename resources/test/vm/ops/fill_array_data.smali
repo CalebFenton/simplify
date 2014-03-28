@@ -4,14 +4,9 @@
 .method public static TestFillArrayDataInt()V
     .locals 1
 
-    const/4 v0, 0x5
-    new-array v0, v0, [I
-
     fill-array-data v0, :array_0
 
     return-void
-
-    nop
 
     :array_0
     .array-data 4
@@ -23,17 +18,58 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataChar()V
+.method public static TestFillArrayDataLong()V
     .locals 1
-
-    const/4 v0, 0x3
-    new-array v0, v0, [C
 
     fill-array-data v0, :array_0
 
     return-void
 
-    nop
+    :array_0
+    .array-data 8
+        0x1000000000L
+        0x2000000000L
+        0x3L
+    .end array-data
+.end method
+.method public static TestFillArrayDataBoolean()V
+    .locals 1
+
+    fill-array-data v0, :array_0
+
+    return-void
+
+    :array_0
+    .array-data 1
+        0x1t
+        0x1t
+        0x0t
+        0x1t
+    .end array-data
+.end method
+
+.method public static TestFillArrayDataByte()V
+    .locals 1
+
+    fill-array-data v0, :array_0
+
+    return-void
+
+    :array_0
+    .array-data 1
+        0xat
+        0xbt
+        0xct
+        0xdt
+    .end array-data
+.end method
+
+.method public static TestFillArrayDataChar()V
+    .locals 1
+
+    fill-array-data v0, :array_0
+
+    return-void
 
     :array_0
     .array-data 2
@@ -46,14 +82,9 @@
 .method public static TestFillArrayDataShort()V
     .locals 1
 
-    const/4 v0, 0x3
-    new-array v0, v0, [S
-
     fill-array-data v0, :array_0
 
     return-void
-
-    nop
 
     :array_0
     .array-data 2
@@ -66,14 +97,9 @@
 .method public static TestFillArrayDataFloat()V
     .locals 1
 
-    const/4 v0, 0x2
-    new-array v0, v0, [F
-
     fill-array-data v0, :array_0
 
     return-void
-
-    nop
 
     :array_0
     .array-data 4
@@ -85,14 +111,9 @@
 .method public static TestFillArrayDataDouble()V
     .locals 1
 
-    const/4 v0, 0x2
-    new-array v0, v0, [D
-
     fill-array-data v0, :array_0
 
     return-void
-
-    nop
 
     :array_0
     .array-data 8

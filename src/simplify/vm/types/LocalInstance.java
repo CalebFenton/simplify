@@ -49,7 +49,7 @@ public class LocalInstance implements Type {
 
         LocalInstance rhs = (LocalInstance) other;
 
-        return new EqualsBuilder().append(type, rhs.getType()).isEquals();
+        return new EqualsBuilder().append(type, rhs.type).append(ctx, rhs.ctx).isEquals();
     }
 
 }

@@ -44,6 +44,7 @@ public class FillArrayDataPayloadOp extends Op {
             for (int i = 0; i < arrayElements.size(); i++) {
                 Number number = arrayElements.get(i);
                 Object value = getProperValue(number, expectedClass);
+                System.out.println("value is now " + value);
                 Array.set(array, i, value);
             }
             mctx.assignRegister(register, array);
@@ -56,8 +57,14 @@ public class FillArrayDataPayloadOp extends Op {
     private static Object getProperValue(Number number, Class<?> expectedClass) {
         Class<?> klazz = ClassUtils.wrapperToPrimitive(number.getClass());
         Object value = null;
+
+        // Dexlib will only ever make byte (t), int, long (l), or short (s)
         if (klazz == byte.class) {
             value = number.byteValue();
+            if (expectedClass == boolean.class) {
+                value = (byte) value == 1 ? true : false;
+                System.out.println("boolean = " + value);
+            }
         } else if (klazz == short.class) {
             value = number.shortValue();
             if (expectedClass == char.class) {

@@ -14,14 +14,14 @@ public class ContextNode {
     private static Logger log = Logger.getLogger(Main.class.getSimpleName());
     private final List<ContextNode> children;
     private final Op handler;
-    private MethodContext mctx;
+    private MethodContext ctx;
     private ContextNode parent;
 
     ContextNode(ContextNode node) {
         this(node.handler);
 
-        if (node.mctx != null) {
-            mctx = new MethodContext(node.mctx);
+        if (node.ctx != null) {
+            ctx = new MethodContext(node.ctx);
         }
     }
 
@@ -40,9 +40,9 @@ public class ContextNode {
     public int[] execute() {
         log.fine("HANDLING @" + handler.getAddress() + ": " + handler);
 
-        int[] result = handler.execute(mctx);
+        int[] result = handler.execute(ctx);
 
-        log.fine("Context after: " + mctx);
+        log.fine("Context after: " + ctx);
 
         return result;
     }
@@ -56,7 +56,7 @@ public class ContextNode {
     }
 
     public MethodContext getContext() {
-        return mctx;
+        return ctx;
     }
 
     public Op getHandler() {
@@ -111,7 +111,7 @@ public class ContextNode {
         this.parent = parent;
     }
 
-    void setContext(MethodContext mctx) {
-        this.mctx = mctx;
+    void setContext(MethodContext ctx) {
+        this.ctx = ctx;
     }
 }

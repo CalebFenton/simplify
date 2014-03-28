@@ -23,7 +23,7 @@ public class TestNewArrayOp {
         instances[0] = new LocalInstance(CLASS_NAME);
         registerState.put(0, instances);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestNewArrayLocal()V", registerState);
+        VMTester.test(CLASS_NAME, "TestNewArrayLocal()V", registerState);
     }
 
     @Test
@@ -32,7 +32,7 @@ public class TestNewArrayOp {
         registerState = new SparseArray<Object>();
         registerState.put(0, new int[1]);
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestNewArrayPrimitive()V", registerState);
+        VMTester.test(CLASS_NAME, "TestNewArrayPrimitive()V", registerState);
     }
 
 }

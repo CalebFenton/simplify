@@ -4,12 +4,7 @@
 .method public static TestArrayPut()V
     .locals 3
 
-    const/4 v0, 0x1
-    new-array v0, v0, [I
-
-    const/4 v1, 0x0
-    const/4 v2, 0x4
-    aput v2, v0, v1 # v0[0] = 4
+    aput v2, v0, v1 # v0[v1] = v2
 
     return-void
 .end method
@@ -17,12 +12,47 @@
 .method public static TestArrayPutWide()V
     .locals 3
 
-    const/4 v0, 0x1
-    new-array v0, v0, [J
+    aput-wide v2, v0, v1
 
-    const/4 v1, 0x0
-    const-wide v2, 0x5
-    aput-wide v2, v0, v1 # v0[0] = 5
+    return-void
+.end method
+
+.method public static TestArrayPutObject()V
+    .locals 3
+
+    aput-object v2, v0, v1
+
+    return-void
+.end method
+
+.method public static TestArrayPutBoolean()V
+    .locals 3
+
+    aput-boolean v2, v0, v1
+
+    return-void
+.end method
+
+.method public static TestArrayPutByte()V
+    .locals 3
+
+    aput-byte v2, v0, v1
+
+    return-void
+.end method
+
+.method public static TestArrayPutChar()V
+    .locals 3
+
+    aput-char v2, v0, v1
+
+    return-void
+.end method
+
+.method public static TestArrayPutShort()V
+    .locals 3
+
+    aput-short v2, v0, v1
 
     return-void
 .end method

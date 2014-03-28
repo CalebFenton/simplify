@@ -47,6 +47,7 @@ public class APutOp extends Op {
         if (getOpName().endsWith("-wide")) {
             value = (long) value;
         } else if (getOpName().endsWith("-boolean")) {
+            System.out.println("value == " + value);
             value = ((int) value == 1 ? true : false);
         } else if (getOpName().endsWith("-byte")) {
             value = (byte) ((int) value);
@@ -56,7 +57,6 @@ public class APutOp extends Op {
             value = (short) ((int) value);
         }
 
-        System.out.println(value.getClass().getName());
         Array.set(array, index, value);
 
         // This is only to let the optimizer know the array was modified.

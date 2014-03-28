@@ -5,6 +5,7 @@ import java.util.logging.Logger;
 import org.junit.Test;
 
 import simplify.Main;
+import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import util.SparseArray;
 
@@ -16,47 +17,67 @@ public class TestFillArrayDataOps {
 
     @Test
     public void TestFillArrayDataInt() {
-        SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>();
-        registerState.put(0, new int[] { 1, 2, 3, 4, 5 });
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[5]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[] { 1, 2, 3, 4, 5 });
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFillArrayDataInt()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFillArrayDataInt()V", initial, expected);
+    }
+
+    @Test
+    public void TestFillArrayDataLong() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new long[3]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new long[] { 0x1000000000L, 0x2000000000L,
+                        0x3L });
+
+        VMTester.test(CLASS_NAME, "TestFillArrayDataLong()V", initial, expected);
+    }
+
+    @Test
+    public void TestFillArrayDataBoolean() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new boolean[4]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new boolean[] { true, true, false, true });
+
+        VMTester.test(CLASS_NAME, "TestFillArrayDataBoolean()V", initial, expected);
+    }
+
+    @Test
+    public void TestFillArrayDataByte() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new byte[4]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new byte[] { 0xa, 0xb, 0xc, 0xd });
+
+        VMTester.test(CLASS_NAME, "TestFillArrayDataByte()V", initial, expected);
     }
 
     @Test
     public void TestFillArrayDataChar() {
-        SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>();
-        registerState.put(0, new char[] { 'a', 'b', 'c' });
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new char[3]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new char[] { 'a', 'b', 'c' });
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFillArrayDataChar()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFillArrayDataChar()V", initial, expected);
     }
 
     @Test
     public void TestFillArrayDataShort() {
-        SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>();
-        registerState.put(0, new short[] { 100, 200, 5 });
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new short[3]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new short[] { 100, 200, 5 });
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFillArrayDataShort()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFillArrayDataShort()V", initial, expected);
     }
 
     @Test
     public void TestFillArrayDataFloat() {
-        SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>();
-        registerState.put(0, new float[] { 1, 2 });
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new float[2]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new float[] { 1, 2 });
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFillArrayDataFloat()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFillArrayDataFloat()V", initial, expected);
     }
 
     @Test
     public void TestFillArrayDataDouble() {
-        SparseArray<Object> registerState;
-        registerState = new SparseArray<Object>();
-        registerState.put(0, new double[] { 0.1, 1.5 });
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new double[2]);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new double[] { 0.1, 1.5 });
 
-        VMTester.executeAndEnsureContextState(CLASS_NAME, "TestFillArrayDataDouble()V", registerState);
+        VMTester.test(CLASS_NAME, "TestFillArrayDataDouble()V", initial, expected);
     }
 
 }

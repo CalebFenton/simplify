@@ -43,8 +43,34 @@ public class VMTester {
         }
     }
 
-    public static void executeAndEnsureContextState(String className, String methodSignature,
-                    SparseArray<Object> registerState) {
+    public static void test(String className, String methodSignature, SparseArray<Object> initial,
+                    SparseArray<Object> expected) {
+        BuilderClassDef classDef = classNameToDef.get(className);
+        MethodContext ctx = MethodContext.buildFromRegisterState(initial);
+        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
+        String methodDescriptor = className + "->" + methodSignature;
+
+        ContextGraph graph = vm.execute(methodDescriptor, ctx);
+
+        TIntList terminalAddresses = graph.getConnectedTerminatingAddresses();
+        for (int i = 0; i < expected.size(); i++) {
+            int register = expected.keyAt(i);
+            Object value = expected.get(register);
+            Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
+            String msg = methodDescriptor + ", r" + register + " = " + consensus + "(" + consensus.getClass().getName()
+                            + "), should be " + value + "(" + value.getClass().getName() + ")";
+
+            // Type is "object" so can't use instanceof, but you knew that.
+            if (value.getClass().isArray()) {
+                boolean result = ArrayUtils.isEquals(value, consensus);
+                Assert.assertTrue(msg, result);
+            } else {
+                Assert.assertTrue(msg, value.equals(consensus));
+            }
+        }
+    }
+
+    public static void test(String className, String methodSignature, SparseArray<Object> registerState) {
         BuilderClassDef classDef = classNameToDef.get(className);
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
 

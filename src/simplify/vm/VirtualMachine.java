@@ -98,21 +98,21 @@ public class VirtualMachine {
     }
 
     public ContextGraph execute(String methodDescriptor) {
-        MethodContext mctx = methodDescriptorToInstructionGraph.get(methodDescriptor).getRootContext();
+        MethodContext ctx = methodDescriptorToInstructionGraph.get(methodDescriptor).getRootContext();
 
-        return execute(methodDescriptor, mctx);
+        return execute(methodDescriptor, ctx);
     }
 
-    public ContextGraph execute(String methodDescriptor, MethodContext mctx) {
+    public ContextGraph execute(String methodDescriptor, MethodContext ctx) {
         // Invoking a method (including <init>) is a reason to statically initialize a class.
         staticallyInitializeMethodClassIfNecessary(methodDescriptor);
 
         ContextGraph result = null;
         try {
-            result = methodExecutor.execute(methodDescriptor, mctx);
+            result = methodExecutor.execute(methodDescriptor, ctx);
         } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
             log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor + "\nContext: "
-                            + mctx);
+                            + ctx);
         }
 
         return result;
