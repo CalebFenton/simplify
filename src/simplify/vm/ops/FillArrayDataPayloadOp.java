@@ -44,7 +44,6 @@ public class FillArrayDataPayloadOp extends Op {
             for (int i = 0; i < arrayElements.size(); i++) {
                 Number number = arrayElements.get(i);
                 Object value = getProperValue(number, expectedClass);
-                System.out.println("value is now " + value);
                 Array.set(array, i, value);
             }
             mctx.assignRegister(register, array);

@@ -5,7 +5,6 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
 import org.jf.dexlib2.util.ReferenceUtil;
 
-import simplify.Utils;
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
 
@@ -68,6 +67,11 @@ public class FilledNewArrayOp extends Op {
 
     @Override
     public int[] execute(MethodContext mctx) {
+        /*
+         * The array type is always [I. This only populates the array with values from paramters. It does NOT create
+         * n-dimensional arrays, just the parameter for reflect.Arrays.newInstance(). If you use anything but [I the
+         * code fails verification and a few decompilers (not disassemblers) choke.
+         */
         int[] dimensions = new int[dimensionRegisters.length];
         for (int i = 0; i < dimensionRegisters.length; i++) {
             int register = dimensionRegisters[i];
@@ -75,16 +79,7 @@ public class FilledNewArrayOp extends Op {
             dimensions[i] = dimension;
         }
 
-        Object array = null;
-        try {
-            String outerTypeRef = typeReference.replaceFirst("\\[", "");
-            array = Utils.getArrayInstanceFromSmaliTypeReference(outerTypeRef, dimensions, isLocalClass);
-        } catch (ClassNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-
-        mctx.assignResultRegister(array);
+        mctx.assignResultRegister(dimensions);
 
         return getPossibleChildren();
     }

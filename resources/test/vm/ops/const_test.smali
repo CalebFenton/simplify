@@ -6,8 +6,6 @@
 
     const/4 v0, -0x3
 
-    const/4 v1, 0x7
-
     return-void
 .end method
 
@@ -93,7 +91,7 @@
     return-void
 .end method
 
-.method public static TestConstClassSystem()V
+.method public static TestConstClassRemote()V
     .locals 1
 
     const-class v0, Ljava/lang/Object;
