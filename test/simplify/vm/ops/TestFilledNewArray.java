@@ -16,7 +16,7 @@ public class TestFilledNewArray {
     private static final String CLASS_NAME = "Lfilled_new_array_test;";
 
     @Test
-    public void TestFilledNewArray() {
+    public void TestFilledNewArrayOp() {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 2, 1, 3, 2, 5);
         SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, new int[] { 2, 3,
                         5 });

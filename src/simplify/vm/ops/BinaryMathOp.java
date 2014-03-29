@@ -238,18 +238,15 @@ public class BinaryMathOp extends Op {
         if (instruction instanceof Instruction23x) {
             // add-int vAA, vBB, vCC
             int arg2Register = ((Instruction23x) instruction).getRegisterC();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register,
-                            false);
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register, false);
         } else if (instruction instanceof Instruction12x) {
             // add-int/2addr vAA, vBB
             int arg2Register = ((Instruction12x) instruction).getRegisterB();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register,
-                            false);
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register, false);
         } else if (instruction instanceof Instruction22b) {
             // add-int/lit8 vAA, vBB, #CC
             int arg2Literal = ((Instruction22b) instruction).getNarrowLiteral();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal,
-                            true);
+            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal, true);
         } else if (instruction instanceof Instruction22s) {
             // add-int/lit16 vAA, vBB, #CCCC
             long arg2Literal = ((Instruction22s) instruction).getWideLiteral();
