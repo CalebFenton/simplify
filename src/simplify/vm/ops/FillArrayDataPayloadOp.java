@@ -62,7 +62,6 @@ public class FillArrayDataPayloadOp extends Op {
             value = number.byteValue();
             if (expectedClass == boolean.class) {
                 value = (byte) value == 1 ? true : false;
-                System.out.println("boolean = " + value);
             }
         } else if (klazz == short.class) {
             value = number.shortValue();

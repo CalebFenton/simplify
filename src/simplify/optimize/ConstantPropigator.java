@@ -38,8 +38,8 @@ public class ConstantPropigator {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class,
-                    UnaryMathOp.class, ReturnOp.class, MoveOp.class };
+    private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class, UnaryMathOp.class,
+                    ReturnOp.class, MoveOp.class };
 
     private static int getBitSize(long x) {
         int result = 1;

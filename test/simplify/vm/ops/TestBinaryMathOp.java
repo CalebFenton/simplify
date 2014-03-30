@@ -19,6 +19,15 @@ public class TestBinaryMathOp {
     }
 
     @Test
+    public void TestAddIntFromChar() {
+        // Compiler will actually produce this.
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, "$".charAt(0), 1, 11);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, "$".charAt(0) + 11);
+
+        VMTester.test(CLASS_NAME, "TestAddIntFromChar()V", initial, expected);
+    }
+
+    @Test
     public void TestSubInt() {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, -3, 1, 7);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, -3 - 7);

@@ -128,6 +128,7 @@ public class VirtualMachineContext {
 
         if (result == null) {
             log.warning("r" + register + " is being read but is null, likely a mistake!");
+            Thread.currentThread().dumpStack();
         } else {
             if (currentContext != this) {
                 // Got context from an ancestor. Store a clone to not alter history.

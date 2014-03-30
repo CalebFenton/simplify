@@ -369,6 +369,12 @@ public class BinaryMathOp extends Op {
         // test shifts carefully
         switch (mathOperandType) {
         case INT:
+            if (lhs.getClass() == Character.class) {
+                lhs = (int) (char) lhs;
+            }
+            if (rhs.getClass() == Character.class) {
+                rhs = (int) (char) rhs;
+            }
             result = doOperation(mathOperator, (Integer) lhs, (Integer) rhs);
             break;
         case LONG:

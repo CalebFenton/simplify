@@ -47,7 +47,6 @@ public class APutOp extends Op {
         if (getOpName().endsWith("-wide")) {
             value = (long) value;
         } else if (getOpName().endsWith("-boolean")) {
-            System.out.println("value == " + value);
             value = ((int) value == 1 ? true : false);
         } else if (getOpName().endsWith("-byte")) {
             value = (byte) ((int) value);

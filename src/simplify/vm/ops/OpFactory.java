@@ -34,6 +34,7 @@ public final class OpFactory {
         AGET,
         APUT,
         RETURN,
+        RETURN_VOID,
         SWITCH,
         SWITCH_PAYLOAD,
         UNARY_MATH,
@@ -315,8 +316,11 @@ public final class OpFactory {
         case RETURN:
         case RETURN_WIDE:
         case RETURN_OBJECT:
-        case RETURN_VOID:
             result = OpType.RETURN;
+            break;
+
+        case RETURN_VOID:
+            result = OpType.RETURN_VOID;
             break;
 
         case SGET:
@@ -421,6 +425,9 @@ public final class OpFactory {
             break;
         case RETURN:
             result = ReturnOp.create(instruction, address);
+            break;
+        case RETURN_VOID:
+            result = ReturnVoidOp.create(instruction, address);
             break;
         case UNARY_MATH:
             break;

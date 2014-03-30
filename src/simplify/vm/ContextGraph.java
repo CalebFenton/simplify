@@ -55,7 +55,8 @@ public class ContextGraph implements Iterable {
              * be to make it easier for operations to execute other operations, perhaps looking up by address. This
              * would eliminate the need for MethodContext.pseudoInstructionReturnAddress, and Context's getParent().
              */
-            if (instruction.getOpcode().canContinue() || (instruction.getOpcode() == Opcode.ARRAY_PAYLOAD)) {
+            Opcode op = instruction.getOpcode();
+            if (op.canContinue() || (op == Opcode.ARRAY_PAYLOAD) || op.name.startsWith("goto")) {
                 continue;
             }
             result.add(address);
