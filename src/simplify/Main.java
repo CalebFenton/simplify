@@ -54,7 +54,7 @@ public class Main {
             int sweeps = 0;
             do {
                 if (sweeps >= 1) {
-                    break;
+                    // break;
                 }
 
                 ContextGraph graph = vm.execute(methodDescriptor);

@@ -17,6 +17,7 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Dexifier;
+import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class VMTester {
@@ -57,16 +58,35 @@ public class VMTester {
             int register = expected.keyAt(i);
             Object value = expected.get(register);
             Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
-            String msg = methodDescriptor + ", r" + register + " = " + consensus + "(" + consensus.getClass().getName()
-                            + "), should be " + value + "(" + value.getClass().getName() + ")";
 
+            testEquals(value, consensus, methodDescriptor, register);
+        }
+    }
+
+    private static String getClassName(Object obj) {
+        String result;
+        if (obj == null) {
+            result = "null";
+        } else {
+            result = obj.getClass().getName();
+        }
+        return result;
+    }
+
+    private static void testEquals(Object value, Object consensus, String methodDescriptor, int register) {
+        String msg = methodDescriptor + ", r" + register + " = " + consensus + "(" + getClassName(consensus)
+                        + "), should be " + value + "(" + getClassName(value) + ")";
+
+        if (value == null) {
+            Assert.assertTrue(msg, value == consensus);
+        } else if (value instanceof UnknownValue) {
+            Assert.assertTrue(msg, value.toString().equals(consensus.toString()));
+        } else if (value.getClass().isArray()) {
             // Type is "object" so can't use instanceof, but you knew that.
-            if (value.getClass().isArray()) {
-                boolean result = ArrayUtils.isEquals(value, consensus);
-                Assert.assertTrue(msg, result);
-            } else {
-                Assert.assertTrue(msg, value.equals(consensus));
-            }
+            boolean result = ArrayUtils.isEquals(value, consensus);
+            Assert.assertTrue(msg, result);
+        } else {
+            Assert.assertTrue(msg, value.equals(consensus));
         }
     }
 

@@ -20,7 +20,7 @@ public class TestBinaryMathOp {
 
     @Test
     public void TestAddIntFromChar() {
-        // Compiler will actually produce this.
+        // Compiler will actually produce something like this.
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, "$".charAt(0), 1, 11);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, "$".charAt(0) + 11);
 

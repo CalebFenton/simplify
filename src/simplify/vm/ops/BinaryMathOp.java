@@ -365,8 +365,6 @@ public class BinaryMathOp extends Op {
     private Object getResult(Object lhs, Object rhs) {
         Object result = null;
 
-        // TODO: shifts are different from this : http://source.android.com/devices/tech/dalvik/dalvik-bytecode.html
-        // test shifts carefully
         switch (mathOperandType) {
         case INT:
             if (lhs.getClass() == Character.class) {
