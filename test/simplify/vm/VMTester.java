@@ -44,14 +44,25 @@ public class VMTester {
         }
     }
 
-    public static void test(String className, String methodSignature, SparseArray<Object> initial,
-                    SparseArray<Object> expected) {
+    public static ContextGraph execute(String className, String methodSignature) {
+        return execute(className, methodSignature, new SparseArray<Object>());
+    }
+
+    public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial) {
         BuilderClassDef classDef = classNameToDef.get(className);
         MethodContext ctx = MethodContext.buildFromRegisterState(initial);
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
         String methodDescriptor = className + "->" + methodSignature;
 
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
+
+        return graph;
+    }
+
+    public static void test(String className, String methodSignature, SparseArray<Object> initial,
+                    SparseArray<Object> expected) {
+        String methodDescriptor = className + "->" + methodSignature;
+        ContextGraph graph = execute(className, methodSignature, initial);
 
         TIntList terminalAddresses = graph.getConnectedTerminatingAddresses();
         for (int i = 0; i < expected.size(); i++) {

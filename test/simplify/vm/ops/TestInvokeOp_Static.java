@@ -2,9 +2,12 @@ package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
+import junit.framework.Assert;
+
 import org.junit.Test;
 
 import simplify.Main;
+import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import simplify.vm.types.UnknownValue;
@@ -61,5 +64,12 @@ public class TestInvokeOp_Static {
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, "not mutated");
 
         VMTester.test(CLASS_NAME, "TestKnownImmutableParametersNotMutate()V", initial, expected);
+    }
+
+    @Test
+    public void TestInfiniteRecursionExceedsCallDepth() {
+        ContextGraph graph = VMTester.execute(CLASS_NAME, "TestInfiniteRecursionExceedsCallDepth()V");
+
+        Assert.assertNull(graph);
     }
 }

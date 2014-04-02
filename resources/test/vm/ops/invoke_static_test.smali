@@ -111,7 +111,7 @@
     return-void
 .end method
 
-.method public static TestInfiniteRecursionExceedsCallDepth()V
+.method public static InfiniteRecursionExceedsCallDepth()V
     .locals 0
     invoke-static {}, Linvoke_static_test;->InfiniteRecursionExceedsCallDepth()V
     return-void

@@ -23,5 +23,4 @@ public class TestFilledNewArray {
 
         VMTester.test(CLASS_NAME, "TestFilledNewArray()V", initial, expected);
     }
-
 }

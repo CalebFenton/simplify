@@ -178,8 +178,8 @@ public class InvokeOp extends Op {
     private final VirtualMachine vm;
     private boolean hasSideEffects;
 
-    private InvokeOp(int address, String opName, int childAddress, MethodReference methodReference,
-                    int[] registers, VirtualMachine vm) {
+    private InvokeOp(int address, String opName, int childAddress, MethodReference methodReference, int[] registers,
+                    VirtualMachine vm) {
         super(address, opName, childAddress);
 
         this.methodReference = methodReference;
@@ -192,7 +192,7 @@ public class InvokeOp extends Op {
 
     @Override
     public int[] execute(MethodContext callerContext) {
-        hasSideEffects = true; // assume true for most cases, just to be safe
+        hasSideEffects = true; // assume true to be safe
 
         boolean returnsVoid = returnType.equals("V");
         if (vm.isMethodDefined(methodDescriptor)) {
