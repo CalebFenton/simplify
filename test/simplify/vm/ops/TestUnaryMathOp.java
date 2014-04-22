@@ -24,6 +24,14 @@ public class TestUnaryMathOp {
     }
 
     @Test
+    public void TestNotInt() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x42);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, ~0x42);
+
+        VMTester.test(CLASS_NAME, "TestNotInt()V", initial, expected);
+    }
+
+    @Test
     public void TestNegLong() {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x100L);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, -0x100L);
@@ -33,8 +41,8 @@ public class TestUnaryMathOp {
 
     @Test
     public void TestNotLong() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 100);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, 200);
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 100L);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, ~100L);
 
         VMTester.test(CLASS_NAME, "TestNotLong()V", initial, expected);
     }

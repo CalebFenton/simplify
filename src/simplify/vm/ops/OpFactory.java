@@ -206,6 +206,7 @@ public final class OpFactory {
         case NEG_LONG:
         case NOT_INT:
         case NOT_LONG:
+            result = OpType.UNARY_MATH;
             break;
 
         case FILLED_NEW_ARRAY:
@@ -430,6 +431,7 @@ public final class OpFactory {
             result = ReturnVoidOp.create(instruction, address);
             break;
         case UNARY_MATH:
+            result = UnaryMathOp.create(instruction, address);
             break;
         }
 
