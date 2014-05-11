@@ -1,5 +1,8 @@
 package simplify.vm;
 
+import java.util.HashMap;
+
+import simplify.SmaliClassUtils;
 import util.SparseArray;
 
 public class MethodContext extends VirtualMachineContext {
@@ -30,14 +33,16 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     private int callDepth;
-
     private int parameterCount;
+    private final HashMap<Object, Object> mutatedToOriginalParameter;
 
     public MethodContext(int registerCount, int parameterCount, int callDepth) {
         super(registerCount);
 
         this.parameterCount = parameterCount;
         this.callDepth = callDepth;
+
+        mutatedToOriginalParameter = new HashMap<Object, Object>();
     }
 
     MethodContext(int parameterCount) {
@@ -53,12 +58,19 @@ public class MethodContext extends VirtualMachineContext {
 
         parameterCount = parent.parameterCount;
         callDepth = parent.callDepth;
+        mutatedToOriginalParameter = parent.mutatedToOriginalParameter;
         // pseudoInstructionReturnAddress is expected to remain in parent
     }
 
     public void assignParameter(int parameterIndex, Object value) {
-        // TODO: Maintain parameter-over-clone mappings by intintmaps using hashcode. Use them when updating
-        // non-immutable object parameters after executing local smali method.
+        // The parameter object is never modified directly because each instruction gets a clone. To propagate changes
+        // in mutable object parameters back to the caller, it's necessary to maintain a mapping from the parameter to
+        // any mutations.
+        String smaliClass = SmaliClassUtils.javaClassToSmali(value.getClass().getName());
+        if (!SmaliClassUtils.isImmutableClass(smaliClass)) {
+            mutatedToOriginalParameter.put(value, value);
+        }
+
         pokeRegister(getParameterStart() + parameterIndex, value);
     }
 
@@ -83,12 +95,23 @@ public class MethodContext extends VirtualMachineContext {
         return (int) peekRegister(ReturnAddress);
     }
 
-    public void incrementCallDepth() {
-        callDepth++;
+    public void setCallDepth(int callDepth) {
+        this.callDepth = callDepth;
     }
 
     public Object peekParameter(int parameterIndex) {
         return peekRegister(getParameterStart() + parameterIndex);
+    }
+
+    @Override
+    Object cloneRegisterValue(Object value) {
+        Object result = super.cloneRegisterValue(value);
+        Object original = mutatedToOriginalParameter.get(value);
+        if (original != null) {
+            mutatedToOriginalParameter.put(result, original);
+        }
+
+        return result;
     }
 
     public Object readResultRegister() {
@@ -110,13 +133,10 @@ public class MethodContext extends VirtualMachineContext {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString());
-
         sb.append("\nparameters: ").append(parameterCount).append(", callDepth: ").append(callDepth).append("\n");
-
         if (hasRegister(ResultRegister)) {
             sb.append("result: ").append(registerToString(ResultRegister)).append("\n");
         }
-
         if (hasRegister(ReturnRegister)) {
             sb.append("return: ").append(registerToString(ReturnRegister));
         }

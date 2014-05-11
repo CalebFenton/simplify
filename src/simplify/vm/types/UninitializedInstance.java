@@ -4,19 +4,19 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 
 public class UninitializedInstance implements Type {
 
-    private final String type;
+    private final String smaliType;
 
-    public UninitializedInstance(String type) {
-        this.type = type;
+    public UninitializedInstance(String smaliType) {
+        this.smaliType = smaliType;
     }
 
     public String getType() {
-        return type;
+        return smaliType;
     }
 
     @Override
     public String toString() {
-        return type;
+        return smaliType;
     }
 
     @Override
@@ -31,6 +31,6 @@ public class UninitializedInstance implements Type {
 
         UninitializedInstance rhs = (UninitializedInstance) other;
 
-        return new EqualsBuilder().append(type, rhs.getType()).isEquals();
+        return new EqualsBuilder().append(smaliType, rhs.getType()).isEquals();
     }
 }

@@ -8,10 +8,10 @@ public class LocalInstance implements Type {
 
     private InstanceContext ctx;
 
-    private final String type;
+    private final String smaliType;
 
-    public LocalInstance(String type) {
-        this.type = type;
+    public LocalInstance(String smaliType) {
+        this.smaliType = smaliType;
         ctx = null;
     }
 
@@ -21,7 +21,7 @@ public class LocalInstance implements Type {
     }
 
     public String getType() {
-        return type;
+        return smaliType;
     }
 
     public boolean isInitialized() {
@@ -34,7 +34,7 @@ public class LocalInstance implements Type {
 
     @Override
     public String toString() {
-        return type;
+        return smaliType;
     }
 
     @Override
@@ -49,7 +49,7 @@ public class LocalInstance implements Type {
 
         LocalInstance rhs = (LocalInstance) other;
 
-        return new EqualsBuilder().append(type, rhs.type).append(ctx, rhs.ctx).isEquals();
+        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(ctx, rhs.ctx).isEquals();
     }
 
 }

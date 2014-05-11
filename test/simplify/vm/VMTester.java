@@ -91,6 +91,7 @@ public class VMTester {
         if (value == null) {
             Assert.assertTrue(msg, value == consensus);
         } else if (value instanceof UnknownValue) {
+            // Checking type and value should be enough.
             Assert.assertTrue(msg, value.toString().equals(consensus.toString()));
         } else if (value.getClass().isArray()) {
             // Type is "object" so can't use instanceof, but you knew that.

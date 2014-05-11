@@ -133,7 +133,7 @@ public class VirtualMachineContext {
             if (currentContext != this) {
                 // Got context from an ancestor. Store a clone to not alter history.
                 // Store any identical object references in other registers as the same clone to maintain identity.
-                Object valueClone = cloner.deepClone(result);
+                Object valueClone = cloneRegisterValue(result);
                 registerToValue.put(register, valueClone);
 
                 // Ancestor may have identical registers. Bring those down too.
@@ -155,6 +155,12 @@ public class VirtualMachineContext {
                 }
             }
         }
+
+        return result;
+    }
+
+    Object cloneRegisterValue(Object value) {
+        Object result = cloner.deepClone(value);
 
         return result;
     }

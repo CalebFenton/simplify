@@ -2,19 +2,19 @@ package simplify.vm.types;
 
 public class UnknownValue implements Type {
 
-    private final String type;
+    private final String smaliType;
 
-    public UnknownValue(String type) {
-        this.type = type;
+    public UnknownValue(String smaliType) {
+        this.smaliType = smaliType;
     }
 
     @Override
     public String toString() {
-        return "*unknown*, type=" + type;
+        return "*unknown*, smaliType=" + smaliType;
     }
 
     public String getType() {
-        return type;
+        return smaliType;
     }
 
     @Override

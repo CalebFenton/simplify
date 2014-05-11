@@ -2,12 +2,9 @@ package simplify.vm.ops;
 
 import java.util.logging.Logger;
 
-import junit.framework.Assert;
-
 import org.junit.Test;
 
 import simplify.Main;
-import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import simplify.vm.types.UnknownValue;
@@ -68,8 +65,9 @@ public class TestInvokeOp_Static {
 
     @Test
     public void TestInfiniteRecursionExceedsCallDepth() {
-        ContextGraph graph = VMTester.execute(CLASS_NAME, "TestInfiniteRecursionExceedsCallDepth()V");
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, 0);
 
-        Assert.assertNull(graph);
+        VMTester.test(CLASS_NAME, "TestInfiniteRecursionExceedsCallDepth()V", initial, expected);
     }
 }

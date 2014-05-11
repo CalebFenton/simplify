@@ -8,6 +8,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 import simplify.Main;
 import simplify.vm.MethodContext;
+import simplify.vm.types.UnknownValue;
 
 public class AGetOp extends Op {
 
@@ -43,7 +44,14 @@ public class AGetOp extends Op {
         Object array = mctx.readRegister(arrayRegister);
         int index = (int) mctx.readRegister(indexRegister);
 
-        Object value = Array.get(array, index);
+        Object value = null;
+        if (array instanceof UnknownValue) {
+            // TODO: don't know the type here. not sure how (n>1)-D arrays look and how Array.get() works.
+            value = new UnknownValue("?");
+        } else {
+            value = Array.get(array, index);
+        }
+
         mctx.assignRegister(valueRegister, value);
 
         return getPossibleChildren();

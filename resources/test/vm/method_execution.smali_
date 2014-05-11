@@ -1,0 +1,4 @@
+# have method with no return, should "walk off code area"
+#04-28 18:35:50.832: W/dalvikvm(3445): VFY: execution can walk off end of code area (from 0x4)
+#04-28 18:35:50.832: W/dalvikvm(3445): VFY:  rejected Lcom/widdit/lockScreen/receivers/ChargingReceiver;.gotHere0 ()V
+#04-28 18:35:50.832: W/dalvikvm(3445): Verifier rejected class Lcom/widdit/lockScreen/receivers/ChargingReceiver;

@@ -29,7 +29,7 @@ public class InvokeOp extends Op {
         int offset = 0;
 
         if (!isStatic) {
-            // First register is instance references.
+            // First register is instance reference.
             int register = registers[0];
             Object instance = callerContext.readRegister(register);
             calleeContext.assignParameter(-1, instance);
@@ -38,12 +38,13 @@ public class InvokeOp extends Op {
 
         for (int i = offset; i < registers.length; i++) {
             int register = registers[i];
-            // Passing actual value references since they'll be updated correctly by the JVM.
+            // Pass original value reference, and not a clone. If method is emulated or reflected, it'll be updated in
+            // place. Otherwise, cloning is handled by MethodExecutor.
             Object value = callerContext.readRegister(register);
             calleeContext.assignParameter(i - offset, value);
 
             if (SmaliClassUtils.getValueType(value).equals("J")) {
-                // This register index and the next both refer to this variable.
+                // This register index and the next refer to this variable.
                 i++;
             }
         }
@@ -192,18 +193,23 @@ public class InvokeOp extends Op {
 
     @Override
     public int[] execute(MethodContext callerContext) {
-        hasSideEffects = true; // assume true to be safe
+        /*
+         * Side-effects are things like changing class state or any kind of IO. True implies this call can't be
+         * optimized away without changing behavior. Doing a good job of determining if a method causes side-effects is
+         * tricky. For now, this is only false in a very specific set of circumstances.
+         */
+        hasSideEffects = true;
 
         boolean returnsVoid = returnType.equals("V");
         if (vm.isMethodDefined(methodDescriptor)) {
-            // This is a locally defined method. Execute on the VM.
+            // Locally defined method. Execute on our VM.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
-            calleeContext.incrementCallDepth();
+            calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
             addCalleeParameters(calleeContext, callerContext, registers, getAddress(), isStatic);
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
-                // Problem executing the method. Maybe node visits or call depth exceeded.
+                // Problem executing the method. Maybe node visits or call depth exceeded?
                 log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
                 assumeMaximumUnknown(vm, callerContext, registers, returnType);
 
@@ -229,8 +235,8 @@ public class InvokeOp extends Op {
                 MethodReflector reflector = new MethodReflector(methodReference, isStatic);
                 reflector.reflect(calleeContext); // player play
 
-                // TOOD: investigate better marking of side effects. this is very conservative and depends on reflected
-                // methods not actually having side effects
+                // TOOD: investigate better marking of side effects. This is very conservative and depends on reflected
+                // methods not actually having side effects. Emulated methods could also keep track of this.
                 hasSideEffects = false;
             } else {
                 log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
@@ -278,10 +284,12 @@ public class InvokeOp extends Op {
         if (getOpName().contains("/range")) {
             sb.append("r").append(registers[0]).append(" .. r").append(registers[registers.length - 1]);
         } else {
-            for (int register : registers) {
-                sb.append("r").append(register).append(", ");
+            if (registers.length > 0) {
+                for (int register : registers) {
+                    sb.append("r").append(register).append(", ");
+                }
+                sb.setLength(sb.length() - 2);
             }
-            sb.setLength(sb.length() - 2);
         }
         sb.append("}, ").append(ReferenceUtil.getMethodDescriptor(methodReference));
 
