@@ -7,6 +7,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import simplify.Utils;
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
+import simplify.vm.types.UnknownValue;
 
 public class NewArrayOp extends Op {
 
@@ -45,15 +46,20 @@ public class NewArrayOp extends Op {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        int dimension = (int) mctx.peekRegister(dimensionRegister);
-        Object instance = null;
-        try {
-            instance = Utils.getArrayInstanceFromSmaliTypeReference(typeReference, dimension, isLocalClass);
-        } catch (ClassNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        Object dimensionValue = mctx.peekRegister(dimensionRegister);
 
+        Object instance = null;
+        if (dimensionValue instanceof UnknownValue) {
+            instance = new UnknownValue(typeReference);
+        } else {
+            int dimension = (int) mctx.peekRegister(dimensionRegister);
+            try {
+                instance = Utils.getArrayInstanceFromSmaliTypeReference(typeReference, dimension, isLocalClass);
+            } catch (ClassNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
         mctx.assignRegister(destRegister, instance);
 
         return getPossibleChildren();

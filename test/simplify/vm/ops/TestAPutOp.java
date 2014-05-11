@@ -69,9 +69,18 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutUnkown() {
+    public void TestArrayPutUnkownValue() {
+        // Ideally, setting an element unknown shouldn't set the entire array unknown. See APutOp for more details.
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[1], 1, 0, 2, new UnknownValue("I"));
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new Object[] { new UnknownValue("I") });
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[I"));
+
+        VMTester.test(CLASS_NAME, "TestArrayPut()V", initial, expected);
+    }
+
+    @Test
+    public void TestArrayPutUnkownIndex() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[1], 1, new UnknownValue("I"), 2, 5);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[I"));
 
         VMTester.test(CLASS_NAME, "TestArrayPut()V", initial, expected);
     }

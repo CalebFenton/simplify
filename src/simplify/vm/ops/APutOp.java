@@ -8,6 +8,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 import simplify.Main;
 import simplify.vm.MethodContext;
+import simplify.vm.types.UnknownValue;
 
 public class APutOp extends Op {
 
@@ -42,23 +43,37 @@ public class APutOp extends Op {
     public int[] execute(MethodContext mctx) {
         Object value = mctx.readRegister(valueRegister);
         Object array = mctx.readRegister(arrayRegister);
-        int index = (int) mctx.readRegister(indexRegister);
+        Object indexValue = mctx.readRegister(indexRegister);
 
-        if (getOpName().endsWith("-wide")) {
-            value = (long) value;
-        } else if (getOpName().endsWith("-boolean")) {
-            value = ((int) value == 1 ? true : false);
-        } else if (getOpName().endsWith("-byte")) {
-            value = (byte) ((int) value);
-        } else if (getOpName().endsWith("-char")) {
-            value = (char) ((int) value);
-        } else if (getOpName().endsWith("-short")) {
-            value = (short) ((int) value);
+        // TODO: Adding unknown elements to arrays is very pessimistic. If the value is not known, the entire array
+        // becomes unknown. It's much better (though much harder) to keep track of individual unknown elements. This
+        // requires more robust and complex array handling. After this thing moves past proof of concept, please fix,
+        // future me.
+        if (array instanceof UnknownValue) {
+            // Do nothing. :(
+        } else {
+            if ((value instanceof UnknownValue) || (indexValue instanceof UnknownValue)) {
+                String type = array.getClass().getName();
+                array = new UnknownValue(type);
+            } else {
+                if (getOpName().endsWith("-wide")) {
+                    value = (long) value;
+                } else if (getOpName().endsWith("-boolean")) {
+                    value = ((int) value == 1 ? true : false);
+                } else if (getOpName().endsWith("-byte")) {
+                    value = (byte) ((int) value);
+                } else if (getOpName().endsWith("-char")) {
+                    value = (char) ((int) value);
+                } else if (getOpName().endsWith("-short")) {
+                    value = (short) ((int) value);
+                }
+
+                int index = (int) indexValue;
+                Array.set(array, index, value);
+            }
         }
 
-        Array.set(array, index, value);
-
-        // This is only to let the optimizer know the array was modified.
+        // Let the optimizer know the array was modified.
         mctx.assignRegister(arrayRegister, array);
 
         return getPossibleChildren();

@@ -76,17 +76,25 @@ public class TestAGetOp {
 
     @Test
     public void TestArrayGetUnknownArray() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("[int"), 1, 0);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[int"));
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("[I"), 1, 0);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
         VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
     public void TestArrayGetUnknownElement() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new Object[] { new UnknownValue("int"), 5 },
-                        1, 0);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("int"));
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new Object[] { new UnknownValue("I"), 5 }, 1,
+                        0);
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
+
+        VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
+    }
+
+    @Test
+    public void TestArrayGetUnknownIndex() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x42 }, 1, new UnknownValue("I"));
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
         VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }

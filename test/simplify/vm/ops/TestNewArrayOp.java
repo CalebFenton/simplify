@@ -8,6 +8,7 @@ import simplify.Main;
 import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import simplify.vm.types.LocalInstance;
+import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class TestNewArrayOp {
@@ -20,6 +21,14 @@ public class TestNewArrayOp {
     public void TestNewArrayPrimitive() {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 1);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[1]);
+
+        VMTester.test(CLASS_NAME, "TestNewArrayPrimitive()V", initial, expected);
+    }
+
+    @Test
+    public void TestNewArrayPrimitiveUnkonwnDimension() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[I"));
 
         VMTester.test(CLASS_NAME, "TestNewArrayPrimitive()V", initial, expected);
     }

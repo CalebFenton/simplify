@@ -42,19 +42,37 @@ public class AGetOp extends Op {
     @Override
     public int[] execute(MethodContext mctx) {
         Object array = mctx.readRegister(arrayRegister);
-        int index = (int) mctx.readRegister(indexRegister);
+        Object indexValue = mctx.readRegister(indexRegister);
 
         Object value = null;
         if (array instanceof UnknownValue) {
-            // TODO: don't know the type here. not sure how (n>1)-D arrays look and how Array.get() works.
-            value = new UnknownValue("?");
+            String innerType = getUnknownArrayInnerType((UnknownValue) array);
+            value = new UnknownValue(innerType);
         } else {
-            value = Array.get(array, index);
+            if (indexValue instanceof UnknownValue) {
+                String innerType = array.getClass().getName().replaceFirst("\\[", "");
+                value = new UnknownValue(innerType);
+            } else {
+                int index = (int) indexValue;
+                value = Array.get(array, index);
+            }
         }
 
         mctx.assignRegister(valueRegister, value);
 
         return getPossibleChildren();
+    }
+
+    private static String getUnknownArrayInnerType(UnknownValue array) {
+        String outerType = array.getType();
+        String result = null;
+        if (outerType.equals("?")) {
+            result = "?";
+        } else {
+            result = outerType.replaceFirst("\\[", "");
+        }
+
+        return result;
     }
 
     @Override
