@@ -21,7 +21,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 220D);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 220F);
 
-        VMTester.test(CLASS_NAME, "TestDoubleToFloat()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestDoubleToFloat()V", initial, expected);
     }
 
     @Test
@@ -29,7 +29,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 200D);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 200);
 
-        VMTester.test(CLASS_NAME, "TestDoubleToInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestDoubleToInt()V", initial, expected);
     }
 
     @Test
@@ -37,7 +37,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 210D);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 210L);
 
-        VMTester.test(CLASS_NAME, "TestDoubleToLong()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestDoubleToLong()V", initial, expected);
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 120F);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 120D);
 
-        VMTester.test(CLASS_NAME, "TestFloatToDouble()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestFloatToDouble()V", initial, expected);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 100F);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 100);
 
-        VMTester.test(CLASS_NAME, "TestFloatToInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestFloatToInt()V", initial, expected);
     }
 
     @Test
@@ -61,7 +61,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 110F);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 110L);
 
-        VMTester.test(CLASS_NAME, "TestFloatToLong()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestFloatToLong()V", initial, expected);
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x5);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, (byte) 0x5);
 
-        VMTester.test(CLASS_NAME, "TestIntToByte()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToByte()V", initial, expected);
     }
 
     @Test
@@ -77,7 +77,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x62);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, (char) 0x62);
 
-        VMTester.test(CLASS_NAME, "TestIntToChar()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToChar()V", initial, expected);
     }
 
     @Test
@@ -85,7 +85,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 13);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 13D);
 
-        VMTester.test(CLASS_NAME, "TestIntToDouble()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToDouble()V", initial, expected);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 12);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 12F);
 
-        VMTester.test(CLASS_NAME, "TestIntToFloat()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToFloat()V", initial, expected);
     }
 
     @Test
@@ -101,7 +101,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 11);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 11L);
 
-        VMTester.test(CLASS_NAME, "TestIntToLong()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToLong()V", initial, expected);
     }
 
     @Test
@@ -109,7 +109,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x10);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, (short) 0x10);
 
-        VMTester.test(CLASS_NAME, "TestIntToShort()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToShort()V", initial, expected);
     }
 
     @Test
@@ -117,7 +117,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 23L);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 23D);
 
-        VMTester.test(CLASS_NAME, "TestLongToDouble()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestLongToDouble()V", initial, expected);
     }
 
     @Test
@@ -125,7 +125,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 22L);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 22F);
 
-        VMTester.test(CLASS_NAME, "TestLongToFloat()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestLongToFloat()V", initial, expected);
     }
 
     @Test
@@ -133,7 +133,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 21L);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 21);
 
-        VMTester.test(CLASS_NAME, "TestLongToInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestLongToInt()V", initial, expected);
     }
 
     @Test
@@ -141,7 +141,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 15.1D);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, -15.1D);
 
-        VMTester.test(CLASS_NAME, "TestNegDouble()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNegDouble()V", initial, expected);
     }
 
     @Test
@@ -149,7 +149,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 10.5F);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, -10.5F);
 
-        VMTester.test(CLASS_NAME, "TestNegFloat()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNegFloat()V", initial, expected);
     }
 
     @Test
@@ -157,7 +157,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x42);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, -0x42);
 
-        VMTester.test(CLASS_NAME, "TestNegInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNegInt()V", initial, expected);
     }
 
     @Test
@@ -165,7 +165,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x100L);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, -0x100L);
 
-        VMTester.test(CLASS_NAME, "TestNegLong()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNegLong()V", initial, expected);
     }
 
     @Test
@@ -173,7 +173,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
-        VMTester.test(CLASS_NAME, "TestNegInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNegInt()V", initial, expected);
     }
 
     @Test
@@ -181,7 +181,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x42);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, ~0x42);
 
-        VMTester.test(CLASS_NAME, "TestNotInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNotInt()V", initial, expected);
     }
 
     @Test
@@ -189,7 +189,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 100L);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, ~100L);
 
-        VMTester.test(CLASS_NAME, "TestNotLong()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNotLong()V", initial, expected);
     }
 
     @Test
@@ -197,7 +197,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
-        VMTester.test(CLASS_NAME, "TestNotInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNotInt()V", initial, expected);
     }
 
     @Test
@@ -205,7 +205,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("D"));
 
-        VMTester.test(CLASS_NAME, "TestIntToDouble()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToDouble()V", initial, expected);
     }
 
     @Test
@@ -213,7 +213,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("F"));
 
-        VMTester.test(CLASS_NAME, "TestIntToFloat()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToFloat()V", initial, expected);
     }
 
     @Test
@@ -221,7 +221,7 @@ public class TestUnaryMathOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("J"));
 
-        VMTester.test(CLASS_NAME, "TestIntToLong()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestIntToLong()V", initial, expected);
     }
 
 }

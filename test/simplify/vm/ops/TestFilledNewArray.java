@@ -21,6 +21,6 @@ public class TestFilledNewArray {
         SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, new int[] { 2, 3,
                         5 });
 
-        VMTester.test(CLASS_NAME, "TestFilledNewArray()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestFilledNewArray()V", initial, expected);
     }
 }

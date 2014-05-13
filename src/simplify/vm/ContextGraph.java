@@ -186,7 +186,7 @@ public class ContextGraph implements Iterable {
         List<ContextNode> nodePile = addressToNodePile.get(address);
 
         // If this address was reached during execution there will be clones in the pile.
-        return nodePile.size() > 0;
+        return nodePile.size() > 1;
     }
 
     int getNodeCount() {

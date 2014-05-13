@@ -22,7 +22,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 0x42);
 
-        VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
@@ -30,7 +30,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new boolean[] { true }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, true);
 
-        VMTester.test(CLASS_NAME, "TestArrayGetBoolean()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetBoolean()V", initial, expected);
     }
 
     @Test
@@ -38,7 +38,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new byte[] { 0xe }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, (byte) 0xe);
 
-        VMTester.test(CLASS_NAME, "TestArrayGetByte()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetByte()V", initial, expected);
     }
 
     @Test
@@ -46,7 +46,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new char[] { 'a' }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 'a');
 
-        VMTester.test(CLASS_NAME, "TestArrayGetChar()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetChar()V", initial, expected);
     }
 
     @Test
@@ -55,7 +55,7 @@ public class TestAGetOp {
                         CLASS_NAME) }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
-        VMTester.test(CLASS_NAME, "TestArrayGetObject()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetObject()V", initial, expected);
     }
 
     @Test
@@ -63,7 +63,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new short[] { 0x42 }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, (short) 0x42);
 
-        VMTester.test(CLASS_NAME, "TestArrayGetShort()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetShort()V", initial, expected);
     }
 
     @Test
@@ -71,7 +71,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[1], 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, (new int[1])[0]);
 
-        VMTester.test(CLASS_NAME, "TestArrayGetUninitializedInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetUninitializedInt()V", initial, expected);
     }
 
     @Test
@@ -79,7 +79,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("[I"), 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
-        VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
@@ -88,7 +88,7 @@ public class TestAGetOp {
                         0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
-        VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
@@ -96,7 +96,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x42 }, 1, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("I"));
 
-        VMTester.test(CLASS_NAME, "TestArrayGet()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
@@ -104,7 +104,7 @@ public class TestAGetOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new long[] { 0x10000000000L }, 1, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 0x10000000000L);
 
-        VMTester.test(CLASS_NAME, "TestArrayGetWide()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestArrayGetWide()V", initial, expected);
     }
 
 }

@@ -1,6 +1,7 @@
 package simplify.vm;
 
 import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import junit.framework.Assert;
 
@@ -17,14 +19,15 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplify.Dexifier;
+import simplify.Main;
 import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class VMTester {
 
     private static final String TEST_DIRECTORY = "resources/test/vm";
-
     private static final Map<String, BuilderClassDef> classNameToDef;
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static {
         File testDir = new File(TEST_DIRECTORY);
@@ -59,7 +62,28 @@ public class VMTester {
         return graph;
     }
 
-    public static void test(String className, String methodSignature, SparseArray<Object> initial,
+    public static void testVisitation(String className, String methodSignature, int[] expected) {
+        testVisitation(className, methodSignature, new SparseArray<Object>(), expected);
+    }
+
+    public static void testVisitation(String className, String methodSignature, SparseArray<Object> initial,
+                    int[] expected) {
+        ContextGraph graph = VMTester.execute(className, "TestPackedSwitch()V", initial);
+        TIntList addresses = graph.getAddresses();
+        TIntList expectedVisits = new TIntArrayList(expected);
+        for (int i = 0; i < addresses.size(); i++) {
+            int address = addresses.get(i);
+            if (!graph.wasAddressReached(address)) {
+                continue;
+            }
+            boolean wasExpected = expectedVisits.contains(address);
+            // log.info("visited @" + address);
+            Assert.assertTrue("Address @" + address + " was visited. Expected " + wasExpected, wasExpected);
+        }
+
+    }
+
+    public static void testState(String className, String methodSignature, SparseArray<Object> initial,
                     SparseArray<Object> expected) {
         String methodDescriptor = className + "->" + methodSignature;
         ContextGraph graph = execute(className, methodSignature, initial);
@@ -103,6 +127,6 @@ public class VMTester {
     }
 
     public static void test(String className, String methodSignature, SparseArray<Object> expected) {
-        test(className, methodSignature, new SparseArray<Object>(), expected);
+        testState(className, methodSignature, new SparseArray<Object>(), expected);
     }
 }

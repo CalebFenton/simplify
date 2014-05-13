@@ -70,11 +70,8 @@ public class SwitchPayloadOp extends Op {
             }
         }
 
-        // TODO: Not sure what happens if target is not found. Maybe it continues at next instruction after
-        // original call? Should probably get child address and fall through to next instruction (not hard).
-        log.warning("Switch payload couldn't find target. Didn't know this could happen!");
-
-        return new int[0];
+        // Branch target is unspecified. Switch ops are CAN_CONTINUE, so do that.
+        return new int[] { mctx.getPseudoInstructionReturnAddress() };
     }
 
     @Override

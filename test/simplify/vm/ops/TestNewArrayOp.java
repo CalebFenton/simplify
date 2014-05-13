@@ -22,7 +22,7 @@ public class TestNewArrayOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 1);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[1]);
 
-        VMTester.test(CLASS_NAME, "TestNewArrayPrimitive()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNewArrayPrimitive()V", initial, expected);
     }
 
     @Test
@@ -30,7 +30,7 @@ public class TestNewArrayOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[I"));
 
-        VMTester.test(CLASS_NAME, "TestNewArrayPrimitive()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNewArrayPrimitive()V", initial, expected);
     }
 
     @Test
@@ -38,7 +38,7 @@ public class TestNewArrayOp {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 3);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[3][]);
 
-        VMTester.test(CLASS_NAME, "TestNewArrayPrimitiveMultidimensional()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNewArrayPrimitiveMultidimensional()V", initial, expected);
     }
 
     @Test
@@ -47,7 +47,7 @@ public class TestNewArrayOp {
         LocalInstance[] instances = new LocalInstance[] { new LocalInstance(CLASS_NAME) };
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, instances);
 
-        VMTester.test(CLASS_NAME, "TestNewArrayLocal()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNewArrayLocal()V", initial, expected);
     }
 
     @Test
@@ -56,7 +56,7 @@ public class TestNewArrayOp {
         LocalInstance[][] instances = new LocalInstance[5][];
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, instances);
 
-        VMTester.test(CLASS_NAME, "TestNewArrayLocalMultidimensional()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNewArrayLocalMultidimensional()V", initial, expected);
     }
 
 }

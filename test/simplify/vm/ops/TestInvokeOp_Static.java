@@ -35,7 +35,7 @@ public class TestInvokeOp_Static {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x5);
         SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, 0x5);
 
-        VMTester.test(CLASS_NAME, "TestKnownParametersReturnsInt()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestKnownParametersReturnsInt()V", initial, expected);
     }
 
     @Test
@@ -44,7 +44,7 @@ public class TestInvokeOp_Static {
         SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, new UnknownValue(
                         "I"));
 
-        VMTester.test(CLASS_NAME, "TestUnknownParameterReturnsUnknown()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestUnknownParameterReturnsUnknown()V", initial, expected);
     }
 
     @Test
@@ -52,7 +52,7 @@ public class TestInvokeOp_Static {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x5 });
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[] { 0x0 });
 
-        VMTester.test(CLASS_NAME, "TestKnownMutableParametersMutate()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestKnownMutableParametersMutate()V", initial, expected);
     }
 
     @Test
@@ -60,7 +60,7 @@ public class TestInvokeOp_Static {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, "not mutated");
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, "not mutated");
 
-        VMTester.test(CLASS_NAME, "TestKnownImmutableParametersNotMutate()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestKnownImmutableParametersNotMutate()V", initial, expected);
     }
 
     @Test
@@ -68,6 +68,6 @@ public class TestInvokeOp_Static {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0);
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, 0);
 
-        VMTester.test(CLASS_NAME, "TestInfiniteRecursionExceedsCallDepth()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestInfiniteRecursionExceedsCallDepth()V", initial, expected);
     }
 }
