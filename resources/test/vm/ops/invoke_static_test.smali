@@ -19,11 +19,10 @@
     return-void
 .end method
 
-.method public static TestUnknownParameterReturnsUnknown()V
-    .locals 1
-    # call method with unknown parameters, assert return value is unknown
-    invoke-static {v0}, Linvoke_static_test;->UnknownParametersReturnsInt(I)I
-    return-void
+.method public static TestUnknownParameterReturnsUnknown(I)I
+    .locals 0
+    # Can't execute separate method here because methods are only invoked if all params are known.
+    return p0
 .end method
 
 .method public static TestKnownMutableParametersMutate()V
@@ -53,6 +52,7 @@
     return-void
 .end method
 
+
 # Need proper error handling, and to test private and instance from static
 #.method public static TestPrivateMethodInaccessible()V
 #.end method
@@ -78,12 +78,6 @@
 .end method
 
 .method public static KnownParametersReturnsInt(I)I
-    .locals 0
-
-    return p0
-.end method
-
-.method public static UnknownParameterReturnsUnknown(I)I
     .locals 0
 
     return p0

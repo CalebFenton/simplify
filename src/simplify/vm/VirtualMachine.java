@@ -22,13 +22,20 @@ public class VirtualMachine {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
+    private static int getParameterSize(List<? extends BuilderMethodParameter> parameters) {
+        int result = 0;
+        for (BuilderMethodParameter parameter : parameters) {
+            result += parameter.equals("J") ? 2 : 1;
+        }
+
+        return result;
+    }
+
     private static MethodContext buildRootContext(BuilderMethod method) {
         List<? extends BuilderMethodParameter> parameters = method.getParameters();
         int registerCount = method.getImplementation().getRegisterCount();
-        int parameterCount = parameters.size();
-
+        int parameterCount = getParameterSize(parameters);
         MethodContext result = new MethodContext(registerCount, parameterCount, 0);
-
         boolean isStatic = ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0);
         if (!isStatic) {
             // For instance methods, the instance reference p0 is stored before the first parameter.
@@ -37,7 +44,7 @@ public class VirtualMachine {
         }
 
         // IMPORTANT: Assume all input values are unknown.
-        for (int paramRegister = 0; paramRegister < parameterCount; paramRegister++) {
+        for (int paramRegister = 0; paramRegister < parameters.size(); paramRegister++) {
             BuilderMethodParameter parameter = parameters.get(paramRegister);
             String type = parameter.getType();
             result.assignParameter(paramRegister, new UnknownValue(type));

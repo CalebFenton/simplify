@@ -81,7 +81,7 @@ public class Main {
         dexBuilder.writeTo(new FileDataStore(new File(outputDexFile)));
     }
 
-    private static void setupLogger() {
+    public static void setupLogger() {
         log.setLevel(LOG_LEVEL);
 
         for (Handler handler : Logger.getLogger("").getHandlers()) {

@@ -29,6 +29,7 @@ import simplify.vm.ops.MoveOp;
 import simplify.vm.ops.Op;
 import simplify.vm.ops.ReturnOp;
 import simplify.vm.ops.UnaryMathOp;
+import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class ConstantPropigator {
@@ -170,6 +171,11 @@ public class ConstantPropigator {
             Object consensus = graph.getRegisterConsensus(address, registerA);
             String type = SmaliClassUtils.getValueType(consensus);
             type = getUnboxedType(type);
+
+            if (consensus instanceof UnknownValue) {
+                log.warning("Can't make UnknownValue constant, type=" + type);
+                continue;
+            }
 
             if (!isConstableType(type)) {
                 log.warning("Can't make type constant: " + type);

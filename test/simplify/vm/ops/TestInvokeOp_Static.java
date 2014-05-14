@@ -41,10 +41,10 @@ public class TestInvokeOp_Static {
     @Test
     public void TestUnknownParameterReturnsUnknown() {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
-        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, new UnknownValue(
+        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ReturnRegister, new UnknownValue(
                         "I"));
 
-        VMTester.testState(CLASS_NAME, "TestUnknownParameterReturnsUnknown()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestUnknownParameterReturnsUnknown(I)I", initial, expected);
     }
 
     @Test

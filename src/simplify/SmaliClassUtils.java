@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.ClassUtils;
 
-import simplify.vm.types.LocalInstance;
+import simplify.vm.types.Type;
 
 public class SmaliClassUtils {
 
@@ -66,8 +66,8 @@ public class SmaliClassUtils {
 
     public static String getValueType(Object value) {
         String result = null;
-        if (value instanceof LocalInstance) {
-            result = ((LocalInstance) value).getType();
+        if (value instanceof Type) {
+            result = ((Type) value).getType();
         } else {
             result = value.getClass().getCanonicalName();
         }
