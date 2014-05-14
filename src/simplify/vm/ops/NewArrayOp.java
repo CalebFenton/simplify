@@ -46,13 +46,13 @@ public class NewArrayOp extends Op {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        Object dimensionValue = mctx.peekRegister(dimensionRegister);
+        Object dimensionValue = mctx.readRegister(dimensionRegister);
 
         Object instance = null;
         if (dimensionValue instanceof UnknownValue) {
             instance = new UnknownValue(typeReference);
         } else {
-            int dimension = (int) mctx.peekRegister(dimensionRegister);
+            int dimension = (int) dimensionValue;
             try {
                 instance = Utils.getArrayInstanceFromSmaliTypeReference(typeReference, dimension, isLocalClass);
             } catch (ClassNotFoundException e) {
