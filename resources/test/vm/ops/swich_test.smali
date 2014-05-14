@@ -4,19 +4,30 @@
 .method public static TestPackedSwitch()V
     .locals 1
 
+    # If switch is first op, it masks if offset addresses are calculated correctly.
+    # @0
+    goto :switch
+
+    :switch
+    # @1
     packed-switch v0, :pswitch_data_0
 
+    # @4
     return-void
 
     :pswitch_0
+    # @5
     return-void
 
     :pswitch_1
+    # @6
     return-void
 
     :pswitch_2
+    # @7
     return-void
 
+    # @8
     nop # for alignment
 
     :pswitch_data_0
@@ -30,6 +41,10 @@
 .method public static TestSparseSwitch()V
     .locals 1
 
+    # If switch is first op, it masks if offset addresses are calculated correctly.
+    goto :switch
+
+    :switch
     sparse-switch v0, :sswitch_data_0
 
     return-void

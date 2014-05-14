@@ -45,7 +45,6 @@ public class SwitchOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-
         sb.append(" r").append(register).append(", #").append(getPossibleChildren()[0]);
 
         return sb.toString();
