@@ -24,8 +24,8 @@ public class Main {
 
     private static final Level LOG_LEVEL = Level.FINE;
 
-    private static final int MAX_NODE_VISITS = 1000;
-    private static final int MAX_CALL_DEPTH = 10;
+    private static final int MAX_NODE_VISITS = 20;
+    private static final int MAX_CALL_DEPTH = 3;
 
     public static void main(String[] argv) throws Exception {
         setupLogger();
@@ -69,7 +69,7 @@ public class Main {
                 madeChanges = Simplifier.simplify(dexBuilder, method, graph);
                 if (madeChanges) {
                     // Method implementations will have changed, so prepare to execute this again with the changes.
-                    vm.updateInstructionGraph(method);
+                    vm.updateInstructionGraph(methodDescriptor);
                 }
 
                 sweeps++;

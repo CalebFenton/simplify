@@ -17,6 +17,7 @@ import simplify.SmaliClassUtils;
 import simplify.vm.MethodContext;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.LocalInstance;
+import simplify.vm.types.UnknownValue;
 
 public class ConstOp extends Op {
 
@@ -98,8 +99,9 @@ public class ConstOp extends Op {
             try {
                 result = ClassUtils.getClass(SmaliClassUtils.smaliClassToJava(className));
             } catch (ClassNotFoundException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                result = new UnknownValue(className);
+                // log.warning("Could not find class for const-class: " + className);
+                // e.printStackTrace();
             }
         } else if (constType == ConstType.LOCAL_TYPE) {
             String className = (String) literal;

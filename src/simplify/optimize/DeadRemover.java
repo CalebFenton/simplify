@@ -125,7 +125,13 @@ public class DeadRemover {
 
             // Only invokes will have > 1 assignments, all others will have <= 1
             // All executions of the same instruction should set the same registers
-            TIntList assigned = graph.getNodePile(address).get(0).getContext().getRegistersAssigned();
+            List<ContextNode> pile = graph.getNodePile(address);
+            if (pile.size() < 1) {
+                // TODO: move-exception will have a node pile of 0, why??
+                log.warning("Node pile size is 0. This could be a mistake. Skipping.");
+                continue;
+            }
+            TIntList assigned = pile.get(0).getContext().getRegistersAssigned();
             if (assigned.size() > 0) {
                 log.fine("Read assignments test for: " + handler);
 

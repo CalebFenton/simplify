@@ -5,12 +5,18 @@ import gnu.trove.list.TIntList;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ClassUtils;
 
 import simplify.vm.types.LocalInstance;
 
 public class Utils {
+
+    private static final Pattern ParameterIsolator = Pattern.compile("\\([^\\)]+\\)");
+    private static final Pattern ParameterIndividuator = Pattern.compile("([BCDFIJSZ]|L[^;]+;)");
 
     public static void deDuplicate(TIntList list) {
         for (int i = 0; i < list.size(); i++) {
@@ -116,4 +122,21 @@ public class Utils {
         return typeReference.length() - baseClassName.length();
     }
 
+    public static String[] getParameterTypes(String methodDescriptor) {
+        Matcher m = ParameterIsolator.matcher(methodDescriptor);
+        String[] result = null;
+        if (m.find()) {
+            String params = m.group();
+            m = ParameterIndividuator.matcher(params);
+            List<String> types = new ArrayList<String>();
+            while (m.find()) {
+                types.add(m.group());
+            }
+            result = types.toArray(new String[types.size()]);
+        } else {
+            result = new String[0];
+        }
+
+        return result;
+    }
 }

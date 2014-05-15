@@ -14,6 +14,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import simplify.Main;
 import simplify.MethodReflector;
 import simplify.SmaliClassUtils;
+import simplify.Utils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
@@ -25,7 +26,7 @@ public class InvokeOp extends Op {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static void addCalleeParameters(MethodContext calleeContext, MethodContext callerContext, int[] registers,
-                    int address, boolean isStatic) {
+                    String[] parameterTypes, int address, boolean isStatic) {
         int offset = 0;
 
         if (!isStatic) {
@@ -38,12 +39,20 @@ public class InvokeOp extends Op {
 
         for (int i = offset; i < registers.length; i++) {
             int register = registers[i];
+            int pos = i - offset;
+
+            // Can't trust SmaliClassUtils.getValueType(value) because it may be of an unknown type.
+            String type = parameterTypes[pos];
+
             // Pass original value reference, and not a clone. If method is emulated or reflected, it'll be updated in
             // place. Otherwise, cloning is handled by MethodExecutor.
             Object value = callerContext.readRegister(register);
-            calleeContext.assignParameter(i - offset, value);
+            if (value instanceof UnknownValue) {
+                ((UnknownValue) value).setType(type);
+            }
+            calleeContext.assignParameter(pos, value);
 
-            if (SmaliClassUtils.getValueType(value).equals("J")) {
+            if (type.equals("J")) {
                 // This register index and the next refer to this variable.
                 i++;
             }
@@ -61,22 +70,34 @@ public class InvokeOp extends Op {
         return true;
     }
 
-    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext callerContext, int[] registers,
-                    String returnType) {
+    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext callerContext, boolean isStatic,
+                    int[] registers, String[] parameterTypes, String returnType) {
         for (int i = 0; i < registers.length; i++) {
             int register = registers[i];
-            String className = callerContext.peekRegisterType(register);
-            if (SmaliClassUtils.isImmutableClass(className)) {
-                if (className.equals("J")) {
+
+            // It's ugly. Need better way to handle static / non-static.
+            String type = null;
+            if (!isStatic) {
+                if (i == 0) { // Instance type
+                    type = callerContext.peekRegisterType(register);
+                } else {
+                    type = parameterTypes[i - 1];
+                }
+            } else {
+                type = parameterTypes[i];
+            }
+
+            if (SmaliClassUtils.isImmutableClass(type)) {
+                if (type.equals("J")) {
                     i++;
                 }
 
-                log.fine(className + " is immutable");
+                log.fine(type + " is immutable");
                 continue;
             }
 
-            log.fine(className + " is mutable and passed into strange method, marking unknown");
-            callerContext.pokeRegister(register, new UnknownValue(className));
+            log.fine(type + " is mutable and passed into strange method, marking unknown");
+            callerContext.pokeRegister(register, new UnknownValue(type));
         }
 
         if (!returnType.equals("V")) {
@@ -84,8 +105,8 @@ public class InvokeOp extends Op {
         }
     }
 
-    private static MethodContext buildCalleeContext(MethodContext callerContext, int[] registers, int address,
-                    boolean isStatic) {
+    private static MethodContext buildCalleeContext(MethodContext callerContext, boolean isStatic, int[] registers,
+                    String[] parameterTypes, int address) {
         int parameterCount = registers.length;
         int registerCount = parameterCount;
         int callDepth = callerContext.getCallDepth() + 1;
@@ -95,8 +116,7 @@ public class InvokeOp extends Op {
         }
 
         MethodContext calleeContext = new MethodContext(registerCount, parameterCount, callDepth);
-
-        addCalleeParameters(calleeContext, callerContext, registers, address, isStatic);
+        addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, address, isStatic);
 
         return calleeContext;
     }
@@ -201,17 +221,18 @@ public class InvokeOp extends Op {
         hasSideEffects = true;
 
         boolean returnsVoid = returnType.equals("V");
+        String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
         if (vm.isMethodDefined(methodDescriptor)) {
             // Locally defined method. Execute on our VM.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
             calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
-            addCalleeParameters(calleeContext, callerContext, registers, getAddress(), isStatic);
+            addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, getAddress(), isStatic);
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
                 // Problem executing the method. Maybe node visits or call depth exceeded?
                 log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
-                assumeMaximumUnknown(vm, callerContext, registers, returnType);
+                assumeMaximumUnknown(vm, callerContext, isStatic, registers, parameterTypes, returnType);
 
                 return getPossibleChildren();
             }
@@ -227,7 +248,8 @@ public class InvokeOp extends Op {
                 callerContext.assignResultRegister(consensus);
             }
         } else {
-            MethodContext calleeContext = buildCalleeContext(callerContext, registers, getAddress(), isStatic);
+            MethodContext calleeContext = buildCalleeContext(callerContext, isStatic, registers, parameterTypes,
+                            getAddress());
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
@@ -241,7 +263,7 @@ public class InvokeOp extends Op {
             } else {
                 log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
                                 + ". Propigating ambiguity.");
-                assumeMaximumUnknown(vm, callerContext, registers, returnType);
+                assumeMaximumUnknown(vm, callerContext, isStatic, registers, parameterTypes, returnType);
 
                 return getPossibleChildren();
             }

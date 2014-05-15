@@ -12,9 +12,9 @@ import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
-import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 
 import simplify.Main;
+import simplify.Utils;
 import simplify.vm.types.LocalInstance;
 import simplify.vm.types.UnknownValue;
 
@@ -22,38 +22,7 @@ public class VirtualMachine {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static int getParameterSize(List<? extends BuilderMethodParameter> parameters) {
-        int result = 0;
-        for (BuilderMethodParameter parameter : parameters) {
-            result += parameter.equals("J") ? 2 : 1;
-        }
-
-        return result;
-    }
-
-    private static MethodContext buildRootContext(BuilderMethod method) {
-        List<? extends BuilderMethodParameter> parameters = method.getParameters();
-        int registerCount = method.getImplementation().getRegisterCount();
-        int parameterCount = getParameterSize(parameters);
-        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
-        boolean isStatic = ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0);
-        if (!isStatic) {
-            // For instance methods, the instance reference p0 is stored before the first parameter.
-            String type = method.getDefiningClass();
-            result.pokeRegister(result.getParameterStart() - 1, new LocalInstance(type));
-        }
-
-        // IMPORTANT: Assume all input values are unknown.
-        for (int paramRegister = 0; paramRegister < parameters.size(); paramRegister++) {
-            BuilderMethodParameter parameter = parameters.get(paramRegister);
-            String type = parameter.getType();
-            result.assignParameter(paramRegister, new UnknownValue(type));
-        }
-
-        return result;
-    }
-
-    private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildTryCatchList(
+    private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildMethodDescriptorToTryCatchList(
                     List<BuilderClassDef> classDefs) {
         Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> result = new HashMap<String, List<? extends TryBlock<? extends ExceptionHandler>>>();
 
@@ -68,26 +37,58 @@ public class VirtualMachine {
 
     }
 
+    private static MethodContext buildRootContext(String methodDescriptor, int accessFlags, int registerCount,
+                    String[] parameterTypes) {
+        int parameterCount = getParameterSize(parameterTypes);
+        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
+        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+        if (!isStatic) {
+            // For instance methods, the instance reference p0 is stored before the first parameter.
+            String type = getClassNameFromMethodDescriptor(methodDescriptor);
+            result.pokeRegister(result.getParameterStart() - 1, new LocalInstance(type));
+        }
+
+        // IMPORTANT: Assume all input values are unknown.
+        for (int paramRegister = 0; paramRegister < parameterTypes.length; paramRegister++) {
+            String type = parameterTypes[paramRegister];
+            result.assignParameter(paramRegister, new UnknownValue(type));
+        }
+
+        return result;
+    }
+
     private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
         return methodDescriptor.split("->", 2)[0];
     }
 
+    private static int getParameterSize(String[] parameterTypes) {
+        int result = 0;
+        for (String type : parameterTypes) {
+            result += type.equals("J") ? 2 : 1;
+        }
+
+        return result;
+    }
+
     private final Map<String, ClassContext> classNameToClassContext;
+
     private final List<String> initializedClasses;
+
     private final int maxCallDepth;
+
     private final int maxNodeVisits;
-    private final MethodExecutor methodExecutor;
+    private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
     private final Map<String, ContextGraph> methodDescriptorToInstructionGraph;
-    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodToTryCatchList;
+    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
+    private final MethodExecutor methodExecutor;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;
         this.maxCallDepth = maxCallDepth;
 
-        methodToTryCatchList = buildTryCatchList(classDefs);
-
-        classNameToClassContext = buildNameToClassContext(classDefs);
-
+        methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
+        methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
+        classNameToClassContext = buildClassNameToClassContext(classDefs);
         methodExecutor = new MethodExecutor(this);
 
         // No classes have been initialized yet.
@@ -95,13 +96,6 @@ public class VirtualMachine {
 
         // Build graphs last because that's when handlers are assigned and some handlers access this VM instance.
         methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
-    }
-
-    public void updateInstructionGraph(BuilderMethod method) {
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        ContextGraph graph = new ContextGraph(this, method);
-        graph.setRootContext(buildRootContext(method));
-        methodDescriptorToInstructionGraph.put(methodDescriptor, graph);
     }
 
     public ContextGraph execute(String methodDescriptor) {
@@ -134,8 +128,10 @@ public class VirtualMachine {
         return classNameToClassContext.get(className);
     }
 
-    public boolean isClassDefinedLocally(String className) {
-        return classNameToClassContext.get(className) != null;
+    public ContextGraph getInstructionGraph(String methodDescriptor) {
+        ContextGraph result = new ContextGraph(methodDescriptorToInstructionGraph.get(methodDescriptor));
+
+        return result;
     }
 
     public int getMaxCallDepth() {
@@ -147,11 +143,22 @@ public class VirtualMachine {
     }
 
     public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
-        return methodToTryCatchList;
+        return methodDescriptorToTryCatchList;
+    }
+
+    public boolean isClassDefinedLocally(String className) {
+        return classNameToClassContext.get(className) != null;
     }
 
     public boolean isMethodDefined(String methodDescriptor) {
         return methodDescriptorToInstructionGraph.containsKey(methodDescriptor);
+    }
+
+    public void updateInstructionGraph(String methodDescriptor) {
+        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
+        ContextGraph graph = new ContextGraph(this, method);
+        graph.setRootContext(buildRootContext(methodDescriptor));
+        methodDescriptorToInstructionGraph.put(methodDescriptor, graph);
     }
 
     private ClassContext buildClassContext(ContextGraph graph) {
@@ -160,24 +167,7 @@ public class VirtualMachine {
         return null;
     }
 
-    private Map<String, ContextGraph> buildMethodDescriptorToInstructionGraph(final List<BuilderClassDef> classDefs) {
-        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>(classDefs.size());
-
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                ContextGraph graph = new ContextGraph(this, method);
-
-                graph.setRootContext(buildRootContext(method));
-
-                result.put(methodDescriptor, graph);
-            }
-        }
-
-        return result;
-    }
-
-    private Map<String, ClassContext> buildNameToClassContext(List<BuilderClassDef> classDefs) {
+    private Map<String, ClassContext> buildClassNameToClassContext(List<BuilderClassDef> classDefs) {
         Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
 
         for (BuilderClassDef classDef : classDefs) {
@@ -191,10 +181,45 @@ public class VirtualMachine {
         return result;
     }
 
-    public ContextGraph getInstructionGraph(String methodDescriptor) {
-        ContextGraph result = new ContextGraph(methodDescriptorToInstructionGraph.get(methodDescriptor));
+    private Map<String, BuilderMethod> buildMethodDescriptorToBuilderMethod(List<BuilderClassDef> classDefs) {
+        Map<String, BuilderMethod> result = new HashMap<String, BuilderMethod>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                result.put(methodDescriptor, method);
+            }
+        }
 
         return result;
+    }
+
+    private Map<String, ContextGraph> buildMethodDescriptorToInstructionGraph(final List<BuilderClassDef> classDefs) {
+        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                ContextGraph graph = new ContextGraph(this, method);
+
+                graph.setRootContext(buildRootContext(methodDescriptor));
+
+                result.put(methodDescriptor, graph);
+            }
+        }
+
+        return result;
+    }
+
+    private MethodContext buildRootContext(String methodDescriptor) {
+        BuilderMethod method = getBuilderMethod(methodDescriptor);
+        int accessFlags = method.getAccessFlags();
+        int registerCount = method.getImplementation().getRegisterCount();
+        String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
+
+        return buildRootContext(methodDescriptor, accessFlags, registerCount, parameterTypes);
+    }
+
+    private BuilderMethod getBuilderMethod(String methodDescriptor) {
+        return methodDescriptorToBuilderMethod.get(methodDescriptor);
     }
 
     void staticallyInitializeMethodClassIfNecessary(String methodDescriptor) {
