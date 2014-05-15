@@ -5,6 +5,7 @@ import org.junit.Test;
 import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import simplify.vm.types.LocalInstance;
+import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class TestConstOp {
@@ -44,6 +45,13 @@ public class TestConstOp {
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, Object.class);
 
         VMTester.test(CLASS_NAME, "TestConstClassRemote()V", expected);
+    }
+
+    @Test
+    public void TestConstClassUnknown() {
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("Lunknown/class;"));
+
+        VMTester.test(CLASS_NAME, "TestConstClassUnknown()V", expected);
     }
 
     @Test

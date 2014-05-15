@@ -99,3 +99,11 @@
     return-void
 .end method
 
+.method public static TestConstClassUnknown()V
+    .locals 1
+
+    const-class v0, Lunknown/class;
+
+    return-void
+.end method
+
