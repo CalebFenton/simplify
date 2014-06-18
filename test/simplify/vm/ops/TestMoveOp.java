@@ -38,10 +38,9 @@ public class TestMoveOp {
 
     @Test
     public void TestMoveRegisterObject() {
-        Thread expect = new Thread();
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new Thread());
 
-        // Must invoke VM directly to ensure both registers are identical under "=="
+        // Must invoke VM directly to ensure reference identity
         ContextGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
         TIntList addresses = graph.getConnectedTerminatingAddresses();
         assertTrue("Should terminate when expected: " + addresses + " == {1}",
