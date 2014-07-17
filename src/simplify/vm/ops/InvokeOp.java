@@ -216,7 +216,7 @@ public class InvokeOp extends Op {
         /*
          * Side-effects are things like changing class state or any kind of IO. True implies this call can't be
          * optimized away without changing behavior. Doing a good job of determining if a method causes side-effects is
-         * tricky. For now, this is only false in a very specific set of circumstances.
+         * tricky (impossible?). It's only known to be false for a very specific set of circumstances.
          */
         hasSideEffects = true;
 
@@ -258,7 +258,8 @@ public class InvokeOp extends Op {
                 reflector.reflect(calleeContext); // player play
 
                 // TOOD: investigate better marking of side effects. This is very conservative and depends on reflected
-                // methods not actually having side effects. Emulated methods could also keep track of this.
+                // methods not actually having side effects.
+                // Emulated methods should keep track of this.
                 hasSideEffects = false;
             } else {
                 log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor

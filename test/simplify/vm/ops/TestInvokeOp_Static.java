@@ -12,6 +12,7 @@ import util.SparseArray;
 
 public class TestInvokeOp_Static {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String CLASS_NAME = "Linvoke_static_test;";
@@ -39,12 +40,13 @@ public class TestInvokeOp_Static {
     }
 
     @Test
-    public void TestUnknownParameterReturnsUnknown() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new UnknownValue("I"));
-        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ReturnRegister, new UnknownValue(
-                        "I"));
+    public void TestUnknownMutableParameterIsMutated() {
+        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
+                        "[I"));
+        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[I"), 1, new UnknownValue(
+                        "[I"));
 
-        VMTester.testState(CLASS_NAME, "TestUnknownParameterReturnsUnknown(I)I", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestNonLocalMethodWithUnknownMutableParameterIsMutated()V", initial, expected);
     }
 
     @Test
@@ -52,6 +54,7 @@ public class TestInvokeOp_Static {
         SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x5 });
         SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[] { 0x0 });
 
+        // TODO: This is probably where you left off.
         VMTester.testState(CLASS_NAME, "TestKnownMutableParametersMutate()V", initial, expected);
     }
 

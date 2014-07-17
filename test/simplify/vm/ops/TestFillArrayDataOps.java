@@ -11,6 +11,7 @@ import util.SparseArray;
 
 public class TestFillArrayDataOps {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String CLASS_NAME = "Lfill_array_data_test;";

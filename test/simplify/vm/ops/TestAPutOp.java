@@ -15,6 +15,7 @@ public class TestAPutOp {
 
     private static final String CLASS_NAME = "Laput_test;";
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     @Test

@@ -41,6 +41,7 @@ public final class OpFactory {
         UNIMPLEMENTED
     }
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());;
 
     @SuppressWarnings("incomplete-switch")

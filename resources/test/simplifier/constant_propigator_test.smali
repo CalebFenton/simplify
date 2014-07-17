@@ -26,6 +26,22 @@
     return v0
 .end method
 
+.method public static TestUsedUnknownParameterPropigatesAmbiguity(I)I
+    .locals 1
+
+    const/4 v0, 0x0
+    add-int/2addr v0, v1
+    return v0
+.end method
+
+.method public static TestUnusedUnknownParameterIsIgnored(I)I
+    .locals 1
+
+    const/4 v0, 0x0
+    return v0
+.end method
+
+
 
 .method private static GiveInteger()I
     .locals 1

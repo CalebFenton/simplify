@@ -15,6 +15,7 @@ public class TestAGetOp {
 
     private static final String CLASS_NAME = "Laget_test;";
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     @Test

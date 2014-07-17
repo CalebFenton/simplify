@@ -12,6 +12,7 @@ import simplify.vm.types.UnknownValue;
 
 public class APutOp extends Op {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static APutOp create(Instruction instruction, int address) {

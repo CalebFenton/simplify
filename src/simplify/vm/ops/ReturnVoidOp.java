@@ -9,6 +9,7 @@ import simplify.vm.MethodContext;
 
 public class ReturnVoidOp extends Op {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static ReturnVoidOp create(Instruction instruction, int address) {

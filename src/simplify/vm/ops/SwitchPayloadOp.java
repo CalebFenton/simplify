@@ -23,6 +23,7 @@ public class SwitchPayloadOp extends Op {
         SPARSE
     }
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static int[] determineChildren(List<? extends SwitchElement> switchElements) {

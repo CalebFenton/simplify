@@ -17,6 +17,7 @@ import util.SparseArray;
 
 public class TestMoveOp {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String CLASS_NAME = "Lmove_test;";
@@ -67,4 +68,5 @@ public class TestMoveOp {
 
         VMTester.test(CLASS_NAME, "TestMoveException()V", expected);
     }
+
 }

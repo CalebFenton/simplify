@@ -9,8 +9,9 @@ import util.SparseArray;
 
 public class TestConstantPropigator {
 
-    private static final String CLASS_NAME = "Laget_test;";
+    private static final String CLASS_NAME = "Lconstant_propigator_test;";
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     @Test

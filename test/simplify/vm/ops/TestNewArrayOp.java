@@ -13,6 +13,7 @@ import util.SparseArray;
 
 public class TestNewArrayOp {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String CLASS_NAME = "Lnew_array_test;";

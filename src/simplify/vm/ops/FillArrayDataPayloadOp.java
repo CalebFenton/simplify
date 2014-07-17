@@ -14,6 +14,7 @@ import simplify.vm.types.UnknownValue;
 
 public class FillArrayDataPayloadOp extends Op {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static FillArrayDataPayloadOp create(Instruction instruction, int address) {

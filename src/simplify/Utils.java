@@ -16,7 +16,7 @@ import simplify.vm.types.LocalInstance;
 public class Utils {
 
     private static final Pattern ParameterIsolator = Pattern.compile("\\([^\\)]+\\)");
-    private static final Pattern ParameterIndividuator = Pattern.compile("([BCDFIJSZ]|L[^;]+;)");
+    private static final Pattern ParameterIndividuator = Pattern.compile("(\\[*(?:[BCDFIJSZ]|L[^;]+;))");
 
     public static void deDuplicate(TIntList list) {
         for (int i = 0; i < list.size(); i++) {

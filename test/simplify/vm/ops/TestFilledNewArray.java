@@ -11,6 +11,7 @@ import util.SparseArray;
 
 public class TestFilledNewArray {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String CLASS_NAME = "Lfilled_new_array_test;";

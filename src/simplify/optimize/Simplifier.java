@@ -14,6 +14,7 @@ import util.SparseArray;
 
 public class Simplifier {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public static boolean simplify(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {

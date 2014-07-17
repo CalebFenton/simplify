@@ -14,6 +14,7 @@ public class TestSwitchOp {
 
     private static final String CLASS_NAME = "Lswitch_test;";
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     @Test

@@ -69,7 +69,7 @@ public class SmaliClassUtils {
         if (value instanceof Type) {
             result = ((Type) value).getType();
         } else {
-            result = value.getClass().getCanonicalName();
+            result = value.getClass().getName();
         }
 
         return result;

@@ -21,6 +21,7 @@ import simplify.vm.types.UnknownValue;
 
 public class ConstOp extends Op {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static enum ConstType {

@@ -10,6 +10,7 @@ import simplify.vm.MethodContext;
 
 public class ReturnOp extends Op {
 
+    @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static ReturnOp create(Instruction instruction, int address) {

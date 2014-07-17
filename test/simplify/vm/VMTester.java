@@ -25,9 +25,11 @@ import util.SparseArray;
 
 public class VMTester {
 
+    @SuppressWarnings("unused")
+    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+
     private static final String TEST_DIRECTORY = "resources/test/vm";
     private static final Map<String, BuilderClassDef> classNameToDef;
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     static {
         File testDir = new File(TEST_DIRECTORY);
@@ -118,6 +120,8 @@ public class VMTester {
             // Checking type and value should be enough.
             Assert.assertTrue(msg, value.toString().equals(consensus.toString()));
         } else if (value.getClass().isArray()) {
+            System.out.println("is array, so " + Arrays.toString((int[]) value) + " vs "
+                            + Arrays.toString((int[]) consensus));
             // Type is "object" so can't use instanceof, but you knew that.
             boolean result = ArrayUtils.isEquals(value, consensus);
             Assert.assertTrue(msg, result);

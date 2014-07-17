@@ -21,7 +21,7 @@ import simplify.vm.ops.Op;
 import simplify.vm.ops.OpFactory;
 import simplify.vm.types.UnknownValue;
 
-public class ContextGraph implements Iterable {
+public class ContextGraph implements Iterable<ContextNode> {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
