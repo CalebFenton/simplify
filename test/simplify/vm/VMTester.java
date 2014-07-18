@@ -45,19 +45,29 @@ public class VMTester {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.exit(-1); // should really not happen
+            System.exit(-1); // should really not happen (jinx!)
         }
     }
 
     public static ContextGraph execute(String className, String methodSignature) {
-        return execute(className, methodSignature, new SparseArray<Object>());
+        return execute(className, methodSignature, new SparseArray<Object>(0), new HashMap<String, ClassContext>(0));
     }
 
     public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial) {
+        return execute(className, methodSignature, initial, new HashMap<String, ClassContext>(0));
+    }
+
+    public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial,
+                    Map<String, ClassContext> classNameToContext) {
         BuilderClassDef classDef = classNameToDef.get(className);
-        MethodContext ctx = MethodContext.buildFromRegisterState(initial);
-        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
+        MethodContext ctx = MethodContext.build(initial);
         String methodDescriptor = className + "->" + methodSignature;
+
+        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
+        for (String contextClassName : classNameToContext.keySet()) {
+            ClassContext cctx = classNameToContext.get(contextClassName);
+            vm.setClassContext(contextClassName, cctx);
+        }
 
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
 
@@ -87,8 +97,36 @@ public class VMTester {
 
     public static void testState(String className, String methodSignature, SparseArray<Object> initial,
                     SparseArray<Object> expected) {
+        testState(className, methodSignature, initial, expected, new HashMap<String, ClassContext>(0),
+                        new HashMap<String, ClassContext>(0));
+    }
+
+    public static void testState(String className, String methodSignature, SparseArray<Object> initial,
+                    SparseArray<Object> expected, Map<String, ClassContext> classNameToExpectedContext) {
+        testState(className, methodSignature, initial, expected, new HashMap<String, ClassContext>(0),
+                        classNameToExpectedContext);
+    }
+
+    public static void testState(String className, String methodSignature, SparseArray<Object> expected,
+                    Map<String, ClassContext> classNameToInitialContext) {
+        testState(className, methodSignature, expected, new SparseArray<Object>(0), classNameToInitialContext,
+                        new HashMap<String, ClassContext>(0));
+    }
+
+    public static void testState(String className, String methodSignature, SparseArray<Object> initial,
+                    SparseArray<Object> expected, Map<String, ClassContext> classNameToInitialContext,
+                    Map<String, ClassContext> classNameToExpectedContext) {
+        BuilderClassDef classDef = classNameToDef.get(className);
+        MethodContext ctx = MethodContext.build(initial);
         String methodDescriptor = className + "->" + methodSignature;
-        ContextGraph graph = execute(className, methodSignature, initial);
+
+        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
+        for (String contextClassName : classNameToInitialContext.keySet()) {
+            ClassContext cctx = classNameToInitialContext.get(contextClassName);
+            vm.setClassContext(contextClassName, cctx);
+        }
+
+        ContextGraph graph = vm.execute(methodDescriptor, ctx);
 
         TIntList terminalAddresses = graph.getConnectedTerminatingAddresses();
         for (int i = 0; i < expected.size(); i++) {
@@ -97,6 +135,13 @@ public class VMTester {
             Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
 
             testEquals(value, consensus, methodDescriptor, register);
+        }
+
+        for (String contextClassName : classNameToExpectedContext.keySet()) {
+            ClassContext check = classNameToExpectedContext.get(contextClassName);
+            ClassContext actual = vm.getClassContext(contextClassName);
+
+            Assert.assertTrue(check + " should be " + actual, actual.equals(check));
         }
     }
 
@@ -132,5 +177,34 @@ public class VMTester {
 
     public static void test(String className, String methodSignature, SparseArray<Object> expected) {
         testState(className, methodSignature, new SparseArray<Object>(), expected);
+    }
+
+    public static Map<String, Object> buildFieldToValue(Object... params) {
+        Map<String, Object> result = new HashMap<String, Object>(params.length / 2);
+        for (int i = 0; i < params.length; i += 2) {
+            result.put((String) params[i], params[i + 1]);
+        }
+
+        return result;
+    }
+
+    public static Map<String, ClassContext> buildClassNameToContext(Object... params) {
+        Map<String, ClassContext> result = new HashMap<String, ClassContext>(params.length / 2);
+        for (int i = 0; i < params.length; i += 2) {
+            @SuppressWarnings("unchecked")
+            ClassContext ctx = ClassContext.build((Map<String, Object>) params[i + 1]);
+            result.put((String) params[i], ctx);
+        }
+
+        return result;
+    }
+
+    public static SparseArray<Object> buildRegisterState(Object... params) {
+        SparseArray<Object> result = new SparseArray<Object>(params.length / 2);
+        for (int i = 0; i < params.length; i += 2) {
+            result.append((int) params[i], params[i + 1]);
+        }
+
+        return result;
     }
 }

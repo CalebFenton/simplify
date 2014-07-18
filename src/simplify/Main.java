@@ -47,16 +47,19 @@ public class Main {
 
         VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
 
+        // TODO: investigate sorting methods by implementation size. maybe shorter methods can be optimized more easily
+        // and will speed up optimizations of dependent methods.
         outer: for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+            if (methodDescriptor.endsWith("-><clinit>()V")) {
+                // Static class initialization is called elsewhere, as needed.
+                // TODO: main shouldn't need to know how to do this!
+                continue;
+            }
 
             boolean madeChanges = false;
             int sweeps = 0;
             do {
-                if (sweeps >= 1) {
-                    // break;
-                }
-
                 ContextGraph graph = vm.execute(methodDescriptor);
                 if (graph == null) {
                     log.info("Skipping " + methodDescriptor);
@@ -69,11 +72,13 @@ public class Main {
                 madeChanges = Simplifier.simplify(dexBuilder, method, graph);
                 if (madeChanges) {
                     // Method implementations will have changed, so prepare to execute this again with the changes.
+                    // TODO: this is confusing upon viewing after a while. perhaps graph should mutate and be taken as
+                    // param?
                     vm.updateInstructionGraph(methodDescriptor);
                 }
 
                 sweeps++;
-            } while (madeChanges);
+            } while (madeChanges && (sweeps < 4));
         }
 
         String outputDexFile = "out_simple.dex";

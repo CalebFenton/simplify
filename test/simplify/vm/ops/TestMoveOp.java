@@ -31,15 +31,15 @@ public class TestMoveOp {
 
     @Test
     public void TestMoveRegisterPrimitive() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 42);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, 42, 1, 42);
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, 42);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, 42, 1, 42);
 
         VMTester.testState(CLASS_NAME, "TestMoveRegisterPrimitive()V", initial, expected);
     }
 
     @Test
     public void TestMoveRegisterObject() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new Thread());
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new Thread());
 
         // Must invoke VM directly to ensure reference identity
         ContextGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
@@ -56,15 +56,15 @@ public class TestMoveOp {
 
     @Test
     public void TestMoveResult() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(MethodContext.ResultRegister, 42);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, 42);
+        SparseArray<Object> initial = VMTester.buildRegisterState(MethodContext.ResultRegister, 42);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, 42);
 
         VMTester.testState(CLASS_NAME, "TestMoveResult()V", initial, expected);
     }
 
     @Test
     public void TestMoveException() {
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("Ljava/lang/Exception;"));
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Ljava/lang/Exception;"));
 
         VMTester.test(CLASS_NAME, "TestMoveException()V", expected);
     }

@@ -11,16 +11,7 @@ public class MethodContext extends VirtualMachineContext {
     public static final int ReturnAddress = -3;
     public static final int ReturnRegister = -2;
 
-    public static SparseArray<Object> buildRegisterState(Object... params) {
-        SparseArray<Object> result = new SparseArray<Object>(params.length / 2);
-        for (int i = 0; i < params.length; i += 2) {
-            result.append((int) params[i], params[i + 1]);
-        }
-
-        return result;
-    }
-
-    public static MethodContext buildFromRegisterState(SparseArray<Object> registers) {
+    public static MethodContext build(SparseArray<Object> registers) {
         MethodContext ctx = new MethodContext(registers.size());
         for (int i = 0; i < registers.size(); i++) {
             int register = registers.keyAt(i);

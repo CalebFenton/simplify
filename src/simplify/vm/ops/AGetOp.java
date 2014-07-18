@@ -29,7 +29,6 @@ public class AGetOp extends Op {
 
     private final int arrayRegister;
     private final int indexRegister;
-
     private final int valueRegister;
 
     public AGetOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {

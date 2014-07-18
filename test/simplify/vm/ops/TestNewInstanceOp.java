@@ -5,7 +5,6 @@ import java.util.logging.Logger;
 import org.junit.Test;
 
 import simplify.Main;
-import simplify.vm.MethodContext;
 import simplify.vm.VMTester;
 import simplify.vm.types.LocalInstance;
 import simplify.vm.types.UninitializedInstance;
@@ -20,16 +19,16 @@ public class TestNewInstanceOp {
 
     @Test
     public void TestLocalClass() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 1);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new LocalInstance(CLASS_NAME));
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, 1);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
         VMTester.testState(CLASS_NAME, "TestLocalClass()V", initial, expected);
     }
 
     @Test
     public void TestNonLocalClass() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 1);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UninitializedInstance(
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, 1);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, new UninitializedInstance(
                         "Ljava/lang/Integer;"));
 
         VMTester.testState(CLASS_NAME, "TestNonLocalClass()V", initial, expected);

@@ -19,31 +19,31 @@ public class TestInvokeOp_Static {
 
     @Test
     public void TestNoParametersReturnsVoid() {
-        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, null);
+        SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
 
         VMTester.test(CLASS_NAME, "TestNoParametersReturnsVoid()V", expected);
     }
 
     @Test
     public void TestNoParametersReturnsInt() {
-        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, 0x7);
+        SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
 
         VMTester.test(CLASS_NAME, "TestNoParametersReturnsInt()V", expected);
     }
 
     @Test
     public void TestKnownParametersReturnsInt() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0x5);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, 0x5);
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, 0x5);
+        SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x5);
 
         VMTester.testState(CLASS_NAME, "TestKnownParametersReturnsInt()V", initial, expected);
     }
 
     @Test
     public void TestUnknownMutableParameterIsMutated() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
                         "[I"));
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new UnknownValue("[I"), 1, new UnknownValue(
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1, new UnknownValue(
                         "[I"));
 
         VMTester.testState(CLASS_NAME, "TestNonLocalMethodWithUnknownMutableParameterIsMutated()V", initial, expected);
@@ -51,8 +51,8 @@ public class TestInvokeOp_Static {
 
     @Test
     public void TestKnownMutableParametersMutate() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x5 });
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, new int[] { 0x0 });
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 });
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, new int[] { 0x0 });
 
         // TODO: This is probably where you left off.
         VMTester.testState(CLASS_NAME, "TestKnownMutableParametersMutate()V", initial, expected);
@@ -60,16 +60,16 @@ public class TestInvokeOp_Static {
 
     @Test
     public void TestKnownImmutableParametersNotMutate() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, "not mutated");
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, "not mutated");
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, "not mutated");
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, "not mutated");
 
         VMTester.testState(CLASS_NAME, "TestKnownImmutableParametersNotMutate()V", initial, expected);
     }
 
     @Test
     public void TestInfiniteRecursionExceedsCallDepth() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 0);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, 0);
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, 0);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, 0);
 
         VMTester.testState(CLASS_NAME, "TestInfiniteRecursionExceedsCallDepth()V", initial, expected);
     }

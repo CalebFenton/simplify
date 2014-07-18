@@ -18,8 +18,8 @@ public class TestFilledNewArray {
 
     @Test
     public void TestFilledNewArrayOp() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, 2, 1, 3, 2, 5);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(MethodContext.ResultRegister, new int[] { 2, 3,
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, 2, 1, 3, 2, 5);
+        SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, new int[] { 2, 3,
                         5 });
 
         VMTester.testState(CLASS_NAME, "TestFilledNewArray()V", initial, expected);

@@ -15,7 +15,7 @@
 			<attribute name="javadoc_location" value="jar:platform:/resource/resequencer2/lib/commons-lang3-3.1-javadoc.jar!/"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="lib/dexlib2.jar" sourcepath="/smali/">
+	<classpathentry kind="lib" path="lib/dexlib2.jar" sourcepath="/smali/dexlib2">
 		<attributes>
 			<attribute name="javadoc_location" value="jar:platform:/resource/resequencer2/lib/dexlib2-sources.jar!/"/>
 		</attributes>

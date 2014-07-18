@@ -71,12 +71,10 @@ public class VirtualMachine {
     }
 
     private final Map<String, ClassContext> classNameToClassContext;
-
     private final List<String> initializedClasses;
 
-    private final int maxCallDepth;
-
     private final int maxNodeVisits;
+    private final int maxCallDepth;
     private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
     private final Map<String, ContextGraph> methodDescriptorToInstructionGraph;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
@@ -106,7 +104,8 @@ public class VirtualMachine {
 
     public ContextGraph execute(String methodDescriptor, MethodContext ctx) {
         // Invoking a method (including <init>) is a reason to statically initialize a class.
-        staticallyInitializeMethodClassIfNecessary(methodDescriptor);
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        staticallyInitializeClassIfNecessary(className);
 
         ContextGraph result = null;
         try {
@@ -119,11 +118,13 @@ public class VirtualMachine {
         return result;
     }
 
-    public ClassContext getClassExecutionContext(String methodDescriptor) {
-        // Since this is called for the use or assignment of a class' field, clinit the class
-        staticallyInitializeMethodClassIfNecessary(methodDescriptor);
+    public void setClassContext(String className, ClassContext ctx) {
+        classNameToClassContext.put(className, ctx);
+    }
 
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+    public ClassContext getClassContext(String className) {
+        // Since this is called for the use or assignment of a class' field, clinit the class
+        staticallyInitializeClassIfNecessary(className);
 
         return classNameToClassContext.get(className);
     }
@@ -161,20 +162,13 @@ public class VirtualMachine {
         methodDescriptorToInstructionGraph.put(methodDescriptor, graph);
     }
 
-    private ClassContext buildClassContext(ContextGraph graph) {
-        // graph may be null!
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     private Map<String, ClassContext> buildClassNameToClassContext(List<BuilderClassDef> classDefs) {
         Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
 
         for (BuilderClassDef classDef : classDefs) {
             String className = ReferenceUtil.getReferenceString(classDef);
 
-            // TODO: make sure class context is initialized correctly
-            // class context will need at least as many registers as fields
+            // Context is initialized when it's needed.
             result.put(className, new ClassContext(classDef.getFields().size()));
         }
 
@@ -222,14 +216,13 @@ public class VirtualMachine {
         return methodDescriptorToBuilderMethod.get(methodDescriptor);
     }
 
-    void staticallyInitializeMethodClassIfNecessary(String methodDescriptor) {
+    void staticallyInitializeClassIfNecessary(String className) {
         // This method should be called when a class is first used. A usage is:
         // 1.) The invocation of a method declared by the class (not inherited from a superclass)
         // 2.) The invocation of a constructor of the class (covered by #1)
         // 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
         // that are both static and final, and are initialized by a compile-time constant expression.
 
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
         if (initializedClasses.contains(className)) {
             return;
         }
@@ -237,12 +230,12 @@ public class VirtualMachine {
 
         String clinitDescriptor = className + "-><clinit>()V";
         if (!methodDescriptorToInstructionGraph.containsKey(clinitDescriptor)) {
-            // No clinit for this class
+            // No clinit for this class.
             return;
         }
 
-        // Just need to execute, don't need the resulting graph. Any class member sets will be recorded by the op
-        // handler in the ClassContext.
+        // Just need to execute. Don't need the graph. Any put operations are recorded by op handler in the
+        // ClassContext. Empty contexts were built at VM initialization.
         execute(clinitDescriptor);
     }
 }

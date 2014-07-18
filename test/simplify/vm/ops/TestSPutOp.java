@@ -10,7 +10,7 @@ import simplify.vm.types.LocalInstance;
 import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
-public class TestAPutOp {
+public class TestSPutOp {
 
     private static final String CLASS_NAME = "Laput_test;";
 

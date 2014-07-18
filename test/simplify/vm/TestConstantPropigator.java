@@ -16,8 +16,8 @@ public class TestConstantPropigator {
 
     @Test
     public void TestArrayGet() {
-        SparseArray<Object> initial = MethodContext.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
-        SparseArray<Object> expected = MethodContext.buildRegisterState(0, 0x42);
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, 0x42);
 
         VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
