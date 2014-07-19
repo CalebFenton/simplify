@@ -229,7 +229,7 @@ public class VirtualMachine {
         initializedClasses.add(className);
 
         String clinitDescriptor = className + "-><clinit>()V";
-        if (!methodDescriptorToInstructionGraph.containsKey(clinitDescriptor)) {
+        if (!methodDescriptorToBuilderMethod.containsKey(clinitDescriptor)) {
             // No clinit for this class.
             return;
         }

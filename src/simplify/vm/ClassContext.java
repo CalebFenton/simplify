@@ -7,16 +7,6 @@ public class ClassContext extends VirtualMachineContext {
 
     private final Map<String, Integer> fieldToRegister;
 
-    public static ClassContext build(Map<String, Object> fieldToValue) {
-        ClassContext ctx = new ClassContext(fieldToValue.size());
-        for (String fieldReference : fieldToValue.keySet()) {
-            Object value = fieldToValue.get(fieldReference);
-            ctx.assignField(fieldReference, value);
-        }
-
-        return ctx;
-    }
-
     ClassContext(int fieldCount) {
         super(fieldCount);
 
@@ -53,11 +43,16 @@ public class ClassContext extends VirtualMachineContext {
         assignRegister(register, value);
     }
 
+    public void pokeField(String fieldReference, Object value) {
+        int register = getRegister(fieldReference);
+        pokeRegister(register, value);
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("Fields:\n");
         for (String fieldReference : fieldToRegister.keySet()) {
-            sb.append(fieldReference).append(" = ").append(this.peekField(fieldReference)).append("\n");
+            sb.append(fieldReference).append(" = ").append(peekField(fieldReference)).append("\n");
         }
         sb.setLength(sb.length() - 1);
 

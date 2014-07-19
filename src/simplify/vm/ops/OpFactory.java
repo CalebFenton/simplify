@@ -33,6 +33,8 @@ public final class OpFactory {
         NEW_INSTANCE,
         AGET,
         APUT,
+        SGET,
+        SPUT,
         RETURN,
         RETURN_VOID,
         SWITCH,
@@ -332,6 +334,9 @@ public final class OpFactory {
         case SGET_OBJECT:
         case SGET_SHORT:
         case SGET_WIDE:
+            result = OpType.SGET;
+            break;
+
         case SPUT:
         case SPUT_BOOLEAN:
         case SPUT_BYTE:
@@ -339,6 +344,7 @@ public final class OpFactory {
         case SPUT_OBJECT:
         case SPUT_SHORT:
         case SPUT_WIDE:
+            result = OpType.SPUT;
             break;
 
         case THROW:
@@ -424,6 +430,12 @@ public final class OpFactory {
             break;
         case APUT:
             result = APutOp.create(instruction, address);
+            break;
+        case SGET:
+            result = SGetOp.create(instruction, address, vm);
+            break;
+        case SPUT:
+            result = SPutOp.create(instruction, address, vm);
             break;
         case RETURN:
             result = ReturnOp.create(instruction, address);

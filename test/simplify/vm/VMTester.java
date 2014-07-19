@@ -50,23 +50,28 @@ public class VMTester {
     }
 
     public static ContextGraph execute(String className, String methodSignature) {
-        return execute(className, methodSignature, new SparseArray<Object>(0), new HashMap<String, ClassContext>(0));
+        return execute(className, methodSignature, new SparseArray<Object>(0),
+                        new HashMap<String, Map<String, Object>>(0));
     }
 
     public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial) {
-        return execute(className, methodSignature, initial, new HashMap<String, ClassContext>(0));
+        return execute(className, methodSignature, initial, new HashMap<String, Map<String, Object>>(0));
     }
 
     public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial,
-                    Map<String, ClassContext> classNameToContext) {
+                    Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         BuilderClassDef classDef = classNameToDef.get(className);
         MethodContext ctx = MethodContext.build(initial);
         String methodDescriptor = className + "->" + methodSignature;
 
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
-        for (String contextClassName : classNameToContext.keySet()) {
-            ClassContext cctx = classNameToContext.get(contextClassName);
-            vm.setClassContext(contextClassName, cctx);
+        for (String contextClassName : classNameToInitialFieldValue.keySet()) {
+            ClassContext cctx = vm.getClassContext(contextClassName);
+            Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
+            for (String fieldReference : fieldNameToValue.keySet()) {
+                Object value = fieldNameToValue.get(fieldReference);
+                cctx.pokeField(fieldReference, value);
+            }
         }
 
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
@@ -97,33 +102,47 @@ public class VMTester {
 
     public static void testState(String className, String methodSignature, SparseArray<Object> initial,
                     SparseArray<Object> expected) {
-        testState(className, methodSignature, initial, expected, new HashMap<String, ClassContext>(0),
-                        new HashMap<String, ClassContext>(0));
+        testState(className, methodSignature, initial, expected, new HashMap<String, Map<String, Object>>(0),
+                        new HashMap<String, Map<String, Object>>(0));
+    }
+
+    // public static void testState(String className, String methodSignature, SparseArray<Object> initial,
+    // SparseArray<Object> expected, Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
+    // testState(className, methodSignature, initial, expected, new HashMap<String, Map<String, Object>>(0),
+    // classNameToExpectedFieldValue);
+    // }
+
+    public static void testExpectedMethodState(String className, String methodSignature, SparseArray<Object> expected,
+                    Map<String, Map<String, Object>> classNameToInitialFieldValue) {
+        SparseArray<Object> initial = new SparseArray<Object>(0);
+        Map<String, Map<String, Object>> classNameToExpectedFieldValue = new HashMap<String, Map<String, Object>>(0);
+        testState(className, methodSignature, initial, expected, classNameToInitialFieldValue,
+                        classNameToExpectedFieldValue);
+    }
+
+    public static void testExpectedClassState(String className, String methodSignature, SparseArray<Object> initial,
+                    Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
+        SparseArray<Object> expected = new SparseArray<Object>(0);
+        Map<String, Map<String, Object>> classNameToInitialFieldValue = new HashMap<String, Map<String, Object>>(0);
+        testState(className, methodSignature, initial, expected, classNameToInitialFieldValue,
+                        classNameToExpectedFieldValue);
     }
 
     public static void testState(String className, String methodSignature, SparseArray<Object> initial,
-                    SparseArray<Object> expected, Map<String, ClassContext> classNameToExpectedContext) {
-        testState(className, methodSignature, initial, expected, new HashMap<String, ClassContext>(0),
-                        classNameToExpectedContext);
-    }
-
-    public static void testState(String className, String methodSignature, SparseArray<Object> expected,
-                    Map<String, ClassContext> classNameToInitialContext) {
-        testState(className, methodSignature, expected, new SparseArray<Object>(0), classNameToInitialContext,
-                        new HashMap<String, ClassContext>(0));
-    }
-
-    public static void testState(String className, String methodSignature, SparseArray<Object> initial,
-                    SparseArray<Object> expected, Map<String, ClassContext> classNameToInitialContext,
-                    Map<String, ClassContext> classNameToExpectedContext) {
+                    SparseArray<Object> expected, Map<String, Map<String, Object>> classNameToInitialFieldValue,
+                    Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
         BuilderClassDef classDef = classNameToDef.get(className);
         MethodContext ctx = MethodContext.build(initial);
         String methodDescriptor = className + "->" + methodSignature;
 
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
-        for (String contextClassName : classNameToInitialContext.keySet()) {
-            ClassContext cctx = classNameToInitialContext.get(contextClassName);
-            vm.setClassContext(contextClassName, cctx);
+        for (String contextClassName : classNameToInitialFieldValue.keySet()) {
+            ClassContext cctx = vm.getClassContext(contextClassName);
+            Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
+            for (String fieldReference : fieldNameToValue.keySet()) {
+                Object value = fieldNameToValue.get(fieldReference);
+                cctx.pokeField(fieldReference, value);
+            }
         }
 
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
@@ -137,10 +156,11 @@ public class VMTester {
             testEquals(value, consensus, methodDescriptor, register);
         }
 
-        for (String contextClassName : classNameToExpectedContext.keySet()) {
-            ClassContext check = classNameToExpectedContext.get(contextClassName);
+        for (String contextClassName : classNameToExpectedFieldValue.keySet()) {
+            Map<String, Object> check = classNameToExpectedFieldValue.get(contextClassName);
             ClassContext actual = vm.getClassContext(contextClassName);
 
+            // TODO: enumerate check values against actual.getField() stuff
             Assert.assertTrue(check + " should be " + actual, actual.equals(check));
         }
     }
@@ -188,16 +208,27 @@ public class VMTester {
         return result;
     }
 
-    public static Map<String, ClassContext> buildClassNameToContext(Object... params) {
-        Map<String, ClassContext> result = new HashMap<String, ClassContext>(params.length / 2);
+    public static Map<String, Map<String, Object>> buildClassNameToFieldValue(String className, Object... params) {
+        Map<String, Map<String, Object>> result = new HashMap<String, Map<String, Object>>(1);
+        Map<String, Object> fieldReferenceToValue = new HashMap<String, Object>(params.length / 2);
+        result.put(className, fieldReferenceToValue);
         for (int i = 0; i < params.length; i += 2) {
-            @SuppressWarnings("unchecked")
-            ClassContext ctx = ClassContext.build((Map<String, Object>) params[i + 1]);
-            result.put((String) params[i], ctx);
+            fieldReferenceToValue.put((String) params[i], params[i + 1]);
         }
 
         return result;
     }
+
+    // public static Map<String, ClassContext> buildClassNameToContext(Object... params) {
+    // Map<String, ClassContext> result = new HashMap<String, ClassContext>(params.length / 2);
+    // for (int i = 0; i < params.length; i += 2) {
+    // @SuppressWarnings("unchecked")
+    // ClassContext ctx = ClassContext.build((Map<String, Object>) params[i + 1]);
+    // result.put((String) params[i], ctx);
+    // }
+    //
+    // return result;
+    // }
 
     public static SparseArray<Object> buildRegisterState(Object... params) {
         SparseArray<Object> result = new SparseArray<Object>(params.length / 2);
