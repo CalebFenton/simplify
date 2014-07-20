@@ -11,22 +11,9 @@
 
 .field public static final myFinalInt:I
 
-.method public static <clinit>()V
-    # Test clinit can set final fields
-    .locals 1
-    sput v0, Lsput_test;->myFinalInt:I
-    return-void
-.end method
-
-.method public static TestNonClinitCantSetFinal()V
-    .locals 1
-    sput v0, Lsput_test;->myFinalInt:I
-    return-void
-.end method
-
 .method public static TestStaticPutInt()V
     .locals 1
-    sput v0, Lsput_test;->myFinalInt:I
+    sput v0, Lsput_test;->myInt:I
     return-void
 .end method
 

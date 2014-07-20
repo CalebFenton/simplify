@@ -97,7 +97,8 @@ public class VirtualMachine {
     }
 
     public ContextGraph execute(String methodDescriptor) {
-        MethodContext ctx = methodDescriptorToInstructionGraph.get(methodDescriptor).getRootContext();
+        ContextGraph graph = methodDescriptorToInstructionGraph.get(methodDescriptor);
+        MethodContext ctx = graph.getRootContext();
 
         return execute(methodDescriptor, ctx);
     }

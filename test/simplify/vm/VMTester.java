@@ -160,8 +160,12 @@ public class VMTester {
             Map<String, Object> check = classNameToExpectedFieldValue.get(contextClassName);
             ClassContext actual = vm.getClassContext(contextClassName);
 
-            // TODO: enumerate check values against actual.getField() stuff
-            Assert.assertTrue(check + " should be " + actual, actual.equals(check));
+            for (String fieldReference : check.keySet()) {
+                Object checkValue = check.get(fieldReference);
+                Object actualValue = actual.peekField(fieldReference);
+                Assert.assertTrue(fieldReference + "(" + checkValue + ") should equal " + actualValue,
+                                checkValue.equals(actualValue));
+            }
         }
     }
 
