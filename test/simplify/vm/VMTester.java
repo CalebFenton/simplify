@@ -66,7 +66,7 @@ public class VMTester {
 
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = vm.getClassContext(contextClassName);
+            ClassContext cctx = vm.peekClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
             for (String fieldReference : fieldNameToValue.keySet()) {
                 Object value = fieldNameToValue.get(fieldReference);
@@ -137,7 +137,7 @@ public class VMTester {
 
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = vm.getClassContext(contextClassName);
+            ClassContext cctx = vm.peekClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
             for (String fieldReference : fieldNameToValue.keySet()) {
                 Object value = fieldNameToValue.get(fieldReference);
@@ -158,7 +158,7 @@ public class VMTester {
 
         for (String contextClassName : classNameToExpectedFieldValue.keySet()) {
             Map<String, Object> check = classNameToExpectedFieldValue.get(contextClassName);
-            ClassContext actual = vm.getClassContext(contextClassName);
+            ClassContext actual = vm.peekClassContext(contextClassName);
 
             for (String fieldReference : check.keySet()) {
                 Object checkValue = check.get(fieldReference);
@@ -189,8 +189,6 @@ public class VMTester {
             // Checking type and value should be enough.
             Assert.assertTrue(msg, value.toString().equals(consensus.toString()));
         } else if (value.getClass().isArray()) {
-            System.out.println("is array, so " + Arrays.toString((int[]) value) + " vs "
-                            + Arrays.toString((int[]) consensus));
             // Type is "object" so can't use instanceof, but you knew that.
             boolean result = ArrayUtils.isEquals(value, consensus);
             Assert.assertTrue(msg, result);

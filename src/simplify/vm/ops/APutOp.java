@@ -62,7 +62,7 @@ public class APutOp extends Op {
                 } else if (getOpName().endsWith("-boolean")) {
                     value = ((int) value == 1 ? true : false);
                 } else if (getOpName().endsWith("-byte")) {
-                    value = (byte) ((int) value);
+                    value = (byte) value;
                 } else if (getOpName().endsWith("-char")) {
                     value = (char) ((int) value);
                 } else if (getOpName().endsWith("-short")) {
@@ -83,7 +83,7 @@ public class APutOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-        sb.append(" r").append(valueRegister).append(" r").append(arrayRegister).append(" r").append(indexRegister);
+        sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
 
         return sb.toString();
     }

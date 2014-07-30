@@ -28,7 +28,7 @@ public class SPutOp extends Op {
         String parts[] = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldReference = parts[1];
-        ClassContext classCtx = vm.getClassContext(className);
+        ClassContext classCtx = vm.peekClassContext(className);
 
         return new SPutOp(address, opName, childAddress, destRegister, classCtx, className, fieldReference);
     }

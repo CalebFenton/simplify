@@ -114,6 +114,8 @@ public class VirtualMachine {
         } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
             log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor + "\nContext: "
                             + ctx);
+        } catch (Exception e) {
+            log.warning("Unhandled exception in " + methodDescriptor + ". Skipping!\n" + e);
         }
 
         return result;
@@ -123,10 +125,14 @@ public class VirtualMachine {
         classNameToClassContext.put(className, ctx);
     }
 
-    public ClassContext getClassContext(String className) {
+    public ClassContext readClassContext(String className) {
         // Since this is called for the use or assignment of a class' field, clinit the class
         staticallyInitializeClassIfNecessary(className);
 
+        return peekClassContext(className);
+    }
+
+    public ClassContext peekClassContext(String className) {
         return classNameToClassContext.get(className);
     }
 

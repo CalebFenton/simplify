@@ -54,6 +54,7 @@ public class AGetOp extends Op {
                 value = new UnknownValue(innerType);
             } else {
                 int index = (int) indexValue;
+                // System.out.println("idx=" + index + ", len=" + Array.getLength(array));
                 value = Array.get(array, index);
             }
         }
@@ -78,7 +79,7 @@ public class AGetOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-        sb.append(" r").append(valueRegister).append(" r").append(arrayRegister).append(" r").append(indexRegister);
+        sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
 
         return sb.toString();
     }

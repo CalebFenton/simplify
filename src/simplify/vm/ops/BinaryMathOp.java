@@ -367,11 +367,15 @@ public class BinaryMathOp extends Op {
 
         switch (mathOperandType) {
         case INT:
-            if (lhs.getClass() == Character.class) {
+            if (lhs.getClass().equals(Character.class)) {
                 lhs = (int) (char) lhs;
+            } else if (lhs.getClass().equals(Byte.class)) {
+                lhs = ((Byte) lhs).intValue();
             }
-            if (rhs.getClass() == Character.class) {
+            if (rhs.getClass().equals(Character.class)) {
                 rhs = (int) (char) rhs;
+            } else if (rhs.getClass().equals(Byte.class)) {
+                rhs = ((Byte) rhs).intValue();
             }
             result = doOperation(mathOperator, (Integer) lhs, (Integer) rhs);
             break;

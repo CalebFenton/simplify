@@ -35,7 +35,8 @@ public class TestAPutOp {
 
     @Test
     public void TestArrayPutByte() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, 0xf);
+        Byte b = 0xf;
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, b);
         SparseArray<Object> expected = VMTester.buildRegisterState(0, new byte[] { 0xf });
 
         VMTester.testState(CLASS_NAME, "TestArrayPutByte()V", initial, expected);
@@ -43,8 +44,7 @@ public class TestAPutOp {
 
     @Test
     public void TestArrayPutChar() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, (int) '$'); // get
-                                                                                                            // money.
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, (int) '$');
         SparseArray<Object> expected = VMTester.buildRegisterState(0, new char[] { '$' });
 
         VMTester.testState(CLASS_NAME, "TestArrayPutChar()V", initial, expected);
@@ -52,8 +52,8 @@ public class TestAPutOp {
 
     @Test
     public void TestArrayPutObject() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new LocalInstance[1], 1, 0, 2,
-                        new LocalInstance(CLASS_NAME));
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new LocalInstance[1], 1, 0, 2, new LocalInstance(
+                        CLASS_NAME));
         SparseArray<Object> expected = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
                         CLASS_NAME) });
 

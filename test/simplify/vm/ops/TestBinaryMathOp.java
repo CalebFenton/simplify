@@ -43,12 +43,21 @@ public class TestBinaryMathOp {
     }
 
     @Test
-    public void TestAddIntFromChar() {
+    public void TestAddIntAndByte() {
+        Byte b = 0xf;
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, -3, 1, b);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, 12);
+
+        VMTester.testState(CLASS_NAME, "TestAddInt()V", initial, expected);
+    }
+
+    @Test
+    public void TestAddIntAndChar() {
         // Compiler will actually produce something like this.
         SparseArray<Object> initial = VMTester.buildRegisterState(0, "$".charAt(0), 1, 11);
         SparseArray<Object> expected = VMTester.buildRegisterState(0, "$".charAt(0) + 11);
 
-        VMTester.testState(CLASS_NAME, "TestAddIntFromChar()V", initial, expected);
+        VMTester.testState(CLASS_NAME, "TestAddInt()V", initial, expected);
     }
 
     @Test

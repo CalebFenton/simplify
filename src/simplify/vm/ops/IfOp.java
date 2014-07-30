@@ -85,8 +85,7 @@ public class IfOp extends Op {
             // if-* vA, vB, :label
             Instruction22t instr = (Instruction22t) instruction;
 
-            return new IfOp(address, opName, childAddress, ifType, targetAddress, register1,
-                            instr.getRegisterB());
+            return new IfOp(address, opName, childAddress, ifType, targetAddress, register1, instr.getRegisterB());
         } else {
             // if-*z vA, vB, :label (Instruction 21t)
             return new IfOp(address, opName, childAddress, ifType, targetAddress, register1);
@@ -127,12 +126,23 @@ public class IfOp extends Op {
             B = mctx.readRegister(register2);
         }
 
-        // Ambiguous predicate. Must assume we go down both branches.
+        // Ambiguous predicate. Follow both branches.
         if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
             return getPossibleChildren();
         }
 
-        int cmp = CompareToBuilder.reflectionCompare(A, B);
+        // TODO: test this, arrays have primitive types which break reflected compare
+        // in this case, 0 is not the same type as [B
+        int cmp = Integer.MIN_VALUE;
+        if (compareToZero) {
+            if (A instanceof Number) {
+                cmp = ((Number) A).equals(B) ? 1 : 0;
+            } else {
+                cmp = A == null ? 1 : 0;
+            }
+        } else {
+            cmp = CompareToBuilder.reflectionCompare(A, B);
+        }
         log.finer("IF compare: " + A + " vs " + B + " = " + cmp);
 
         int result = getPossibleChildren()[0];

@@ -4,9 +4,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
@@ -23,6 +25,7 @@ public class Main {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final Level LOG_LEVEL = Level.FINE;
+    // private static final Level LOG_LEVEL = Level.OFF;
 
     private static final int MAX_NODE_VISITS = 20;
     private static final int MAX_CALL_DEPTH = 3;
@@ -62,6 +65,7 @@ public class Main {
             do {
                 ContextGraph graph = vm.execute(methodDescriptor);
                 if (graph == null) {
+                    System.out.println("Skipping " + methodDescriptor);
                     log.info("Skipping " + methodDescriptor);
                     continue outer;
                 }
@@ -88,6 +92,16 @@ public class Main {
 
     public static void setupLogger() {
         log.setLevel(LOG_LEVEL);
+
+        try {
+            SimpleFormatter formatter = new SimpleFormatter();
+            FileHandler fh = new FileHandler("log.txt");
+            fh.setFormatter(formatter);
+            log.addHandler(fh);
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
 
         for (Handler handler : Logger.getLogger("").getHandlers()) {
             handler.setLevel(LOG_LEVEL);

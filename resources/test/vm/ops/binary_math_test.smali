@@ -9,14 +9,6 @@
     return-void
 .end method
 
-.method public static TestAddIntFromChar()V
-    .locals 2
-
-    add-int v0, v0, v1
-
-    return-void
-.end method
-
 .method public static TestSubInt()V
     .locals 2
 

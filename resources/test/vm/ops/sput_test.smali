@@ -9,8 +9,6 @@
 .field public static myChar:C
 .field public static myShort:S
 
-.field public static final myFinalInt:I
-
 .method public static TestStaticPutInt()V
     .locals 1
     sput v0, Lsput_test;->myInt:I
