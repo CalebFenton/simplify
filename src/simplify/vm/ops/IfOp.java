@@ -136,9 +136,10 @@ public class IfOp extends Op {
         int cmp = Integer.MIN_VALUE;
         if (compareToZero) {
             if (A instanceof Number) {
-                cmp = ((Number) A).equals(B) ? 1 : 0;
+                // like other compare methods, 0=no difference, 1=difference
+                cmp = ((Number) A).equals(B) ? 0 : 1;
             } else {
-                cmp = A == null ? 1 : 0;
+                cmp = A == null ? 0 : 1;
             }
         } else {
             cmp = CompareToBuilder.reflectionCompare(A, B);
