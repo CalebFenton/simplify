@@ -66,8 +66,9 @@ public class TestUnaryMathOp {
 
     @Test
     public void TestIntToByte() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, 0x5);
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, (byte) 0x5);
+        Integer val = 128;
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, val);
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, val.byteValue());
 
         VMTester.testState(CLASS_NAME, "TestIntToByte()V", initial, expected);
     }

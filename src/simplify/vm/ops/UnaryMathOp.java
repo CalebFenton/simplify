@@ -118,6 +118,24 @@ public class UnaryMathOp extends Op {
 
     private static String getDestinationTypeName(String opName) {
         String[] parts = opName.split("-");
+        String type = parts[parts.length - 1];
+
+        switch (type) {
+        case "int":
+            return "I";
+        case "long":
+            return "J";
+        case "float":
+            return "F";
+        case "byte":
+            return "B";
+        case "char":
+            return "C";
+        case "double":
+            return "D";
+        case "short":
+            return "S";
+        }
         String result = parts[parts.length - 1];
 
         return result;
