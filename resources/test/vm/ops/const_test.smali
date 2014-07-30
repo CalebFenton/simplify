@@ -17,6 +17,13 @@
     return-void
 .end method
 
+.method public static TestNegativeConst16()V
+    .locals 1
+
+    const/16 v0, -0xf
+
+    return-void
+.end method
 
 .method public static TestConst()V
     .locals 1

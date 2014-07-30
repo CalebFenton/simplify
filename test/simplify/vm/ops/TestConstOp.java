@@ -26,6 +26,13 @@ public class TestConstOp {
     }
 
     @Test
+    public void TestNegativeConst16() {
+        SparseArray<Object> expected = VMTester.buildRegisterState(0, -0xf);
+
+        VMTester.test(CLASS_NAME, "TestNegativeConst16()V", expected);
+    }
+
+    @Test
     public void TestConst4() {
         SparseArray<Object> expected = VMTester.buildRegisterState(0, -3);
 

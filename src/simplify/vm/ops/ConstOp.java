@@ -121,19 +121,31 @@ public class ConstOp extends Op {
         StringBuilder sb = new StringBuilder(getOpName());
 
         sb.append(" r").append(destRegister).append(", ");
+        String val;
         switch (constType) {
         case LOCAL_TYPE:
         case CLASS:
             sb.append(literal);
             break;
         case NARROW:
-            sb.append("0x").append(Integer.toHexString((int) literal));
+            // sb.append("0x").append(Integer.toHexString(Integer.parseInt(literal.toString())));
+            val = Integer.toString((int) literal, 16);
+            if (val.startsWith("-")) {
+                sb.append("-");
+                val = val.substring(1);
+            }
+            sb.append("0x").append(val);
             break;
         case STRING:
             sb.append("\"").append((String) literal).append("\"");
             break;
         case WIDE:
-            sb.append("0x").append(Long.toHexString((long) literal));
+            val = Long.toString((long) literal, 16);
+            if (val.startsWith("-")) {
+                sb.append("-");
+                val = val.substring(1);
+            }
+            sb.append("0x").append(val);
             break;
         default:
             break;
@@ -142,5 +154,4 @@ public class ConstOp extends Op {
 
         return sb.toString();
     }
-
 }
