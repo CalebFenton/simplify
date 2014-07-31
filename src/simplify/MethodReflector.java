@@ -22,6 +22,7 @@ public class MethodReflector {
     private static List<String> SafeMethods;
     static {
         SafeClasses = new ArrayList<String>();
+        SafeClasses.add("Ljava/lang/Object;");
         SafeClasses.add("Ljava/lang/Boolean;");
         SafeClasses.add("Ljava/lang/Byte;");
         SafeClasses.add("Ljava/lang/Character;");
@@ -33,6 +34,7 @@ public class MethodReflector {
         SafeClasses.add("Ljava/lang/Number;");
         SafeClasses.add("Ljava/lang/Short;");
         SafeClasses.add("Ljava/lang/String;");
+        SafeClasses.add("Ljava/lang/System;");
 
         SafeClasses.add("Ljava/lang/StringBuffer;");
         SafeClasses.add("Ljava/lang/StringBuilder;");
@@ -42,6 +44,7 @@ public class MethodReflector {
 
         SafeClasses.add("Ljava/util/Map;");
         SafeClasses.add("Ljava/util/HashMap;");
+        SafeClasses.add("Ljava/util/Hashtable;");
 
         SafeClasses.add("Ljava/util/List;");
         SafeClasses.add("Ljava/util/ArrayList;");
