@@ -149,7 +149,6 @@ public class DeadRemover {
         TIntList nopAddresses = new TIntArrayList(0);
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
-            System.out.println("addy = " + address);
             Op handler = graph.getOpHandler(address);
 
             if (opHasSideEffects(handler)) {
