@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
@@ -61,7 +63,6 @@ public class DeadRemover {
 
     private static List<ContextNode> getChildrenAtAddress(int address, ContextGraph graph) {
         List<ContextNode> result = new ArrayList<ContextNode>();
-
         List<ContextNode> nodePile = graph.getNodePile(address);
         for (ContextNode node : nodePile) {
             result.addAll(node.getChildren());
@@ -94,25 +95,21 @@ public class DeadRemover {
         this.dexBuilder = dexBuilder;
         this.graph = graph;
 
-        MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
-        implementation = impl;
-
-        addressToInstruction = Simplifier.buildAddressToInstruction(impl.getInstructions());
+        implementation = (MutableMethodImplementation) method.getImplementation();
+        addressToInstruction = Simplifier.buildAddressToInstruction(implementation.getInstructions());
         noppedAddresses = new TIntArrayList();
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-
         sb.append("unreachable=").append(unreachableCount).append(", dead=").append(deadCount);
 
         return sb.toString();
     }
 
-    private TIntList getDeadAssignmentAddresses() {
+    private TIntList getDeadAssignmentAddresses(TIntList addresses) {
         TIntList nopAddresses = new TIntArrayList(0);
-        TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             Op handler = graph.getOpHandler(address);
@@ -148,11 +145,11 @@ public class DeadRemover {
         return nopAddresses;
     }
 
-    private TIntList getUnreachedCodeAddresses() {
+    private TIntList getUnreachedCodeAddresses(TIntList addresses) {
         TIntList nopAddresses = new TIntArrayList(0);
-        TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
+            System.out.println("addy = " + address);
             Op handler = graph.getOpHandler(address);
 
             if (opHasSideEffects(handler)) {
@@ -174,9 +171,8 @@ public class DeadRemover {
         return nopAddresses;
     }
 
-    private TIntList getUnusedResultAddresses() {
+    private TIntList getUnusedResultAddresses(TIntList addresses) {
         TIntList nopAddresses = new TIntArrayList(0);
-        TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             Op handler = graph.getOpHandler(address);
@@ -271,18 +267,50 @@ public class DeadRemover {
     }
 
     boolean perform() {
-        TIntList nopAddresses = new TIntArrayList(0);
-
-        nopAddresses.addAll(getUnreachedCodeAddresses());
-
-        nopAddresses.addAll(getDeadAssignmentAddresses());
-
-        nopAddresses.addAll(getUnusedResultAddresses());
+        TIntList validAddresses = getValidAddresses(graph, implementation);
+        TIntList nopAddresses = new TIntArrayList();
+        nopAddresses.addAll(getUnreachedCodeAddresses(validAddresses));
+        nopAddresses.addAll(getDeadAssignmentAddresses(validAddresses));
+        nopAddresses.addAll(getUnusedResultAddresses(validAddresses));
 
         removeInstructions(nopAddresses);
         // nopInstructions(nopAddresses);
         // nopSweep();
 
         return nopAddresses.size() > 0;
+    }
+
+    static TIntList getValidAddresses(ContextGraph graph, MutableMethodImplementation implementation) {
+        TIntList catchAddresses = new TIntArrayList();
+        List<BuilderTryBlock> tryBlocks = implementation.getTryBlocks();
+        for (BuilderTryBlock tryBlock : tryBlocks) {
+            List<? extends BuilderExceptionHandler> exceptionHandlers = tryBlock.getExceptionHandlers();
+            for (BuilderExceptionHandler handler : exceptionHandlers) {
+                int address = handler.getHandlerCodeAddress();
+                catchAddresses.add(address);
+            }
+        }
+
+        TIntList result = new TIntArrayList();
+        boolean inCatch = false;
+        List<BuilderInstruction> instructions = implementation.getInstructions();
+        for (BuilderInstruction instruction : instructions) {
+            MethodLocation location = instruction.getLocation();
+            if (inCatch) {
+                if (location.getLabels().size() > 0) {
+                    inCatch = false;
+                }
+            } else {
+                int address = location.getCodeAddress();
+                if (catchAddresses.contains(address)) {
+                    inCatch = true;
+                    continue;
+                }
+
+                result.add(address);
+            }
+        }
+
+        return result;
     }
 }

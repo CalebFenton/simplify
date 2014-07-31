@@ -12,6 +12,7 @@ import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.vm.MethodContext;
+import simplify.vm.types.UnknownValue;
 
 public class MethodReflector {
 
@@ -115,15 +116,16 @@ public class MethodReflector {
                     log.fine("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeMethod(target, methodName, args);
                 }
-
-                boolean returnsVoid = returnType.equals("V");
-                if (!returnsVoid) {
-                    calleeContext.assignReturnRegister(result);
-                }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
                         | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            result = new UnknownValue(returnType);
             e.printStackTrace();
+        }
+
+        boolean returnsVoid = returnType.equals("V");
+        if (!returnsVoid) {
+            calleeContext.assignReturnRegister(result);
         }
     }
 

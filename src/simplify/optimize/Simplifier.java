@@ -24,12 +24,16 @@ public class Simplifier {
         System.out.println("Simplifying " + methodDescriptor);
 
         ConstantPropigator propigator = new ConstantPropigator(dexBuilder, method, graph);
-        madeChanges |= propigator.perform();
+        madeChanges = propigator.perform();
+        System.out.println("Optimizations: " + propigator.toString());
 
-        DeadRemover remover = new DeadRemover(dexBuilder, method, graph);
-        madeChanges |= remover.perform();
-
-        System.out.println("Optimizations: " + propigator.toString() + ", " + remover.toString());
+        if (!madeChanges) {
+            // Constant propagation unsyncs graph from implementation by inserting instructions in the latter.
+            // Keeping in sync would require updating a structure in graph, but also all of the op handlers.
+            DeadRemover remover = new DeadRemover(dexBuilder, method, graph);
+            madeChanges = remover.perform();
+            System.out.println("Optimizations: " + remover.toString());
+        }
 
         return madeChanges;
     }

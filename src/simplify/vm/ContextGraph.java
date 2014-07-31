@@ -166,7 +166,10 @@ public class ContextGraph implements Iterable<ContextNode> {
     }
 
     public Op getOpHandler(int address) {
-        return addressToNodePile.get(address).get(0).getHandler();
+        List<ContextNode> pile = addressToNodePile.get(address);
+        ContextNode bottomNode = pile.get(0);
+
+        return bottomNode.getHandler();
     }
 
     public MethodContext getRootContext() {

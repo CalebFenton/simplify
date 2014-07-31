@@ -27,7 +27,7 @@ public class Main {
     private static final Level LOG_LEVEL = Level.FINE;
     // private static final Level LOG_LEVEL = Level.OFF;
 
-    private static final int MAX_NODE_VISITS = 20;
+    private static final int MAX_NODE_VISITS = 30;
     private static final int MAX_CALL_DEPTH = 3;
 
     public static void main(String[] argv) throws Exception {
