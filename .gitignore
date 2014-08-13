@@ -17,3 +17,4 @@ tmp/**/*
 *~.nib
 local.properties
 .loadpath
+/bin/
