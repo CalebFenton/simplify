@@ -35,4 +35,8 @@ public abstract class Op {
         return childAddresses;
     }
 
+    public boolean hasSideEffects() {
+        return false;
+    }
+
 }

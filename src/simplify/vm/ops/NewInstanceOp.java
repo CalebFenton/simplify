@@ -27,8 +27,7 @@ public class NewInstanceOp extends Op {
     private final String className;
     private final VirtualMachine vm;
 
-    NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className,
-                    VirtualMachine vm) {
+    NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className, VirtualMachine vm) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
@@ -39,6 +38,8 @@ public class NewInstanceOp extends Op {
     @Override
     public int[] execute(MethodContext mctx) {
         Object instance = null;
+        // TODO: this should also execute clinit of the class
+        // take into consideration which classes are whitelisted!
         if (vm.isClassDefinedLocally(className)) {
             instance = new LocalInstance(className);
         } else {
@@ -48,6 +49,12 @@ public class NewInstanceOp extends Op {
         mctx.assignRegister(destRegister, instance);
 
         return getPossibleChildren();
+    }
+
+    @Override
+    public boolean hasSideEffects() {
+        // TODO: fix this!
+        return true;
     }
 
     @Override

@@ -51,8 +51,8 @@ public class TestAGetOp {
 
     @Test
     public void TestArrayGetObject() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
-                        CLASS_NAME) }, 1, 0);
+        SparseArray<Object> initial = VMTester.buildRegisterState(0,
+                        new LocalInstance[] { new LocalInstance(CLASS_NAME) }, 1, 0);
         SparseArray<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
         VMTester.testState(CLASS_NAME, "TestArrayGetObject()V", initial, expected);
@@ -84,8 +84,7 @@ public class TestAGetOp {
 
     @Test
     public void TestArrayGetUnknownElement() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new Object[] { new UnknownValue("I"), 5 }, 1,
-                        0);
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new Object[] { new UnknownValue("I"), 5 }, 1, 0);
         SparseArray<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
         VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);

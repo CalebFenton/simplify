@@ -1,5 +1,6 @@
 package simplify.vm;
 
+import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 
@@ -11,12 +12,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import junit.framework.Assert;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
+import org.junit.Assert;
 
 import simplify.Dexifier;
 import simplify.Main;
@@ -29,24 +29,34 @@ public class VMTester {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final String TEST_DIRECTORY = "resources/test/vm";
-    private static final Map<String, BuilderClassDef> classNameToDef;
+    private static final int MAX_NODE_VISITS = 100;
+    private static final int MAX_CALL_DEPTH = 10;
 
-    static {
+    private static final Map<String, BuilderClassDef> classNameToDef = getClassNameToBuilderClassDef();
+
+    public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef() {
+        return getClassNameToBuilderClassDef(TEST_DIRECTORY);
+    }
+
+    public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef(String path) {
         File testDir = new File(TEST_DIRECTORY);
         String[] extensions = new String[] { "smali" };
         List<File> smaliFiles = new ArrayList<File>(FileUtils.listFiles(testDir, extensions, true));
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
-        classNameToDef = new HashMap<String, BuilderClassDef>();
+        Map<String, BuilderClassDef> result = new HashMap<String, BuilderClassDef>();
+        List<BuilderClassDef> classDefs;
         try {
-            List<BuilderClassDef> classDefs = Dexifier.dexifySmaliFiles(smaliFiles, dexBuilder);
+            classDefs = Dexifier.dexifySmaliFiles(smaliFiles, dexBuilder);
             for (BuilderClassDef classDef : classDefs) {
-                classNameToDef.put(classDef.getType(), classDef);
+                result.put(classDef.getType(), classDef);
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.exit(-1); // should really not happen (jinx!)
+            System.exit(-1); // do not pass go, do not collect 200 monies
         }
+
+        return result;
     }
 
     public static ContextGraph execute(String className, String methodSignature) {
@@ -95,7 +105,7 @@ public class VMTester {
             }
             boolean wasExpected = expectedVisits.contains(address);
             // log.info("visited @" + address);
-            Assert.assertTrue("Address @" + address + " was visited. Expected " + wasExpected, wasExpected);
+            assertTrue("Address @" + address + " was visited. Expected " + wasExpected, wasExpected);
         }
 
     }
@@ -135,7 +145,7 @@ public class VMTester {
         MethodContext ctx = MethodContext.build(initial);
         String methodDescriptor = className + "->" + methodSignature;
 
-        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
+        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), MAX_NODE_VISITS, MAX_CALL_DEPTH);
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
             ClassContext cctx = vm.peekClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);

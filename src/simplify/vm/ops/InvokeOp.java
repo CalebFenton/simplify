@@ -295,6 +295,7 @@ public class InvokeOp extends Op {
         return returnType;
     }
 
+    @Override
     public boolean hasSideEffects() {
         return hasSideEffects;
     }

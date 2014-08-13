@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.AccessFlags;
@@ -217,6 +218,10 @@ public class VirtualMachine {
         String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
 
         return buildRootContext(methodDescriptor, accessFlags, registerCount, parameterTypes);
+    }
+
+    public Set<String> getMethodDescriptors() {
+        return methodDescriptorToBuilderMethod.keySet();
     }
 
     private BuilderMethod getBuilderMethod(String methodDescriptor) {

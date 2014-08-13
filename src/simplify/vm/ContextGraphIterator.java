@@ -4,7 +4,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 
-public class ContextGraphIterator implements Iterator<ContextNode> {
+class ContextGraphIterator implements Iterator<ContextNode> {
     private final Deque<ContextNode> stack;
 
     ContextGraphIterator(ContextGraph graph) {
@@ -24,10 +24,7 @@ public class ContextGraphIterator implements Iterator<ContextNode> {
     @Override
     public ContextNode next() {
         ContextNode result = stack.poll();
-
-        for (ContextNode child : result.getChildren()) {
-            stack.push(child);
-        }
+        stack.addAll(result.getChildren());
 
         return result;
     }
