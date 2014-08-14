@@ -1,4 +1,4 @@
-.class Lweak_side_effects;
+.class Lweak_side_effect;
 .super Ljava/lang/Object;
 
 .field public static stringAccessedByThread:Ljava/lang/String;
@@ -9,7 +9,7 @@
   .locals 1
 
   const-string v0, "nothing to see here"
-  sput v0, Lweak_side_effects;->stringAccessedByThread:Ljava/lang/String;
+  sput-object v0, Lweak_side_effect;->stringAccessedByThread:Ljava/lang/String;
 
   return-void
 .end method

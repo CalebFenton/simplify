@@ -152,6 +152,22 @@ public class ContextGraph implements Iterable<ContextNode> {
         return value;
     }
 
+    public SideEffect.Type getStrongestSideEffectType() {
+        SideEffect.Type result = SideEffect.Type.NONE;
+        for (ContextNode node : this) {
+            SideEffect.Type type = node.getOpHandler().sideEffectType();
+            switch (type) {
+            case STRONG:
+                return type;
+            case WEAK:
+                result = type;
+                break;
+            }
+        }
+
+        return result;
+    }
+
     public String getMethodDescriptor() {
         return methodDescriptor;
     }
@@ -169,7 +185,7 @@ public class ContextGraph implements Iterable<ContextNode> {
         List<ContextNode> pile = addressToNodePile.get(address);
         ContextNode bottomNode = pile.get(0);
 
-        return bottomNode.getHandler();
+        return bottomNode.getOpHandler();
     }
 
     public MethodContext getRootContext() {

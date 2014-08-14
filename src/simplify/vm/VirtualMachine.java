@@ -72,6 +72,7 @@ public class VirtualMachine {
     }
 
     private final Map<String, ClassContext> classNameToClassContext;
+    private final Map<String, SideEffect.Type> classNameToSideEffectType;
     private final List<String> initializedClasses;
 
     private final int maxNodeVisits;
@@ -88,6 +89,11 @@ public class VirtualMachine {
         methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
         methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
         classNameToClassContext = buildClassNameToClassContext(classDefs);
+        classNameToSideEffectType = new HashMap<String, SideEffect.Type>(classNameToClassContext.size());
+        for (String className : classNameToClassContext.keySet()) {
+            classNameToSideEffectType.put(className, SideEffect.Type.NONE);
+        }
+
         methodExecutor = new MethodExecutor(this);
 
         // No classes have been initialized yet.
@@ -117,6 +123,7 @@ public class VirtualMachine {
                             + ctx);
         } catch (Exception e) {
             log.warning("Unhandled exception in " + methodDescriptor + ". Skipping!\n" + e);
+            e.printStackTrace();
         }
 
         return result;
@@ -228,7 +235,11 @@ public class VirtualMachine {
         return methodDescriptorToBuilderMethod.get(methodDescriptor);
     }
 
-    void staticallyInitializeClassIfNecessary(String className) {
+    public SideEffect.Type getClassStaticInitializerSideEffectType(String className) {
+        return classNameToSideEffectType.get(className);
+    }
+
+    public void staticallyInitializeClassIfNecessary(String className) {
         // This method should be called when a class is first used. A usage is:
         // 1.) The invocation of a method declared by the class (not inherited from a superclass)
         // 2.) The invocation of a constructor of the class (covered by #1)
@@ -241,13 +252,18 @@ public class VirtualMachine {
         initializedClasses.add(className);
 
         String clinitDescriptor = className + "-><clinit>()V";
-        if (!methodDescriptorToBuilderMethod.containsKey(clinitDescriptor)) {
+        if (methodDescriptorToBuilderMethod.containsKey(clinitDescriptor)) {
+            // Any sput's recorded by op handler in ClassContext. Empty contexts built at VM initialization.
+            ContextGraph graph = execute(clinitDescriptor);
+            if (graph == null) {
+                // Error executing. Assume the worst.
+                classNameToSideEffectType.put(className, SideEffect.Type.STRONG);
+            } else {
+                SideEffect.Type sideEffectType = graph.getStrongestSideEffectType();
+                classNameToSideEffectType.put(className, sideEffectType);
+            }
+        } else {
             // No clinit for this class.
-            return;
         }
-
-        // Just need to execute. Don't need the graph. Any put operations are recorded by op handler in the
-        // ClassContext. Empty contexts were built at VM initialization.
-        execute(clinitDescriptor);
     }
 }

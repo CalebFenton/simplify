@@ -1,4 +1,4 @@
-.class Lstrong_side_effects;
+.class Lstrong_side_effect;
 .super Ljava/lang/Object;
 
 # Writes malbytes to secretFile. Any IO is strong side effect.

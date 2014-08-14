@@ -24,7 +24,39 @@
   const-wide/high16 v0, 0x4242000000000000L
   const-string v0, "When I need to identify rebels, I look for men with principles"
   const-string/jumbo v0, "When I need to identify JUMBO rebels, I look for JUMBO men with JUMBO principles"
-  const-class v0, Lmethod_side_effects;
+  const-class v0, Lmethod_side_effects_test;
+
+  return-void
+.end method
+
+.method public static InvokeWhitelistedMethods()V
+  .locals 2
+
+  new-instance v0, Ljava/lang/StringBuilder;
+  const-string v1, "init with me plz plz"
+  invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+  const-string v1, "append me plz"
+  invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+  move-result-object v0
+
+  invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+  return-void
+  #move-result-object v1
+  #return-object v1
+.end method
+
+.method public static InvokeMethodWithNoSideEffects()V
+  .locals 0
+
+  invoke-static {}, Lmethod_side_effects_test;->ConstOps()V
+  return-void
+.end method
+
+.method public static NewInstanceNonLocalWhitelistedClass()V
+  .locals 1
+
+  new-instance v0, Ljava/lang/StringBuilder;
 
   return-void
 .end method
@@ -32,7 +64,7 @@
 .method public static NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V
   .locals 1
 
-  new-instance v0, Lno_side_effects;
+  new-instance v0, Lmethod_side_effects_test;
 
   return-void
 .end method
@@ -40,7 +72,7 @@
 .method public static NewInstanceOfMethodWithNoStaticInitializer()V
   .locals 1
 
-  new-instance v0, Lmethod_side_effects;
+  new-instance v0, Lmethod_side_effects_test;
 
   return-void
 .end method
@@ -65,7 +97,7 @@
 .method public static InvokeSideEffectMethod(Ljava/lang/OutputStream;[B)V
   .locals 0
 
-  invoke-static {p0, p1}, Lmethod_side_effects;->WriteOutputStream(Ljava/lang/OutputStream;[B)V
+  invoke-static {p0, p1}, Lmethod_side_effects_test;->WriteOutputStream(Ljava/lang/OutputStream;[B)V
 
   return-void
 .end method
@@ -78,18 +110,18 @@
   return-void
 .end method
 
-.method public static NewInstanceOfMethodWithStaticInitializerWithStrongSideEffects()V
+.method public static NewInstanceOfClassWithStaticInitializerWithStrongSideEffects()V
   .locals 1
 
-  new-instance v0, Lstrong_side_effects;
+  new-instance v0, Lstrong_side_effect;
 
   return-void
 .end method
 
-.method public static NewInstanceOfMethodWithStaticInitializerWithWeakSideEffects()V
+.method public static NewInstanceOfClassWithStaticInitializerWithWeakSideEffects()V
   .locals 1
 
-  new-instance v0, Lweak_side_effects;
+  new-instance v0, Lweak_side_effect;
 
   return-void
 .end method
@@ -97,16 +129,15 @@
 .method public static InvokeOfNonAnalyzableMethod()V
   .locals 0
 
-  invoke-static {}, Lmethod_side_effects;->InvokeOfNonAnalyzableMethod()V
+  invoke-static {}, Lmethod_side_effects_test;->InvokeOfNonAnalyzableMethod()V
 
   return-void
 .end method
 
-.method public static ModifyInstanceMember()V
-  .locals 1
+.method public ModifyInstanceMember()V
+  .locals 2
 
-  const-string v0, "nothing to see here"
-  sput p0, Lmethod_side_effects;->instanceString:Ljava/lang/String;
+  sput p0, Lmethod_side_effects_test;->instanceString:Ljava/lang/String;
 
   return-void
 .end method

@@ -160,7 +160,7 @@ public class ConstantPropigator {
             }
 
             // Check handler first since we expect to be able to cast instructions to OneRegisterInstruction
-            Op handler = nodePile.get(0).getHandler();
+            Op handler = nodePile.get(0).getOpHandler();
             if (!isConstableHandler(handler)) {
                 log.finer("Can't make hanlder constant: " + handler);
                 continue;

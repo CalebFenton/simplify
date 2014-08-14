@@ -10,6 +10,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import simplify.Main;
 import simplify.vm.ClassContext;
 import simplify.vm.MethodContext;
+import simplify.vm.SideEffect;
 import simplify.vm.VirtualMachine;
 
 public class SPutOp extends Op {
@@ -58,6 +59,11 @@ public class SPutOp extends Op {
         classCtx.assignField(fieldReference, value);
 
         return getPossibleChildren();
+    }
+
+    @Override
+    public SideEffect.Type sideEffectType() {
+        return SideEffect.Type.WEAK;
     }
 
     @Override

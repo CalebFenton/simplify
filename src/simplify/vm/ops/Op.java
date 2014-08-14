@@ -1,6 +1,7 @@
 package simplify.vm.ops;
 
 import simplify.vm.MethodContext;
+import simplify.vm.SideEffect;
 
 public abstract class Op {
 
@@ -35,8 +36,8 @@ public abstract class Op {
         return childAddresses;
     }
 
-    public boolean hasSideEffects() {
-        return false;
+    public SideEffect.Type sideEffectType() {
+        return SideEffect.Type.NONE;
     }
 
 }

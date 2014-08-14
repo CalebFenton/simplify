@@ -4,7 +4,9 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
+import simplify.MethodReflector;
 import simplify.vm.MethodContext;
+import simplify.vm.SideEffect;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.LocalInstance;
 import simplify.vm.types.UninitializedInstance;
@@ -26,6 +28,7 @@ public class NewInstanceOp extends Op {
     private final int destRegister;
     private final String className;
     private final VirtualMachine vm;
+    private SideEffect.Type sideEffectType;
 
     NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className, VirtualMachine vm) {
         super(address, opName, childAddress);
@@ -33,16 +36,21 @@ public class NewInstanceOp extends Op {
         this.destRegister = destRegister;
         this.className = className;
         this.vm = vm;
+        sideEffectType = SideEffect.Type.STRONG;
     }
 
     @Override
     public int[] execute(MethodContext mctx) {
         Object instance = null;
-        // TODO: this should also execute clinit of the class
-        // take into consideration which classes are whitelisted!
         if (vm.isClassDefinedLocally(className)) {
+            // New-instance causes static initialization (but not new-array!)
+            vm.staticallyInitializeClassIfNecessary(className);
+            sideEffectType = vm.getClassStaticInitializerSideEffectType(className);
             instance = new LocalInstance(className);
         } else {
+            if (MethodReflector.isWhitelisted(className)) {
+                sideEffectType = SideEffect.Type.NONE;
+            }
             instance = new UninitializedInstance(className);
         }
 
@@ -52,9 +60,8 @@ public class NewInstanceOp extends Op {
     }
 
     @Override
-    public boolean hasSideEffects() {
-        // TODO: fix this!
-        return true;
+    public SideEffect.Type sideEffectType() {
+        return sideEffectType;
     }
 
     @Override

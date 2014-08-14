@@ -21,6 +21,7 @@ public class MethodReflector {
     private static List<String> SafeClasses;
     private static List<String> SafeMethods;
     static {
+        // No method from any safe class should ever have any side effects (e.g. IO)
         SafeClasses = new ArrayList<String>();
         SafeClasses.add("Ljava/lang/Object;");
         SafeClasses.add("Ljava/lang/Boolean;");
@@ -54,6 +55,24 @@ public class MethodReflector {
 
         SafeMethods = new ArrayList<String>();
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
+    }
+
+    public static boolean isWhitelisted(String reference) {
+        String[] parts = reference.split("->");
+        String className = parts[0];
+
+        if (SafeClasses.contains(className)) {
+            return true;
+        }
+
+        if (parts.length > 1) {
+            // It's a method name
+            if (SafeMethods.contains(reference)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static boolean canReflect(String methodDescriptor) {

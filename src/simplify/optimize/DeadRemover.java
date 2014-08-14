@@ -26,6 +26,7 @@ import simplify.Utils;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
 import simplify.vm.MethodContext;
+import simplify.vm.SideEffect;
 import simplify.vm.ops.InvokeOp;
 import simplify.vm.ops.Op;
 import util.SparseArray;
@@ -33,6 +34,8 @@ import util.SparseArray;
 public class DeadRemover {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+
+    private static final SideEffect.Type SIDE_EFFECT_THRESHOLD = SideEffect.Type.WEAK;
 
     private static boolean areAssignmentsRead(int address, ContextGraph graph, TIntList assigned) {
         Deque<ContextNode> stack = new ArrayDeque<ContextNode>();
@@ -46,11 +49,11 @@ public class DeadRemover {
                 int assignedRegister = assigned.get(i);
                 if (ctx.wasRegisterRead(assignedRegister)) {
                     log.info("r" + assignedRegister + " is read after this address (" + address + ") @"
-                                    + node.getAddress() + ", " + node.getHandler());
+                                    + node.getAddress() + ", " + node.getOpHandler());
                     return true;
                 } else if (ctx.wasRegisterAssigned(assignedRegister)) {
                     log.info("r" + assignedRegister + " is reassigned without being read @" + node.getAddress() + ", "
-                                    + node.getHandler());
+                                    + node.getOpHandler());
                     return false;
                 }
             }
@@ -69,16 +72,6 @@ public class DeadRemover {
         }
 
         return result;
-    }
-
-    private static boolean opHasSideEffects(Op handler) {
-        if (handler instanceof InvokeOp) {
-            if (((InvokeOp) handler).hasSideEffects()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private final SparseArray<BuilderInstruction> addressToInstruction;
@@ -116,7 +109,7 @@ public class DeadRemover {
 
             // Even if assignments are made and never used, it's almost impossible to know if a method invoke can be
             // removed because it may have side-effects. E.g. write to network, disk, etc.
-            if (opHasSideEffects(handler)) {
+            if (handler.sideEffectType().ordinal() > SIDE_EFFECT_THRESHOLD.ordinal()) {
                 continue;
             }
 
@@ -151,7 +144,7 @@ public class DeadRemover {
             int address = addresses.get(i);
             Op handler = graph.getOpHandler(address);
 
-            if (opHasSideEffects(handler)) {
+            if (handler.sideEffectType().ordinal() > SIDE_EFFECT_THRESHOLD.ordinal()) {
                 continue;
             }
 
@@ -176,29 +169,31 @@ public class DeadRemover {
             int address = addresses.get(i);
             Op handler = graph.getOpHandler(address);
 
-            if (opHasSideEffects(handler)) {
+            if (!(handler instanceof InvokeOp)) {
                 continue;
             }
 
-            if (handler instanceof InvokeOp) {
-                log.fine("Results usage test for: " + handler);
+            if (handler.sideEffectType().ordinal() > SIDE_EFFECT_THRESHOLD.ordinal()) {
+                continue;
+            }
 
-                String returnType = ((InvokeOp) handler).getReturnType();
-                if (!returnType.equals("V")) {
-                    boolean unusedResult = true;
-                    if ((i + 1) < addresses.size()) {
-                        int nextAddress = addresses.get(i + 1);
-                        BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
-                        if (nextInstr.getOpcode().name.startsWith("move-result")) {
-                            unusedResult = false;
-                        }
-                    }
+            log.fine("Results usage test for: " + handler);
 
-                    if (unusedResult) {
-                        log.info("Nop unused, no side-effect op: " + handler);
-                        nopAddresses.add(address);
-                        continue;
+            String returnType = ((InvokeOp) handler).getReturnType();
+            if (!returnType.equals("V")) {
+                boolean unusedResult = true;
+                if ((i + 1) < addresses.size()) {
+                    int nextAddress = addresses.get(i + 1);
+                    BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
+                    if (nextInstr.getOpcode().name.startsWith("move-result")) {
+                        unusedResult = false;
                     }
+                }
+
+                if (unusedResult) {
+                    log.info("Nop unused, no side-effect op: " + handler);
+                    nopAddresses.add(address);
+                    continue;
                 }
             }
         }

@@ -59,7 +59,7 @@ public class ContextNode {
         return ctx;
     }
 
-    public Op getHandler() {
+    public Op getOpHandler() {
         return handler;
     }
 

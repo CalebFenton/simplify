@@ -18,6 +18,7 @@ import simplify.Utils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.MethodContext;
+import simplify.vm.SideEffect;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.UnknownValue;
 
@@ -197,7 +198,7 @@ public class InvokeOp extends Op {
     private final String returnType;
     private final int[] registers;
     private final VirtualMachine vm;
-    private boolean hasSideEffects;
+    private SideEffect.Type sideEffectType;
 
     private InvokeOp(int address, String opName, int childAddress, MethodReference methodReference, int[] registers,
                     VirtualMachine vm) {
@@ -214,11 +215,11 @@ public class InvokeOp extends Op {
     @Override
     public int[] execute(MethodContext callerContext) {
         /*
-         * Side-effects are things like changing class state or any kind of IO. True implies this call can't be
+         * Side-effects are things like changing class state or any kind of IO. "True" implies this call can't be
          * optimized away without changing behavior. Doing a good job of determining if a method causes side-effects is
          * tricky (impossible?). It's only known to be false for a very specific set of circumstances.
          */
-        hasSideEffects = true;
+        sideEffectType = SideEffect.Type.STRONG;
 
         boolean returnsVoid = returnType.equals("V");
         String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
@@ -235,6 +236,8 @@ public class InvokeOp extends Op {
                 assumeMaximumUnknown(vm, callerContext, isStatic, registers, parameterTypes, returnType);
 
                 return getPossibleChildren();
+            } else {
+                sideEffectType = graph.getStrongestSideEffectType();
             }
 
             // TODO: fix
@@ -253,14 +256,12 @@ public class InvokeOp extends Op {
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
+                // If a method is emulated, it's assumed to have no side-effects.
+                sideEffectType = SideEffect.Type.NONE;
             } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
                 MethodReflector reflector = new MethodReflector(methodReference, isStatic);
                 reflector.reflect(calleeContext); // player play
-
-                // TOOD: investigate better marking of side effects. This is very conservative and depends on reflected
-                // methods not actually having side effects.
-                // Emulated methods should keep track of this.
-                hasSideEffects = false;
+                sideEffectType = SideEffect.Type.NONE;
             } else {
                 log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
                                 + ". Propigating ambiguity.");
@@ -296,8 +297,8 @@ public class InvokeOp extends Op {
     }
 
     @Override
-    public boolean hasSideEffects() {
-        return hasSideEffects;
+    public SideEffect.Type sideEffectType() {
+        return sideEffectType;
     }
 
     @Override
