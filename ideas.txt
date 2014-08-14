@@ -1,5 +1,6 @@
 Emulate / spoof stack traces
 
+
   new-instance v1, Ljava/lang/Exception;
   invoke-direct {v1}, Ljava/lang/Exception;-><init>()V
   invoke-virtual {v1}, Ljava/lang/Exception;->getStackTrace()[Ljava/lang/StackTraceElement;
