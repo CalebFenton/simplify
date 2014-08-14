@@ -12,7 +12,7 @@
 .method public static TestMoveRegisterObject()V
     .locals 2
 
-    move v1, v0
+    move-object v1, v0
 
     return-void
 .end method

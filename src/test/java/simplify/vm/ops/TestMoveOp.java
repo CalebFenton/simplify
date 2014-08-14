@@ -39,7 +39,7 @@ public class TestMoveOp {
 
     @Test
     public void TestMoveRegisterObject() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new Thread());
+        SparseArray<Object> initial = VMTester.buildRegisterState(0, new Object());
 
         // Must invoke VM directly to ensure reference identity
         ContextGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
@@ -51,7 +51,7 @@ public class TestMoveOp {
         Object register1 = graph.getRegisterConsensus(1, 1);
 
         assertTrue(register0 == register1);
-        assertTrue(register0 instanceof Thread);
+        assertTrue(register0 instanceof Object);
     }
 
     @Test

@@ -2,8 +2,6 @@ package simplify.vm;
 
 import java.util.logging.Logger;
 
-import org.junit.Test;
-
 import simplify.Main;
 import util.SparseArray;
 
@@ -14,7 +12,6 @@ public class TestConstantPropigator {
     @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    @Test
     public void TestArrayGet() {
         SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
         SparseArray<Object> expected = VMTester.buildRegisterState(0, 0x42);

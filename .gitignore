@@ -1,20 +1,19 @@
-# Macs...
+# Macs
 .DS_Store
 **/.DS_Store
 
-# eclipse specific git ignore
-#.project
-#.classpath
-#.settings/
-*.pydevproject
-.metadata
-bin/**
-tmp/**
-tmp/**/*
-*.tmp
-*.bak
-*.swp
-*~.nib
-local.properties
-.loadpath
+# Gradle
+build/
+.gradle
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# IDEA
+.idea
+
+# Logging
+log.txt
 /bin/
