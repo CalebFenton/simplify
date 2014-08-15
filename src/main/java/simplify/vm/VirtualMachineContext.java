@@ -2,6 +2,8 @@ package simplify.vm;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.hash.TIntIntHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
@@ -25,7 +27,10 @@ public class VirtualMachineContext {
     private final int registerCount;
     private final TIntList registersAssigned;
     private final TIntList registersRead;
-    private final SparseArray<Object> registerToValue;
+    private final SparseArray<Object> valuePool;
+    private final TIntIntMap registerToValuePoolIndex;
+
+    // private final SparseArray<Object> registerToValue;
 
     VirtualMachineContext() {
         this(0);
@@ -33,9 +38,11 @@ public class VirtualMachineContext {
 
     VirtualMachineContext(int registerCount) {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
-        registerToValue = new SparseArray<Object>(0);
         registersAssigned = new TIntArrayList(0);
         registersRead = new TIntArrayList(0);
+        // registerToValue = new SparseArray<Object>(0);
+        valuePool = new SparseArray<Object>(0);
+        registerToValuePoolIndex = new TIntIntHashMap(valuePool.size());
 
         this.registerCount = registerCount;
     }
@@ -57,9 +64,9 @@ public class VirtualMachineContext {
         // When replacing an uninitialized instance object, need to update all registers that also point to that object.
         // This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
         // time.
-        for (int i = 0; i < registerToValue.size(); i++) {
-            int currentRegister = registerToValue.keyAt(i);
-            Object currentValue = registerToValue.get(currentRegister);
+        for (int currentRegister : registerToValuePoolIndex.keys()) {
+            int poolIndex = registerToValuePoolIndex.get(currentRegister);
+            Object currentValue = valuePool.get(poolIndex);
             if (oldValue == currentValue) {
                 assignRegister(currentRegister, value);
             }
@@ -83,11 +90,11 @@ public class VirtualMachineContext {
     }
 
     public SparseArray<Object> getRegisterToValue() {
-        // Massage weird registers out of registerToValue map, like the second register number of a wide register.
-        SparseArray<Object> result = new SparseArray<Object>(registerToValue.size());
-        for (int i = 0; i < registerToValue.size(); i++) {
-            int register = registerToValue.keyAt(i);
-            Object value = peekRegister(register);
+        // Utility method that knows how to skip longs
+        SparseArray<Object> result = new SparseArray<Object>(registerToValuePoolIndex.size());
+        for (int register : registerToValuePoolIndex.keys()) {
+            int poolIndex = registerToValuePoolIndex.get(register);
+            Object value = valuePool.get(poolIndex);
             result.put(register, value);
 
             // Longs are fatties and take up two registers
@@ -100,7 +107,7 @@ public class VirtualMachineContext {
     }
 
     public boolean hasRegister(int register) {
-        return registerToValue.indexOfKey(register) >= 0;
+        return registerToValuePoolIndex.containsKey(register);
     }
 
     public Object peekRegister(int register) {
@@ -109,15 +116,15 @@ public class VirtualMachineContext {
         TIntSet reassigned = new TIntHashSet();
         while (currentContext != null) {
             // First look for value in this context. If not found, look through ancestors.
-            result = currentContext.registerToValue.get(register);
+            int valuePoolIndex = registerToValuePoolIndex.get(register);
+            result = currentContext.valuePool.get(valuePoolIndex);
             if (result != null) {
                 break;
             }
 
-            // Keep track of any registers assigned from start to context with target register. When bringing down
-            // identical registers to the target, exclude them since they've been reassigned.
-            for (int i = 0; i < currentContext.registerToValue.size(); i++) {
-                int key = currentContext.registerToValue.keyAt(i);
+            // Keep track of any registers assigned from starting context to context with target register. When bringing
+            // down identical registers, exclude those that have been re-assigned.
+            for (int key : currentContext.registerToValuePoolIndex.keys()) {
                 if (key != register) {
                     reassigned.add(key);
                 }
@@ -134,7 +141,7 @@ public class VirtualMachineContext {
                 // Got context from an ancestor. Store a clone to not alter history.
                 // Store any identical object references in other registers as the same clone to maintain identity.
                 Object valueClone = cloneRegisterValue(result);
-                registerToValue.put(register, valueClone);
+                pokeRegister(register, valueClone);
 
                 // Ancestor may have identical registers. Bring those down too.
                 if (currentContext != null) {
@@ -147,7 +154,7 @@ public class VirtualMachineContext {
 
                         Object value = parentRegisterToValue.get(parentRegister);
                         if (result == value) {
-                            registerToValue.put(parentRegister, valueClone);
+                            pokeRegister(parentRegister, valueClone);
                         }
                     }
 
@@ -178,7 +185,12 @@ public class VirtualMachineContext {
         // sb.append("\n\t").append(ste[i]);
         // }
 
-        registerToValue.put(register, value);
+        int valuePoolIndex = valuePool.indexOfValue(value);
+        if (valuePoolIndex == -1) {
+            valuePoolIndex = valuePool.size();
+        }
+        valuePool.put(valuePoolIndex, value);
+        registerToValuePoolIndex.put(register, valuePoolIndex);
 
         log.fine("Setting r" + register + " -> " + registerToString(register) + sb.toString());
     }
@@ -190,7 +202,8 @@ public class VirtualMachineContext {
     }
 
     public void removeRegister(int register) {
-        registerToValue.delete(register);
+        registerToValuePoolIndex.remove(register);
+        // keep object reference in pool
     }
 
     @Override
@@ -200,8 +213,7 @@ public class VirtualMachineContext {
         if (registerCount > 0) {
             sb.append("registers: ").append(registerCount).append("\n");
             sb.append("[");
-            for (int i = 0; i < registerToValue.size(); i++) {
-                int register = registerToValue.keyAt(i);
+            for (int register : registerToValuePoolIndex.keys()) {
                 if (register < 0) {
                     // Subclasses handle displaying special registers < 0.
                     continue;
@@ -209,7 +221,7 @@ public class VirtualMachineContext {
 
                 sb.append("r").append(register).append(": ").append(registerToString(register)).append(",\n");
             }
-            if (registerToValue.size() > 0) {
+            if (registerToValuePoolIndex.size() > 0) {
                 sb.setLength(sb.length() - 2);
             }
             sb.append("]");
@@ -241,7 +253,7 @@ public class VirtualMachineContext {
             TIntList registers = getRegistersRead();
             for (int i = 0; i < registers.size(); i++) {
                 int currentRegister = registers.get(i);
-                Object currentValue = registerToValue.get(currentRegister);
+                Object currentValue = peekRegister(currentRegister);
 
                 if (value == currentValue) {
                     return true;
@@ -254,10 +266,9 @@ public class VirtualMachineContext {
 
     protected String registerToString(int register) {
         StringBuilder result = new StringBuilder();
-
-        Object value = registerToValue.get(register);
+        Object value = peekRegister(register);
         result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
-                        .append(", hc=").append(value.hashCode());
+        .append(", hc=").append(value.hashCode());
 
         return result.toString();
     }

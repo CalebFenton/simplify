@@ -14,7 +14,14 @@ import org.junit.Test;
 
 import simplify.Main;
 
-public class TestMethodSideEffectAnalyzer {
+public class TesSideEffects {
+    /*
+     * A side-effect is any modification of state that persists outside the method, e.g. changing class static or
+     * instance variables, file and network IO, etc. To determine with 100% accuracy is tricky, and a lot of work, so we
+     * take the shortcut of white listing certain classes and methods as not causing side effects. Knowing that a method
+     * has no side effects lets the optimizer remove the invocation if the result is not used.
+     */
+
     private static final String CLASS_NAME = "Lmethod_side_effects_test;";
     private static final int MAX_NODE_VISITS = 100;
     private static final int MAX_CALL_DEPTH = 10;

@@ -54,15 +54,20 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public void assignParameter(int parameterIndex, Object value) {
-        // The parameter object is never modified directly because each instruction gets a clone. To propagate changes
-        // in mutable object parameters back to the caller, it's necessary to maintain a mapping from the parameter to
-        // any mutations.
+        /*
+         * Need to propagate changes in object, but the object is cloned in each instruction. Maintain a mapping of
+         * clone to original, so the consensus clone can be used to replace the parameter.
+         */
         String smaliClass = SmaliClassUtils.javaClassToSmali(value.getClass().getName());
         if (!SmaliClassUtils.isImmutableClass(smaliClass)) {
             mutatedToOriginalParameter.put(value, value);
         }
 
         pokeRegister(getParameterStart() + parameterIndex, value);
+    }
+
+    public Object getOriginalParameter(Object value) {
+        return mutatedToOriginalParameter.get(value);
     }
 
     public void assignResultRegister(Object value) {
@@ -100,6 +105,8 @@ public class MethodContext extends VirtualMachineContext {
         Object original = mutatedToOriginalParameter.get(value);
         if (original != null) {
             mutatedToOriginalParameter.put(result, original);
+        } else {
+            // Not tracking this value. Maybe it's not a parameter, or immutable.
         }
 
         return result;
@@ -107,6 +114,7 @@ public class MethodContext extends VirtualMachineContext {
 
     public Object readResultRegister() {
         Object result = readRegister(ResultRegister);
+        // TODO: remove this and see what breaks..
         // removeRegister(ResultRegister);
 
         return result;
@@ -135,8 +143,12 @@ public class MethodContext extends VirtualMachineContext {
         return sb.toString();
     }
 
-    protected int getParameterStart() {
+    public int getParameterStart() {
         return getRegisterCount() - parameterCount;
+    }
+
+    public int getParameterCount() {
+        return parameterCount;
     }
 
 }

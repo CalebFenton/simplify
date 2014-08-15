@@ -157,6 +157,7 @@ public class VMTester {
 
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
 
+        // TODO: use getTerminatingRegisterConsensus
         TIntList terminalAddresses = graph.getConnectedTerminatingAddresses();
         for (int i = 0; i < expected.size(); i++) {
             int register = expected.keyAt(i);

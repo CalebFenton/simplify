@@ -133,6 +133,20 @@ public class ContextGraph implements Iterable<ContextNode> {
         return getRegisterConsensus(addresses, register);
     }
 
+    public Object[] getTerminatingRegisterConsensus(int register) {
+        return getTerminatingRegisterConsensus(new int[] { register });
+    }
+
+    public Object[] getTerminatingRegisterConsensus(int[] registers) {
+        TIntList addresses = getConnectedTerminatingAddresses();
+        Object[] result = new Object[registers.length];
+        for (int i = 0; i < registers.length; i++) {
+            result[i] = getRegisterConsensus(addresses, registers[i]);
+        }
+
+        return result;
+    }
+
     public Object getRegisterConsensus(TIntList addresses, int register) {
         ContextNode firstNode = getNodePile(addresses.get(0)).get(0);
         Object value = firstNode.getContext().peekRegister(register);

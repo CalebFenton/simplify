@@ -1,3 +1,6 @@
+ContextGraph should be able to poop out a MethodContext that consiststs of terminating register values
+  This could be used when invoking, and we don't care about analyzing the graph, and just want the end state
+
 Emulate / spoof stack traces
 
   new-instance v1, Ljava/lang/Exception;
@@ -12,3 +15,22 @@ Emulate / spoof stack traces
   invoke-static {}, Ljava/lang/Thread;->currentThread()Ljava/lang/Thread;
   move-result-object v2
   invoke-virtual {v2}, Ljava/lang/Thread;->getStackTrace()[Ljava/lang/StackTraceElement;
+
+
+
+SparseArray<Object> registerHeap
+TIntIntMap registerToHeapIndex
+TIntIntMap mutableParameterIndexToHeapIndex
+
+when peeking register, add extra step to pull down mutable parameter indexes
+  Object value = ancestor.peekRegister(register)
+  int valueHeapIndex = ancestor.getHeapIndexForRegister(register)
+  registerHeap.add(valueHeapIndex, value) // might as well maintain same position
+
+  // pull down parameter mapping
+  for each key in ancestor.mutableParameterToHeapIndex
+    int idx = ancestor.mutableParameterToHeapIndex.get(key)
+    continue if idx != valueHeapIndex
+
+    this.mutableParameterIndexToHeapIndex.put(key, idx)
+  endfor

@@ -27,7 +27,7 @@ public class InvokeOp extends Op {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static void addCalleeParameters(MethodContext calleeContext, MethodContext callerContext, int[] registers,
-                    String[] parameterTypes, int address, boolean isStatic) {
+                    String[] parameterTypes, boolean isStatic) {
         int offset = 0;
 
         if (!isStatic) {
@@ -107,7 +107,7 @@ public class InvokeOp extends Op {
     }
 
     private static MethodContext buildCalleeContext(MethodContext callerContext, boolean isStatic, int[] registers,
-                    String[] parameterTypes, int address) {
+                    String[] parameterTypes) {
         int parameterCount = registers.length;
         int registerCount = parameterCount;
         int callDepth = callerContext.getCallDepth() + 1;
@@ -117,17 +117,23 @@ public class InvokeOp extends Op {
         }
 
         MethodContext calleeContext = new MethodContext(registerCount, parameterCount, callDepth);
-        addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, address, isStatic);
+        addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, isStatic);
 
         return calleeContext;
     }
 
-    private static void updateInstanceAndMutableArguments(VirtualMachine vm, MethodContext callerContext,
+    private static void updateInstanceAndMutableArguments(MethodContext callerContext, int[] registers,
+                    boolean isStatic, MethodContext calleeContext, ContextGraph graph) {
+
+    }
+
+    private static void updateInstanceAndMutableArguments_broken(VirtualMachine vm, MethodContext callerContext,
                     ContextGraph graph, boolean isStatic) {
         MethodContext calleeContext = graph.getNodePile(0).get(0).getContext();
+
         // int calleeParamStart = calleeContext.getParameterStart();
         // TIntList addresses = graph.getConnectedTerminatingAddresses();
-
+        //
         // if (!isStatic) {
         // int register = callerContext.getParameterStart() - 1;
         // RegisterStore callerInstance = callerContext.peekRegister(register);
@@ -214,20 +220,15 @@ public class InvokeOp extends Op {
 
     @Override
     public int[] execute(MethodContext callerContext) {
-        /*
-         * Side-effects are things like changing class state or any kind of IO. "True" implies this call can't be
-         * optimized away without changing behavior. Doing a good job of determining if a method causes side-effects is
-         * tricky (impossible?). It's only known to be false for a very specific set of circumstances.
-         */
         sideEffectType = SideEffect.Type.STRONG;
 
         boolean returnsVoid = returnType.equals("V");
         String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
         if (vm.isMethodDefined(methodDescriptor)) {
-            // Locally defined method. Execute on our VM.
+            // Local method, so the VM can execute it.
             MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
             calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
-            addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, getAddress(), isStatic);
+            addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, isStatic);
 
             ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
             if (graph == null) {
@@ -240,19 +241,16 @@ public class InvokeOp extends Op {
                 sideEffectType = graph.getStrongestSideEffectType();
             }
 
-            // TODO: fix
-            // Register value object references are passed in, but each instruction has a new clone, which doesn't point
-            // to the original. So updates to objects in callee aren't propagated back to caller.
-            // updateInstanceAndMutableArguments(vm, callerContext, graph, isStatic);
+            updateInstanceAndMutableArguments_broken(vm, callerContext, graph, isStatic);
 
             if (!returnsVoid) {
                 TIntList terminating = graph.getConnectedTerminatingAddresses();
+                // TODO: use getTerminatingRegisterConsensus
                 Object consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
                 callerContext.assignResultRegister(consensus);
             }
         } else {
-            MethodContext calleeContext = buildCalleeContext(callerContext, isStatic, registers, parameterTypes,
-                            getAddress());
+            MethodContext calleeContext = buildCalleeContext(callerContext, isStatic, registers, parameterTypes);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
                 MethodEmulator.emulate(calleeContext, methodDescriptor);
