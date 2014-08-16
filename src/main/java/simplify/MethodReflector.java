@@ -120,8 +120,6 @@ public class MethodReflector {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
                 log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                 result = ConstructorUtils.invokeConstructor(clazz, args);
-
-                System.out.println("reflecting init and this is result: " + result);
                 calleeContext.assignRegister(0, result);
             } else {
                 if (isStatic) {

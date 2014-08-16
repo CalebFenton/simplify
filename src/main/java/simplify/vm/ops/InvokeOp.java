@@ -43,7 +43,6 @@ public class InvokeOp extends Op {
     private static Object getMutableParameterConsensus(TIntList addressList, ContextGraph graph, int parameterIndex) {
         ContextNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
         Object value = firstNode.getContext().getMutableParameter(parameterIndex);
-        System.out.println("first value : " + value);
         int[] addresses = addressList.toArray();
         for (int address : addresses) {
             List<ContextNode> nodes = graph.getNodePile(address);
@@ -149,9 +148,7 @@ public class InvokeOp extends Op {
     @Override
     public int[] execute(MethodContext mctx) {
         sideEffectType = SideEffect.Type.STRONG;
-        System.out.println("md " + methodDescriptor);
         if (vm.isMethodDefined(methodDescriptor)) {
-            System.out.println("EXECUTING LOCAL METHOD");
             executeLocalMethod(methodDescriptor, mctx);
         } else {
             executeNonLocalMethod(methodDescriptor, mctx);
@@ -175,7 +172,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -229,7 +226,6 @@ public class InvokeOp extends Op {
     private void assignCalleeContextParameters(MethodContext callerContext, MethodContext calleeContext) {
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             int callerRegister = parameterRegisters[parameterIndex];
-            System.out.println("ASSIGNING pi:" + parameterIndex + " from caller's r" + callerRegister);
             Object value = callerContext.readRegister(callerRegister);
             calleeContext.assignParameter(parameterIndex, value);
         }
@@ -301,20 +297,15 @@ public class InvokeOp extends Op {
 
     private void updateInstanceAndMutableArguments(MethodContext callerContext, ContextGraph graph) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
-        System.out.println("terminating: " + terminatingAddresses);
-
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             boolean mutable = !SmaliClassUtils.isImmutableClass(type);
-            System.out.println("UPDTING TYP: " + type + ", M=" + mutable);
-
             if (!mutable) {
                 continue;
             }
 
             int register = parameterRegisters[parameterIndex];
             Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
-            System.out.println("Updating r" + register + " to " + value);
             callerContext.assignRegister(register, value);
         }
     }

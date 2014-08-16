@@ -27,14 +27,12 @@ public class MethodContext extends VirtualMachineContext {
     private MethodContext getAncestorContextWithParameter(int parameterIndex) {
         MethodContext currentContext = this;
         do {
-            System.out.println("loop of get ancestor ctx");
             if (currentContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
                 return currentContext;
             }
             currentContext = currentContext.getParent();
         } while (currentContext != null);
 
-        System.out.println("couldn't find ancestor with param #" + parameterIndex);
         return null;
     }
 
@@ -67,8 +65,6 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public void assignParameter(int parameterIndex, Object value) {
-        System.out.println("PARAMETER'S TARGET REGISTER start: " + (getParameterStart()));
-        System.out.println("PARAMETER'S TARGET REGISTER index: " + (parameterIndex));
         pokeRegister(getParameterStart() + parameterIndex, value);
 
         String type = SmaliClassUtils.getValueType(value);
@@ -96,7 +92,6 @@ public class MethodContext extends VirtualMachineContext {
     }
 
     public int getParameterStart() {
-        System.out.println("parameter count: " + parameterCount);
         return getRegisterCount() - parameterCount;
     }
 

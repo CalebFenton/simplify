@@ -102,7 +102,6 @@ public class VirtualMachineContext {
     VirtualMachineContext getAncestorWithRegister(int register) {
         VirtualMachineContext result = this;
         do {
-            // System.out.println("looking for register: " + register + ", rtvs: " + registerToValue.size());
             if (result.hasRegister(register)) {
                 return result;
             }
@@ -259,7 +258,7 @@ public class VirtualMachineContext {
     protected String registerValueToString(Object value) {
         StringBuilder result = new StringBuilder();
         result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
-        .append(", hc=").append(value.hashCode());
+                        .append(", hc=").append(value.hashCode());
 
         return result.toString();
     }
