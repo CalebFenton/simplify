@@ -1,7 +1,9 @@
 package simplify.vm.ops;
 
 import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -17,6 +19,7 @@ import simplify.SmaliClassUtils;
 import simplify.Utils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
+import simplify.vm.ContextNode;
 import simplify.vm.MethodContext;
 import simplify.vm.SideEffect;
 import simplify.vm.VirtualMachine;
@@ -26,42 +29,8 @@ public class InvokeOp extends Op {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static void addCalleeParameters(MethodContext calleeContext, MethodContext callerContext, int[] registers,
-                    String[] parameterTypes, boolean isStatic) {
-        int offset = 0;
-
-        if (!isStatic) {
-            // First register is instance reference.
-            int register = registers[0];
-            Object instance = callerContext.readRegister(register);
-            calleeContext.assignParameter(-1, instance);
-            offset = 1;
-        }
-
-        for (int i = offset; i < registers.length; i++) {
-            int register = registers[i];
-            int pos = i - offset;
-
-            // Can't trust SmaliClassUtils.getValueType(value) because it may be of an unknown type.
-            String type = parameterTypes[pos];
-
-            // Pass original value reference, and not a clone. If method is emulated or reflected, it'll be updated in
-            // place. Otherwise, cloning is handled by MethodExecutor.
-            Object value = callerContext.readRegister(register);
-            if (value instanceof UnknownValue) {
-                ((UnknownValue) value).setType(type);
-            }
-            calleeContext.assignParameter(pos, value);
-
-            if (type.equals("J")) {
-                // This register index and the next refer to this variable.
-                i++;
-            }
-        }
-    }
-
     private static boolean allArgumentsKnown(MethodContext mctx) {
-        List<Object> registerValues = mctx.getRegisterToValue().getValues();
+        Object[] registerValues = mctx.getRegisterToValue().values();
         for (Object value : registerValues) {
             if (value instanceof UnknownValue) {
                 return false;
@@ -71,88 +40,26 @@ public class InvokeOp extends Op {
         return true;
     }
 
-    private static void assumeMaximumUnknown(VirtualMachine vm, MethodContext callerContext, boolean isStatic,
-                    int[] registers, String[] parameterTypes, String returnType) {
-        for (int i = 0; i < registers.length; i++) {
-            int register = registers[i];
+    private static Object getMutableParameterConsensus(TIntList addressList, ContextGraph graph, int parameterIndex) {
+        ContextNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+        Object value = firstNode.getContext().getMutableParameter(parameterIndex);
+        System.out.println("first value : " + value);
+        int[] addresses = addressList.toArray();
+        for (int address : addresses) {
+            List<ContextNode> nodes = graph.getNodePile(address);
+            for (ContextNode node : nodes) {
+                Object otherValue = node.getContext().getMutableParameter(parameterIndex);
 
-            // It's ugly. Need better way to handle static / non-static.
-            String type = null;
-            if (!isStatic) {
-                if (i == 0) { // Instance type
-                    type = callerContext.peekRegisterType(register);
-                } else {
-                    type = parameterTypes[i - 1];
+                if (value != otherValue) {
+                    log.finer("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+
+                    return new UnknownValue(SmaliClassUtils.getValueType(value));
                 }
-            } else {
-                type = parameterTypes[i];
             }
 
-            if (SmaliClassUtils.isImmutableClass(type)) {
-                if (type.equals("J")) {
-                    i++;
-                }
-
-                log.fine(type + " is immutable");
-                continue;
-            }
-
-            log.fine(type + " is mutable and passed into strange method, marking unknown");
-            callerContext.pokeRegister(register, new UnknownValue(type));
         }
 
-        if (!returnType.equals("V")) {
-            callerContext.assignResultRegister(new UnknownValue(returnType));
-        }
-    }
-
-    private static MethodContext buildCalleeContext(MethodContext callerContext, boolean isStatic, int[] registers,
-                    String[] parameterTypes) {
-        int parameterCount = registers.length;
-        int registerCount = parameterCount;
-        int callDepth = callerContext.getCallDepth() + 1;
-
-        if (!isStatic && (registerCount > 0)) {
-            parameterCount--;
-        }
-
-        MethodContext calleeContext = new MethodContext(registerCount, parameterCount, callDepth);
-        addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, isStatic);
-
-        return calleeContext;
-    }
-
-    private static void updateInstanceAndMutableArguments(MethodContext callerContext, int[] registers,
-                    boolean isStatic, MethodContext calleeContext, ContextGraph graph) {
-
-    }
-
-    private static void updateInstanceAndMutableArguments_broken(VirtualMachine vm, MethodContext callerContext,
-                    ContextGraph graph, boolean isStatic) {
-        MethodContext calleeContext = graph.getNodePile(0).get(0).getContext();
-
-        // int calleeParamStart = calleeContext.getParameterStart();
-        // TIntList addresses = graph.getConnectedTerminatingAddresses();
-        //
-        // if (!isStatic) {
-        // int register = callerContext.getParameterStart() - 1;
-        // RegisterStore callerInstance = callerContext.peekRegister(register);
-        // Object value = graph.getRegisterConsensus(addresses, calleeParamStart - 1).getValue();
-        //
-        // log.fine("updating instance value: " + callerInstance + " to " + value);
-        // callerInstance.setValue(value);
-        // }
-        //
-        // int callerParamStart = callerContext.getParameterStart();
-        // int paramCount = callerContext.getRegisterCount() - callerParamStart;
-        // for (int i = 0; i < paramCount; i++) {
-        // RegisterStore registerStore = callerContext.peekRegister(callerParamStart + i);
-        // if (!SmaliClassUtils.isImmutableClass(registerStore.getType())) {
-        // Object value = graph.getRegisterConsensus(addresses, calleeParamStart + i).getValue();
-        // registerStore.setValue(value);
-        // log.fine(registerStore.getType() + " is mutable, updating with callee value = " + registerStore);
-        // }
-        // }
+        return value;
     }
 
     static InvokeOp create(Instruction instruction, int address, VirtualMachine vm) {
@@ -195,96 +102,59 @@ public class InvokeOp extends Op {
             methodReference = (MethodReference) instr.getReference();
         }
 
-        return new InvokeOp(address, opName, childAddress, methodReference, registers, vm);
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+        String returnType = methodReference.getReturnType();
+        List<String> parameterTypes = new ArrayList<String>();
+        boolean isStatic = opName.contains("-static");
+        if (!isStatic) {
+            parameterTypes.add(methodReference.getDefiningClass());
+        }
+        parameterTypes.addAll(Utils.getParameterTypes(methodDescriptor));
+
+        TIntList parameterRegisters = new TIntArrayList();
+        for (int i = 0; i < parameterTypes.size(); i++) {
+            parameterRegisters.add(registers[i]);
+            String type = parameterTypes.get(i);
+            if (type.equals("J")) {
+                i++;
+            }
+        }
+
+        return new InvokeOp(address, opName, childAddress, methodDescriptor, returnType, parameterRegisters.toArray(),
+                        parameterTypes, vm, isStatic);
     }
 
     private final boolean isStatic;
-    private final MethodReference methodReference;
-    private final String methodDescriptor;
-    private final String returnType;
-    private final int[] registers;
-    private final VirtualMachine vm;
-    private SideEffect.Type sideEffectType;
 
-    private InvokeOp(int address, String opName, int childAddress, MethodReference methodReference, int[] registers,
-                    VirtualMachine vm) {
+    private final String methodDescriptor;
+
+    private final int[] parameterRegisters;
+    private final List<String> parameterTypes;
+    private final String returnType;
+    private SideEffect.Type sideEffectType;
+    private final VirtualMachine vm;
+
+    private InvokeOp(int address, String opName, int childAddress, String methodDescriptor, String returnType,
+                    int[] parameterRegisters, List<String> parameterTypes, VirtualMachine vm, boolean isStatic) {
         super(address, opName, childAddress);
 
-        this.methodReference = methodReference;
-        this.methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
-        this.returnType = methodReference.getReturnType();
-        this.registers = registers;
+        this.methodDescriptor = methodDescriptor;
+        this.returnType = returnType;
+        this.parameterRegisters = parameterRegisters;
+        this.parameterTypes = parameterTypes;
         this.vm = vm;
-        isStatic = opName.contains("-static");
+        this.isStatic = isStatic;
     }
 
     @Override
-    public int[] execute(MethodContext callerContext) {
+    public int[] execute(MethodContext mctx) {
         sideEffectType = SideEffect.Type.STRONG;
-
-        boolean returnsVoid = returnType.equals("V");
-        String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
+        System.out.println("md " + methodDescriptor);
         if (vm.isMethodDefined(methodDescriptor)) {
-            // Local method, so the VM can execute it.
-            MethodContext calleeContext = vm.getInstructionGraph(methodDescriptor).getRootContext();
-            calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
-            addCalleeParameters(calleeContext, callerContext, registers, parameterTypes, isStatic);
-
-            ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
-            if (graph == null) {
-                // Problem executing the method. Maybe node visits or call depth exceeded?
-                log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
-                assumeMaximumUnknown(vm, callerContext, isStatic, registers, parameterTypes, returnType);
-
-                return getPossibleChildren();
-            } else {
-                sideEffectType = graph.getStrongestSideEffectType();
-            }
-
-            updateInstanceAndMutableArguments_broken(vm, callerContext, graph, isStatic);
-
-            if (!returnsVoid) {
-                TIntList terminating = graph.getConnectedTerminatingAddresses();
-                // TODO: use getTerminatingRegisterConsensus
-                Object consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
-                callerContext.assignResultRegister(consensus);
-            }
+            System.out.println("EXECUTING LOCAL METHOD");
+            executeLocalMethod(methodDescriptor, mctx);
         } else {
-            MethodContext calleeContext = buildCalleeContext(callerContext, isStatic, registers, parameterTypes);
-            boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
-            if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
-                MethodEmulator.emulate(calleeContext, methodDescriptor);
-                // If a method is emulated, it's assumed to have no side-effects.
-                sideEffectType = SideEffect.Type.NONE;
-            } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
-                MethodReflector reflector = new MethodReflector(methodReference, isStatic);
-                reflector.reflect(calleeContext); // player play
-                sideEffectType = SideEffect.Type.NONE;
-            } else {
-                log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
-                                + ". Propigating ambiguity.");
-                assumeMaximumUnknown(vm, callerContext, isStatic, registers, parameterTypes, returnType);
-
-                return getPossibleChildren();
-            }
-
-            if (!isStatic) {
-                // Handle updating the instance reference
-                Object originalInstance = callerContext.peekRegister(registers[0]);
-                Object newInstance = calleeContext.peekParameter(-1);
-                if (originalInstance != newInstance) {
-                    // Instance went from UninitializedInstance class to something else.
-                    callerContext.assignRegisterAndUpdateIdentities(registers[0], newInstance);
-                } else {
-                    // The instance reference could have changed, so mark it as assigned here.
-                    callerContext.assignRegister(registers[0], newInstance);
-                }
-            }
-
-            if (!returnsVoid) {
-                Object returnRegister = calleeContext.readReturnRegister();
-                callerContext.assignResultRegister(returnRegister);
-            }
+            executeNonLocalMethod(methodDescriptor, mctx);
         }
 
         return getPossibleChildren();
@@ -302,21 +172,151 @@ public class InvokeOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-
         sb.append(" {");
         if (getOpName().contains("/range")) {
-            sb.append("r").append(registers[0]).append(" .. r").append(registers[registers.length - 1]);
+            sb.append("r").append(parameterRegisters[0]).append(" .. r")
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
-            if (registers.length > 0) {
-                for (int register : registers) {
+            if (parameterRegisters.length > 0) {
+                for (int register : parameterRegisters) {
                     sb.append("r").append(register).append(", ");
                 }
                 sb.setLength(sb.length() - 2);
             }
         }
-        sb.append("}, ").append(ReferenceUtil.getMethodDescriptor(methodReference));
+        sb.append("}, ").append(methodDescriptor);
 
         return sb.toString();
+    }
+
+    private void assumeMaximumUnknown(MethodContext callerContext) {
+        for (int i = 0; i < parameterTypes.size(); i++) {
+            String type = parameterTypes.get(i);
+            if (SmaliClassUtils.isImmutableClass(type)) {
+                log.fine(type + " is immutable");
+                continue;
+            }
+
+            log.fine(type + " is mutable and passed into strange method, marking unknown");
+            int register = parameterRegisters[i];
+            Object value = new UnknownValue(type);
+            callerContext.pokeRegister(register, value);
+        }
+
+        if (!returnType.equals("V")) {
+            Object value = new UnknownValue(returnType);
+            callerContext.assignResultRegister(value);
+        }
+    }
+
+    private MethodContext buildLocalCalleeContext(MethodContext callerContext) {
+        MethodContext result = vm.getInstructionGraph(methodDescriptor).getRootContext();
+        result.setCallDepth(callerContext.getCallDepth() + 1);
+        assignCalleeContextParameters(callerContext, result);
+        return result;
+    }
+
+    private MethodContext buildNonLocalCalleeContext(MethodContext callerContext) {
+        int parameterSize = VirtualMachine.getParameterSize(parameterTypes);
+        int registerCount = parameterSize;
+        int callDepth = callerContext.getCallDepth() + 1;
+        MethodContext calleeContext = new MethodContext(registerCount, parameterSize, callDepth);
+        assignCalleeContextParameters(callerContext, calleeContext);
+
+        return calleeContext;
+    }
+
+    private void assignCalleeContextParameters(MethodContext callerContext, MethodContext calleeContext) {
+        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
+            int callerRegister = parameterRegisters[parameterIndex];
+            System.out.println("ASSIGNING pi:" + parameterIndex + " from caller's r" + callerRegister);
+            Object value = callerContext.readRegister(callerRegister);
+            calleeContext.assignParameter(parameterIndex, value);
+        }
+    }
+
+    private void executeLocalMethod(String methodDescriptor, MethodContext callerContext) {
+        MethodContext calleeContext = buildLocalCalleeContext(callerContext);
+        ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
+        if (graph == null) {
+            // Problem executing the method. Maybe node visits or call depth exceeded?
+            log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
+            assumeMaximumUnknown(callerContext);
+
+            return;
+        }
+
+        updateInstanceAndMutableArguments(callerContext, graph);
+
+        if (!returnType.equals("V")) {
+            TIntList terminating = graph.getConnectedTerminatingAddresses();
+            // TODO: use getTerminatingRegisterConsensus
+            Object consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
+            callerContext.assignResultRegister(consensus);
+        }
+
+        sideEffectType = graph.getStrongestSideEffectType();
+    }
+
+    private void executeNonLocalMethod(String methodDescriptor, MethodContext callerContext) {
+        MethodContext calleeContext = buildNonLocalCalleeContext(callerContext);
+        boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
+        if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
+            MethodEmulator.emulate(calleeContext, methodDescriptor);
+
+            // No emulated methods are implemented now. Assuming no side effects may change.
+            sideEffectType = SideEffect.Type.NONE;
+        } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
+            MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
+            reflector.reflect(calleeContext); // player play
+
+            // Only safe, non-side-effect methods are allowed to be reflected.
+            sideEffectType = SideEffect.Type.NONE;
+        } else {
+            log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
+                            + ". Propigating ambiguity.");
+            assumeMaximumUnknown(callerContext);
+
+            return;
+        }
+
+        if (!isStatic) {
+            // Handle updating the instance reference
+            Object originalInstance = callerContext.peekRegister(parameterRegisters[0]);
+            Object newInstance = calleeContext.getParameter(0);
+            if (originalInstance != newInstance) {
+                // Instance went from UninitializedInstance class to something else.
+                callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstance);
+            } else {
+                // The instance reference could have changed, so mark it as assigned here.
+                callerContext.assignRegister(parameterRegisters[0], newInstance);
+            }
+        }
+
+        if (!returnType.equals("V")) {
+            Object returnRegister = calleeContext.readReturnRegister();
+            callerContext.assignResultRegister(returnRegister);
+        }
+    }
+
+    private void updateInstanceAndMutableArguments(MethodContext callerContext, ContextGraph graph) {
+        TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
+        System.out.println("terminating: " + terminatingAddresses);
+
+        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
+            String type = parameterTypes.get(parameterIndex);
+            boolean mutable = !SmaliClassUtils.isImmutableClass(type);
+            System.out.println("UPDTING TYP: " + type + ", M=" + mutable);
+
+            if (!mutable) {
+                continue;
+            }
+
+            int register = parameterRegisters[parameterIndex];
+            Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
+            System.out.println("Updating r" + register + " to " + value);
+            callerContext.assignRegister(register, value);
+        }
     }
 
 }

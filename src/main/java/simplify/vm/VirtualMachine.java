@@ -39,20 +39,26 @@ public class VirtualMachine {
     }
 
     private static MethodContext buildRootContext(String methodDescriptor, int accessFlags, int registerCount,
-                    String[] parameterTypes) {
-        int parameterCount = getParameterSize(parameterTypes);
-        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
+                    List<String> parameterTypes) {
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
         if (!isStatic) {
-            // For instance methods, the instance reference p0 is stored before the first parameter.
-            String type = getClassNameFromMethodDescriptor(methodDescriptor);
-            result.pokeRegister(result.getParameterStart() - 1, new LocalInstance(type));
+            // Append instance reference to p0
+            List<String> lst = new ArrayList<String>();
+            String classDescriptor = methodDescriptor.split("->")[0];
+            lst.add(classDescriptor);
+            lst.addAll(parameterTypes);
+            parameterTypes = lst;
         }
 
-        // IMPORTANT: Assume all input values are unknown.
-        for (int paramRegister = 0; paramRegister < parameterTypes.length; paramRegister++) {
-            String type = parameterTypes[paramRegister];
-            result.assignParameter(paramRegister, new UnknownValue(type));
+        // TODO: store parameter types for they can be looked up by invokeop instead of carried around
+
+        // Assume all input values are unknown.
+        int parameterCount = getParameterSize(parameterTypes);
+        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
+        for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
+            String type = parameterTypes.get(parameterIndex);
+            Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
+            result.assignParameter(parameterIndex, value);
         }
 
         return result;
@@ -62,7 +68,7 @@ public class VirtualMachine {
         return methodDescriptor.split("->", 2)[0];
     }
 
-    private static int getParameterSize(String[] parameterTypes) {
+    public static int getParameterSize(List<String> parameterTypes) {
         int result = 0;
         for (String type : parameterTypes) {
             result += type.equals("J") ? 2 : 1;
@@ -145,7 +151,8 @@ public class VirtualMachine {
     }
 
     public ContextGraph getInstructionGraph(String methodDescriptor) {
-        ContextGraph result = new ContextGraph(methodDescriptorToInstructionGraph.get(methodDescriptor));
+        ContextGraph graph = methodDescriptorToInstructionGraph.get(methodDescriptor);
+        ContextGraph result = new ContextGraph(graph);
 
         return result;
     }
@@ -222,7 +229,7 @@ public class VirtualMachine {
         BuilderMethod method = getBuilderMethod(methodDescriptor);
         int accessFlags = method.getAccessFlags();
         int registerCount = method.getImplementation().getRegisterCount();
-        String[] parameterTypes = Utils.getParameterTypes(methodDescriptor);
+        List<String> parameterTypes = Utils.getParameterTypes(methodDescriptor);
 
         return buildRootContext(methodDescriptor, accessFlags, registerCount, parameterTypes);
     }

@@ -2,8 +2,8 @@ package simplify.vm;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.map.TIntIntMap;
-import gnu.trove.map.hash.TIntIntHashMap;
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
@@ -13,7 +13,6 @@ import org.apache.commons.lang3.ClassUtils;
 
 import simplify.Main;
 import simplify.SmaliClassUtils;
-import util.SparseArray;
 
 import com.rits.cloning.Cloner;
 
@@ -27,10 +26,7 @@ public class VirtualMachineContext {
     private final int registerCount;
     private final TIntList registersAssigned;
     private final TIntList registersRead;
-    private final SparseArray<Object> valuePool;
-    private final TIntIntMap registerToValuePoolIndex;
-
-    // private final SparseArray<Object> registerToValue;
+    private final TIntObjectMap registerToValue;
 
     VirtualMachineContext() {
         this(0);
@@ -40,10 +36,9 @@ public class VirtualMachineContext {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
         registersAssigned = new TIntArrayList(0);
         registersRead = new TIntArrayList(0);
-        // registerToValue = new SparseArray<Object>(0);
-        valuePool = new SparseArray<Object>(0);
-        registerToValuePoolIndex = new TIntIntHashMap(valuePool.size());
+        registerToValue = new TIntObjectHashMap();
 
+        // This is locals + parameters
         this.registerCount = registerCount;
     }
 
@@ -64,9 +59,8 @@ public class VirtualMachineContext {
         // When replacing an uninitialized instance object, need to update all registers that also point to that object.
         // This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
         // time.
-        for (int currentRegister : registerToValuePoolIndex.keys()) {
-            int poolIndex = registerToValuePoolIndex.get(currentRegister);
-            Object currentValue = valuePool.get(poolIndex);
+        for (int currentRegister : registerToValue.keys()) {
+            Object currentValue = registerToValue.get(currentRegister);
             if (oldValue == currentValue) {
                 assignRegister(currentRegister, value);
             }
@@ -89,81 +83,87 @@ public class VirtualMachineContext {
         return registersRead;
     }
 
-    public SparseArray<Object> getRegisterToValue() {
+    public TIntObjectMap getRegisterToValue() {
+        return registerToValue;
+
+        // TODO: verify registerToValue no longer needs to skip longs. this should be done when context is created. or
+        // even overloaded by methodcontext. vm context shouldn't need to know about smali.
         // Utility method that knows how to skip longs
-        SparseArray<Object> result = new SparseArray<Object>(registerToValuePoolIndex.size());
-        for (int register : registerToValuePoolIndex.keys()) {
-            int poolIndex = registerToValuePoolIndex.get(register);
-            Object value = valuePool.get(poolIndex);
-            result.put(register, value);
-
-            // Longs are fatties and take up two registers
-            if (SmaliClassUtils.getValueType(value).equals("J")) {
-                register++;
-            }
-        }
-
-        return result;
+        // Longs are fatties and take up two registers
+        // if (SmaliClassUtils.getValueType(value).equals("J")) {
+        // register++;
+        // }
     }
 
     public boolean hasRegister(int register) {
-        return registerToValuePoolIndex.containsKey(register);
+        return registerToValue.containsKey(register);
     }
 
-    public Object peekRegister(int register) {
-        Object result = null;
-        VirtualMachineContext currentContext = this;
-        TIntSet reassigned = new TIntHashSet();
-        while (currentContext != null) {
-            // First look for value in this context. If not found, look through ancestors.
-            int valuePoolIndex = registerToValuePoolIndex.get(register);
-            result = currentContext.valuePool.get(valuePoolIndex);
-            if (result != null) {
-                break;
+    VirtualMachineContext getAncestorWithRegister(int register) {
+        VirtualMachineContext result = this;
+        do {
+            // System.out.println("looking for register: " + register + ", rtvs: " + registerToValue.size());
+            if (result.hasRegister(register)) {
+                return result;
             }
 
-            // Keep track of any registers assigned from starting context to context with target register. When bringing
-            // down identical registers, exclude those that have been re-assigned.
-            for (int key : currentContext.registerToValuePoolIndex.keys()) {
-                if (key != register) {
-                    reassigned.add(key);
-                }
-            }
+            // Princess is in another castle!
+            result = result.getParent();
+        } while (result != null);
 
-            currentContext = currentContext.parent;
-        }
+        return result;
+    }
 
-        if (result == null) {
-            log.warning("r" + register + " is being read but is null, likely a mistake!");
-            Thread.dumpStack();
-        } else {
-            if (currentContext != this) {
-                // Got context from an ancestor. Store a clone to not alter history.
-                // Store any identical object references in other registers as the same clone to maintain identity.
-                Object valueClone = cloneRegisterValue(result);
-                pokeRegister(register, valueClone);
-
-                // Ancestor may have identical registers. Bring those down too.
-                if (currentContext != null) {
-                    SparseArray<Object> parentRegisterToValue = currentContext.getRegisterToValue();
-                    for (int i = 0; i < parentRegisterToValue.size(); i++) {
-                        int parentRegister = parentRegisterToValue.keyAt(i);
-                        if ((register == parentRegister) || reassigned.contains(parentRegister)) {
-                            continue;
-                        }
-
-                        Object value = parentRegisterToValue.get(parentRegister);
-                        if (result == value) {
-                            pokeRegister(parentRegister, valueClone);
-                        }
-                    }
-
-                    result = valueClone;
-                }
-            }
+    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(VirtualMachineContext child,
+                    VirtualMachineContext ancestor) {
+        VirtualMachineContext current = child;
+        TIntSet result = new TIntHashSet();
+        // Up to, but not including ancestor
+        while ((current.getParent() != ancestor) && (current != ancestor)) {
+            result.addAll(current.getRegisterToValue().keys());
+            current = current.getParent();
         }
 
         return result;
+    }
+
+    public Object peekRegister(int register) {
+        /*
+         * Since executing a method may create many context clones, all clones start off empty of register values. They
+         * are "pulled down" from ancestors when accessed, along with any other registers with identical values in the
+         * ancestor, excluding any registers that have been overwritten in between.
+         */
+        VirtualMachineContext targetContext = getAncestorWithRegister(register);
+        if (targetContext == null) {
+            log.warning("r" + register + " is being read but is null, likely a mistake!");
+            Thread.dumpStack();
+            return null;
+        }
+
+        if (targetContext == this) {
+            return getRegisterToValue().get(register);
+        }
+
+        /*
+         * Got context from an ancestor. Clone the value so changes don't alter history. Also, pull down any identical
+         * object references in the target context, so both registers will point to the new clone. E.g. same object
+         * reference is in v0 and v1, and v1 is peeked, so also pull down v0. and we peek v1, also pull down v0
+         */
+        TIntObjectMap targetRegisterToValue = targetContext.getRegisterToValue();
+        Object targetValue = targetRegisterToValue.get(register);
+        TIntSet reassigned = getReassignedRegistersBetweenChildAndAncestorContext(this, targetContext);
+        Object cloneValue = cloneRegisterValue(targetValue);
+        for (int targetRegister : targetRegisterToValue.keys()) {
+            if (!reassigned.contains(targetRegister)) {
+                Object currentValue = targetRegisterToValue.get(targetRegister);
+                if (targetValue == currentValue) {
+                    pokeRegister(targetRegister, cloneValue);
+                }
+            }
+
+        }
+
+        return cloneValue;
     }
 
     Object cloneRegisterValue(Object value) {
@@ -185,14 +185,8 @@ public class VirtualMachineContext {
         // sb.append("\n\t").append(ste[i]);
         // }
 
-        int valuePoolIndex = valuePool.indexOfValue(value);
-        if (valuePoolIndex == -1) {
-            valuePoolIndex = valuePool.size();
-        }
-        valuePool.put(valuePoolIndex, value);
-        registerToValuePoolIndex.put(register, valuePoolIndex);
-
-        log.fine("Setting r" + register + " -> " + registerToString(register) + sb.toString());
+        log.fine("Setting r" + register + " -> " + registerValueToString(value) + sb.toString());
+        registerToValue.put(register, value);
     }
 
     public Object readRegister(int register) {
@@ -202,18 +196,16 @@ public class VirtualMachineContext {
     }
 
     public void removeRegister(int register) {
-        registerToValuePoolIndex.remove(register);
-        // keep object reference in pool
+        registerToValue.remove(register);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-
-        if (registerCount > 0) {
-            sb.append("registers: ").append(registerCount).append("\n");
+        if (getRegisterCount() > 0) {
+            sb.append("registers: ").append(getRegisterCount()).append("\n");
             sb.append("[");
-            for (int register : registerToValuePoolIndex.keys()) {
+            for (int register : registerToValue.keys()) {
                 if (register < 0) {
                     // Subclasses handle displaying special registers < 0.
                     continue;
@@ -221,7 +213,7 @@ public class VirtualMachineContext {
 
                 sb.append("r").append(register).append(": ").append(registerToString(register)).append(",\n");
             }
-            if (registerToValuePoolIndex.size() > 0) {
+            if (registerToValue.size() > 0) {
                 sb.setLength(sb.length() - 2);
             }
             sb.append("]");
@@ -264,12 +256,17 @@ public class VirtualMachineContext {
         return false;
     }
 
-    protected String registerToString(int register) {
+    protected String registerValueToString(Object value) {
         StringBuilder result = new StringBuilder();
-        Object value = peekRegister(register);
         result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
         .append(", hc=").append(value.hashCode());
 
         return result.toString();
+    }
+
+    protected String registerToString(int register) {
+        Object value = peekRegister(register);
+
+        return registerValueToString(value);
     }
 }

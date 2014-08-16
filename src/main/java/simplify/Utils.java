@@ -122,19 +122,15 @@ public class Utils {
         return typeReference.length() - baseClassName.length();
     }
 
-    public static String[] getParameterTypes(String methodDescriptor) {
+    public static List<String> getParameterTypes(String methodDescriptor) {
         Matcher m = ParameterIsolator.matcher(methodDescriptor);
-        String[] result = null;
+        List<String> result = new ArrayList<String>();
         if (m.find()) {
             String params = m.group();
             m = ParameterIndividuator.matcher(params);
-            List<String> types = new ArrayList<String>();
             while (m.find()) {
-                types.add(m.group());
+                result.add(m.group());
             }
-            result = types.toArray(new String[types.size()]);
-        } else {
-            result = new String[0];
         }
 
         return result;

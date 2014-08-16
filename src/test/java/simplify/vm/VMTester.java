@@ -203,6 +203,8 @@ public class VMTester {
             // Type is "object" so can't use instanceof, but you knew that.
             boolean result = ArrayUtils.isEquals(value, consensus);
             Assert.assertTrue(msg, result);
+        } else if (value instanceof StringBuilder) {
+            assertTrue(msg, value.toString().equals(consensus.toString()));
         } else {
             Assert.assertTrue(msg, value.equals(consensus));
         }

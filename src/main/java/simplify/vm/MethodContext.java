@@ -1,7 +1,8 @@
 package simplify.vm;
 
-import java.util.HashMap;
-
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.set.TIntSet;
 import simplify.SmaliClassUtils;
 import util.SparseArray;
 
@@ -23,17 +24,31 @@ public class MethodContext extends VirtualMachineContext {
         return ctx;
     }
 
+    private MethodContext getAncestorContextWithParameter(int parameterIndex) {
+        MethodContext currentContext = this;
+        do {
+            System.out.println("loop of get ancestor ctx");
+            if (currentContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
+                return currentContext;
+            }
+            currentContext = currentContext.getParent();
+        } while (currentContext != null);
+
+        System.out.println("couldn't find ancestor with param #" + parameterIndex);
+        return null;
+    }
+
     private int callDepth;
-    private int parameterCount;
-    private final HashMap<Object, Object> mutatedToOriginalParameter;
+    private final int parameterCount;
+
+    private final TIntObjectMap mutableParameterIndexToValue;
 
     public MethodContext(int registerCount, int parameterCount, int callDepth) {
         super(registerCount);
 
         this.parameterCount = parameterCount;
         this.callDepth = callDepth;
-
-        mutatedToOriginalParameter = new HashMap<Object, Object>();
+        this.mutableParameterIndexToValue = new TIntObjectHashMap();
     }
 
     MethodContext(int parameterCount) {
@@ -46,28 +61,22 @@ public class MethodContext extends VirtualMachineContext {
 
     MethodContext(MethodContext parent) {
         super(parent);
-
-        parameterCount = parent.parameterCount;
-        callDepth = parent.callDepth;
-        mutatedToOriginalParameter = parent.mutatedToOriginalParameter;
-        // pseudoInstructionReturnAddress is expected to remain in parent
+        this.parameterCount = parent.parameterCount;
+        this.callDepth = parent.callDepth;
+        this.mutableParameterIndexToValue = new TIntObjectHashMap();
     }
 
     public void assignParameter(int parameterIndex, Object value) {
-        /*
-         * Need to propagate changes in object, but the object is cloned in each instruction. Maintain a mapping of
-         * clone to original, so the consensus clone can be used to replace the parameter.
-         */
-        String smaliClass = SmaliClassUtils.javaClassToSmali(value.getClass().getName());
-        if (!SmaliClassUtils.isImmutableClass(smaliClass)) {
-            mutatedToOriginalParameter.put(value, value);
-        }
-
+        System.out.println("PARAMETER'S TARGET REGISTER start: " + (getParameterStart()));
+        System.out.println("PARAMETER'S TARGET REGISTER index: " + (parameterIndex));
         pokeRegister(getParameterStart() + parameterIndex, value);
-    }
 
-    public Object getOriginalParameter(Object value) {
-        return mutatedToOriginalParameter.get(value);
+        String type = SmaliClassUtils.getValueType(value);
+        type = SmaliClassUtils.javaClassToSmali(type);
+        boolean mutable = !SmaliClassUtils.isImmutableClass(type);
+        if (mutable) {
+            mutableParameterIndexToValue.put(parameterIndex, value);
+        }
     }
 
     public void assignResultRegister(Object value) {
@@ -82,6 +91,32 @@ public class MethodContext extends VirtualMachineContext {
         return callDepth;
     }
 
+    public int getParameterCount() {
+        return parameterCount;
+    }
+
+    public int getParameterStart() {
+        System.out.println("parameter count: " + parameterCount);
+        return getRegisterCount() - parameterCount;
+    }
+
+    public Object getParameter(int parameterIndex) {
+        return peekRegister(getParameterStart() + parameterIndex);
+    }
+
+    public Object getMutableParameter(int parameterIndex) {
+        MethodContext targetContext;
+        if (mutableParameterIndexToValue.containsKey(parameterIndex)) {
+            targetContext = this;
+        } else {
+            targetContext = getAncestorContextWithParameter(parameterIndex);
+        }
+
+        Object result = targetContext.mutableParameterIndexToValue.get(parameterIndex);
+
+        return result;
+    }
+
     @Override
     public MethodContext getParent() {
         return (MethodContext) super.getParent();
@@ -91,30 +126,49 @@ public class MethodContext extends VirtualMachineContext {
         return (int) peekRegister(ReturnAddress);
     }
 
-    public void setCallDepth(int callDepth) {
-        this.callDepth = callDepth;
-    }
-
-    public Object peekParameter(int parameterIndex) {
-        return peekRegister(getParameterStart() + parameterIndex);
-    }
-
     @Override
-    Object cloneRegisterValue(Object value) {
-        Object result = super.cloneRegisterValue(value);
-        Object original = mutatedToOriginalParameter.get(value);
-        if (original != null) {
-            mutatedToOriginalParameter.put(result, original);
-        } else {
-            // Not tracking this value. Maybe it's not a parameter, or immutable.
+    public Object peekRegister(int register) {
+        // if (1 == 1) {
+        // return super.peekRegister(register);
+        // }
+        // TODO: this is almost entirely the VirtualMachineContext implementation. figure out a way to break this up.
+        VirtualMachineContext targetContext = getAncestorWithRegister(register);
+        if (targetContext == null) {
+            System.out.println("r" + register + " is being read but is null, likely a mistake!");
+            Thread.dumpStack();
+            return null;
         }
 
-        return result;
+        if (targetContext == this) {
+            return getRegisterToValue().get(register);
+        }
+
+        TIntObjectMap targetRegisterToValue = targetContext.getRegisterToValue();
+        Object targetValue = targetRegisterToValue.get(register);
+        TIntSet reassigned = getReassignedRegistersBetweenChildAndAncestorContext(this, targetContext);
+        Object cloneValue = cloneRegisterValue(targetValue);
+        for (int targetRegister : targetRegisterToValue.keys()) {
+            Object currentValue = targetRegisterToValue.get(targetRegister);
+            if (!reassigned.contains(targetRegister)) {
+                if (targetValue == currentValue) {
+                    pokeRegister(targetRegister, cloneValue);
+                }
+            }
+
+            TIntObjectMap targetParameterIndexToValue = ((MethodContext) targetContext).mutableParameterIndexToValue;
+            for (int parameterIndex : targetParameterIndexToValue.keys()) {
+                if (targetParameterIndexToValue.get(parameterIndex) == targetValue) {
+                    mutableParameterIndexToValue.put(parameterIndex, cloneValue);
+                }
+            }
+        }
+
+        return cloneValue;
     }
 
     public Object readResultRegister() {
         Object result = readRegister(ResultRegister);
-        // TODO: remove this and see what breaks..
+        // TODO: removeRegister and see what breaks..
         // removeRegister(ResultRegister);
 
         return result;
@@ -122,6 +176,10 @@ public class MethodContext extends VirtualMachineContext {
 
     public Object readReturnRegister() {
         return peekRegister(ReturnRegister);
+    }
+
+    public void setCallDepth(int callDepth) {
+        this.callDepth = callDepth;
     }
 
     public void setPseudoInstructionReturnAddress(int address) {
@@ -141,14 +199,6 @@ public class MethodContext extends VirtualMachineContext {
         }
 
         return sb.toString();
-    }
-
-    public int getParameterStart() {
-        return getRegisterCount() - parameterCount;
-    }
-
-    public int getParameterCount() {
-        return parameterCount;
     }
 
 }

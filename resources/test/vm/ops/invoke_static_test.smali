@@ -36,7 +36,7 @@
 .method public static InvokeTryMutateStringBuilder()V
     .locals 1
 
-    invoke-static {v0}, Linvoke_static_test;->TryMutateStringBuilder(Ljava/lang/String;)V
+    invoke-static {v0}, Linvoke_static_test;->TryMutateStringBuilder(Ljava/lang/StringBuilder;)V
 
     return-void
 .end method
@@ -53,7 +53,7 @@
 .method public static InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V
     .locals 1
 
-    invoke-static {v0}, Linvoke_static_test;->Set0thElementOfFirstParameterTo0IfSecondParameterIs0([II)V
+    invoke-static {v0, v1}, Linvoke_static_test;->Set0thElementOfFirstParameterTo0IfSecondParameterIs0([II)V
 
     return-void
 .end method
@@ -105,6 +105,7 @@
 
     const-string v0, " mutated"
     invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const/4 p0, 0x1
 
     return-void
 .end method
@@ -119,6 +120,9 @@
 
     :eq_0
     aput v0, p0, v0
+    move v0, p0
+    # wipe out p0 value to make sure we don't care about register index
+    new-instance p0, Ljava/lang/StringBuilder;
 
     :end
     return-void
@@ -134,7 +138,7 @@
 
     :eq_0
     aput v0, p0, v0
-    const-string p0, "no register contains object ref"
+    const/4 p0, 0x1
 
     :end
     return-void

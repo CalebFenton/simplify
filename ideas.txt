@@ -1,3 +1,5 @@
+Benchmark SparseArray vs TIntObjectMap
+
 ContextGraph should be able to poop out a MethodContext that consiststs of terminating register values
   This could be used when invoking, and we don't care about analyzing the graph, and just want the end state
 
@@ -34,3 +36,8 @@ when peeking register, add extra step to pull down mutable parameter indexes
 
     this.mutableParameterIndexToHeapIndex.put(key, idx)
   endfor
+
+
+override poke in methodcontext
+  call super
+  bring down any parameter mappings also

@@ -8,8 +8,6 @@ import java.util.logging.Logger;
 
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
-import org.jf.dexlib2.iface.reference.MethodReference;
-import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.vm.MethodContext;
 import simplify.vm.types.UnknownValue;
@@ -91,27 +89,22 @@ public class MethodReflector {
     }
 
     private final String methodDescriptor;
+    private final String returnType;
+    private final List<String> parameterTypes;
+    private final boolean isStatic;
     private final String methodName;
     private final String className;
-    private final String returnType;
-    private final boolean isStatic;
-    private final List<String> parameterTypes;
 
-    public MethodReflector(MethodReference methodReference, boolean isStatic) {
-        methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
-        methodName = methodReference.getName();
-
-        // ClassUtils expects Ljava.lang.Class;
-        className = methodReference.getDefiningClass().replaceAll("/", ".");
-
-        returnType = methodReference.getReturnType();
+    public MethodReflector(String methodDescriptor, String returnType, List<String> parameterTypes, boolean isStatic) {
+        this.methodDescriptor = methodDescriptor;
+        this.returnType = returnType;
+        this.parameterTypes = parameterTypes;
         this.isStatic = isStatic;
 
-        List<? extends CharSequence> paramTypes = methodReference.getParameterTypes();
-        parameterTypes = new ArrayList<String>(paramTypes.size());
-        for (CharSequence type : paramTypes) {
-            parameterTypes.add(type.toString());
-        }
+        String[] parts = methodDescriptor.split("->");
+        // ClassUtils expects "Ljava.lang.Class;"
+        className = parts[0].replaceAll("/", ".");
+        methodName = parts[1].substring(0, parts[1].indexOf("("));
     }
 
     public void reflect(MethodContext calleeContext) {
@@ -122,13 +115,14 @@ public class MethodReflector {
             // Class<?> clazz = ClassUtils.getClass(className, false);
             Class<?> clazz = Class.forName(className.substring(1, className.length() - 1));
 
-            Object[] args = getArguments(calleeContext, isStatic, parameterTypes);
+            Object[] args = getArguments(calleeContext);
             if (methodName.equals("<init>")) {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
                 log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                 result = ConstructorUtils.invokeConstructor(clazz, args);
 
-                calleeContext.assignParameter(-1, result);
+                System.out.println("reflecting init and this is result: " + result);
+                calleeContext.assignRegister(0, result);
             } else {
                 if (isStatic) {
                     log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
@@ -151,22 +145,19 @@ public class MethodReflector {
         }
     }
 
-    private static Object[] getArguments(MethodContext mctx, boolean isStatic, List<String> parameterTypes) {
+    private Object[] getArguments(MethodContext mctx) {
         int offset = 0;
         if (!isStatic) {
             // First element in context will be instance reference if non-static method.
             offset = 1;
         }
 
-        List<Object> args = new ArrayList<Object>(mctx.getRegisterCount() - offset);
-        // For reflected methods, there are no locals. Instance and arguments start at 0.
-        // 0=[instance register or arg1], 1=[arg#], ...
+        List<Object> args = new ArrayList<Object>();
         for (int i = offset; i < mctx.getRegisterCount(); i++) {
-            Object arg = mctx.peekRegister(i);
-
-            String paramType = parameterTypes.get(i - offset);
-            // Booleans are represented in Smali and stored internally as integers. Convert to boolean.
-            if (paramType.equals("Z") || paramType.equals("Ljava/lang/Boolean;")) {
+            Object arg = mctx.getParameter(i);
+            String type = parameterTypes.get(i);
+            if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
+                // Booleans are represented in Smali and stored internally as integers. Convert to boolean.
                 if (arg.getClass() == Integer.class) {
                     int intValue = (Integer) arg;
                     arg = intValue == 0 ? false : true;
@@ -174,7 +165,7 @@ public class MethodReflector {
             }
             args.add(arg);
 
-            if (paramType.equals("J")) {
+            if (type.equals("J")) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
                 i++;
             }

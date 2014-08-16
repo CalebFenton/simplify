@@ -54,6 +54,10 @@ public class SmaliClassUtils {
     }
 
     public static String javaClassToSmali(String className) {
+        if (className.startsWith("[")) {
+            return className;
+        }
+
         for (String key : PrimitiveTypes.keySet()) {
             String typeName = PrimitiveTypes.get(key).getName();
             if (typeName.equals(className)) {
@@ -77,7 +81,7 @@ public class SmaliClassUtils {
 
     public static boolean isImmutableClass(String smaliClassName) {
         if (smaliClassName.startsWith("[")) {
-            // Array contents can be mutated, regardless of class.
+            // Array elements can always be mutated
             return false;
         }
 
@@ -94,11 +98,12 @@ public class SmaliClassUtils {
             return true;
         }
 
-        String className = smaliClassName.replaceAll("/", ".");
+        String className = smaliClassName.substring(1, smaliClassName.length() - 1).replaceAll("/", ".");
         try {
             Class<?> clazz = ClassUtils.getClass(className, false);
-            return ClassUtils.isPrimitiveOrWrapper(clazz);
+            boolean result = ClassUtils.isPrimitiveOrWrapper(clazz);
 
+            return result;
         } catch (ClassNotFoundException e) {
         }
 
