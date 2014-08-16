@@ -107,8 +107,6 @@ public class DeadRemover {
             int address = addresses.get(i);
             Op handler = graph.getOpHandler(address);
 
-            // Even if assignments are made and never used, it's almost impossible to know if a method invoke can be
-            // removed because it may have side-effects. E.g. write to network, disk, etc.
             if (handler.sideEffectType().ordinal() > SIDE_EFFECT_THRESHOLD.ordinal()) {
                 continue;
             }
@@ -168,7 +166,6 @@ public class DeadRemover {
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             Op handler = graph.getOpHandler(address);
-
             if (!(handler instanceof InvokeOp)) {
                 continue;
             }
