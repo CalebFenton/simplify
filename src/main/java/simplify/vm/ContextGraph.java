@@ -187,6 +187,8 @@ public class ContextGraph implements Iterable<ContextNode> {
             case WEAK:
                 result = type;
                 break;
+            case NONE:
+                break;
             }
         }
 

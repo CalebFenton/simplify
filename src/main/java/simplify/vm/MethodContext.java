@@ -38,14 +38,14 @@ public class MethodContext extends VirtualMachineContext {
     private int callDepth;
     private final int parameterCount;
 
-    private final TIntObjectMap mutableParameterIndexToValue;
+    private final TIntObjectMap<Object> mutableParameterIndexToValue;
 
     public MethodContext(int registerCount, int parameterCount, int callDepth) {
         super(registerCount);
 
         this.parameterCount = parameterCount;
         this.callDepth = callDepth;
-        this.mutableParameterIndexToValue = new TIntObjectHashMap();
+        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
     }
 
     MethodContext(int parameterCount) {
@@ -60,7 +60,7 @@ public class MethodContext extends VirtualMachineContext {
         super(parent);
         this.parameterCount = parent.parameterCount;
         this.callDepth = parent.callDepth;
-        this.mutableParameterIndexToValue = new TIntObjectHashMap();
+        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
     }
 
     public void assignParameter(int parameterIndex, Object value) {
@@ -130,15 +130,12 @@ public class MethodContext extends VirtualMachineContext {
             return value;
         }
 
-        TIntObjectMap targetRegisterToValue = targetContext.getRegisterToValue();
+        TIntObjectMap<Object> targetRegisterToValue = targetContext.getRegisterToValue();
         Object targetValue = targetRegisterToValue.get(register);
-        for (int targetRegister : targetRegisterToValue.keys()) {
-            Object currentValue = targetRegisterToValue.get(targetRegister);
-            TIntObjectMap targetParameterIndexToValue = targetContext.mutableParameterIndexToValue;
-            for (int parameterIndex : targetParameterIndexToValue.keys()) {
-                if (targetParameterIndexToValue.get(parameterIndex) == targetValue) {
-                    mutableParameterIndexToValue.put(parameterIndex, value);
-                }
+        TIntObjectMap<Object> targetParameterIndexToValue = targetContext.mutableParameterIndexToValue;
+        for (int parameterIndex : targetParameterIndexToValue.keys()) {
+            if (targetParameterIndexToValue.get(parameterIndex) == targetValue) {
+                mutableParameterIndexToValue.put(parameterIndex, value);
             }
         }
 

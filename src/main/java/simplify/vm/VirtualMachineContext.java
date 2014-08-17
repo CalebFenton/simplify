@@ -26,7 +26,7 @@ public class VirtualMachineContext {
     private final int registerCount;
     private final TIntList registersAssigned;
     private final TIntList registersRead;
-    private final TIntObjectMap registerToValue;
+    private final TIntObjectMap<Object> registerToValue;
 
     VirtualMachineContext() {
         this(0);
@@ -36,7 +36,7 @@ public class VirtualMachineContext {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
         registersAssigned = new TIntArrayList(0);
         registersRead = new TIntArrayList(0);
-        registerToValue = new TIntObjectHashMap();
+        registerToValue = new TIntObjectHashMap<Object>();
 
         // This is locals + parameters
         this.registerCount = registerCount;
@@ -83,7 +83,7 @@ public class VirtualMachineContext {
         return registersRead;
     }
 
-    public TIntObjectMap getRegisterToValue() {
+    public TIntObjectMap<Object> getRegisterToValue() {
         return registerToValue;
 
         // TODO: verify registerToValue no longer needs to skip longs. this should be done when context is created. or
@@ -148,7 +148,7 @@ public class VirtualMachineContext {
          * object references in the target context, so both registers will point to the new clone. E.g. same object
          * reference is in v0 and v1, and v1 is peeked, so also pull down v0. and we peek v1, also pull down v0
          */
-        TIntObjectMap targetRegisterToValue = targetContext.getRegisterToValue();
+        TIntObjectMap<Object> targetRegisterToValue = targetContext.getRegisterToValue();
         Object targetValue = targetRegisterToValue.get(register);
         TIntSet reassigned = getReassignedRegistersBetweenChildAndAncestorContext(this, targetContext);
         Object cloneValue = cloneRegisterValue(targetValue);
