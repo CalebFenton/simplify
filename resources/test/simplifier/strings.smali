@@ -6,8 +6,6 @@
 
     .prologue
     .line 43
-    move-object v0, p0
-
     new-instance v2, Ljava/lang/StringBuilder;
 
     move-object v4, v2

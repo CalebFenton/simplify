@@ -117,8 +117,7 @@ public class VirtualMachineContext {
                     VirtualMachineContext ancestor) {
         VirtualMachineContext current = child;
         TIntSet result = new TIntHashSet();
-        // Up to, but not including ancestor
-        while ((current.getParent() != ancestor) && (current != ancestor)) {
+        while (current != ancestor) {
             result.addAll(current.getRegisterToValue().keys());
             current = current.getParent();
         }
@@ -262,7 +261,7 @@ public class VirtualMachineContext {
     protected String registerValueToString(Object value) {
         StringBuilder result = new StringBuilder();
         result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
-        .append(", hc=").append(value.hashCode());
+                        .append(", hc=").append(value.hashCode());
 
         return result.toString();
     }
