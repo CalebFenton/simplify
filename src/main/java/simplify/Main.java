@@ -24,11 +24,11 @@ public class Main {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINE;
-    // private static final Level LOG_LEVEL = Level.OFF;
+    // private static final Level LOG_LEVEL = Level.FINE;
+    private static final Level LOG_LEVEL = Level.OFF;
 
-    private static final int MAX_NODE_VISITS = 30;
-    private static final int MAX_CALL_DEPTH = 3;
+    private static final int MAX_NODE_VISITS = 1000;
+    private static final int MAX_CALL_DEPTH = 5;
 
     public static void main(String[] argv) throws Exception {
         setupLogger();

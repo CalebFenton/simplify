@@ -398,6 +398,9 @@
 
     const/4 v3, -0x4
 
+    # Let's have fun.
+    invoke-static {}, Lsimplifier/Utils;->breakpoint()V
+
     invoke-static {v1, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
 
     move-result-object v1
