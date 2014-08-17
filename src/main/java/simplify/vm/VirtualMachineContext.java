@@ -126,7 +126,7 @@ public class VirtualMachineContext {
         return result;
     }
 
-    public Object peekRegister(int register) {
+    protected Object[] peekWithTargetContext(int register) {
         /*
          * Since executing a method may create many context clones, all clones start off empty of register values. They
          * are "pulled down" from ancestors when accessed, along with any other registers with identical values in the
@@ -136,11 +136,11 @@ public class VirtualMachineContext {
         if (targetContext == null) {
             log.warning("r" + register + " is being read but is null, likely a mistake!");
             Thread.dumpStack();
-            return null;
+            return new Object[] { null, null };
         }
 
         if (targetContext == this) {
-            return getRegisterToValue().get(register);
+            return new Object[] { getRegisterToValue().get(register), targetContext };
         }
 
         /*
@@ -162,7 +162,11 @@ public class VirtualMachineContext {
 
         }
 
-        return cloneValue;
+        return new Object[] { cloneValue, targetContext };
+    }
+
+    public Object peekRegister(int register) {
+        return peekWithTargetContext(register)[0];
     }
 
     Object cloneRegisterValue(Object value) {
@@ -258,7 +262,7 @@ public class VirtualMachineContext {
     protected String registerValueToString(Object value) {
         StringBuilder result = new StringBuilder();
         result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
-                        .append(", hc=").append(value.hashCode());
+        .append(", hc=").append(value.hashCode());
 
         return result.toString();
     }

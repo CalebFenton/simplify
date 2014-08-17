@@ -2,7 +2,6 @@ package simplify.vm;
 
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.set.TIntSet;
 import simplify.SmaliClassUtils;
 import util.SparseArray;
 
@@ -123,42 +122,27 @@ public class MethodContext extends VirtualMachineContext {
 
     @Override
     public Object peekRegister(int register) {
-        // if (1 == 1) {
-        // return super.peekRegister(register);
-        // }
-        // TODO: this is almost entirely the VirtualMachineContext implementation. figure out a way to break this up.
-        VirtualMachineContext targetContext = getAncestorWithRegister(register);
-        if (targetContext == null) {
-            System.out.println("r" + register + " is being read but is null, likely a mistake!");
-            Thread.dumpStack();
-            return null;
-        }
+        Object[] parts = peekWithTargetContext(register);
+        Object value = parts[0];
+        MethodContext targetContext = (MethodContext) parts[1];
 
-        if (targetContext == this) {
-            return getRegisterToValue().get(register);
+        if ((targetContext == this) || (targetContext == null) || (value == null)) {
+            return value;
         }
 
         TIntObjectMap targetRegisterToValue = targetContext.getRegisterToValue();
         Object targetValue = targetRegisterToValue.get(register);
-        TIntSet reassigned = getReassignedRegistersBetweenChildAndAncestorContext(this, targetContext);
-        Object cloneValue = cloneRegisterValue(targetValue);
         for (int targetRegister : targetRegisterToValue.keys()) {
             Object currentValue = targetRegisterToValue.get(targetRegister);
-            if (!reassigned.contains(targetRegister)) {
-                if (targetValue == currentValue) {
-                    pokeRegister(targetRegister, cloneValue);
-                }
-            }
-
-            TIntObjectMap targetParameterIndexToValue = ((MethodContext) targetContext).mutableParameterIndexToValue;
+            TIntObjectMap targetParameterIndexToValue = targetContext.mutableParameterIndexToValue;
             for (int parameterIndex : targetParameterIndexToValue.keys()) {
                 if (targetParameterIndexToValue.get(parameterIndex) == targetValue) {
-                    mutableParameterIndexToValue.put(parameterIndex, cloneValue);
+                    mutableParameterIndexToValue.put(parameterIndex, value);
                 }
             }
         }
 
-        return cloneValue;
+        return value;
     }
 
     public Object readResultRegister() {
