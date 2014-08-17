@@ -2,8 +2,8 @@ package simplify.vm.ops;
 
 import org.junit.Test;
 
+import simplifier.vm.type.UnknownValue;
 import simplify.vm.VMTester;
-import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class TestBinaryMathOp {

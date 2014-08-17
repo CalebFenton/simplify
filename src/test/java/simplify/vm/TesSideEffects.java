@@ -12,7 +12,10 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import simplify.Main;
+import simplifier.Main;
+import simplifier.vm.SideEffect;
+import simplifier.vm.VirtualMachine;
+import simplifier.vm.context.ContextGraph;
 
 public class TesSideEffects {
     /*

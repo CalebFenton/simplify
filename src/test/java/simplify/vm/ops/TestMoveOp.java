@@ -8,11 +8,11 @@ import java.util.logging.Logger;
 
 import org.junit.Test;
 
-import simplify.Main;
-import simplify.vm.ContextGraph;
-import simplify.vm.MethodContext;
+import simplifier.Main;
+import simplifier.vm.context.ContextGraph;
+import simplifier.vm.context.MethodContext;
+import simplifier.vm.type.UnknownValue;
 import simplify.vm.VMTester;
-import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 public class TestMoveOp {

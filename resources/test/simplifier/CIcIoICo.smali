@@ -285,6 +285,22 @@
     return-void
 .end method
 
+.method private static herpy()Ljava/lang/String;
+    .locals 4
+
+    const/4 v0, -0x4
+    const/16 v2, 0x41
+    const/4 v3, -0x4
+
+    # Let's have fun.
+    #invoke-static {}, Lsimplifier/Utils;->breakpoint()V
+
+    invoke-static {v0, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
+    move-result-object v0
+
+    return-object v0
+.end method
+
 .method private static oCIlCll(III)Ljava/lang/String;
     .locals 6
 
@@ -397,9 +413,6 @@
     const/16 v2, 0x1d
 
     const/4 v3, -0x4
-
-    # Let's have fun.
-    invoke-static {}, Lsimplifier/Utils;->breakpoint()V
 
     invoke-static {v1, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
 
@@ -631,9 +644,14 @@
 
     const/4 v3, -0x4
 
+    # Let's have fun.
+    invoke-static {}, Lsimplifier/Utils;->breakpoint()V
+
     invoke-static {v0, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
 
     move-result-object v0
+
+    invoke-static {}, Lsimplifier/Utils;->breakpoint()V
 
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
 

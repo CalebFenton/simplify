@@ -4,10 +4,10 @@ import java.util.logging.Logger;
 
 import org.junit.Test;
 
-import simplify.Main;
+import simplifier.Main;
+import simplifier.vm.type.LocalInstance;
+import simplifier.vm.type.UninitializedInstance;
 import simplify.vm.VMTester;
-import simplify.vm.types.LocalInstance;
-import simplify.vm.types.UninitializedInstance;
 import util.SparseArray;
 
 public class TestNewInstanceOp {

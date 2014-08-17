@@ -4,8 +4,8 @@ import java.util.logging.Logger;
 
 import org.junit.Test;
 
-import simplify.Main;
-import simplify.vm.MethodContext;
+import simplifier.Main;
+import simplifier.vm.context.MethodContext;
 import simplify.vm.VMTester;
 import util.SparseArray;
 

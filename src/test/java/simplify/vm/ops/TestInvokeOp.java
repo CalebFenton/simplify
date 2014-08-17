@@ -6,11 +6,11 @@ import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
-import simplify.Main;
-import simplify.vm.MethodContext;
+import simplifier.Main;
+import simplifier.vm.context.MethodContext;
+import simplifier.vm.type.LocalInstance;
+import simplifier.vm.type.UnknownValue;
 import simplify.vm.VMTester;
-import simplify.vm.types.LocalInstance;
-import simplify.vm.types.UnknownValue;
 import util.SparseArray;
 
 @RunWith(Enclosed.class)

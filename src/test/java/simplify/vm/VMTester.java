@@ -18,9 +18,13 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.junit.Assert;
 
-import simplify.Dexifier;
-import simplify.Main;
-import simplify.vm.types.UnknownValue;
+import simplifier.Dexifier;
+import simplifier.Main;
+import simplifier.vm.VirtualMachine;
+import simplifier.vm.context.ClassContext;
+import simplifier.vm.context.ContextGraph;
+import simplifier.vm.context.MethodContext;
+import simplifier.vm.type.UnknownValue;
 import util.SparseArray;
 
 public class VMTester {

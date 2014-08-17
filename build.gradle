@@ -28,13 +28,13 @@ jar {
     baseName = project.name
 
     manifest {
-        attributes 'Main-Class': 'simplify.Main'
+        attributes 'Main-Class': 'simplifier.Main'
     }
 }
 
 task fatJar(type: Jar) {
     manifest {
-        attributes 'Main-Class': 'simplify.Main'
+        attributes 'Main-Class': 'simplifier.Main'
     }
     baseName = project.name + '-full'
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }

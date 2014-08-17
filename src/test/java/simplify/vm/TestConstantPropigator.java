@@ -2,7 +2,7 @@ package simplify.vm;
 
 import java.util.logging.Logger;
 
-import simplify.Main;
+import simplifier.Main;
 import util.SparseArray;
 
 public class TestConstantPropigator {

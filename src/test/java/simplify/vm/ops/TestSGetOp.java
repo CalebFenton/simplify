@@ -5,7 +5,7 @@ import java.util.logging.Logger;
 
 import org.junit.Test;
 
-import simplify.Main;
+import simplifier.Main;
 import simplify.vm.VMTester;
 import util.SparseArray;
 
