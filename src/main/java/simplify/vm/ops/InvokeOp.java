@@ -14,13 +14,13 @@ import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 
 import simplify.Main;
-import simplify.MethodReflector;
 import simplify.SmaliClassUtils;
 import simplify.Utils;
 import simplify.emulate.MethodEmulator;
 import simplify.vm.ContextGraph;
 import simplify.vm.ContextNode;
 import simplify.vm.MethodContext;
+import simplify.vm.MethodReflector;
 import simplify.vm.SideEffect;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.UnknownValue;

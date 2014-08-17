@@ -4,8 +4,8 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
-import simplify.MethodReflector;
 import simplify.vm.MethodContext;
+import simplify.vm.MethodReflector;
 import simplify.vm.SideEffect;
 import simplify.vm.VirtualMachine;
 import simplify.vm.types.LocalInstance;

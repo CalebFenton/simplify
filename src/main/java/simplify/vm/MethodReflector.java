@@ -1,4 +1,4 @@
-package simplify;
+package simplify.vm;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -9,7 +9,7 @@ import java.util.logging.Logger;
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 
-import simplify.vm.MethodContext;
+import simplify.Main;
 import simplify.vm.types.UnknownValue;
 
 public class MethodReflector {
