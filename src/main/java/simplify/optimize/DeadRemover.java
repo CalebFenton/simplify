@@ -174,11 +174,16 @@ public class DeadRemover {
                 continue;
             }
 
+            if (handler.getOpName().contains("-direct")) {
+                // Not sure about initializers..
+                continue;
+            }
+
             log.fine("Results usage test for: " + handler);
 
             String returnType = ((InvokeOp) handler).getReturnType();
+            boolean unusedResult = true;
             if (!returnType.equals("V")) {
-                boolean unusedResult = true;
                 if ((i + 1) < addresses.size()) {
                     int nextAddress = addresses.get(i + 1);
                     BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
@@ -186,13 +191,14 @@ public class DeadRemover {
                         unusedResult = false;
                     }
                 }
-
-                if (unusedResult) {
-                    log.info("Nop unused, no side-effect op: " + handler);
-                    nopAddresses.add(address);
-                    continue;
-                }
             }
+
+            if (unusedResult) {
+                log.info("Nop unused, no side-effect op: " + handler);
+                nopAddresses.add(address);
+                continue;
+            }
+
         }
 
         deadCount = nopAddresses.size();
@@ -245,8 +251,10 @@ public class DeadRemover {
             MethodLocation location = instruction.getLocation();
             int address = location.getCodeAddress();
             if (addresses.contains(address)) {
-                indexes.add(location.getIndex());
-                location.getDebugItems().clear();
+                if (!indexes.contains(location.getIndex())) {
+                    indexes.add(location.getIndex());
+                    location.getDebugItems().clear();
+                }
             }
         }
 

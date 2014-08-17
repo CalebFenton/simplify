@@ -82,7 +82,7 @@ public class Main {
                 }
 
                 sweeps++;
-            } while (madeChanges && (sweeps < 4));
+            } while (madeChanges && (sweeps < 20));
         }
 
         String outputDexFile = "out_simple.dex";
