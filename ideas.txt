@@ -19,25 +19,8 @@ Emulate / spoof stack traces
   invoke-virtual {v2}, Ljava/lang/Thread;->getStackTrace()[Ljava/lang/StackTraceElement;
 
 
-
-SparseArray<Object> registerHeap
-TIntIntMap registerToHeapIndex
-TIntIntMap mutableParameterIndexToHeapIndex
-
-when peeking register, add extra step to pull down mutable parameter indexes
-  Object value = ancestor.peekRegister(register)
-  int valueHeapIndex = ancestor.getHeapIndexForRegister(register)
-  registerHeap.add(valueHeapIndex, value) // might as well maintain same position
-
-  // pull down parameter mapping
-  for each key in ancestor.mutableParameterToHeapIndex
-    int idx = ancestor.mutableParameterToHeapIndex.get(key)
-    continue if idx != valueHeapIndex
-
-    this.mutableParameterIndexToHeapIndex.put(key, idx)
-  endfor
-
-
-override poke in methodcontext
-  call super
-  bring down any parameter mappings also
+Hashcode / Equals
+  ContextNode
+  Handler
+  MethodContext
+  VirtualMachineContext

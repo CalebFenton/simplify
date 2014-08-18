@@ -1,6 +1,8 @@
 package simplifier.optimize;
 
 import gnu.trove.list.TIntList;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -9,13 +11,11 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction11x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction31i;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction51l;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -26,7 +26,6 @@ import simplifier.vm.context.ContextNode;
 import simplifier.vm.op_handler.BinaryMathOp;
 import simplifier.vm.op_handler.MoveOp;
 import simplifier.vm.op_handler.Op;
-import simplifier.vm.op_handler.ReturnOp;
 import simplifier.vm.op_handler.UnaryMathOp;
 import simplifier.vm.type.UnknownValue;
 import util.SmaliClassUtils;
@@ -35,12 +34,12 @@ import util.SparseArray;
 public class ConstantPropigator {
 
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
-                    "java.lang.String", "java.lang.Class" };
+        "java.lang.String", "java.lang.Class" };
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class, UnaryMathOp.class,
-                    ReturnOp.class, MoveOp.class };
+        MoveOp.class };
 
     private static int getBitSize(long x) {
         int result = 1;
@@ -71,29 +70,28 @@ public class ConstantPropigator {
         return false;
     }
 
-    private final SparseArray<BuilderInstruction> addressToInstruction;
     private final DexBuilder dexBuilder;
-    private int emitCount = 0;
     private final ContextGraph graph;
     private final MutableMethodImplementation implementation;
+    private final SparseArray<BuilderInstruction> addressToInstruction;
+    private final TIntSet changedAddresses;
 
+    private int emitCount = 0;
     private int peepCount = 0;
 
-    ConstantPropigator(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
+    ConstantPropigator(DexBuilder dexBuilder, MutableMethodImplementation implementation, ContextGraph graph) {
         this.dexBuilder = dexBuilder;
         this.graph = graph;
+        this.implementation = implementation;
 
-        MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
-        implementation = impl;
-
-        addressToInstruction = Simplifier.buildAddressToInstruction(impl.getInstructions());
+        addressToInstruction = Optimizer.buildAddressToInstruction(implementation.getInstructions());
+        changedAddresses = new TIntHashSet();
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("constants=").append(emitCount).append(", peeps=").append(peepCount);
+        StringBuilder sb = new StringBuilder("constants=");
+        sb.append(emitCount).append(", peeps=").append(peepCount);
 
         return sb.toString();
     }
@@ -146,9 +144,11 @@ public class ConstantPropigator {
         return result;
     }
 
-    boolean perform() {
-        boolean madeChanges = false;
+    boolean madeChanges() {
+        return changedAddresses.size() > 0;
+    }
 
+    void perform() {
         TIntList addresses = graph.getAddresses();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
@@ -169,47 +169,34 @@ public class ConstantPropigator {
             BuilderInstruction originalInstruction = addressToInstruction.get(address);
             int registerA = ((OneRegisterInstruction) originalInstruction).getRegisterA();
             Object consensus = graph.getRegisterConsensus(address, registerA);
+            if (consensus instanceof UnknownValue) {
+                continue;
+            }
+
             String type = SmaliClassUtils.getValueType(consensus);
             type = getUnboxedType(type);
 
-            if (consensus instanceof UnknownValue) {
-                log.warning("Can't make UnknownValue constant, type=" + type);
-                continue;
-            }
-
             if (!isConstableType(type)) {
-                log.warning("Can't make type constant: " + type);
+                log.fine("Can't make type constant: " + type);
                 continue;
             }
 
-            log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus);
+            log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus + ", @" + address);
             BuilderInstruction constInstruction = buildConstant(registerA, type, consensus);
-
             int index = originalInstruction.getLocation().getIndex();
-            if (originalInstruction.getOpcode().name.startsWith("return")) {
-                // Add const before return only if previous instruction is not a const. Otherwise repeated sweeps will
-                // always add one.
-                BuilderInstruction prevInstr = implementation.getInstructions().get(index - 1);
-                boolean previousConst = prevInstr.getOpcode().name.startsWith("const");
-                if (previousConst) {
-                    continue;
-                }
-
-                // Replace the return to retain labels
-                implementation.replaceInstruction(index, constInstruction);
-
-                BuilderInstruction newReturn = new BuilderInstruction11x(originalInstruction.getOpcode(), registerA);
-                implementation.addInstruction(index + 1, newReturn);
-                madeChanges = true;
-            } else {
-                implementation.replaceInstruction(index, constInstruction);
-                madeChanges = true;
-            }
+            implementation.replaceInstruction(index, constInstruction);
+            changedAddresses.add(address);
 
             emitCount++;
         }
+    }
 
-        return madeChanges;
+    MutableMethodImplementation getImplementation() {
+        return implementation;
+    }
+
+    TIntSet getChangedAddresses() {
+        return changedAddresses;
     }
 
     private String getUnboxedType(String type) {

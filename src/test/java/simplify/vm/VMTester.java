@@ -3,6 +3,8 @@ package simplify.vm;
 import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -25,7 +27,6 @@ import simplifier.vm.context.ClassContext;
 import simplifier.vm.context.ContextGraph;
 import simplifier.vm.context.MethodContext;
 import simplifier.vm.type.UnknownValue;
-import util.SparseArray;
 
 public class VMTester {
 
@@ -64,15 +65,15 @@ public class VMTester {
     }
 
     public static ContextGraph execute(String className, String methodSignature) {
-        return execute(className, methodSignature, new SparseArray<Object>(0),
+        return execute(className, methodSignature, new TIntObjectHashMap<Object>(),
                         new HashMap<String, Map<String, Object>>(0));
     }
 
-    public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial) {
+    public static ContextGraph execute(String className, String methodSignature, TIntObjectMap<Object> initial) {
         return execute(className, methodSignature, initial, new HashMap<String, Map<String, Object>>(0));
     }
 
-    public static ContextGraph execute(String className, String methodSignature, SparseArray<Object> initial,
+    public static ContextGraph execute(String className, String methodSignature, TIntObjectMap<Object> initial,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         BuilderClassDef classDef = classNameToDef.get(className);
         MethodContext ctx = MethodContext.build(initial);
@@ -94,10 +95,10 @@ public class VMTester {
     }
 
     public static void testVisitation(String className, String methodSignature, int[] expected) {
-        testVisitation(className, methodSignature, new SparseArray<Object>(), expected);
+        testVisitation(className, methodSignature, new TIntObjectHashMap<Object>(), expected);
     }
 
-    public static void testVisitation(String className, String methodSignature, SparseArray<Object> initial,
+    public static void testVisitation(String className, String methodSignature, TIntObjectMap<Object> initial,
                     int[] expected) {
         ContextGraph graph = VMTester.execute(className, "TestPackedSwitch()V", initial);
         TIntList addresses = graph.getAddresses();
@@ -114,36 +115,30 @@ public class VMTester {
 
     }
 
-    public static void testState(String className, String methodSignature, SparseArray<Object> initial,
-                    SparseArray<Object> expected) {
+    public static void testState(String className, String methodSignature, TIntObjectMap<Object> initial,
+                    TIntObjectMap<Object> expected) {
         testState(className, methodSignature, initial, expected, new HashMap<String, Map<String, Object>>(0),
                         new HashMap<String, Map<String, Object>>(0));
     }
 
-    // public static void testState(String className, String methodSignature, SparseArray<Object> initial,
-    // SparseArray<Object> expected, Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
-    // testState(className, methodSignature, initial, expected, new HashMap<String, Map<String, Object>>(0),
-    // classNameToExpectedFieldValue);
-    // }
-
-    public static void testExpectedMethodState(String className, String methodSignature, SparseArray<Object> expected,
-                    Map<String, Map<String, Object>> classNameToInitialFieldValue) {
-        SparseArray<Object> initial = new SparseArray<Object>(0);
+    public static void testExpectedMethodState(String className, String methodSignature,
+                    TIntObjectMap<Object> expected, Map<String, Map<String, Object>> classNameToInitialFieldValue) {
+        TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = new HashMap<String, Map<String, Object>>(0);
         testState(className, methodSignature, initial, expected, classNameToInitialFieldValue,
                         classNameToExpectedFieldValue);
     }
 
-    public static void testExpectedClassState(String className, String methodSignature, SparseArray<Object> initial,
+    public static void testExpectedClassState(String className, String methodSignature, TIntObjectMap<Object> initial,
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
-        SparseArray<Object> expected = new SparseArray<Object>(0);
+        TIntObjectMap<Object> expected = new TIntObjectHashMap<Object>();
         Map<String, Map<String, Object>> classNameToInitialFieldValue = new HashMap<String, Map<String, Object>>(0);
         testState(className, methodSignature, initial, expected, classNameToInitialFieldValue,
                         classNameToExpectedFieldValue);
     }
 
-    public static void testState(String className, String methodSignature, SparseArray<Object> initial,
-                    SparseArray<Object> expected, Map<String, Map<String, Object>> classNameToInitialFieldValue,
+    public static void testState(String className, String methodSignature, TIntObjectMap<Object> initial,
+                    TIntObjectMap<Object> expected, Map<String, Map<String, Object>> classNameToInitialFieldValue,
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
         BuilderClassDef classDef = classNameToDef.get(className);
         MethodContext ctx = MethodContext.build(initial);
@@ -163,8 +158,7 @@ public class VMTester {
 
         // TODO: use getTerminatingRegisterConsensus
         TIntList terminalAddresses = graph.getConnectedTerminatingAddresses();
-        for (int i = 0; i < expected.size(); i++) {
-            int register = expected.keyAt(i);
+        for (int register : expected.keys()) {
             Object value = expected.get(register);
             Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
 
@@ -214,8 +208,8 @@ public class VMTester {
         }
     }
 
-    public static void test(String className, String methodSignature, SparseArray<Object> expected) {
-        testState(className, methodSignature, new SparseArray<Object>(), expected);
+    public static void test(String className, String methodSignature, TIntObjectMap<Object> expected) {
+        testState(className, methodSignature, new TIntObjectHashMap<Object>(), expected);
     }
 
     public static Map<String, Object> buildFieldToValue(Object... params) {
@@ -238,21 +232,10 @@ public class VMTester {
         return result;
     }
 
-    // public static Map<String, ClassContext> buildClassNameToContext(Object... params) {
-    // Map<String, ClassContext> result = new HashMap<String, ClassContext>(params.length / 2);
-    // for (int i = 0; i < params.length; i += 2) {
-    // @SuppressWarnings("unchecked")
-    // ClassContext ctx = ClassContext.build((Map<String, Object>) params[i + 1]);
-    // result.put((String) params[i], ctx);
-    // }
-    //
-    // return result;
-    // }
-
-    public static SparseArray<Object> buildRegisterState(Object... params) {
-        SparseArray<Object> result = new SparseArray<Object>(params.length / 2);
+    public static TIntObjectMap<Object> buildRegisterState(Object... params) {
+        TIntObjectMap<Object> result = new TIntObjectHashMap<Object>();
         for (int i = 0; i < params.length; i += 2) {
-            result.append((int) params[i], params[i + 1]);
+            result.put((int) params[i], params[i + 1]);
         }
 
         return result;

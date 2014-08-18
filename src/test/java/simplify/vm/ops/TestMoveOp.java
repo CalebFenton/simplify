@@ -2,6 +2,7 @@ package simplify.vm.ops;
 
 import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
+import gnu.trove.map.TIntObjectMap;
 
 import java.util.Arrays;
 import java.util.logging.Logger;
@@ -13,7 +14,6 @@ import simplifier.vm.context.ContextGraph;
 import simplifier.vm.context.MethodContext;
 import simplifier.vm.type.UnknownValue;
 import simplify.vm.VMTester;
-import util.SparseArray;
 
 public class TestMoveOp {
 
@@ -31,15 +31,15 @@ public class TestMoveOp {
 
     @Test
     public void TestMoveRegisterPrimitive() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, 42);
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, 42, 1, 42);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 42);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 42, 1, 42);
 
         VMTester.testState(CLASS_NAME, "TestMoveRegisterPrimitive()V", initial, expected);
     }
 
     @Test
     public void TestMoveRegisterObject() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new Object());
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Object());
 
         // Must invoke VM directly to ensure reference identity
         ContextGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
@@ -56,15 +56,15 @@ public class TestMoveOp {
 
     @Test
     public void TestMoveResult() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(MethodContext.ResultRegister, 42);
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, 42);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(MethodContext.ResultRegister, 42);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 42);
 
         VMTester.testState(CLASS_NAME, "TestMoveResult()V", initial, expected);
     }
 
     @Test
     public void TestMoveException() {
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Ljava/lang/Exception;"));
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Ljava/lang/Exception;"));
 
         VMTester.test(CLASS_NAME, "TestMoveException()V", expected);
     }

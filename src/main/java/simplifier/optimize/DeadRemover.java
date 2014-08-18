@@ -2,6 +2,7 @@ package simplifier.optimize;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.set.TIntSet;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -18,8 +19,6 @@ import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
 import org.jf.dexlib2.iface.debug.DebugItem;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
-import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import simplifier.Main;
 import simplifier.vm.SideEffect;
@@ -75,21 +74,18 @@ public class DeadRemover {
     }
 
     private final SparseArray<BuilderInstruction> addressToInstruction;
-
-    private int deadCount = 0;
-    private final DexBuilder dexBuilder;
     private final ContextGraph graph;
     private final MutableMethodImplementation implementation;
-
     private TIntArrayList noppedAddresses;
+    private final TIntSet changedAddresses;
+    private int deadCount = 0;
     private int unreachableCount = 0;
 
-    DeadRemover(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph) {
-        this.dexBuilder = dexBuilder;
+    DeadRemover(MutableMethodImplementation implementation, ContextGraph graph, TIntSet changedAddresses) {
         this.graph = graph;
-
-        implementation = (MutableMethodImplementation) method.getImplementation();
-        addressToInstruction = Simplifier.buildAddressToInstruction(implementation.getInstructions());
+        this.implementation = implementation;
+        this.changedAddresses = changedAddresses;
+        addressToInstruction = Optimizer.buildAddressToInstruction(implementation.getInstructions());
         noppedAddresses = new TIntArrayList();
     }
 
@@ -102,11 +98,11 @@ public class DeadRemover {
     }
 
     private TIntList getDeadAssignmentAddresses(TIntList addresses) {
-        TIntList nopAddresses = new TIntArrayList(0);
+        TIntList result = new TIntArrayList(0);
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
-            Op handler = graph.getOpHandler(address);
 
+            Op handler = graph.getOpHandler(address);
             if (handler.sideEffectType().ordinal() > SIDE_EFFECT_THRESHOLD.ordinal()) {
                 continue;
             }
@@ -119,27 +115,29 @@ public class DeadRemover {
                 log.warning("Node pile size is 0. This could be a mistake. Skipping.");
                 continue;
             }
+
             TIntList assigned = pile.get(0).getContext().getRegistersAssigned();
             if (assigned.size() > 0) {
                 log.fine("Read assignments test for: " + handler);
-
-                if (!areAssignmentsRead(address, graph, assigned)) {
-                    log.info("Nop dead assignment: " + handler + ", assign=" + assigned);
-                    nopAddresses.add(address);
+                if (areAssignmentsRead(address, graph, assigned)) {
                     continue;
                 }
+
+                log.info("Nop dead assignment: " + handler + ", assign=" + assigned);
+                result.add(address);
             }
         }
 
-        deadCount = nopAddresses.size();
+        deadCount = result.size();
 
-        return nopAddresses;
+        return result;
     }
 
     private TIntList getUnreachedCodeAddresses(TIntList addresses) {
         TIntList nopAddresses = new TIntArrayList(0);
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
+            System.out.println("get op handler: " + address + " " + addressToInstruction.get(address).getOpcode().name);
             Op handler = graph.getOpHandler(address);
 
             if (handler.sideEffectType().ordinal() > SIDE_EFFECT_THRESHOLD.ordinal()) {
@@ -266,7 +264,9 @@ public class DeadRemover {
     }
 
     boolean perform() {
-        TIntList validAddresses = getValidAddresses(graph, implementation);
+        TIntList validAddresses = getAddressesNotInCatchBlocks();
+        validAddresses.removeAll(changedAddresses.toArray());
+
         TIntList nopAddresses = new TIntArrayList();
         nopAddresses.addAll(getUnreachedCodeAddresses(validAddresses));
         nopAddresses.addAll(getDeadAssignmentAddresses(validAddresses));
@@ -279,7 +279,7 @@ public class DeadRemover {
         return nopAddresses.size() > 0;
     }
 
-    static TIntList getValidAddresses(ContextGraph graph, MutableMethodImplementation implementation) {
+    TIntList getAddressesNotInCatchBlocks() {
         TIntList catchAddresses = new TIntArrayList();
         List<BuilderTryBlock> tryBlocks = implementation.getTryBlocks();
         for (BuilderTryBlock tryBlock : tryBlocks) {
@@ -292,24 +292,27 @@ public class DeadRemover {
 
         TIntList result = new TIntArrayList();
         boolean inCatch = false;
-        List<BuilderInstruction> instructions = implementation.getInstructions();
-        for (BuilderInstruction instruction : instructions) {
-            MethodLocation location = instruction.getLocation();
+        for (int idx = 0; idx < addressToInstruction.size(); idx++) {
+            int address = addressToInstruction.keyAt(idx);
+            BuilderInstruction instruction = addressToInstruction.get(address);
+            if (catchAddresses.contains(address)) {
+                inCatch = true;
+                continue;
+            }
+
             if (inCatch) {
-                if (location.getLabels().size() > 0) {
+                if (instruction.getLocation().getLabels().size() > 0) {
                     inCatch = false;
                 }
-            } else {
-                int address = location.getCodeAddress();
-                if (catchAddresses.contains(address)) {
-                    inCatch = true;
-                    continue;
-                }
-
-                result.add(address);
             }
+
+            result.add(address);
         }
 
         return result;
+    }
+
+    public boolean madeChanges() {
+        return (deadCount > 0) || (unreachableCount > 0);
     }
 }

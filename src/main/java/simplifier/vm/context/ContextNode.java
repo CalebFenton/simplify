@@ -12,6 +12,7 @@ public class ContextNode {
     private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
     private static Logger log = Logger.getLogger(Main.class.getSimpleName());
+
     private final List<ContextNode> children;
     private final Op handler;
     private MethodContext ctx;

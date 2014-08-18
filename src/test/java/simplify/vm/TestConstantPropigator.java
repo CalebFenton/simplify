@@ -3,7 +3,7 @@ package simplify.vm;
 import java.util.logging.Logger;
 
 import simplifier.Main;
-import util.SparseArray;
+import gnu.trove.map.TIntObjectMap;
 
 public class TestConstantPropigator {
 
@@ -13,8 +13,8 @@ public class TestConstantPropigator {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     public void TestArrayGet() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, 0x42);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
 
         VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }

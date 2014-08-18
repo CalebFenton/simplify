@@ -16,7 +16,7 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
 
-import simplifier.optimize.Simplifier;
+import simplifier.optimize.Optimizer;
 import simplifier.vm.VirtualMachine;
 import simplifier.vm.context.ContextGraph;
 
@@ -24,8 +24,7 @@ public class Main {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINE;
-    // private static final Level LOG_LEVEL = Level.OFF;
+    private static final Level LOG_LEVEL = Level.INFO;
 
     private static final int MAX_NODE_VISITS = 1000;
     private static final int MAX_CALL_DEPTH = 5;
@@ -72,7 +71,6 @@ public class Main {
             do {
                 ContextGraph graph = vm.execute(methodDescriptor);
                 if (graph == null) {
-                    System.out.println("Skipping " + methodDescriptor);
                     log.info("Skipping " + methodDescriptor);
                     continue outer;
                 }
@@ -80,11 +78,8 @@ public class Main {
                 // String methodName = method.getName();
                 // FileUtils.writeStringToFile(new File("graphs/" + methodName + ".dot"), graph.toGraph());
 
-                madeChanges = Simplifier.simplify(dexBuilder, method, graph);
+                madeChanges = Optimizer.simplify(dexBuilder, method, graph);
                 if (madeChanges) {
-                    // Method implementations will have changed, so prepare to execute this again with the changes.
-                    // TODO: this is confusing upon viewing after a while. perhaps graph should mutate and be taken as
-                    // param?
                     vm.updateInstructionGraph(methodDescriptor);
                 }
 

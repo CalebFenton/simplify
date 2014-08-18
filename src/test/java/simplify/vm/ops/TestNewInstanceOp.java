@@ -1,5 +1,7 @@
 package simplify.vm.ops;
 
+import gnu.trove.map.TIntObjectMap;
+
 import java.util.logging.Logger;
 
 import org.junit.Test;
@@ -8,7 +10,6 @@ import simplifier.Main;
 import simplifier.vm.type.LocalInstance;
 import simplifier.vm.type.UninitializedInstance;
 import simplify.vm.VMTester;
-import util.SparseArray;
 
 public class TestNewInstanceOp {
 
@@ -19,17 +20,17 @@ public class TestNewInstanceOp {
 
     @Test
     public void TestLocalClass() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, 1);
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
         VMTester.testState(CLASS_NAME, "TestLocalClass()V", initial, expected);
     }
 
     @Test
     public void TestNonLocalClass() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, 1);
-        SparseArray<Object> expected = VMTester.buildRegisterState(0, new UninitializedInstance(
-                        "Ljava/lang/Integer;"));
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
+                        new UninitializedInstance("Ljava/lang/Integer;"));
 
         VMTester.testState(CLASS_NAME, "TestNonLocalClass()V", initial, expected);
     }

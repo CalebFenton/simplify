@@ -2,6 +2,8 @@ package simplifier.vm.context;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -13,7 +15,6 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
-import org.jf.util.SparseArray;
 
 import simplifier.Main;
 import simplifier.vm.SideEffect;
@@ -27,17 +28,17 @@ public class ContextGraph implements Iterable<ContextNode> {
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static SparseArray<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
+    private static TIntObjectMap<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
         OpFactory handlerFactory = new OpFactory(vm, methodDescriptor);
 
-        SparseArray<List<ContextNode>> result = new SparseArray<List<ContextNode>>(instructions.size());
+        TIntObjectMap<List<ContextNode>> result = new TIntObjectHashMap<List<ContextNode>>();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
             Op handler = handlerFactory.create(instruction, address);
             ContextNode node = new ContextNode(handler);
 
-            // Most node piles will be a template node and one node with context.
+            // Most node piles will be a template node and one or more ContextNodes.
             List<ContextNode> nodePile = new ArrayList<ContextNode>(2);
             nodePile.add(node);
 
@@ -67,7 +68,7 @@ public class ContextGraph implements Iterable<ContextNode> {
         return result;
     }
 
-    private final SparseArray<List<ContextNode>> addressToNodePile;
+    private final TIntObjectMap<List<ContextNode>> addressToNodePile;
 
     private final String methodDescriptor;
 
@@ -76,9 +77,8 @@ public class ContextGraph implements Iterable<ContextNode> {
     public ContextGraph(ContextGraph other) {
         methodDescriptor = other.methodDescriptor;
 
-        addressToNodePile = new SparseArray<List<ContextNode>>(other.addressToNodePile.size());
-        for (int i = 0; i < other.addressToNodePile.size(); i++) {
-            int address = other.addressToNodePile.keyAt(i);
+        addressToNodePile = new TIntObjectHashMap<List<ContextNode>>();
+        for (int address : other.addressToNodePile.keys()) {
             List<ContextNode> otherNodePile = other.addressToNodePile.get(address);
             List<ContextNode> nodePile = new ArrayList<ContextNode>(otherNodePile.size());
             for (ContextNode otherNode : otherNodePile) {
@@ -107,11 +107,7 @@ public class ContextGraph implements Iterable<ContextNode> {
     }
 
     public TIntList getAddresses() {
-        TIntList addresses = new TIntArrayList(addressToNodePile.size());
-
-        for (int i = 0; i < addressToNodePile.size(); i++) {
-            addresses.add(addressToNodePile.keyAt(i));
-        }
+        TIntList addresses = new TIntArrayList(addressToNodePile.keys());
 
         return addresses;
     }
@@ -226,9 +222,8 @@ public class ContextGraph implements Iterable<ContextNode> {
             return true;
         }
 
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-
         // If this address was reached during execution there will be clones in the pile.
+        List<ContextNode> nodePile = addressToNodePile.get(address);
         return nodePile.size() > 1;
     }
 

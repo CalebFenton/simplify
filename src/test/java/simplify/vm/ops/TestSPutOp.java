@@ -1,5 +1,7 @@
 package simplify.vm.ops;
 
+import gnu.trove.map.TIntObjectMap;
+
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -7,7 +9,6 @@ import org.junit.Test;
 
 import simplifier.Main;
 import simplify.vm.VMTester;
-import util.SparseArray;
 
 public class TestSPutOp {
 
@@ -18,7 +19,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutInt() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, 0x42);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myInt:I", 0x42);
 
@@ -27,7 +28,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutWide() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);
 
@@ -36,7 +37,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutObject() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, "Do not pray for an easy life");
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "Do not pray for an easy life");
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myString:Ljava/lang/String;", "Do not pray for an easy life");
 
@@ -45,7 +46,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutBoolean() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, true);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, true);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myBoolean:Z", true);
 
@@ -54,7 +55,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutByte() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, (byte) 0xFF);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (byte) 0xFF);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myByte:B", (byte) 0xFF);
 
@@ -63,7 +64,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutChar() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, '!');
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, '!');
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myChar:C", '!');
 
@@ -72,7 +73,7 @@ public class TestSPutOp {
 
     @Test
     public void TestStaticPutShort() {
-        SparseArray<Object> initial = VMTester.buildRegisterState(0, (short) 0x4242);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (short) 0x4242);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myShort:S", (short) 0x4242);
 

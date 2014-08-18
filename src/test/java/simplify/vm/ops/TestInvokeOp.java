@@ -1,5 +1,7 @@
 package simplify.vm.ops;
 
+import gnu.trove.map.TIntObjectMap;
+
 import java.util.logging.Logger;
 
 import org.junit.Test;
@@ -11,7 +13,6 @@ import simplifier.vm.context.MethodContext;
 import simplifier.vm.type.LocalInstance;
 import simplifier.vm.type.UnknownValue;
 import simplify.vm.VMTester;
-import util.SparseArray;
 
 @RunWith(Enclosed.class)
 public class TestInvokeOp {
@@ -24,24 +25,24 @@ public class TestInvokeOp {
 
         @Test
         public void TestInvokeReturnsVoidReturnsVoid() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
-            SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
 
             VMTester.testState(CLASS_NAME, "InvokeReturnsVoid()V", initial, expected);
         }
 
         @Test
         public void TestInvokeReturnsIntReturnsInt() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
-            SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
 
             VMTester.testState(CLASS_NAME, "InvokeReturnsInt()V", initial, expected);
         }
 
         @Test
         public void TestInvokeReturnsParameterReturnsParameter() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5);
-            SparseArray<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5,
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5,
                             MethodContext.ResultRegister, 0x5);
 
             VMTester.testState(CLASS_NAME, "InvokeReturnsParameter()V", initial, expected);
@@ -53,48 +54,48 @@ public class TestInvokeOp {
 
         @Test
         public void TestInvokeReturnsVoidReturnsVoid() {
-            SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
 
             VMTester.test(CLASS_NAME, "InvokeReturnsVoid()V", expected);
         }
 
         @Test
         public void TestInvokeReturnsIntReturnsInt() {
-            SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
 
             VMTester.test(CLASS_NAME, "InvokeReturnsInt()V", expected);
         }
 
         @Test
         public void TestInvokeReturnsParameterReturnsParameter() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, 0x5);
-            SparseArray<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x5);
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x5);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x5);
 
             VMTester.testState(CLASS_NAME, "InvokeReturnsParameter()V", initial, expected);
         }
 
         @Test
         public void TestInvokeTryMutateStringDoesNotMutateParameter() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, "not mutated");
-            SparseArray<Object> expected = VMTester.buildRegisterState(0, "not mutated");
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "not mutated");
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "not mutated");
 
             VMTester.testState(CLASS_NAME, "InvokeTryMutateString()V", initial, expected);
         }
 
         @Test
         public void InvokeTryMutateStringBuilderDoesMutateParameter() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new StringBuilder("i have been"));
-            SparseArray<Object> expected = VMTester.buildRegisterState(0, new StringBuilder("i have been mutated"));
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new StringBuilder("i have been"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new StringBuilder("i have been mutated"));
 
             VMTester.testState(CLASS_NAME, "InvokeTryMutateStringBuilder()V", initial, expected);
         }
 
         @Test
         public void TestInvokeNonLocalMethodWithKnownAndUnknownMutableParametersMutatesBoth() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
                             "[I"));
-            SparseArray<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1, new UnknownValue(
-                            "[I"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
+                            new UnknownValue("[I"));
 
             VMTester.testState(CLASS_NAME, "InvokeNonLocalMethodWithKnownAndUnknownMutableParameters()V", initial,
                             expected);
@@ -102,8 +103,8 @@ public class TestInvokeOp {
 
         @Test
         public void TestKnownMutableParametersAreMutatedWithDeterministicExecution() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, 0);
-            SparseArray<Object> expected = VMTester.buildRegisterState(0, new int[] { 0x0 }, 1, 0);
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, 0);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 0x0 }, 1, 0);
 
             VMTester.testState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
                             expected);
@@ -111,9 +112,9 @@ public class TestInvokeOp {
 
         @Test
         public void TestKnownMutableParametersAreMutatedWithNonDeterministicExecution() {
-            SparseArray<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, new UnknownValue("I"));
-            SparseArray<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1, new UnknownValue(
-                            "I"));
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, new UnknownValue("I"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
+                            new UnknownValue("I"));
 
             VMTester.testState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
                             expected);

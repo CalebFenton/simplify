@@ -3,7 +3,6 @@ package simplifier.vm.context;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import util.SmaliClassUtils;
-import util.SparseArray;
 
 public class MethodContext extends BaseContext {
 
@@ -11,12 +10,10 @@ public class MethodContext extends BaseContext {
     public static final int ReturnAddress = -3;
     public static final int ReturnRegister = -2;
 
-    public static MethodContext build(SparseArray<Object> registers) {
+    public static MethodContext build(TIntObjectMap<Object> registers) {
         MethodContext ctx = new MethodContext(registers.size());
-        for (int i = 0; i < registers.size(); i++) {
-            int register = registers.keyAt(i);
+        for (int register : registers.keys()) {
             Object value = registers.get(register);
-
             ctx.assignRegister(register, value);
         }
 
