@@ -1,6 +1,8 @@
 package util;
 
 import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.map.TIntObjectMap;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -26,6 +28,32 @@ public class Utils {
                 int lastIndex = list.lastIndexOf(item);
                 list.removeAt(lastIndex);
             }
+        }
+    }
+
+    public static <T> void shiftIntegerMapKeys(int startAddress, int shift, TIntObjectMap<T> intToObject) {
+        if (shift == 0) {
+            return;
+        }
+
+        TIntList addressesToShift = new TIntArrayList(intToObject.keys());
+        // Only adjust addresses after the replacement point
+        for (int currentAddress : addressesToShift.toArray()) {
+            if (currentAddress <= startAddress) {
+                addressesToShift.remove(currentAddress);
+            }
+        }
+
+        addressesToShift.sort();
+        if (shift > 0) {
+            // Shifting addresses up, so start at the end to avoid overwriting keys.
+            addressesToShift.reverse();
+        }
+
+        for (int currentAddress : addressesToShift.toArray()) {
+            T obj = intToObject.get(currentAddress);
+            intToObject.remove(currentAddress);
+            intToObject.put(currentAddress + shift, obj);
         }
     }
 

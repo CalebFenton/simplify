@@ -3,18 +3,17 @@ package simplifier.vm;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.jf.util.SparseArray;
 import org.junit.BeforeClass;
 import org.perfidix.annotation.BeforeBenchClass;
 import org.perfidix.annotation.Bench;
 import org.perfidix.annotation.BenchClass;
 
-import util.SparseArray;
-
 @BenchClass(runs = 100)
 public class DataStructureBenchmark {
 
     private static Integer[] data = new Integer[1000 * 1000];
-    private static SparseArray<Object> mySparse = new SparseArray<Object>();
+    private static org.jf.util.SparseArray<Object> mySparse = new SparseArray<Object>();
     private static TIntObjectMap<Object> myTrove = new TIntObjectHashMap<Object>();
 
     @BeforeBenchClass

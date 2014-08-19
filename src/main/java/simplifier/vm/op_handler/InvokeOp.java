@@ -143,11 +143,11 @@ public class InvokeOp extends Op {
         this.parameterTypes = parameterTypes;
         this.vm = vm;
         this.isStatic = isStatic;
+        sideEffectType = SideEffect.Type.STRONG;
     }
 
     @Override
     public int[] execute(MethodContext mctx) {
-        sideEffectType = SideEffect.Type.STRONG;
         if (vm.isMethodDefined(methodDescriptor)) {
             executeLocalMethod(methodDescriptor, mctx);
         } else {
@@ -172,7 +172,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {

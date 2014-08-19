@@ -1,15 +1,10 @@
 package simplifier.optimize;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
-
 import java.util.List;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
@@ -29,9 +24,8 @@ import simplifier.vm.op_handler.Op;
 import simplifier.vm.op_handler.UnaryMathOp;
 import simplifier.vm.type.UnknownValue;
 import util.SmaliClassUtils;
-import util.SparseArray;
 
-public class ConstantPropigator {
+public class ConstantBuilder {
 
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
         "java.lang.String", "java.lang.Class" };
@@ -41,62 +35,7 @@ public class ConstantPropigator {
     private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class, UnaryMathOp.class,
         MoveOp.class };
 
-    private static int getBitSize(long x) {
-        int result = 1;
-        while ((result < 64) && (x >= (1L << result))) {
-            result++;
-        }
-
-        return result;
-    }
-
-    private static boolean isConstableHandler(Op handler) {
-        for (Class<?> clazz : OpHandlersToMakeConst) {
-            if (handler.getClass() == clazz) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static boolean isConstableType(String type) {
-        for (String ct : ConstantValueTypes) {
-            if (type.equals(ct)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private final DexBuilder dexBuilder;
-    private final ContextGraph graph;
-    private final MutableMethodImplementation implementation;
-    private final SparseArray<BuilderInstruction> addressToInstruction;
-    private final TIntSet changedAddresses;
-
-    private int emitCount = 0;
-    private int peepCount = 0;
-
-    ConstantPropigator(DexBuilder dexBuilder, MutableMethodImplementation implementation, ContextGraph graph) {
-        this.dexBuilder = dexBuilder;
-        this.graph = graph;
-        this.implementation = implementation;
-
-        addressToInstruction = Optimizer.buildAddressToInstruction(implementation.getInstructions());
-        changedAddresses = new TIntHashSet();
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("constants=");
-        sb.append(emitCount).append(", peeps=").append(peepCount);
-
-        return sb.toString();
-    }
-
-    private BuilderInstruction buildConstant(int registerA, String type, Object value) {
+    private static BuilderInstruction buildConstant(int registerA, String type, Object value, DexBuilder dexBuilder) {
         BuilderInstruction result = null;
 
         if (type.equals("I") || type.equals("B") || type.equals("S") || type.equals("C")) {
@@ -144,62 +83,16 @@ public class ConstantPropigator {
         return result;
     }
 
-    boolean madeChanges() {
-        return changedAddresses.size() > 0;
-    }
-
-    void perform() {
-        TIntList addresses = graph.getAddresses();
-        for (int i = 0; i < addresses.size(); i++) {
-            int address = addresses.get(i);
-
-            List<ContextNode> nodePile = graph.getNodePile(address);
-            if (nodePile.size() == 0) {
-                // Node wasn't reached.
-                continue;
-            }
-
-            // Check handler first since we expect to be able to cast instructions to OneRegisterInstruction
-            Op handler = nodePile.get(0).getOpHandler();
-            if (!isConstableHandler(handler)) {
-                log.finer("Can't make hanlder constant: " + handler);
-                continue;
-            }
-
-            BuilderInstruction originalInstruction = addressToInstruction.get(address);
-            int registerA = ((OneRegisterInstruction) originalInstruction).getRegisterA();
-            Object consensus = graph.getRegisterConsensus(address, registerA);
-            if (consensus instanceof UnknownValue) {
-                continue;
-            }
-
-            String type = SmaliClassUtils.getValueType(consensus);
-            type = getUnboxedType(type);
-
-            if (!isConstableType(type)) {
-                log.fine("Can't make type constant: " + type);
-                continue;
-            }
-
-            log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus + ", @" + address);
-            BuilderInstruction constInstruction = buildConstant(registerA, type, consensus);
-            int index = originalInstruction.getLocation().getIndex();
-            implementation.replaceInstruction(index, constInstruction);
-            changedAddresses.add(address);
-
-            emitCount++;
+    private static int getBitSize(long x) {
+        int result = 1;
+        while ((result < 64) && (x >= (1L << result))) {
+            result++;
         }
+
+        return result;
     }
 
-    MutableMethodImplementation getImplementation() {
-        return implementation;
-    }
-
-    TIntSet getChangedAddresses() {
-        return changedAddresses;
-    }
-
-    private String getUnboxedType(String type) {
+    private static String getUnboxedType(String type) {
         String result = null;
 
         if (type.equals("java.lang.Integer")) {
@@ -219,6 +112,61 @@ public class ConstantPropigator {
         } else {
             result = type;
         }
+
+        return result;
+    }
+
+    private static boolean isConstableHandler(Op handler) {
+        for (Class<?> clazz : OpHandlersToMakeConst) {
+            if (handler.getClass() == clazz) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isConstableType(String type) {
+        for (String ct : ConstantValueTypes) {
+            if (type.equals(ct)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static BuilderInstruction buildConstantForAddress(int address, ContextGraph graph,
+                    BuilderInstruction originalInstruction, DexBuilder dexBuilder) {
+        List<ContextNode> nodePile = graph.getNodePile(address);
+        if (nodePile.size() == 0) {
+            // Node wasn't reached.
+            return null;
+        }
+
+        // Check handler first since we expect to be able to cast instructions to OneRegisterInstruction
+        Op handler = nodePile.get(0).getOpHandler();
+        if (!isConstableHandler(handler)) {
+            log.finer("Can't make hanlder constant: " + handler);
+            return null;
+        }
+
+        int registerA = ((OneRegisterInstruction) originalInstruction).getRegisterA();
+        Object consensus = graph.getRegisterConsensus(address, registerA);
+        if (consensus instanceof UnknownValue) {
+            return null;
+        }
+
+        String type = SmaliClassUtils.getValueType(consensus);
+        type = getUnboxedType(type);
+
+        if (!isConstableType(type)) {
+            log.fine("Can't make type constant: " + type);
+            return null;
+        }
+
+        log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus + ", @" + address);
+        BuilderInstruction result = buildConstant(registerA, type, consensus, dexBuilder);
 
         return result;
     }

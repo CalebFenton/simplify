@@ -3,7 +3,9 @@ package simplifier;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -29,6 +31,8 @@ public class Main {
     private static final int MAX_NODE_VISITS = 1000;
     private static final int MAX_CALL_DEPTH = 5;
 
+    private static final int MAX_OPTIMIZATION_SWEEPS = 100;
+
     public static void main(String[] argv) throws Exception {
         setupLogger();
 
@@ -53,7 +57,8 @@ public class Main {
 
         // TODO: investigate sorting methods by implementation size. maybe shorter methods can be optimized more easily
         // and will speed up optimizations of dependent methods.
-        outer: for (BuilderMethod method : methods) {
+        Set<BuilderMethod> finishedMethods = new HashSet<BuilderMethod>();
+        for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
             if (methodDescriptor.endsWith("-><clinit>()V")) {
                 // Static class initialization is called elsewhere, as needed.
@@ -66,25 +71,28 @@ public class Main {
                 continue;
             }
 
-            boolean madeChanges = false;
-            int sweeps = 0;
-            do {
-                ContextGraph graph = vm.execute(methodDescriptor);
-                if (graph == null) {
-                    log.info("Skipping " + methodDescriptor);
-                    continue outer;
-                }
+            if (finishedMethods.contains(method)) {
+                continue;
+            }
 
-                // String methodName = method.getName();
-                // FileUtils.writeStringToFile(new File("graphs/" + methodName + ".dot"), graph.toGraph());
+            ContextGraph graph = vm.execute(methodDescriptor);
+            if (graph == null) {
+                log.info("Skipping " + methodDescriptor);
+                finishedMethods.add(method);
+                continue;
+            }
 
-                madeChanges = Optimizer.simplify(dexBuilder, method, graph);
-                if (madeChanges) {
-                    vm.updateInstructionGraph(methodDescriptor);
-                }
-
-                sweeps++;
-            } while (madeChanges && (sweeps < 20));
+            Optimizer opt = new Optimizer(dexBuilder, method, graph, vm);
+            boolean madeChanges = opt.simplify(MAX_OPTIMIZATION_SWEEPS);
+            if (madeChanges) {
+                /*
+                 * All objects associated with this method (dexbuilder, implmenetation) have been updated elsewhere.
+                 * Poke the VM to re-build the graph based on them.
+                 */
+                vm.updateInstructionGraph(methodDescriptor);
+            } else {
+                finishedMethods.add(method);
+            }
         }
 
         String outputDexFile = "out_simple.dex";

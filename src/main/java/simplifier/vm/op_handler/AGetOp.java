@@ -54,7 +54,6 @@ public class AGetOp extends Op {
                 value = new UnknownValue(innerType);
             } else {
                 int index = (int) indexValue;
-                // System.out.println("idx=" + index + ", len=" + Array.getLength(array));
                 value = Array.get(array, index);
             }
         }

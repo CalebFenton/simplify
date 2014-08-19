@@ -113,8 +113,7 @@ public class BaseContext {
         return result;
     }
 
-    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(BaseContext child,
-                    BaseContext ancestor) {
+    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(BaseContext child, BaseContext ancestor) {
         BaseContext current = child;
         TIntSet result = new TIntHashSet();
         while (current != ancestor) {
@@ -230,7 +229,6 @@ public class BaseContext {
 
     public boolean wasRegisterRead(int register) {
         Object value = peekRegister(register);
-
         if (ClassUtils.isPrimitiveOrWrapper(value.getClass()) || (value.getClass() == String.class)) {
             /*
              * This is a hack which suggests maintaining register types. Primitives are stored internally as their
@@ -245,10 +243,8 @@ public class BaseContext {
              * and v0 is never read.
              */
             TIntList registers = getRegistersRead();
-            for (int i = 0; i < registers.size(); i++) {
-                int currentRegister = registers.get(i);
+            for (int currentRegister : registers.toArray()) {
                 Object currentValue = peekRegister(currentRegister);
-
                 if (value == currentValue) {
                     return true;
                 }

@@ -14,6 +14,7 @@ public class ContextGraphBackedImplementaiton {
     }
 
     public void replaceInstructionWithConstant(int index, BuilderInstruction replacementInstruction) {
+        BuilderInstruction originalInstruction = implementation.getInstructions().get(index);
         implementation.replaceInstruction(index, replacementInstruction);
         /*
          * setup new contextnode set assigned to whichever register / or execute?? for each node in nodepile at that

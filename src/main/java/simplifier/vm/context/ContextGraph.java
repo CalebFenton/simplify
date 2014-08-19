@@ -6,8 +6,10 @@ import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import org.jf.dexlib2.Opcode;
@@ -23,6 +25,7 @@ import simplifier.vm.op_handler.Op;
 import simplifier.vm.op_handler.OpFactory;
 import simplifier.vm.type.UnknownValue;
 import util.SmaliClassUtils;
+import util.Utils;
 
 public class ContextGraph implements Iterable<ContextNode> {
 
@@ -31,7 +34,6 @@ public class ContextGraph implements Iterable<ContextNode> {
     private static TIntObjectMap<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
         OpFactory handlerFactory = new OpFactory(vm, methodDescriptor);
-
         TIntObjectMap<List<ContextNode>> result = new TIntObjectHashMap<List<ContextNode>>();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
@@ -41,7 +43,6 @@ public class ContextGraph implements Iterable<ContextNode> {
             // Most node piles will be a template node and one or more ContextNodes.
             List<ContextNode> nodePile = new ArrayList<ContextNode>(2);
             nodePile.add(node);
-
             result.put(address, nodePile);
         }
 
@@ -69,9 +70,7 @@ public class ContextGraph implements Iterable<ContextNode> {
     }
 
     private final TIntObjectMap<List<ContextNode>> addressToNodePile;
-
     private final String methodDescriptor;
-
     private final TIntList terminatingAddresses;
 
     public ContextGraph(ContextGraph other) {
@@ -93,12 +92,9 @@ public class ContextGraph implements Iterable<ContextNode> {
 
     public ContextGraph(VirtualMachine vm, BuilderMethod method) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         List<BuilderInstruction> instructions = implementation.getInstructions();
-
         addressToNodePile = buildAddressToNodePile(vm, methodDescriptor, instructions);
-
         terminatingAddresses = buildTerminatingAddresses(instructions);
     }
 
@@ -242,5 +238,73 @@ public class ContextGraph implements Iterable<ContextNode> {
 
     public void setRootContext(MethodContext mctx) {
         getRootNode().setContext(mctx);
+    }
+
+    /*
+     * Utility method for optimizer. Need to be able to update a graph to pass around between optimization strategies.
+     * This does a shallow update, not touching any handlers or individual nodes. It just updates addressToNodePile by
+     * shifting addresses up or down, depending on delta between old and new instruction. It also executes the new
+     * instruction, to flesh out a realistic context to help optimizer, ie. assigned registers, etc.
+     */
+    public void replaceInstruction(int address, int addressShift, Op handler, int codeUnits) {
+        Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
+
+        List<ContextNode> nodePile = addressToNodePile.get(address);
+        Map<ContextNode, ContextNode> oldToNew = new HashMap<ContextNode, ContextNode>();
+        for (int index = 0; index < nodePile.size(); index++) {
+            ContextNode node = nodePile.get(index);
+            ContextNode newNode = new ContextNode(handler);
+
+            nodePile.remove(node);
+            nodePile.add(index, newNode);
+            for (ContextNode child : node.getChildren()) {
+                newNode.addChild(child);
+            }
+
+            if (node.getContext() != null) {
+                ContextNode parent = node.getParent();
+                MethodContext mctx;
+                if (parent != null) {
+                    mctx = new MethodContext(parent.getContext());
+                    parent.replaceChild(node, newNode);
+                } else {
+                    mctx = new MethodContext(node.getContext());
+                }
+
+                newNode.setContext(mctx);
+                newNode.execute();
+            }
+
+            oldToNew.put(node, newNode);
+        }
+
+        // Update any children's parents to the new nodes we made.
+        nodePile = addressToNodePile.get(address + codeUnits);
+        for (ContextNode node : nodePile) {
+            ContextNode parent = node.getParent();
+            if (oldToNew.containsKey(parent)) {
+                node.setParent(oldToNew.get(parent));
+            }
+        }
+    }
+
+    public void removeInstruction(int address, int codeUnits) {
+        List<ContextNode> nodePile = addressToNodePile.get(address);
+        for (ContextNode node : nodePile) {
+            ContextNode parent = node.getParent();
+            if (parent != null) {
+                parent.removeChild(node);
+            }
+
+            for (ContextNode child : node.getChildren()) {
+                child.setParent(parent);
+                if (parent != null) {
+                    parent.addChild(child);
+                }
+            }
+        }
+
+        // addressToNodePile.remove(address);
+        Utils.shiftIntegerMapKeys(address, -codeUnits, addressToNodePile);
     }
 }

@@ -39,7 +39,6 @@ public class MethodContext extends BaseContext {
 
     public MethodContext(int registerCount, int parameterCount, int callDepth) {
         super(registerCount);
-
         this.parameterCount = parameterCount;
         this.callDepth = callDepth;
         this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();

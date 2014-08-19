@@ -22,13 +22,6 @@ public class TestMoveOp {
 
     private static final String CLASS_NAME = "Lmove_test;";
 
-    class IdentityTest {
-        public boolean equals(IdentityTest rhs) {
-            System.out.println("ident test " + this + " called " + rhs);
-            return this == rhs;
-        }
-    }
-
     @Test
     public void TestMoveRegisterPrimitive() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 42);
