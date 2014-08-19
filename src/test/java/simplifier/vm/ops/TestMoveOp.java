@@ -1,4 +1,4 @@
-package simplify.vm.ops;
+package simplifier.vm.ops;
 
 import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
@@ -10,10 +10,10 @@ import java.util.logging.Logger;
 import org.junit.Test;
 
 import simplifier.Main;
+import simplifier.vm.VMTester;
 import simplifier.vm.context.ContextGraph;
 import simplifier.vm.context.MethodContext;
 import simplifier.vm.type.UnknownValue;
-import simplify.vm.VMTester;
 
 public class TestMoveOp {
 

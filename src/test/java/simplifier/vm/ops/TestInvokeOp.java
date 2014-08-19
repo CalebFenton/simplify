@@ -1,4 +1,4 @@
-package simplify.vm.ops;
+package simplifier.vm.ops;
 
 import gnu.trove.map.TIntObjectMap;
 
@@ -9,10 +9,10 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
 import simplifier.Main;
+import simplifier.vm.VMTester;
 import simplifier.vm.context.MethodContext;
 import simplifier.vm.type.LocalInstance;
 import simplifier.vm.type.UnknownValue;
-import simplify.vm.VMTester;
 
 @RunWith(Enclosed.class)
 public class TestInvokeOp {

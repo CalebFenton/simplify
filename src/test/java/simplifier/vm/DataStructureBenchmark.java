@@ -1,4 +1,4 @@
-package simplify.vm;
+package simplifier.vm;
 
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;

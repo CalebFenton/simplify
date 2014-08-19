@@ -1,4 +1,4 @@
-package simplify.vm;
+package simplifier.vm;
 
 public class TestClass {
 

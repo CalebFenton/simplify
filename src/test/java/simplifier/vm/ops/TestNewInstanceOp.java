@@ -1,4 +1,4 @@
-package simplify.vm.ops;
+package simplifier.vm.ops;
 
 import gnu.trove.map.TIntObjectMap;
 
@@ -7,9 +7,9 @@ import java.util.logging.Logger;
 import org.junit.Test;
 
 import simplifier.Main;
+import simplifier.vm.VMTester;
 import simplifier.vm.type.LocalInstance;
 import simplifier.vm.type.UninitializedInstance;
-import simplify.vm.VMTester;
 
 public class TestNewInstanceOp {
 

@@ -1,4 +1,4 @@
-package simplify.vm;
+package simplifier.vm;
 
 import static org.junit.Assert.assertEquals;
 
