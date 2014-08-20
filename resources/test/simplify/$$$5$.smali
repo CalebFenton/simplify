@@ -44,9 +44,9 @@
 
     new-array v6, v1, [I
 
-    new-instance v7, Ljava/simplify.util/HashMap;
+    new-instance v7, Ljava/simplify/util/HashMap;
 
-    invoke-direct {v7}, Ljava/simplify.util/HashMap;-><init>()V
+    invoke-direct {v7}, Ljava/simplify/util/HashMap;-><init>()V
 
     const-string v3, "\uf54f\ue650\u4c1e\u5d78"
 
@@ -809,7 +809,7 @@
 
     move-result-object v2
 
-    invoke-interface {v7, v2, v1}, Ljava/simplify.util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v7, v2, v1}, Ljava/simplify/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     const v1, 0xefcf
 
@@ -817,7 +817,7 @@
 
     move-result-object v1
 
-    invoke-interface {v7, v1}, Ljava/simplify.util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v7, v1}, Ljava/simplify/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v1
 
@@ -833,7 +833,7 @@
 
     move-result-object v2
 
-    invoke-interface {v7, v2, v1}, Ljava/simplify.util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v7, v2, v1}, Ljava/simplify/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     const v1, 0xefcf
 
@@ -841,7 +841,7 @@
 
     move-result-object v1
 
-    invoke-interface {v7, v1}, Ljava/simplify.util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v7, v1}, Ljava/simplify/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v1
 
@@ -857,7 +857,7 @@
 
     move-result-object v2
 
-    invoke-interface {v7, v2, v1}, Ljava/simplify.util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v7, v2, v1}, Ljava/simplify/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     invoke-virtual {v1, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 

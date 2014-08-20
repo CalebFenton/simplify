@@ -621,7 +621,7 @@
     if-ne p2, v0, :cond_2
 
     :cond_1
-    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/simplify.util/ArrayList;
+    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/simplify/util/ArrayList;
 
     move-result-object v1
 
@@ -756,7 +756,7 @@
 
     if-ne v0, v1, :cond_2
 
-    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/simplify.util/ArrayList;
+    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/simplify/util/ArrayList;
 
     move-result-object v1
 

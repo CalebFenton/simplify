@@ -1,76 +1,38 @@
-package simplify.vm;
+package simplify.optimize;
 
 import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.logging.Logger;
 
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
-import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.junit.Assert;
 
-import simplify.Dexifier;
 import simplify.Main;
+import simplify.vm.VMTester;
+import simplify.vm.VirtualMachine;
 import simplify.vm.context.ClassContext;
 import simplify.vm.context.ContextGraph;
 import simplify.vm.context.MethodContext;
 import simplify.vm.type.UnknownValue;
 
-public class VMTester {
+public class OptimizerTester {
 
     @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final String TEST_DIRECTORY = "resources/test/vm";
+    private static final String TEST_DIRECTORY = "resources/test/optimize";
     private static final int MAX_NODE_VISITS = 100;
     private static final int MAX_CALL_DEPTH = 10;
 
-    private static final Map<String, BuilderClassDef> classNameToDef = getClassNameToBuilderClassDef();
-
-    public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef() {
-        return getClassNameToBuilderClassDef(TEST_DIRECTORY);
-    }
-
-    public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef(String path) {
-        File testDir = new File(TEST_DIRECTORY);
-        String[] extensions = new String[] { "smali" };
-        List<File> smaliFiles = new ArrayList<File>(FileUtils.listFiles(testDir, extensions, true));
-
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
-        Map<String, BuilderClassDef> result = new HashMap<String, BuilderClassDef>();
-        List<BuilderClassDef> classDefs;
-        try {
-            classDefs = Dexifier.dexifySmaliFiles(smaliFiles, dexBuilder);
-            for (BuilderClassDef classDef : classDefs) {
-                result.put(classDef.getType(), classDef);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(-1); // do not pass go, do not collect 200 monies
-        }
-
-        return result;
-    }
-
-    public static ContextGraph execute(String className, String methodSignature) {
-        return execute(className, methodSignature, new TIntObjectHashMap<Object>(),
-                        new HashMap<String, Map<String, Object>>(0));
-    }
-
-    public static ContextGraph execute(String className, String methodSignature, TIntObjectMap<Object> initial) {
-        return execute(className, methodSignature, initial, new HashMap<String, Map<String, Object>>(0));
-    }
+    private static final Map<String, BuilderClassDef> classNameToDef = VMTester
+                    .getClassNameToBuilderClassDef(TEST_DIRECTORY);
 
     public static ContextGraph execute(String className, String methodSignature, TIntObjectMap<Object> initial,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue) {
@@ -91,27 +53,6 @@ public class VMTester {
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
 
         return graph;
-    }
-
-    public static void testVisitation(String className, String methodSignature, int[] expected) {
-        testVisitation(className, methodSignature, new TIntObjectHashMap<Object>(), expected);
-    }
-
-    public static void testVisitation(String className, String methodSignature, TIntObjectMap<Object> initial,
-                    int[] expected) {
-        ContextGraph graph = VMTester.execute(className, methodSignature, initial);
-        TIntList addresses = graph.getAddresses();
-        TIntList expectedVisits = new TIntArrayList(expected);
-        for (int i = 0; i < addresses.size(); i++) {
-            int address = addresses.get(i);
-            if (!graph.wasAddressReached(address)) {
-                continue;
-            }
-            boolean wasExpected = expectedVisits.contains(address);
-            // log.info("visited @" + address);
-            assertTrue("Address @" + address + " was visited. Expected " + wasExpected, wasExpected);
-        }
-
     }
 
     public static void testState(String className, String methodSignature, TIntObjectMap<Object> initial,
@@ -194,11 +135,11 @@ public class VMTester {
         if (value == null) {
             Assert.assertTrue(msg, value == consensus);
         } else if (value instanceof UnknownValue) {
-            // Only checks type and value
+            // Checking type and value should be enough.
             Assert.assertTrue(msg, value.toString().equals(consensus.toString()));
         } else if (value.getClass().isArray()) {
-            // If array, type is "Object", so need to use isArray() instead of instanceof
-            boolean result = Objects.deepEquals(value, consensus);
+            // Type is "object" so can't use instanceof, but you knew that.
+            boolean result = ArrayUtils.isEquals(value, consensus);
             Assert.assertTrue(msg, result);
         } else if (value instanceof StringBuilder) {
             assertTrue(msg, value.toString().equals(consensus.toString()));
