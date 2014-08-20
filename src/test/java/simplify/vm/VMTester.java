@@ -32,11 +32,13 @@ public class VMTester {
     @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static final String TEST_DIRECTORY = "resources/test/vm";
+    private static final String TEST_DIRECTORY = "resources/test";
     private static final int MAX_NODE_VISITS = 100;
     private static final int MAX_CALL_DEPTH = 10;
 
     private static final Map<String, BuilderClassDef> classNameToDef = getClassNameToBuilderClassDef();
+
+    private static DexBuilder dexBuilder;
 
     public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef() {
         return getClassNameToBuilderClassDef(TEST_DIRECTORY);
@@ -47,7 +49,7 @@ public class VMTester {
         String[] extensions = new String[] { "smali" };
         List<File> smaliFiles = new ArrayList<File>(FileUtils.listFiles(testDir, extensions, true));
 
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
+        dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
         Map<String, BuilderClassDef> result = new HashMap<String, BuilderClassDef>();
         List<BuilderClassDef> classDefs;
         try {
@@ -238,5 +240,9 @@ public class VMTester {
         }
 
         return result;
+    }
+
+    public static DexBuilder getDexBuilder() {
+        return dexBuilder;
     }
 }

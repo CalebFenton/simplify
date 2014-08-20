@@ -31,7 +31,6 @@ public class VirtualMachine {
     private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildMethodDescriptorToTryCatchList(
                     List<BuilderClassDef> classDefs) {
         Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> result = new HashMap<String, List<? extends TryBlock<? extends ExceptionHandler>>>();
-
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderMethod method : classDef.getMethods()) {
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);

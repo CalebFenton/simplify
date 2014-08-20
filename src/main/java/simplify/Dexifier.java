@@ -48,13 +48,11 @@ public class Dexifier {
         parser.setApiLevel(API_LEVEL);
 
         smaliParser.smali_file_return result = parser.smali_file();
-
         if ((parser.getNumberOfSyntaxErrors() > 0) || (lexer.getNumberOfSyntaxErrors() > 0)) {
             throw new RuntimeException("Unable to parse: " + smaliFile);
         }
 
         CommonTree t = result.getTree();
-
         CommonTreeNodeStream treeStream = new CommonTreeNodeStream(t);
         treeStream.setTokenStream(tokens);
 
@@ -62,7 +60,6 @@ public class Dexifier {
         dexGen.setVerboseErrors(false);
         dexGen.setDexBuilder(dexBuilder);
         BuilderClassDef classDef = (BuilderClassDef) dexGen.smali_file();
-
         if (dexGen.getNumberOfSyntaxErrors() != 0) {
             throw new RuntimeException("Unable to walk: " + smaliFile);
         }

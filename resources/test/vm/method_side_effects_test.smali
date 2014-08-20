@@ -6,7 +6,6 @@
 .method public static EmptyMethod()V
   .locals 0
 
-  nop
   return-void
 .end method
 
