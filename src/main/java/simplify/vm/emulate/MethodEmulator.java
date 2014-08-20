@@ -10,7 +10,7 @@ public class MethodEmulator {
     private static Map<String, EmulatedMethod> emulatedMethods;
     static {
         emulatedMethods = new HashMap<String, EmulatedMethod>();
-        emulatedMethods.put("Lsimplifier/Utils;->breakpoint()V", new Breakpoint());
+        emulatedMethods.put("Lsimplify/Utils;->breakpoint()V", new Breakpoint());
     }
 
     public static boolean canEmulate(String methodDescriptor) {

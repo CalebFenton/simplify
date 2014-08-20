@@ -293,7 +293,7 @@
     const/4 v3, -0x4
 
     # Let's have fun.
-    #invoke-static {}, Lsimplifier/Utils;->breakpoint()V
+    #invoke-static {}, Lsimplify/Utils;->breakpoint()V
 
     invoke-static {v0, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
     move-result-object v0
@@ -645,13 +645,13 @@
     const/4 v3, -0x4
 
     # Let's have fun.
-    invoke-static {}, Lsimplifier/Utils;->breakpoint()V
+    invoke-static {}, Lsimplify/Utils;->breakpoint()V
 
     invoke-static {v0, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-static {}, Lsimplifier/Utils;->breakpoint()V
+    invoke-static {}, Lsimplify/Utils;->breakpoint()V
 
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
 
