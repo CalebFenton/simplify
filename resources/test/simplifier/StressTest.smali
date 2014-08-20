@@ -4,10 +4,10 @@
 
 
 # static fields
-.field private static stringMap:Ljava/util/Map;
+.field private static stringMap:Ljava/simplify.util/Map;
     .annotation system Ldalvik/annotation/Signature;
         value = {
-            "Ljava/util/Map",
+            "Ljava/simplify.util/Map",
             "<",
             "Ljava/lang/Integer;",
             "Ljava/lang/String;",
@@ -23,7 +23,7 @@
 
     .prologue
     .line 10
-    new-instance v0, Ljava/util/HashMap;
+    new-instance v0, Ljava/simplify.util/HashMap;
 
     move-object v3, v0
 
@@ -31,12 +31,12 @@
 
     move-object v1, v3
 
-    invoke-direct {v1}, Ljava/util/HashMap;-><init>()V
+    invoke-direct {v1}, Ljava/simplify.util/HashMap;-><init>()V
 
-    sput-object v0, Lsimplify/StressTest;->stringMap:Ljava/util/Map;
+    sput-object v0, Lsimplify/StressTest;->stringMap:Ljava/simplify.util/Map;
 
     .line 11
-    sget-object v0, Lsimplify/StressTest;->stringMap:Ljava/util/Map;
+    sget-object v0, Lsimplify/StressTest;->stringMap:Ljava/simplify.util/Map;
 
     const/4 v1, 0x0
 
@@ -46,12 +46,12 @@
 
     const-string v2, "map value 0"
 
-    invoke-interface {v0, v1, v2}, Ljava/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v0, v1, v2}, Ljava/simplify.util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v0
 
     .line 12
-    sget-object v0, Lsimplify/StressTest;->stringMap:Ljava/util/Map;
+    sget-object v0, Lsimplify/StressTest;->stringMap:Ljava/simplify.util/Map;
 
     const/4 v1, 0x1
 
@@ -61,12 +61,12 @@
 
     const-string v2, "map value 1"
 
-    invoke-interface {v0, v1, v2}, Ljava/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v0, v1, v2}, Ljava/simplify.util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v0
 
     .line 13
-    sget-object v0, Lsimplify/StressTest;->stringMap:Ljava/util/Map;
+    sget-object v0, Lsimplify/StressTest;->stringMap:Ljava/simplify.util/Map;
 
     const/4 v1, 0x2
 
@@ -76,7 +76,7 @@
 
     const-string v2, "map value 2"
 
-    invoke-interface {v0, v1, v2}, Ljava/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v0, v1, v2}, Ljava/simplify.util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v0
 
@@ -174,7 +174,7 @@
     move v1, v2
 
     .line 33
-    sget-object v2, Lsimplify/StressTest;->stringMap:Ljava/util/Map;
+    sget-object v2, Lsimplify/StressTest;->stringMap:Ljava/simplify.util/Map;
 
     move v3, v1
 
@@ -182,7 +182,7 @@
 
     move-result-object v3
 
-    invoke-interface {v2, v3}, Ljava/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v2, v3}, Ljava/simplify.util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v2
 

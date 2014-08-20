@@ -57,10 +57,10 @@
 
 .field private mParallaxOffset:F
 
-.field private final mPostedRunnables:Ljava/util/ArrayList;
+.field private final mPostedRunnables:Ljava/simplify.util/ArrayList;
     .annotation system Ldalvik/annotation/Signature;
         value = {
-            "Ljava/util/ArrayList",
+            "Ljava/simplify.util/ArrayList",
             "<",
             "Landroid/support/v4/widget/SlidingPaneLayout$DisableLayerRunnable;",
             ">;"
@@ -142,31 +142,31 @@
     .line 244
     const/4 v0, 0x0
 
-    invoke-direct {p0, p1, v0}, Landroid/support/v4/widget/SlidingPaneLayout;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
+    invoke-direct {p0, p1, v0}, Landroid/support/v4/widget/SlidingPaneLayout;-><init>(Landroid/content/Context;Landroid/simplify.util/AttributeSet;)V
 
     .line 245
     return-void
 .end method
 
-.method public constructor <init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
+.method public constructor <init>(Landroid/content/Context;Landroid/simplify.util/AttributeSet;)V
     .locals 1
     .param p1, "context"    # Landroid/content/Context;
-    .param p2, "attrs"    # Landroid/util/AttributeSet;
+    .param p2, "attrs"    # Landroid/simplify.util/AttributeSet;
 
     .prologue
     .line 248
     const/4 v0, 0x0
 
-    invoke-direct {p0, p1, p2, v0}, Landroid/support/v4/widget/SlidingPaneLayout;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;I)V
+    invoke-direct {p0, p1, p2, v0}, Landroid/support/v4/widget/SlidingPaneLayout;-><init>(Landroid/content/Context;Landroid/simplify.util/AttributeSet;I)V
 
     .line 249
     return-void
 .end method
 
-.method public constructor <init>(Landroid/content/Context;Landroid/util/AttributeSet;I)V
+.method public constructor <init>(Landroid/content/Context;Landroid/simplify.util/AttributeSet;I)V
     .locals 6
     .param p1, "context"    # Landroid/content/Context;
-    .param p2, "attrs"    # Landroid/util/AttributeSet;
+    .param p2, "attrs"    # Landroid/simplify.util/AttributeSet;
     .param p3, "defStyle"    # I
 
     .prologue
@@ -175,7 +175,7 @@
     const/4 v4, 0x1
 
     .line 252
-    invoke-direct {p0, p1, p2, p3}, Landroid/view/ViewGroup;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;I)V
+    invoke-direct {p0, p1, p2, p3}, Landroid/view/ViewGroup;-><init>(Landroid/content/Context;Landroid/simplify.util/AttributeSet;I)V
 
     .line 107
     const v2, -0x33333334
@@ -193,22 +193,22 @@
     iput-object v2, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mTmpRect:Landroid/graphics/Rect;
 
     .line 186
-    new-instance v2, Ljava/util/ArrayList;
+    new-instance v2, Ljava/simplify.util/ArrayList;
 
-    invoke-direct {v2}, Ljava/util/ArrayList;-><init>()V
+    invoke-direct {v2}, Ljava/simplify.util/ArrayList;-><init>()V
 
-    iput-object v2, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/util/ArrayList;
+    iput-object v2, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/simplify.util/ArrayList;
 
     .line 254
     invoke-virtual {p1}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
 
     move-result-object v2
 
-    invoke-virtual {v2}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+    invoke-virtual {v2}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/simplify.util/DisplayMetrics;
 
     move-result-object v2
 
-    iget v0, v2, Landroid/util/DisplayMetrics;->density:F
+    iget v0, v2, Landroid/simplify.util/DisplayMetrics;->density:F
 
     .line 255
     .local v0, "density":F
@@ -285,13 +285,13 @@
     return v0
 .end method
 
-.method static synthetic access$1000(Landroid/support/v4/widget/SlidingPaneLayout;)Ljava/util/ArrayList;
+.method static synthetic access$1000(Landroid/support/v4/widget/SlidingPaneLayout;)Ljava/simplify.util/ArrayList;
     .locals 1
     .param p0, "x0"    # Landroid/support/v4/widget/SlidingPaneLayout;
 
     .prologue
     .line 88
-    iget-object v0, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/util/ArrayList;
+    iget-object v0, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/simplify.util/ArrayList;
 
     return-object v0
 .end method
@@ -537,9 +537,9 @@
 
     .line 944
     .local v2, "dlr":Landroid/support/v4/widget/SlidingPaneLayout$DisableLayerRunnable;
-    iget-object v5, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/util/ArrayList;
+    iget-object v5, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/simplify.util/ArrayList;
 
-    invoke-virtual {v5, v2}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    invoke-virtual {v5, v2}, Ljava/simplify.util/ArrayList;->add(Ljava/lang/Object;)Z
 
     .line 945
     invoke-static {p0, v2}, Landroid/support/v4/view/ViewCompat;->postOnAnimation(Landroid/view/View;Ljava/lang/Runnable;)V
@@ -1460,7 +1460,7 @@
 
     move-result-object v5
 
-    invoke-static {v4, v5}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static {v4, v5}, Landroid/simplify.util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 975
     invoke-super {p0, p1, p2, p3, p4}, Landroid/view/ViewGroup;->drawChild(Landroid/graphics/Canvas;Landroid/view/View;J)Z
@@ -1507,9 +1507,9 @@
     return-object v0
 .end method
 
-.method public generateLayoutParams(Landroid/util/AttributeSet;)Landroid/view/ViewGroup$LayoutParams;
+.method public generateLayoutParams(Landroid/simplify.util/AttributeSet;)Landroid/view/ViewGroup$LayoutParams;
     .locals 2
-    .param p1, "attrs"    # Landroid/util/AttributeSet;
+    .param p1, "attrs"    # Landroid/simplify.util/AttributeSet;
 
     .prologue
     .line 1152
@@ -1519,7 +1519,7 @@
 
     move-result-object v1
 
-    invoke-direct {v0, v1, p1}, Landroid/support/v4/widget/SlidingPaneLayout$LayoutParams;-><init>(Landroid/content/Context;Landroid/util/AttributeSet;)V
+    invoke-direct {v0, v1, p1}, Landroid/support/v4/widget/SlidingPaneLayout$LayoutParams;-><init>(Landroid/content/Context;Landroid/simplify.util/AttributeSet;)V
 
     return-object v0
 .end method
@@ -1700,9 +1700,9 @@
     const/4 v2, 0x0
 
     .local v2, "i":I
-    iget-object v3, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/util/ArrayList;
+    iget-object v3, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/simplify.util/ArrayList;
 
-    invoke-virtual {v3}, Ljava/util/ArrayList;->size()I
+    invoke-virtual {v3}, Ljava/simplify.util/ArrayList;->size()I
 
     move-result v0
 
@@ -1711,9 +1711,9 @@
     if-ge v2, v0, :cond_0
 
     .line 424
-    iget-object v3, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/util/ArrayList;
+    iget-object v3, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/simplify.util/ArrayList;
 
-    invoke-virtual {v3, v2}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    invoke-virtual {v3, v2}, Ljava/simplify.util/ArrayList;->get(I)Ljava/lang/Object;
 
     move-result-object v1
 
@@ -1731,9 +1731,9 @@
     .line 427
     .end local v1    # "dlr":Landroid/support/v4/widget/SlidingPaneLayout$DisableLayerRunnable;
     :cond_0
-    iget-object v3, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/util/ArrayList;
+    iget-object v3, p0, Landroid/support/v4/widget/SlidingPaneLayout;->mPostedRunnables:Ljava/simplify.util/ArrayList;
 
-    invoke-virtual {v3}, Ljava/util/ArrayList;->clear()V
+    invoke-virtual {v3}, Ljava/simplify.util/ArrayList;->clear()V
 
     .line 428
     return-void
@@ -2662,7 +2662,7 @@
 
     const-string v27, "onMeasure: More than two child views are not supported."
 
-    invoke-static/range {v26 .. v27}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static/range {v26 .. v27}, Landroid/simplify.util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 487
     :cond_1
