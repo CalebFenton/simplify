@@ -16,7 +16,9 @@ import java.util.Objects;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
+import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
+import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.junit.Assert;
 
@@ -36,11 +38,27 @@ public class VMTester {
     private static final int MAX_NODE_VISITS = 100;
     private static final int MAX_CALL_DEPTH = 10;
 
-    private static final Map<String, BuilderClassDef> classNameToDef = getClassNameToBuilderClassDef();
+    private static final Map<String, BuilderClassDef> classNameToDef = buildClassNameToBuilderClassDef();
 
     private static DexBuilder dexBuilder;
 
-    public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef() {
+    public static BuilderClassDef getBuilderClassDef(String className) {
+        return classNameToDef.get(className);
+    }
+
+    public static BuilderMethod getBuilderMethod(String className, String methodSignature) {
+        String methodDescriptor = className + "->" + methodSignature;
+        for (BuilderMethod method : classNameToDef.get(className).getMethods()) {
+            String currentDescriptor = ReferenceUtil.getMethodDescriptor(method);
+            if (methodDescriptor.equals(currentDescriptor)) {
+                return method;
+            }
+        }
+
+        return null;
+    }
+
+    public static Map<String, BuilderClassDef> buildClassNameToBuilderClassDef() {
         return getClassNameToBuilderClassDef(TEST_DIRECTORY);
     }
 
@@ -77,9 +95,6 @@ public class VMTester {
     public static ContextGraph execute(String className, String methodSignature, TIntObjectMap<Object> initial,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         BuilderClassDef classDef = classNameToDef.get(className);
-        MethodContext ctx = MethodContext.build(initial);
-        String methodDescriptor = className + "->" + methodSignature;
-
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
             ClassContext cctx = vm.peekClassContext(contextClassName);
@@ -90,6 +105,8 @@ public class VMTester {
             }
         }
 
+        String methodDescriptor = className + "->" + methodSignature;
+        MethodContext ctx = MethodContext.build(initial);
         ContextGraph graph = vm.execute(methodDescriptor, ctx);
 
         return graph;

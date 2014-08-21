@@ -1,4 +1,4 @@
-.class Lmethod_side_effects_test;
+.class Lside_effects_test;
 .super Ljava/lang/Object;
 
 .field public instanceString:Ljava/lang/String;
@@ -23,7 +23,7 @@
   const-wide/high16 v0, 0x4242000000000000L
   const-string v0, "When I need to identify rebels, I look for men with principles"
   const-string/jumbo v0, "When I need to identify JUMBO rebels, I look for JUMBO men with JUMBO principles"
-  const-class v0, Lmethod_side_effects_test;
+  const-class v0, Lside_effects_test;
 
   return-void
 .end method
@@ -48,7 +48,7 @@
 .method public static InvokeMethodWithNoSideEffects()V
   .locals 0
 
-  invoke-static {}, Lmethod_side_effects_test;->ConstOps()V
+  invoke-static {}, Lside_effects_test;->ConstOps()V
   return-void
 .end method
 
@@ -63,7 +63,7 @@
 .method public static NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V
   .locals 1
 
-  new-instance v0, Lmethod_side_effects_test;
+  new-instance v0, Lside_effects_test;
 
   return-void
 .end method
@@ -71,7 +71,7 @@
 .method public static NewInstanceOfMethodWithNoStaticInitializer()V
   .locals 1
 
-  new-instance v0, Lmethod_side_effects_test;
+  new-instance v0, Lside_effects_test;
 
   return-void
 .end method
@@ -81,6 +81,14 @@
 
   invoke-virtual {p0, p1}, Ljava/io/OutputStream;->write([B)V
   invoke-virtual {p0}, Ljava/io/OutputStream;->close()V
+
+  return-void
+.end method
+
+.method public static InvokeMethodThatInvokesUnknownMethod()V
+  .locals 0
+
+  invoke-static {}, Lside_effects_test;->InvokeUnknownMethod()V
 
   return-void
 .end method
@@ -96,7 +104,7 @@
 .method public static InvokeSideEffectMethod(Ljava/lang/OutputStream;[B)V
   .locals 0
 
-  invoke-static {p0, p1}, Lmethod_side_effects_test;->WriteOutputStream(Ljava/lang/OutputStream;[B)V
+  invoke-static {p0, p1}, Lside_effects_test;->WriteOutputStream(Ljava/lang/OutputStream;[B)V
 
   return-void
 .end method
@@ -128,7 +136,7 @@
 .method public static InvokeOfNonAnalyzableMethod()V
   .locals 0
 
-  invoke-static {}, Lmethod_side_effects_test;->InvokeOfNonAnalyzableMethod()V
+  invoke-static {}, Lside_effects_test;->InvokeOfNonAnalyzableMethod()V
 
   return-void
 .end method
@@ -136,7 +144,7 @@
 .method public ModifyInstanceMember()V
   .locals 2
 
-  sput p0, Lmethod_side_effects_test;->instanceString:Ljava/lang/String;
+  sput p0, Lside_effects_test;->instanceString:Ljava/lang/String;
 
   return-void
 .end method

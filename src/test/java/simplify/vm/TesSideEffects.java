@@ -13,8 +13,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import simplify.Main;
-import simplify.vm.SideEffect;
-import simplify.vm.VirtualMachine;
 import simplify.vm.context.ContextGraph;
 
 public class TesSideEffects {
@@ -25,7 +23,7 @@ public class TesSideEffects {
      * has no side effects lets the optimizer remove the invocation if the result is not used.
      */
 
-    private static final String CLASS_NAME = "Lmethod_side_effects_test;";
+    private static final String CLASS_NAME = "Lside_effects_test;";
     private static final int MAX_NODE_VISITS = 100;
     private static final int MAX_CALL_DEPTH = 10;
 
@@ -37,7 +35,7 @@ public class TesSideEffects {
 
     @BeforeClass
     public static void setupBeforeClass() {
-        classNameToDef = VMTester.getClassNameToBuilderClassDef();
+        classNameToDef = VMTester.buildClassNameToBuilderClassDef();
     }
 
     @Before
@@ -106,6 +104,14 @@ public class TesSideEffects {
     @Test
     public void TestWriteOutputStreamHasStrongSideEffects() {
         String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
+        ContextGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Type.STRONG, graph.getStrongestSideEffectType());
+    }
+
+    @Test
+    public void TestInvokeMethodThatInvokesUnknownMethodHasStrongSideEffects() {
+        String methodName = "InvokeMethodThatInvokesUnknownMethod()V";
         ContextGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Type.STRONG, graph.getStrongestSideEffectType());

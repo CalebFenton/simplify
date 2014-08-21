@@ -15,12 +15,14 @@ import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.Label;
+import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
 import simplify.Main;
 import simplify.vm.SideEffect;
 import simplify.vm.context.ContextGraph;
 import simplify.vm.context.ContextNode;
 import simplify.vm.context.MethodContext;
+import simplify.vm.op_handler.GotoOp;
 import simplify.vm.op_handler.InvokeOp;
 import simplify.vm.op_handler.Op;
 
@@ -29,6 +31,19 @@ public class DeadDetector {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final SideEffect.Type SIDE_EFFECT_THRESHOLD = SideEffect.Type.WEAK;
+
+    private final TIntList addresses;
+    private final ContextGraph graph;
+    private final TIntObjectMap<BuilderInstruction> addressToInstruction;
+    private final List<BuilderTryBlock> tryBlocks;
+
+    DeadDetector(ContextGraph graph, TIntObjectMap<BuilderInstruction> addressToInstruction,
+                    List<BuilderTryBlock> tryBlocks) {
+        this.addresses = getValidAddresses(graph, addressToInstruction, tryBlocks);
+        this.graph = graph;
+        this.addressToInstruction = addressToInstruction;
+        this.tryBlocks = tryBlocks;
+    }
 
     private static boolean areAssignmentsRead(int address, ContextGraph graph, TIntList assigned) {
         Deque<ContextNode> stack = new ArrayDeque<ContextNode>();
@@ -96,15 +111,15 @@ public class DeadDetector {
         return result;
     }
 
-    static TIntList getDeadAddresses(TIntList addresses, ContextGraph graph) {
-        TIntList result = new TIntArrayList(0);
+    TIntList getDeadAddresses() {
+        TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             Op handler = graph.getOpHandler(address);
-            log.fine("Reachability test for: " + handler);
+            log.fine("Dead test for: " + handler);
 
             List<ContextNode> nodePile = graph.getNodePile(address);
             if (nodePile.size() == 0) {
-                log.fine("unreachable: " + handler);
+                log.fine("dead: " + handler);
                 result.add(address);
                 continue;
             }
@@ -113,8 +128,8 @@ public class DeadDetector {
         return result;
     }
 
-    static TIntList getUnusedAssignmentAddresses(TIntList addresses, ContextGraph graph) {
-        TIntList result = new TIntArrayList(0);
+    TIntList getDeadAssignmentAddresses() {
+        TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             List<ContextNode> pile = graph.getNodePile(address);
             if (pile.size() < 1) {
@@ -141,16 +156,15 @@ public class DeadDetector {
                 continue;
             }
 
-            log.info("unused assignment: " + handler + ", registers=" + assigned);
+            log.info("dead assignment: " + handler + ", registers=" + assigned);
             result.add(address);
         }
 
         return result;
     }
 
-    static TIntList getUnusedResultAddresses(TIntList addresses, ContextGraph graph,
-                    TIntObjectMap<BuilderInstruction> addressToInstruction) {
-        TIntList result = new TIntArrayList(0);
+    TIntList getDeadResultAddresses() {
+        TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             Op handler = graph.getOpHandler(address);
             if (!(handler instanceof InvokeOp)) {
@@ -164,7 +178,6 @@ public class DeadDetector {
 
             log.fine("Results usage test for: " + handler);
             String returnType = ((InvokeOp) handler).getReturnType();
-            boolean unusedResult = true;
             if (returnType.equals("V")) {
                 continue;
             }
@@ -177,21 +190,39 @@ public class DeadDetector {
 
             BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
             if (nextInstr.getOpcode().name.startsWith("move-result")) {
-                unusedResult = false;
-            }
-
-            if (unusedResult) {
-                log.info("unused result: " + handler);
-                result.add(address);
                 continue;
             }
+
+            log.info("dead result: " + handler);
+            result.add(address);
         }
 
         return result;
     }
 
-    static TIntList getValidAddresses(TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    List<BuilderTryBlock> tryBlocks, ContextGraph graph) {
+    TIntList getDeadBranchAddresses() {
+        TIntList result = new TIntArrayList();
+        for (int address : addresses.toArray()) {
+            Op handler = graph.getOpHandler(address);
+            if (!(handler instanceof GotoOp)) {
+                continue;
+            }
+
+            // Branch is useless if it branches to the next instruction.
+            BuilderInstruction instruction = addressToInstruction.get(address);
+            int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
+            if (branchOffset != instruction.getCodeUnits()) {
+                continue;
+            }
+
+            result.add(address);
+        }
+
+        return result;
+    }
+
+    private TIntList getValidAddresses(ContextGraph graph, TIntObjectMap<BuilderInstruction> addressToInstruction,
+                    List<BuilderTryBlock> tryBlocks) {
         TIntList result = getAddressesNotInCatchBlocks(addressToInstruction, tryBlocks);
         for (int address : result.toArray()) {
             Op handler = graph.getOpHandler(address);

@@ -30,7 +30,7 @@ public class Optimizer {
     @SuppressWarnings("unused")
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
-    private static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
+    public static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
         TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
@@ -50,8 +50,9 @@ public class Optimizer {
 
     private int deadCount = 0;
     private int emitCount = 0;
-    private int unusedAssignmentCount = 0;
-    private int unusedResultCount = 0;
+    private int deadAssignmentCount = 0;
+    private int deadResultCount = 0;
+    private int deadBranchCount = 0;
 
     public Optimizer(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph, VirtualMachine vm) {
         this.dexBuilder = dexBuilder;
@@ -74,11 +75,12 @@ public class Optimizer {
             sweep++;
         } while (((sweep < maxSweeps) && (maxSweeps > 0)) && madeChanges);
 
-        String result = String.format("Optimized instructions: consts=%d, dead=%d, unused(results=%d, assigns=%d)",
-                        emitCount, deadCount, unusedResultCount, unusedAssignmentCount);
+        String result = String.format(
+                        "Optimized instructions: consts=%d, dead(address=%d, results=%d, assigns=%d, branches=%d)",
+                        emitCount, deadCount, deadResultCount, deadAssignmentCount, deadBranchCount);
         System.out.println(result);
 
-        return (emitCount > 0) || (unusedResultCount > 0) || (unusedAssignmentCount > 0) || (deadCount > 0);
+        return (emitCount > 0) || (deadResultCount > 0) || (deadAssignmentCount > 0) || (deadCount > 0);
     }
 
     private void propigateConstants() {
@@ -95,19 +97,23 @@ public class Optimizer {
 
     private boolean removeDeadOps() {
         List<BuilderTryBlock> tryBlocks = implementation.getTryBlocks();
-        TIntList validAddresses = DeadDetector.getValidAddresses(addressToInstruction, tryBlocks, graph);
+        DeadDetector deadDetector = new DeadDetector(graph, addressToInstruction, tryBlocks);
         TIntSet removeSet = new TIntHashSet();
         TIntList addresses;
-        addresses = DeadDetector.getDeadAddresses(validAddresses, graph);
+        addresses = deadDetector.getDeadAddresses();
         deadCount += addresses.size();
         removeSet.addAll(addresses);
 
-        addresses = DeadDetector.getUnusedAssignmentAddresses(validAddresses, graph);
-        unusedAssignmentCount += addresses.size();
+        addresses = deadDetector.getDeadAssignmentAddresses();
+        deadAssignmentCount += addresses.size();
         removeSet.addAll(addresses);
 
-        addresses = DeadDetector.getUnusedResultAddresses(validAddresses, graph, addressToInstruction);
-        unusedResultCount += addresses.size();
+        addresses = deadDetector.getDeadResultAddresses();
+        deadResultCount += addresses.size();
+        removeSet.addAll(addresses);
+
+        addresses = deadDetector.getDeadBranchAddresses();
+        deadBranchCount += addresses.size();
         removeSet.addAll(addresses);
 
         addresses = new TIntArrayList(removeSet.toArray());

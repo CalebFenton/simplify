@@ -1,6 +1,21 @@
 .class Loptimizer_test;
 .super Ljava/lang/Object;
 
+.method public static SimpleLoop()I
+  .locals 2
+
+  const/4 v0, 0x1
+  const/4 v1, 0x7
+
+  :loop
+  if-eq v0, v1, :end
+  add-int/2addr v0, v0
+  goto :loop
+
+  :end
+  return-void
+.end method
+
 # The move-objects aren't me trolling. They're from unoptimized dx output.
 # They're useful for breaking some assumptions, so they're kept.
 .method public static StringBuilderHelloWorld()Ljava/lang/String;

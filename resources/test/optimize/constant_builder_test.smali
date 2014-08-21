@@ -32,11 +32,12 @@
     return v0
 .end method
 
-.method public static UseUknownParameter(I)I
+.method public static UseAddParameterToZero(I)I
     .locals 1
 
     const/4 v0, 0x0
-    add-int/2addr v0, v1
+    add-int/2addr v0, p0
+
     return v0
 .end method
 
