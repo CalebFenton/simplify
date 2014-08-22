@@ -166,6 +166,10 @@ public class InvokeOp extends Op {
         return sideEffectType;
     }
 
+    public int[] getParameterRegisters() {
+        return parameterRegisters;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());

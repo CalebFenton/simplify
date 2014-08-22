@@ -40,7 +40,7 @@
   .locals 1
 
   const/4 v0, 0x2
-  invoke-static {v0}, Lconstant_builder_test;->AddOneNoSideEffects(I)I
+  invoke-static {v0}, Ldead_detector_test;->AddOneNoSideEffects(I)I
 
   return v0
 .end method
@@ -49,7 +49,24 @@
   .locals 1
 
   const/4 v0, 0x2
-  invoke-static {v0}, Lconstant_builder_test;->AddOneWithSideEffects(I)I
+  invoke-static {v0}, Ldead_detector_test;->AddOneWithSideEffects(I)I
 
   return v0
+.end method
+
+.method private static AddOneNoSideEffects(I)I
+  .locals 0
+
+  add-int/2addr p0, p0
+
+  return p0
+.end method
+
+.method private static AddOneWithSideEffects(I)I
+  .locals 0
+
+  invoke-static {}, Lunknown_class;->UnknownMethodHasSideEffects()V
+  add-int/2addr p0, p0
+
+  return p0
 .end method

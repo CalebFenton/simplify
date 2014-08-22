@@ -113,6 +113,18 @@ public class VirtualMachine {
         methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
     }
 
+    // For testing
+    public void setupClassContext(Map<String, Map<String, Object>> classNameToInitialFieldValue) {
+        for (String contextClassName : classNameToInitialFieldValue.keySet()) {
+            ClassContext cctx = peekClassContext(contextClassName);
+            Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
+            for (String fieldReference : fieldNameToValue.keySet()) {
+                Object value = fieldNameToValue.get(fieldReference);
+                cctx.pokeField(fieldReference, value);
+            }
+        }
+    }
+
     public ContextGraph execute(String methodDescriptor) {
         ContextGraph graph = methodDescriptorToInstructionGraph.get(methodDescriptor);
         MethodContext ctx = graph.getRootContext();

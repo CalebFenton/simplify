@@ -46,6 +46,7 @@ public class Optimizer {
     private final ContextGraph graph;
     private final MutableMethodImplementation implementation;
     private final TIntObjectMap<BuilderInstruction> addressToInstruction;
+    private final VirtualMachine vm;
     private final OpFactory opFactory;
 
     private int deadCount = 0;
@@ -61,14 +62,17 @@ public class Optimizer {
         this.graph = graph;
         implementation = (MutableMethodImplementation) method.getImplementation();
         addressToInstruction = buildAddressToInstruction(implementation.getInstructions());
+        this.vm = vm;
         opFactory = new OpFactory(vm, methodDescriptor);
     }
 
     public boolean simplify(int maxSweeps) {
         System.out.println("Simplifying: " + methodDescriptor);
 
-        int sweep = 0;
         propigateConstants();
+        performPeepholeOptimizations();
+
+        int sweep = 0;
         boolean madeChanges = false;
         do {
             madeChanges = removeDeadOps();
@@ -81,6 +85,12 @@ public class Optimizer {
         System.out.println(result);
 
         return (emitCount > 0) || (deadResultCount > 0) || (deadAssignmentCount > 0) || (deadCount > 0);
+    }
+
+    private void performPeepholeOptimizations() {
+        PeepholeOptimizer po = new PeepholeOptimizer(dexBuilder, method, graph, vm, implementation,
+                        addressToInstruction, opFactory);
+        po.perform();
     }
 
     private void propigateConstants() {

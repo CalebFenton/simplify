@@ -48,7 +48,7 @@ public class VMTester {
 
     public static BuilderMethod getBuilderMethod(String className, String methodSignature) {
         String methodDescriptor = className + "->" + methodSignature;
-        for (BuilderMethod method : classNameToDef.get(className).getMethods()) {
+        for (BuilderMethod method : getBuilderClassDef(className).getMethods()) {
             String currentDescriptor = ReferenceUtil.getMethodDescriptor(method);
             if (methodDescriptor.equals(currentDescriptor)) {
                 return method;
@@ -94,16 +94,9 @@ public class VMTester {
 
     public static ContextGraph execute(String className, String methodSignature, TIntObjectMap<Object> initial,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue) {
-        BuilderClassDef classDef = classNameToDef.get(className);
+        BuilderClassDef classDef = getBuilderClassDef(className);
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
-        for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = vm.peekClassContext(contextClassName);
-            Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
-            for (String fieldReference : fieldNameToValue.keySet()) {
-                Object value = fieldNameToValue.get(fieldReference);
-                cctx.pokeField(fieldReference, value);
-            }
-        }
+        vm.setupClassContext(classNameToInitialFieldValue);
 
         String methodDescriptor = className + "->" + methodSignature;
         MethodContext ctx = MethodContext.build(initial);
@@ -158,7 +151,7 @@ public class VMTester {
     public static void testState(String className, String methodSignature, TIntObjectMap<Object> initial,
                     TIntObjectMap<Object> expected, Map<String, Map<String, Object>> classNameToInitialFieldValue,
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
-        BuilderClassDef classDef = classNameToDef.get(className);
+        BuilderClassDef classDef = getBuilderClassDef(className);
         MethodContext ctx = MethodContext.build(initial);
         String methodDescriptor = className + "->" + methodSignature;
 
