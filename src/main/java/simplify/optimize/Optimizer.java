@@ -54,6 +54,7 @@ public class Optimizer {
     private int deadAssignmentCount = 0;
     private int deadResultCount = 0;
     private int deadBranchCount = 0;
+    private int peeps = 0;
 
     public Optimizer(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph, VirtualMachine vm) {
         this.dexBuilder = dexBuilder;
@@ -79,9 +80,10 @@ public class Optimizer {
             sweep++;
         } while (((sweep < maxSweeps) && (maxSweeps > 0)) && madeChanges);
 
-        String result = String.format(
-                        "Optimized instructions: consts=%d, dead(address=%d, results=%d, assigns=%d, branches=%d)",
-                        emitCount, deadCount, deadResultCount, deadAssignmentCount, deadBranchCount);
+        String result = String
+                        .format("Optimized instructions: consts=%d, dead(address=%d, results=%d, assigns=%d, branches=%d), peeps=%d",
+                                        emitCount, deadCount, deadResultCount, deadAssignmentCount, deadBranchCount,
+                                        peeps);
         System.out.println(result);
 
         return (emitCount > 0) || (deadResultCount > 0) || (deadAssignmentCount > 0) || (deadCount > 0);
@@ -89,8 +91,8 @@ public class Optimizer {
 
     private void performPeepholeOptimizations() {
         PeepholeOptimizer po = new PeepholeOptimizer(dexBuilder, method, graph, vm, implementation,
-                        addressToInstruction, opFactory);
-        po.perform();
+                        addressToInstruction, opFactory, this);
+        peeps = po.perform();
     }
 
     private void propigateConstants() {
@@ -132,16 +134,21 @@ public class Optimizer {
         return addresses.size() > 0;
     }
 
-    private void removeInstructions(TIntList removeAddresses) {
+    void removeInstruction(int address) {
+        TIntList addresses = new TIntArrayList(new int[] { address });
+        removeInstructions(addresses);
+    }
+
+    void removeInstructions(TIntList addresses) {
         /*
          * Implementation removes by index, not address. Collect indexes and update addressToInstruction map. Also,
          * while looping, remove orphaned debug items, or you're gonna have a bad time.
          */
         TIntList indexes = new TIntArrayList();
-        removeAddresses.sort();
-        removeAddresses.reverse();
-        log.info("Remove addresses: " + removeAddresses);
-        for (int address : removeAddresses.toArray()) {
+        addresses.sort();
+        addresses.reverse();
+        log.info("Remove addresses: " + addresses);
+        for (int address : addresses.toArray()) {
             BuilderInstruction instruction = addressToInstruction.get(address);
             MethodLocation location = instruction.getLocation();
             location.getDebugItems().clear();
@@ -161,7 +168,7 @@ public class Optimizer {
         }
     }
 
-    private void replaceInstruction(int address, BuilderInstruction originalInstruction,
+    void replaceInstruction(int address, BuilderInstruction originalInstruction,
                     BuilderInstruction replacementInstruction) {
         int index = originalInstruction.getLocation().getIndex();
         implementation.replaceInstruction(index, replacementInstruction);

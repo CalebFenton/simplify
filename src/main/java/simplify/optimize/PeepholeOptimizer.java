@@ -1,5 +1,7 @@
 package simplify.optimize;
 
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
@@ -31,10 +33,12 @@ public class PeepholeOptimizer {
     private final MutableMethodImplementation implementation;
     private final TIntObjectMap<BuilderInstruction> addressToInstruction;
     private final OpFactory opFactory;
+    private final Optimizer optimizer;
 
     PeepholeOptimizer(DexBuilder dexBuilder, BuilderMethod method, ContextGraph graph, VirtualMachine vm,
                     MutableMethodImplementation implementation, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    OpFactory opFactory) {
+                    OpFactory opFactory, Optimizer optimizer) {
+        // ALL THE PARAMETERS! ULTRA-COUPLING!
         this.dexBuilder = dexBuilder;
         this.method = method;
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
@@ -42,12 +46,31 @@ public class PeepholeOptimizer {
         this.implementation = implementation;
         this.addressToInstruction = addressToInstruction;
         this.opFactory = opFactory;
+        this.optimizer = optimizer;
     }
 
-    void perform() {
-        // NOTE: will need to replace address AND address + codeUnits with object in map if next instruction is
-        // move-result
-        getClassForNameAddressToReplacementMap();
+    int perform() {
+        TIntObjectMap<BuilderInstruction> addressToReplacement = getClassForNameAddressToReplacementMap();
+        TIntList keys = new TIntArrayList(addressToReplacement.keys());
+        keys.sort();
+        keys.reverse();
+        for (int address : keys.toArray()) {
+            BuilderInstruction originalInstruction = addressToInstruction.get(address);
+            BuilderInstruction replacementInstruction = addressToReplacement.get(address);
+            optimizer.replaceInstruction(address, originalInstruction, replacementInstruction);
+
+            int shift = replacementInstruction.getCodeUnits() - originalInstruction.getCodeUnits();
+            int oldNextAddress = (address + shift) + originalInstruction.getCodeUnits();
+            if (addressToInstruction.containsKey(oldNextAddress)) {
+                BuilderInstruction oldNext = addressToInstruction.get(oldNextAddress);
+                if (oldNext.getOpcode().name.startsWith("move-result")) {
+                    // There is a move-result after the instruction being replaced. "Deal" with it.
+                    optimizer.removeInstruction(oldNextAddress);
+                }
+            }
+        }
+
+        return keys.size();
     }
 
     TIntObjectMap<BuilderInstruction> getClassForNameAddressToReplacementMap() {
@@ -74,10 +97,12 @@ public class PeepholeOptimizer {
 
             String className = (String) classNameValue;
             BuilderTypeReference classRef = dexBuilder.internTypeReference(className);
-            BuilderInstruction constClass = new BuilderInstruction21c(Opcode.CONST_CLASS, registerA, classRef);
-            result.put(address, constClass);
+            BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, registerA,
+                            classRef);
+            result.put(address, constClassInstruction);
         }
 
         return result;
     }
+
 }
