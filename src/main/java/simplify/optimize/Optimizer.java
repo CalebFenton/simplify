@@ -89,9 +89,15 @@ public class Optimizer {
         return (emitCount > 0) || (deadResultCount > 0) || (deadAssignmentCount > 0) || (deadCount > 0);
     }
 
-    private void performPeepholeOptimizations() {
-        PeepholeOptimizer po = new PeepholeOptimizer(dexBuilder, method, graph, vm, implementation,
+    PeepholeOptimizer getPeepholeOptimizer() {
+        PeepholeOptimizer result = new PeepholeOptimizer(dexBuilder, method, graph, vm, implementation,
                         addressToInstruction, opFactory, this);
+
+        return result;
+    }
+
+    private void performPeepholeOptimizations() {
+        PeepholeOptimizer po = getPeepholeOptimizer();
         peeps = po.perform();
     }
 
