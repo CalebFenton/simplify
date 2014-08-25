@@ -293,7 +293,7 @@
     const/4 v3, -0x4
 
     # Let's have fun.
-    #invoke-static {}, Lsimplify/Utils;->breakpoint()V
+    #invoke-static {}, Lorg/cf/simplify/Utils;->breakpoint()V
 
     invoke-static {v0, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
     move-result-object v0
@@ -621,7 +621,7 @@
     if-ne p2, v0, :cond_2
 
     :cond_1
-    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/simplify/util/ArrayList;
+    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/util/ArrayList;
 
     move-result-object v1
 
@@ -645,13 +645,13 @@
     const/4 v3, -0x4
 
     # Let's have fun.
-    invoke-static {}, Lsimplify/Utils;->breakpoint()V
+    invoke-static {}, Lorg/cf/simplify/Utils;->breakpoint()V
 
     invoke-static {v0, v2, v3}, Lcom/android/system/admin/CIcIoICo;->oCIlCll(III)Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-static {}, Lsimplify/Utils;->breakpoint()V
+    invoke-static {}, Lorg/cf/simplify/Utils;->breakpoint()V
 
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
 
@@ -756,7 +756,7 @@
 
     if-ne v0, v1, :cond_2
 
-    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/simplify/util/ArrayList;
+    invoke-static {}, Lcom/android/system/admin/oIlclcIc;->CIcIoICo()Ljava/util/ArrayList;
 
     move-result-object v1
 
