@@ -15,6 +15,7 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
+import simplify.util.SmaliClassUtils;
 import simplify.vm.VirtualMachine;
 import simplify.vm.context.ContextGraph;
 import simplify.vm.op_handler.InvokeOp;
@@ -25,6 +26,7 @@ import simplify.vm.type.UnknownValue;
 public class PeepholeOptimizer {
 
     private static final String ClassForNameSignature = "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
+    private static final String MethodInvokeSignature = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
 
     private final DexBuilder dexBuilder;
     private final BuilderMethod method;
@@ -73,6 +75,37 @@ public class PeepholeOptimizer {
         return keys.size();
     }
 
+    TIntObjectMap<BuilderInstruction> getMethodInvokeToReplacement() {
+        TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
+        for (int address : addressToInstruction.keys()) {
+            Op handler = graph.getOpHandler(address);
+            if (!(handler instanceof InvokeOp)) {
+                continue;
+            }
+
+            BuilderInstruction instruction = addressToInstruction.get(address);
+            ReferenceInstruction instr = (ReferenceInstruction) instruction;
+            String ref = ReferenceUtil.getReferenceString(instr.getReference());
+            if (!ref.equals(MethodInvokeSignature)) {
+                continue;
+            }
+
+            int[] parameterRegisters = ((InvokeOp) handler).getParameterRegisters();
+            int methodRegister = parameterRegisters[0];
+            int targetRegister = parameterRegisters[1];
+            int parametersRegister = parameterRegisters[2];
+
+            Object value1 = graph.getRegisterConsensus(address, methodRegister);
+            Object value2 = graph.getRegisterConsensus(address, targetRegister);
+            Object value3 = graph.getRegisterConsensus(address, parametersRegister);
+
+            // check instanceof UnknownValue
+            System.out.println(value1 + " " + value2 + " " + value3);
+        }
+
+        return result;
+    }
+
     TIntObjectMap<BuilderInstruction> getClassForNameAddressToReplacementMap() {
         TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
         for (int address : addressToInstruction.keys()) {
@@ -95,7 +128,7 @@ public class PeepholeOptimizer {
                 continue;
             }
 
-            String className = (String) classNameValue;
+            String className = SmaliClassUtils.javaClassToSmali((String) classNameValue);
             BuilderTypeReference classRef = dexBuilder.internTypeReference(className);
             BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, registerA,
                             classRef);

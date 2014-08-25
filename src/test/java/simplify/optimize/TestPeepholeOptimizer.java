@@ -20,8 +20,18 @@ public class TestPeepholeOptimizer {
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     @Test
-    public void TestUnusedResultWithSideEffectsIsNotValidForRemoval() {
-        String methodName = "InvokeClassForNameWithUnkownClass()V";
+    public void TestInvokeClassForNameWithUnknownClassIsReplaced() {
+        String methodName = "InvokeClassForNameWithUnknownClass()V";
+        PeepholeOptimizer po = OptimizerTester.getPeepholeOptimizer(CLASS_NAME, methodName);
+        TIntObjectMap<BuilderInstruction> found = po.getClassForNameAddressToReplacementMap();
+        TIntSet expected = new TIntHashSet(new int[] { 2 });
+
+        assertEquals(found.keySet(), expected);
+    }
+
+    @Test
+    public void TestInvokeClassForNameWithKnownClassIsReplaced() {
+        String methodName = "InvokeClassForNameWithKnownClass()V";
         PeepholeOptimizer po = OptimizerTester.getPeepholeOptimizer(CLASS_NAME, methodName);
         TIntObjectMap<BuilderInstruction> found = po.getClassForNameAddressToReplacementMap();
         TIntSet expected = new TIntHashSet(new int[] { 2 });

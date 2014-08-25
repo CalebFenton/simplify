@@ -12,33 +12,33 @@
 .end method
 
 .method public static KnownIntForMove()I
-    .locals 2
+  .locals 2
 
-    const/4 v0, 0x5
-    move v1, v0
+  const/4 v0, 0x5
+  move v1, v0
 
-    return v1
+  return v1
 .end method
 
 .method public static InvokeIntegerMethods()I
-    .locals 2
+  .locals 2
 
-    new-instance v0, Ljava/lang/Integer;
-    const/4 v1, 0x1
-    invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
-    invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
-    move-result v0
+  new-instance v0, Ljava/lang/Integer;
+  const/4 v1, 0x1
+  invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
+  invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
+  move-result v0
 
-    return v0
+  return v0
 .end method
 
 .method public static UseAddParameterToZero(I)I
-    .locals 1
+  .locals 1
 
-    const/4 v0, 0x0
-    add-int/2addr v0, p0
+  const/4 v0, 0x0
+  add-int/2addr v0, p0
 
-    return v0
+  return v0
 .end method
 
 .method private static AddOneNoSideEffects(I)I
