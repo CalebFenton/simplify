@@ -1,24 +1,27 @@
 apply plugin: 'idea'
 
-subprojects {
-    apply plugin: 'java'
-    apply plugin: 'eclipse'
-    apply plugin: 'idea'
+buildscript {
+    repositories {
+        jcenter()
+    }
 
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.0.3'
+    }
+}
+
+subprojects {
     group = 'org.cf'
 
     repositories {
         mavenLocal()
         mavenCentral()
     }
-}
 
-task echoEclipseSourceSets() << {
-    eclipse.classpath.sourceSets.each { println it }
-}
-
-task echoStuff() << {
-    configurations.findAll { println it.name }
+    apply plugin: 'java'
+    apply plugin: 'eclipse'
+    apply plugin: 'idea'
+    apply plugin: 'com.github.johnrengelman.shadow'
 }
 
 task wrapper(type: Wrapper) {
