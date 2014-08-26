@@ -1,5 +1,6 @@
 package org.cf.smalivm;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
@@ -107,17 +108,19 @@ public class VMTester {
                     int[] expected) {
         ContextGraph graph = VMTester.execute(className, methodSignature, initial);
         TIntList addresses = graph.getAddresses();
-        TIntList expectedVisits = new TIntArrayList(expected);
+        TIntList actualVisits = new TIntArrayList();
         for (int i = 0; i < addresses.size(); i++) {
             int address = addresses.get(i);
             if (!graph.wasAddressReached(address)) {
                 continue;
             }
-            boolean wasExpected = expectedVisits.contains(address);
-            // log.info("visited @" + address);
-            assertTrue("Address @" + address + " was visited. Expected " + wasExpected, wasExpected);
+            actualVisits.add(address);
         }
+        TIntList expectedVisits = new TIntArrayList(expected);
+        actualVisits.sort();
+        expectedVisits.sort();
 
+        assertEquals(expectedVisits, actualVisits);
     }
 
     public static void testState(String className, String methodSignature, TIntObjectMap<Object> initial,

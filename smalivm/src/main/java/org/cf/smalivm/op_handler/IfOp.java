@@ -1,5 +1,6 @@
 package org.cf.smalivm.op_handler;
 
+import java.util.Comparator;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.builder.CompareToBuilder;
@@ -14,6 +15,12 @@ public class IfOp extends Op {
 
     private static final Logger log = Logger.getLogger(IfOp.class.getSimpleName());
 
+    class NumberComparator<T extends Number & Comparable> implements Comparator<T> {
+        public int compare(T a, T b) throws ClassCastException {
+            return a.compareTo(b);
+        }
+    }
+
     private static enum IfType {
         EQUAL,
         NOT_EQUAL,
@@ -25,7 +32,6 @@ public class IfOp extends Op {
 
     private static IfType getIfType(String opName) {
         IfType result = null;
-
         if (opName.contains("-eq")) {
             result = IfType.EQUAL;
         } else if (opName.contains("-ne")) {
@@ -45,7 +51,6 @@ public class IfOp extends Op {
 
     private static boolean isTrue(IfType ifType, int cmp) {
         boolean result = false;
-
         switch (ifType) {
         case EQUAL:
             result = (cmp == 0);
@@ -93,10 +98,10 @@ public class IfOp extends Op {
     private final IfType ifType;
     private final int targetAddress;
     private final int register1;
-
     private int register2;
 
     private boolean compareToZero;
+    private final NumberComparator numberComparitor;
 
     private IfOp(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1) {
         super(address, opName, new int[] { childAddress, targetAddress });
@@ -105,6 +110,7 @@ public class IfOp extends Op {
         this.targetAddress = targetAddress;
         this.register1 = register1;
         compareToZero = true;
+        numberComparitor = new NumberComparator();
     }
 
     private IfOp(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1,
@@ -134,9 +140,11 @@ public class IfOp extends Op {
         int cmp = Integer.MIN_VALUE;
         if (compareToZero) {
             if (A instanceof Number) {
-                // like other compare methods, 0=no difference, 1=difference
-                cmp = ((Number) A).equals(B) ? 0 : 1;
+                Number Acmp = (Number) A;
+                Integer zero = 0;
+                cmp = numberComparitor.compare(Acmp, zero);
             } else {
+                // eqz can also be used to check for null refs
                 cmp = A == null ? 0 : 1;
             }
         } else {
