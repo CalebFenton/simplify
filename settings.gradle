@@ -1,1 +1,1 @@
-include 'smalivm', 'simplify'
+include 'smalivm', 'simplify', 'demoapp'

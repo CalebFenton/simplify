@@ -7,20 +7,25 @@ import org.cf.smalivm.context.MethodContext;
 
 public class MethodEmulator {
 
-    private static Map<String, EmulatedMethod> emulatedMethods;
+    private static Map<String, EmulatedMethod> emulatedMethods = new HashMap<String, EmulatedMethod>();
     static {
-        emulatedMethods = new HashMap<String, EmulatedMethod>();
-        emulatedMethods.put("Lorg/cf/simplify/Utils;->breakpoint()V", new Breakpoint());
+        addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", new org_cf_simplify_Utils_breakpoint());
+    }
+
+    public static void clearMethods() {
+        emulatedMethods.clear();
+    }
+
+    public static void addMethod(String methodDescriptor, EmulatedMethod method) {
+        emulatedMethods.put(methodDescriptor, method);
     }
 
     public static boolean canEmulate(String methodDescriptor) {
         return emulatedMethods.containsKey(methodDescriptor);
     }
 
-    public static void emulate(MethodContext mctx, String methodDescriptor) {
+    public static void emulate(MethodContext mctx, String methodDescriptor, int[] parameterRegisters) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
-        if (em instanceof EmulatedMethod) {
-            em.execute(mctx);
-        }
+        em.execute(mctx, parameterRegisters);
     }
 }

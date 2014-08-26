@@ -10,7 +10,7 @@ import gnu.trove.set.hash.TIntHashSet;
 import java.util.logging.Logger;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.cf.util.SmaliClassUtils;
+import org.cf.smalivm.type.TypeUtil;
 
 import com.rits.cloning.Cloner;
 
@@ -174,7 +174,7 @@ public class BaseContext {
     public String peekRegisterType(int register) {
         Object value = peekRegister(register);
 
-        return SmaliClassUtils.getValueType(value);
+        return TypeUtil.getValueType(value);
     }
 
     public void pokeRegister(int register, Object value) {
@@ -254,7 +254,7 @@ public class BaseContext {
 
     protected String registerValueToString(Object value) {
         StringBuilder result = new StringBuilder();
-        result.append("type=").append(SmaliClassUtils.getValueType(value)).append(", value=").append(value.toString())
+        result.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
         .append(", hc=").append(value.hashCode());
 
         return result.toString();

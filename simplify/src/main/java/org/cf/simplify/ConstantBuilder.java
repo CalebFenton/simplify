@@ -9,8 +9,8 @@ import org.cf.smalivm.op_handler.BinaryMathOp;
 import org.cf.smalivm.op_handler.MoveOp;
 import org.cf.smalivm.op_handler.Op;
 import org.cf.smalivm.op_handler.UnaryMathOp;
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
@@ -26,12 +26,12 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 public class ConstantBuilder {
 
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
-        "java.lang.String", "java.lang.Class" };
+                    "java.lang.String", "java.lang.Class" };
 
     private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
 
     private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class, UnaryMathOp.class,
-        MoveOp.class };
+                    MoveOp.class };
 
     private static BuilderInstruction buildConstant(int registerA, String type, Object value, DexBuilder dexBuilder) {
         BuilderInstruction result = null;
@@ -155,7 +155,7 @@ public class ConstantBuilder {
             return null;
         }
 
-        String type = SmaliClassUtils.getValueType(consensus);
+        String type = TypeUtil.getValueType(consensus);
         type = getUnboxedType(type);
 
         if (!isConstableType(type)) {

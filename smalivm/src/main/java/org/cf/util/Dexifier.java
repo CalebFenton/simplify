@@ -11,6 +11,7 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
+import org.apache.commons.io.FileUtils;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.smali.LexerErrorInterface;
@@ -22,11 +23,29 @@ public class Dexifier {
 
     private static final Logger log = Logger.getLogger(Dexifier.class.getSimpleName());
 
-    public static final int API_LEVEL = 15;
+    public static final int DEFAULT_API_LEVEL = 15;
+
+    public static List<BuilderClassDef> dexifySmaliFiles(String path) throws Exception {
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
+
+        return dexifySmaliFiles(path, dexBuilder);
+    }
+
+    public static List<BuilderClassDef> dexifySmaliFiles(String path, DexBuilder dexBuilder) throws Exception {
+        List<File> smaliFiles;
+        File f = new File(path);
+        if (f.isDirectory()) {
+            smaliFiles = (List<File>) FileUtils.listFiles(f, new String[] { "smali" }, true);
+        } else {
+            smaliFiles = new ArrayList<File>();
+            smaliFiles.add(f);
+        }
+
+        return dexifySmaliFiles(smaliFiles, dexBuilder);
+    }
 
     public static List<BuilderClassDef> dexifySmaliFiles(List<File> smaliFiles, DexBuilder dexBuilder) throws Exception {
         List<BuilderClassDef> result = new ArrayList<BuilderClassDef>();
-
         for (File smaliFile : smaliFiles) {
             result.add(dexifySmaliFile(smaliFile, dexBuilder));
         }
@@ -45,7 +64,7 @@ public class Dexifier {
         CommonTokenStream tokens = new CommonTokenStream((TokenSource) lexer);
 
         smaliParser parser = new smaliParser(tokens);
-        parser.setApiLevel(API_LEVEL);
+        parser.setApiLevel(DEFAULT_API_LEVEL);
 
         smaliParser.smali_file_return result = parser.smali_file();
         if ((parser.getNumberOfSyntaxErrors() > 0) || (lexer.getNumberOfSyntaxErrors() > 0)) {

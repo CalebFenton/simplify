@@ -16,8 +16,8 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.op_handler.Op;
 import org.cf.smalivm.op_handler.OpFactory;
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -156,7 +156,7 @@ public class ContextGraph implements Iterable<ContextNode> {
                 if (value != otherValue) {
                     log.finer("No conensus value for register #" + register + ", returning unknown");
 
-                    return new UnknownValue(SmaliClassUtils.getValueType(value));
+                    return new UnknownValue(TypeUtil.getValueType(value));
                 }
             }
 

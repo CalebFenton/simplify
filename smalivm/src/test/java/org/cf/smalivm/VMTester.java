@@ -61,7 +61,7 @@ public class VMTester {
         String[] extensions = new String[] { "smali" };
         List<File> smaliFiles = new ArrayList<File>(FileUtils.listFiles(testDir, extensions, true));
 
-        dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
+        dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
         Map<String, BuilderClassDef> result = new HashMap<String, BuilderClassDef>();
         List<BuilderClassDef> classDefs;
         try {

@@ -1,5 +1,6 @@
 package org.cf.smalivm.context;
 
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.util.SmaliClassUtils;
 
 import gnu.trove.map.TIntObjectMap;
@@ -63,7 +64,7 @@ public class MethodContext extends BaseContext {
     public void assignParameter(int parameterIndex, Object value) {
         pokeRegister(getParameterStart() + parameterIndex, value);
 
-        String type = SmaliClassUtils.getValueType(value);
+        String type = TypeUtil.getValueType(value);
         type = SmaliClassUtils.javaClassToSmali(type);
         boolean mutable = !SmaliClassUtils.isImmutableClass(type);
         if (mutable) {

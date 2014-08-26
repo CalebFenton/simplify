@@ -14,6 +14,7 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Dexifier;
 import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
@@ -89,6 +90,14 @@ public class VirtualMachine {
     private final Map<String, ContextGraph> methodDescriptorToInstructionGraph;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
     private final MethodExecutor methodExecutor;
+
+    public VirtualMachine(String path) throws Exception {
+        this(path, 2000, 20);
+    }
+
+    public VirtualMachine(String path, int maxNodeVisits, int maxCallDepth) throws Exception {
+        this(Dexifier.dexifySmaliFiles(path), maxNodeVisits, maxCallDepth);
+    }
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;

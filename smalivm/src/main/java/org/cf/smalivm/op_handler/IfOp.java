@@ -140,7 +140,16 @@ public class IfOp extends Op {
                 cmp = A == null ? 0 : 1;
             }
         } else {
-            cmp = CompareToBuilder.reflectionCompare(A, B);
+            Object Acmp = A;
+            Object Bcmp = B;
+            if (A instanceof Byte) {
+                Acmp = ((int) ((byte) Acmp));
+            }
+            if (B instanceof Byte) {
+                Bcmp = ((int) ((byte) Bcmp));
+            }
+            System.out.println("building compare: " + Acmp.getClass() + " and " + Bcmp.getClass());
+            cmp = CompareToBuilder.reflectionCompare(Acmp, Bcmp);
         }
         log.finer("IF compare: " + A + " vs " + B + " = " + cmp);
 

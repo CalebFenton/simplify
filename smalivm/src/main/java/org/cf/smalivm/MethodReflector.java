@@ -19,6 +19,7 @@ public class MethodReflector {
     private static List<String> SafeMethods;
     static {
         // No method from any safe class should ever have any side effects (e.g. IO)
+        // TODO: get exhaustive list
         SafeClasses = new ArrayList<String>();
         SafeClasses.add("Ljava/lang/Object;");
         SafeClasses.add("Ljava/lang/Boolean;");
@@ -44,11 +45,11 @@ public class MethodReflector {
         SafeClasses.add("Ljava/org.cf.util/HashMap;");
         SafeClasses.add("Ljava/org.cf.util/Hashtable;");
 
-        SafeClasses.add("Ljava/org.cf.util/List;");
-        SafeClasses.add("Ljava/org.cf.util/ArrayList;");
+        SafeClasses.add("Ljava/util/List;");
+        SafeClasses.add("Ljava/util/ArrayList;");
 
-        SafeClasses.add("Ljava/org.cf.util/Set;");
-        SafeClasses.add("Ljava/org.cf.util/HashSet;");
+        SafeClasses.add("Ljava/util/Set;");
+        SafeClasses.add("Ljava/util/HashSet;");
 
         SafeMethods = new ArrayList<String>();
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");

@@ -14,6 +14,7 @@ import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.emulate.MethodEmulator;
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
@@ -50,7 +51,7 @@ public class InvokeOp extends Op {
                 if (value != otherValue) {
                     log.finer("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
 
-                    return new UnknownValue(SmaliClassUtils.getValueType(value));
+                    return new UnknownValue(TypeUtil.getValueType(value));
                 }
             }
 
@@ -174,7 +175,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -260,7 +261,7 @@ public class InvokeOp extends Op {
         MethodContext calleeContext = buildNonLocalCalleeContext(callerContext);
         boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
         if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
-            MethodEmulator.emulate(calleeContext, methodDescriptor);
+            MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
 
             // No emulated methods are implemented now. Assuming no side effects may change.
             sideEffectType = SideEffect.Type.NONE;

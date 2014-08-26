@@ -2,7 +2,6 @@ package org.cf.simplify;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,26 +26,17 @@ public class Main {
 
     private static final Level LOG_LEVEL = Level.FINE;
 
-    private static final int MAX_NODE_VISITS = 1000;
-    private static final int MAX_CALL_DEPTH = 5;
+    private static final int MAX_NODE_VISITS = 2000;
+    private static final int MAX_CALL_DEPTH = 20;
 
     private static final int MAX_OPTIMIZATION_SWEEPS = 100;
 
     public static void main(String[] argv) throws Exception {
         setupLogger();
 
-        List<File> smaliFiles = new ArrayList<File>();
-        File f = new File(argv[0]);
-        if (f.isDirectory()) {
-            smaliFiles.addAll(Arrays.asList(f.listFiles()));
-        } else {
-            smaliFiles.add(f);
-        }
-
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
+        List<BuilderClassDef> classDefs = Dexifier.dexifySmaliFiles(argv[0], dexBuilder);
         String methodRegex = argv.length > 1 ? ".*" + argv[1] + ".*" : "";
-
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.API_LEVEL);
-        List<BuilderClassDef> classDefs = Dexifier.dexifySmaliFiles(smaliFiles, dexBuilder);
         List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
         for (BuilderClassDef classDef : classDefs) {
             methods.addAll(classDef.getMethods());

@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.cf.smalivm.type.Type;
 
 public class SmaliClassUtils {
 
@@ -65,17 +64,6 @@ public class SmaliClassUtils {
         }
 
         return "L" + className.replaceAll("\\.", "/") + ";";
-    }
-
-    public static String getValueType(Object value) {
-        String result = null;
-        if (value instanceof Type) {
-            result = ((Type) value).getType();
-        } else {
-            result = value.getClass().getName();
-        }
-
-        return result;
     }
 
     public static boolean isImmutableClass(String smaliClassName) {
