@@ -253,11 +253,15 @@ public class BaseContext {
     }
 
     protected String registerValueToString(Object value) {
-        StringBuilder result = new StringBuilder();
-        result.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-        .append(", hc=").append(value.hashCode());
+        StringBuilder sb = new StringBuilder();
+        if (value == null) {
+            sb.append("type=null, value=null");
+        } else {
+            sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
+                            .append(", hc=").append(value.hashCode());
+        }
 
-        return result.toString();
+        return sb.toString();
     }
 
     protected String registerToString(int register) {

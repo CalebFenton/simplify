@@ -1,7 +1,7 @@
 .class Lif_test;
 .super Ljava/lang/Object;
 
-.method public static IfEquals()V
+.method public static IfEqual()V
     .locals 2
 
     if-eq v0, v1, :end
@@ -12,7 +12,7 @@
     return-void
 .end method
 
-.method public static IfNotEquals()V
+.method public static IfNotEqual()V
     .locals 2
 
     if-ne v0, v1, :end

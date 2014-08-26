@@ -1,9 +1,9 @@
 package org.cf.smalivm.op_handler;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.logging.Logger;
 
-import org.apache.commons.lang3.builder.CompareToBuilder;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -120,13 +120,23 @@ public class IfOp extends Op {
         compareToZero = false;
     }
 
+    private static BigDecimal widenToBigDecimal(Object value) {
+        // Value should be primitive wrapper (Integer, Character, Boolean, etc.)
+        if (value instanceof Character) {
+            value = (int) ((char) value);
+        } else if (value instanceof Boolean) {
+            value = ((boolean) value) ? 1 : 0;
+        }
+        BigDecimal bigD = new BigDecimal(value.toString());
+
+        return bigD; // lol
+    }
+
     @Override
     public int[] execute(MethodContext mctx) {
         Object A = mctx.readRegister(register1);
-        Object B;
-        if (compareToZero) {
-            B = 0;
-        } else {
+        Object B = 0;
+        if (!compareToZero) {
             B = mctx.readRegister(register2);
         }
 
@@ -135,29 +145,19 @@ public class IfOp extends Op {
             return getPossibleChildren();
         }
 
-        // TODO: test this, arrays have primitive types which break reflected compare
-        // in this case, 0 is not the same type as [B
         int cmp = Integer.MIN_VALUE;
         if (compareToZero) {
             if (A instanceof Number) {
-                Number Acmp = (Number) A;
-                Integer zero = 0;
-                cmp = numberComparitor.compare(Acmp, zero);
+                cmp = numberComparitor.compare(A, 0);
             } else {
-                // eqz can also be used to check for null refs
+                // if-*z ops are used to check for null refs
                 cmp = A == null ? 0 : 1;
             }
         } else {
-            Object Acmp = A;
-            Object Bcmp = B;
-            if (A instanceof Byte) {
-                Acmp = ((int) ((byte) Acmp));
-            }
-            if (B instanceof Byte) {
-                Bcmp = ((int) ((byte) Bcmp));
-            }
-            System.out.println("building compare: " + Acmp.getClass() + " and " + Bcmp.getClass());
-            cmp = CompareToBuilder.reflectionCompare(Acmp, Bcmp);
+            // A and B should both be primitive types
+            BigDecimal Acmp = widenToBigDecimal(A);
+            BigDecimal Bcmp = widenToBigDecimal(B);
+            cmp = Acmp.compareTo(Bcmp);
         }
         log.finer("IF compare: " + A + " vs " + B + " = " + cmp);
 
