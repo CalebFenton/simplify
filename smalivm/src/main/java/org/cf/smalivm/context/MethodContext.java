@@ -1,10 +1,10 @@
 package org.cf.smalivm.context;
 
-import org.cf.smalivm.type.TypeUtil;
-import org.cf.util.SmaliClassUtils;
-
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
+
+import org.cf.smalivm.type.TypeUtil;
+import org.cf.util.SmaliClassUtils;
 
 public class MethodContext extends BaseContext {
 
@@ -92,10 +92,12 @@ public class MethodContext extends BaseContext {
         return getRegisterCount() - parameterCount;
     }
 
+    // This is what you want for emulated methods.
     public Object getParameter(int parameterIndex) {
         return peekRegister(getParameterStart() + parameterIndex);
     }
 
+    // This is for the optimizer.
     public Object getMutableParameter(int parameterIndex) {
         MethodContext targetContext;
         if (mutableParameterIndexToValue.containsKey(parameterIndex)) {

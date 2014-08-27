@@ -26,6 +26,6 @@ public class MethodEmulator {
 
     public static void emulate(MethodContext mctx, String methodDescriptor, int[] parameterRegisters) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
-        em.execute(mctx, parameterRegisters);
+        em.execute(mctx);
     }
 }

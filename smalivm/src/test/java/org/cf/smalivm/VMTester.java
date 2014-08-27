@@ -197,7 +197,7 @@ public class VMTester {
     private static void testEquals(Object value, Object consensus, String methodDescriptor, int register) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-        .append(getClassName(consensus)).append(")");
+                        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         if (value == null) {
@@ -209,7 +209,6 @@ public class VMTester {
             // If array, type is "Object", so need to use isArray() instead of instanceof
             boolean result = Objects.deepEquals(value, consensus);
             Assert.assertTrue(msg, result);
-            // Assert.assertArrayEquals(msg, (Object[]) value, (Object[]) consensus);
         } else if (value instanceof StringBuilder) {
             assertEquals(msg, value.toString(), consensus.toString());
         } else {

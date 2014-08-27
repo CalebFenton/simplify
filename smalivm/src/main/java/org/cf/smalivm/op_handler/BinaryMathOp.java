@@ -295,8 +295,6 @@ public class BinaryMathOp extends Op {
 
     @Override
     public int[] execute(MethodContext mctx) {
-        System.out.println("binary math op @" + this.getAddress() + ", " + this);
-
         Object lhs = mctx.readRegister(arg1Register);
         Object rhs = null;
         if (hasWideLiteral) {
@@ -322,7 +320,6 @@ public class BinaryMathOp extends Op {
 
         mctx.assignRegister(destRegister, result);
 
-        System.out.println("  result: " + result + " c: " + result.getClass());
         return getPossibleChildren();
     }
 

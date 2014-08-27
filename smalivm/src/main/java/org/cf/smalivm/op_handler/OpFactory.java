@@ -12,9 +12,6 @@ public final class OpFactory {
     private static final Logger log = Logger.getLogger(OpFactory.class.getSimpleName());;
 
     private enum OpType {
-        ACCESS_ARRAY,
-        ACCESS_INSTANCE,
-        ACCESS_STATIC,
         ARRAY_LENGTH,
         ARRAY_PAYLOAD,
         BINARY_MATH,
@@ -25,7 +22,6 @@ public final class OpFactory {
         FILLED_NEW_ARRAY,
         GOTO,
         IF,
-        INSTANCE_ACCESS,
         INSTANCE_OF,
         INVOKE,
         MONITOR,
@@ -156,6 +152,7 @@ public final class OpFactory {
             break;
 
         case ARRAY_LENGTH:
+            result = OpType.ARRAY_LENGTH;
             break;
 
         case ARRAY_PAYLOAD:
@@ -384,20 +381,17 @@ public final class OpFactory {
         case UNIMPLEMENTED:
             result = UnimplementedOp.create(instruction, address);
             break;
-        case ACCESS_ARRAY:
-            break;
-        case ACCESS_INSTANCE:
-            break;
-        case ACCESS_STATIC:
-            break;
         case ARRAY_LENGTH:
+            result = ArrayLengthOp.create(instruction, address);
             break;
         case ARRAY_PAYLOAD:
             result = FillArrayDataPayloadOp.create(instruction, address);
             break;
         case CHECK_CAST:
+            // TODO: implement
             break;
         case COMPARE:
+            // TODO: implement
             break;
         case FILLED_NEW_ARRAY:
             result = FilledNewArrayOp.create(instruction, address, vm);
@@ -405,9 +399,8 @@ public final class OpFactory {
         case FILL_ARRAY_DATA:
             result = FillArrayDataOp.create(instruction, address);
             break;
-        case INSTANCE_ACCESS:
-            break;
         case INSTANCE_OF:
+            // TODO: implement
             break;
         case INVOKE:
             result = InvokeOp.create(instruction, address, vm);
