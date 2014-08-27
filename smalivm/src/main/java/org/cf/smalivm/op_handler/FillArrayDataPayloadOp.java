@@ -2,7 +2,8 @@ package org.cf.smalivm.op_handler;
 
 import java.lang.reflect.Array;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.MethodContext;
@@ -13,7 +14,7 @@ import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
 public class FillArrayDataPayloadOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(FillArrayDataPayloadOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(FillArrayDataPayloadOp.class.getSimpleName());
 
     static FillArrayDataPayloadOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

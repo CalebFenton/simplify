@@ -2,7 +2,8 @@ package org.cf.smalivm.op_handler;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
@@ -13,7 +14,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 
 public class IfOp extends Op {
 
-    private static final Logger log = Logger.getLogger(IfOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
 
     class NumberComparator<T extends Number & Comparable> implements Comparator<T> {
         public int compare(T a, T b) throws ClassCastException {
@@ -162,7 +163,7 @@ public class IfOp extends Op {
             cmp = A == B ? 0 : 1;
         }
 
-        log.finer("IF compare: " + A + " vs " + B + " = " + cmp);
+        log.trace("IF compare: " + A + " vs " + B + " = " + cmp);
 
         int result = getPossibleChildren()[0];
         if (isTrue(ifType, cmp)) {

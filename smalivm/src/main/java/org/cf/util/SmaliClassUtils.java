@@ -52,6 +52,10 @@ public class SmaliClassUtils {
     }
 
     public static String javaClassToSmali(String className) {
+        if (className.endsWith(";")) {
+            // Already Smali format
+            return className;
+        }
         if (className.startsWith("[")) {
             return className;
         }

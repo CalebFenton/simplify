@@ -9,11 +9,12 @@ compileTestJava.dependsOn tasks.getByPath(':smalivm:testClasses')
 dependencies {
     compile project(':smalivm')
 
-    compile 'commons-io:commons-io:2.4'
-    compile 'org.apache.commons:commons-lang3:3.3.2'
-    compile 'commons-cli:commons-cli:1.2'
-    compile 'net.sf.trove4j:trove4j:3.0.3'
-    compile 'org.perfidix:perfidix:3.6.9'
+    compile 'commons-io:commons-io:2.+'
+    compile 'org.apache.commons:commons-lang3:3.+'
+    compile 'commons-cli:commons-cli:1.+'
+    compile 'net.sf.trove4j:trove4j:3.+'
+    compile 'org.perfidix:perfidix:3.+'
+    compile 'org.slf4j:slf4j-api:1.7.+'
 
     testCompile group: 'junit', name: 'junit', version: '4.+'
     testCompile files(project(':smalivm').sourceSets.test.output.classesDir)

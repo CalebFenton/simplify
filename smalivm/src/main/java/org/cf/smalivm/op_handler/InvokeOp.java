@@ -5,7 +5,8 @@ import gnu.trove.list.array.TIntArrayList;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
@@ -26,7 +27,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 
 public class InvokeOp extends Op {
 
-    private static final Logger log = Logger.getLogger(InvokeOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
     private static boolean allArgumentsKnown(MethodContext mctx) {
         Object[] registerValues = mctx.getRegisterToValue().values();
@@ -49,7 +50,7 @@ public class InvokeOp extends Op {
                 Object otherValue = node.getContext().getMutableParameter(parameterIndex);
 
                 if (value != otherValue) {
-                    log.finer("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
 
                     return new UnknownValue(TypeUtil.getValueType(value));
                 }
@@ -193,11 +194,11 @@ public class InvokeOp extends Op {
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
             if (SmaliClassUtils.isImmutableClass(type)) {
-                log.fine(type + " is immutable");
+                log.debug(type + " is immutable");
                 continue;
             }
 
-            log.fine(type + " is mutable and passed into strange method, marking unknown");
+            log.debug(type + " is mutable and passed into strange method, marking unknown");
             int register = parameterRegisters[i];
             Object value = new UnknownValue(type);
             callerContext.pokeRegister(register, value);
@@ -210,7 +211,7 @@ public class InvokeOp extends Op {
     }
 
     private MethodContext buildLocalCalleeContext(MethodContext callerContext) {
-        MethodContext result = vm.getInstructionGraph(methodDescriptor).getRootContext();
+        MethodContext result = vm.getInstructionGraphClone(methodDescriptor).getRootContext();
         result.setCallDepth(callerContext.getCallDepth() + 1);
         assignCalleeContextParameters(callerContext, result);
         return result;
@@ -272,7 +273,7 @@ public class InvokeOp extends Op {
             // Only safe, non-side-effect methods are allowed to be reflected.
             sideEffectType = SideEffect.Type.NONE;
         } else {
-            log.fine("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
+            log.debug("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
                             + ". Propigating ambiguity.");
             assumeMaximumUnknown(callerContext);
 

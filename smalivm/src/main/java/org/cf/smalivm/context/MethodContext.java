@@ -46,11 +46,11 @@ public class MethodContext extends BaseContext {
         this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
     }
 
-    MethodContext(int parameterCount) {
+    public MethodContext(int parameterCount) {
         this(parameterCount, parameterCount, 0);
     }
 
-    MethodContext(int parameterCount, int callDepth) {
+    public MethodContext(int parameterCount, int callDepth) {
         this(parameterCount, parameterCount, callDepth);
     }
 

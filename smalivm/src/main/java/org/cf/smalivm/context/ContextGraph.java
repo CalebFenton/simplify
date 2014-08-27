@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -18,16 +17,19 @@ import org.cf.smalivm.op_handler.Op;
 import org.cf.smalivm.op_handler.OpFactory;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ContextGraph implements Iterable<ContextNode> {
 
-    private static final Logger log = Logger.getLogger(ContextGraph.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ContextGraph.class.getSimpleName());
 
     private static TIntObjectMap<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
@@ -154,9 +156,9 @@ public class ContextGraph implements Iterable<ContextNode> {
                 Object otherValue = node.getContext().peekRegister(register);
 
                 if (value != otherValue) {
-                    log.finer("No conensus value for register #" + register + ", returning unknown");
+                    log.trace("No conensus value for register #" + register + ", returning unknown");
 
-                    return new UnknownValue(TypeUtil.getValueType(value));
+                    return new UnknownValue(SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value)));
                 }
             }
 
@@ -187,8 +189,8 @@ public class ContextGraph implements Iterable<ContextNode> {
         return result;
     }
 
-    public Object[] getTerminatingRegisterConsensus(int register) {
-        return getTerminatingRegisterConsensus(new int[] { register });
+    public Object getTerminatingRegisterConsensus(int register) {
+        return getTerminatingRegisterConsensus(new int[] { register })[0];
     }
 
     public Object[] getTerminatingRegisterConsensus(int[] registers) {

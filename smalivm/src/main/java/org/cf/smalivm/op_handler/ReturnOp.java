@@ -1,6 +1,7 @@
 package org.cf.smalivm.op_handler;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodContext;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -9,7 +10,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
 public class ReturnOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(ReturnOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ReturnOp.class.getSimpleName());
 
     static ReturnOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

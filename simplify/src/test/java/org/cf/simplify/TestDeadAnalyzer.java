@@ -4,7 +4,8 @@ import static org.junit.Assert.assertEquals;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.simplify.DeadDetector;
 import org.cf.simplify.Main;
@@ -15,7 +16,7 @@ public class TestDeadAnalyzer {
     static final String CLASS_NAME = "Ldead_detector_test;";
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     @Test
     public void TestUnusedAssignmentIsRemoved() {

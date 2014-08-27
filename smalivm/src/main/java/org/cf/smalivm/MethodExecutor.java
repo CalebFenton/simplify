@@ -5,7 +5,8 @@ import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
@@ -15,7 +16,7 @@ import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
 
 public class MethodExecutor {
 
-    private static Logger log = Logger.getLogger(MethodExecutor.class.getSimpleName());
+    private static Logger log = LoggerFactory.getLogger(MethodExecutor.class.getSimpleName());
 
     private final VirtualMachine vm;
 
@@ -31,7 +32,7 @@ public class MethodExecutor {
             throw new MaxCallDepthExceeded(methodDescriptor);
         }
 
-        ContextGraph graph = vm.getInstructionGraph(methodDescriptor);
+        ContextGraph graph = vm.getInstructionGraphClone(methodDescriptor);
         TIntIntMap indexToNodeVisitCounts = new TIntIntHashMap(graph.getNodeCount());
         Deque<ContextNode> executeStack = new ArrayDeque<ContextNode>();
         ContextNode rootNode = graph.getRootNode();

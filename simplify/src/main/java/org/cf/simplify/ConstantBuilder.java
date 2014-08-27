@@ -1,7 +1,8 @@
 package org.cf.simplify;
 
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
@@ -28,7 +29,7 @@ public class ConstantBuilder {
     private static final String[] ConstantValueTypes = new String[] { "I", "Z", "B", "S", "C", "J", "F", "D",
                     "java.lang.String", "java.lang.Class" };
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     private static final Class<?>[] OpHandlersToMakeConst = new Class<?>[] { BinaryMathOp.class, UnaryMathOp.class,
                     MoveOp.class };
@@ -64,11 +65,11 @@ public class ConstantBuilder {
             }
         } else if (type.equals("F")) {
             float literal = (Float) value;
-            log.warning("WOOP WOOP no idea how to const floats: " + literal);
+            log.warn("WOOP WOOP no idea how to const floats: " + literal);
             // TODO: implement
         } else if (type.equals("D")) {
             double literal = (Double) value;
-            log.warning("WOOP WOOP no idea how to const doubles: " + literal);
+            log.warn("WOOP WOOP no idea how to const doubles: " + literal);
             // TODO: implement
         } else if (type.equals("java.lang.String")) {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
@@ -145,7 +146,7 @@ public class ConstantBuilder {
         // Check handler first since we expect to be able to cast instructions to OneRegisterInstruction
         Op handler = nodePile.get(0).getOpHandler();
         if (!isConstableHandler(handler)) {
-            log.finer("Can't make hanlder constant: " + handler);
+            log.trace("Can't make hanlder constant: " + handler);
             return null;
         }
 
@@ -159,11 +160,11 @@ public class ConstantBuilder {
         type = getUnboxedType(type);
 
         if (!isConstableType(type)) {
-            log.fine("Can't make type constant: " + type);
+            log.debug("Can't make type constant: " + type);
             return null;
         }
 
-        log.fine("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus + ", @" + address);
+        log.debug("Build constant for r" + registerA + ", type=" + type + ", value=" + consensus + ", @" + address);
         BuilderInstruction result = buildConstant(registerA, type, consensus, dexBuilder);
 
         return result;

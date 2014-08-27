@@ -5,7 +5,8 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
@@ -21,7 +22,7 @@ import org.jf.smali.smaliTreeWalker;
 
 public class Dexifier {
 
-    private static final Logger log = Logger.getLogger(Dexifier.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Dexifier.class.getSimpleName());
 
     public static final int DEFAULT_API_LEVEL = 15;
 

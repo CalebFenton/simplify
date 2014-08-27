@@ -1,6 +1,7 @@
 package org.cf.smalivm.op_handler;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.VirtualMachine;
 import org.jf.dexlib2.Opcode;
@@ -9,7 +10,7 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 public final class OpFactory {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(OpFactory.class.getSimpleName());;
+    private static final Logger log = LoggerFactory.getLogger(OpFactory.class.getSimpleName());;
 
     private enum OpType {
         ARRAY_LENGTH,

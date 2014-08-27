@@ -4,7 +4,8 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
@@ -15,7 +16,7 @@ import org.jf.dexlib2.iface.instruction.SwitchPayload;
 public class SwitchPayloadOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(SwitchPayloadOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
 
     private static final int SWITCH_OP_CODE_UNITS = 3;
 

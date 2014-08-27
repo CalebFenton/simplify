@@ -9,7 +9,8 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ContextGraph;
@@ -26,7 +27,7 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
 public class DeadDetector {
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     private static final SideEffect.Type SIDE_EFFECT_THRESHOLD = SideEffect.Type.WEAK;
 
@@ -113,11 +114,11 @@ public class DeadDetector {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             Op handler = graph.getOpHandler(address);
-            log.fine("Dead test for: " + handler);
+            log.debug("Dead test for: " + handler);
 
             List<ContextNode> nodePile = graph.getNodePile(address);
             if (nodePile.size() == 0) {
-                log.fine("dead: " + handler);
+                log.debug("dead: " + handler);
                 result.add(address);
                 continue;
             }
@@ -132,14 +133,14 @@ public class DeadDetector {
             List<ContextNode> pile = graph.getNodePile(address);
             if (pile.size() < 1) {
                 // TODO: move-exception will have a node pile of 0, why??
-                log.warning("Node pile size is 0. This could be a mistake. Skipping.");
+                log.warn("Node pile size is 0. This could be a mistake. Skipping.");
                 continue;
             }
 
             MethodContext mctx = pile.get(0).getContext();
             if (mctx == null) {
                 // TODO: this probably broke because optimizer was stupid
-                log.warning("Null method context. Maybe this is a template node?");
+                log.warn("Null method context. Maybe this is a template node?");
                 continue;
             }
 
@@ -174,7 +175,7 @@ public class DeadDetector {
                 continue;
             }
 
-            log.fine("Results usage test for: " + handler);
+            log.debug("Results usage test for: " + handler);
             String returnType = ((InvokeOp) handler).getReturnType();
             if (returnType.equals("V")) {
                 continue;

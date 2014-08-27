@@ -1,6 +1,7 @@
 package org.cf.smalivm.op_handler;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -14,7 +15,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 public class SPutOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(SPutOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(SPutOp.class.getSimpleName());
 
     static SPutOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;

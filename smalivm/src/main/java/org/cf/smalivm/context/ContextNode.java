@@ -2,13 +2,14 @@ package org.cf.smalivm.context;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.op_handler.Op;
 
 public class ContextNode {
 
-    private static Logger log = Logger.getLogger(ContextNode.class.getSimpleName());
+    private static Logger log = LoggerFactory.getLogger(ContextNode.class.getSimpleName());
 
     private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
@@ -48,11 +49,11 @@ public class ContextNode {
     }
 
     public int[] execute() {
-        log.fine("HANDLING @" + handler.getAddress() + ": " + handler + "\nContext before: " + ctx);
+        log.debug("HANDLING @" + handler.getAddress() + ": " + handler + "\nContext before: " + ctx);
 
         int[] result = handler.execute(ctx);
 
-        log.fine("Context after: " + ctx);
+        log.debug("Context after: " + ctx);
 
         return result;
     }

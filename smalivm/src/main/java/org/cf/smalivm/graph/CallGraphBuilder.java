@@ -2,7 +2,8 @@ package org.cf.smalivm.graph;
 //package org.cf.smalivm.graph;
 //
 //import java.util.List;
-//import java.util.logging.Logger;
+//import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 //
 //import org.jf.dexlib2.builder.BuilderInstruction;
 //import org.jf.dexlib2.builder.MutableMethodImplementation;
@@ -16,10 +17,10 @@ package org.cf.smalivm.graph;
 //
 //public class CallGraphBuilder {
 //
-//    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+//    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 //
 //    public static InstructionNode build(BuilderMethod method) {
-//        log.fine("Building refactor.graph for: " + method.getName());
+//        log.debug("Building refactor.graph for: " + method.getName());
 //
 //        MutableMethodImplementation impl = (MutableMethodImplementation) method.getImplementation();
 //        List<BuilderInstruction> instructions = impl.getInstructions();

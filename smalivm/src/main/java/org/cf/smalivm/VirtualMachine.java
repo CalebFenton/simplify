@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 
 import org.cf.smalivm.context.ClassContext;
 import org.cf.smalivm.context.ContextGraph;
@@ -22,10 +21,12 @@ import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class VirtualMachine {
 
-    private static final Logger log = Logger.getLogger(VirtualMachine.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
 
     private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildMethodDescriptorToTryCatchList(
                     List<BuilderClassDef> classDefs) {
@@ -148,10 +149,9 @@ public class VirtualMachine {
         try {
             result = methodExecutor.execute(methodDescriptor, ctx);
         } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
-            log.warning("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor + "\nContext: "
-                            + ctx);
+            log.warn("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor + "\nContext: " + ctx);
         } catch (Exception e) {
-            log.warning("Unhandled exception in " + methodDescriptor + ". Skipping!\n" + e);
+            log.warn("Unhandled exception in " + methodDescriptor + ". Skipping!\n" + e);
             e.printStackTrace();
         }
 
@@ -180,7 +180,7 @@ public class VirtualMachine {
         return classNameToClassContext.get(className);
     }
 
-    public ContextGraph getInstructionGraph(String methodDescriptor) {
+    public ContextGraph getInstructionGraphClone(String methodDescriptor) {
         ContextGraph graph = methodDescriptorToInstructionGraph.get(methodDescriptor);
         ContextGraph result = new ContextGraph(graph);
 

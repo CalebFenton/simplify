@@ -8,7 +8,8 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ContextGraph;
@@ -26,7 +27,7 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 public class Optimizer {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     public static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
         TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();

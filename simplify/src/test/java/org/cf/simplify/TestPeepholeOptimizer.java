@@ -5,7 +5,8 @@ import gnu.trove.map.TIntObjectMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.simplify.Main;
 import org.cf.simplify.PeepholeOptimizer;
@@ -17,7 +18,7 @@ public class TestPeepholeOptimizer {
     private static final String CLASS_NAME = "Lpeephole_optimizer_test;";
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     @Test
     public void TestInvokeClassForNameWithUnknownClassIsReplaced() {

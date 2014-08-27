@@ -1,7 +1,5 @@
 package org.cf.smalivm.op_handler;
 
-import java.util.logging.Logger;
-
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ClassContext;
 import org.cf.smalivm.context.MethodContext;
@@ -9,11 +7,13 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SGetOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(SGetOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(SGetOp.class.getSimpleName());
 
     static SGetOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;

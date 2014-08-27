@@ -5,11 +5,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.FileHandler;
-import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ContextGraph;
@@ -19,10 +15,12 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Main {
 
-    private static final Logger log = Logger.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     private static final Level LOG_LEVEL = Level.FINE;
 
@@ -90,21 +88,21 @@ public class Main {
     }
 
     public static void setupLogger() {
-        log.setLevel(LOG_LEVEL);
-
-        try {
-            SimpleFormatter formatter = new SimpleFormatter();
-            FileHandler fh = new FileHandler("log.txt");
-            fh.setFormatter(formatter);
-            log.addHandler(fh);
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-
-        for (Handler handler : Logger.getLogger("").getHandlers()) {
-            handler.setLevel(LOG_LEVEL);
-        }
+        // log.setLevel(LOG_LEVEL);
+        //
+        // try {
+        // SimpleFormatter formatter = new SimpleFormatter();
+        // FileHandler fh = new FileHandler("log.txt");
+        // fh.setFormatter(formatter);
+        // log.addHandler(fh);
+        // } catch (Exception e) {
+        // // TODO Auto-generated catch block
+        // e.printStackTrace();
+        // }
+        //
+        // for (Handler handler : Logger.getLogger("").getHandlers()) {
+        // handler.setLevel(LOG_LEVEL);
+        // }
     }
 
 }

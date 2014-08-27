@@ -4,7 +4,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
@@ -13,7 +14,7 @@ import org.cf.smalivm.type.UnknownValue;
 
 public class MethodReflector {
 
-    private static Logger log = Logger.getLogger(MethodReflector.class.getSimpleName());
+    private static Logger log = LoggerFactory.getLogger(MethodReflector.class.getSimpleName());
 
     private static List<String> SafeClasses;
     private static List<String> SafeMethods;
@@ -108,7 +109,7 @@ public class MethodReflector {
     }
 
     public void reflect(MethodContext calleeContext) {
-        log.fine("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
+        log.debug("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
 
         Object result = null;
         try {
@@ -118,16 +119,16 @@ public class MethodReflector {
             Object[] args = getArguments(calleeContext);
             if (methodName.equals("<init>")) {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
-                log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
+                log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                 result = ConstructorUtils.invokeConstructor(clazz, args);
                 calleeContext.assignRegister(0, result);
             } else {
                 if (isStatic) {
-                    log.fine("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
+                    log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeStaticMethod(clazz, methodName, args);
                 } else {
                     Object target = calleeContext.peekRegister(0);
-                    log.fine("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args));
+                    log.debug("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args));
                     result = MethodUtils.invokeMethod(target, methodName, args);
                 }
             }

@@ -1,6 +1,7 @@
 package org.cf.smalivm.op_handler;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.VirtualMachine;
@@ -20,7 +21,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 public class ConstOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(ConstOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
 
     private static enum ConstType {
         NARROW,
@@ -99,7 +100,7 @@ public class ConstOp extends Op {
                 result = ClassUtils.getClass(SmaliClassUtils.smaliClassToJava(className));
             } catch (ClassNotFoundException e) {
                 result = new UnknownValue(className);
-                // log.warning("Could not find class for const-class: " + className);
+                // log.warn("Could not find class for const-class: " + className);
                 // e.printStackTrace();
             }
         } else if (constType == ConstType.LOCAL_TYPE) {

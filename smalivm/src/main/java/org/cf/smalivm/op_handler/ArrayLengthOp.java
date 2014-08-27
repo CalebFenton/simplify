@@ -1,7 +1,8 @@
 package org.cf.smalivm.op_handler;
 
 import java.lang.reflect.Array;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
@@ -11,7 +12,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 public class ArrayLengthOp extends Op {
 
     @SuppressWarnings("unused")
-    private static final Logger log = Logger.getLogger(ArrayLengthOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ArrayLengthOp.class.getSimpleName());
 
     static ArrayLengthOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
@@ -44,9 +45,9 @@ public class ArrayLengthOp extends Op {
             value = Array.getLength(array);
         } else {
             if (array == null) {
-                log.warning("Unexpected null array for array-length");
+                log.warn("Unexpected null array for array-length");
             } else {
-                log.warning("Unexpected non-array class: " + array.getClass() + ", " + array);
+                log.warn("Unexpected non-array class: " + array.getClass() + ", " + array);
             }
         }
         mctx.assignRegister(destRegister, value);

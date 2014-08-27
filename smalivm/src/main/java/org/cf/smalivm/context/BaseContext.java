@@ -7,7 +7,8 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.type.TypeUtil;
@@ -16,7 +17,7 @@ import com.rits.cloning.Cloner;
 
 public class BaseContext {
 
-    private static final Logger log = Logger.getLogger(BaseContext.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(BaseContext.class.getSimpleName());
 
     private static final Cloner cloner = new Cloner();
 
@@ -122,8 +123,9 @@ public class BaseContext {
          */
         BaseContext targetContext = getAncestorWithRegister(register);
         if (targetContext == null) {
-            log.warning("r" + register + " is being read but is null, likely a mistake!");
-            Thread.dumpStack();
+            Exception e = new Exception();
+            log.warn("r" + register + " is being read but is null. Likely a mistake!\n" + e);
+
             return new Object[] { null, null };
         }
 
@@ -176,7 +178,7 @@ public class BaseContext {
         // sb.append("\n\t").append(ste[i]);
         // }
 
-        log.fine("Setting r" + register + " -> " + registerValueToString(value) + sb.toString());
+        log.debug("Setting r" + register + " -> " + registerValueToString(value) + sb.toString());
         registerToValue.put(register, value);
     }
 
@@ -250,7 +252,7 @@ public class BaseContext {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-                            .append(", hc=").append(value.hashCode());
+            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();

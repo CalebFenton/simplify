@@ -1,7 +1,5 @@
 package org.cf.smalivm.op_handler;
 
-import java.util.logging.Logger;
-
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -9,10 +7,12 @@ import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BinaryMathOp extends Op {
 
-    private static final Logger log = Logger.getLogger(BinaryMathOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());
 
     private static enum MathOperandType {
         INT,
@@ -305,14 +305,14 @@ public class BinaryMathOp extends Op {
             rhs = mctx.readRegister(arg2Register);
         }
 
-        log.finest(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
+        // log.trace(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
 
         Object result;
         if (!((lhs instanceof UnknownValue) || (rhs instanceof UnknownValue))) {
             result = getResult(lhs, rhs);
 
             if (result == null) {
-                log.warning("Null result in binary math. Not possibruuu!");
+                log.warn("Null result in binary math. Not possibruuu!");
             }
         } else {
             result = new UnknownValue(getType());
