@@ -1,7 +1,7 @@
 .class public Lswitch_test;
 .super Ljava/lang/Object;
 
-.method public static TestPackedSwitch()V
+.method public static PackedSwitch()V
     .locals 1
 
     # If switch is first op, it masks if offset addresses are calculated correctly.
@@ -38,27 +38,27 @@
     .end packed-switch
 .end method
 
-.method public static TestSparseSwitch()V
+.method public static SparseSwitch()V
     .locals 1
 
     # If switch is first op, it masks if offset addresses are calculated correctly.
-    goto :switch
+    goto :switch # @0
 
     :switch
-    sparse-switch v0, :sswitch_data_0
+    sparse-switch v0, :sswitch_data_0 # @1
 
-    return-void
+    return-void # @4
 
     :sswitch_0
-    return-void
+    return-void # @5
 
     :sswitch_1
-    return-void
+    return-void # @6
 
-    nop # for alignment
+    nop # @7, for alignment
 
     :sswitch_data_0
-    .sparse-switch
+    .sparse-switch # @8
         0x1 -> :sswitch_0
         0x2 -> :sswitch_1
     .end sparse-switch
