@@ -5,10 +5,9 @@ import java.util.logging.Logger;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
+import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22b;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
 public class BinaryMathOp extends Op {
@@ -239,16 +238,14 @@ public class BinaryMathOp extends Op {
             result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register, false);
         } else if (instruction instanceof Instruction12x) {
             // add-int/2addr vAA, vBB
+            arg1Register = instr.getRegisterA();
             int arg2Register = ((Instruction12x) instruction).getRegisterB();
             result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register, false);
-        } else if (instruction instanceof Instruction22b) {
-            // add-int/lit8 vAA, vBB, #CC
-            int arg2Literal = ((Instruction22b) instruction).getNarrowLiteral();
+        } else if (instruction instanceof NarrowLiteralInstruction) {
+            // Instruction22b - add-int/lit8 vAA, vBB, #CC
+            // Instruction22s - add-int/lit16 vAA, vBB, #CCCC
+            int arg2Literal = ((NarrowLiteralInstruction) instruction).getNarrowLiteral();
             result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal, true);
-        } else if (instruction instanceof Instruction22s) {
-            // add-int/lit16 vAA, vBB, #CCCC
-            long arg2Literal = ((Instruction22s) instruction).getWideLiteral();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal);
         }
 
         return result;
@@ -298,6 +295,8 @@ public class BinaryMathOp extends Op {
 
     @Override
     public int[] execute(MethodContext mctx) {
+        System.out.println("binary math op @" + this.getAddress() + ", " + this);
+
         Object lhs = mctx.readRegister(arg1Register);
         Object rhs = null;
         if (hasWideLiteral) {
@@ -323,6 +322,7 @@ public class BinaryMathOp extends Op {
 
         mctx.assignRegister(destRegister, result);
 
+        System.out.println("  result: " + result + " c: " + result.getClass());
         return getPossibleChildren();
     }
 
@@ -345,18 +345,14 @@ public class BinaryMathOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-
-        sb.append(" r").append(destRegister).append(", ");
-        // if (destRegister != arg1Register) {
-        sb.append("r").append(arg1Register).append(", ");
-        // }
+        sb.append(" r").append(destRegister).append(", ").append("r").append(arg1Register);
 
         if (hasNarrowLiteral) {
-            sb.append("0x").append(Integer.toHexString(narrowLiteral));
+            sb.append(", 0x").append(Integer.toHexString(narrowLiteral));
         } else if (hasWideLiteral) {
-            sb.append("0x").append(Long.toHexString(wideLiteral));
-        } else {
-            sb.append("r").append(arg2Register);
+            sb.append(", 0x").append(Long.toHexString(wideLiteral));
+        } else if (!getOpName().endsWith("/2addr")) {
+            sb.append(", r").append(arg2Register);
         }
 
         return sb.toString();
@@ -367,14 +363,14 @@ public class BinaryMathOp extends Op {
 
         switch (mathOperandType) {
         case INT:
-            if (lhs.getClass().equals(Character.class)) {
+            if (lhs instanceof Character) {
                 lhs = (int) (char) lhs;
-            } else if (lhs.getClass().equals(Byte.class)) {
+            } else if (lhs instanceof Byte) {
                 lhs = ((Byte) lhs).intValue();
             }
-            if (rhs.getClass().equals(Character.class)) {
+            if (rhs instanceof Character) {
                 rhs = (int) (char) rhs;
-            } else if (rhs.getClass().equals(Byte.class)) {
+            } else if (rhs instanceof Byte) {
                 rhs = ((Byte) rhs).intValue();
             }
             result = doOperation(mathOperator, (Integer) lhs, (Integer) rhs);

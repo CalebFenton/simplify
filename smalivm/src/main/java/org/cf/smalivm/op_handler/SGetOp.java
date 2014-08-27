@@ -26,7 +26,7 @@ public class SGetOp extends Op {
         String parts[] = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldReference = parts[1];
-        ClassContext classCtx = vm.peekClassContext(className);
+        ClassContext classCtx = vm.peekStaticClassContext(className);
 
         return new SGetOp(address, opName, childAddress, destRegister, classCtx, className, fieldReference);
     }

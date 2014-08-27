@@ -83,14 +83,6 @@ public class BaseContext {
 
     public TIntObjectMap<Object> getRegisterToValue() {
         return registerToValue;
-
-        // TODO: verify registerToValue no longer needs to skip longs. this should be done when context is created. or
-        // even overloaded by methodcontext. vm context shouldn't need to know about smali.
-        // Utility method that knows how to skip longs
-        // Longs are fatties and take up two registers
-        // if (SmaliClassUtils.getValueType(value).equals("J")) {
-        // register++;
-        // }
     }
 
     public boolean hasRegister(int register) {

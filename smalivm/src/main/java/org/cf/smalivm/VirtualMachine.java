@@ -74,7 +74,7 @@ public class VirtualMachine {
     public static int getParameterSize(List<String> parameterTypes) {
         int result = 0;
         for (String type : parameterTypes) {
-            result += type.equals("J") ? 2 : 1;
+            result += type.equals("J") || type.equals("D") ? 2 : 1;
         }
 
         return result;
@@ -123,7 +123,7 @@ public class VirtualMachine {
     // For testing
     public void setupClassContext(Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = peekClassContext(contextClassName);
+            ClassContext cctx = peekStaticClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
             for (String fieldReference : fieldNameToValue.keySet()) {
                 Object value = fieldNameToValue.get(fieldReference);
@@ -166,10 +166,17 @@ public class VirtualMachine {
         // Since this is called for the use or assignment of a class' field, clinit the class
         staticallyInitializeClassIfNecessary(className);
 
-        return peekClassContext(className);
+        return peekStaticClassContext(className);
     }
 
-    public ClassContext peekClassContext(String className) {
+    public ClassContext peekStaticClassContext(String className) {
+        if (!classNameToClassContext.containsKey(className)) {
+            ClassContext ctx = new ClassContext(0);
+            classNameToClassContext.put(className, ctx);
+
+            return ctx;
+        }
+
         return classNameToClassContext.get(className);
     }
 

@@ -113,7 +113,7 @@ public class InvokeOp extends Op {
         for (int i = 0; i < parameterTypes.size(); i++) {
             parameterRegisters.add(registers[i]);
             String type = parameterTypes.get(i);
-            if (type.equals("J")) {
+            if (type.equals("J") || type.equals("D")) {
                 i++;
             }
         }

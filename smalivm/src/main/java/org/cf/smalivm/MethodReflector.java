@@ -163,7 +163,7 @@ public class MethodReflector {
             }
             args.add(arg);
 
-            if (type.equals("J")) {
+            if (type.equals("J") || type.equals("D")) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
                 i++;
             }

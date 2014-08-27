@@ -1,7 +1,6 @@
 package org.cf.smalivm;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
@@ -154,7 +153,7 @@ public class VMTester {
 
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), MAX_NODE_VISITS, MAX_CALL_DEPTH);
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = vm.peekClassContext(contextClassName);
+            ClassContext cctx = vm.peekStaticClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
             for (String fieldReference : fieldNameToValue.keySet()) {
                 Object value = fieldNameToValue.get(fieldReference);
@@ -175,13 +174,12 @@ public class VMTester {
 
         for (String contextClassName : classNameToExpectedFieldValue.keySet()) {
             Map<String, Object> check = classNameToExpectedFieldValue.get(contextClassName);
-            ClassContext actual = vm.peekClassContext(contextClassName);
+            ClassContext actual = vm.peekStaticClassContext(contextClassName);
 
             for (String fieldReference : check.keySet()) {
                 Object checkValue = check.get(fieldReference);
                 Object actualValue = actual.peekField(fieldReference);
-                Assert.assertTrue(fieldReference + "(" + checkValue + ") should equal " + actualValue,
-                                checkValue.equals(actualValue));
+                Assert.assertEquals(fieldReference, checkValue, actualValue);
             }
         }
     }
@@ -197,22 +195,25 @@ public class VMTester {
     }
 
     private static void testEquals(Object value, Object consensus, String methodDescriptor, int register) {
-        String msg = methodDescriptor + ", r" + register + " = " + consensus + "(" + getClassName(consensus)
-                        + "), should be " + value + "(" + getClassName(value) + ")";
+        StringBuilder sb = new StringBuilder();
+        sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
+        .append(getClassName(consensus)).append(")");
+        String msg = sb.toString();
 
         if (value == null) {
-            Assert.assertTrue(msg, value == consensus);
+            Assert.assertEquals(msg, value, consensus);
         } else if (value instanceof UnknownValue) {
             // Only checks type and value
-            Assert.assertTrue(msg, value.toString().equals(consensus.toString()));
+            Assert.assertEquals(msg, value.toString(), consensus.toString());
         } else if (value.getClass().isArray()) {
             // If array, type is "Object", so need to use isArray() instead of instanceof
             boolean result = Objects.deepEquals(value, consensus);
             Assert.assertTrue(msg, result);
+            // Assert.assertArrayEquals(msg, (Object[]) value, (Object[]) consensus);
         } else if (value instanceof StringBuilder) {
-            assertTrue(msg, value.toString().equals(consensus.toString()));
+            assertEquals(msg, value.toString(), consensus.toString());
         } else {
-            Assert.assertTrue(msg, value.equals(consensus));
+            Assert.assertEquals(msg, value, consensus);
         }
     }
 
