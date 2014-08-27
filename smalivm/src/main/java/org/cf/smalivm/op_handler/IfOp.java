@@ -148,17 +148,20 @@ public class IfOp extends Op {
         int cmp = Integer.MIN_VALUE;
         if (compareToZero) {
             if (A instanceof Number) {
-                cmp = numberComparitor.compare(A, 0);
+                cmp = numberComparitor.compare((Number) A, 0);
             } else {
                 // if-*z ops are used to check for null refs
                 cmp = A == null ? 0 : 1;
             }
-        } else {
-            // A and B should both be primitive types
+        } else if (((A instanceof Number) || (A instanceof Boolean) || (A instanceof Character))
+                        && ((B instanceof Number) || (B instanceof Boolean) || (B instanceof Character))) {
             BigDecimal Acmp = widenToBigDecimal(A);
             BigDecimal Bcmp = widenToBigDecimal(B);
             cmp = Acmp.compareTo(Bcmp);
+        } else {
+            cmp = A == B ? 0 : 1;
         }
+
         log.finer("IF compare: " + A + " vs " + B + " = " + cmp);
 
         int result = getPossibleChildren()[0];

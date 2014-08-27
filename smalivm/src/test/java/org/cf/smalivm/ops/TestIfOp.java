@@ -16,7 +16,7 @@ public class TestIfOp {
     private static final int NOP = 2;
     private static final int RETURN = 3;
 
-    public static class TestIdenticalValueTypes {
+    public static class TestIdenticalPrimitiveValueTypes {
         @Test
         public void TestIfEqualsTrue() {
             String methodSignature = "IfEqual()V";
@@ -397,7 +397,28 @@ public class TestIfOp {
         }
     }
 
-    public static class TestCompareObjectToZero {
+    public static class TestCompareObjectReferences {
+        @Test
+        public void TestIdenticalObjectReferencesAreEqual() {
+            String methodSignature = "IfEqual()V";
+            String obj = "object";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, obj, 1, obj);
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
+        @Test
+        public void TestDifferentObjectReferencesAreNotEqual() {
+            String methodSignature = "IfNotEqual()V";
+            String obj1 = "object";
+            // Need to get crafty or javac will be smart enough to use same literal for both objects
+            String obj2 = new StringBuilder(obj1).toString();
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, obj1, 1, obj2);
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+
+            initial = VMTester.buildRegisterState(0, obj1, 1, new int[] { 1 });
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
         @Test
         public void TestIfNullEqualZero() {
             String methodSignature = "IfEqualZero()V";
