@@ -1,11 +1,10 @@
 package org.cf.smalivm.op_handler;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.cf.smalivm.VirtualMachine;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class OpFactory {
 
@@ -161,6 +160,7 @@ public final class OpFactory {
             break;
 
         case CHECK_CAST:
+            result = OpType.CHECK_CAST;
             break;
 
         case CMPG_DOUBLE:
@@ -170,9 +170,9 @@ public final class OpFactory {
         case CMP_LONG:
             break;
 
-        case CONST: // 31i
-        case CONST_16: // 21s
-        case CONST_4: // 11n
+        case CONST:
+        case CONST_16:
+        case CONST_4:
         case CONST_CLASS:
         case CONST_HIGH16:
         case CONST_STRING:
@@ -389,7 +389,7 @@ public final class OpFactory {
             result = FillArrayDataPayloadOp.create(instruction, address);
             break;
         case CHECK_CAST:
-            // TODO: implement
+            result = CheckCastOp.create(instruction, address, vm);
             break;
         case COMPARE:
             // TODO: implement
