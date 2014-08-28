@@ -1,18 +1,25 @@
 project.version = '0.1.0'
 
 apply plugin: 'application'
-
 mainClassName = "org.cf.simplify.Main"
 
+// Tests are tightly coupled with smalivm test classes. Include them here.
 compileTestJava.dependsOn tasks.getByPath(':smalivm:testClasses')
 
 dependencies {
     compile project(':smalivm')
 
+    // Lazy
     compile 'commons-io:commons-io:2.+'
     compile 'org.apache.commons:commons-lang3:3.+'
+
+    // CLI parsing
     compile 'commons-cli:commons-cli:1.+'
+
+    // Primitive high-speed primitve collections
     compile 'net.sf.trove4j:trove4j:3.+'
+
+    // Benchmarking
     compile 'org.perfidix:perfidix:3.+'
     compile 'org.slf4j:slf4j-api:1.7.+'
 
