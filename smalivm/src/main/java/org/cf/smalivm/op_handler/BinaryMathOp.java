@@ -18,8 +18,8 @@ public class BinaryMathOp extends Op {
         INT,
         LONG,
         FLOAT,
-        DOUBLE
-    }
+        DOUBLE,
+    };
 
     private static enum MathOperator {
         ADD,
@@ -33,10 +33,10 @@ public class BinaryMathOp extends Op {
         SHR,
         SHL,
         USHR,
-        RSUB
+        RSUB,
     };
 
-    private static Object doOperation(MathOperator mathOperator, Double lhs, Double rhs) {
+    private static Object doDoubleOperation(MathOperator mathOperator, Double lhs, Double rhs) {
         Object result = null;
         switch (mathOperator) {
         case ADD:
@@ -61,7 +61,7 @@ public class BinaryMathOp extends Op {
         return result;
     }
 
-    private static Object doOperation(MathOperator mathOperator, Float lhs, Float rhs) {
+    private static Object doFloatOperation(MathOperator mathOperator, Float lhs, Float rhs) {
         Object result = null;
         switch (mathOperator) {
         case ADD:
@@ -86,7 +86,7 @@ public class BinaryMathOp extends Op {
         return result;
     }
 
-    private static Object doOperation(MathOperator mathOperator, Integer lhs, Integer rhs) {
+    private static Object doIntegerOperation(MathOperator mathOperator, Integer lhs, Integer rhs) {
         Object result = null;
         switch (mathOperator) {
         case ADD:
@@ -132,7 +132,7 @@ public class BinaryMathOp extends Op {
         return result;
     }
 
-    private static Object doOperation(MathOperator mathOperator, Long lhs, Long rhs) {
+    private static Object doLongOperation(MathOperator mathOperator, Long lhs, Long rhs) {
         Object result = null;
         switch (mathOperator) {
         case ADD:
@@ -152,9 +152,6 @@ public class BinaryMathOp extends Op {
             break;
         case REM:
             result = lhs % rhs;
-            break;
-        case RSUB:
-            result = rhs - lhs;
             break;
         case SHL:
             result = lhs << rhs;
@@ -257,16 +254,13 @@ public class BinaryMathOp extends Op {
     private final int arg1Register;
     private int arg2Register;
     private int narrowLiteral;
-    private long wideLiteral;
-    private boolean hasWideLiteral;
-    private boolean hasNarrowLiteral;
+    private boolean hasLiteral;
 
     private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
-
         mathOperator = getMathOp(opName);
         mathOperandType = getMathOperandType(opName);
     }
@@ -275,79 +269,44 @@ public class BinaryMathOp extends Op {
                     int otherValue, boolean hasLiteral) {
         this(address, opName, childAddress, destRegister, arg1Register);
 
-        hasNarrowLiteral = hasLiteral;
-
-        if (hasNarrowLiteral) {
+        this.hasLiteral = hasLiteral;
+        if (hasLiteral) {
             narrowLiteral = otherValue;
         } else {
             arg2Register = otherValue;
         }
     }
 
-    private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register,
-                    long wideLiteral) {
-        this(address, opName, childAddress, destRegister, arg1Register);
-
-        this.wideLiteral = wideLiteral;
-
-        hasWideLiteral = true;
-    }
-
     @Override
     public int[] execute(MethodContext mctx) {
         Object lhs = mctx.readRegister(arg1Register);
         Object rhs = null;
-        if (hasWideLiteral) {
-            rhs = wideLiteral;
-        } else if (hasNarrowLiteral) {
+        if (hasLiteral) {
             rhs = narrowLiteral;
         } else {
             rhs = mctx.readRegister(arg2Register);
         }
 
-        // log.trace(mathOperator + " - " + mathOperandType + " lhs:" + lhs + ", rhs:" + rhs);
-
         Object result;
-        if (!((lhs instanceof UnknownValue) || (rhs instanceof UnknownValue))) {
+        if ((lhs instanceof UnknownValue) || (rhs instanceof UnknownValue)) {
+            result = new UnknownValue("I");
+        } else {
             result = getResult(lhs, rhs);
-
             if (result == null) {
                 log.warn("Null result in binary math. Not possibruuu!");
             }
-        } else {
-            result = new UnknownValue(getType());
         }
-
         mctx.assignRegister(destRegister, result);
 
         return getPossibleChildren();
-    }
-
-    private String getType() {
-        MathOperandType operandType = getMathOperandType(getOpName());
-        switch (operandType) {
-        case DOUBLE:
-            return "D";
-        case FLOAT:
-            return "F";
-        case INT:
-            return "I";
-        case LONG:
-            return "J";
-        default:
-            return "?numeric?"; // should never happen
-        }
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
         sb.append(" r").append(destRegister).append(", ").append("r").append(arg1Register);
-
-        if (hasNarrowLiteral) {
+        if (hasLiteral) {
             sb.append(", 0x").append(Integer.toHexString(narrowLiteral));
-        } else if (hasWideLiteral) {
-            sb.append(", 0x").append(Long.toHexString(wideLiteral));
         } else if (!getOpName().endsWith("/2addr")) {
             sb.append(", r").append(arg2Register);
         }
@@ -355,33 +314,35 @@ public class BinaryMathOp extends Op {
         return sb.toString();
     }
 
+    private Object massageIntoInt(Object value) {
+        Object result;
+        if (value instanceof Character) {
+            result = (int) (char) value;
+        } else if (value instanceof Byte) {
+            result = ((Byte) value).intValue();
+        } else {
+            result = value;
+        }
+
+        return result;
+    }
+
     private Object getResult(Object lhs, Object rhs) {
         Object result = null;
-
         switch (mathOperandType) {
         case INT:
-            if (lhs instanceof Character) {
-                lhs = (int) (char) lhs;
-            } else if (lhs instanceof Byte) {
-                lhs = ((Byte) lhs).intValue();
-            }
-            if (rhs instanceof Character) {
-                rhs = (int) (char) rhs;
-            } else if (rhs instanceof Byte) {
-                rhs = ((Byte) rhs).intValue();
-            }
-            result = doOperation(mathOperator, (Integer) lhs, (Integer) rhs);
+            lhs = massageIntoInt(lhs);
+            rhs = massageIntoInt(rhs);
+            result = doIntegerOperation(mathOperator, (Integer) lhs, (Integer) rhs);
             break;
         case LONG:
-            result = doOperation(mathOperator, (Long) lhs, (Long) rhs);
+            result = doLongOperation(mathOperator, (Long) lhs, (Long) rhs);
             break;
         case FLOAT:
-            result = doOperation(mathOperator, (Float) lhs, (Float) rhs);
+            result = doFloatOperation(mathOperator, (Float) lhs, (Float) rhs);
             break;
         case DOUBLE:
-            result = doOperation(mathOperator, (Double) lhs, (Double) rhs);
-            break;
-        default: // return null and it'll get caught later
+            result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
             break;
         }
 

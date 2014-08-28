@@ -202,6 +202,15 @@ public class TestBinaryMathOp {
         }
 
         @Test
+        public void TestAddByteAndChar() {
+            Byte b = 0xf;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 'a', 1, b);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'a' + b);
+
+            VMTester.testState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
         public void TestAddIntAndChar() {
             // Compiler will actually produce something like this.
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "$".charAt(0), 1, 11);
@@ -211,8 +220,25 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntAndUnknown() {
+        public void TestAddIntAndUnknownInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, new UnknownValue("I"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+
+            VMTester.testState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
+        public void TestAddIntAndUnknownChar() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("C"), 1, 5);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+
+            VMTester.testState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
+        public void TestAddIntAndUnknownCharAndByte() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("C"), 1, new UnknownValue(
+                            "B"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
             VMTester.testState(CLASS_NAME, "AddInt()V", initial, expected);
