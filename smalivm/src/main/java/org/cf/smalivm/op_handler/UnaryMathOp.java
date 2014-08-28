@@ -118,7 +118,6 @@ public class UnaryMathOp extends Op {
     private static String getDestinationTypeName(String opName) {
         String[] parts = opName.split("-");
         String type = parts[parts.length - 1];
-
         switch (type) {
         case "int":
             return "I";
@@ -135,9 +134,8 @@ public class UnaryMathOp extends Op {
         case "short":
             return "S";
         }
-        String result = parts[parts.length - 1];
 
-        return result;
+        return null;
     }
 
     @Override
