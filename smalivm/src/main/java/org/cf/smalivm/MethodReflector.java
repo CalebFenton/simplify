@@ -4,13 +4,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.UnknownValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MethodReflector {
 
@@ -128,14 +128,15 @@ public class MethodReflector {
                     result = MethodUtils.invokeStaticMethod(clazz, methodName, args);
                 } else {
                     Object target = calleeContext.peekRegister(0);
-                    log.debug("Reflecting " + methodDescriptor + ", target=" + target + " args=" + Arrays.toString(args));
+                    log.debug("Reflecting " + methodDescriptor + ", target=" + target + " args="
+                                    + Arrays.toString(args));
                     result = MethodUtils.invokeMethod(target, methodName, args);
                 }
             }
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
                         | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             result = new UnknownValue(returnType);
-            e.printStackTrace();
+            log.warn("Failed to reflect " + methodDescriptor + "\n", e);
         }
 
         boolean returnsVoid = returnType.equals("V");

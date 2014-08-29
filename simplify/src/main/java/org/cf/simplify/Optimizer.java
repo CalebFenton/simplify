@@ -8,8 +8,6 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ContextGraph;
@@ -23,6 +21,8 @@ import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Optimizer {
 
