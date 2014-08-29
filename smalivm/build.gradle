@@ -1,13 +1,26 @@
 project.version = '0.1.0'
 
 dependencies {
+    // Object cloning
     compile 'uk.com.robust-it:cloning:1.9.+'
+
+    // Easy method reflection
     compile 'commons-beanutils:commons-beanutils:1.9.+'
+
+    // Lazy
     compile 'commons-io:commons-io:2.+'
     compile 'org.apache.commons:commons-lang3:3.+'
+
+    // Primitive collections
     compile 'net.sf.trove4j:trove4j:3.+'
+
+    // Perfromance benchmarking
     compile 'org.perfidix:perfidix:3.+'
+
+    // Logging facade
     compile 'org.slf4j:slf4j-api:1.7.+'
+
+    // Parsing and writing dex files
     compile 'org.smali:dexlib2:2.0.+'
     compile 'org.smali:smali:2.0.+'
     compile 'org.smali:baksmali:2.0.+'
