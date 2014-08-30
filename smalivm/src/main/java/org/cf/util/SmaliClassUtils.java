@@ -52,7 +52,7 @@ public class SmaliClassUtils {
     }
 
     public static String javaClassToSmali(String className) {
-        if (className.endsWith(";")) {
+        if (className.endsWith(";") || (className.length() == 1)) {
             // Already Smali format
             return className;
         }

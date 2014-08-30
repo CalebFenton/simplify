@@ -154,11 +154,14 @@ public class ContextGraph implements Iterable<ContextNode> {
         for (int address : addresses) {
             for (ContextNode node : getNodePile(address)) {
                 Object otherValue = node.getContext().peekRegister(register);
+                boolean equal = false;
+                if (value == otherValue) {
+                    equal = true;
+                } else if ((value != null) && (otherValue != null)) {
+                    equal = value.equals(otherValue);
+                }
 
-                // TODO: understand why sometimes we get objects (strings) that are identical but have different ids
-                // in this case, the same decryption method was invoked in different piles and objects not always same
-                // if (value != otherValue) {
-                if (!(value.equals(otherValue))) {
+                if (!equal) {
                     log.trace("No conensus value for register #" + register + ", returning unknown");
 
                     return new UnknownValue(SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value)));
