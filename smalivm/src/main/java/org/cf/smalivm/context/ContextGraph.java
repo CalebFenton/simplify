@@ -7,9 +7,11 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -28,8 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ContextGraph implements Iterable<ContextNode> {
-
-    private static final Logger log = LoggerFactory.getLogger(ContextGraph.class.getSimpleName());
 
     private static TIntObjectMap<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
                     List<BuilderInstruction> instructions) {
@@ -68,6 +68,8 @@ public class ContextGraph implements Iterable<ContextNode> {
 
         return result;
     }
+
+    private static final Logger log = LoggerFactory.getLogger(ContextGraph.class.getSimpleName());
 
     private final TIntObjectMap<List<ContextNode>> addressToNodePile;
     private final String methodDescriptor;
@@ -124,6 +126,10 @@ public class ContextGraph implements Iterable<ContextNode> {
         return methodDescriptor;
     }
 
+    public int getNodeCount() {
+        return addressToNodePile.size();
+    }
+
     public List<ContextNode> getNodePile(int address) {
         List<ContextNode> result = addressToNodePile.get(address);
         if (address > 0) {
@@ -148,33 +154,40 @@ public class ContextGraph implements Iterable<ContextNode> {
     }
 
     public Object getRegisterConsensus(TIntList addressList, int register) {
-        ContextNode firstNode = getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().peekRegister(register);
-        int[] addresses = addressList.toArray();
-        for (int address : addresses) {
-            for (ContextNode node : getNodePile(address)) {
-                Object otherValue = node.getContext().peekRegister(register);
-                boolean equal = false;
-                if (value == otherValue) {
-                    equal = true;
-                } else if ((value != null) && (otherValue != null)) {
-                    equal = value.equals(otherValue);
-                }
+        Object value = null;
+        for (int address : addressList.toArray()) {
+            Set<Object> values = getRegisterValues(address, register);
+            value = values.toArray()[0];
+            if (values.size() != 1) {
+                log.trace("No conensus value for register #" + register + ", returning unknown");
+                String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
+                UnknownValue consensus = new UnknownValue(type);
 
-                if (!equal) {
-                    log.trace("No conensus value for register #" + register + ", returning unknown");
-
-                    return new UnknownValue(SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value)));
-                }
+                return consensus;
             }
-
         }
 
         return value;
     }
 
+    public Set<Object> getRegisterValues(int address, int register) {
+        List<ContextNode> nodePile = getNodePile(address);
+        Set<Object> result = new HashSet<Object>(nodePile.size());
+        for (ContextNode node : nodePile) {
+            Object value = node.getContext().peekRegister(register);
+            result.add(value);
+        }
+
+        return result;
+    }
+
     public MethodContext getRootContext() {
         return getRootNode().getContext();
+    }
+
+    public ContextNode getRootNode() {
+        // There is only one entry point for a method.
+        return addressToNodePile.get(0).get(0);
     }
 
     public SideEffect.Type getStrongestSideEffectType() {
@@ -193,6 +206,10 @@ public class ContextGraph implements Iterable<ContextNode> {
         }
 
         return result;
+    }
+
+    public ContextNode getTemplateNode(int address) {
+        return addressToNodePile.get(address).get(0);
     }
 
     public Object getTerminatingRegisterConsensus(int register) {
@@ -214,36 +231,24 @@ public class ContextGraph implements Iterable<ContextNode> {
         return new ContextGraphIterator(this);
     }
 
-    public String toGraph() {
-        return getRootNode().toGraph();
-    }
+    public void removeInstruction(int address, int codeUnits) {
+        List<ContextNode> nodePile = addressToNodePile.get(address);
+        for (ContextNode node : nodePile) {
+            ContextNode parent = node.getParent();
+            if (parent != null) {
+                parent.removeChild(node);
+            }
 
-    public boolean wasAddressReached(int address) {
-        if (address == 0) {
-            // Root is always reachable
-            return true;
+            for (ContextNode child : node.getChildren()) {
+                child.setParent(parent);
+                if (parent != null) {
+                    parent.addChild(child);
+                }
+            }
         }
 
-        // If this address was reached during execution there will be clones in the pile.
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-        return nodePile.size() > 1;
-    }
-
-    public int getNodeCount() {
-        return addressToNodePile.size();
-    }
-
-    public ContextNode getRootNode() {
-        // There is only one entry point for a method.
-        return addressToNodePile.get(0).get(0);
-    }
-
-    public ContextNode getTemplateNode(int address) {
-        return addressToNodePile.get(address).get(0);
-    }
-
-    public void setRootContext(MethodContext mctx) {
-        getRootNode().setContext(mctx);
+        // addressToNodePile.remove(address);
+        Utils.shiftIntegerMapKeys(address, -codeUnits, addressToNodePile);
     }
 
     /*
@@ -294,23 +299,22 @@ public class ContextGraph implements Iterable<ContextNode> {
         }
     }
 
-    public void removeInstruction(int address, int codeUnits) {
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-        for (ContextNode node : nodePile) {
-            ContextNode parent = node.getParent();
-            if (parent != null) {
-                parent.removeChild(node);
-            }
+    public void setRootContext(MethodContext mctx) {
+        getRootNode().setContext(mctx);
+    }
 
-            for (ContextNode child : node.getChildren()) {
-                child.setParent(parent);
-                if (parent != null) {
-                    parent.addChild(child);
-                }
-            }
+    public String toGraph() {
+        return getRootNode().toGraph();
+    }
+
+    public boolean wasAddressReached(int address) {
+        if (address == 0) {
+            // Root is always reachable
+            return true;
         }
 
-        // addressToNodePile.remove(address);
-        Utils.shiftIntegerMapKeys(address, -codeUnits, addressToNodePile);
+        // If this address was reached during execution there will be clones in the pile.
+        List<ContextNode> nodePile = addressToNodePile.get(address);
+        return nodePile.size() > 1;
     }
 }
