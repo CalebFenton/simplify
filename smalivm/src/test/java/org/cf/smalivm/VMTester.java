@@ -106,11 +106,10 @@ public class VMTester {
     public static void testVisitation(String className, String methodSignature, TIntObjectMap<Object> initial,
                     int[] expected) {
         ContextGraph graph = VMTester.execute(className, methodSignature, initial);
-        TIntList addresses = graph.getAddresses();
+        int[] addresses = graph.getAddresses().toArray();
         TIntList expectedVisits = new TIntArrayList(expected);
         TIntList actualVisits = new TIntArrayList();
-        for (int i = 0; i < addresses.size(); i++) {
-            int address = addresses.get(i);
+        for (int address : addresses) {
             if (!graph.wasAddressReached(address)) {
                 continue;
             }
@@ -197,7 +196,7 @@ public class VMTester {
     private static void testEquals(Object value, Object consensus, String methodDescriptor, int register) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         if (value == null) {

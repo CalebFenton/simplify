@@ -1,17 +1,21 @@
-package org.cf.simplify;
+package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import org.cf.simplify.Main;
+import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
@@ -24,32 +28,19 @@ import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class DeadDetector {
+public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     private static final SideEffect.Type SIDE_EFFECT_THRESHOLD = SideEffect.Type.WEAK;
 
-    private final TIntList addresses;
-    private final ContextGraph graph;
-    private final TIntObjectMap<BuilderInstruction> addressToInstruction;
-    private final List<BuilderTryBlock> tryBlocks;
-
-    DeadDetector(ContextGraph graph, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    List<BuilderTryBlock> tryBlocks) {
-        this.addresses = getValidAddresses(graph, addressToInstruction, tryBlocks);
-        this.graph = graph;
-        this.addressToInstruction = addressToInstruction;
-        this.tryBlocks = tryBlocks;
-    }
-
-    private static boolean areAssignmentsRead(int address, ContextGraph graph, TIntList assigned) {
-        Deque<ContextNode> stack = new ArrayDeque<ContextNode>();
-        stack.addAll(getChildrenAtAddress(address, graph));
-
-        while (stack.peek() != null) {
-            ContextNode node = stack.poll();
+    private static boolean areAssignmentsRead(int address, TIntList assigned, ContextGraph graph) {
+        Deque<ContextNode> stack = new ArrayDeque<ContextNode>(getChildrenAtAddress(address, graph));
+        ContextNode node;
+        while ((node = stack.poll()) != null) {
             MethodContext ctx = node.getContext();
             for (int register : assigned.toArray()) {
                 if (ctx.wasRegisterRead(register)) {
@@ -62,7 +53,6 @@ public class DeadDetector {
                     return false;
                 }
             }
-
             stack.addAll(node.getChildren());
         }
 
@@ -110,15 +100,65 @@ public class DeadDetector {
         return result;
     }
 
+    private final TIntList addresses;
+
+    private int deadAssignmentCount = 0;
+    private int deadBranchCount = 0;
+    private int deadCount = 0;
+    private int deadResultCount = 0;
+
+    private final MethodBackedGraph mbgraph;
+
+    public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
+        this.mbgraph = mbgraph;
+        this.addresses = getValidAddresses(mbgraph);
+    }
+
+    @Override
+    public Map<String, Integer> getOptimizationCounts() {
+        Map<String, Integer> result = new HashMap<String, Integer>();
+        result.put("dead", deadCount);
+        result.put("deadAssignment", deadAssignmentCount);
+        result.put("deadResult", deadResultCount);
+        result.put("deadBranch", deadBranchCount);
+
+        return result;
+    }
+
+    @Override
+    public boolean perform() {
+        TIntSet removeSet = new TIntHashSet();
+        TIntList addresses;
+        addresses = getDeadAddresses();
+        deadCount += addresses.size();
+        removeSet.addAll(addresses);
+
+        addresses = getDeadAssignmentAddresses();
+        deadAssignmentCount += addresses.size();
+        removeSet.addAll(addresses);
+
+        addresses = getDeadResultAddresses();
+        deadResultCount += addresses.size();
+        removeSet.addAll(addresses);
+
+        addresses = getUselessBranchAddresses();
+        deadBranchCount += addresses.size();
+        removeSet.addAll(addresses);
+
+        addresses = new TIntArrayList(removeSet.toArray());
+        mbgraph.removeInstructions(addresses);
+
+        return addresses.size() > 0;
+    }
+
     TIntList getDeadAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op handler = graph.getOpHandler(address);
-            log.debug("Dead test for: " + handler);
+            Op op = mbgraph.getOpHandler(address);
+            log.debug("Dead test for: " + op);
 
-            List<ContextNode> nodePile = graph.getNodePile(address);
-            if (nodePile.size() == 0) {
-                log.debug("dead: " + handler);
+            if (!mbgraph.wasAddressReached(address)) {
+                log.debug("dead: " + op);
                 result.add(address);
                 continue;
             }
@@ -130,13 +170,11 @@ public class DeadDetector {
     TIntList getDeadAssignmentAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            List<ContextNode> pile = graph.getNodePile(address);
-            if (pile.size() < 1) {
-                // TODO: move-exception will have a node pile of 0, why??
-                log.warn("Node pile size is 0. This could be a mistake. Skipping.");
+            if (!mbgraph.wasAddressReached(address)) {
                 continue;
             }
 
+            List<ContextNode> pile = mbgraph.getNodePile(address);
             MethodContext mctx = pile.get(0).getContext();
             if (mctx == null) {
                 // TODO: this probably broke because optimizer was stupid
@@ -149,13 +187,13 @@ public class DeadDetector {
                 continue;
             }
 
-            Op handler = graph.getOpHandler(address);
-            log.info("Read assignments test for: " + handler);
-            if (areAssignmentsRead(address, graph, assigned)) {
+            Op op = mbgraph.getOpHandler(address);
+            log.info("Read assignments test for: " + op);
+            if (areAssignmentsRead(address, assigned, mbgraph)) {
                 continue;
             }
 
-            log.info("dead assignment: " + handler + ", registers=" + assigned);
+            log.info("dead assignment: " + op + ", registers=" + assigned);
             result.add(address);
         }
 
@@ -165,50 +203,49 @@ public class DeadDetector {
     TIntList getDeadResultAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op handler = graph.getOpHandler(address);
-            if (!(handler instanceof InvokeOp)) {
+            Op op = mbgraph.getOpHandler(address);
+            if (!(op instanceof InvokeOp)) {
                 continue;
             }
 
-            if (handler.getOpName().contains("-direct")) {
+            if (op.getOpName().contains("-direct")) {
                 // Not sure about initializers..
                 continue;
             }
 
-            log.debug("Results usage test for: " + handler);
-            String returnType = ((InvokeOp) handler).getReturnType();
+            log.debug("Results usage test for: " + op);
+            String returnType = ((InvokeOp) op).getReturnType();
             if (returnType.equals("V")) {
                 continue;
             }
 
-            BuilderInstruction instruction = addressToInstruction.get(address);
+            BuilderInstruction instruction = mbgraph.getInstruction(address);
             int nextAddress = address + instruction.getCodeUnits();
-            if (!addressToInstruction.containsKey(nextAddress)) {
+            BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+            if (nextInstr == null) {
                 continue;
             }
-
-            BuilderInstruction nextInstr = addressToInstruction.get(nextAddress);
             if (nextInstr.getOpcode().name.startsWith("move-result")) {
                 continue;
             }
 
-            log.info("dead result: " + handler);
+            log.info("dead result: " + op);
             result.add(address);
         }
 
         return result;
     }
 
-    TIntList getDeadBranchAddresses() {
+    TIntList getUselessBranchAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op handler = graph.getOpHandler(address);
-            if (!(handler instanceof GotoOp)) {
+            Op op = mbgraph.getOpHandler(address);
+            if (!(op instanceof GotoOp)) {
                 continue;
             }
 
             // Branch is useless if it branches to the next instruction.
-            BuilderInstruction instruction = addressToInstruction.get(address);
+            BuilderInstruction instruction = mbgraph.getInstruction(address);
             int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
             if (branchOffset != instruction.getCodeUnits()) {
                 continue;
@@ -220,12 +257,13 @@ public class DeadDetector {
         return result;
     }
 
-    private TIntList getValidAddresses(ContextGraph graph, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    List<BuilderTryBlock> tryBlocks) {
+    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+        List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
+        TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
         TIntList result = getAddressesNotInCatchBlocks(addressToInstruction, tryBlocks);
         for (int address : result.toArray()) {
-            Op handler = graph.getOpHandler(address);
-            int sideEffect = handler.sideEffectType().ordinal();
+            Op op = mbgraph.getOpHandler(address);
+            int sideEffect = op.sideEffectType().ordinal();
             if (sideEffect > SIDE_EFFECT_THRESHOLD.ordinal()) {
                 result.remove(address);
             }

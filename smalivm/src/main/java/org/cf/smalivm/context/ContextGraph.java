@@ -4,6 +4,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.set.TIntSet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -75,9 +76,14 @@ public class ContextGraph implements Iterable<ContextNode> {
     private final String methodDescriptor;
     private final TIntList terminatingAddresses;
 
+    public ContextGraph(ContextGraph other, boolean wrap) {
+        this.addressToNodePile = other.addressToNodePile;
+        this.methodDescriptor = other.methodDescriptor;
+        this.terminatingAddresses = other.terminatingAddresses;
+    }
+
     public ContextGraph(ContextGraph other) {
         methodDescriptor = other.methodDescriptor;
-
         addressToNodePile = new TIntObjectHashMap<List<ContextNode>>();
         for (int address : other.addressToNodePile.keys()) {
             List<ContextNode> otherNodePile = other.addressToNodePile.get(address);
@@ -85,10 +91,8 @@ public class ContextGraph implements Iterable<ContextNode> {
             for (ContextNode otherNode : otherNodePile) {
                 nodePile.add(new ContextNode(otherNode));
             }
-
             addressToNodePile.put(address, nodePile);
         }
-
         terminatingAddresses = other.terminatingAddresses;
     }
 
@@ -104,10 +108,8 @@ public class ContextGraph implements Iterable<ContextNode> {
         addressToNodePile.get(address).add(child);
     }
 
-    public TIntList getAddresses() {
-        TIntList addresses = new TIntArrayList(addressToNodePile.keys());
-
-        return addresses;
+    public TIntSet getAddresses() {
+        return addressToNodePile.keySet();
     }
 
     public TIntList getConnectedTerminatingAddresses() {
@@ -231,7 +233,7 @@ public class ContextGraph implements Iterable<ContextNode> {
         return new ContextGraphIterator(this);
     }
 
-    public void removeInstruction(int address, int codeUnits) {
+    protected void removeInstruction(int address, int codeUnits) {
         List<ContextNode> nodePile = addressToNodePile.get(address);
         for (ContextNode node : nodePile) {
             ContextNode parent = node.getParent();
@@ -257,7 +259,7 @@ public class ContextGraph implements Iterable<ContextNode> {
      * shifting addresses up or down, depending on delta between old and new instruction. It also executes the new
      * instruction, to flesh out a realistic context to help optimizer, ie. assigned registers, etc.
      */
-    public void replaceInstruction(int address, int addressShift, Op handler, int codeUnits) {
+    protected void replaceInstruction(int address, int addressShift, Op handler, int codeUnits) {
         Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
 
         List<ContextNode> nodePile = addressToNodePile.get(address);
@@ -315,6 +317,10 @@ public class ContextGraph implements Iterable<ContextNode> {
 
         // If this address was reached during execution there will be clones in the pile.
         List<ContextNode> nodePile = addressToNodePile.get(address);
+        if (nodePile.size() < 1) {
+            log.warn("Node pile @" + address + " has no template node.");
+        }
+
         return nodePile.size() > 1;
     }
 }

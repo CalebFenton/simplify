@@ -30,8 +30,6 @@ public class Main {
     private static final int MAX_OPTIMIZATION_SWEEPS = 100;
 
     public static void main(String[] argv) throws Exception {
-        setupLogger();
-
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
         List<BuilderClassDef> classDefs = Dexifier.dexifySmaliFiles(argv[0], dexBuilder);
         String methodRegex = argv.length > 1 ? ".*" + argv[1] + ".*" : "";
@@ -69,7 +67,7 @@ public class Main {
                 continue;
             }
 
-            Optimizer opt = new Optimizer(dexBuilder, method, graph, vm);
+            Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
             boolean madeChanges = opt.simplify(MAX_OPTIMIZATION_SWEEPS);
             if (madeChanges) {
                 /*
@@ -85,24 +83,6 @@ public class Main {
         String outputDexFile = "out_simple.dex";
         log.info("Writing result to " + outputDexFile);
         dexBuilder.writeTo(new FileDataStore(new File(outputDexFile)));
-    }
-
-    public static void setupLogger() {
-        // log.setLevel(LOG_LEVEL);
-        //
-        // try {
-        // SimpleFormatter formatter = new SimpleFormatter();
-        // FileHandler fh = new FileHandler("log.txt");
-        // fh.setFormatter(formatter);
-        // log.addHandler(fh);
-        // } catch (Exception e) {
-        // // TODO Auto-generated catch block
-        // e.printStackTrace();
-        // }
-        //
-        // for (Handler handler : Logger.getLogger("").getHandlers()) {
-        // handler.setLevel(LOG_LEVEL);
-        // }
     }
 
 }

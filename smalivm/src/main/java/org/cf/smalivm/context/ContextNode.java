@@ -2,10 +2,10 @@ package org.cf.smalivm.context;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.op_handler.Op;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ContextNode {
 
@@ -50,9 +50,7 @@ public class ContextNode {
 
     public int[] execute() {
         log.debug("HANDLING @" + handler.getAddress() + ": " + handler + "\nContext before: " + ctx);
-
         int[] result = handler.execute(ctx);
-
         log.debug("Context after: " + ctx);
 
         return result;
@@ -80,10 +78,10 @@ public class ContextNode {
 
     public String toGraph() {
         List<ContextNode> visitedNodes = new ArrayList<ContextNode>();
-
         StringBuilder sb = new StringBuilder("digraph {\n");
         getGraph(sb, visitedNodes);
         sb.append("}");
+
         return sb.toString();
     }
 
