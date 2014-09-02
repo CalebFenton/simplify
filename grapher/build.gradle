@@ -1,11 +1,7 @@
 project.version = '1.0.0'
 
-apply plugin: 'application'
-mainClassName = 'org.cf.demoapp.Main'
-
 dependencies {
     compile project(':smalivm')
-    compile project(':grapher')
 
     // Logging
     compile 'org.slf4j:slf4j-api:1.7.+'
