@@ -2,22 +2,20 @@
 .super Ljava/lang/Object;
 
 # TODO: Long, Float, Double, Byte, Char, Class and String
-.method public static KnownIntForBinaryMathOp()I
+.method public static BinaryMathOp()V
   .locals 1
 
-  const/4 v0, 0x1
   add-int/2addr v0, v0
 
-  return v0
+  return-void
 .end method
 
-.method public static KnownIntForMove()I
+.method public static MoveV0IntoV1()V
   .locals 2
 
-  const/4 v0, 0x5
   move v1, v0
 
-  return v1
+  return-void
 .end method
 
 .method public static InvokeIntegerMethods()I

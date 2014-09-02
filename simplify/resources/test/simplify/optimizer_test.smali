@@ -58,3 +58,71 @@
 
     return-object v0
 .end method
+
+.method private static floatingPoints()D
+    .locals 10
+
+    #@0
+    .prologue
+    .line 21
+    const-string v8, "1.0"
+
+    #@2
+    invoke-static {v8}, Ljava/lang/Double;->parseDouble(Ljava/lang/String;)D
+
+    #@5
+    move-result-wide v0
+
+    #@6
+    .line 22
+    .local v0, "d":D
+    const-string v8, "1.1"
+
+    #@8
+    invoke-static {v8}, Ljava/lang/Double;->parseDouble(Ljava/lang/String;)D
+
+    #@b
+    move-result-wide v2
+
+    #@c
+    .line 23
+    .local v2, "d1":D
+    const-string v8, "1.0"
+
+    #@e
+    invoke-static {v8}, Ljava/lang/Float;->parseFloat(Ljava/lang/String;)F
+
+    #@11
+    move-result v8
+
+    #@12
+    float-to-double v4, v8
+
+    #@13
+    .line 24
+    .local v4, "f":D
+    const-string v8, "1.1"
+
+    #@15
+    invoke-static {v8}, Ljava/lang/Float;->parseFloat(Ljava/lang/String;)F
+
+    #@18
+    move-result v8
+
+    #@19
+    float-to-double v6, v8
+
+    #@1a
+    .line 25
+    .local v6, "f1":D
+    add-double v8, v0, v2
+
+    #@1c
+    add-double/2addr v8, v4
+
+    #@1d
+    add-double/2addr v8, v6
+
+    #@1e
+    return-wide v8
+.end method

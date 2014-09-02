@@ -44,11 +44,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             MethodContext ctx = node.getContext();
             for (int register : assigned.toArray()) {
                 if (ctx.wasRegisterRead(register)) {
-                    log.info("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
+                    log.debug("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
                                     + ", " + node.getOpHandler());
                     return true;
                 } else if (ctx.wasRegisterAssigned(register)) {
-                    log.info("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
+                    log.debug("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
                                     + node.getOpHandler());
                     return false;
                 }
@@ -100,7 +100,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    private final TIntList addresses;
+    private TIntList addresses;
 
     private int deadAssignmentCount = 0;
     private int deadBranchCount = 0;
@@ -111,7 +111,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
-        this.addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(mbgraph);
     }
 
     @Override
@@ -127,40 +127,43 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     @Override
     public boolean perform() {
+        // Updated addresses each time because they change outside of this method.
+        addresses = getValidAddresses(mbgraph);
+
         TIntSet removeSet = new TIntHashSet();
-        TIntList addresses;
-        addresses = getDeadAddresses();
-        deadCount += addresses.size();
-        removeSet.addAll(addresses);
+        TIntList removeAddresses;
+        removeAddresses = getDeadAddresses();
+        deadCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
-        addresses = getDeadAssignmentAddresses();
-        deadAssignmentCount += addresses.size();
-        removeSet.addAll(addresses);
+        removeAddresses = getDeadAssignmentAddresses();
+        deadAssignmentCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
-        addresses = getDeadResultAddresses();
-        deadResultCount += addresses.size();
-        removeSet.addAll(addresses);
+        removeAddresses = getDeadResultAddresses();
+        deadResultCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
-        addresses = getUselessBranchAddresses();
-        deadBranchCount += addresses.size();
-        removeSet.addAll(addresses);
+        removeAddresses = getUselessBranchAddresses();
+        deadBranchCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
-        addresses = new TIntArrayList(removeSet.toArray());
-        mbgraph.removeInstructions(addresses);
+        removeAddresses = new TIntArrayList(removeSet.toArray());
+        mbgraph.removeInstructions(removeAddresses);
+        addresses.removeAll(removeAddresses);
 
-        return addresses.size() > 0;
+        return removeAddresses.size() > 0;
     }
 
     TIntList getDeadAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             Op op = mbgraph.getOpHandler(address);
-            log.debug("Dead test for: " + op);
+            log.debug("Dead test @" + address + " for: " + op);
 
             if (!mbgraph.wasAddressReached(address)) {
                 log.debug("dead: " + op);
                 result.add(address);
-                continue;
             }
         }
 
@@ -177,8 +180,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             List<ContextNode> pile = mbgraph.getNodePile(address);
             MethodContext mctx = pile.get(0).getContext();
             if (mctx == null) {
-                // TODO: this probably broke because optimizer was stupid
-                log.warn("Null method context. Maybe this is a template node?");
+                log.warn("Null method context. This shouldn't happen!");
                 continue;
             }
 
@@ -188,12 +190,12 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             Op op = mbgraph.getOpHandler(address);
-            log.info("Read assignments test for: " + op);
+            log.debug("Read assignments test @" + address + " for: " + op);
             if (areAssignmentsRead(address, assigned, mbgraph)) {
                 continue;
             }
 
-            log.info("dead assignment: " + op + ", registers=" + assigned);
+            log.debug("dead assignment: " + op + ", registers=" + assigned);
             result.add(address);
         }
 
@@ -213,7 +215,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 continue;
             }
 
-            log.debug("Results usage test for: " + op);
+            log.debug("Results usage test @" + address + " for: " + op);
             String returnType = ((InvokeOp) op).getReturnType();
             if (returnType.equals("V")) {
                 continue;
@@ -245,8 +247,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             // Branch is useless if it branches to the next instruction.
-            BuilderInstruction instruction = mbgraph.getInstruction(address);
-            int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
+            OffsetInstruction instruction = (OffsetInstruction) mbgraph.getInstruction(address);
+            int branchOffset = instruction.getCodeOffset();
             if (branchOffset != instruction.getCodeUnits()) {
                 continue;
             }

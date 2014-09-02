@@ -18,6 +18,8 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction21ih;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction21lh;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction31i;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction51l;
@@ -37,6 +39,9 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     private static final Set<String> ConstantizableTypes = new HashSet<String>(Arrays.asList("I", "Z", "B", "S", "C",
                     "J", "F", "D", "java.lang.String", "java.lang.Class"));
+
+    private static final String LAST_16_BITS_ZERO = "0000000000000000";
+    private static final String LAST_48_BITS_ZERO = "000000000000000000000000000000000000000000000000";
 
     private final MethodBackedGraph mbgraph;
     private int constantCount;
@@ -103,21 +108,27 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     }
 
     static BuilderInstruction buildConstant(double value, int register) {
+        long longBits = Double.doubleToLongBits(value);
+        String binaryValue = Long.toBinaryString(longBits);
         BuilderInstruction result;
-
-        // TODO: implement building floats
-        result = null;
-        log.warn("Not implemented - const double: " + value);
+        if (binaryValue.endsWith(LAST_48_BITS_ZERO)) {
+            result = new BuilderInstruction21lh(Opcode.CONST_WIDE_HIGH16, register, longBits);
+        } else {
+            result = new BuilderInstruction51l(Opcode.CONST_WIDE, register, longBits);
+        }
 
         return result;
     }
 
     static BuilderInstruction buildConstant(float value, int register) {
+        int intBits = Float.floatToIntBits(value);
+        String binaryValue = Integer.toBinaryString(intBits);
         BuilderInstruction result;
-
-        // TODO: implement building floats
-        result = null;
-        log.warn("Not implemented - const float: " + value);
+        if (binaryValue.endsWith(LAST_16_BITS_ZERO)) {
+            result = new BuilderInstruction21ih(Opcode.CONST_HIGH16, register, intBits);
+        } else {
+            result = new BuilderInstruction31i(Opcode.CONST, register, intBits);
+        }
 
         return result;
     }
@@ -168,6 +179,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             result = new BuilderInstruction21c(Opcode.CONST_STRING, register, stringRef);
         } else if (type.equals("java.lang.Class")) {
             BuilderTypeReference typeRef = dexBuilder.internTypeReference(value.toString());
+
             result = new BuilderInstruction21c(Opcode.CONST_CLASS, register, typeRef);
         }
 

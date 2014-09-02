@@ -292,11 +292,14 @@ public class ContextGraph implements Iterable<ContextNode> {
         }
 
         // Update any children's parents to the new nodes we made.
-        nodePile = addressToNodePile.get(address + codeUnits);
-        for (ContextNode node : nodePile) {
-            ContextNode parent = node.getParent();
-            if (oldToNew.containsKey(parent)) {
-                node.setParent(oldToNew.get(parent));
+        int childAddress = address + codeUnits;
+        nodePile = addressToNodePile.get(childAddress);
+        if (nodePile != null) {
+            for (ContextNode node : nodePile) {
+                ContextNode parent = node.getParent();
+                if (oldToNew.containsKey(parent)) {
+                    node.setParent(oldToNew.get(parent));
+                }
             }
         }
     }
