@@ -7,11 +7,9 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
@@ -21,7 +19,6 @@ import org.cf.smalivm.op_handler.OpFactory;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
-import org.cf.util.Utils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
@@ -72,7 +69,7 @@ public class ContextGraph implements Iterable<ContextNode> {
 
     private static final Logger log = LoggerFactory.getLogger(ContextGraph.class.getSimpleName());
 
-    private final TIntObjectMap<List<ContextNode>> addressToNodePile;
+    protected final TIntObjectMap<List<ContextNode>> addressToNodePile;
     private final String methodDescriptor;
     private final TIntList terminatingAddresses;
 
@@ -231,77 +228,6 @@ public class ContextGraph implements Iterable<ContextNode> {
     @Override
     public Iterator<ContextNode> iterator() {
         return new ContextGraphIterator(this);
-    }
-
-    protected void removeInstruction(int address, int codeUnits) {
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-        for (ContextNode node : nodePile) {
-            ContextNode parent = node.getParent();
-            if (parent != null) {
-                parent.removeChild(node);
-            }
-
-            for (ContextNode child : node.getChildren()) {
-                child.setParent(parent);
-                if (parent != null) {
-                    parent.addChild(child);
-                }
-            }
-        }
-
-        // addressToNodePile.remove(address);
-        Utils.shiftIntegerMapKeys(address, -codeUnits, addressToNodePile);
-    }
-
-    /*
-     * Utility method for optimizer. Need to be able to update a graph to pass around between optimization strategies.
-     * This does a shallow update, not touching any handlers or individual nodes. It just updates addressToNodePile by
-     * shifting addresses up or down, depending on delta between old and new instruction. It also executes the new
-     * instruction, to flesh out a realistic context to help optimizer, ie. assigned registers, etc.
-     */
-    protected void replaceInstruction(int address, int addressShift, Op handler, int codeUnits) {
-        Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
-
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-        Map<ContextNode, ContextNode> oldToNew = new HashMap<ContextNode, ContextNode>();
-        for (int index = 0; index < nodePile.size(); index++) {
-            ContextNode node = nodePile.get(index);
-            ContextNode newNode = new ContextNode(handler);
-
-            nodePile.remove(node);
-            nodePile.add(index, newNode);
-            for (ContextNode child : node.getChildren()) {
-                newNode.addChild(child);
-            }
-
-            if (node.getContext() != null) {
-                ContextNode parent = node.getParent();
-                MethodContext mctx;
-                if (parent != null) {
-                    mctx = new MethodContext(parent.getContext());
-                    parent.replaceChild(node, newNode);
-                } else {
-                    mctx = new MethodContext(node.getContext());
-                }
-
-                newNode.setContext(mctx);
-                newNode.execute();
-            }
-
-            oldToNew.put(node, newNode);
-        }
-
-        // Update any children's parents to the new nodes we made.
-        int childAddress = address + codeUnits;
-        nodePile = addressToNodePile.get(childAddress);
-        if (nodePile != null) {
-            for (ContextNode node : nodePile) {
-                ContextNode parent = node.getParent();
-                if (oldToNew.containsKey(parent)) {
-                    node.setParent(oldToNew.get(parent));
-                }
-            }
-        }
     }
 
     public void setRootContext(MethodContext mctx) {

@@ -26,7 +26,7 @@ public class ContextNode {
         }
     }
 
-    ContextNode(Op handler) {
+    public ContextNode(Op handler) {
         this.handler = handler;
 
         // Most nodes will only have one child.
@@ -38,11 +38,11 @@ public class ContextNode {
         children.add(child);
     }
 
-    void removeChild(ContextNode child) {
+    public void removeChild(ContextNode child) {
         children.remove(child);
     }
 
-    void replaceChild(ContextNode oldChild, ContextNode newChild) {
+    public void replaceChild(ContextNode oldChild, ContextNode newChild) {
         int index = children.indexOf(oldChild);
         children.remove(index);
         children.add(index, newChild);
@@ -114,7 +114,7 @@ public class ContextNode {
         }
     }
 
-    void setParent(ContextNode parent) {
+    public void setParent(ContextNode parent) {
         // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
         // Each execution of an instruction will have a new state.
         this.parent = parent;

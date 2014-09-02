@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.cf.simplify.Main;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ContextGraph;
@@ -33,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 public class DeadRemovalStrategy implements OptimizationStrategy {
 
-    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
 
     private static final SideEffect.Type SIDE_EFFECT_THRESHOLD = SideEffect.Type.WEAK;
 
@@ -44,11 +43,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             MethodContext ctx = node.getContext();
             for (int register : assigned.toArray()) {
                 if (ctx.wasRegisterRead(register)) {
-                    log.debug("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
+                    log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
                                     + ", " + node.getOpHandler());
                     return true;
                 } else if (ctx.wasRegisterAssigned(register)) {
-                    log.debug("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
+                    log.trace("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
                                     + node.getOpHandler());
                     return false;
                 }

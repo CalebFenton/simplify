@@ -214,9 +214,15 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     @Override
     public boolean perform() {
         for (int address : mbgraph.getAddresses().toArray()) {
+            BuilderInstruction original = mbgraph.getInstruction(address);
             if (canConstantizeAddress(address)) {
                 BuilderInstruction constInstruction = buildConstant(address);
-                mbgraph.replaceInstruction(address, constInstruction);
+                if (original.getOpcode().name().startsWith("RETURN")) {
+                    // TODO: insert const rather than replace return op
+                    log.warn("Return op constantizing not impelemented.");
+                } else {
+                    mbgraph.replaceInstruction(address, constInstruction);
+                }
                 constantCount++;
             }
         }
