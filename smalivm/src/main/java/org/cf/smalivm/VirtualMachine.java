@@ -149,10 +149,11 @@ public class VirtualMachine {
         try {
             result = methodExecutor.execute(methodDescriptor, ctx);
         } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
-            log.warn("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor + "\nContext: " + ctx);
+            log.warn("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor);
+            log.debug("Context: " + ctx);
         } catch (Exception e) {
-            log.warn("Unhandled exception in " + methodDescriptor + ". Skipping!\n" + e);
-            e.printStackTrace();
+            log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
+            log.debug("Stack trace: ", e);
         }
 
         return result;

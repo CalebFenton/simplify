@@ -136,7 +136,8 @@ public class MethodReflector {
         } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
                         | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             result = new UnknownValue(returnType);
-            log.warn("Failed to reflect " + methodDescriptor + "\n", e);
+            log.warn("Failed to reflect " + methodDescriptor);
+            log.debug("Stack trace:", e);
         }
 
         boolean returnsVoid = returnType.equals("V");

@@ -14,7 +14,7 @@ dependencies {
     compile 'org.apache.commons:commons-lang3:3.+'
 
     // CLI parsing
-    compile 'commons-cli:commons-cli:1.+'
+    compile 'args4j:args4j:2.0.+'
 
     // Primitive high-speed primitve collections
     compile 'net.sf.trove4j:trove4j:3.+'

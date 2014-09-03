@@ -3,18 +3,22 @@ package org.cf.simplify;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.util.Dexifier;
+import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
+import org.kohsuke.args4j.CmdLineParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,23 +26,41 @@ public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
-    private static final Level LOG_LEVEL = Level.FINE;
+    private static void filterTypes(List<? extends Reference> refs, Pattern filterPattern) {
+        for (Iterator<? extends Reference> it = refs.iterator(); it.hasNext();) {
+            Reference ref = it.next();
+            String name = ReferenceUtil.getReferenceString(ref);
+            Matcher m = filterPattern.matcher(name);
+            if (!m.find()) {
+                it.remove();
+            }
+        }
+    }
 
-    private static final int MAX_NODE_VISITS = 2000;
-    private static final int MAX_CALL_DEPTH = 20;
-
-    private static final int MAX_OPTIMIZATION_SWEEPS = 100;
-
-    public static void main(String[] argv) throws Exception {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
-        List<BuilderClassDef> classDefs = Dexifier.dexifySmaliFiles(argv[0], dexBuilder);
-        String methodRegex = argv.length > 1 ? ".*" + argv[1] + ".*" : "";
-        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
-        for (BuilderClassDef classDef : classDefs) {
-            methods.addAll(classDef.getMethods());
+    public static void main(String[] args) throws Exception {
+        OptionBean bean = new OptionBean();
+        CmdLineParser parser = new CmdLineParser(bean);
+        parser.parseArgument(args);
+        if (bean.isHelp()) {
+            parser.printUsage(System.out);
+            System.exit(0);
         }
 
-        VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(bean.getOutputAPILevel());
+        List<BuilderClassDef> classes = Dexifier.dexifySmaliFiles(bean.getInFile(), dexBuilder);
+        if (bean.getClassFilter() != null) {
+            filterTypes(classes, bean.getClassFilter());
+        }
+
+        List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
+        for (BuilderClassDef klazz : classes) {
+            methods.addAll(klazz.getMethods());
+        }
+        if (bean.getMethodFilter() != null) {
+            filterTypes(methods, bean.getMethodFilter());
+        }
+
+        VirtualMachine vm = new VirtualMachine(classes, bean.getMaxNodeVisits(), bean.getMaxCallDepth());
 
         // TODO: investigate sorting methods by implementation size. maybe shorter methods can be optimized more easily
         // and will speed up optimizations of dependent methods.
@@ -46,13 +68,8 @@ public class Main {
         for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
             if (methodDescriptor.endsWith("-><clinit>()V")) {
-                // Static class initialization is called elsewhere, as needed.
+                // Static class initialization is handled by the VM.
                 // TODO: main shouldn't need to know how to do this!
-                continue;
-            }
-
-            if (!methodRegex.isEmpty() && !methodDescriptor.matches(methodRegex)) {
-                log.info("Skipping " + methodDescriptor + " because it doesn't match " + argv[1]);
                 continue;
             }
 
@@ -62,17 +79,17 @@ public class Main {
 
             ContextGraph graph = vm.execute(methodDescriptor);
             if (graph == null) {
-                log.info("Skipping " + methodDescriptor);
+                System.out.println("Skipping " + methodDescriptor);
                 finishedMethods.add(method);
                 continue;
             }
 
             Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
-            boolean madeChanges = opt.simplify(MAX_OPTIMIZATION_SWEEPS);
+            boolean madeChanges = opt.simplify(bean.getMaxOptimizationPasses());
             if (madeChanges) {
                 /*
-                 * All objects associated with this method (dexbuilder, implmenetation) have been updated elsewhere.
-                 * Poke the VM to re-build the graph based on them.
+                 * All objects associated with this method (dexbuilder, implementation) have been updated in the
+                 * optimizer. Poke the VM to re-build the graph based on them.
                  */
                 vm.updateInstructionGraph(methodDescriptor);
             } else {
@@ -80,9 +97,9 @@ public class Main {
             }
         }
 
-        String outputDexFile = "out_simple.dex";
-        log.info("Writing result to " + outputDexFile);
-        dexBuilder.writeTo(new FileDataStore(new File(outputDexFile)));
+        File outFile = bean.getOutFile();
+        System.out.println("Writing result to " + outFile);
+        dexBuilder.writeTo(new FileDataStore(outFile));
     }
 
 }
