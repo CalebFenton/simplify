@@ -14,6 +14,7 @@ import org.cf.smalivm.op_handler.ReturnOp;
 import org.cf.smalivm.op_handler.UnaryMathOp;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
@@ -178,7 +179,9 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_STRING, register, stringRef);
         } else if (type.equals("java.lang.Class")) {
-            BuilderTypeReference typeRef = dexBuilder.internTypeReference(value.toString());
+            Class<?> klazz = (Class<?>) value;
+            String className = SmaliClassUtils.javaClassToSmali(klazz);
+            BuilderTypeReference typeRef = dexBuilder.internTypeReference(className);
 
             result = new BuilderInstruction21c(Opcode.CONST_CLASS, register, typeRef);
         }

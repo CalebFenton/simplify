@@ -51,6 +51,10 @@ public class SmaliClassUtils {
         return ClassUtils.primitiveToWrapper(primitiveClass).getName();
     }
 
+    public static String javaClassToSmali(Class klazz) {
+        return javaClassToSmali(klazz.getName());
+    }
+
     public static String javaClassToSmali(String className) {
         if (className.endsWith(";") || (className.length() == 1)) {
             // Already Smali format
