@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -84,6 +85,7 @@ public class VirtualMachine {
     private final Map<String, ClassContext> classNameToClassContext;
     private final Map<String, SideEffect.Type> classNameToSideEffectType;
     private final List<String> initializedClasses;
+    private final Set<String> localClasses;
 
     private final int maxNodeVisits;
     private final int maxCallDepth;
@@ -107,6 +109,7 @@ public class VirtualMachine {
         methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
         methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
         classNameToClassContext = buildClassNameToClassContext(classDefs);
+        localClasses = new HashSet<String>(classNameToClassContext.keySet());
         classNameToSideEffectType = new HashMap<String, SideEffect.Type>(classNameToClassContext.size());
         for (String className : classNameToClassContext.keySet()) {
             classNameToSideEffectType.put(className, SideEffect.Type.NONE);
@@ -124,7 +127,7 @@ public class VirtualMachine {
     // For testing
     public void setupClassContext(Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = peekStaticClassContext(contextClassName);
+            ClassContext cctx = getStaticClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
             for (String fieldReference : fieldNameToValue.keySet()) {
                 Object value = fieldNameToValue.get(fieldReference);
@@ -167,11 +170,12 @@ public class VirtualMachine {
         // Since this is called for the use or assignment of a class' field, clinit the class
         staticallyInitializeClassIfNecessary(className);
 
-        return peekStaticClassContext(className);
+        return getStaticClassContext(className);
     }
 
-    public ClassContext peekStaticClassContext(String className) {
+    public ClassContext getStaticClassContext(String className) {
         if (!classNameToClassContext.containsKey(className)) {
+            log.warn("Peeking context of non-local class: " + className + ". Returning empty context.");
             ClassContext ctx = new ClassContext(0);
             classNameToClassContext.put(className, ctx);
 
@@ -201,7 +205,7 @@ public class VirtualMachine {
     }
 
     public boolean isClassDefinedLocally(String className) {
-        return classNameToClassContext.get(className) != null;
+        return localClasses.contains(className);
     }
 
     public boolean isMethodDefined(String methodDescriptor) {
@@ -217,7 +221,6 @@ public class VirtualMachine {
 
     private Map<String, ClassContext> buildClassNameToClassContext(List<BuilderClassDef> classDefs) {
         Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
-
         for (BuilderClassDef classDef : classDefs) {
             String className = ReferenceUtil.getReferenceString(classDef);
 

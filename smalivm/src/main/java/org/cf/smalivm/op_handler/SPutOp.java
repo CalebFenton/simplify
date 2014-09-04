@@ -1,16 +1,15 @@
 package org.cf.smalivm.op_handler;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ClassContext;
 import org.cf.smalivm.context.MethodContext;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SPutOp extends Op {
 
@@ -25,37 +24,28 @@ public class SPutOp extends Op {
         int destRegister = instr.getRegisterA();
         FieldReference reference = (FieldReference) instr.getReference();
         String fieldDescriptor = ReferenceUtil.getFieldDescriptor(reference);
-        String parts[] = fieldDescriptor.split("->");
-        String className = parts[0];
-        String fieldReference = parts[1];
-        ClassContext classCtx = vm.peekStaticClassContext(className);
 
-        return new SPutOp(address, opName, childAddress, destRegister, classCtx, className, fieldReference);
+        return new SPutOp(address, opName, childAddress, destRegister, fieldDescriptor, vm);
     }
 
     private final int valueRegister;
-    private final ClassContext classCtx;
-    private final String className;
-    private final String fieldReference;
     private final String fieldDescriptor;
+    private final VirtualMachine vm;
 
-    public SPutOp(int address, String opName, int childAddress, int valueRegister, ClassContext classCtx,
-                    String className, String fieldReference) {
+    public SPutOp(int address, String opName, int childAddress, int valueRegister, String fieldDescriptor,
+                    VirtualMachine vm) {
         super(address, opName, childAddress);
 
         this.valueRegister = valueRegister;
-        this.classCtx = classCtx;
-        this.className = className;
-        this.fieldReference = fieldReference;
-        this.fieldDescriptor = className + "->" + fieldReference;
+        this.fieldDescriptor = fieldDescriptor;
+        this.vm = vm;
     }
 
     @Override
     public int[] execute(MethodContext mctx) {
         Object value = mctx.readRegister(valueRegister);
-
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
-        classCtx.assignField(fieldReference, value);
+        StaticFieldAccessor.putField(vm, fieldDescriptor, value);
 
         return getPossibleChildren();
     }

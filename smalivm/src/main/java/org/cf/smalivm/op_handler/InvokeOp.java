@@ -176,7 +176,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -268,7 +268,7 @@ public class InvokeOp extends Op {
             sideEffectType = SideEffect.Type.NONE;
         } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
-            reflector.reflect(calleeContext); // player play
+            reflector.reflect(calleeContext); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.
             sideEffectType = SideEffect.Type.NONE;

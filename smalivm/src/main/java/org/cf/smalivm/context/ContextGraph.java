@@ -192,7 +192,11 @@ public class ContextGraph implements Iterable<ContextNode> {
     public SideEffect.Type getStrongestSideEffectType() {
         SideEffect.Type result = SideEffect.Type.NONE;
         for (ContextNode node : this) {
-            SideEffect.Type type = node.getOpHandler().sideEffectType();
+            Op op = node.getOpHandler();
+            SideEffect.Type type = op.sideEffectType();
+            if (type == null) {
+                System.out.println("break");
+            }
             switch (type) {
             case STRONG:
                 return type;

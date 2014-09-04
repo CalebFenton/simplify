@@ -52,12 +52,21 @@ public class MethodReflector {
         SafeClasses.add("Ljava/util/Set;");
         SafeClasses.add("Ljava/util/HashSet;");
 
+        SafeClasses.add("Lorg/json/JSONObject;");
+        SafeClasses.add("Lorg/json/JSONArray;");
+
+        SafeClasses.add("Ljavax/crypto/Cipher;");
+        SafeClasses.add("Ljavax/crypto/spec/SecretKeySpec;");
+        SafeClasses.add("Ljavax/crypto/spec/IvParameterSpec;");
+        SafeClasses.add("Ljava/security/Key;");
+        SafeClasses.add("Ljava/security/spec/AlgorithmParameterSpec;");
+
         SafeMethods = new ArrayList<String>();
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
     }
 
-    public static boolean isWhitelisted(String reference) {
-        String[] parts = reference.split("->");
+    public static boolean isWhitelisted(String typeDescriptor) {
+        String[] parts = typeDescriptor.split("->");
         String className = parts[0];
 
         if (SafeClasses.contains(className)) {
@@ -66,7 +75,7 @@ public class MethodReflector {
 
         if (parts.length > 1) {
             // It's a method name
-            if (SafeMethods.contains(reference)) {
+            if (SafeMethods.contains(typeDescriptor)) {
                 return true;
             }
         }
@@ -114,6 +123,7 @@ public class MethodReflector {
         Object result = null;
         try {
             // Class<?> clazz = ClassUtils.getClass(className, false);
+            // String leading 'L' and trailing ';' from smali type descriptor
             Class<?> clazz = Class.forName(className.substring(1, className.length() - 1));
 
             Object[] args = getArguments(calleeContext);

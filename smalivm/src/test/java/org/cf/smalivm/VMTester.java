@@ -152,7 +152,7 @@ public class VMTester {
 
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), MAX_NODE_VISITS, MAX_CALL_DEPTH);
         for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = vm.peekStaticClassContext(contextClassName);
+            ClassContext cctx = vm.getStaticClassContext(contextClassName);
             Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
             for (String fieldReference : fieldNameToValue.keySet()) {
                 Object value = fieldNameToValue.get(fieldReference);
@@ -173,7 +173,7 @@ public class VMTester {
 
         for (String contextClassName : classNameToExpectedFieldValue.keySet()) {
             Map<String, Object> check = classNameToExpectedFieldValue.get(contextClassName);
-            ClassContext actual = vm.peekStaticClassContext(contextClassName);
+            ClassContext actual = vm.getStaticClassContext(contextClassName);
 
             for (String fieldReference : check.keySet()) {
                 Object checkValue = check.get(fieldReference);
@@ -196,7 +196,7 @@ public class VMTester {
     private static void testEquals(Object value, Object consensus, String methodDescriptor, int register) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-        .append(getClassName(consensus)).append(")");
+                        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         if (value == null) {

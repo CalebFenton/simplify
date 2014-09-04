@@ -66,7 +66,6 @@ public class NewInstanceOp extends Op {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
-
         sb.append(" r").append(destRegister).append(", ").append(className);
 
         return sb.toString();

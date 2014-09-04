@@ -13,46 +13,46 @@ public class ClassContext extends BaseContext {
         fieldToRegister = new HashMap<String, Integer>(fieldCount);
     }
 
-    private int getRegister(String fieldReference) {
+    private int getRegister(String fieldNameAndType) {
         int register = 0;
-        if (!fieldToRegister.containsKey(fieldReference)) {
+        if (!fieldToRegister.containsKey(fieldNameAndType)) {
             register = fieldToRegister.size();
-            fieldToRegister.put(fieldReference, register);
+            fieldToRegister.put(fieldNameAndType, register);
         } else {
-            register = fieldToRegister.get(fieldReference);
+            register = fieldToRegister.get(fieldNameAndType);
         }
 
         return register;
     }
 
-    public Object readField(String fieldReference) {
+    public Object readField(String fieldNameAndType) {
         // It might be necessary to split up static / instance references later, when class contexts are passed around.
-        int register = getRegister(fieldReference);
+        int register = getRegister(fieldNameAndType);
 
         return readRegister(register);
     }
 
-    public Object peekField(String fieldReference) {
-        int register = getRegister(fieldReference);
+    public Object peekField(String fieldNameAndType) {
+        int register = getRegister(fieldNameAndType);
 
         return peekRegister(register);
     }
 
-    public void assignField(String fieldReference, Object value) {
-        int register = getRegister(fieldReference);
+    public void assignField(String fieldNameAndType, Object value) {
+        int register = getRegister(fieldNameAndType);
         assignRegister(register, value);
     }
 
-    public void pokeField(String fieldReference, Object value) {
-        int register = getRegister(fieldReference);
+    public void pokeField(String fieldNameAndType, Object value) {
+        int register = getRegister(fieldNameAndType);
         pokeRegister(register, value);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("Fields:\n");
-        for (String fieldReference : fieldToRegister.keySet()) {
-            sb.append(fieldReference).append(" = ").append(peekField(fieldReference)).append("\n");
+        for (String fieldNameAndType : fieldToRegister.keySet()) {
+            sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append("\n");
         }
         sb.setLength(sb.length() - 1);
 

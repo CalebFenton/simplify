@@ -16,7 +16,7 @@ public class UninitializedInstance implements Type {
 
     @Override
     public String toString() {
-        return smaliType;
+        return "Uninitialized " + smaliType;
     }
 
     @Override
