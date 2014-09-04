@@ -1,6 +1,8 @@
 .class Linvoke_static_test;
 .super Ljava/lang/Object;
 
+.field public static mutable:[I
+
 .method public static InvokeReturnsVoid()V
     .locals 0
 
@@ -58,8 +60,21 @@
     return-void
 .end method
 
+.method public InvokeMutateStaticClassField()V
+    .locals 1
 
+    invoke-static {}, Linvoke_static_test;->MutateStaticClassField()V
 
+    return-void
+.end method
+
+.method public InvokeMutateStaticClassFieldNonDeterministically()V
+    .locals 1
+
+    invoke-static {}, Linvoke_static_test;->MutateStaticClassFieldNonDeterministically()V
+
+    return-void
+.end method
 # Need proper error handling, and to test private and instance from static
 #.method public static TestPrivateMethodInaccessible()V
 #.end method
@@ -68,6 +83,34 @@
 #.end method
 
 
+.method public static MutateStaticClassField()V
+    .locals 2
+
+    sget-object v0, Linvoke_static_test;->mutable:[I
+
+    const/4 v1, 0x0
+    aput v1, v0, v1
+
+    return-void
+.end method
+
+.method public static MutateStaticClassFieldNonDeterministically()V
+    .locals 2
+
+    sget-object v0, Linvoke_static_test;->mutable:[I
+
+    sget v1, Lsome_unexistant_class;->fieldy:I
+    if-eqz v1, :was_zero
+
+    const/4 v1, 0x1
+    aput v1, v0, v1
+
+    :was_zero
+    const/4 v1, 0x0
+    aput v1, v0, v1
+
+    return-void
+.end method
 
 .method public static ReturnsVoid()V
     .locals 0

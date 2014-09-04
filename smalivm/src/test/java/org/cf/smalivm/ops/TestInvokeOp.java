@@ -2,6 +2,8 @@ package org.cf.smalivm.ops;
 
 import gnu.trove.map.TIntObjectMap;
 
+import java.util.Map;
+
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.LocalInstance;
@@ -110,6 +112,27 @@ public class TestInvokeOp {
                             new UnknownValue("I"));
 
             VMTester.testState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
+                            expected);
+        }
+
+        @Test
+        public void TestInvokeMutateStaticClassFieldPropigatesChanges() {
+            Map<String, Map<String, Object>> initial = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
+                            new int[] { 3, 3, 3 });
+            Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
+                            new int[] { 0, 3, 3 });
+
+            VMTester.testExpectedClassState(CLASS_NAME, "InvokeMutateStaticClassField()V", initial, expected);
+        }
+
+        @Test
+        public void TestInvokeMutateStaticClassFieldNonDeterministicallyPropigatesUnknown() {
+            Map<String, Map<String, Object>> initial = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
+                            new int[] { 3, 3, 3 });
+            Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
+                            new UnknownValue("[I"));
+
+            VMTester.testExpectedClassState(CLASS_NAME, "InvokeMutateStaticClassFieldNonDeterministically()V", initial,
                             expected);
         }
     }

@@ -143,6 +143,23 @@ public class VMTester {
                         classNameToExpectedFieldValue);
     }
 
+    public static void testExpectedClassState(String className, String methodSignature, TIntObjectMap<Object> initial,
+                    Map<String, Map<String, Object>> classNameToInitialFieldValue,
+                    Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
+        TIntObjectMap<Object> expected = new TIntObjectHashMap<Object>();
+        testState(className, methodSignature, initial, expected, classNameToInitialFieldValue,
+                        classNameToExpectedFieldValue);
+    }
+
+    public static void testExpectedClassState(String className, String methodSignature,
+                    Map<String, Map<String, Object>> classNameToInitialFieldValue,
+                    Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
+        TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
+        TIntObjectMap<Object> expected = new TIntObjectHashMap<Object>();
+        testState(className, methodSignature, initial, expected, classNameToInitialFieldValue,
+                        classNameToExpectedFieldValue);
+    }
+
     public static void testState(String className, String methodSignature, TIntObjectMap<Object> initial,
                     TIntObjectMap<Object> expected, Map<String, Map<String, Object>> classNameToInitialFieldValue,
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
@@ -168,7 +185,7 @@ public class VMTester {
             Object value = expected.get(register);
             Object consensus = graph.getRegisterConsensus(terminalAddresses, register);
 
-            testEquals(value, consensus, methodDescriptor, register);
+            testRegisterEquals(register, value, consensus);
         }
 
         for (String contextClassName : classNameToExpectedFieldValue.keySet()) {
@@ -178,7 +195,8 @@ public class VMTester {
             for (String fieldReference : check.keySet()) {
                 Object checkValue = check.get(fieldReference);
                 Object actualValue = actual.peekField(fieldReference);
-                Assert.assertEquals(fieldReference, checkValue, actualValue);
+                String fieldDescriptor = contextClassName + "->" + fieldReference;
+                testFieldEquals(fieldDescriptor, checkValue, actualValue);
             }
         }
     }
@@ -193,12 +211,25 @@ public class VMTester {
         return result;
     }
 
-    private static void testEquals(Object value, Object consensus, String methodDescriptor, int register) {
+    private static void testRegisterEquals(int register, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
                         .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
+        testValueEquals(value, consensus, msg);
+    }
+
+    private static void testFieldEquals(String fieldDescriptor, Object value, Object consensus) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(fieldDescriptor).append(" class(expected=").append(getClassName(value)).append(", consensus=")
+                        .append(getClassName(consensus)).append(")");
+        String msg = sb.toString();
+
+        testValueEquals(value, consensus, msg);
+    }
+
+    private static void testValueEquals(Object value, Object consensus, String msg) {
         if (value == null) {
             Assert.assertEquals(msg, value, consensus);
         } else if (value instanceof UnknownValue) {
