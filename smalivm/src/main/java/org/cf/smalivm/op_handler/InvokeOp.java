@@ -176,7 +176,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -262,10 +262,7 @@ public class InvokeOp extends Op {
         MethodContext calleeContext = buildNonLocalCalleeContext(callerContext);
         boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
         if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
-            MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
-
-            // No emulated methods are implemented now. Assuming no side effects may change.
-            sideEffectType = SideEffect.Type.NONE;
+            sideEffectType = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
         } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play

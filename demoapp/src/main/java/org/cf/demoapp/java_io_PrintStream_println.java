@@ -1,5 +1,6 @@
 package org.cf.demoapp;
 
+import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.emulate.EmulatedMethod;
 
@@ -13,6 +14,11 @@ public class java_io_PrintStream_println implements EmulatedMethod {
 
         // Actually print out any println's executed.
         System.out.println(valueStr);
+    }
+
+    public SideEffect.Type getSideEffectType() {
+        // Do not optimize this away.
+        return SideEffect.Type.STRONG;
     }
 
 }

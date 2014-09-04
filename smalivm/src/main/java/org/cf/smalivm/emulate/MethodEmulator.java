@@ -3,6 +3,7 @@ package org.cf.smalivm.emulate;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.MethodContext;
 
 public class MethodEmulator {
@@ -24,8 +25,10 @@ public class MethodEmulator {
         return emulatedMethods.containsKey(methodDescriptor);
     }
 
-    public static void emulate(MethodContext mctx, String methodDescriptor, int[] parameterRegisters) {
+    public static SideEffect.Type emulate(MethodContext mctx, String methodDescriptor, int[] parameterRegisters) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
         em.execute(mctx);
+
+        return em.getSideEffectType();
     }
 }

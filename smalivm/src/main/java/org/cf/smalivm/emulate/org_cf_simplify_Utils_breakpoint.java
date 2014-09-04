@@ -1,9 +1,9 @@
 package org.cf.smalivm.emulate;
 
+import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.context.MethodContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.cf.smalivm.context.MethodContext;
 
 public class org_cf_simplify_Utils_breakpoint implements EmulatedMethod {
 
@@ -14,4 +14,8 @@ public class org_cf_simplify_Utils_breakpoint implements EmulatedMethod {
         log.info("For a good time, set a breakpoint here!");
     }
 
+    public SideEffect.Type getSideEffectType() {
+        // No side effect. This will be optimized away.
+        return SideEffect.Type.NONE;
+    }
 }
