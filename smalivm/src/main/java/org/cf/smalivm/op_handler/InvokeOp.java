@@ -176,7 +176,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -198,7 +198,7 @@ public class InvokeOp extends Op {
                 continue;
             }
 
-            log.debug(type + " is mutable and passed into strange method, marking unknown");
+            log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
             int register = parameterRegisters[i];
             Object value = new UnknownValue(type);
             callerContext.pokeRegister(register, value);

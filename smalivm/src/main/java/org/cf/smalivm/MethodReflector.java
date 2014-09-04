@@ -42,9 +42,9 @@ public class MethodReflector {
         SafeClasses.add("Ljava/math/BigDecimal;");
         SafeClasses.add("Ljava/math/BigInteger;");
 
-        SafeClasses.add("Ljava/org.cf.util/Map;");
-        SafeClasses.add("Ljava/org.cf.util/HashMap;");
-        SafeClasses.add("Ljava/org.cf.util/Hashtable;");
+        SafeClasses.add("Ljava/util/Map;");
+        SafeClasses.add("Ljava/util/HashMap;");
+        SafeClasses.add("Ljava/util/Hashtable;");
 
         SafeClasses.add("Ljava/util/List;");
         SafeClasses.add("Ljava/util/ArrayList;");

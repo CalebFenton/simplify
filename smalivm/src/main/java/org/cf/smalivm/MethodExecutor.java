@@ -5,14 +5,14 @@ import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MethodExecutor {
 
@@ -25,7 +25,7 @@ public class MethodExecutor {
     }
 
     ContextGraph execute(String methodDescriptor, MethodContext mctx) throws MaxNodeVisitsExceeded,
-    MaxCallDepthExceeded {
+                    MaxCallDepthExceeded {
         log.info("Executing " + methodDescriptor + ", depth=" + mctx.getCallDepth());
 
         if (mctx.getCallDepth() > vm.getMaxCallDepth()) {
@@ -53,7 +53,6 @@ public class MethodExecutor {
                 // stuff like consensus of register values.
                 ContextNode child = new ContextNode(graph.getTemplateNode(address));
                 child.setContext(new MethodContext(currentNode.getContext()));
-
                 currentNode.addChild(child);
                 graph.addNode(address, child);
             }
