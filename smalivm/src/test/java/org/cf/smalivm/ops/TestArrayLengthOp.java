@@ -19,7 +19,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 1, 2, 3 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -27,7 +27,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] {});
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -35,7 +35,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[] { 1, 2 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -43,7 +43,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[] { 1, 2, 3, 4 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 4);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
     }
@@ -54,7 +54,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Integer[] { 1, 2, 3 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -62,7 +62,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Integer[] {});
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -70,7 +70,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new String[] { "isn't", "this", "where" });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3);
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -78,7 +78,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("[I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
 
         @Test
@@ -86,7 +86,7 @@ public class TestArrayLengthOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("[Ljava/lang/Integer;"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
-            VMTester.testState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
         }
     }
 

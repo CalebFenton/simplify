@@ -17,7 +17,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myInt:I", 0x42);
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutInt()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutInt()V", initial, classNameToExpectedFieldValue);
     }
 
     @Test
@@ -26,7 +26,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutWide()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutWide()V", initial, classNameToExpectedFieldValue);
     }
 
     @Test
@@ -35,7 +35,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myString:Ljava/lang/String;", "Do not pray for an easy life");
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutObject()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutObject()V", initial, classNameToExpectedFieldValue);
     }
 
     @Test
@@ -44,7 +44,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myBoolean:Z", true);
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutBoolean()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutBoolean()V", initial, classNameToExpectedFieldValue);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myByte:B", (byte) 0xFF);
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutByte()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutByte()V", initial, classNameToExpectedFieldValue);
     }
 
     @Test
@@ -62,7 +62,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myChar:C", '!');
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutChar()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutChar()V", initial, classNameToExpectedFieldValue);
     }
 
     @Test
@@ -71,6 +71,7 @@ public class TestSPutOp {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myShort:S", (short) 0x4242);
 
-        VMTester.testExpectedClassState(CLASS_NAME, "TestStaticPutShort()V", initial, classNameToExpectedFieldValue);
+        VMTester.testClassState(CLASS_NAME, "TestStaticPutShort()V", initial, classNameToExpectedFieldValue);
     }
+
 }

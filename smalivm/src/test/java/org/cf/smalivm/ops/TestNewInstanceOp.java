@@ -16,7 +16,7 @@ public class TestNewInstanceOp {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
-        VMTester.testState(CLASS_NAME, "TestLocalClass()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestLocalClass()V", initial, expected);
     }
 
     @Test
@@ -25,7 +25,7 @@ public class TestNewInstanceOp {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
                         new UninitializedInstance("Ljava/lang/Integer;"));
 
-        VMTester.testState(CLASS_NAME, "TestNonLocalClass()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestNonLocalClass()V", initial, expected);
     }
 
 }

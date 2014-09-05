@@ -21,7 +21,7 @@ public class TestMoveOp {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 42, 1, 42);
 
-        VMTester.testState(CLASS_NAME, "TestMoveRegisterPrimitive()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestMoveRegisterPrimitive()V", initial, expected);
     }
 
     @Test
@@ -46,14 +46,14 @@ public class TestMoveOp {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(MethodContext.ResultRegister, 42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 42);
 
-        VMTester.testState(CLASS_NAME, "TestMoveResult()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestMoveResult()V", initial, expected);
     }
 
     @Test
     public void TestMoveException() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Ljava/lang/Exception;"));
 
-        VMTester.test(CLASS_NAME, "TestMoveException()V", expected);
+        VMTester.testMethodState(CLASS_NAME, "TestMoveException()V", expected);
     }
 
 }

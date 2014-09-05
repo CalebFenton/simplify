@@ -18,7 +18,7 @@ public class TestSGetOp {
                         "myInt:I", 0x42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetInt()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetInt()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
@@ -27,7 +27,7 @@ public class TestSGetOp {
                         "myLong:J", 0xFFFFFFFFFL);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetWide()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetWide()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
@@ -36,7 +36,7 @@ public class TestSGetOp {
                         "myString:Ljava/lang/String;", "They tried and died.");
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "They tried and died.");
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetObject()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetObject()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TestSGetOp {
                         "myBoolean:Z", true);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, true);
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetBoolean()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetBoolean()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class TestSGetOp {
                         "myByte:B", (byte) 0xf);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (byte) 0xf);
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetByte()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetByte()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
@@ -63,7 +63,7 @@ public class TestSGetOp {
                         "myChar:C", 'x');
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'x');
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetChar()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetChar()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
@@ -72,21 +72,21 @@ public class TestSGetOp {
                         "myShort:S", (short) 0x100);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x100);
 
-        VMTester.testExpectedMethodState(CLASS_NAME, "StaticGetShort()V", expected, classNameToInitialFieldValue);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetShort()V", expected, classNameToInitialFieldValue);
     }
 
     @Test
     public void TestStaticGetWhitelistedClassField() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Integer.MAX_VALUE);
 
-        VMTester.test(CLASS_NAME, "StaticGetWhitelistedClassField()V", expected);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetWhitelistedClassField()V", expected);
     }
 
     @Test
     public void TestStaticGetUnknownClassField() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
-        VMTester.test(CLASS_NAME, "StaticGetUnknownClassField()V", expected);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetUnknownClassField()V", expected);
     }
 
 }

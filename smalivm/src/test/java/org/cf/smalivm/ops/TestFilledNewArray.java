@@ -16,6 +16,6 @@ public class TestFilledNewArray {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister,
                         new int[] { 2, 3, 5 });
 
-        VMTester.testState(CLASS_NAME, "TestFilledNewArray()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestFilledNewArray()V", initial, expected);
     }
 }

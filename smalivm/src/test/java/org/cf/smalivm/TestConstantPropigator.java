@@ -10,7 +10,7 @@ public class TestConstantPropigator {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
 
-        VMTester.testState(CLASS_NAME, "TestArrayGet()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
 }
