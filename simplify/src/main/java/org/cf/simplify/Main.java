@@ -64,7 +64,7 @@ public class Main {
 
         // TODO: investigate sorting methods by implementation size. maybe shorter methods can be optimized more easily
         // and will speed up optimizations of dependent methods.
-        Set<BuilderMethod> finishedMethods = new HashSet<BuilderMethod>();
+        Set<String> finishedMethods = new HashSet<String>();
         for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
             if (methodDescriptor.endsWith("-><clinit>()V")) {
@@ -73,14 +73,15 @@ public class Main {
                 continue;
             }
 
-            if (finishedMethods.contains(method)) {
+            if (finishedMethods.contains(methodDescriptor)) {
                 continue;
             }
 
+            System.out.println("Executing: " + methodDescriptor);
             ContextGraph graph = vm.execute(methodDescriptor);
             if (graph == null) {
                 System.out.println("Skipping " + methodDescriptor);
-                finishedMethods.add(method);
+                finishedMethods.add(methodDescriptor);
                 continue;
             }
 
@@ -93,7 +94,7 @@ public class Main {
                  */
                 vm.updateInstructionGraph(methodDescriptor);
             } else {
-                finishedMethods.add(method);
+                finishedMethods.add(methodDescriptor);
             }
         }
 

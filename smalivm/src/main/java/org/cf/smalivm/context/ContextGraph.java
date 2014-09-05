@@ -14,8 +14,8 @@ import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.op_handler.Op;
-import org.cf.smalivm.op_handler.OpFactory;
+import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.opcode.OpFactory;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;

@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.simplify.MethodBackedGraph;
-import org.cf.smalivm.op_handler.InvokeOp;
-import org.cf.smalivm.op_handler.Op;
+import org.cf.smalivm.opcode.InvokeOp;
+import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;

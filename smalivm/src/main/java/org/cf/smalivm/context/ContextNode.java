@@ -3,7 +3,7 @@ package org.cf.smalivm.context;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.cf.smalivm.op_handler.Op;
+import org.cf.smalivm.opcode.Op;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

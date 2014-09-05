@@ -13,8 +13,8 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
-import org.cf.smalivm.op_handler.Op;
-import org.cf.smalivm.op_handler.OpFactory;
+import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.opcode.OpFactory;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -85,7 +85,6 @@ public class MethodBackedGraph extends ContextGraph {
         addresses.sort();
         addresses.reverse();
         log.info("Remove addresses: " + addresses);
-        // addressToInstruction = buildAddressToInstruction(implementation.getInstructions());
         for (int address : addresses.toArray()) {
             BuilderInstruction instruction = addressToInstruction.get(address);
             MethodLocation location = instruction.getLocation();

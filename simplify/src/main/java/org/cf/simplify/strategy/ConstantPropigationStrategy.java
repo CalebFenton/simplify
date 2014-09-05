@@ -7,11 +7,11 @@ import java.util.Map;
 import java.util.Set;
 
 import org.cf.simplify.MethodBackedGraph;
-import org.cf.smalivm.op_handler.BinaryMathOp;
-import org.cf.smalivm.op_handler.MoveOp;
-import org.cf.smalivm.op_handler.Op;
-import org.cf.smalivm.op_handler.ReturnOp;
-import org.cf.smalivm.op_handler.UnaryMathOp;
+import org.cf.smalivm.opcode.BinaryMathOp;
+import org.cf.smalivm.opcode.MoveOp;
+import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.opcode.ReturnOp;
+import org.cf.smalivm.opcode.UnaryMathOp;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
