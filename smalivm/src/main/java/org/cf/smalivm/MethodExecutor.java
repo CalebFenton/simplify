@@ -5,7 +5,10 @@ import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 
+import org.cf.smalivm.context.ClassContext;
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
@@ -24,35 +27,38 @@ public class MethodExecutor {
         this.vm = vm;
     }
 
-    ContextGraph execute(String methodDescriptor, MethodContext mctx) throws MaxNodeVisitsExceeded,
-                    MaxCallDepthExceeded {
+    private ContextGraph execute(ContextGraph graph) throws MaxNodeVisitsExceeded, MaxCallDepthExceeded {
+        // TODO: move call depth stuff to ContextNode
+        String methodDescriptor = graph.getMethodDescriptor();
+        ContextNode node = graph.getRootNode();
+        MethodContext mctx = node.getMethodContext();
         log.info("Executing " + methodDescriptor + ", depth=" + mctx.getCallDepth());
-
         if (mctx.getCallDepth() > vm.getMaxCallDepth()) {
-            throw new MaxCallDepthExceeded(methodDescriptor);
+            throw new MaxCallDepthExceeded("Exceeded max call depth in " + methodDescriptor);
         }
 
-        ContextGraph graph = vm.getInstructionGraphClone(methodDescriptor);
-        TIntIntMap indexToNodeVisitCounts = new TIntIntHashMap(graph.getNodeCount());
+        TIntIntMap addressToNodeVisitCounts = new TIntIntHashMap(graph.getNodeCount());
         Deque<ContextNode> executeStack = new ArrayDeque<ContextNode>();
         ContextNode rootNode = graph.getRootNode();
         if (mctx != null) {
-            // If called with a context, it means we're being invoked from within another method.
-            rootNode.setContext(mctx);
+            // If called with a context, invoked from local method.
+            rootNode.setMethodContext(mctx);
         }
         executeStack.push(rootNode);
 
         do {
             ContextNode currentNode = executeStack.poll();
-
-            recordNodeVisitation(indexToNodeVisitCounts, currentNode, vm.getMaxNodeVisits());
+            int visitCount = addressToNodeVisitCounts.get(node.getAddress());
+            if (visitCount > vm.getMaxNodeVisits()) {
+                throw new MaxNodeVisitsExceeded("Exceeded max node visits for " + node + " in " + methodDescriptor);
+            }
 
             int[] childAddresses = currentNode.execute();
             for (int address : childAddresses) {
                 // Every node visit means a new clone on the pile. This way, piles can be examined by the optimizer for
                 // stuff like consensus of register values.
                 ContextNode child = new ContextNode(graph.getTemplateNode(address));
-                child.setContext(new MethodContext(currentNode.getContext()));
+                child.setMethodContext(new MethodContext(currentNode.getMethodContext()));
                 currentNode.addChild(child);
                 graph.addNode(address, child);
             }
@@ -63,16 +69,24 @@ public class MethodExecutor {
         return graph;
     }
 
-    private static void recordNodeVisitation(TIntIntMap addressToNodeVisitCount, ContextNode node, int maxNodeVisits)
-                    throws MaxNodeVisitsExceeded {
-        int address = node.getAddress();
-        int visitCount = addressToNodeVisitCount.get(address);
+    ContextGraph execute(String methodDescriptor, MethodContext mctx) throws MaxNodeVisitsExceeded,
+                    MaxCallDepthExceeded {
+        Map<String, ClassContext> classNameToClassContext = new HashMap<String, ClassContext>();
 
-        if (visitCount > maxNodeVisits) {
-            throw new MaxNodeVisitsExceeded(node.toString());
+        return execute(methodDescriptor, mctx, classNameToClassContext);
+    }
+
+    ContextGraph execute(String methodDescriptor, MethodContext mctx, Map<String, ClassContext> classNameToClassContext)
+                    throws MaxNodeVisitsExceeded, MaxCallDepthExceeded {
+        ContextGraph graph = vm.getInstructionGraphClone(methodDescriptor);
+        ContextNode rootNode = graph.getRootNode();
+        rootNode.setMethodContext(mctx);
+        for (String className : classNameToClassContext.keySet()) {
+            ClassContext cctx = classNameToClassContext.get(className);
+            rootNode.setClassContext(className, cctx);
         }
 
-        addressToNodeVisitCount.put(address, visitCount + 1);
+        return execute(graph);
     }
 
 }

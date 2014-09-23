@@ -42,12 +42,12 @@ public class InvokeOp extends Op {
 
     private static Object getMutableParameterConsensus(TIntList addressList, ContextGraph graph, int parameterIndex) {
         ContextNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMutableParameter(parameterIndex);
+        Object value = firstNode.getMethodContext().getMutableParameter(parameterIndex);
         int[] addresses = addressList.toArray();
         for (int address : addresses) {
             List<ContextNode> nodes = graph.getNodePile(address);
             for (ContextNode node : nodes) {
-                Object otherValue = node.getContext().getMutableParameter(parameterIndex);
+                Object otherValue = node.getMethodContext().getMutableParameter(parameterIndex);
 
                 if (value != otherValue) {
                     log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
@@ -176,7 +176,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -211,9 +211,10 @@ public class InvokeOp extends Op {
     }
 
     private MethodContext buildLocalCalleeContext(MethodContext callerContext) {
-        MethodContext result = vm.getInstructionGraphClone(methodDescriptor).getRootContext();
+        MethodContext result = vm.buildRootMethodContext(methodDescriptor);
         result.setCallDepth(callerContext.getCallDepth() + 1);
         assignCalleeContextParameters(callerContext, result);
+
         return result;
     }
 

@@ -1,7 +1,10 @@
 package org.cf.smalivm.context;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.cf.smalivm.opcode.Op;
 import org.slf4j.Logger;
@@ -14,23 +17,42 @@ public class ContextNode {
     private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
     private final List<ContextNode> children;
-    private final Op handler;
-    private MethodContext ctx;
+    private final Op op;
+    private final Map<String, ClassContext> classNameToClassContext;
+    private MethodContext mctx;
     private ContextNode parent;
 
-    public ContextNode(ContextNode node) {
-        this(node.handler);
+    public ContextNode(ContextNode other) {
+        this(other.op);
 
-        if (node.ctx != null) {
-            ctx = new MethodContext(node.ctx);
+        if (other.getMethodContext() != null) {
+            mctx = new MethodContext(other.getMethodContext());
+        }
+
+        for (String className : other.getClassContextNames()) {
+            ClassContext cctx = other.getClassContext(className);
+            setClassContext(className, cctx);
         }
     }
 
-    public ContextNode(Op handler) {
-        this.handler = handler;
+    public ClassContext getClassContext(String className) {
+        return classNameToClassContext.get(className);
+    }
+
+    public void setClassContext(String className, ClassContext cctx) {
+        classNameToClassContext.put(className, cctx);
+    }
+
+    public Set<String> getClassContextNames() {
+        return classNameToClassContext.keySet();
+    }
+
+    public ContextNode(Op op) {
+        this.op = op;
 
         // Most nodes will only have one child.
         children = new ArrayList<ContextNode>(1);
+        classNameToClassContext = new HashMap<String, ClassContext>();
     }
 
     public void addChild(ContextNode child) {
@@ -49,27 +71,27 @@ public class ContextNode {
     }
 
     public int[] execute() {
-        log.debug("HANDLING @" + handler.getAddress() + ": " + handler + "\nContext before: " + ctx);
-        int[] result = handler.execute(ctx);
-        log.debug("Context after: " + ctx);
+        log.debug("HANDLING @" + op.getAddress() + ": " + op + "\nContext before: " + mctx);
+        int[] result = op.execute(mctx);
+        log.debug("Context after: " + mctx);
 
         return result;
     }
 
     public int getAddress() {
-        return handler.getAddress();
+        return op.getAddress();
     }
 
     public List<ContextNode> getChildren() {
         return children;
     }
 
-    public MethodContext getContext() {
-        return ctx;
+    public MethodContext getMethodContext() {
+        return mctx;
     }
 
     public Op getOpHandler() {
-        return handler;
+        return op;
     }
 
     public ContextNode getParent() {
@@ -87,7 +109,7 @@ public class ContextNode {
 
     @Override
     public String toString() {
-        return handler.toString();
+        return op.toString();
     }
 
     private void getGraph(StringBuilder sb, List<ContextNode> visitedNodes) {
@@ -98,13 +120,13 @@ public class ContextNode {
 
         for (ContextNode child : getChildren()) {
             String op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
-            String ctx = getContext().toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
+            String ctx = getMethodContext().toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
             sb.append("\"").append(getAddress()).append("\n").append(op).append("\n").append(ctx).append("\"");
 
             sb.append(" -> ");
 
             op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
-            ctx = getContext().toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
+            ctx = getMethodContext().toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
             sb.append("\"").append(getAddress()).append("\n").append(op).append("\n").append(ctx).append("\"");
             sb.append("\n");
             op = null;
@@ -120,7 +142,8 @@ public class ContextNode {
         this.parent = parent;
     }
 
-    public void setContext(MethodContext ctx) {
-        this.ctx = ctx;
+    public void setMethodContext(MethodContext ctx) {
+        this.mctx = ctx;
     }
+
 }

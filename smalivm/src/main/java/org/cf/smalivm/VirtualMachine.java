@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.cf.smalivm.context.ClassContext;
 import org.cf.smalivm.context.ContextGraph;
+import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
@@ -43,7 +44,7 @@ public class VirtualMachine {
 
     }
 
-    private static MethodContext buildRootContext(String methodDescriptor, int accessFlags, int registerCount,
+    private static MethodContext buildRootMethodContext(String methodDescriptor, int accessFlags, int registerCount,
                     List<String> parameterTypes) {
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
         if (!isStatic) {
@@ -137,23 +138,27 @@ public class VirtualMachine {
     }
 
     public ContextGraph execute(String methodDescriptor) {
-        ContextGraph graph = methodDescriptorToInstructionGraph.get(methodDescriptor);
-        MethodContext ctx = graph.getRootContext();
+        MethodContext mctx = buildRootMethodContext(methodDescriptor);
 
-        return execute(methodDescriptor, ctx);
+        return execute(methodDescriptor, mctx);
     }
 
-    public ContextGraph execute(String methodDescriptor, MethodContext ctx) {
-        // Invoking a method (including <init>) is a reason to statically initialize a class.
+    public ContextGraph execute(String methodDescriptor, MethodContext mctx) {
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        staticallyInitializeClassIfNecessary(className);
+        ClassContext cctx = getClassContext(className);
+        Map<String, ClassContext> classNameToContext = new HashMap<String, ClassContext>();
+        classNameToContext.put(className, cctx);
 
+        return execute(methodDescriptor, mctx, classNameToContext);
+    }
+
+    public ContextGraph execute(String methodDescriptor, MethodContext mctx,
+                    Map<String, ClassContext> classNameToContext) {
         ContextGraph result = null;
         try {
-            result = methodExecutor.execute(methodDescriptor, ctx);
-        } catch (MaxNodeVisitsExceeded | MaxCallDepthExceeded e) {
-            log.warn("Exceeded max node visits for " + e.getMessage() + " in " + methodDescriptor);
-            log.debug("Context: " + ctx);
+            result = methodExecutor.execute(methodDescriptor, mctx, classNameToContext);
+        } catch (MaxCallDepthExceeded | MaxNodeVisitsExceeded e) {
+            log.warn(e.toString());
         } catch (Exception e) {
             log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
             log.debug("Stack trace: ", e);
@@ -166,14 +171,13 @@ public class VirtualMachine {
         classNameToClassContext.put(className, ctx);
     }
 
-    public ClassContext readClassContext(String className) {
-        // Since this is called for the use or assignment of a class' field, clinit the class
+    public ClassContext getClassContext(String className) {
         staticallyInitializeClassIfNecessary(className);
 
         return getStaticClassContext(className);
     }
 
-    public ClassContext getStaticClassContext(String className) {
+    ClassContext getStaticClassContext(String className) {
         if (!classNameToClassContext.containsKey(className)) {
             log.warn("Peeking context of non-local class: " + className + ". Returning empty context.");
             ClassContext ctx = new ClassContext(0);
@@ -215,7 +219,8 @@ public class VirtualMachine {
     public void updateInstructionGraph(String methodDescriptor) {
         BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
         ContextGraph graph = new ContextGraph(this, method);
-        graph.setRootContext(buildRootContext(methodDescriptor));
+        MethodContext mctx = buildRootMethodContext(methodDescriptor);
+        graph.getRootNode().setMethodContext(mctx);
         methodDescriptorToInstructionGraph.put(methodDescriptor, graph);
     }
 
@@ -249,9 +254,9 @@ public class VirtualMachine {
             for (BuilderMethod method : classDef.getMethods()) {
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
                 ContextGraph graph = new ContextGraph(this, method);
-
-                graph.setRootContext(buildRootContext(methodDescriptor));
-
+                ContextNode rootNode = graph.getRootNode();
+                MethodContext mctx = buildRootMethodContext(methodDescriptor);
+                rootNode.setMethodContext(mctx);
                 result.put(methodDescriptor, graph);
             }
         }
@@ -259,13 +264,13 @@ public class VirtualMachine {
         return result;
     }
 
-    private MethodContext buildRootContext(String methodDescriptor) {
+    public MethodContext buildRootMethodContext(String methodDescriptor) {
         BuilderMethod method = getBuilderMethod(methodDescriptor);
         int accessFlags = method.getAccessFlags();
         int registerCount = method.getImplementation().getRegisterCount();
         List<String> parameterTypes = Utils.getParameterTypes(methodDescriptor);
 
-        return buildRootContext(methodDescriptor, accessFlags, registerCount, parameterTypes);
+        return buildRootMethodContext(methodDescriptor, accessFlags, registerCount, parameterTypes);
     }
 
     public Set<String> getMethodDescriptors() {

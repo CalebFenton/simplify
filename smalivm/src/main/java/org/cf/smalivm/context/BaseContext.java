@@ -7,11 +7,10 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.type.TypeUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.rits.cloning.Cloner;
 
@@ -252,7 +251,7 @@ public class BaseContext {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-            .append(", hc=").append(value.hashCode());
+                            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();

@@ -28,8 +28,8 @@ public class OptimizerTester {
         VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), 100, 2);
         DexBuilder dexBuilder = VMTester.getDexBuilder();
         String methodDescriptor = className + "->" + methodSignature;
-        MethodContext ctx = MethodContext.build(initial);
-        ContextGraph graph = vm.execute(methodDescriptor, ctx);
+        MethodContext mctx = MethodContext.build(initial);
+        ContextGraph graph = vm.execute(methodDescriptor, mctx);
 
         return new MethodBackedGraph(graph, method, vm, dexBuilder);
     }

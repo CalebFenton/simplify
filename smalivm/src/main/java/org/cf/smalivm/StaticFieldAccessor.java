@@ -9,6 +9,7 @@ import org.cf.util.SmaliClassUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+// TODO: why use getStaticClassContext? make sure if this is called, class contexts are init'ed
 public class StaticFieldAccessor {
 
     private static Logger log = LoggerFactory.getLogger(StaticFieldAccessor.class.getSimpleName());

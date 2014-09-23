@@ -173,15 +173,11 @@ public class ContextGraph implements Iterable<ContextNode> {
         List<ContextNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
         for (ContextNode node : nodePile) {
-            Object value = node.getContext().peekRegister(register);
+            Object value = node.getMethodContext().peekRegister(register);
             result.add(value);
         }
 
         return result;
-    }
-
-    public MethodContext getRootContext() {
-        return getRootNode().getContext();
     }
 
     public ContextNode getRootNode() {
@@ -232,10 +228,6 @@ public class ContextGraph implements Iterable<ContextNode> {
     @Override
     public Iterator<ContextNode> iterator() {
         return new ContextGraphIterator(this);
-    }
-
-    public void setRootContext(MethodContext mctx) {
-        getRootNode().setContext(mctx);
     }
 
     public String toGraph() {

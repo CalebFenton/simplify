@@ -161,17 +161,17 @@ public class MethodBackedGraph extends ContextGraph {
                 newNode.addChild(child);
             }
 
-            if (node.getContext() != null) {
+            if (node.getMethodContext() != null) {
                 ContextNode parent = node.getParent();
                 MethodContext mctx;
                 if (parent != null) {
-                    mctx = new MethodContext(parent.getContext());
+                    mctx = new MethodContext(parent.getMethodContext());
                     parent.replaceChild(node, newNode);
                 } else {
-                    mctx = new MethodContext(node.getContext());
+                    mctx = new MethodContext(node.getMethodContext());
                 }
 
-                newNode.setContext(mctx);
+                newNode.setMethodContext(mctx);
                 newNode.execute();
             }
 

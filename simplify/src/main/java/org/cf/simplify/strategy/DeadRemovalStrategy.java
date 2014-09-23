@@ -40,7 +40,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         Deque<ContextNode> stack = new ArrayDeque<ContextNode>(getChildrenAtAddress(address, graph));
         ContextNode node;
         while ((node = stack.poll()) != null) {
-            MethodContext ctx = node.getContext();
+            MethodContext ctx = node.getMethodContext();
             for (int register : assigned.toArray()) {
                 if (ctx.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
@@ -177,7 +177,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             List<ContextNode> pile = mbgraph.getNodePile(address);
-            MethodContext mctx = pile.get(0).getContext();
+            MethodContext mctx = pile.get(0).getMethodContext();
             if (mctx == null) {
                 log.warn("Null method context. This shouldn't happen!");
                 continue;

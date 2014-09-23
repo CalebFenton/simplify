@@ -38,14 +38,6 @@ public class MethodContext extends BaseContext {
     private final int parameterCount;
     private final TIntObjectMap<Object> mutableParameterIndexToValue;
 
-    public MethodContext(int registerCount, int parameterCount, int callDepth) {
-        super(registerCount);
-
-        this.parameterCount = parameterCount;
-        this.callDepth = callDepth;
-        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
-    }
-
     public MethodContext(int parameterCount) {
         this(parameterCount, parameterCount, 0);
     }
@@ -54,8 +46,17 @@ public class MethodContext extends BaseContext {
         this(parameterCount, parameterCount, callDepth);
     }
 
+    public MethodContext(int registerCount, int parameterCount, int callDepth) {
+        super(registerCount);
+
+        this.parameterCount = parameterCount;
+        this.callDepth = callDepth;
+        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
+    }
+
     public MethodContext(MethodContext parent) {
         super(parent);
+
         this.parameterCount = parent.parameterCount;
         this.callDepth = parent.callDepth;
         this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
@@ -99,13 +100,10 @@ public class MethodContext extends BaseContext {
 
     // This is for the optimizer.
     public Object getMutableParameter(int parameterIndex) {
-        MethodContext targetContext;
-        if (mutableParameterIndexToValue.containsKey(parameterIndex)) {
-            targetContext = this;
-        } else {
+        MethodContext targetContext = this;
+        if (!targetContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
             targetContext = getAncestorContextWithParameter(parameterIndex);
         }
-
         Object result = targetContext.mutableParameterIndexToValue.get(parameterIndex);
 
         return result;

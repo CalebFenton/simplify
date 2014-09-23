@@ -7,6 +7,10 @@ public class ClassContext extends BaseContext {
 
     private final Map<String, Integer> fieldToRegister;
 
+    public ClassContext(ClassContext parent) {
+        this(parent.fieldToRegister.size());
+    }
+
     public ClassContext(int fieldCount) {
         super(fieldCount);
 

@@ -29,7 +29,7 @@ public class Main {
     private static void executePrintParameter(int parameterValue) {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
         ContextGraph graph = vm.getInstructionGraphClone(methodDescriptor);
-        MethodContext mctx = graph.getRootContext();
+        MethodContext mctx = graph.getRootNode().getMethodContext();
         mctx.assignParameter(0, parameterValue);
 
         // Execute method with some context
@@ -49,7 +49,7 @@ public class Main {
 
         // Now execute with parameter
         graph = vm.getInstructionGraphClone(methodDescriptor);
-        MethodContext mctx = graph.getRootContext();
+        MethodContext mctx = graph.getRootNode().getMethodContext();
 
         // Since this method is not static, the first parameter is a reference to 'this'.
         // So the integer parameter goes in index 1.
