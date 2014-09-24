@@ -1,11 +1,10 @@
 package org.cf.smalivm.context;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
+import org.cf.smalivm.opcode.FullContextOp;
+import org.cf.smalivm.opcode.MethodContextOp;
 import org.cf.smalivm.opcode.Op;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +17,8 @@ public class ContextNode {
 
     private final List<ContextNode> children;
     private final Op op;
-    private final Map<String, ClassContext> classNameToClassContext;
     private MethodContext mctx;
+    private ClassContextMap classContextMap;
     private ContextNode parent;
 
     public ContextNode(ContextNode other) {
@@ -28,23 +27,9 @@ public class ContextNode {
         if (other.getMethodContext() != null) {
             mctx = new MethodContext(other.getMethodContext());
         }
-
-        for (String className : other.getClassContextNames()) {
-            ClassContext cctx = other.getClassContext(className);
-            setClassContext(className, cctx);
+        if (other.classContextMap != null) {
+            classContextMap = new ClassContextMap(other.classContextMap);
         }
-    }
-
-    public ClassContext getClassContext(String className) {
-        return classNameToClassContext.get(className);
-    }
-
-    public void setClassContext(String className, ClassContext cctx) {
-        classNameToClassContext.put(className, cctx);
-    }
-
-    public Set<String> getClassContextNames() {
-        return classNameToClassContext.keySet();
     }
 
     public ContextNode(Op op) {
@@ -52,7 +37,6 @@ public class ContextNode {
 
         // Most nodes will only have one child.
         children = new ArrayList<ContextNode>(1);
-        classNameToClassContext = new HashMap<String, ClassContext>();
     }
 
     public void addChild(ContextNode child) {
@@ -72,7 +56,12 @@ public class ContextNode {
 
     public int[] execute() {
         log.debug("HANDLING @" + op.getAddress() + ": " + op + "\nContext before: " + mctx);
-        int[] result = op.execute(mctx);
+        int[] result = null;
+        if (op instanceof MethodContextOp) {
+            result = ((MethodContextOp) op).execute(mctx);
+        } else if (op instanceof FullContextOp) {
+            result = ((FullContextOp) op).execute(mctx, classContextMap);
+        }
         log.debug("Context after: " + mctx);
 
         return result;
@@ -90,7 +79,11 @@ public class ContextNode {
         return mctx;
     }
 
-    public Op getOpHandler() {
+    public ClassContext getClassContext(String className) {
+        return classContextMap.getClassContext(className);
+    }
+
+    public Op getOp() {
         return op;
     }
 
@@ -144,6 +137,10 @@ public class ContextNode {
 
     public void setMethodContext(MethodContext ctx) {
         this.mctx = ctx;
+    }
+
+    public void setClassContextMap(ClassContextMap classContextMap) {
+        this.classContextMap = classContextMap;
     }
 
 }

@@ -1,7 +1,6 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.context.MethodContext;
 
 public abstract class Op {
 
@@ -18,8 +17,6 @@ public abstract class Op {
         this.opName = opName;
         this.childAddresses = childAddresses;
     }
-
-    public abstract int[] execute(MethodContext mctx);
 
     @Override
     public abstract String toString();

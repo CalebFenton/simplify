@@ -5,7 +5,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction31t;
 
-public class SwitchOp extends Op {
+public class SwitchOp extends MethodContextOp {
 
     static SwitchOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

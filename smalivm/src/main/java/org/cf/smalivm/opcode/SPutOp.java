@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ClassContextMap;
 import org.cf.smalivm.context.MethodContext;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
@@ -11,7 +12,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SPutOp extends Op {
+public class SPutOp extends FullContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SPutOp.class.getSimpleName());
@@ -42,7 +43,7 @@ public class SPutOp extends Op {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodContext mctx, ClassContextMap classContextMap) {
         Object value = mctx.readRegister(valueRegister);
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
         StaticFieldAccessor.putField(vm, fieldDescriptor, value);

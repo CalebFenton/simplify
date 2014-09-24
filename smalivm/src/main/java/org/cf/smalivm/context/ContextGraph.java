@@ -138,11 +138,26 @@ public class ContextGraph implements Iterable<ContextNode> {
         return result;
     }
 
-    public Op getOpHandler(int address) {
+    public Op getOp(int address) {
         List<ContextNode> pile = addressToNodePile.get(address);
         ContextNode bottomNode = pile.get(0);
 
-        return bottomNode.getOpHandler();
+        return bottomNode.getOp();
+    }
+
+    public Object getFieldConsensus(TIntList addressList, String className, String fieldNameAndType) {
+        Object value = null;
+        for (int address : addressList.toArray()) {
+            Set<Object> values = getFieldValues(address, className, fieldNameAndType);
+            value = values.toArray()[0];
+            if (values.size() != 1) {
+                log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
+                String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
+                return new UnknownValue(type);
+            }
+        }
+
+        return value;
     }
 
     public Object getRegisterConsensus(int address, int register) {
@@ -158,22 +173,33 @@ public class ContextGraph implements Iterable<ContextNode> {
             Set<Object> values = getRegisterValues(address, register);
             value = values.toArray()[0];
             if (values.size() != 1) {
-                log.trace("No conensus value for register #" + register + ", returning unknown");
+                log.trace("No conensus for register #" + register + ", returning unknown");
                 String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
-                UnknownValue consensus = new UnknownValue(type);
-
-                return consensus;
+                return new UnknownValue(type);
             }
         }
 
         return value;
     }
 
+    public Set<Object> getFieldValues(int address, String className, String fieldNameAndType) {
+        List<ContextNode> nodePile = getNodePile(address);
+        Set<Object> result = new HashSet<Object>(nodePile.size());
+        for (ContextNode node : nodePile) {
+            ClassContext cctx = node.getClassContext(className);
+            Object value = cctx.peekField(fieldNameAndType);
+            result.add(value);
+        }
+
+        return result;
+    }
+
     public Set<Object> getRegisterValues(int address, int register) {
         List<ContextNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
         for (ContextNode node : nodePile) {
-            Object value = node.getMethodContext().peekRegister(register);
+            MethodContext mctx = node.getMethodContext();
+            Object value = mctx.peekRegister(register);
             result.add(value);
         }
 
@@ -188,11 +214,8 @@ public class ContextGraph implements Iterable<ContextNode> {
     public SideEffect.Type getStrongestSideEffectType() {
         SideEffect.Type result = SideEffect.Type.NONE;
         for (ContextNode node : this) {
-            Op op = node.getOpHandler();
+            Op op = node.getOp();
             SideEffect.Type type = op.sideEffectType();
-            if (type == null) {
-                System.out.println("break");
-            }
             switch (type) {
             case STRONG:
                 return type;

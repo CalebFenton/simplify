@@ -194,7 +194,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             return false;
         }
 
-        Op op = mbgraph.getOpHandler(address);
+        Op op = mbgraph.getOp(address);
         if (!canConstantizeOp(op)) {
             return false;
         }

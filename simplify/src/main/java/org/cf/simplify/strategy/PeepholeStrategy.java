@@ -54,7 +54,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     boolean canPeepMethodInvoke(int address) {
-        Op handler = mbgraph.getOpHandler(address);
+        Op handler = mbgraph.getOp(address);
         if (!(handler instanceof InvokeOp)) {
             return false;
         }
@@ -82,7 +82,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     boolean canPeepClassForName(int address) {
-        Op handler = mbgraph.getOpHandler(address);
+        Op handler = mbgraph.getOp(address);
         if (!(handler instanceof InvokeOp)) {
             return false;
         }
@@ -105,7 +105,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     BuilderInstruction buildClassForNameReplacement(int address) {
-        InvokeOp op = (InvokeOp) mbgraph.getOpHandler(address);
+        InvokeOp op = (InvokeOp) mbgraph.getOp(address);
         int[] parameterRegisters = op.getParameterRegisters();
         int register = parameterRegisters[0];
         String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);

@@ -6,7 +6,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 
-public class MoveOp extends Op {
+public class MoveOp extends MethodContextOp {
 
     private static enum MoveType {
         RESULT,

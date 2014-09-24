@@ -12,7 +12,7 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 
-public class IfOp extends Op {
+public class IfOp extends MethodContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
 

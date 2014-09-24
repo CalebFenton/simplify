@@ -5,7 +5,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction31t;
 
-public class FillArrayDataOp extends Op {
+public class FillArrayDataOp extends MethodContextOp {
 
     static FillArrayDataOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ClassContextMap;
 import org.cf.smalivm.context.MethodContext;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
@@ -10,7 +11,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
-public class NewInstanceOp extends Op {
+public class NewInstanceOp extends FullContextOp {
 
     static NewInstanceOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -39,12 +40,12 @@ public class NewInstanceOp extends Op {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodContext mctx, ClassContextMap classContextMap) {
         Object instance = null;
         if (vm.isClassDefinedLocally(className)) {
             // New-instance causes static initialization (but not new-array!)
-            vm.staticallyInitializeClassIfNecessary(className);
-            sideEffectType = vm.getClassStaticInitializerSideEffectType(className);
+            vm.staticallyInitializeClassIfNecessary(className, classContextMap);
+            sideEffectType = classContextMap.getSideEffectType(className);
             instance = new LocalInstance(className);
         } else {
             if (MethodReflector.isWhitelisted(className)) {

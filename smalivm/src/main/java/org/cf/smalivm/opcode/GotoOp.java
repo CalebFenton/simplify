@@ -4,7 +4,7 @@ import org.cf.smalivm.context.MethodContext;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
-public class GotoOp extends Op {
+public class GotoOp extends MethodContextOp {
 
     static GotoOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

@@ -7,7 +7,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
-public class CheckCastOp extends Op {
+public class CheckCastOp extends MethodContextOp {
 
     static CheckCastOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;

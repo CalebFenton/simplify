@@ -18,7 +18,7 @@ import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 
-public class ConstOp extends Op {
+public class ConstOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());

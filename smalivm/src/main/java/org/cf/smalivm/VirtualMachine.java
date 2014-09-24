@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.cf.smalivm.context.ClassContext;
+import org.cf.smalivm.context.ClassContextMap;
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
@@ -22,6 +23,7 @@ import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
+import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,8 +86,6 @@ public class VirtualMachine {
     }
 
     private final Map<String, ClassContext> classNameToClassContext;
-    private final Map<String, SideEffect.Type> classNameToSideEffectType;
-    private final List<String> initializedClasses;
     private final Set<String> localClasses;
 
     private final int maxNodeVisits;
@@ -111,17 +111,9 @@ public class VirtualMachine {
         methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
         classNameToClassContext = buildClassNameToClassContext(classDefs);
         localClasses = new HashSet<String>(classNameToClassContext.keySet());
-        classNameToSideEffectType = new HashMap<String, SideEffect.Type>(classNameToClassContext.size());
-        for (String className : classNameToClassContext.keySet()) {
-            classNameToSideEffectType.put(className, SideEffect.Type.NONE);
-        }
-
         methodExecutor = new MethodExecutor(this);
 
-        // No classes have been initialized yet.
-        initializedClasses = new ArrayList<String>(classDefs.size());
-
-        // Build graphs last because that's when handlers are assigned and some handlers access this VM instance.
+        // Build graphs last because that's when ops are created and they may access the VM.
         methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
     }
 
@@ -144,19 +136,18 @@ public class VirtualMachine {
     }
 
     public ContextGraph execute(String methodDescriptor, MethodContext mctx) {
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        ClassContext cctx = getClassContext(className);
-        Map<String, ClassContext> classNameToContext = new HashMap<String, ClassContext>();
-        classNameToContext.put(className, cctx);
+        ClassContextMap classContextMap = new ClassContextMap();
 
-        return execute(methodDescriptor, mctx, classNameToContext);
+        return execute(methodDescriptor, mctx, classContextMap);
     }
 
-    public ContextGraph execute(String methodDescriptor, MethodContext mctx,
-                    Map<String, ClassContext> classNameToContext) {
+    public ContextGraph execute(String methodDescriptor, MethodContext mctx, ClassContextMap classContextMap) {
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        staticallyInitializeClassIfNecessary(className, classContextMap);
+
         ContextGraph result = null;
         try {
-            result = methodExecutor.execute(methodDescriptor, mctx, classNameToContext);
+            result = methodExecutor.execute(methodDescriptor, mctx, classContextMap);
         } catch (MaxCallDepthExceeded | MaxNodeVisitsExceeded e) {
             log.warn(e.toString());
         } catch (Exception e) {
@@ -169,12 +160,6 @@ public class VirtualMachine {
 
     public void setClassContext(String className, ClassContext ctx) {
         classNameToClassContext.put(className, ctx);
-    }
-
-    public ClassContext getClassContext(String className) {
-        staticallyInitializeClassIfNecessary(className);
-
-        return getStaticClassContext(className);
     }
 
     ClassContext getStaticClassContext(String className) {
@@ -227,10 +212,18 @@ public class VirtualMachine {
     private Map<String, ClassContext> buildClassNameToClassContext(List<BuilderClassDef> classDefs) {
         Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
         for (BuilderClassDef classDef : classDefs) {
-            String className = ReferenceUtil.getReferenceString(classDef);
+            // Build out context with all fields so they can be enumerated later.
+            // This context should be cloned and never changed.
+            ClassContext cctx = new ClassContext(classDef.getFields().size());
+            for (BuilderField field : classDef.getFields()) {
+                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
+                String fieldNameAndType = fieldDescriptor.split("->")[1];
+                String type = fieldNameAndType.split(":")[1];
+                cctx.pokeField(fieldNameAndType, new UnknownValue(type));
+            }
 
-            // Context is initialized when it's needed.
-            result.put(className, new ClassContext(classDef.getFields().size()));
+            String className = ReferenceUtil.getReferenceString(classDef);
+            result.put(className, cctx);
         }
 
         return result;
@@ -281,32 +274,34 @@ public class VirtualMachine {
         return methodDescriptorToBuilderMethod.get(methodDescriptor);
     }
 
-    public SideEffect.Type getClassStaticInitializerSideEffectType(String className) {
-        return classNameToSideEffectType.get(className);
-    }
-
-    public void staticallyInitializeClassIfNecessary(String className) {
+    public void staticallyInitializeClassIfNecessary(String className, ClassContextMap classContextMap) {
         // This method should be called when a class is first used. A usage is:
         // 1.) The invocation of a method declared by the class (not inherited from a superclass)
         // 2.) The invocation of a constructor of the class (covered by #1)
         // 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
         // that are both static and final, and are initialized by a compile-time constant expression.
 
-        if (initializedClasses.contains(className)) {
+        if (classContextMap.isClassInitialized(className)) {
             return;
         }
-        initializedClasses.add(className);
+        ClassContext cctx = new ClassContext(classNameToClassContext.get(className));
+        classContextMap.setClassContext(className, cctx);
 
         String clinitDescriptor = className + "-><clinit>()V";
         if (methodDescriptorToBuilderMethod.containsKey(clinitDescriptor)) {
-            // Any sput's recorded by op handler in ClassContext. Empty contexts built at VM initialization.
             ContextGraph graph = execute(clinitDescriptor);
             if (graph == null) {
                 // Error executing. Assume the worst.
-                classNameToSideEffectType.put(className, SideEffect.Type.STRONG);
+                classContextMap.setSideEffectType(className, SideEffect.Type.STRONG);
             } else {
+                // Need to collapse class context multiverse into consensus
+                // build new cctx for every class defined at terminating addresses
+                // if a class is not initialized at every terminating address, all unknown
+                // else
+                // for every field in class, set cctx to consensus
+                // TODO: !!! graph.getFieldConsensus
                 SideEffect.Type sideEffectType = graph.getStrongestSideEffectType();
-                classNameToSideEffectType.put(className, sideEffectType);
+                classContextMap.setSideEffectType(className, sideEffectType);
             }
         } else {
             // No clinit for this class.

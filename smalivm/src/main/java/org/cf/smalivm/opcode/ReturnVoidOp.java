@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.cf.smalivm.context.MethodContext;
 import org.jf.dexlib2.iface.instruction.Instruction;
 
-public class ReturnVoidOp extends Op {
+public class ReturnVoidOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ReturnVoidOp.class.getSimpleName());

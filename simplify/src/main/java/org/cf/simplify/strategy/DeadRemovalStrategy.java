@@ -44,11 +44,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             for (int register : assigned.toArray()) {
                 if (ctx.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
-                                    + ", " + node.getOpHandler());
+                                    + ", " + node.getOp());
                     return true;
                 } else if (ctx.wasRegisterAssigned(register)) {
                     log.trace("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
-                                    + node.getOpHandler());
+                                    + node.getOp());
                     return false;
                 }
             }
@@ -157,7 +157,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getDeadAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOpHandler(address);
+            Op op = mbgraph.getOp(address);
             log.debug("Dead test @" + address + " for: " + op);
 
             if (!mbgraph.wasAddressReached(address)) {
@@ -188,7 +188,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 continue;
             }
 
-            Op op = mbgraph.getOpHandler(address);
+            Op op = mbgraph.getOp(address);
             log.debug("Read assignments test @" + address + " for: " + op);
             if (areAssignmentsRead(address, assigned, mbgraph)) {
                 continue;
@@ -204,7 +204,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getDeadResultAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOpHandler(address);
+            Op op = mbgraph.getOp(address);
             if (!(op instanceof InvokeOp)) {
                 continue;
             }
@@ -240,7 +240,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getUselessBranchAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOpHandler(address);
+            Op op = mbgraph.getOp(address);
             if (!(op instanceof GotoOp)) {
                 continue;
             }
@@ -263,7 +263,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
         TIntList result = getAddressesNotInCatchBlocks(addressToInstruction, tryBlocks);
         for (int address : result.toArray()) {
-            Op op = mbgraph.getOpHandler(address);
+            Op op = mbgraph.getOp(address);
             int sideEffect = op.sideEffectType().ordinal();
             if (sideEffect > SIDE_EFFECT_THRESHOLD.ordinal()) {
                 result.remove(address);

@@ -11,7 +11,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
 
-public class FillArrayDataPayloadOp extends Op {
+public class FillArrayDataPayloadOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(FillArrayDataPayloadOp.class.getSimpleName());

@@ -6,7 +6,7 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 
-class UnimplementedOp extends Op {
+class UnimplementedOp extends MethodContextOp {
 
     static UnimplementedOp create(Instruction instruction, int address) {
         UnimplementedOp result = null;

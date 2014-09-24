@@ -8,7 +8,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.util.ReferenceUtil;
 
-public class NewArrayOp extends Op {
+public class NewArrayOp extends MethodContextOp {
 
     static NewArrayOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;

@@ -5,7 +5,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 
-public class UnaryMathOp extends Op {
+public class UnaryMathOp extends MethodContextOp {
 
     static UnaryMathOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;

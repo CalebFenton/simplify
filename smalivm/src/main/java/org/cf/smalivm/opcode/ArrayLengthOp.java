@@ -9,7 +9,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 
-public class ArrayLengthOp extends Op {
+public class ArrayLengthOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ArrayLengthOp.class.getSimpleName());

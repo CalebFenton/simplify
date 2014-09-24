@@ -13,7 +13,7 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
 import org.jf.dexlib2.iface.instruction.SwitchPayload;
 
-public class SwitchPayloadOp extends Op {
+public class SwitchPayloadOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());

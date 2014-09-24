@@ -7,7 +7,7 @@ import org.cf.smalivm.context.MethodContext;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
 
-public class ReturnOp extends Op {
+public class ReturnOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ReturnOp.class.getSimpleName());

@@ -9,7 +9,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
-public class AGetOp extends Op {
+public class AGetOp extends MethodContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(AGetOp.class.getSimpleName());

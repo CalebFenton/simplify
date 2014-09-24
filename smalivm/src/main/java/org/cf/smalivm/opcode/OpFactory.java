@@ -358,7 +358,6 @@ public final class OpFactory {
 
     public Op create(BuilderInstruction instruction, int address) {
         Op result = null;
-
         OpType factoryType = getFactoryType(instruction.getOpcode());
         switch (factoryType) {
         case BINARY_MATH:

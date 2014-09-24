@@ -12,7 +12,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TesSideEffects {
+public class TestSideEffects {
     /*
      * A side-effect is any modification of state that persists outside the method, e.g. changing class static or
      * instance variables, file and network IO, etc. To determine with 100% accuracy is tricky, and a lot of work, so we

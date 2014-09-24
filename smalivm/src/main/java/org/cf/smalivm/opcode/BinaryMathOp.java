@@ -10,7 +10,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class BinaryMathOp extends Op {
+public class BinaryMathOp extends MethodContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());
 

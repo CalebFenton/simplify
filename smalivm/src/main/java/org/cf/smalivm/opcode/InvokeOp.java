@@ -9,6 +9,7 @@ import java.util.List;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ClassContextMap;
 import org.cf.smalivm.context.ContextGraph;
 import org.cf.smalivm.context.ContextNode;
 import org.cf.smalivm.context.MethodContext;
@@ -25,7 +26,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class InvokeOp extends Op {
+public class InvokeOp extends FullContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
@@ -147,7 +148,7 @@ public class InvokeOp extends Op {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodContext mctx, ClassContextMap classContextMap) {
         if (vm.isMethodDefined(methodDescriptor)) {
             executeLocalMethod(methodDescriptor, mctx);
         } else {
@@ -176,7 +177,7 @@ public class InvokeOp extends Op {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
