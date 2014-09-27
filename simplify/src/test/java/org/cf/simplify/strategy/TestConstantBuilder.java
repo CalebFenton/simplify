@@ -19,11 +19,6 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class TestConstantBuilder {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestConstantBuilder.class.getSimpleName());
-
-    static final String CLASS_NAME = "Lconstant_builder_test;";
-
     public static class WithKnownValues {
         @Test
         public void TestBinaryMathOpIsConstantized() {
@@ -45,6 +40,11 @@ public class TestConstantBuilder {
             assertAddressesConstantizable(mbgraph, strategy);
         }
     }
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(TestConstantBuilder.class.getSimpleName());
+
+    static final String CLASS_NAME = "Lconstant_builder_test;";
 
     static void assertAddressesConstantizable(MethodBackedGraph mbgraph, ConstantPropigationStrategy strategy,
                     int... expectedAddresses) {

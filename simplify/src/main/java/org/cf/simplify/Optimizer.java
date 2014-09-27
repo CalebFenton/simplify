@@ -21,11 +21,11 @@ public class Optimizer {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(Optimizer.class.getSimpleName());
 
-    private final String methodDescriptor;
+    private final List<OptimizationStrategy> allStrategies;
     private final MethodBackedGraph mbgraph;
+    private final String methodDescriptor;
     private final List<OptimizationStrategy> performOnceStrategies;
     private final List<OptimizationStrategy> performRepeatedlyStrategies;
-    private final List<OptimizationStrategy> allStrategies;
 
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);

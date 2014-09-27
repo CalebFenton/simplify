@@ -14,7 +14,14 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 
 public class IfOp extends MethodStateOp {
 
-    private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
+    private static enum IfType {
+        EQUAL,
+        GREATER,
+        GREATOR_OR_EQUAL,
+        LESS,
+        LESS_OR_EQUAL,
+        NOT_EQUAL
+    }
 
     class NumberComparator<T extends Number & Comparable> implements Comparator<T> {
         public int compare(T a, T b) throws ClassCastException {
@@ -22,14 +29,7 @@ public class IfOp extends MethodStateOp {
         }
     }
 
-    private static enum IfType {
-        EQUAL,
-        NOT_EQUAL,
-        LESS,
-        LESS_OR_EQUAL,
-        GREATER,
-        GREATOR_OR_EQUAL
-    }
+    private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
 
     private static IfType getIfType(String opName) {
         IfType result = null;
@@ -76,6 +76,18 @@ public class IfOp extends MethodStateOp {
         return result;
     }
 
+    private static BigDecimal widenToBigDecimal(Object value) {
+        // Value should be primitive wrapper (Integer, Character, Boolean, etc.)
+        if (value instanceof Character) {
+            value = (int) ((char) value);
+        } else if (value instanceof Boolean) {
+            value = ((boolean) value) ? 1 : 0;
+        }
+        BigDecimal bigD = new BigDecimal(value.toString());
+
+        return bigD; // lol
+    }
+
     static IfOp create(Instruction instruction, int address) {
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
         int targetAddress = address + branchOffset;
@@ -95,14 +107,14 @@ public class IfOp extends MethodStateOp {
             return new IfOp(address, opName, childAddress, ifType, targetAddress, register1);
         }
     }
-
+    private boolean compareToZero;
     private final IfType ifType;
-    private final int targetAddress;
+    private final NumberComparator numberComparitor;
+
     private final int register1;
     private int register2;
 
-    private boolean compareToZero;
-    private final NumberComparator numberComparitor;
+    private final int targetAddress;
 
     private IfOp(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1) {
         super(address, opName, new int[] { childAddress, targetAddress });
@@ -119,18 +131,6 @@ public class IfOp extends MethodStateOp {
         this(address, opName, childAddress, ifType, targetAddress, register1);
         this.register2 = register2;
         compareToZero = false;
-    }
-
-    private static BigDecimal widenToBigDecimal(Object value) {
-        // Value should be primitive wrapper (Integer, Character, Boolean, etc.)
-        if (value instanceof Character) {
-            value = (int) ((char) value);
-        } else if (value instanceof Boolean) {
-            value = ((boolean) value) ? 1 : 0;
-        }
-        BigDecimal bigD = new BigDecimal(value.toString());
-
-        return bigD; // lol
     }
 
     @Override

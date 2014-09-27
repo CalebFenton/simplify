@@ -13,33 +13,6 @@ public class TestSGetOp {
     private static final String CLASS_NAME = "Lsget_test;";
 
     @Test
-    public void TestStaticGetInt() {
-        Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
-                        "myInt:I", 0x42);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
-
-        VMTester.testMethodState(CLASS_NAME, "StaticGetInt()V", expected, classNameToFieldValue);
-    }
-
-    @Test
-    public void TestStaticGetWide() {
-        Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
-                        "myLong:J", 0xFFFFFFFFFL);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);
-
-        VMTester.testMethodState(CLASS_NAME, "StaticGetWide()V", expected, classNameToFieldValue);
-    }
-
-    @Test
-    public void TestStaticGetObject() {
-        Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
-                        "myString:Ljava/lang/String;", "They tried and died.");
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "They tried and died.");
-
-        VMTester.testMethodState(CLASS_NAME, "StaticGetObject()V", expected, classNameToFieldValue);
-    }
-
-    @Test
     public void TestStaticGetBoolean() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myBoolean:Z", true);
@@ -67,12 +40,37 @@ public class TestSGetOp {
     }
 
     @Test
+    public void TestStaticGetInt() {
+        Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
+                        "myInt:I", 0x42);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
+
+        VMTester.testMethodState(CLASS_NAME, "StaticGetInt()V", expected, classNameToFieldValue);
+    }
+
+    @Test
+    public void TestStaticGetObject() {
+        Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
+                        "myString:Ljava/lang/String;", "They tried and died.");
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "They tried and died.");
+
+        VMTester.testMethodState(CLASS_NAME, "StaticGetObject()V", expected, classNameToFieldValue);
+    }
+
+    @Test
     public void TestStaticGetShort() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myShort:S", (short) 0x100);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x100);
 
         VMTester.testMethodState(CLASS_NAME, "StaticGetShort()V", expected, classNameToFieldValue);
+    }
+
+    @Test
+    public void TestStaticGetUnknownClassField() {
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+
+        VMTester.testMethodState(CLASS_NAME, "StaticGetUnknownClassField()V", expected);
     }
 
     @Test
@@ -83,10 +81,12 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetUnknownClassField() {
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+    public void TestStaticGetWide() {
+        Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
+                        "myLong:J", 0xFFFFFFFFFL);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);
 
-        VMTester.testMethodState(CLASS_NAME, "StaticGetUnknownClassField()V", expected);
+        VMTester.testMethodState(CLASS_NAME, "StaticGetWide()V", expected, classNameToFieldValue);
     }
 
 }

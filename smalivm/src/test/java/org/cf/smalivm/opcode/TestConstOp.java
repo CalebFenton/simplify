@@ -26,13 +26,6 @@ public class TestConstOp {
     }
 
     @Test
-    public void TestNegativeConst16() {
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0xf);
-
-        VMTester.testMethodState(CLASS_NAME, "TestNegativeConst16()V", expected);
-    }
-
-    @Test
     public void TestConst4() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3);
 
@@ -109,5 +102,12 @@ public class TestConstOp {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x4242000000000000L);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstWideHigh16()V", expected);
+    }
+
+    @Test
+    public void TestNegativeConst16() {
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0xf);
+
+        VMTester.testMethodState(CLASS_NAME, "TestNegativeConst16()V", expected);
     }
 }

@@ -8,10 +8,9 @@ import org.slf4j.LoggerFactory;
 
 public final class OpFactory {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(OpFactory.class.getSimpleName());;
-
     private enum OpType {
+        AGET,
+        APUT,
         ARRAY_LENGTH,
         ARRAY_PAYLOAD,
         BINARY_MATH,
@@ -28,17 +27,18 @@ public final class OpFactory {
         MOVE,
         NEW_ARRAY,
         NEW_INSTANCE,
-        AGET,
-        APUT,
-        SGET,
-        SPUT,
         RETURN,
         RETURN_VOID,
+        SGET,
+        SPUT,
         SWITCH,
         SWITCH_PAYLOAD,
         UNARY_MATH,
         UNIMPLEMENTED
-    }
+    };
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(OpFactory.class.getSimpleName());
 
     @SuppressWarnings("incomplete-switch")
     private static OpType getFactoryType(Opcode op) {

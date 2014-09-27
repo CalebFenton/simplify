@@ -10,24 +10,15 @@ import org.cf.smalivm.VirtualMachine;
 
 public class ExecutionContext {
 
-    private final VirtualMachine vm;
-    private final Map<String, ClassState> classNameToState;
+    private int callDepth;
     private final Map<String, SideEffect.Level> classNameToSideEffectType;
-    private final Set<String> initializedClasses;
+    private final Map<String, ClassState> classNameToState;
     private final Heap heap;
+    private final Set<String> initializedClasses;
 
     private MethodState mstate;
-    private int callDepth;
     private ExecutionContext parent;
-
-    public ExecutionContext(VirtualMachine vm) {
-        this.vm = vm;
-        classNameToState = new HashMap<String, ClassState>();
-        classNameToSideEffectType = new HashMap<String, SideEffect.Level>();
-        initializedClasses = new HashSet<String>();
-        heap = new Heap();
-        callDepth = 0;
-    }
+    private final VirtualMachine vm;
 
     public ExecutionContext(ExecutionContext other) {
         vm = other.vm;
@@ -39,6 +30,19 @@ public class ExecutionContext {
         initializedClasses = new HashSet<String>(other.initializedClasses);
         heap = new Heap(other.getHeap());
         callDepth = other.getCallDepth();
+    }
+
+    public ExecutionContext(VirtualMachine vm) {
+        this.vm = vm;
+        classNameToState = new HashMap<String, ClassState>();
+        classNameToSideEffectType = new HashMap<String, SideEffect.Level>();
+        initializedClasses = new HashSet<String>();
+        heap = new Heap();
+        callDepth = 0;
+    }
+
+    public int getCallDepth() {
+        return callDepth;
     }
 
     public ExecutionContext getChild() {
@@ -57,39 +61,41 @@ public class ExecutionContext {
         return child;
     }
 
-    private void setParent(ExecutionContext parent) {
-        this.parent = parent;
-    }
-
-    public MethodState getMethodState() {
-        return mstate;
-    }
-
     public ClassState getClassState(String className) {
         staticallyInitializeClassIfNecessary(className);
 
         return peekClassState(className);
     }
 
-    ClassState peekClassState(String className) {
-        return classNameToState.get(className);
+    public SideEffect.Level getClassStateSideEffectType(String className) {
+        staticallyInitializeClassIfNecessary(className);
+
+        return classNameToSideEffectType.get(className);
     }
 
-    private boolean isClassInitialized(String className) {
-        return initializedClasses.contains(className);
+    public Heap getHeap() {
+        return heap;
     }
 
-    private ExecutionContext getTemplate() {
-        ExecutionContext result = this;
-        while (result.getParent() != null) {
-            result = result.getParent();
-        }
-
-        return result;
+    public MethodState getMethodState() {
+        return mstate;
     }
 
-    ExecutionContext getParent() {
-        return parent;
+    public void initializeClassState(String className, ClassState cState) {
+        setClassState(className, cState);
+        initializedClasses.add(className);
+    }
+
+    public void setCallDepth(int callDepth) {
+        this.callDepth = callDepth;
+    }
+
+    public void setClassState(String className, ClassState cState) {
+        classNameToState.put(className, cState);
+    }
+
+    public void setMethodState(MethodState mState) {
+        this.mstate = mState;
     }
 
     public void staticallyInitializeClassIfNecessary(String className) {
@@ -124,39 +130,33 @@ public class ExecutionContext {
         setClassSideEffectType(className, sideEffectType);
     }
 
-    public SideEffect.Level getClassStateSideEffectType(String className) {
-        staticallyInitializeClassIfNecessary(className);
+    private ExecutionContext getTemplate() {
+        ExecutionContext result = this;
+        while (result.getParent() != null) {
+            result = result.getParent();
+        }
 
-        return classNameToSideEffectType.get(className);
+        return result;
+    }
+
+    private boolean isClassInitialized(String className) {
+        return initializedClasses.contains(className);
+    }
+
+    private void setParent(ExecutionContext parent) {
+        this.parent = parent;
+    }
+
+    ExecutionContext getParent() {
+        return parent;
+    }
+
+    ClassState peekClassState(String className) {
+        return classNameToState.get(className);
     }
 
     void setClassSideEffectType(String className, SideEffect.Level sideEffectType) {
         classNameToSideEffectType.put(className, sideEffectType);
-    }
-
-    public void setClassState(String className, ClassState cState) {
-        classNameToState.put(className, cState);
-    }
-
-    public void initializeClassState(String className, ClassState cState) {
-        setClassState(className, cState);
-        initializedClasses.add(className);
-    }
-
-    public void setMethodState(MethodState mState) {
-        this.mstate = mState;
-    }
-
-    public Heap getHeap() {
-        return heap;
-    }
-
-    public int getCallDepth() {
-        return callDepth;
-    }
-
-    public void setCallDepth(int callDepth) {
-        this.callDepth = callDepth;
     }
 
 }

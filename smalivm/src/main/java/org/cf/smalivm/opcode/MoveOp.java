@@ -9,11 +9,25 @@ import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 public class MoveOp extends MethodStateOp {
 
     private static enum MoveType {
-        RESULT,
         EXCEPTION,
-        REGISTER
+        REGISTER,
+        RESULT
     };
 
+    private static void moveException(MethodState mctx, int toRegister) {
+        String type = "Ljava/lang/Exception;";
+        Object value = new UnknownValue(type);
+        mctx.assignRegister(toRegister, value);
+    }
+
+    private static void moveRegister(MethodState mctx, int toRegister, int fromRegister) {
+        Object value = mctx.readRegister(fromRegister);
+        mctx.assignRegister(toRegister, value);
+    }
+    private static void moveResult(MethodState mctx, int toRegister) {
+        Object value = mctx.readResultRegister();
+        mctx.assignRegister(toRegister, value);
+    }
     static MoveOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
@@ -32,19 +46,21 @@ public class MoveOp extends MethodStateOp {
         }
     }
 
-    private final int toRegister;
     private final MoveType moveType;
+
     private int targetRegister;
+
+    private final int toRegister;
+
+    private MoveOp(int address, String opName, int nextInstructionAddress, int toRegister, int targetRegister) {
+        this(address, opName, nextInstructionAddress, toRegister, MoveType.REGISTER);
+        this.targetRegister = targetRegister;
+    }
 
     private MoveOp(int address, String opName, int childAddress, int toRegister, MoveType moveType) {
         super(address, opName, childAddress);
         this.toRegister = toRegister;
         this.moveType = moveType;
-    }
-
-    private MoveOp(int address, String opName, int nextInstructionAddress, int toRegister, int targetRegister) {
-        this(address, opName, nextInstructionAddress, toRegister, MoveType.REGISTER);
-        this.targetRegister = targetRegister;
     }
 
     @Override
@@ -63,22 +79,6 @@ public class MoveOp extends MethodStateOp {
         }
 
         return getPossibleChildren();
-    }
-
-    private static void moveException(MethodState mctx, int toRegister) {
-        String type = "Ljava/lang/Exception;";
-        Object value = new UnknownValue(type);
-        mctx.assignRegister(toRegister, value);
-    }
-
-    private static void moveResult(MethodState mctx, int toRegister) {
-        Object value = mctx.readResultRegister();
-        mctx.assignRegister(toRegister, value);
-    }
-
-    private static void moveRegister(MethodState mctx, int toRegister, int fromRegister) {
-        Object value = mctx.readRegister(fromRegister);
-        mctx.assignRegister(toRegister, value);
     }
 
     @Override

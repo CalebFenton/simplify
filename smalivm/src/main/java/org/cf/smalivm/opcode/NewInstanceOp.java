@@ -25,10 +25,10 @@ public class NewInstanceOp extends ExecutionContextOp {
         return new NewInstanceOp(address, opName, childAddress, destRegister, className, vm);
     }
 
-    private final int destRegister;
     private final String className;
-    private final VirtualMachine vm;
+    private final int destRegister;
     private SideEffect.Level sideEffectType;
+    private final VirtualMachine vm;
 
     NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className, VirtualMachine vm) {
         super(address, opName, childAddress);

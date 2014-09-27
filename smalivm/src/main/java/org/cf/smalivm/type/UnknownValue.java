@@ -9,8 +9,8 @@ public class UnknownValue implements Type {
     }
 
     @Override
-    public String toString() {
-        return "*unknown*, smaliType=" + smaliType;
+    public boolean equals(Object other) {
+        return false;
     }
 
     public String getType() {
@@ -24,8 +24,8 @@ public class UnknownValue implements Type {
     }
 
     @Override
-    public boolean equals(Object other) {
-        return false;
+    public String toString() {
+        return "*unknown*, smaliType=" + smaliType;
     }
 
 }

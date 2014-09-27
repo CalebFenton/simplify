@@ -21,53 +21,21 @@ public class TestSideEffects {
      */
 
     private static final String CLASS_NAME = "Lside_effects_test;";
-    private static final int MAX_NODE_VISITS = 100;
+    private static Map<String, BuilderClassDef> classNameToDef;
     private static final int MAX_CALL_DEPTH = 10;
 
-    private VirtualMachine vm;
-    private static Map<String, BuilderClassDef> classNameToDef;
-
+    private static final int MAX_NODE_VISITS = 100;
     @BeforeClass
     public static void setupBeforeClass() {
         classNameToDef = VMTester.buildClassNameToBuilderClassDef();
     }
 
+    private VirtualMachine vm;
+
     @Before
     public void setupVM() throws Exception {
         List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>(classNameToDef.values());
         vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
-    }
-
-    @Test
-    public void TestEmptyMethodHasNoSideEffects() {
-        String methodName = "EmptyMethod()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
-    }
-
-    @Test
-    public void TestInvokeWhitelistedMethodsHasNoSideEffects() {
-        String methodName = "InvokeWhitelistedMethods()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
-    }
-
-    @Test
-    public void TestNewInstanceNonLocalWhitelistedClassHasNoSideEffects() {
-        String methodName = "NewInstanceNonLocalWhitelistedClass()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
-    }
-
-    @Test
-    public void TestInvokeMethodWithNoSideEffectsHasNoSideEffects() {
-        String methodName = "InvokeMethodWithNoSideEffects()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
     }
 
     @Test
@@ -79,28 +47,11 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects() {
-        // Method names? Pssh, we have method PARAGRAPHS.
-        String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
+    public void TestEmptyMethodHasNoSideEffects() {
+        String methodName = "EmptyMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
-    }
-
-    @Test
-    public void TestNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() {
-        String methodName = "NewInstanceOfMethodWithNoStaticInitializer()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
-    }
-
-    @Test
-    public void TestWriteOutputStreamHasStrongSideEffects() {
-        String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
     }
 
     @Test
@@ -112,8 +63,16 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeUnknownMethodHasStrongSideEffects() {
-        String methodName = "InvokeUnknownMethod()V";
+    public void TestInvokeMethodWithNoSideEffectsHasNoSideEffects() {
+        String methodName = "InvokeMethodWithNoSideEffects()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+    }
+
+    @Test
+    public void TestInvokeOfNonAnalyzableMethodHasStrongSideEffects() {
+        String methodName = "InvokeOfNonAnalyzableMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
@@ -128,11 +87,43 @@ public class TestSideEffects {
     }
 
     @Test
+    public void TestInvokeUnknownMethodHasStrongSideEffects() {
+        String methodName = "InvokeUnknownMethod()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+    }
+
+    @Test
+    public void TestInvokeWhitelistedMethodsHasNoSideEffects() {
+        String methodName = "InvokeWhitelistedMethods()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+    }
+
+    @Test
+    public void TestModifyInstanceMemberHasStrongSideEffects() {
+        String methodName = "ModifyInstanceMember()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.WEAK, graph.getStrongestSideEffectType());
+    }
+
+    @Test
     public void TestNewInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() {
         String methodName = "NewInstanceNonLocalNonWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+    }
+
+    @Test
+    public void TestNewInstanceNonLocalWhitelistedClassHasNoSideEffects() {
+        String methodName = "NewInstanceNonLocalWhitelistedClass()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
     }
 
     @Test
@@ -152,19 +143,28 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeOfNonAnalyzableMethodHasStrongSideEffects() {
-        String methodName = "InvokeOfNonAnalyzableMethod()V";
+    public void TestNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() {
+        String methodName = "NewInstanceOfMethodWithNoStaticInitializer()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
     }
 
     @Test
-    public void TestModifyInstanceMemberHasStrongSideEffects() {
-        String methodName = "ModifyInstanceMember()V";
+    public void TestNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects() {
+        // Method names? Pssh, we have method PARAGRAPHS.
+        String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.WEAK, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+    }
+
+    @Test
+    public void TestWriteOutputStreamHasStrongSideEffects() {
+        String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
     }
 
 }

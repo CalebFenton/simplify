@@ -7,6 +7,29 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 
 public class UnaryMathOp extends MethodStateOp {
 
+    private static String getDestinationTypeName(String opName) {
+        String[] parts = opName.split("-");
+        String type = parts[parts.length - 1];
+        switch (type) {
+        case "int":
+            return "I";
+        case "long":
+            return "J";
+        case "float":
+            return "F";
+        case "byte":
+            return "B";
+        case "char":
+            return "C";
+        case "double":
+            return "D";
+        case "short":
+            return "S";
+        }
+
+        return null;
+    }
+
     static UnaryMathOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
@@ -16,8 +39,8 @@ public class UnaryMathOp extends MethodStateOp {
         int srcRegister = instr.getRegisterB();
         return new UnaryMathOp(address, opName, childAddress, destRegister, srcRegister);
     }
-
     private final int destRegister;
+
     private final int srcRegister;
 
     private UnaryMathOp(int address, String opName, int childAddress, int destRegister, int srcRegister) {
@@ -41,6 +64,14 @@ public class UnaryMathOp extends MethodStateOp {
         mctx.assignRegister(destRegister, newValue);
 
         return this.getPossibleChildren();
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(getOpName());
+        sb.append(" r").append(destRegister).append(", r").append(srcRegister);
+
+        return sb.toString();
     }
 
     private Object perform(Object value, String opName) {
@@ -113,37 +144,6 @@ public class UnaryMathOp extends MethodStateOp {
         }
 
         return result;
-    }
-
-    private static String getDestinationTypeName(String opName) {
-        String[] parts = opName.split("-");
-        String type = parts[parts.length - 1];
-        switch (type) {
-        case "int":
-            return "I";
-        case "long":
-            return "J";
-        case "float":
-            return "F";
-        case "byte":
-            return "B";
-        case "char":
-            return "C";
-        case "double":
-            return "D";
-        case "short":
-            return "S";
-        }
-
-        return null;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
-        sb.append(" r").append(destRegister).append(", r").append(srcRegister);
-
-        return sb.toString();
     }
 
 }

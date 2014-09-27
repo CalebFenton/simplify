@@ -16,43 +16,6 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(FillArrayDataPayloadOp.class.getSimpleName());
 
-    static FillArrayDataPayloadOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-
-        ArrayPayload instr = (ArrayPayload) instruction;
-
-        return new FillArrayDataPayloadOp(address, opName, instr.getElementWidth(), instr.getArrayElements());
-    }
-
-    private final List<Number> arrayElements;
-    private final int elementWidth;
-
-    private FillArrayDataPayloadOp(int address, String opName, int elementWidth, List<Number> arrayElements) {
-        super(address, opName, 0); // childAddress / returnAddress not known until runtime
-
-        this.elementWidth = elementWidth;
-        this.arrayElements = arrayElements;
-    }
-
-    @Override
-    public int[] execute(MethodState mctx) {
-        MethodState parent = mctx.getParent();
-        int register = parent.getRegistersAssigned().get(0);
-        Object array = mctx.readRegister(register);
-        if (!(array instanceof UnknownValue)) {
-            Class<?> expectedClass = array.getClass().getComponentType();
-            for (int i = 0; i < arrayElements.size(); i++) {
-                Number number = arrayElements.get(i);
-                Object value = getProperValue(number, expectedClass);
-                Array.set(array, i, value);
-            }
-            mctx.assignRegister(register, array);
-        }
-
-        int returnAddress = mctx.getParent().getPseudoInstructionReturnAddress();
-        return new int[] { returnAddress };
-    }
-
     private static Object getProperValue(Number number, Class<?> expectedClass) {
         Class<?> klazz = ClassUtils.wrapperToPrimitive(number.getClass());
         Object value = null;
@@ -84,6 +47,43 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         }
 
         return value;
+    }
+
+    static FillArrayDataPayloadOp create(Instruction instruction, int address) {
+        String opName = instruction.getOpcode().name;
+
+        ArrayPayload instr = (ArrayPayload) instruction;
+
+        return new FillArrayDataPayloadOp(address, opName, instr.getElementWidth(), instr.getArrayElements());
+    }
+    private final List<Number> arrayElements;
+
+    private final int elementWidth;
+
+    private FillArrayDataPayloadOp(int address, String opName, int elementWidth, List<Number> arrayElements) {
+        super(address, opName, 0); // childAddress / returnAddress not known until runtime
+
+        this.elementWidth = elementWidth;
+        this.arrayElements = arrayElements;
+    }
+
+    @Override
+    public int[] execute(MethodState mctx) {
+        MethodState parent = mctx.getParent();
+        int register = parent.getRegistersAssigned().get(0);
+        Object array = mctx.readRegister(register);
+        if (!(array instanceof UnknownValue)) {
+            Class<?> expectedClass = array.getClass().getComponentType();
+            for (int i = 0; i < arrayElements.size(); i++) {
+                Number number = arrayElements.get(i);
+                Object value = getProperValue(number, expectedClass);
+                Array.set(array, i, value);
+            }
+            mctx.assignRegister(register, array);
+        }
+
+        int returnAddress = mctx.getParent().getPseudoInstructionReturnAddress();
+        return new int[] { returnAddress };
     }
 
     @Override

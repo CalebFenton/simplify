@@ -11,8 +11,6 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestSwitchOp {
 
-    private static final String CLASS_NAME = "Lswitch_test;";
-
     public static class TestPackedSwitch {
         private static final String METHOD_NAME = "PackedSwitch()V";
 
@@ -62,5 +60,7 @@ public class TestSwitchOp {
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
     }
+
+    private static final String CLASS_NAME = "Lswitch_test;";
 
 }

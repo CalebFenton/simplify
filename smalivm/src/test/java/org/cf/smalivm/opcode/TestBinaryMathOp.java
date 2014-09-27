@@ -177,6 +177,15 @@ public class TestBinaryMathOp {
 
     public static class TestInteger {
         @Test
+        public void TestAddByteAndChar() {
+            Byte b = 0xf;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 'a', 1, b);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'a' + b);
+
+            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
         public void TestAddInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 + 7);
@@ -202,27 +211,10 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddByteAndChar() {
-            Byte b = 0xf;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 'a', 1, b);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'a' + b);
-
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
-        }
-
-        @Test
         public void TestAddIntAndChar() {
             // Compiler will actually produce something like this.
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "$".charAt(0), 1, 11);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "$".charAt(0) + 11);
-
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
-        }
-
-        @Test
-        public void TestAddIntAndUnknownInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
             VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
         }
@@ -239,6 +231,14 @@ public class TestBinaryMathOp {
         public void TestAddIntAndUnknownCharAndByte() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("C"), 1, new UnknownValue(
                             "B"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+
+            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
+        public void TestAddIntAndUnknownInt() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
             VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
@@ -275,19 +275,19 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAndIntLit8() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 0xf);
-
-            VMTester.testMethodState(CLASS_NAME, "AndIntLit8()V", initial, expected);
-        }
-
-        @Test
         public void TestAndIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 0xff);
 
             VMTester.testMethodState(CLASS_NAME, "AndIntLit16()V", initial, expected);
+        }
+
+        @Test
+        public void TestAndIntLit8() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 0xf);
+
+            VMTester.testMethodState(CLASS_NAME, "AndIntLit8()V", initial, expected);
         }
 
         @Test
@@ -371,19 +371,19 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrIntLit8() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 0xf);
-
-            VMTester.testMethodState(CLASS_NAME, "OrIntLit8()V", initial, expected);
-        }
-
-        @Test
         public void TestOrIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 0xff);
 
             VMTester.testMethodState(CLASS_NAME, "OrIntLit16()V", initial, expected);
+        }
+
+        @Test
+        public void TestOrIntLit8() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 0xf);
+
+            VMTester.testMethodState(CLASS_NAME, "OrIntLit8()V", initial, expected);
         }
 
         @Test
@@ -403,6 +403,14 @@ public class TestBinaryMathOp {
         }
 
         @Test
+        public void TestRemIntLit16() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100 % 0xff);
+
+            VMTester.testMethodState(CLASS_NAME, "RemIntLit16()V", initial, expected);
+        }
+
+        @Test
         public void TestRemIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10 % 0xf);
@@ -411,11 +419,19 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemIntLit16() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100 % 0xff);
+        public void TestRSubInt() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xff - 7);
 
-            VMTester.testMethodState(CLASS_NAME, "RemIntLit16()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "RSubInt()V", initial, expected);
+        }
+
+        @Test
+        public void TestRSubIntLit8() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xf - 7);
+
+            VMTester.testMethodState(CLASS_NAME, "RSubIntLit8()V", initial, expected);
         }
 
         @Test
@@ -483,22 +499,6 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRSubInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xff - 7);
-
-            VMTester.testMethodState(CLASS_NAME, "RSubInt()V", initial, expected);
-        }
-
-        @Test
-        public void TestRSubIntLit8() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xf - 7);
-
-            VMTester.testMethodState(CLASS_NAME, "RSubIntLit8()V", initial, expected);
-        }
-
-        @Test
         public void TestUshrInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -14, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -14 >>> 2);
@@ -539,19 +539,19 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorIntLit8() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 3);
-
-            VMTester.testMethodState(CLASS_NAME, "XorIntLit8()V", initial, expected);
-        }
-
-        @Test
         public void TestXorIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 0x10);
 
             VMTester.testMethodState(CLASS_NAME, "XorIntLit16()V", initial, expected);
+        }
+
+        @Test
+        public void TestXorIntLit8() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 3);
+
+            VMTester.testMethodState(CLASS_NAME, "XorIntLit8()V", initial, expected);
         }
 
     }

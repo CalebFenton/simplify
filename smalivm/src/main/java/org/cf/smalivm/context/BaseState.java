@@ -16,16 +16,36 @@ import com.rits.cloning.Cloner;
 
 public class BaseState {
 
-    private static final Logger log = LoggerFactory.getLogger(BaseState.class.getSimpleName());
-
     private static final Cloner cloner = new Cloner();
 
+    private static final Logger log = LoggerFactory.getLogger(BaseState.class.getSimpleName());
+
+    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(BaseState child, BaseState ancestor) {
+        BaseState current = child;
+        TIntSet result = new TIntHashSet();
+        while (current != ancestor) {
+            result.addAll(current.getRegisterToValue().keys());
+            current = current.getParent();
+        }
+
+        return result;
+    }
+    private final String heapId;
     private final int registerCount;
     private final TIntList registersAssigned;
     private final TIntList registersRead;
     private final TIntObjectMap<Object> registerToValue;
-    private final String heapId;
+
     final ExecutionContext ectx;
+
+    BaseState(BaseState parent, ExecutionContext ectx) {
+        registerCount = parent.registerCount;
+        registersAssigned = new TIntArrayList(parent.registersAssigned);
+        registersRead = new TIntArrayList(parent.registersRead);
+        registerToValue = new TIntObjectHashMap<Object>(parent.registerToValue);
+        heapId = parent.heapId;
+        this.ectx = ectx;
+    }
 
     BaseState(ExecutionContext ectx, String heapId) {
         this(ectx, heapId, 0);
@@ -41,15 +61,6 @@ public class BaseState {
         this.registerCount = registerCount;
 
         this.heapId = heapId.intern();
-        this.ectx = ectx;
-    }
-
-    BaseState(BaseState parent, ExecutionContext ectx) {
-        registerCount = parent.registerCount;
-        registersAssigned = new TIntArrayList(parent.registersAssigned);
-        registersRead = new TIntArrayList(parent.registersRead);
-        registerToValue = new TIntObjectHashMap<Object>(parent.registerToValue);
-        heapId = parent.heapId;
         this.ectx = ectx;
     }
 
@@ -103,79 +114,8 @@ public class BaseState {
         return registerToValue.containsKey(register);
     }
 
-    BaseState getAncestorWithRegister(int register) {
-        BaseState result = this;
-        do {
-            if (result.hasRegister(register)) {
-                return result;
-            }
-
-            // Princess is in another castle!
-            result = result.getParent();
-        } while (result != null);
-
-        return result;
-    }
-
-    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(BaseState child, BaseState ancestor) {
-        BaseState current = child;
-        TIntSet result = new TIntHashSet();
-        while (current != ancestor) {
-            result.addAll(current.getRegisterToValue().keys());
-            current = current.getParent();
-        }
-
-        return result;
-    }
-
-    protected Object[] peekWithTargetContext(int register) {
-        /*
-         * Since executing a method may create many context clones, all clones start off empty of register values. They
-         * are "pulled down" from ancestors when accessed, along with any other registers with identical values in the
-         * ancestor, excluding any registers that have been overwritten in between.
-         */
-        BaseState targetContext = getAncestorWithRegister(register);
-        if (targetContext == null) {
-            Exception e = new Exception();
-            log.warn("r" + register + " is being read but is null. Likely a mistake!\n" + e);
-
-            return new Object[] { null, null };
-        }
-
-        if (targetContext == this) {
-            return new Object[] { getRegisterToValue().get(register), targetContext };
-        }
-
-        /*
-         * Got context from an ancestor. Clone the value so changes don't alter history. Also, pull down any identical
-         * object references in the target context, so both registers will point to the new clone. E.g. same object
-         * reference is in v0 and v1, and v1 is peeked, so also pull down v0. and we peek v1, also pull down v0
-         */
-        TIntObjectMap<Object> targetRegisterToValue = targetContext.getRegisterToValue();
-        Object targetValue = targetRegisterToValue.get(register);
-        TIntSet reassigned = getReassignedRegistersBetweenChildAndAncestorContext(this, targetContext);
-        Object cloneValue = cloneRegisterValue(targetValue);
-        for (int targetRegister : targetRegisterToValue.keys()) {
-            if (!reassigned.contains(targetRegister)) {
-                Object currentValue = targetRegisterToValue.get(targetRegister);
-                if (targetValue == currentValue) {
-                    pokeRegister(targetRegister, cloneValue);
-                }
-            }
-
-        }
-
-        return new Object[] { cloneValue, targetContext };
-    }
-
     public Object peekRegister(int register) {
         return peekWithTargetContext(register)[0];
-    }
-
-    Object cloneRegisterValue(Object value) {
-        Object result = cloner.deepClone(value);
-
-        return result;
     }
 
     public String peekRegisterType(int register) {
@@ -263,6 +203,52 @@ public class BaseState {
         return false;
     }
 
+    protected Object[] peekWithTargetContext(int register) {
+        /*
+         * Since executing a method may create many context clones, all clones start off empty of register values. They
+         * are "pulled down" from ancestors when accessed, along with any other registers with identical values in the
+         * ancestor, excluding any registers that have been overwritten in between.
+         */
+        BaseState targetContext = getAncestorWithRegister(register);
+        if (targetContext == null) {
+            Exception e = new Exception();
+            log.warn("r" + register + " is being read but is null. Likely a mistake!\n" + e);
+
+            return new Object[] { null, null };
+        }
+
+        if (targetContext == this) {
+            return new Object[] { getRegisterToValue().get(register), targetContext };
+        }
+
+        /*
+         * Got context from an ancestor. Clone the value so changes don't alter history. Also, pull down any identical
+         * object references in the target context, so both registers will point to the new clone. E.g. same object
+         * reference is in v0 and v1, and v1 is peeked, so also pull down v0. and we peek v1, also pull down v0
+         */
+        TIntObjectMap<Object> targetRegisterToValue = targetContext.getRegisterToValue();
+        Object targetValue = targetRegisterToValue.get(register);
+        TIntSet reassigned = getReassignedRegistersBetweenChildAndAncestorContext(this, targetContext);
+        Object cloneValue = cloneRegisterValue(targetValue);
+        for (int targetRegister : targetRegisterToValue.keys()) {
+            if (!reassigned.contains(targetRegister)) {
+                Object currentValue = targetRegisterToValue.get(targetRegister);
+                if (targetValue == currentValue) {
+                    pokeRegister(targetRegister, cloneValue);
+                }
+            }
+
+        }
+
+        return new Object[] { cloneValue, targetContext };
+    }
+
+    protected String registerToString(int register) {
+        Object value = peekRegister(register);
+
+        return registerValueToString(value);
+    }
+
     protected String registerValueToString(Object value) {
         StringBuilder sb = new StringBuilder();
         if (value == null) {
@@ -275,10 +261,24 @@ public class BaseState {
         return sb.toString();
     }
 
-    protected String registerToString(int register) {
-        Object value = peekRegister(register);
+    Object cloneRegisterValue(Object value) {
+        Object result = cloner.deepClone(value);
 
-        return registerValueToString(value);
+        return result;
+    }
+
+    BaseState getAncestorWithRegister(int register) {
+        BaseState result = this;
+        do {
+            if (result.hasRegister(register)) {
+                return result;
+            }
+
+            // Princess is in another castle!
+            result = result.getParent();
+        } while (result != null);
+
+        return result;
     }
 
 }

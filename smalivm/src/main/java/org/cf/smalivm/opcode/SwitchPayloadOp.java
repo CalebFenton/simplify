@@ -15,15 +15,15 @@ import org.jf.dexlib2.iface.instruction.SwitchPayload;
 
 public class SwitchPayloadOp extends MethodStateOp {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
-
-    private static final int SWITCH_OP_CODE_UNITS = 3;
-
     private static enum SwitchType {
         PACKED,
         SPARSE
     }
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
+
+    private static final int SWITCH_OP_CODE_UNITS = 3;
 
     private static int[] determineChildren(List<? extends SwitchElement> switchElements) {
         TIntSet children = new TIntHashSet(switchElements.size() + 1);
@@ -87,20 +87,6 @@ public class SwitchPayloadOp extends MethodStateOp {
         return new int[] { mctx.getPseudoInstructionReturnAddress() };
     }
 
-    private int[] getTargetAddresses(int switchOpAddress, int[] offsets) {
-        int[] result = new int[offsets.length];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = getTargetAddress(switchOpAddress, offsets[i]);
-        }
-
-        return result;
-    }
-
-    private int getTargetAddress(int switchOpAddress, int offset) {
-        // Offsets are from switch op's address.
-        return switchOpAddress + offset;
-    }
-
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getOpName());
@@ -112,6 +98,20 @@ public class SwitchPayloadOp extends MethodStateOp {
         sb.append("]");
 
         return sb.toString();
+    }
+
+    private int getTargetAddress(int switchOpAddress, int offset) {
+        // Offsets are from switch op's address.
+        return switchOpAddress + offset;
+    }
+
+    private int[] getTargetAddresses(int switchOpAddress, int[] offsets) {
+        int[] result = new int[offsets.length];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = getTargetAddress(switchOpAddress, offsets[i]);
+        }
+
+        return result;
     }
 
 }

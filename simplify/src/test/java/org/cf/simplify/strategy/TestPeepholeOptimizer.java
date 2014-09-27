@@ -13,14 +13,14 @@ import org.slf4j.LoggerFactory;
 
 public class TestPeepholeOptimizer {
 
+    private static final String CLASS_NAME = "Lpeephole_optimizer_test;";
+
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
-    private static final String CLASS_NAME = "Lpeephole_optimizer_test;";
-
     @Test
-    public void TestInvokeClassForNameWithUnknownClassIsReplaced() {
-        String methodName = "InvokeClassForNameWithUnknownClass()V";
+    public void TestInvokeClassForNameWithKnownClassIsReplaced() {
+        String methodName = "InvokeClassForNameWithKnownClass()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
         TIntSet expected = new TIntHashSet(new int[] { 2 });
@@ -32,8 +32,8 @@ public class TestPeepholeOptimizer {
     }
 
     @Test
-    public void TestInvokeClassForNameWithKnownClassIsReplaced() {
-        String methodName = "InvokeClassForNameWithKnownClass()V";
+    public void TestInvokeClassForNameWithUnknownClassIsReplaced() {
+        String methodName = "InvokeClassForNameWithUnknownClass()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
         TIntSet expected = new TIntHashSet(new int[] { 2 });

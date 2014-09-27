@@ -28,6 +28,9 @@ import org.slf4j.LoggerFactory;
 
 public class MethodBackedGraph extends ExecutionGraph {
 
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(MethodBackedGraph.class.getSimpleName());
+
     private static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
         TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
         for (BuilderInstruction instruction : instructions) {
@@ -38,16 +41,13 @@ public class MethodBackedGraph extends ExecutionGraph {
         return result;
     }
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(MethodBackedGraph.class.getSimpleName());
-
+    private final TIntObjectMap<BuilderInstruction> addressToInstruction;
     private final DexBuilder dexBuilder;
+    private final MutableMethodImplementation implementation;
     private final BuilderMethod method;
     private final String methodDescriptor;
-    private final MutableMethodImplementation implementation;
-    private final TIntObjectMap<BuilderInstruction> addressToInstruction;
-    private final VirtualMachine vm;
     private final OpFactory opFactory;
+    private final VirtualMachine vm;
 
     public MethodBackedGraph(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         super(graph, true);
@@ -61,15 +61,20 @@ public class MethodBackedGraph extends ExecutionGraph {
         opFactory = new OpFactory(vm, methodDescriptor);
     }
 
-    TIntList getReachedAddresses() {
-        TIntList result = new TIntArrayList();
-        for (int address : addressToInstruction.keys()) {
-            if (wasAddressReached(address)) {
-                result.add(address);
-            }
-        }
+    public TIntObjectMap<BuilderInstruction> getAddressToInstruction() {
+        return addressToInstruction;
+    }
 
-        return result;
+    public DexBuilder getDexBuilder() {
+        return dexBuilder;
+    }
+
+    public BuilderInstruction getInstruction(int address) {
+        return addressToInstruction.get(address);
+    }
+
+    public List<BuilderTryBlock> getTryBlocks() {
+        return implementation.getTryBlocks();
     }
 
     public void removeInstruction(int address) {
@@ -186,20 +191,15 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
     }
 
-    public BuilderInstruction getInstruction(int address) {
-        return addressToInstruction.get(address);
-    }
+    TIntList getReachedAddresses() {
+        TIntList result = new TIntArrayList();
+        for (int address : addressToInstruction.keys()) {
+            if (wasAddressReached(address)) {
+                result.add(address);
+            }
+        }
 
-    public DexBuilder getDexBuilder() {
-        return dexBuilder;
-    }
-
-    public List<BuilderTryBlock> getTryBlocks() {
-        return implementation.getTryBlocks();
-    }
-
-    public TIntObjectMap<BuilderInstruction> getAddressToInstruction() {
-        return addressToInstruction;
+        return result;
     }
 
 }

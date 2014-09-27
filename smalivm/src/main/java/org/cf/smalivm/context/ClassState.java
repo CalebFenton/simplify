@@ -5,15 +5,8 @@ import java.util.Map;
 
 public class ClassState extends BaseState {
 
-    private final Map<String, Integer> fieldToRegister;
     private final String className;
-
-    ClassState(ClassState parent, ExecutionContext ectx) {
-        super(parent, ectx);
-
-        fieldToRegister = new HashMap<String, Integer>(parent.fieldToRegister);
-        className = parent.className;
-    }
+    private final Map<String, Integer> fieldToRegister;
 
     public ClassState(ExecutionContext ectx, String className, int fieldCount) {
         super(ectx, className, fieldCount);
@@ -22,10 +15,49 @@ public class ClassState extends BaseState {
         this.className = className;
     }
 
-    ClassState getChild(ExecutionContext childContext) {
-        ClassState child = new ClassState(childContext, className, fieldToRegister.size());
+    ClassState(ClassState parent, ExecutionContext ectx) {
+        super(parent, ectx);
 
-        return child;
+        fieldToRegister = new HashMap<String, Integer>(parent.fieldToRegister);
+        className = parent.className;
+    }
+
+    public void assignField(String fieldNameAndType, Object value) {
+        int register = getRegister(fieldNameAndType);
+        assignRegister(register, value);
+    }
+
+    public boolean equals(ClassState other) {
+        return this.toString().equals(other.toString());
+    }
+
+    public Object peekField(String fieldNameAndType) {
+        int register = getRegister(fieldNameAndType);
+
+        return peekRegister(register);
+    }
+
+    public void pokeField(String fieldNameAndType, Object value) {
+        int register = getRegister(fieldNameAndType);
+        pokeRegister(register, value);
+    }
+
+    public Object readField(String fieldNameAndType) {
+        // It might be necessary to split up static / instance references later, when class contexts are passed around.
+        int register = getRegister(fieldNameAndType);
+
+        return readRegister(register);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Fields:\n");
+        for (String fieldNameAndType : fieldToRegister.keySet()) {
+            sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append("\n");
+        }
+        sb.setLength(sb.length() - 1);
+
+        return sb.toString();
     }
 
     private int getRegister(String fieldNameAndType) {
@@ -40,42 +72,10 @@ public class ClassState extends BaseState {
         return register;
     }
 
-    public Object readField(String fieldNameAndType) {
-        // It might be necessary to split up static / instance references later, when class contexts are passed around.
-        int register = getRegister(fieldNameAndType);
+    ClassState getChild(ExecutionContext childContext) {
+        ClassState child = new ClassState(childContext, className, fieldToRegister.size());
 
-        return readRegister(register);
-    }
-
-    public Object peekField(String fieldNameAndType) {
-        int register = getRegister(fieldNameAndType);
-
-        return peekRegister(register);
-    }
-
-    public void assignField(String fieldNameAndType, Object value) {
-        int register = getRegister(fieldNameAndType);
-        assignRegister(register, value);
-    }
-
-    public void pokeField(String fieldNameAndType, Object value) {
-        int register = getRegister(fieldNameAndType);
-        pokeRegister(register, value);
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder("Fields:\n");
-        for (String fieldNameAndType : fieldToRegister.keySet()) {
-            sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append("\n");
-        }
-        sb.setLength(sb.length() - 1);
-
-        return sb.toString();
-    }
-
-    public boolean equals(ClassState other) {
-        return this.toString().equals(other.toString());
+        return child;
     }
 
 }

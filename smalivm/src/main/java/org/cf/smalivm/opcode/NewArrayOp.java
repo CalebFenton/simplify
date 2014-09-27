@@ -30,8 +30,8 @@ public class NewArrayOp extends MethodStateOp {
 
     private final int destRegister;
     private final int dimensionRegister;
-    private final String typeReference;
     private final boolean isLocalClass;
+    private final String typeReference;
 
     private NewArrayOp(int address, String opName, int childAddress, int destRegister, int dimensionRegister,
                     String typeReference, boolean isLocalClass) {

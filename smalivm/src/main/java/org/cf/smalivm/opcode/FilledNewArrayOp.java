@@ -52,8 +52,8 @@ public class FilledNewArrayOp extends MethodStateOp {
     }
 
     private final int dimensionRegisters[];
-    private final String typeReference;
     private final boolean isLocalClass;
+    private final String typeReference;
 
     private FilledNewArrayOp(int address, String opName, int childAddress, int[] dimensionRegisters,
                     String typeReference, boolean isLocalClass) {

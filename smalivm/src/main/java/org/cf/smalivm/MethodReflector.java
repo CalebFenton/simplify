@@ -65,6 +65,21 @@ public class MethodReflector {
         SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
     }
 
+    public static boolean canReflect(String methodDescriptor) {
+        String[] parts = methodDescriptor.split("->");
+        String className = parts[0];
+
+        if (SafeClasses.contains(className)) {
+            return true;
+        }
+
+        if (SafeMethods.contains(methodDescriptor)) {
+            return true;
+        }
+
+        return false;
+    }
+
     public static boolean isWhitelisted(String typeDescriptor) {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
@@ -83,27 +98,12 @@ public class MethodReflector {
         return false;
     }
 
-    public static boolean canReflect(String methodDescriptor) {
-        String[] parts = methodDescriptor.split("->");
-        String className = parts[0];
-
-        if (SafeClasses.contains(className)) {
-            return true;
-        }
-
-        if (SafeMethods.contains(methodDescriptor)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    private final String methodDescriptor;
-    private final String returnType;
-    private final List<String> parameterTypes;
-    private final boolean isStatic;
-    private final String methodName;
     private final String className;
+    private final boolean isStatic;
+    private final String methodDescriptor;
+    private final String methodName;
+    private final List<String> parameterTypes;
+    private final String returnType;
 
     public MethodReflector(String methodDescriptor, String returnType, List<String> parameterTypes, boolean isStatic) {
         this.methodDescriptor = methodDescriptor;

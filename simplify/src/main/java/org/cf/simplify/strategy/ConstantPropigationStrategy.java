@@ -33,8 +33,6 @@ import org.slf4j.LoggerFactory;
 
 public class ConstantPropigationStrategy implements OptimizationStrategy {
 
-    private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategy.class.getSimpleName());
-
     private static final Set<Class<?>> ConstantizableOps = new HashSet<Class<?>>(Arrays.asList(BinaryMathOp.class,
                     UnaryMathOp.class, MoveOp.class, ReturnOp.class));
 
@@ -42,30 +40,13 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
                     "J", "F", "D", "java.lang.String", "java.lang.Class"));
 
     private static final String LAST_16_BITS_ZERO = "0000000000000000";
+
     private static final String LAST_48_BITS_ZERO = "000000000000000000000000000000000000000000000000";
-
-    private final MethodBackedGraph mbgraph;
-    private int constantCount;
-
-    public ConstantPropigationStrategy(MethodBackedGraph mbgraph) {
-        this.mbgraph = mbgraph;
-        constantCount = 0;
-    }
-
-    public BuilderInstruction buildConstant(int address) {
-        DexBuilder dexBuilder = mbgraph.getDexBuilder();
-        OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
-        int register = instruction.getRegisterA();
-        Object value = mbgraph.getRegisterConsensus(address, register);
-        BuilderInstruction result = buildConstant(value, register, dexBuilder);
-
-        return result;
-    }
+    private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategy.class.getSimpleName());
 
     private static boolean canConstantizeOp(Op op) {
         return ConstantizableOps.contains(op.getClass());
     }
-
     private static boolean canConstantizeType(String type) {
         return ConstantizableTypes.contains(type);
     }
@@ -189,6 +170,52 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return result;
     }
 
+    private int constantCount;
+
+    private final MethodBackedGraph mbgraph;
+
+    public ConstantPropigationStrategy(MethodBackedGraph mbgraph) {
+        this.mbgraph = mbgraph;
+        constantCount = 0;
+    }
+
+    public BuilderInstruction buildConstant(int address) {
+        DexBuilder dexBuilder = mbgraph.getDexBuilder();
+        OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
+        int register = instruction.getRegisterA();
+        Object value = mbgraph.getRegisterConsensus(address, register);
+        BuilderInstruction result = buildConstant(value, register, dexBuilder);
+
+        return result;
+    }
+
+    @Override
+    public Map<String, Integer> getOptimizationCounts() {
+        Map<String, Integer> result = new HashMap<String, Integer>();
+        result.put("constants", constantCount);
+
+        return result;
+    }
+
+    @Override
+    public boolean perform() {
+        for (int address : mbgraph.getAddresses().toArray()) {
+            BuilderInstruction original = mbgraph.getInstruction(address);
+            if (canConstantizeAddress(address)) {
+                BuilderInstruction constInstruction = buildConstant(address);
+                if (original.getOpcode().name().startsWith("RETURN")) {
+                    // TODO: insert const rather than replace return op
+                    log.warn("Return op constantizing not impelemented.");
+                } else {
+                    mbgraph.replaceInstruction(address, constInstruction);
+                }
+                constantCount++;
+            }
+        }
+
+        return constantCount > 0;
+    }
+
     boolean canConstantizeAddress(int address) {
         if (!mbgraph.wasAddressReached(address)) {
             return false;
@@ -212,33 +239,6 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         }
 
         return true;
-    }
-
-    @Override
-    public boolean perform() {
-        for (int address : mbgraph.getAddresses().toArray()) {
-            BuilderInstruction original = mbgraph.getInstruction(address);
-            if (canConstantizeAddress(address)) {
-                BuilderInstruction constInstruction = buildConstant(address);
-                if (original.getOpcode().name().startsWith("RETURN")) {
-                    // TODO: insert const rather than replace return op
-                    log.warn("Return op constantizing not impelemented.");
-                } else {
-                    mbgraph.replaceInstruction(address, constInstruction);
-                }
-                constantCount++;
-            }
-        }
-
-        return constantCount > 0;
-    }
-
-    @Override
-    public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> result = new HashMap<String, Integer>();
-        result.put("constants", constantCount);
-
-        return result;
     }
 
 }

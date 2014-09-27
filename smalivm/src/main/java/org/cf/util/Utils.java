@@ -16,8 +16,8 @@ import org.cf.smalivm.type.LocalInstance;
 
 public class Utils {
 
-    private static final Pattern ParameterIsolator = Pattern.compile("\\([^\\)]+\\)");
     private static final Pattern ParameterIndividuator = Pattern.compile("(\\[*(?:[BCDFIJSZ]|L[^;]+;))");
+    private static final Pattern ParameterIsolator = Pattern.compile("\\([^\\)]+\\)");
 
     public static void deDuplicate(TIntList list) {
         for (int i = 0; i < list.size(); i++) {
@@ -28,50 +28,6 @@ public class Utils {
                 list.removeAt(lastIndex);
             }
         }
-    }
-
-    public static <T> void shiftIntegerMapKeys(int startAddress, int shift, TIntObjectMap<T> intToObject) {
-        if (shift == 0) {
-            return;
-        }
-
-        TIntList addressesToShift = new TIntArrayList(intToObject.keys());
-        // Only adjust addresses after the replacement point
-        for (int currentAddress : addressesToShift.toArray()) {
-            if (currentAddress <= startAddress) {
-                addressesToShift.remove(currentAddress);
-            }
-        }
-
-        addressesToShift.sort();
-        if (shift > 0) {
-            // Shifting addresses up, so start at the end to avoid overwriting keys.
-            addressesToShift.reverse();
-        }
-
-        for (int currentAddress : addressesToShift.toArray()) {
-            T obj = intToObject.get(currentAddress);
-            intToObject.remove(currentAddress);
-            intToObject.put(currentAddress + shift, obj);
-        }
-    }
-
-    public static <E> Collection<E> makeCollection(Iterable<E> iter) {
-        Collection<E> list = new ArrayList<E>();
-        for (E item : iter) {
-            list.add(item);
-        }
-        return list;
-    }
-
-    private static String getClassForNameFromSmaliClass(String className, int dimensionCount) {
-        // Apache's ClassUtils.forName expects someArray[] instead of [someArray
-        StringBuilder sb = new StringBuilder(className);
-        for (int i = 0; i < dimensionCount; i++) {
-            sb.append("[]");
-        }
-
-        return sb.toString();
     }
 
     public static String getArrayDimensionString(Object array) {
@@ -125,24 +81,6 @@ public class Utils {
         return result;
     }
 
-    private static void populateLocalInstanceArray(Object array, String className) {
-        for (int i = 0; i < Array.getLength(array); i++) {
-            Object element = Array.get(array, i);
-            if (element == null) {
-                if (array.getClass().getName().startsWith("[[")) {
-                    // Uninitialized inner array
-                    break;
-                } else {
-                    for (int j = 0; j < Array.getLength(array); j++) {
-                        Array.set(array, j, new LocalInstance(className));
-                    }
-                }
-            } else if (element.getClass().isArray()) {
-                populateLocalInstanceArray(element, className);
-            }
-        }
-    }
-
     public static int getDimensionCount(String typeReference) {
         String baseClassName = typeReference.replace("[", "");
 
@@ -161,5 +99,67 @@ public class Utils {
         }
 
         return result;
+    }
+
+    public static <E> Collection<E> makeCollection(Iterable<E> iter) {
+        Collection<E> list = new ArrayList<E>();
+        for (E item : iter) {
+            list.add(item);
+        }
+        return list;
+    }
+
+    public static <T> void shiftIntegerMapKeys(int startAddress, int shift, TIntObjectMap<T> intToObject) {
+        if (shift == 0) {
+            return;
+        }
+
+        TIntList addressesToShift = new TIntArrayList(intToObject.keys());
+        // Only adjust addresses after the replacement point
+        for (int currentAddress : addressesToShift.toArray()) {
+            if (currentAddress <= startAddress) {
+                addressesToShift.remove(currentAddress);
+            }
+        }
+
+        addressesToShift.sort();
+        if (shift > 0) {
+            // Shifting addresses up, so start at the end to avoid overwriting keys.
+            addressesToShift.reverse();
+        }
+
+        for (int currentAddress : addressesToShift.toArray()) {
+            T obj = intToObject.get(currentAddress);
+            intToObject.remove(currentAddress);
+            intToObject.put(currentAddress + shift, obj);
+        }
+    }
+
+    private static String getClassForNameFromSmaliClass(String className, int dimensionCount) {
+        // Apache's ClassUtils.forName expects someArray[] instead of [someArray
+        StringBuilder sb = new StringBuilder(className);
+        for (int i = 0; i < dimensionCount; i++) {
+            sb.append("[]");
+        }
+
+        return sb.toString();
+    }
+
+    private static void populateLocalInstanceArray(Object array, String className) {
+        for (int i = 0; i < Array.getLength(array); i++) {
+            Object element = Array.get(array, i);
+            if (element == null) {
+                if (array.getClass().getName().startsWith("[[")) {
+                    // Uninitialized inner array
+                    break;
+                } else {
+                    for (int j = 0; j < Array.getLength(array); j++) {
+                        Array.set(array, j, new LocalInstance(className));
+                    }
+                }
+            } else if (element.getClass().isArray()) {
+                populateLocalInstanceArray(element, className);
+            }
+        }
     }
 }

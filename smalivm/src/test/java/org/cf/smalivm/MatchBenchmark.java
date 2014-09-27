@@ -14,10 +14,10 @@ import org.perfidix.annotation.BenchClass;
 public class MatchBenchmark {
 
     private static String[] data;
-    private static String[] testData;
     private static Pattern[] patterns;
-    private static int[] targets;
     private static Random random = new Random();
+    private static int[] targets;
+    private static String[] testData;
 
     @BeforeBenchClass
     @BeforeClass
@@ -35,30 +35,16 @@ public class MatchBenchmark {
         }
     }
 
+    private static int randInt(int min, int max) {
+        return random.nextInt((max - min) + 1) + min;
+    }
+
     @BeforeEachRun
     public void setUp() {
         testData = new String[data.length];
         for (int i = 0; i < data.length; i++) {
             testData[i] = new String(data[i]);
         }
-    }
-
-    private static int randInt(int min, int max) {
-        return random.nextInt((max - min) + 1) + min;
-    }
-
-    @Bench
-    public void timePatternMatch() {
-        int matches = 0;
-        for (int targetIndex : targets) {
-            Pattern target = patterns[targetIndex];
-            for (String compare : testData) {
-                boolean match = target.matcher(compare).matches();
-                matches += match ? 1 : 0;
-            }
-        }
-
-        // System.out.println("timePatternMatch matches: " + matches);
     }
 
     @Bench
@@ -74,6 +60,24 @@ public class MatchBenchmark {
         }
 
         // System.out.println("timeEquals matches: " + matches);
+    }
+
+    @Bench
+    public void timeHashCompare() {
+        int matches = 0;
+        for (int targetIndex : targets) {
+            String target = testData[targetIndex];
+            for (String compare : testData) {
+                boolean match = false;
+                if (target.hashCode() == compare.hashCode()) {
+                    match = target.equals(compare);
+                }
+                matches += match ? 1 : 0;
+            }
+
+        }
+
+        // System.out.println("timeInternCompare matches: " + matches);
     }
 
     @Bench
@@ -96,20 +100,16 @@ public class MatchBenchmark {
     }
 
     @Bench
-    public void timeHashCompare() {
+    public void timePatternMatch() {
         int matches = 0;
         for (int targetIndex : targets) {
-            String target = testData[targetIndex];
+            Pattern target = patterns[targetIndex];
             for (String compare : testData) {
-                boolean match = false;
-                if (target.hashCode() == compare.hashCode()) {
-                    match = target.equals(compare);
-                }
+                boolean match = target.matcher(compare).matches();
                 matches += match ? 1 : 0;
             }
-
         }
 
-        // System.out.println("timeInternCompare matches: " + matches);
+        // System.out.println("timePatternMatch matches: " + matches);
     }
 }

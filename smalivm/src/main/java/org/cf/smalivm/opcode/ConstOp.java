@@ -19,16 +19,16 @@ import org.slf4j.LoggerFactory;
 
 public class ConstOp extends MethodStateOp {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
-
     private static enum ConstType {
-        NARROW,
-        WIDE,
-        STRING,
+        CLASS,
         LOCAL_TYPE,
-        CLASS
-    };
+        NARROW,
+        STRING,
+        WIDE
+    }
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());;
 
     static ConstOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -66,8 +66,8 @@ public class ConstOp extends MethodStateOp {
         return new ConstOp(address, opName, childAddress, destRegister, constType, literal);
     }
 
-    private final int destRegister;
     private final ConstType constType;
+    private final int destRegister;
     private final Object literal;
 
     private ConstOp(int address, String opName, int childAddress, int destRegister, ConstType constType, Object literal) {
@@ -78,10 +78,6 @@ public class ConstOp extends MethodStateOp {
         this.literal = literal;
     }
 
-    private ConstOp(int address, String opName, int childAddress, int destRegister, String literal) {
-        this(address, opName, childAddress, destRegister, ConstType.STRING, literal);
-    }
-
     private ConstOp(int address, String opName, int childAddress, int destRegister, int literal) {
         this(address, opName, childAddress, destRegister, ConstType.NARROW, literal);
     }
@@ -90,33 +86,16 @@ public class ConstOp extends MethodStateOp {
         this(address, opName, childAddress, destRegister, ConstType.WIDE, literal);
     }
 
+    private ConstOp(int address, String opName, int childAddress, int destRegister, String literal) {
+        this(address, opName, childAddress, destRegister, ConstType.STRING, literal);
+    }
+
     @Override
     public int[] execute(MethodState mctx) {
         Object result = getConst();
         mctx.assignRegister(destRegister, result);
 
         return getPossibleChildren();
-    }
-
-    private Object getConst() {
-        Object result = null;
-        if (constType == ConstType.CLASS) {
-            String className = (String) literal;
-            try {
-                result = ClassUtils.getClass(SmaliClassUtils.smaliClassToJava(className));
-            } catch (ClassNotFoundException e) {
-                result = new UnknownValue(className);
-                // log.warn("Could not find class for const-class: " + className);
-                // e.printStackTrace();
-            }
-        } else if (constType == ConstType.LOCAL_TYPE) {
-            String className = (String) literal;
-            result = new LocalInstance(className);
-        } else {
-            result = literal;
-        }
-
-        return result;
     }
 
     @Override
@@ -156,5 +135,26 @@ public class ConstOp extends MethodStateOp {
         }
 
         return sb.toString();
+    }
+
+    private Object getConst() {
+        Object result = null;
+        if (constType == ConstType.CLASS) {
+            String className = (String) literal;
+            try {
+                result = ClassUtils.getClass(SmaliClassUtils.smaliClassToJava(className));
+            } catch (ClassNotFoundException e) {
+                result = new UnknownValue(className);
+                // log.warn("Could not find class for const-class: " + className);
+                // e.printStackTrace();
+            }
+        } else if (constType == ConstType.LOCAL_TYPE) {
+            String className = (String) literal;
+            result = new LocalInstance(className);
+        } else {
+            result = literal;
+        }
+
+        return result;
     }
 }

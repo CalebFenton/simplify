@@ -21,8 +21,8 @@ public class CheckCastOp extends MethodStateOp {
         return new CheckCastOp(address, opName, childAddress, targetRegister, className, vm);
     }
 
-    private final int targetRegister;
     private final String className;
+    private final int targetRegister;
     private final VirtualMachine vm;
 
     CheckCastOp(int address, String opName, int childAddress, int targetRegister, String className, VirtualMachine vm) {

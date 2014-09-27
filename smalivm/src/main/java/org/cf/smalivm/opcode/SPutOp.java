@@ -29,8 +29,8 @@ public class SPutOp extends ExecutionContextOp {
         return new SPutOp(address, opName, childAddress, destRegister, fieldDescriptor, vm);
     }
 
-    private final int valueRegister;
     private final String fieldDescriptor;
+    private final int valueRegister;
     private final VirtualMachine vm;
 
     public SPutOp(int address, String opName, int childAddress, int valueRegister, String fieldDescriptor,

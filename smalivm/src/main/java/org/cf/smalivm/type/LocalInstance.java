@@ -14,6 +14,21 @@ public class LocalInstance implements Type {
         istate = null;
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (other == null) {
+            return false;
+        } else if (other == this) {
+            return true;
+        } else if (!(other instanceof LocalInstance)) {
+            return false;
+        }
+
+        LocalInstance rhs = (LocalInstance) other;
+
+        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(istate, rhs.istate).isEquals();
+    }
+
     public InstanceState getState() {
         // isInitialized -> istate != null ?
         return istate;
@@ -34,21 +49,6 @@ public class LocalInstance implements Type {
     @Override
     public String toString() {
         return smaliType;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (other == null) {
-            return false;
-        } else if (other == this) {
-            return true;
-        } else if (!(other instanceof LocalInstance)) {
-            return false;
-        }
-
-        LocalInstance rhs = (LocalInstance) other;
-
-        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(istate, rhs.istate).isEquals();
     }
 
 }

@@ -11,14 +11,14 @@ import org.slf4j.LoggerFactory;
 
 public class ExecutionNode {
 
-    private static Logger log = LoggerFactory.getLogger(ExecutionNode.class.getSimpleName());
-
     private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
+    private static Logger log = LoggerFactory.getLogger(ExecutionNode.class.getSimpleName());
+
     private final List<ExecutionNode> children;
+    private ExecutionContext ectx;
     private final Op op;
     private ExecutionNode parent;
-    private ExecutionContext ectx;
 
     public ExecutionNode(Op op) {
         this.op = op;
@@ -28,30 +28,6 @@ public class ExecutionNode {
     ExecutionNode(ExecutionNode other) {
         op = other.op;
         children = new ArrayList<ExecutionNode>(other.getChildren());
-    }
-
-    public ExecutionNode getChild(Op childOp) {
-        ExecutionNode child = new ExecutionNode(childOp);
-        child.setContext(ectx.getChild());
-        child.setParent(this);
-
-        return child;
-    }
-
-    private void addChild(ExecutionNode child) {
-        children.add(child);
-    }
-
-    public void setContext(ExecutionContext ectx) {
-        this.ectx = ectx;
-    }
-
-    public void setMethodState(MethodState mstate) {
-        ectx.setMethodState(mstate);
-    }
-
-    public void setClassState(String className, ClassState cstate) {
-        ectx.setClassState(className, cstate);
     }
 
     public int[] execute() {
@@ -74,8 +50,32 @@ public class ExecutionNode {
         return op.getAddress();
     }
 
+    public int getCallDepth() {
+        return ectx.getCallDepth();
+    }
+
+    public ExecutionNode getChild(Op childOp) {
+        ExecutionNode child = new ExecutionNode(childOp);
+        child.setContext(ectx.getChild());
+        child.setParent(this);
+
+        return child;
+    }
+
     public List<ExecutionNode> getChildren() {
         return children;
+    }
+
+    public ClassState getClassState(String className) {
+        return ectx.getClassState(className);
+    }
+
+    public ExecutionContext getContext() {
+        return ectx;
+    }
+
+    public MethodState getMethodState() {
+        return ectx.getMethodState();
     }
 
     public Op getOp() {
@@ -99,6 +99,18 @@ public class ExecutionNode {
         newChild.setParent(this);
     }
 
+    public void setClassState(String className, ClassState cstate) {
+        ectx.setClassState(className, cstate);
+    }
+
+    public void setContext(ExecutionContext ectx) {
+        this.ectx = ectx;
+    }
+
+    public void setMethodState(MethodState mstate) {
+        ectx.setMethodState(mstate);
+    }
+
     public void setParent(ExecutionNode parent) {
         // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
         // Each execution of an instruction will have a new state.
@@ -115,25 +127,13 @@ public class ExecutionNode {
         return sb.toString();
     }
 
-    public ExecutionContext getContext() {
-        return ectx;
-    }
-
-    public MethodState getMethodState() {
-        return ectx.getMethodState();
-    }
-
-    public int getCallDepth() {
-        return ectx.getCallDepth();
-    }
-
-    public ClassState getClassState(String className) {
-        return ectx.getClassState(className);
-    }
-
     @Override
     public String toString() {
         return op.toString();
+    }
+
+    private void addChild(ExecutionNode child) {
+        children.add(child);
     }
 
     private void getGraph(StringBuilder sb, List<ExecutionNode> visitedNodes) {

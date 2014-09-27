@@ -13,6 +13,10 @@ public class ExecutionGraphBackedImplementaiton {
         this.implementation = implementation;
     }
 
+    public void removeInstruction(int index) {
+        implementation.removeInstruction(index);
+    }
+
     public void replaceInstructionWithConstant(int index, BuilderInstruction replacementInstruction) {
         BuilderInstruction originalInstruction = implementation.getInstructions().get(index);
         implementation.replaceInstruction(index, replacementInstruction);
@@ -20,9 +24,5 @@ public class ExecutionGraphBackedImplementaiton {
          * setup new contextnode set assigned to whichever register / or execute?? for each node in nodepile at that
          * index, replace with this maintain parent -> this, this -> children relationship
          */
-    }
-
-    public void removeInstruction(int index) {
-        implementation.removeInstruction(index);
     }
 }

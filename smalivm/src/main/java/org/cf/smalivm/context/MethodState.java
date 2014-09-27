@@ -14,21 +14,9 @@ public class MethodState extends BaseState {
 
     private static final String HEAP_ID = "method";
 
-    private MethodState getAncestorContextWithParameter(int parameterIndex) {
-        MethodState currentContext = this;
-        do {
-            if (currentContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
-                return currentContext;
-            }
-            currentContext = currentContext.getParent();
-        } while (currentContext != null);
-
-        return null;
-    }
-
-    private final int parameterCount;
     private final TIntObjectMap<Object> mutableParameterIndexToValue;
 
+    private final int parameterCount;
     public MethodState(ExecutionContext ectx, int parameterCount) {
         this(ectx, parameterCount, parameterCount);
     }
@@ -45,12 +33,6 @@ public class MethodState extends BaseState {
 
         this.parameterCount = other.parameterCount;
         this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>(other.mutableParameterIndexToValue);
-    }
-
-    MethodState getChild(ExecutionContext childContext) {
-        MethodState child = new MethodState(childContext, getRegisterCount(), getParameterCount());
-
-        return child;
     }
 
     public void assignParameter(int parameterIndex, Object value) {
@@ -72,19 +54,6 @@ public class MethodState extends BaseState {
         pokeRegister(ReturnRegister, value);
     }
 
-    public int getParameterCount() {
-        return parameterCount;
-    }
-
-    public int getParameterStart() {
-        return getRegisterCount() - parameterCount;
-    }
-
-    // This is what you want for emulated methods.
-    public Object getParameter(int parameterIndex) {
-        return peekRegister(getParameterStart() + parameterIndex);
-    }
-
     // This is for the optimizer.
     public Object getMutableParameter(int parameterIndex) {
         MethodState targetContext = this;
@@ -94,6 +63,19 @@ public class MethodState extends BaseState {
         Object result = targetContext.mutableParameterIndexToValue.get(parameterIndex);
 
         return result;
+    }
+
+    // This is what you want for emulated methods.
+    public Object getParameter(int parameterIndex) {
+        return peekRegister(getParameterStart() + parameterIndex);
+    }
+
+    public int getParameterCount() {
+        return parameterCount;
+    }
+
+    public int getParameterStart() {
+        return getRegisterCount() - parameterCount;
     }
 
     @Override
@@ -156,5 +138,23 @@ public class MethodState extends BaseState {
         }
 
         return sb.toString();
+    }
+
+    private MethodState getAncestorContextWithParameter(int parameterIndex) {
+        MethodState currentContext = this;
+        do {
+            if (currentContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
+                return currentContext;
+            }
+            currentContext = currentContext.getParent();
+        } while (currentContext != null);
+
+        return null;
+    }
+
+    MethodState getChild(ExecutionContext childContext) {
+        MethodState child = new MethodState(childContext, getRegisterCount(), getParameterCount());
+
+        return child;
     }
 }

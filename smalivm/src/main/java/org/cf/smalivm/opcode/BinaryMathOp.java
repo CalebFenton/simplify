@@ -12,29 +12,29 @@ import org.slf4j.LoggerFactory;
 
 public class BinaryMathOp extends MethodStateOp {
 
-    private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());
-
     private static enum MathOperandType {
+        DOUBLE,
+        FLOAT,
         INT,
         LONG,
-        FLOAT,
-        DOUBLE,
-    };
+    }
 
     private static enum MathOperator {
         ADD,
-        SUB,
-        MUL,
-        DIV,
-        REM,
         AND,
+        DIV,
+        MUL,
         OR,
-        XOR,
-        SHR,
-        SHL,
-        USHR,
+        REM,
         RSUB,
+        SHL,
+        SHR,
+        SUB,
+        USHR,
+        XOR,
     };
+
+    private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());;
 
     private static Object doDoubleOperation(MathOperator mathOperator, Double lhs, Double rhs) {
         Object result = null;
@@ -248,13 +248,13 @@ public class BinaryMathOp extends MethodStateOp {
         return result;
     }
 
-    private final MathOperator mathOperator;
-    private final MathOperandType mathOperandType;
-    private final int destRegister;
     private final int arg1Register;
     private int arg2Register;
-    private int narrowLiteral;
+    private final int destRegister;
     private boolean hasLiteral;
+    private final MathOperandType mathOperandType;
+    private final MathOperator mathOperator;
+    private int narrowLiteral;
 
     private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register) {
         super(address, opName, childAddress);
@@ -314,19 +314,6 @@ public class BinaryMathOp extends MethodStateOp {
         return sb.toString();
     }
 
-    private Object massageIntoInt(Object value) {
-        Object result;
-        if (value instanceof Character) {
-            result = (int) (char) value;
-        } else if (value instanceof Byte) {
-            result = ((Byte) value).intValue();
-        } else {
-            result = value;
-        }
-
-        return result;
-    }
-
     private Object getResult(Object lhs, Object rhs) {
         Object result = null;
         switch (mathOperandType) {
@@ -344,6 +331,19 @@ public class BinaryMathOp extends MethodStateOp {
         case DOUBLE:
             result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
             break;
+        }
+
+        return result;
+    }
+
+    private Object massageIntoInt(Object value) {
+        Object result;
+        if (value instanceof Character) {
+            result = (int) (char) value;
+        } else if (value instanceof Byte) {
+            result = ((Byte) value).intValue();
+        } else {
+            result = value;
         }
 
         return result;

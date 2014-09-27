@@ -159,6 +159,10 @@ public class InvokeOp extends ExecutionContextOp {
         return getPossibleChildren();
     }
 
+    public int[] getParameterRegisters() {
+        return parameterRegisters;
+    }
+
     public String getReturnType() {
         return returnType;
     }
@@ -166,10 +170,6 @@ public class InvokeOp extends ExecutionContextOp {
     @Override
     public SideEffect.Level sideEffectType() {
         return sideEffectType;
-    }
-
-    public int[] getParameterRegisters() {
-        return parameterRegisters;
     }
 
     @Override
@@ -190,6 +190,14 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append("}, ").append(methodDescriptor);
 
         return sb.toString();
+    }
+
+    private void assignCalleeContextParameters(MethodState callerContext, MethodState calleeContext) {
+        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
+            int callerRegister = parameterRegisters[parameterIndex];
+            Object value = callerContext.readRegister(callerRegister);
+            calleeContext.assignParameter(parameterIndex, value);
+        }
     }
 
     private void assumeMaximumUnknown(MethodState mstate) {
@@ -232,14 +240,6 @@ public class InvokeOp extends ExecutionContextOp {
         assignCalleeContextParameters(callerContext, calleeContext);
 
         return calleeContext;
-    }
-
-    private void assignCalleeContextParameters(MethodState callerContext, MethodState calleeContext) {
-        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
-            int callerRegister = parameterRegisters[parameterIndex];
-            Object value = callerContext.readRegister(callerRegister);
-            calleeContext.assignParameter(parameterIndex, value);
-        }
     }
 
     private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext) {

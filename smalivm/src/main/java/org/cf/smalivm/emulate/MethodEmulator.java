@@ -13,16 +13,16 @@ public class MethodEmulator {
         addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", new org_cf_simplify_Utils_breakpoint());
     }
 
-    public static void clearMethods() {
-        emulatedMethods.clear();
-    }
-
     public static void addMethod(String methodDescriptor, EmulatedMethod method) {
         emulatedMethods.put(methodDescriptor, method);
     }
 
     public static boolean canEmulate(String methodDescriptor) {
         return emulatedMethods.containsKey(methodDescriptor);
+    }
+
+    public static void clearMethods() {
+        emulatedMethods.clear();
     }
 
     public static SideEffect.Level emulate(MethodState mctx, String methodDescriptor, int[] parameterRegisters) {

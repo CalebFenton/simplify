@@ -12,21 +12,10 @@ import org.slf4j.LoggerFactory;
 
 public class TestDeadAnalyzer {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestDeadAnalyzer.class.getSimpleName());
-
     private static final String CLASS_NAME = "Ldead_detector_test;";
 
-    @Test
-    public void TestUnusedAssignmentIsRemoved() {
-        String methodSignature = "UnusedAssignment()I";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 0 });
-
-        assertEquals(expected, found);
-    }
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(TestDeadAnalyzer.class.getSimpleName());
 
     @Test
     public void TestDeadCodeIsRemoved() {
@@ -41,12 +30,23 @@ public class TestDeadAnalyzer {
     }
 
     @Test
-    public void TestUselessGotoIsRemoved() {
-        String methodSignature = "UselessGoto()V";
+    public void TestUnusedAssignmentIsRemoved() {
+        String methodSignature = "UnusedAssignment()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getUselessBranchAddresses();
+        TIntList found = strategy.getDeadAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] { 0 });
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void TestUnusedResultNoSideEffectsRemovesInvoke() {
+        String methodSignature = "UnusedResultNoSideEffects()I";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getDeadResultAddresses();
+        TIntList expected = new TIntArrayList(new int[] { 1 });
 
         assertEquals(expected, found);
     }
@@ -63,12 +63,12 @@ public class TestDeadAnalyzer {
     }
 
     @Test
-    public void TestUnusedResultNoSideEffectsRemovesInvoke() {
-        String methodSignature = "UnusedResultNoSideEffects()I";
+    public void TestUselessGotoIsRemoved() {
+        String methodSignature = "UselessGoto()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadResultAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 1 });
+        TIntList found = strategy.getUselessBranchAddresses();
+        TIntList expected = new TIntArrayList(new int[] { 0 });
 
         assertEquals(expected, found);
     }

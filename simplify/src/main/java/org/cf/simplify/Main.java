@@ -26,17 +26,6 @@ public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
-    private static void filterTypes(List<? extends Reference> refs, Pattern filterPattern) {
-        for (Iterator<? extends Reference> it = refs.iterator(); it.hasNext();) {
-            Reference ref = it.next();
-            String name = ReferenceUtil.getReferenceString(ref);
-            Matcher m = filterPattern.matcher(name);
-            if (!m.find()) {
-                it.remove();
-            }
-        }
-    }
-
     public static void main(String[] args) throws Exception {
         OptionBean bean = new OptionBean();
         CmdLineParser parser = new CmdLineParser(bean);
@@ -101,6 +90,17 @@ public class Main {
         File outFile = bean.getOutFile();
         System.out.println("Writing result to " + outFile);
         dexBuilder.writeTo(new FileDataStore(outFile));
+    }
+
+    private static void filterTypes(List<? extends Reference> refs, Pattern filterPattern) {
+        for (Iterator<? extends Reference> it = refs.iterator(); it.hasNext();) {
+            Reference ref = it.next();
+            String name = ReferenceUtil.getReferenceString(ref);
+            Matcher m = filterPattern.matcher(name);
+            if (!m.find()) {
+                it.remove();
+            }
+        }
     }
 
 }

@@ -14,6 +14,18 @@ public class AGetOp extends MethodStateOp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(AGetOp.class.getSimpleName());
 
+    private static String getUnknownArrayInnerType(UnknownValue array) {
+        String outerType = array.getType();
+        String result = null;
+        if (outerType.equals("?")) {
+            result = "?";
+        } else {
+            result = outerType.replaceFirst("\\[", "");
+        }
+
+        return result;
+    }
+
     static AGetOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
@@ -25,9 +37,9 @@ public class AGetOp extends MethodStateOp {
 
         return new AGetOp(address, opName, childAddress, valueRegister, arrayRegister, indexRegister);
     }
-
     private final int arrayRegister;
     private final int indexRegister;
+
     private final int valueRegister;
 
     public AGetOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {
@@ -60,18 +72,6 @@ public class AGetOp extends MethodStateOp {
         mctx.assignRegister(valueRegister, value);
 
         return getPossibleChildren();
-    }
-
-    private static String getUnknownArrayInnerType(UnknownValue array) {
-        String outerType = array.getType();
-        String result = null;
-        if (outerType.equals("?")) {
-            result = "?";
-        } else {
-            result = outerType.replaceFirst("\\[", "");
-        }
-
-        return result;
     }
 
     @Override

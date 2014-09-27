@@ -30,6 +30,14 @@ public class PeepholeStrategy implements OptimizationStrategy {
         peepCount = 0;
     }
 
+    @Override
+    public Map<String, Integer> getOptimizationCounts() {
+        Map<String, Integer> result = new HashMap<String, Integer>();
+        result.put("peeps", peepCount);
+
+        return result;
+    }
+
     public boolean perform() {
         TIntSet addresses = mbgraph.getAddresses();
         for (int address : addresses.toArray()) {
@@ -51,6 +59,41 @@ public class PeepholeStrategy implements OptimizationStrategy {
         }
 
         return peepCount > 0;
+    }
+
+    BuilderInstruction buildClassForNameReplacement(int address) {
+        InvokeOp op = (InvokeOp) mbgraph.getOp(address);
+        int[] parameterRegisters = op.getParameterRegisters();
+        int register = parameterRegisters[0];
+        String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
+        String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
+        BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
+        BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
+
+        return constClassInstruction;
+    }
+
+    boolean canPeepClassForName(int address) {
+        Op handler = mbgraph.getOp(address);
+        if (!(handler instanceof InvokeOp)) {
+            return false;
+        }
+
+        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        ReferenceInstruction instr = (ReferenceInstruction) instruction;
+        String ref = ReferenceUtil.getReferenceString(instr.getReference());
+        if (!ref.equals(ClassForNameSignature)) {
+            return false;
+        }
+
+        int[] parameterRegisters = ((InvokeOp) handler).getParameterRegisters();
+        int registerA = parameterRegisters[0];
+        Object classNameValue = mbgraph.getRegisterConsensus(address, registerA);
+        if (classNameValue instanceof UnknownValue) {
+            return false;
+        }
+
+        return true;
     }
 
     boolean canPeepMethodInvoke(int address) {
@@ -79,49 +122,6 @@ public class PeepholeStrategy implements OptimizationStrategy {
         System.out.println(value1 + " " + value2 + " " + value3);
 
         return false;
-    }
-
-    boolean canPeepClassForName(int address) {
-        Op handler = mbgraph.getOp(address);
-        if (!(handler instanceof InvokeOp)) {
-            return false;
-        }
-
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
-        ReferenceInstruction instr = (ReferenceInstruction) instruction;
-        String ref = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!ref.equals(ClassForNameSignature)) {
-            return false;
-        }
-
-        int[] parameterRegisters = ((InvokeOp) handler).getParameterRegisters();
-        int registerA = parameterRegisters[0];
-        Object classNameValue = mbgraph.getRegisterConsensus(address, registerA);
-        if (classNameValue instanceof UnknownValue) {
-            return false;
-        }
-
-        return true;
-    }
-
-    BuilderInstruction buildClassForNameReplacement(int address) {
-        InvokeOp op = (InvokeOp) mbgraph.getOp(address);
-        int[] parameterRegisters = op.getParameterRegisters();
-        int register = parameterRegisters[0];
-        String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
-        String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
-        BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
-        BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
-
-        return constClassInstruction;
-    }
-
-    @Override
-    public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> result = new HashMap<String, Integer>();
-        result.put("peeps", peepCount);
-
-        return result;
     }
 
 }

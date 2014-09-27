@@ -22,40 +22,9 @@ import org.slf4j.LoggerFactory;
 
 public class Dexifier {
 
-    private static final Logger log = LoggerFactory.getLogger(Dexifier.class.getSimpleName());
-
     public static final int DEFAULT_API_LEVEL = 15;
 
-    public static List<BuilderClassDef> dexifySmaliFiles(String path) throws Exception {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
-
-        return dexifySmaliFiles(new File(path), dexBuilder);
-    }
-
-    public static List<BuilderClassDef> dexifySmaliFiles(String path, DexBuilder dexBuilder) throws Exception {
-        return dexifySmaliFiles(new File(path), dexBuilder);
-    }
-
-    public static List<BuilderClassDef> dexifySmaliFiles(File file, DexBuilder dexBuilder) throws Exception {
-        List<File> smaliFiles;
-        if (file.isDirectory()) {
-            smaliFiles = (List<File>) FileUtils.listFiles(file, new String[] { "smali" }, true);
-        } else {
-            smaliFiles = new ArrayList<File>();
-            smaliFiles.add(file);
-        }
-
-        return dexifySmaliFiles(smaliFiles, dexBuilder);
-    }
-
-    public static List<BuilderClassDef> dexifySmaliFiles(List<File> smaliFiles, DexBuilder dexBuilder) throws Exception {
-        List<BuilderClassDef> result = new ArrayList<BuilderClassDef>();
-        for (File smaliFile : smaliFiles) {
-            result.add(dexifySmaliFile(smaliFile, dexBuilder));
-        }
-
-        return result;
-    }
+    private static final Logger log = LoggerFactory.getLogger(Dexifier.class.getSimpleName());
 
     public static BuilderClassDef dexifySmaliFile(File smaliFile, DexBuilder dexBuilder) throws Exception {
         log.info("Dexifying: " + smaliFile);
@@ -88,6 +57,37 @@ public class Dexifier {
         }
 
         return classDef;
+    }
+
+    public static List<BuilderClassDef> dexifySmaliFiles(File file, DexBuilder dexBuilder) throws Exception {
+        List<File> smaliFiles;
+        if (file.isDirectory()) {
+            smaliFiles = (List<File>) FileUtils.listFiles(file, new String[] { "smali" }, true);
+        } else {
+            smaliFiles = new ArrayList<File>();
+            smaliFiles.add(file);
+        }
+
+        return dexifySmaliFiles(smaliFiles, dexBuilder);
+    }
+
+    public static List<BuilderClassDef> dexifySmaliFiles(List<File> smaliFiles, DexBuilder dexBuilder) throws Exception {
+        List<BuilderClassDef> result = new ArrayList<BuilderClassDef>();
+        for (File smaliFile : smaliFiles) {
+            result.add(dexifySmaliFile(smaliFile, dexBuilder));
+        }
+
+        return result;
+    }
+
+    public static List<BuilderClassDef> dexifySmaliFiles(String path) throws Exception {
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
+
+        return dexifySmaliFiles(new File(path), dexBuilder);
+    }
+
+    public static List<BuilderClassDef> dexifySmaliFiles(String path, DexBuilder dexBuilder) throws Exception {
+        return dexifySmaliFiles(new File(path), dexBuilder);
     }
 
 }

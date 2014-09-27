@@ -27,17 +27,6 @@ public class Main {
         executeParameterLogic(10);
     }
 
-    private static void executePrintParameter(int parameterValue) {
-        String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
-        ExecutionGraph graph = vm.getInstructionGraphClone(methodDescriptor);
-        ExecutionContext ectx = graph.getRoot().getContext();
-        MethodState mState = ectx.getMethodState();
-        mState.assignParameter(0, parameterValue);
-
-        // Execute method with some context
-        vm.execute("Lorg/cf/demosmali/Main;->printParameter(I)V", ectx);
-    }
-
     private static void executeParameterLogic(int parameterValue) {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
 
@@ -61,6 +50,17 @@ public class Main {
 
         value = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
         System.out.println("With context, returns: " + value);
+    }
+
+    private static void executePrintParameter(int parameterValue) {
+        String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
+        ExecutionGraph graph = vm.getInstructionGraphClone(methodDescriptor);
+        ExecutionContext ectx = graph.getRoot().getContext();
+        MethodState mState = ectx.getMethodState();
+        mState.assignParameter(0, parameterValue);
+
+        // Execute method with some context
+        vm.execute("Lorg/cf/demosmali/Main;->printParameter(I)V", ectx);
     }
 
 }

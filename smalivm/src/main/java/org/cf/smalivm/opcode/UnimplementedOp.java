@@ -30,9 +30,9 @@ class UnimplementedOp extends MethodStateOp {
 
     private final boolean canContinue;
     private final boolean canThrow;
-    private final boolean setsResult;
-    private final boolean setsRegister;
     private final int registerA;
+    private final boolean setsRegister;
+    private final boolean setsResult;
 
     UnimplementedOp(int address, String opName, int childAddress, boolean canContinue, boolean canThrow,
                     boolean setsResult) {

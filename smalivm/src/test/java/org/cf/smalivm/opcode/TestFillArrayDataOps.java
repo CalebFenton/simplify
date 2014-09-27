@@ -10,23 +10,6 @@ public class TestFillArrayDataOps {
     private static final String CLASS_NAME = "Lfill_array_data_test;";
 
     @Test
-    public void TestFillArrayDataInt() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[5]);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 1, 2, 3, 4, 5 });
-
-        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataInt()V", initial, expected);
-    }
-
-    @Test
-    public void TestFillArrayDataLong() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[3]);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
-                        new long[] { 0x1000000000L, 0x2000000000L, 0x3L });
-
-        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataLong()V", initial, expected);
-    }
-
-    @Test
     public void TestFillArrayDataBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[4]);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new boolean[] { true, true, false, true });
@@ -51,11 +34,11 @@ public class TestFillArrayDataOps {
     }
 
     @Test
-    public void TestFillArrayDataShort() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[3]);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 100, 200, 5 });
+    public void TestFillArrayDataDouble() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new double[2]);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new double[] { 0.1, 1.5 });
 
-        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataShort()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataDouble()V", initial, expected);
     }
 
     @Test
@@ -67,11 +50,28 @@ public class TestFillArrayDataOps {
     }
 
     @Test
-    public void TestFillArrayDataDouble() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new double[2]);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new double[] { 0.1, 1.5 });
+    public void TestFillArrayDataInt() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[5]);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 1, 2, 3, 4, 5 });
 
-        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataDouble()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataInt()V", initial, expected);
+    }
+
+    @Test
+    public void TestFillArrayDataLong() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[3]);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
+                        new long[] { 0x1000000000L, 0x2000000000L, 0x3L });
+
+        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataLong()V", initial, expected);
+    }
+
+    @Test
+    public void TestFillArrayDataShort() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[3]);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 100, 200, 5 });
+
+        VMTester.testMethodState(CLASS_NAME, "TestFillArrayDataShort()V", initial, expected);
     }
 
 }

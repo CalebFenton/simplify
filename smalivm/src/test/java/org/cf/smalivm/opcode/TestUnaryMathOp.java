@@ -11,8 +11,6 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestUnaryMathOp {
 
-    private static final String CLASS_NAME = "Lunary_math_test;";
-
     public static class TestStartDouble {
 
         @Test
@@ -145,6 +143,14 @@ public class TestUnaryMathOp {
         }
 
         @Test
+        public void TestNegUnknownInt() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+
+            VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
+        }
+
+        @Test
         public void TestNotInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~0x42);
@@ -158,6 +164,22 @@ public class TestUnaryMathOp {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
             VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
+        }
+
+        @Test
+        public void TestUnknownIntToByte() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("B"));
+
+            VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
+        }
+
+        @Test
+        public void TestUnknownIntToChar() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("C"));
+
+            VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
         }
 
         @Test
@@ -185,35 +207,11 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToByte() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("B"));
-
-            VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
-        }
-
-        @Test
-        public void TestUnknownIntToChar() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("C"));
-
-            VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
-        }
-
-        @Test
         public void TestUnknownIntToShort() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("S"));
 
             VMTester.testMethodState(CLASS_NAME, "IntToShort()V", initial, expected);
-        }
-
-        @Test
-        public void TestNegUnknownInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
-
-            VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
         }
 
     }
@@ -261,5 +259,7 @@ public class TestUnaryMathOp {
         }
 
     }
+
+    private static final String CLASS_NAME = "Lunary_math_test;";
 
 }

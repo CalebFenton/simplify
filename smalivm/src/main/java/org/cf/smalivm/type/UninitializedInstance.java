@@ -10,15 +10,6 @@ public class UninitializedInstance implements Type {
         this.smaliType = smaliType;
     }
 
-    public String getType() {
-        return smaliType;
-    }
-
-    @Override
-    public String toString() {
-        return "Uninitialized " + smaliType;
-    }
-
     @Override
     public boolean equals(Object other) {
         if (other == null) {
@@ -32,5 +23,14 @@ public class UninitializedInstance implements Type {
         UninitializedInstance rhs = (UninitializedInstance) other;
 
         return new EqualsBuilder().append(smaliType, rhs.getType()).isEquals();
+    }
+
+    public String getType() {
+        return smaliType;
+    }
+
+    @Override
+    public String toString() {
+        return "Uninitialized " + smaliType;
     }
 }

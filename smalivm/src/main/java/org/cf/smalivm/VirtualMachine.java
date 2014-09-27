@@ -30,10 +30,34 @@ import org.slf4j.LoggerFactory;
 
 public class VirtualMachine {
 
+    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
+
     public static int getParameterSize(List<String> parameterTypes) {
         int result = 0;
         for (String type : parameterTypes) {
             result += type.equals("J") || type.equals("D") ? 2 : 1;
+        }
+
+        return result;
+    }
+
+    private static Set<String> buildLocalClasses(List<BuilderClassDef> classDefs) {
+        Set<String> result = new HashSet<String>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            String className = ReferenceUtil.getReferenceString(classDef);
+            result.add(className);
+        }
+
+        return result;
+    }
+
+    private static Map<String, BuilderMethod> buildMethodDescriptorToBuilderMethod(List<BuilderClassDef> classDefs) {
+        Map<String, BuilderMethod> result = new HashMap<String, BuilderMethod>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                result.put(methodDescriptor, method);
+            }
         }
 
         return result;
@@ -53,30 +77,18 @@ public class VirtualMachine {
 
     }
 
-    private static Set<String> buildLocalClasses(List<BuilderClassDef> classDefs) {
-        Set<String> result = new HashSet<String>(classDefs.size());
-        for (BuilderClassDef classDef : classDefs) {
-            String className = ReferenceUtil.getReferenceString(classDef);
-            result.add(className);
-        }
-
-        return result;
-    }
-
     private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
         return methodDescriptor.split("->", 2)[0];
     }
-
-    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
-
-    private final int maxNodeVisits;
-    private final int maxCallDepth;
     private final Set<String> localClasses;
+    private final int maxCallDepth;
+    private final int maxNodeVisits;
     private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
     private final Map<String, ExecutionGraph> methodDescriptorToTemplateContextGraph;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
-    private final ExecutionContext templateExecutionContext;
     private final MethodExecutor methodExecutor;
+
+    private final ExecutionContext templateExecutionContext;
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
         this.maxNodeVisits = maxNodeVisits;
@@ -136,13 +148,6 @@ public class VirtualMachine {
         return result;
     }
 
-    public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
-        ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
-        ExecutionGraph result = new ExecutionGraph(graph);
-
-        return result;
-    }
-
     // private ClassState getStaticClassContext_delete(String className) {
     // if (!classNameToTemplateState.containsKey(className)) {
     // log.warn("Peeking context of non-local class: " + className + ". Returning empty context.");
@@ -154,6 +159,13 @@ public class VirtualMachine {
     //
     // return classNameToTemplateState.get(className);
     // }
+
+    public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
+        ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
+        ExecutionGraph result = new ExecutionGraph(graph);
+
+        return result;
+    }
 
     public int getMaxCallDepth() {
         return maxCallDepth;
@@ -169,62 +181,6 @@ public class VirtualMachine {
 
     public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
         return methodDescriptorToTryCatchList;
-    }
-
-    public boolean isLocalClass(String className) {
-        return localClasses.contains(className);
-    }
-
-    public boolean isLocalMethod(String methodDescriptor) {
-        return methodDescriptorToTemplateContextGraph.containsKey(methodDescriptor);
-    }
-
-    public void updateInstructionGraph(String methodDescriptor) {
-        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
-        ExecutionGraph graph = new ExecutionGraph(this, method);
-        methodDescriptorToTemplateContextGraph.put(methodDescriptor, graph);
-    }
-
-    private static Map<String, BuilderMethod> buildMethodDescriptorToBuilderMethod(List<BuilderClassDef> classDefs) {
-        Map<String, BuilderMethod> result = new HashMap<String, BuilderMethod>(classDefs.size());
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                result.put(methodDescriptor, method);
-            }
-        }
-
-        return result;
-    }
-
-    private void buildMethodDescriptorToTemplateContextGraph(final List<BuilderClassDef> classDefs) {
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                updateInstructionGraph(methodDescriptor);
-            }
-        }
-    }
-
-    private ExecutionContext buildTemplateExecutionContext(List<BuilderClassDef> classDefs) {
-        ExecutionContext result = new ExecutionContext(this);
-        for (BuilderClassDef classDef : classDefs) {
-            // Build out context with all fields so they can be enumerated later.
-            // This context should be cloned and never changed.
-            String className = ReferenceUtil.getReferenceString(classDef);
-            ClassState cstate = new ClassState(result, className, classDef.getFields().size());
-            for (BuilderField field : classDef.getFields()) {
-                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
-                String fieldNameAndType = fieldDescriptor.split("->")[1];
-                String type = fieldNameAndType.split(":")[1];
-                cstate.pokeField(fieldNameAndType, new UnknownValue(type));
-            }
-
-            result.setClassState(className, cstate);
-
-        }
-
-        return result;
     }
 
     public ExecutionContext getRootExecutionContext(String methodDescriptor) {
@@ -255,6 +211,50 @@ public class VirtualMachine {
             mstate.assignParameter(parameterIndex, value);
         }
         result.setMethodState(mstate);
+
+        return result;
+    }
+
+    public boolean isLocalClass(String className) {
+        return localClasses.contains(className);
+    }
+
+    public boolean isLocalMethod(String methodDescriptor) {
+        return methodDescriptorToTemplateContextGraph.containsKey(methodDescriptor);
+    }
+
+    public void updateInstructionGraph(String methodDescriptor) {
+        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
+        ExecutionGraph graph = new ExecutionGraph(this, method);
+        methodDescriptorToTemplateContextGraph.put(methodDescriptor, graph);
+    }
+
+    private void buildMethodDescriptorToTemplateContextGraph(final List<BuilderClassDef> classDefs) {
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                updateInstructionGraph(methodDescriptor);
+            }
+        }
+    }
+
+    private ExecutionContext buildTemplateExecutionContext(List<BuilderClassDef> classDefs) {
+        ExecutionContext result = new ExecutionContext(this);
+        for (BuilderClassDef classDef : classDefs) {
+            // Build out context with all fields so they can be enumerated later.
+            // This context should be cloned and never changed.
+            String className = ReferenceUtil.getReferenceString(classDef);
+            ClassState cstate = new ClassState(result, className, classDef.getFields().size());
+            for (BuilderField field : classDef.getFields()) {
+                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
+                String fieldNameAndType = fieldDescriptor.split("->")[1];
+                String type = fieldNameAndType.split(":")[1];
+                cstate.pokeField(fieldNameAndType, new UnknownValue(type));
+            }
+
+            result.setClassState(className, cstate);
+
+        }
 
         return result;
     }
