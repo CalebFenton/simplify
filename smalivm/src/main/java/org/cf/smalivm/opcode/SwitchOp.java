@@ -1,11 +1,11 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction31t;
 
-public class SwitchOp extends MethodContextOp {
+public class SwitchOp extends MethodStateOp {
 
     static SwitchOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
@@ -30,7 +30,7 @@ public class SwitchOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         // Use result register to store value to compare. Comparison is handled by payload op.
         Object value = mctx.readRegister(register);
         mctx.assignResultRegister(value);

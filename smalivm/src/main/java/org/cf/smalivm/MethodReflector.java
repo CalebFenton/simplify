@@ -7,7 +7,7 @@ import java.util.List;
 
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,7 +117,7 @@ public class MethodReflector {
         methodName = parts[1].substring(0, parts[1].indexOf("("));
     }
 
-    public void reflect(MethodContext calleeContext) {
+    public void reflect(MethodState calleeContext) {
         log.debug("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
 
         Object result = null;
@@ -156,7 +156,7 @@ public class MethodReflector {
         }
     }
 
-    private Object[] getArguments(MethodContext mctx) {
+    private Object[] getArguments(MethodState mctx) {
         int offset = 0;
         if (!isStatic) {
             // First element in context will be instance reference if non-static method.

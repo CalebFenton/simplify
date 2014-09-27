@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 
 public class MethodEmulator {
 
@@ -25,7 +25,7 @@ public class MethodEmulator {
         return emulatedMethods.containsKey(methodDescriptor);
     }
 
-    public static SideEffect.Type emulate(MethodContext mctx, String methodDescriptor, int[] parameterRegisters) {
+    public static SideEffect.Level emulate(MethodState mctx, String methodDescriptor, int[] parameterRegisters) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
         em.execute(mctx);
 

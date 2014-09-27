@@ -1,10 +1,10 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
-public class GotoOp extends MethodContextOp {
+public class GotoOp extends MethodStateOp {
 
     static GotoOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
@@ -19,7 +19,7 @@ public class GotoOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         return getPossibleChildren();
     }
 

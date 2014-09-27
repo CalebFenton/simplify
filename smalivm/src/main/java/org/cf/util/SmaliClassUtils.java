@@ -85,6 +85,7 @@ public class SmaliClassUtils {
             return false;
         }
 
+        // TODO: https://github.com/MutabilityDetector/MutabilityDetector
         if (smaliClassName.equals("Ljava/lang/String;")) {
             return true;
         }

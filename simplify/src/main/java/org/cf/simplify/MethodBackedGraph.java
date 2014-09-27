@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ContextGraph;
-import org.cf.smalivm.context.ContextNode;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpFactory;
 import org.cf.util.Utils;
@@ -26,7 +26,7 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MethodBackedGraph extends ContextGraph {
+public class MethodBackedGraph extends ExecutionGraph {
 
     private static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
         TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
@@ -49,7 +49,7 @@ public class MethodBackedGraph extends ContextGraph {
     private final VirtualMachine vm;
     private final OpFactory opFactory;
 
-    public MethodBackedGraph(ContextGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
+    public MethodBackedGraph(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;
@@ -121,18 +121,16 @@ public class MethodBackedGraph extends ContextGraph {
     }
 
     protected void removeInstruction(int address, int codeUnits) {
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-        for (ContextNode node : nodePile) {
-            ContextNode parent = node.getParent();
-            if (parent != null) {
-                parent.removeChild(node);
+        List<ExecutionNode> nodePile = addressToNodePile.get(address);
+        for (ExecutionNode removedNode : nodePile) {
+            ExecutionNode parentNode = removedNode.getParent();
+            for (ExecutionNode childNode : removedNode.getChildren()) {
+                // parentNode could be null, and that's ok
+                childNode.setParent(parentNode);
             }
 
-            for (ContextNode child : node.getChildren()) {
-                child.setParent(parent);
-                if (parent != null) {
-                    parent.addChild(child);
-                }
+            if (parentNode != null) {
+                parentNode.removeChild(removedNode);
             }
         }
 
@@ -143,47 +141,44 @@ public class MethodBackedGraph extends ContextGraph {
     /*
      * Need to be able to update a graph to pass around between optimization strategies. This does a shallow update, not
      * touching any handlers or individual nodes. It just updates addressToNodePile by shifting addresses up or down,
-     * depending on delta between old and new instruction. It also executes the new instruction, to flesh out a
-     * realistic context to help optimizer, ie. assigned registers, etc.
+     * depending on delta between old and new instruction. It also executes the new instruction to build a realistic
+     * context to help optimizer, i.e. assigned registers, etc.
      */
     protected void replaceInstruction(int address, int addressShift, Op handler, int codeUnits) {
         Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
 
-        List<ContextNode> nodePile = addressToNodePile.get(address);
-        Map<ContextNode, ContextNode> oldToNew = new HashMap<ContextNode, ContextNode>();
+        List<ExecutionNode> nodePile = addressToNodePile.get(address);
+        Map<ExecutionNode, ExecutionNode> oldToNew = new HashMap<ExecutionNode, ExecutionNode>();
         for (int index = 0; index < nodePile.size(); index++) {
-            ContextNode node = nodePile.get(index);
-            ContextNode newNode = new ContextNode(handler);
+            ExecutionNode replacedNode = nodePile.get(index);
+            ExecutionNode newNode = new ExecutionNode(handler);
 
-            nodePile.remove(node);
+            nodePile.remove(replacedNode);
             nodePile.add(index, newNode);
-            for (ContextNode child : node.getChildren()) {
-                newNode.addChild(child);
+            for (ExecutionNode child : replacedNode.getChildren()) {
+                child.setParent(newNode);
             }
 
-            if (node.getMethodContext() != null) {
-                ContextNode parent = node.getParent();
-                MethodContext mctx;
-                if (parent != null) {
-                    mctx = new MethodContext(parent.getMethodContext());
-                    parent.replaceChild(node, newNode);
-                } else {
-                    mctx = new MethodContext(node.getMethodContext());
-                }
-
-                newNode.setMethodContext(mctx);
-                newNode.execute();
+            ExecutionNode parentNode = replacedNode.getParent();
+            ExecutionContext newContext;
+            if (parentNode != null) {
+                parentNode.replaceChild(replacedNode, newNode);
+                newContext = parentNode.getContext().getChild();
+            } else {
+                newContext = vm.getRootExecutionContext(methodDescriptor);
             }
+            newNode.setContext(newContext);
+            newNode.execute();
 
-            oldToNew.put(node, newNode);
+            oldToNew.put(replacedNode, newNode);
         }
 
         // Update any children's parents to the new nodes we made.
         int childAddress = address + codeUnits;
         nodePile = addressToNodePile.get(childAddress);
         if (nodePile != null) {
-            for (ContextNode node : nodePile) {
-                ContextNode parent = node.getParent();
+            for (ExecutionNode node : nodePile) {
+                ExecutionNode parent = node.getParent();
                 if (oldToNew.containsKey(parent)) {
                     node.setParent(oldToNew.get(parent));
                 }

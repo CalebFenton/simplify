@@ -5,14 +5,14 @@ import java.util.Comparator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 
-public class IfOp extends MethodContextOp {
+public class IfOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
 
@@ -134,7 +134,7 @@ public class IfOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         Object A = mctx.readRegister(register1);
         Object B = 0;
         if (!compareToZero) {

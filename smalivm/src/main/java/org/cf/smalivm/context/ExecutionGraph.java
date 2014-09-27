@@ -7,9 +7,11 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
@@ -27,19 +29,21 @@ import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ContextGraph implements Iterable<ContextNode> {
+public class ExecutionGraph implements Iterable<ExecutionNode> {
 
-    private static TIntObjectMap<List<ContextNode>> buildAddressToNodePile(VirtualMachine vm, String methodDescriptor,
-                    List<BuilderInstruction> instructions) {
-        OpFactory handlerFactory = new OpFactory(vm, methodDescriptor);
-        TIntObjectMap<List<ContextNode>> result = new TIntObjectHashMap<List<ContextNode>>();
+    private static final Logger log = LoggerFactory.getLogger(ExecutionGraph.class.getSimpleName());
+
+    private static TIntObjectMap<List<ExecutionNode>> buildAddressToNodePile(VirtualMachine vm,
+                    String methodDescriptor, List<BuilderInstruction> instructions) {
+        OpFactory opFactory = new OpFactory(vm, methodDescriptor);
+        TIntObjectMap<List<ExecutionNode>> result = new TIntObjectHashMap<List<ExecutionNode>>();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
-            Op handler = handlerFactory.create(instruction, address);
-            ContextNode node = new ContextNode(handler);
+            Op op = opFactory.create(instruction, address);
+            ExecutionNode node = new ExecutionNode(op);
 
             // Most node piles will be a template node and one or more ContextNodes.
-            List<ContextNode> nodePile = new ArrayList<ContextNode>(2);
+            List<ExecutionNode> nodePile = new ArrayList<ExecutionNode>(2);
             nodePile.add(node);
             result.put(address, nodePile);
         }
@@ -49,13 +53,12 @@ public class ContextGraph implements Iterable<ContextNode> {
 
     private static TIntList buildTerminatingAddresses(List<BuilderInstruction> instructions) {
         TIntList result = new TIntArrayList(1);
-
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
             /*
              * Array payload is a weird pseudo instruction. We treat it like a normal one but perhaps a better way would
              * be to make it easier for operations to execute other operations, perhaps looking up by address. This
-             * would eliminate the need for MethodContext.pseudoInstructionReturnAddress, and Context's getParent().
+             * would eliminate the need for MethodState.pseudoInstructionReturnAddress.
              */
             Opcode op = instruction.getOpcode();
             if (op.canContinue() || (op == Opcode.ARRAY_PAYLOAD) || op.name.startsWith("goto")) {
@@ -67,33 +70,31 @@ public class ContextGraph implements Iterable<ContextNode> {
         return result;
     }
 
-    private static final Logger log = LoggerFactory.getLogger(ContextGraph.class.getSimpleName());
-
-    protected final TIntObjectMap<List<ContextNode>> addressToNodePile;
     private final String methodDescriptor;
     private final TIntList terminatingAddresses;
+    protected final TIntObjectMap<List<ExecutionNode>> addressToNodePile;
 
-    public ContextGraph(ContextGraph other, boolean wrap) {
-        this.addressToNodePile = other.addressToNodePile;
-        this.methodDescriptor = other.methodDescriptor;
-        this.terminatingAddresses = other.terminatingAddresses;
-    }
-
-    public ContextGraph(ContextGraph other) {
+    public ExecutionGraph(ExecutionGraph other) {
         methodDescriptor = other.methodDescriptor;
-        addressToNodePile = new TIntObjectHashMap<List<ContextNode>>();
+        addressToNodePile = new TIntObjectHashMap<List<ExecutionNode>>();
         for (int address : other.addressToNodePile.keys()) {
-            List<ContextNode> otherNodePile = other.addressToNodePile.get(address);
-            List<ContextNode> nodePile = new ArrayList<ContextNode>(otherNodePile.size());
-            for (ContextNode otherNode : otherNodePile) {
-                nodePile.add(new ContextNode(otherNode));
+            List<ExecutionNode> otherNodePile = other.addressToNodePile.get(address);
+            List<ExecutionNode> nodePile = new ArrayList<ExecutionNode>(otherNodePile.size());
+            for (ExecutionNode otherNode : otherNodePile) {
+                nodePile.add(new ExecutionNode(otherNode));
             }
             addressToNodePile.put(address, nodePile);
         }
         terminatingAddresses = other.terminatingAddresses;
     }
 
-    public ContextGraph(VirtualMachine vm, BuilderMethod method) {
+    public ExecutionGraph(ExecutionGraph other, boolean wrap) {
+        this.addressToNodePile = other.addressToNodePile;
+        this.methodDescriptor = other.methodDescriptor;
+        this.terminatingAddresses = other.terminatingAddresses;
+    }
+
+    public ExecutionGraph(VirtualMachine vm, BuilderMethod method) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         List<BuilderInstruction> instructions = implementation.getInstructions();
@@ -101,7 +102,7 @@ public class ContextGraph implements Iterable<ContextNode> {
         terminatingAddresses = buildTerminatingAddresses(instructions);
     }
 
-    public void addNode(int address, ContextNode child) {
+    public void addNode(int address, ExecutionNode child) {
         addressToNodePile.get(address).add(child);
     }
 
@@ -121,28 +122,10 @@ public class ContextGraph implements Iterable<ContextNode> {
         return result;
     }
 
-    public String getMethodDescriptor() {
-        return methodDescriptor;
-    }
+    public Object getFieldConsensus(TIntList addressList, String fieldDescriptor) {
+        String[] parts = fieldDescriptor.split("->");
 
-    public int getNodeCount() {
-        return addressToNodePile.size();
-    }
-
-    public List<ContextNode> getNodePile(int address) {
-        List<ContextNode> result = addressToNodePile.get(address);
-        if (address > 0) {
-            result = result.subList(1, result.size()); // remove template node
-        }
-
-        return result;
-    }
-
-    public Op getOp(int address) {
-        List<ContextNode> pile = addressToNodePile.get(address);
-        ContextNode bottomNode = pile.get(0);
-
-        return bottomNode.getOp();
+        return getFieldConsensus(addressList, parts[0], parts[1]);
     }
 
     public Object getFieldConsensus(TIntList addressList, String className, String fieldNameAndType) {
@@ -158,6 +141,42 @@ public class ContextGraph implements Iterable<ContextNode> {
         }
 
         return value;
+    }
+
+    public Set<Object> getFieldValues(int address, String className, String fieldNameAndType) {
+        List<ExecutionNode> nodePile = getNodePile(address);
+        Set<Object> result = new HashSet<Object>(nodePile.size());
+        for (ExecutionNode node : nodePile) {
+            ClassState cstate = node.getClassState(className);
+            Object value = cstate.peekField(fieldNameAndType);
+            result.add(value);
+        }
+
+        return result;
+    }
+
+    public String getMethodDescriptor() {
+        return methodDescriptor;
+    }
+
+    public int getNodeCount() {
+        return addressToNodePile.size();
+    }
+
+    public List<ExecutionNode> getNodePile(int address) {
+        List<ExecutionNode> result = addressToNodePile.get(address);
+        if (address > 0) {
+            result = result.subList(1, result.size()); // remove template node
+        }
+
+        return result;
+    }
+
+    public Op getOp(int address) {
+        List<ExecutionNode> pile = addressToNodePile.get(address);
+        ExecutionNode bottomNode = pile.get(0);
+
+        return bottomNode.getOp();
     }
 
     public Object getRegisterConsensus(int address, int register) {
@@ -182,40 +201,28 @@ public class ContextGraph implements Iterable<ContextNode> {
         return value;
     }
 
-    public Set<Object> getFieldValues(int address, String className, String fieldNameAndType) {
-        List<ContextNode> nodePile = getNodePile(address);
-        Set<Object> result = new HashSet<Object>(nodePile.size());
-        for (ContextNode node : nodePile) {
-            ClassContext cctx = node.getClassContext(className);
-            Object value = cctx.peekField(fieldNameAndType);
-            result.add(value);
-        }
-
-        return result;
-    }
-
     public Set<Object> getRegisterValues(int address, int register) {
-        List<ContextNode> nodePile = getNodePile(address);
+        List<ExecutionNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
-        for (ContextNode node : nodePile) {
-            MethodContext mctx = node.getMethodContext();
-            Object value = mctx.peekRegister(register);
+        for (ExecutionNode node : nodePile) {
+            MethodState mstate = node.getMethodState();
+            Object value = mstate.peekRegister(register);
             result.add(value);
         }
 
         return result;
     }
 
-    public ContextNode getRootNode() {
+    public ExecutionNode getRoot() {
         // There is only one entry point for a method.
         return addressToNodePile.get(0).get(0);
     }
 
-    public SideEffect.Type getStrongestSideEffectType() {
-        SideEffect.Type result = SideEffect.Type.NONE;
-        for (ContextNode node : this) {
+    public SideEffect.Level getStrongestSideEffectType() {
+        SideEffect.Level result = SideEffect.Level.NONE;
+        for (ExecutionNode node : this) {
             Op op = node.getOp();
-            SideEffect.Type type = op.sideEffectType();
+            SideEffect.Level type = op.sideEffectType();
             switch (type) {
             case STRONG:
                 return type;
@@ -230,31 +237,51 @@ public class ContextGraph implements Iterable<ContextNode> {
         return result;
     }
 
-    public ContextNode getTemplateNode(int address) {
+    public ExecutionNode getTemplateNode(int address) {
         return addressToNodePile.get(address).get(0);
     }
 
-    public Object getTerminatingRegisterConsensus(int register) {
-        return getTerminatingRegisterConsensus(new int[] { register })[0];
+    public Object getTerminatingFieldConsensus(String fieldDescriptor) {
+        Map<String, Object> values = getTerminatingFieldConsensus(new String[] { fieldDescriptor });
+
+        return values.get(fieldDescriptor);
     }
 
-    public Object[] getTerminatingRegisterConsensus(int[] registers) {
+    public Map<String, Object> getTerminatingFieldConsensus(String[] fieldDescriptors) {
         TIntList addresses = getConnectedTerminatingAddresses();
-        Object[] result = new Object[registers.length];
-        for (int i = 0; i < registers.length; i++) {
-            result[i] = getRegisterConsensus(addresses, registers[i]);
+        Map<String, Object> result = new HashMap<String, Object>(fieldDescriptors.length);
+        for (String fieldDescriptor : fieldDescriptors) {
+            Object value = this.getFieldConsensus(addresses, fieldDescriptor);
+            result.put(fieldDescriptor, value);
+        }
+
+        return result;
+    }
+
+    public Object getTerminatingRegisterConsensus(int register) {
+        Map<Integer, Object> values = getTerminatingRegisterConsensus(new int[] { register });
+
+        return values.get(register);
+    }
+
+    public Map<Integer, Object> getTerminatingRegisterConsensus(int[] registers) {
+        TIntList addresses = getConnectedTerminatingAddresses();
+        Map<Integer, Object> result = new HashMap<Integer, Object>(registers.length);
+        for (int register : registers) {
+            Object value = getRegisterConsensus(addresses, register);
+            result.put(register, value);
         }
 
         return result;
     }
 
     @Override
-    public Iterator<ContextNode> iterator() {
-        return new ContextGraphIterator(this);
+    public Iterator<ExecutionNode> iterator() {
+        return new ExecutionGraphIterator(this);
     }
 
     public String toGraph() {
-        return getRootNode().toGraph();
+        return getRoot().toGraph();
     }
 
     public boolean wasAddressReached(int address) {
@@ -264,7 +291,7 @@ public class ContextGraph implements Iterable<ContextNode> {
         }
 
         // If this address was reached during execution there will be clones in the pile.
-        List<ContextNode> nodePile = addressToNodePile.get(address);
+        List<ExecutionNode> nodePile = addressToNodePile.get(address);
         if (nodePile.size() < 1) {
             log.warn("Node pile @" + address + " has no template node.");
         }

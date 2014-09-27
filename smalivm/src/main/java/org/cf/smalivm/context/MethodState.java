@@ -6,24 +6,16 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.util.SmaliClassUtils;
 
-public class MethodContext extends BaseContext {
+public class MethodState extends BaseState {
 
     public static final int ResultRegister = -1;
     public static final int ReturnAddress = -3;
     public static final int ReturnRegister = -2;
 
-    public static MethodContext build(TIntObjectMap<Object> registers) {
-        MethodContext ctx = new MethodContext(registers.size());
-        for (int register : registers.keys()) {
-            Object value = registers.get(register);
-            ctx.assignRegister(register, value);
-        }
+    private static final String HEAP_ID = "method";
 
-        return ctx;
-    }
-
-    private MethodContext getAncestorContextWithParameter(int parameterIndex) {
-        MethodContext currentContext = this;
+    private MethodState getAncestorContextWithParameter(int parameterIndex) {
+        MethodState currentContext = this;
         do {
             if (currentContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
                 return currentContext;
@@ -34,32 +26,31 @@ public class MethodContext extends BaseContext {
         return null;
     }
 
-    private int callDepth;
     private final int parameterCount;
     private final TIntObjectMap<Object> mutableParameterIndexToValue;
 
-    public MethodContext(int parameterCount) {
-        this(parameterCount, parameterCount, 0);
+    public MethodState(ExecutionContext ectx, int parameterCount) {
+        this(ectx, parameterCount, parameterCount);
     }
 
-    public MethodContext(int parameterCount, int callDepth) {
-        this(parameterCount, parameterCount, callDepth);
-    }
-
-    public MethodContext(int registerCount, int parameterCount, int callDepth) {
-        super(registerCount);
+    public MethodState(ExecutionContext ectx, int registerCount, int parameterCount) {
+        super(ectx, HEAP_ID, registerCount);
 
         this.parameterCount = parameterCount;
-        this.callDepth = callDepth;
         this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
     }
 
-    public MethodContext(MethodContext parent) {
-        super(parent);
+    MethodState(MethodState other, ExecutionContext ectx) {
+        super(other, ectx);
 
-        this.parameterCount = parent.parameterCount;
-        this.callDepth = parent.callDepth;
-        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
+        this.parameterCount = other.parameterCount;
+        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>(other.mutableParameterIndexToValue);
+    }
+
+    MethodState getChild(ExecutionContext childContext) {
+        MethodState child = new MethodState(childContext, getRegisterCount(), getParameterCount());
+
+        return child;
     }
 
     public void assignParameter(int parameterIndex, Object value) {
@@ -81,10 +72,6 @@ public class MethodContext extends BaseContext {
         pokeRegister(ReturnRegister, value);
     }
 
-    public int getCallDepth() {
-        return callDepth;
-    }
-
     public int getParameterCount() {
         return parameterCount;
     }
@@ -100,7 +87,7 @@ public class MethodContext extends BaseContext {
 
     // This is for the optimizer.
     public Object getMutableParameter(int parameterIndex) {
-        MethodContext targetContext = this;
+        MethodState targetContext = this;
         if (!targetContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
             targetContext = getAncestorContextWithParameter(parameterIndex);
         }
@@ -110,8 +97,8 @@ public class MethodContext extends BaseContext {
     }
 
     @Override
-    public MethodContext getParent() {
-        return (MethodContext) super.getParent();
+    public MethodState getParent() {
+        return (MethodState) super.getParent();
     }
 
     public int getPseudoInstructionReturnAddress() {
@@ -122,7 +109,7 @@ public class MethodContext extends BaseContext {
     public Object peekRegister(int register) {
         Object[] parts = peekWithTargetContext(register);
         Object value = parts[0];
-        MethodContext targetContext = (MethodContext) parts[1];
+        MethodState targetContext = (MethodState) parts[1];
 
         if ((targetContext == this) || (targetContext == null) || (value == null)) {
             return value;
@@ -152,10 +139,6 @@ public class MethodContext extends BaseContext {
         return peekRegister(ReturnRegister);
     }
 
-    public void setCallDepth(int callDepth) {
-        this.callDepth = callDepth;
-    }
-
     public void setPseudoInstructionReturnAddress(int address) {
         // Pseudo instructions like array-data-payload need return addresses.
         pokeRegister(ReturnAddress, address);
@@ -164,7 +147,7 @@ public class MethodContext extends BaseContext {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString());
-        sb.append("\nparameters: ").append(parameterCount).append(", callDepth: ").append(callDepth).append("\n");
+        sb.append("\nparameters: ").append(parameterCount).append("\n");
         if (hasRegister(ResultRegister)) {
             sb.append("result: ").append(registerToString(ResultRegister)).append("\n");
         }
@@ -174,5 +157,4 @@ public class MethodContext extends BaseContext {
 
         return sb.toString();
     }
-
 }

@@ -3,18 +3,18 @@ package org.cf.smalivm;
 import java.lang.reflect.Field;
 
 import org.apache.commons.lang3.reflect.FieldUtils;
-import org.cf.smalivm.context.ClassContext;
+import org.cf.smalivm.context.ClassState;
+import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// TODO: why use getStaticClassContext? make sure if this is called, class contexts are init'ed
 public class StaticFieldAccessor {
 
     private static Logger log = LoggerFactory.getLogger(StaticFieldAccessor.class.getSimpleName());
 
-    public static Object getField(VirtualMachine vm, String fieldDescriptor) {
+    public static Object getField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor) {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
@@ -23,9 +23,9 @@ public class StaticFieldAccessor {
         String fieldType = parts[1];
 
         Object result;
-        if (vm.isClassDefinedLocally(className)) {
-            ClassContext classCtx = vm.getStaticClassContext(className);
-            result = classCtx.readField(fieldNameAndType);
+        if (vm.isLocalClass(className)) {
+            ClassState cstate = ectx.getClassState(className);
+            result = cstate.readField(fieldNameAndType);
         } else if (MethodReflector.isWhitelisted(className)) {
             // Use reflection
             try {
@@ -46,16 +46,16 @@ public class StaticFieldAccessor {
         return result;
     }
 
-    public static void putField(VirtualMachine vm, String fieldDescriptor, Object value) {
+    public static void putField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor, Object value) {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
 
-        if (vm.isClassDefinedLocally(className)) {
-            ClassContext classCtx = vm.getStaticClassContext(className);
-            classCtx.assignField(fieldNameAndType, value);
+        if (vm.isLocalClass(className)) {
+            ClassState cstate = ectx.getClassState(className);
+            cstate.assignField(fieldNameAndType, value);
         } else {
-            log.warn("Ignoring untrusted static put of " + value + " to " + fieldDescriptor);
+            log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + value);
         }
     }
 

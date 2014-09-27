@@ -9,10 +9,10 @@ import java.util.List;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ClassContextMap;
-import org.cf.smalivm.context.ContextGraph;
-import org.cf.smalivm.context.ContextNode;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
@@ -26,12 +26,12 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class InvokeOp extends FullContextOp {
+public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private static boolean allArgumentsKnown(MethodContext mctx) {
-        Object[] registerValues = mctx.getRegisterToValue().values();
+    private static boolean allArgumentsKnown(MethodState mstate) {
+        Object[] registerValues = mstate.getRegisterToValue().values();
         for (Object value : registerValues) {
             if (value instanceof UnknownValue) {
                 return false;
@@ -41,14 +41,14 @@ public class InvokeOp extends FullContextOp {
         return true;
     }
 
-    private static Object getMutableParameterConsensus(TIntList addressList, ContextGraph graph, int parameterIndex) {
-        ContextNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getMethodContext().getMutableParameter(parameterIndex);
+    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
+        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+        Object value = firstNode.getMethodState().getMutableParameter(parameterIndex);
         int[] addresses = addressList.toArray();
         for (int address : addresses) {
-            List<ContextNode> nodes = graph.getNodePile(address);
-            for (ContextNode node : nodes) {
-                Object otherValue = node.getMethodContext().getMutableParameter(parameterIndex);
+            List<ExecutionNode> nodes = graph.getNodePile(address);
+            for (ExecutionNode node : nodes) {
+                Object otherValue = node.getMethodState().getMutableParameter(parameterIndex);
 
                 if (value != otherValue) {
                     log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
@@ -131,7 +131,7 @@ public class InvokeOp extends FullContextOp {
     private final int[] parameterRegisters;
     private final List<String> parameterTypes;
     private final String returnType;
-    private SideEffect.Type sideEffectType;
+    private SideEffect.Level sideEffectType;
     private final VirtualMachine vm;
 
     private InvokeOp(int address, String opName, int childAddress, String methodDescriptor, String returnType,
@@ -144,15 +144,16 @@ public class InvokeOp extends FullContextOp {
         this.parameterTypes = parameterTypes;
         this.vm = vm;
         this.isStatic = isStatic;
-        sideEffectType = SideEffect.Type.STRONG;
+        sideEffectType = SideEffect.Level.STRONG;
     }
 
     @Override
-    public int[] execute(MethodContext mctx, ClassContextMap classContextMap) {
-        if (vm.isMethodDefined(methodDescriptor)) {
-            executeLocalMethod(methodDescriptor, mctx);
+    public int[] execute(ExecutionContext ectx) {
+        if (vm.isLocalMethod(methodDescriptor)) {
+            executeLocalMethod(methodDescriptor, ectx);
         } else {
-            executeNonLocalMethod(methodDescriptor, mctx);
+            MethodState mstate = ectx.getMethodState();
+            executeNonLocalMethod(methodDescriptor, mstate);
         }
 
         return getPossibleChildren();
@@ -163,7 +164,7 @@ public class InvokeOp extends FullContextOp {
     }
 
     @Override
-    public SideEffect.Type sideEffectType() {
+    public SideEffect.Level sideEffectType() {
         return sideEffectType;
     }
 
@@ -177,7 +178,7 @@ public class InvokeOp extends FullContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -191,45 +192,49 @@ public class InvokeOp extends FullContextOp {
         return sb.toString();
     }
 
-    private void assumeMaximumUnknown(MethodContext callerContext) {
+    private void assumeMaximumUnknown(MethodState mstate) {
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
             if (SmaliClassUtils.isImmutableClass(type)) {
-                log.debug(type + " is immutable");
+                log.trace(type + " is immutable");
                 continue;
             }
+
+            // TODO: add option to mark all class states unknown instead of just method state
 
             log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
             int register = parameterRegisters[i];
             Object value = new UnknownValue(type);
-            callerContext.pokeRegister(register, value);
+            mstate.pokeRegister(register, value);
         }
 
         if (!returnType.equals("V")) {
             Object value = new UnknownValue(returnType);
-            callerContext.assignResultRegister(value);
+            mstate.assignResultRegister(value);
         }
     }
 
-    private MethodContext buildLocalCalleeContext(MethodContext callerContext) {
-        MethodContext result = vm.buildRootMethodContext(methodDescriptor);
+    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext) {
+        ExecutionContext result = vm.getRootExecutionContext(methodDescriptor);
         result.setCallDepth(callerContext.getCallDepth() + 1);
-        assignCalleeContextParameters(callerContext, result);
+        MethodState calleeMethodState = result.getMethodState();
+        MethodState callerMethodState = callerContext.getMethodState();
+        assignCalleeContextParameters(callerMethodState, calleeMethodState);
 
         return result;
     }
 
-    private MethodContext buildNonLocalCalleeContext(MethodContext callerContext) {
+    private MethodState buildNonLocalCalleeContext(MethodState callerContext) {
+        ExecutionContext ectx = new ExecutionContext(vm);
         int parameterSize = VirtualMachine.getParameterSize(parameterTypes);
         int registerCount = parameterSize;
-        int callDepth = callerContext.getCallDepth() + 1;
-        MethodContext calleeContext = new MethodContext(registerCount, parameterSize, callDepth);
+        MethodState calleeContext = new MethodState(ectx, registerCount, parameterSize);
         assignCalleeContextParameters(callerContext, calleeContext);
 
         return calleeContext;
     }
 
-    private void assignCalleeContextParameters(MethodContext callerContext, MethodContext calleeContext) {
+    private void assignCalleeContextParameters(MethodState callerContext, MethodState calleeContext) {
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             int callerRegister = parameterRegisters[parameterIndex];
             Object value = callerContext.readRegister(callerRegister);
@@ -237,13 +242,13 @@ public class InvokeOp extends FullContextOp {
         }
     }
 
-    private void executeLocalMethod(String methodDescriptor, MethodContext callerContext) {
-        MethodContext calleeContext = buildLocalCalleeContext(callerContext);
-        ContextGraph graph = vm.execute(methodDescriptor, calleeContext);
+    private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext) {
+        ExecutionContext calleeContext = buildLocalCalleeContext(callerContext);
+        ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext);
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
             log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
-            assumeMaximumUnknown(callerContext);
+            assumeMaximumUnknown(callerContext.getMethodState());
 
             return;
         }
@@ -253,15 +258,15 @@ public class InvokeOp extends FullContextOp {
         if (!returnType.equals("V")) {
             TIntList terminating = graph.getConnectedTerminatingAddresses();
             // TODO: use getTerminatingRegisterConsensus
-            Object consensus = graph.getRegisterConsensus(terminating, MethodContext.ReturnRegister);
-            callerContext.assignResultRegister(consensus);
+            Object consensus = graph.getRegisterConsensus(terminating, MethodState.ReturnRegister);
+            callerContext.getMethodState().assignResultRegister(consensus);
         }
 
         sideEffectType = graph.getStrongestSideEffectType();
     }
 
-    private void executeNonLocalMethod(String methodDescriptor, MethodContext callerContext) {
-        MethodContext calleeContext = buildNonLocalCalleeContext(callerContext);
+    private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext) {
+        MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
         boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
         if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
             sideEffectType = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
@@ -270,7 +275,7 @@ public class InvokeOp extends FullContextOp {
             reflector.reflect(calleeContext); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.
-            sideEffectType = SideEffect.Type.NONE;
+            sideEffectType = SideEffect.Level.NONE;
         } else {
             log.debug("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
                             + ". Propigating ambiguity.");
@@ -298,8 +303,9 @@ public class InvokeOp extends FullContextOp {
         }
     }
 
-    private void updateInstanceAndMutableArguments(MethodContext callerContext, ContextGraph graph) {
+    private void updateInstanceAndMutableArguments(ExecutionContext callerContext, ExecutionGraph graph) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
+        MethodState mstate = callerContext.getMethodState();
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             boolean mutable = !SmaliClassUtils.isImmutableClass(type);
@@ -309,7 +315,7 @@ public class InvokeOp extends FullContextOp {
 
             int register = parameterRegisters[parameterIndex];
             Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
-            callerContext.assignRegister(register, value);
+            mstate.assignRegister(register, value);
         }
     }
 

@@ -14,23 +14,24 @@ import org.slf4j.LoggerFactory;
 
 import com.rits.cloning.Cloner;
 
-public class BaseContext {
+public class BaseState {
 
-    private static final Logger log = LoggerFactory.getLogger(BaseContext.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(BaseState.class.getSimpleName());
 
     private static final Cloner cloner = new Cloner();
 
-    private BaseContext parent;
     private final int registerCount;
     private final TIntList registersAssigned;
     private final TIntList registersRead;
     private final TIntObjectMap<Object> registerToValue;
+    private final String heapId;
+    final ExecutionContext ectx;
 
-    BaseContext() {
-        this(0);
+    BaseState(ExecutionContext ectx, String heapId) {
+        this(ectx, heapId, 0);
     }
 
-    BaseContext(int registerCount) {
+    BaseState(ExecutionContext ectx, String heapId, int registerCount) {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
         registersAssigned = new TIntArrayList(0);
         registersRead = new TIntArrayList(0);
@@ -38,11 +39,18 @@ public class BaseContext {
 
         // This is locals + parameters
         this.registerCount = registerCount;
+
+        this.heapId = heapId.intern();
+        this.ectx = ectx;
     }
 
-    BaseContext(BaseContext parent) {
-        this(parent.registerCount);
-        this.parent = parent;
+    BaseState(BaseState parent, ExecutionContext ectx) {
+        registerCount = parent.registerCount;
+        registersAssigned = new TIntArrayList(parent.registersAssigned);
+        registersRead = new TIntArrayList(parent.registersRead);
+        registerToValue = new TIntObjectHashMap<Object>(parent.registerToValue);
+        heapId = parent.heapId;
+        this.ectx = ectx;
     }
 
     public void assignRegister(int register, Object value) {
@@ -65,7 +73,13 @@ public class BaseContext {
         }
     }
 
-    public BaseContext getParent() {
+    public BaseState getParent() {
+        ExecutionContext parentContext = ectx.getParent();
+        MethodState parent = null;
+        if (parentContext != null) {
+            parent = parentContext.getMethodState();
+        }
+
         return parent;
     }
 
@@ -89,8 +103,8 @@ public class BaseContext {
         return registerToValue.containsKey(register);
     }
 
-    BaseContext getAncestorWithRegister(int register) {
-        BaseContext result = this;
+    BaseState getAncestorWithRegister(int register) {
+        BaseState result = this;
         do {
             if (result.hasRegister(register)) {
                 return result;
@@ -103,8 +117,8 @@ public class BaseContext {
         return result;
     }
 
-    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(BaseContext child, BaseContext ancestor) {
-        BaseContext current = child;
+    static TIntSet getReassignedRegistersBetweenChildAndAncestorContext(BaseState child, BaseState ancestor) {
+        BaseState current = child;
         TIntSet result = new TIntHashSet();
         while (current != ancestor) {
             result.addAll(current.getRegisterToValue().keys());
@@ -120,7 +134,7 @@ public class BaseContext {
          * are "pulled down" from ancestors when accessed, along with any other registers with identical values in the
          * ancestor, excluding any registers that have been overwritten in between.
          */
-        BaseContext targetContext = getAncestorWithRegister(register);
+        BaseState targetContext = getAncestorWithRegister(register);
         if (targetContext == null) {
             Exception e = new Exception();
             log.warn("r" + register + " is being read but is null. Likely a mistake!\n" + e);
@@ -171,14 +185,18 @@ public class BaseContext {
     }
 
     public void pokeRegister(int register, Object value) {
-        StringBuilder sb = new StringBuilder();
-        // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
-        // for (int i = 2; i < ste.length; i++) {
-        // sb.append("\n\t").append(ste[i]);
-        // }
-
-        log.debug("Setting r" + register + " -> " + registerValueToString(value) + sb.toString());
+        if (log.isDebugEnabled()) {
+            StringBuilder sb = new StringBuilder();
+            // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
+            // for (int i = 2; i < ste.length; i++) {
+            // sb.append("\n\t").append(ste[i]);
+            // }
+            log.debug("Setting r" + register + " = " + registerValueToString(value) + sb.toString());
+        }
         registerToValue.put(register, value);
+
+        Heap heap = ectx.getHeap();
+        heap.set(heapId, register, value);
     }
 
     public Object readRegister(int register) {
@@ -262,4 +280,5 @@ public class BaseContext {
 
         return registerValueToString(value);
     }
+
 }

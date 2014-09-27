@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ContextGraph;
+import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.util.Dexifier;
 import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -78,7 +78,7 @@ public class Main {
             }
 
             System.out.println("Executing: " + methodDescriptor);
-            ContextGraph graph = vm.execute(methodDescriptor);
+            ExecutionGraph graph = vm.execute(methodDescriptor);
             if (graph == null) {
                 System.out.println("Skipping " + methodDescriptor);
                 finishedMethods.add(methodDescriptor);

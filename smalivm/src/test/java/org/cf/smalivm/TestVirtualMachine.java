@@ -4,6 +4,7 @@ import static org.junit.Assert.fail;
 
 import org.junit.Before;
 
+// These are not the tests you're looking for. *hand waving*
 public class TestVirtualMachine {
 
     @Before

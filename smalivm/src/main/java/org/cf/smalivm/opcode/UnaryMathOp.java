@@ -1,11 +1,11 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 
-public class UnaryMathOp extends MethodContextOp {
+public class UnaryMathOp extends MethodStateOp {
 
     static UnaryMathOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
@@ -28,7 +28,7 @@ public class UnaryMathOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         Object value = mctx.readRegister(srcRegister);
         Object newValue = null;
         if (value instanceof UnknownValue) {

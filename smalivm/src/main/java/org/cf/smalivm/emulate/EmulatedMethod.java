@@ -1,12 +1,12 @@
 package org.cf.smalivm.emulate;
 
-import org.cf.smalivm.SideEffect.Type;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.SideEffect.Level;
+import org.cf.smalivm.context.MethodState;
 
 public interface EmulatedMethod {
 
-    public void execute(MethodContext mctx);
+    public void execute(MethodState mctx);
 
-    public Type getSideEffectType();
+    public Level getSideEffectType();
 
 }

@@ -5,7 +5,7 @@ import gnu.trove.map.TIntObjectMap;
 import java.util.Map;
 
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.junit.Test;
@@ -21,7 +21,7 @@ public class TestInvokeOp {
         @Test
         public void TestInvokeReturnsVoidReturnsVoid() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, null);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnsVoid()V", initial, expected);
         }
@@ -29,7 +29,7 @@ public class TestInvokeOp {
         @Test
         public void TestInvokeReturnsIntReturnsInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x7);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnsInt()V", initial, expected);
         }
@@ -38,7 +38,7 @@ public class TestInvokeOp {
         public void TestInvokeReturnsParameterReturnsParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5,
-                            MethodContext.ResultRegister, 0x5);
+                            MethodState.ResultRegister, 0x5);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnsParameter()V", initial, expected);
         }
@@ -49,14 +49,14 @@ public class TestInvokeOp {
 
         @Test
         public void TestInvokeReturnsVoidReturnsVoid() {
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, null);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, null);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnsVoid()V", expected);
         }
 
         @Test
         public void TestInvokeReturnsIntReturnsInt() {
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x7);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x7);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnsInt()V", expected);
         }
@@ -64,7 +64,7 @@ public class TestInvokeOp {
         @Test
         public void TestInvokeReturnsParameterReturnsParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x5);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodContext.ResultRegister, 0x5);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x5);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnsParameter()V", initial, expected);
         }

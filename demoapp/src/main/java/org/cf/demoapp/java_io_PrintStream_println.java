@@ -1,13 +1,13 @@
 package org.cf.demoapp;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.EmulatedMethod;
 
 public class java_io_PrintStream_println implements EmulatedMethod {
 
     @Override
-    public void execute(MethodContext mctx) {
+    public void execute(MethodState mctx) {
         // Virtual method, register 0 is System.out (or something else)
         Object value = mctx.getParameter(1);
         String valueStr = (String) value;
@@ -16,9 +16,9 @@ public class java_io_PrintStream_println implements EmulatedMethod {
         System.out.println(valueStr);
     }
 
-    public SideEffect.Type getSideEffectType() {
+    public SideEffect.Level getSideEffectType() {
         // Do not optimize this away.
-        return SideEffect.Type.STRONG;
+        return SideEffect.Level.STRONG;
     }
 
 }

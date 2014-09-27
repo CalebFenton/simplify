@@ -4,12 +4,12 @@ import java.lang.reflect.Array;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 
-public class APutOp extends MethodContextOp {
+public class APutOp extends MethodStateOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(APutOp.class.getSimpleName());
@@ -40,7 +40,7 @@ public class APutOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         Object value = mctx.readRegister(valueRegister);
         Object array = mctx.readRegister(arrayRegister);
         Object indexValue = mctx.readRegister(indexRegister);

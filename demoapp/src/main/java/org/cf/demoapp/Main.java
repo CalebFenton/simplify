@@ -1,8 +1,9 @@
 package org.cf.demoapp;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ContextGraph;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 
 public class Main {
@@ -28,35 +29,37 @@ public class Main {
 
     private static void executePrintParameter(int parameterValue) {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
-        ContextGraph graph = vm.getInstructionGraphClone(methodDescriptor);
-        MethodContext mctx = graph.getRootNode().getMethodContext();
-        mctx.assignParameter(0, parameterValue);
+        ExecutionGraph graph = vm.getInstructionGraphClone(methodDescriptor);
+        ExecutionContext ectx = graph.getRoot().getContext();
+        MethodState mState = ectx.getMethodState();
+        mState.assignParameter(0, parameterValue);
 
         // Execute method with some context
-        vm.execute("Lorg/cf/demosmali/Main;->printParameter(I)V", mctx);
+        vm.execute("Lorg/cf/demosmali/Main;->printParameter(I)V", ectx);
     }
 
     private static void executeParameterLogic(int parameterValue) {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
 
-        // Execute with ambigious / uknown parameters.
+        // Execute with ambiguous / unknown parameters.
         // You should see two prints, indicating it took both execution paths.
-        ContextGraph graph = vm.execute(methodDescriptor);
+        ExecutionGraph graph = vm.execute(methodDescriptor);
 
         // Get the return value for all possible executions.
-        Object value = graph.getTerminatingRegisterConsensus(MethodContext.ReturnRegister);
+        Object value = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
         System.out.println("With no context, returns: " + value);
 
         // Now execute with parameter
         graph = vm.getInstructionGraphClone(methodDescriptor);
-        MethodContext mctx = graph.getRootNode().getMethodContext();
+        ExecutionContext ectx = graph.getRoot().getContext();
+        MethodState mState = ectx.getMethodState();
 
         // Since this method is not static, the first parameter is a reference to 'this'.
         // So the integer parameter goes in index 1.
-        mctx.assignParameter(1, parameterValue);
-        graph = vm.execute(methodDescriptor, mctx);
+        mState.assignParameter(1, parameterValue);
+        graph = vm.execute(methodDescriptor, ectx);
 
-        value = graph.getTerminatingRegisterConsensus(MethodContext.ReturnRegister);
+        value = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
         System.out.println("With context, returns: " + value);
     }
 

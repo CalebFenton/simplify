@@ -1,12 +1,12 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 
-public class MoveOp extends MethodContextOp {
+public class MoveOp extends MethodStateOp {
 
     private static enum MoveType {
         RESULT,
@@ -48,7 +48,7 @@ public class MoveOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         switch (moveType) {
         case EXCEPTION:
             // TODO: implement with try/catch stuff?
@@ -65,18 +65,18 @@ public class MoveOp extends MethodContextOp {
         return getPossibleChildren();
     }
 
-    private static void moveException(MethodContext mctx, int toRegister) {
+    private static void moveException(MethodState mctx, int toRegister) {
         String type = "Ljava/lang/Exception;";
         Object value = new UnknownValue(type);
         mctx.assignRegister(toRegister, value);
     }
 
-    private static void moveResult(MethodContext mctx, int toRegister) {
+    private static void moveResult(MethodState mctx, int toRegister) {
         Object value = mctx.readResultRegister();
         mctx.assignRegister(toRegister, value);
     }
 
-    private static void moveRegister(MethodContext mctx, int toRegister, int fromRegister) {
+    private static void moveRegister(MethodState mctx, int toRegister, int fromRegister) {
         Object value = mctx.readRegister(fromRegister);
         mctx.assignRegister(toRegister, value);
     }

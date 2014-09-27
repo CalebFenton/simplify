@@ -6,12 +6,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
 
-public class FillArrayDataPayloadOp extends MethodContextOp {
+public class FillArrayDataPayloadOp extends MethodStateOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(FillArrayDataPayloadOp.class.getSimpleName());
@@ -35,8 +35,8 @@ public class FillArrayDataPayloadOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
-        MethodContext parent = mctx.getParent();
+    public int[] execute(MethodState mctx) {
+        MethodState parent = mctx.getParent();
         int register = parent.getRegistersAssigned().get(0);
         Object array = mctx.readRegister(register);
         if (!(array instanceof UnknownValue)) {

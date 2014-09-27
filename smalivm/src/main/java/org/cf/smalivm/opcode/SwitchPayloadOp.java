@@ -7,13 +7,13 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
 import org.jf.dexlib2.iface.instruction.SwitchPayload;
 
-public class SwitchPayloadOp extends MethodContextOp {
+public class SwitchPayloadOp extends MethodStateOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
@@ -63,7 +63,7 @@ public class SwitchPayloadOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         Object targetValue = mctx.readResultRegister();
         // Pseudo points to instruction *after* switch op.
         int switchOpAddress = mctx.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;

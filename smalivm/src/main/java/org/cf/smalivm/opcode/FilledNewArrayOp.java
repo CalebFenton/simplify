@@ -1,13 +1,13 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
 import org.jf.dexlib2.util.ReferenceUtil;
 
-public class FilledNewArrayOp extends MethodContextOp {
+public class FilledNewArrayOp extends MethodStateOp {
 
     static FilledNewArrayOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -46,7 +46,7 @@ public class FilledNewArrayOp extends MethodContextOp {
         }
 
         String baseClassName = typeReference.replace("[", "");
-        boolean isLocalClass = vm.isClassDefinedLocally(baseClassName);
+        boolean isLocalClass = vm.isLocalClass(baseClassName);
 
         return new FilledNewArrayOp(address, opName, childAddress, dimensionRegisters, typeReference, isLocalClass);
     }
@@ -65,7 +65,7 @@ public class FilledNewArrayOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         /*
          * The array type is always [I. This only populates the array with values from paramters. It does NOT create
          * n-dimensional arrays, just the parameter for reflect.Arrays.newInstance(). If you use anything but [I the

@@ -3,12 +3,12 @@ package org.cf.smalivm.context;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 
-public class ContextGraphBackedImplementaiton {
+public class ExecutionGraphBackedImplementaiton {
 
-    private final ContextGraph graph;
+    private final ExecutionGraph graph;
     private final MutableMethodImplementation implementation;
 
-    ContextGraphBackedImplementaiton(ContextGraph graph, MutableMethodImplementation implementation) {
+    ExecutionGraphBackedImplementaiton(ExecutionGraph graph, MutableMethodImplementation implementation) {
         this.graph = graph;
         this.implementation = implementation;
     }

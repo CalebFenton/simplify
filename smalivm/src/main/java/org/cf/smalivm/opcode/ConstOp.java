@@ -1,11 +1,8 @@
 package org.cf.smalivm.opcode;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
@@ -17,8 +14,10 @@ import org.jf.dexlib2.iface.instruction.WideLiteralInstruction;
 import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public class ConstOp extends MethodContextOp {
+public class ConstOp extends MethodStateOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
@@ -49,7 +48,7 @@ public class ConstOp extends MethodContextOp {
             literal = className;
 
             // Defer class lookup for execute. We may want to handle any possible errors there.
-            if (vm.isClassDefinedLocally(className)) {
+            if (vm.isLocalClass(className)) {
                 constType = ConstType.LOCAL_TYPE;
             } else {
                 constType = ConstType.CLASS;
@@ -92,7 +91,14 @@ public class ConstOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
+        Object result = getConst();
+        mctx.assignRegister(destRegister, result);
+
+        return getPossibleChildren();
+    }
+
+    private Object getConst() {
         Object result = null;
         if (constType == ConstType.CLASS) {
             String className = (String) literal;
@@ -110,9 +116,7 @@ public class ConstOp extends MethodContextOp {
             result = literal;
         }
 
-        mctx.assignRegister(destRegister, result);
-
-        return getPossibleChildren();
+        return result;
     }
 
     @Override

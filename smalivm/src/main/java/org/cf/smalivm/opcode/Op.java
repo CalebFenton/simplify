@@ -33,8 +33,8 @@ public abstract class Op {
         return childAddresses;
     }
 
-    public SideEffect.Type sideEffectType() {
-        return SideEffect.Type.NONE;
+    public SideEffect.Level sideEffectType() {
+        return SideEffect.Level.NONE;
     }
 
 }

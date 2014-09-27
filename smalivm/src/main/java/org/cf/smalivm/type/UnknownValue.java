@@ -18,7 +18,7 @@ public class UnknownValue implements Type {
     }
 
     // TODO: After removing UnimplementedOp, remove this method and make smaliType final.
-    // Type only need to change because sometimes they're "?" which can cause problems of parameter width calculation.
+    // Level only need to change because sometimes they're "?" which can cause problems of parameter width calculation.
     public void setType(String smaliType) {
         this.smaliType = smaliType;
     }

@@ -2,8 +2,8 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ClassContextMap;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.FieldReference;
@@ -11,7 +11,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SGetOp extends FullContextOp {
+public class SGetOp extends ExecutionContextOp {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SGetOp.class.getSimpleName());
@@ -42,9 +42,11 @@ public class SGetOp extends FullContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx, ClassContextMap classContextMap) {
-        Object value = StaticFieldAccessor.getField(vm, fieldDescriptor);
-        mctx.assignRegister(destRegister, value);
+    public int[] execute(ExecutionContext ectx) {
+        System.out.println("getting sgetting fd + " + fieldDescriptor);
+        Object value = StaticFieldAccessor.getField(vm, ectx, fieldDescriptor);
+        MethodState mstate = ectx.getMethodState();
+        mstate.assignRegister(destRegister, value);
 
         return getPossibleChildren();
     }

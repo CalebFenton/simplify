@@ -1,14 +1,14 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.util.ReferenceUtil;
 
-public class NewArrayOp extends MethodContextOp {
+public class NewArrayOp extends MethodStateOp {
 
     static NewArrayOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -22,7 +22,7 @@ public class NewArrayOp extends MethodContextOp {
         String typeReference = ReferenceUtil.getReferenceString(instr.getReference());
 
         String baseClassName = typeReference.replace("[", "");
-        boolean isLocalClass = vm.isClassDefinedLocally(baseClassName);
+        boolean isLocalClass = vm.isLocalClass(baseClassName);
 
         return new NewArrayOp(address, opName, childAddress, destRegister, dimensionRegister, typeReference,
                         isLocalClass);
@@ -44,7 +44,7 @@ public class NewArrayOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         Object dimensionValue = mctx.readRegister(dimensionRegister);
 
         Object instance = null;

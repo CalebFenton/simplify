@@ -1,22 +1,22 @@
 package org.cf.smalivm.type;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.cf.smalivm.context.InstanceContext;
+import org.cf.smalivm.context.InstanceState;
 
 public class LocalInstance implements Type {
 
-    private InstanceContext ctx;
+    private InstanceState istate;
 
     private final String smaliType;
 
     public LocalInstance(String smaliType) {
         this.smaliType = smaliType;
-        ctx = null;
+        istate = null;
     }
 
-    public InstanceContext getContext() {
-        // isInitialized -> ctx != null ?
-        return ctx;
+    public InstanceState getState() {
+        // isInitialized -> istate != null ?
+        return istate;
     }
 
     public String getType() {
@@ -24,11 +24,11 @@ public class LocalInstance implements Type {
     }
 
     public boolean isInitialized() {
-        return getContext() == null;
+        return getState() == null;
     }
 
-    public void setContext(InstanceContext ctx) {
-        this.ctx = ctx;
+    public void setContext(InstanceState ictx) {
+        this.istate = ictx;
     }
 
     @Override
@@ -48,7 +48,7 @@ public class LocalInstance implements Type {
 
         LocalInstance rhs = (LocalInstance) other;
 
-        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(ctx, rhs.ctx).isEquals();
+        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(istate, rhs.istate).isEquals();
     }
 
 }

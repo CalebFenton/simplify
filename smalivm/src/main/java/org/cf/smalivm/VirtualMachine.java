@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.cf.smalivm.context.ClassContext;
-import org.cf.smalivm.context.ClassContextMap;
-import org.cf.smalivm.context.ContextGraph;
-import org.cf.smalivm.context.ContextNode;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.ClassState;
+import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
 import org.cf.smalivm.type.LocalInstance;
@@ -30,7 +30,14 @@ import org.slf4j.LoggerFactory;
 
 public class VirtualMachine {
 
-    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
+    public static int getParameterSize(List<String> parameterTypes) {
+        int result = 0;
+        for (String type : parameterTypes) {
+            result += type.equals("J") || type.equals("D") ? 2 : 1;
+        }
+
+        return result;
+    }
 
     private static Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> buildMethodDescriptorToTryCatchList(
                     List<BuilderClassDef> classDefs) {
@@ -46,8 +53,186 @@ public class VirtualMachine {
 
     }
 
-    private static MethodContext buildRootMethodContext(String methodDescriptor, int accessFlags, int registerCount,
-                    List<String> parameterTypes) {
+    private static Set<String> buildLocalClasses(List<BuilderClassDef> classDefs) {
+        Set<String> result = new HashSet<String>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            String className = ReferenceUtil.getReferenceString(classDef);
+            result.add(className);
+        }
+
+        return result;
+    }
+
+    private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
+        return methodDescriptor.split("->", 2)[0];
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
+
+    private final int maxNodeVisits;
+    private final int maxCallDepth;
+    private final Set<String> localClasses;
+    private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
+    private final Map<String, ExecutionGraph> methodDescriptorToTemplateContextGraph;
+    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
+    private final ExecutionContext templateExecutionContext;
+    private final MethodExecutor methodExecutor;
+
+    public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
+        this.maxNodeVisits = maxNodeVisits;
+        this.maxCallDepth = maxCallDepth;
+
+        localClasses = buildLocalClasses(classDefs);
+        methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
+        methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
+        templateExecutionContext = buildTemplateExecutionContext(classDefs);
+        methodExecutor = new MethodExecutor(this);
+
+        // Build graphs last because that's when ops are created and they may access the VM.
+        methodDescriptorToTemplateContextGraph = new HashMap<String, ExecutionGraph>();
+        buildMethodDescriptorToTemplateContextGraph(classDefs);
+    }
+
+    public VirtualMachine(String path) throws Exception {
+        this(path, 2000, 20);
+    }
+
+    public VirtualMachine(String path, int maxNodeVisits, int maxCallDepth) throws Exception {
+        this(Dexifier.dexifySmaliFiles(path), maxNodeVisits, maxCallDepth);
+    }
+
+    public ExecutionGraph execute(String methodDescriptor) {
+        ExecutionContext ectx = getRootExecutionContext(methodDescriptor);
+
+        return execute(methodDescriptor, ectx);
+    }
+
+    public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) {
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        ectx.staticallyInitializeClassIfNecessary(className);
+
+        ExecutionGraph graph = getInstructionGraphClone(methodDescriptor);
+        ExecutionNode rootNode = graph.getRoot();
+        rootNode.setContext(ectx);
+
+        ExecutionGraph result = null;
+        try {
+            result = methodExecutor.execute(graph);
+        } catch (MaxCallDepthExceeded | MaxNodeVisitsExceeded e) {
+            log.warn(e.toString());
+        } catch (Exception e) {
+            log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
+            log.debug("Stack trace: ", e);
+            throw e;
+        }
+
+        // Need to collapse class context multiverse into consensus
+        // build new cstate for every class defined at terminating addresses
+        // if a class is not initialized at every terminating address, all unknown
+        // else
+        // for every field in class, set cstate to consensus
+        // TODO: !!! graph.getFieldConsensus
+
+        return result;
+    }
+
+    public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
+        ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
+        ExecutionGraph result = new ExecutionGraph(graph);
+
+        return result;
+    }
+
+    // private ClassState getStaticClassContext_delete(String className) {
+    // if (!classNameToTemplateState.containsKey(className)) {
+    // log.warn("Peeking context of non-local class: " + className + ". Returning empty context.");
+    // ClassState ctx = new ClassState(0);
+    // classNameToTemplateState.put(className, ctx);
+    //
+    // return ctx;
+    // }
+    //
+    // return classNameToTemplateState.get(className);
+    // }
+
+    public int getMaxCallDepth() {
+        return maxCallDepth;
+    }
+
+    public int getMaxNodeVisits() {
+        return maxNodeVisits;
+    }
+
+    public Set<String> getMethodDescriptors() {
+        return methodDescriptorToBuilderMethod.keySet();
+    }
+
+    public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
+        return methodDescriptorToTryCatchList;
+    }
+
+    public boolean isLocalClass(String className) {
+        return localClasses.contains(className);
+    }
+
+    public boolean isLocalMethod(String methodDescriptor) {
+        return methodDescriptorToTemplateContextGraph.containsKey(methodDescriptor);
+    }
+
+    public void updateInstructionGraph(String methodDescriptor) {
+        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
+        ExecutionGraph graph = new ExecutionGraph(this, method);
+        methodDescriptorToTemplateContextGraph.put(methodDescriptor, graph);
+    }
+
+    private static Map<String, BuilderMethod> buildMethodDescriptorToBuilderMethod(List<BuilderClassDef> classDefs) {
+        Map<String, BuilderMethod> result = new HashMap<String, BuilderMethod>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                result.put(methodDescriptor, method);
+            }
+        }
+
+        return result;
+    }
+
+    private void buildMethodDescriptorToTemplateContextGraph(final List<BuilderClassDef> classDefs) {
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                updateInstructionGraph(methodDescriptor);
+            }
+        }
+    }
+
+    private ExecutionContext buildTemplateExecutionContext(List<BuilderClassDef> classDefs) {
+        ExecutionContext result = new ExecutionContext(this);
+        for (BuilderClassDef classDef : classDefs) {
+            // Build out context with all fields so they can be enumerated later.
+            // This context should be cloned and never changed.
+            String className = ReferenceUtil.getReferenceString(classDef);
+            ClassState cstate = new ClassState(result, className, classDef.getFields().size());
+            for (BuilderField field : classDef.getFields()) {
+                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
+                String fieldNameAndType = fieldDescriptor.split("->")[1];
+                String type = fieldNameAndType.split(":")[1];
+                cstate.pokeField(fieldNameAndType, new UnknownValue(type));
+            }
+
+            result.setClassState(className, cstate);
+
+        }
+
+        return result;
+    }
+
+    public ExecutionContext getRootExecutionContext(String methodDescriptor) {
+        BuilderMethod method = getBuilderMethod(methodDescriptor);
+        int accessFlags = method.getAccessFlags();
+        int registerCount = method.getImplementation().getRegisterCount();
+        List<String> parameterTypes = Utils.getParameterTypes(methodDescriptor);
+
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
         if (!isStatic) {
             // Append instance reference to p0
@@ -61,250 +246,21 @@ public class VirtualMachine {
         // TODO: store parameter types for they can be looked up by invokeop instead of carried around
 
         // Assume all input values are unknown.
+        ExecutionContext result = new ExecutionContext(templateExecutionContext);
         int parameterCount = getParameterSize(parameterTypes);
-        MethodContext result = new MethodContext(registerCount, parameterCount, 0);
+        MethodState mstate = new MethodState(result, registerCount, parameterCount);
         for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
-            result.assignParameter(parameterIndex, value);
+            mstate.assignParameter(parameterIndex, value);
         }
+        result.setMethodState(mstate);
 
         return result;
-    }
-
-    private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
-        return methodDescriptor.split("->", 2)[0];
-    }
-
-    public static int getParameterSize(List<String> parameterTypes) {
-        int result = 0;
-        for (String type : parameterTypes) {
-            result += type.equals("J") || type.equals("D") ? 2 : 1;
-        }
-
-        return result;
-    }
-
-    private final Map<String, ClassContext> classNameToClassContext;
-    private final Set<String> localClasses;
-
-    private final int maxNodeVisits;
-    private final int maxCallDepth;
-    private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
-    private final Map<String, ContextGraph> methodDescriptorToInstructionGraph;
-    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
-    private final MethodExecutor methodExecutor;
-
-    public VirtualMachine(String path) throws Exception {
-        this(path, 2000, 20);
-    }
-
-    public VirtualMachine(String path, int maxNodeVisits, int maxCallDepth) throws Exception {
-        this(Dexifier.dexifySmaliFiles(path), maxNodeVisits, maxCallDepth);
-    }
-
-    public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
-        this.maxNodeVisits = maxNodeVisits;
-        this.maxCallDepth = maxCallDepth;
-
-        methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
-        methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
-        classNameToClassContext = buildClassNameToClassContext(classDefs);
-        localClasses = new HashSet<String>(classNameToClassContext.keySet());
-        methodExecutor = new MethodExecutor(this);
-
-        // Build graphs last because that's when ops are created and they may access the VM.
-        methodDescriptorToInstructionGraph = buildMethodDescriptorToInstructionGraph(classDefs);
-    }
-
-    // For testing
-    public void setupClassContext(Map<String, Map<String, Object>> classNameToInitialFieldValue) {
-        for (String contextClassName : classNameToInitialFieldValue.keySet()) {
-            ClassContext cctx = getStaticClassContext(contextClassName);
-            Map<String, Object> fieldNameToValue = classNameToInitialFieldValue.get(contextClassName);
-            for (String fieldReference : fieldNameToValue.keySet()) {
-                Object value = fieldNameToValue.get(fieldReference);
-                cctx.pokeField(fieldReference, value);
-            }
-        }
-    }
-
-    public ContextGraph execute(String methodDescriptor) {
-        MethodContext mctx = buildRootMethodContext(methodDescriptor);
-
-        return execute(methodDescriptor, mctx);
-    }
-
-    public ContextGraph execute(String methodDescriptor, MethodContext mctx) {
-        ClassContextMap classContextMap = new ClassContextMap();
-
-        return execute(methodDescriptor, mctx, classContextMap);
-    }
-
-    public ContextGraph execute(String methodDescriptor, MethodContext mctx, ClassContextMap classContextMap) {
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        staticallyInitializeClassIfNecessary(className, classContextMap);
-
-        ContextGraph result = null;
-        try {
-            result = methodExecutor.execute(methodDescriptor, mctx, classContextMap);
-        } catch (MaxCallDepthExceeded | MaxNodeVisitsExceeded e) {
-            log.warn(e.toString());
-        } catch (Exception e) {
-            log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
-            log.debug("Stack trace: ", e);
-        }
-
-        return result;
-    }
-
-    public void setClassContext(String className, ClassContext ctx) {
-        classNameToClassContext.put(className, ctx);
-    }
-
-    ClassContext getStaticClassContext(String className) {
-        if (!classNameToClassContext.containsKey(className)) {
-            log.warn("Peeking context of non-local class: " + className + ". Returning empty context.");
-            ClassContext ctx = new ClassContext(0);
-            classNameToClassContext.put(className, ctx);
-
-            return ctx;
-        }
-
-        return classNameToClassContext.get(className);
-    }
-
-    public ContextGraph getInstructionGraphClone(String methodDescriptor) {
-        ContextGraph graph = methodDescriptorToInstructionGraph.get(methodDescriptor);
-        ContextGraph result = new ContextGraph(graph);
-
-        return result;
-    }
-
-    public int getMaxCallDepth() {
-        return maxCallDepth;
-    }
-
-    public int getMaxNodeVisits() {
-        return maxNodeVisits;
-    }
-
-    public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
-        return methodDescriptorToTryCatchList;
-    }
-
-    public boolean isClassDefinedLocally(String className) {
-        return localClasses.contains(className);
-    }
-
-    public boolean isMethodDefined(String methodDescriptor) {
-        return methodDescriptorToInstructionGraph.containsKey(methodDescriptor);
-    }
-
-    public void updateInstructionGraph(String methodDescriptor) {
-        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
-        ContextGraph graph = new ContextGraph(this, method);
-        MethodContext mctx = buildRootMethodContext(methodDescriptor);
-        graph.getRootNode().setMethodContext(mctx);
-        methodDescriptorToInstructionGraph.put(methodDescriptor, graph);
-    }
-
-    private Map<String, ClassContext> buildClassNameToClassContext(List<BuilderClassDef> classDefs) {
-        Map<String, ClassContext> result = new HashMap<String, ClassContext>(classDefs.size());
-        for (BuilderClassDef classDef : classDefs) {
-            // Build out context with all fields so they can be enumerated later.
-            // This context should be cloned and never changed.
-            ClassContext cctx = new ClassContext(classDef.getFields().size());
-            for (BuilderField field : classDef.getFields()) {
-                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
-                String fieldNameAndType = fieldDescriptor.split("->")[1];
-                String type = fieldNameAndType.split(":")[1];
-                cctx.pokeField(fieldNameAndType, new UnknownValue(type));
-            }
-
-            String className = ReferenceUtil.getReferenceString(classDef);
-            result.put(className, cctx);
-        }
-
-        return result;
-    }
-
-    private Map<String, BuilderMethod> buildMethodDescriptorToBuilderMethod(List<BuilderClassDef> classDefs) {
-        Map<String, BuilderMethod> result = new HashMap<String, BuilderMethod>(classDefs.size());
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                result.put(methodDescriptor, method);
-            }
-        }
-
-        return result;
-    }
-
-    private Map<String, ContextGraph> buildMethodDescriptorToInstructionGraph(final List<BuilderClassDef> classDefs) {
-        Map<String, ContextGraph> result = new HashMap<String, ContextGraph>(classDefs.size());
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                ContextGraph graph = new ContextGraph(this, method);
-                ContextNode rootNode = graph.getRootNode();
-                MethodContext mctx = buildRootMethodContext(methodDescriptor);
-                rootNode.setMethodContext(mctx);
-                result.put(methodDescriptor, graph);
-            }
-        }
-
-        return result;
-    }
-
-    public MethodContext buildRootMethodContext(String methodDescriptor) {
-        BuilderMethod method = getBuilderMethod(methodDescriptor);
-        int accessFlags = method.getAccessFlags();
-        int registerCount = method.getImplementation().getRegisterCount();
-        List<String> parameterTypes = Utils.getParameterTypes(methodDescriptor);
-
-        return buildRootMethodContext(methodDescriptor, accessFlags, registerCount, parameterTypes);
-    }
-
-    public Set<String> getMethodDescriptors() {
-        return methodDescriptorToBuilderMethod.keySet();
     }
 
     private BuilderMethod getBuilderMethod(String methodDescriptor) {
         return methodDescriptorToBuilderMethod.get(methodDescriptor);
     }
 
-    public void staticallyInitializeClassIfNecessary(String className, ClassContextMap classContextMap) {
-        // This method should be called when a class is first used. A usage is:
-        // 1.) The invocation of a method declared by the class (not inherited from a superclass)
-        // 2.) The invocation of a constructor of the class (covered by #1)
-        // 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
-        // that are both static and final, and are initialized by a compile-time constant expression.
-
-        if (classContextMap.isClassInitialized(className)) {
-            return;
-        }
-        ClassContext cctx = new ClassContext(classNameToClassContext.get(className));
-        classContextMap.setClassContext(className, cctx);
-
-        String clinitDescriptor = className + "-><clinit>()V";
-        if (methodDescriptorToBuilderMethod.containsKey(clinitDescriptor)) {
-            ContextGraph graph = execute(clinitDescriptor);
-            if (graph == null) {
-                // Error executing. Assume the worst.
-                classContextMap.setSideEffectType(className, SideEffect.Type.STRONG);
-            } else {
-                // Need to collapse class context multiverse into consensus
-                // build new cctx for every class defined at terminating addresses
-                // if a class is not initialized at every terminating address, all unknown
-                // else
-                // for every field in class, set cctx to consensus
-                // TODO: !!! graph.getFieldConsensus
-                SideEffect.Type sideEffectType = graph.getStrongestSideEffectType();
-                classContextMap.setSideEffectType(className, sideEffectType);
-            }
-        } else {
-            // No clinit for this class.
-        }
-    }
 }

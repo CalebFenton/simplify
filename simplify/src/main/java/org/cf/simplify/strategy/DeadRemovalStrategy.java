@@ -16,9 +16,9 @@ import java.util.Set;
 
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.context.ContextGraph;
-import org.cf.smalivm.context.ContextNode;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.GotoOp;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
@@ -34,13 +34,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
 
-    private static final SideEffect.Type SIDE_EFFECT_THRESHOLD = SideEffect.Type.WEAK;
+    private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
-    private static boolean areAssignmentsRead(int address, TIntList assigned, ContextGraph graph) {
-        Deque<ContextNode> stack = new ArrayDeque<ContextNode>(getChildrenAtAddress(address, graph));
-        ContextNode node;
+    private static boolean areAssignmentsRead(int address, TIntList assigned, ExecutionGraph graph) {
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildrenAtAddress(address, graph));
+        ExecutionNode node;
         while ((node = stack.poll()) != null) {
-            MethodContext ctx = node.getMethodContext();
+            MethodState ctx = node.getMethodState();
             for (int register : assigned.toArray()) {
                 if (ctx.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
@@ -89,10 +89,10 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    private static List<ContextNode> getChildrenAtAddress(int address, ContextGraph graph) {
-        List<ContextNode> result = new ArrayList<ContextNode>();
-        List<ContextNode> nodePile = graph.getNodePile(address);
-        for (ContextNode node : nodePile) {
+    private static List<ExecutionNode> getChildrenAtAddress(int address, ExecutionGraph graph) {
+        List<ExecutionNode> result = new ArrayList<ExecutionNode>();
+        List<ExecutionNode> nodePile = graph.getNodePile(address);
+        for (ExecutionNode node : nodePile) {
             result.addAll(node.getChildren());
         }
 
@@ -176,8 +176,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 continue;
             }
 
-            List<ContextNode> pile = mbgraph.getNodePile(address);
-            MethodContext mctx = pile.get(0).getMethodContext();
+            List<ExecutionNode> pile = mbgraph.getNodePile(address);
+            MethodState mctx = pile.get(0).getMethodState();
             if (mctx == null) {
                 log.warn("Null method context. This shouldn't happen!");
                 continue;

@@ -4,12 +4,13 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 
-class ContextGraphIterator implements Iterator<ContextNode> {
-    private final Deque<ContextNode> stack;
+class ExecutionGraphIterator implements Iterator<ExecutionNode> {
 
-    ContextGraphIterator(ContextGraph graph) {
-        stack = new ArrayDeque<ContextNode>();
-        ContextNode rootNode = graph.getRootNode();
+    private final Deque<ExecutionNode> stack;
+
+    ExecutionGraphIterator(ExecutionGraph graph) {
+        stack = new ArrayDeque<ExecutionNode>();
+        ExecutionNode rootNode = graph.getRoot();
 
         if (rootNode != null) {
             stack.push(rootNode);
@@ -22,8 +23,8 @@ class ContextGraphIterator implements Iterator<ContextNode> {
     }
 
     @Override
-    public ContextNode next() {
-        ContextNode result = stack.poll();
+    public ExecutionNode next() {
+        ExecutionNode result = stack.poll();
         stack.addAll(result.getChildren());
 
         return result;

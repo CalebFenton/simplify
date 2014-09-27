@@ -9,7 +9,7 @@ import org.cf.simplify.strategy.DeadRemovalStrategy;
 import org.cf.simplify.strategy.OptimizationStrategy;
 import org.cf.simplify.strategy.PeepholeStrategy;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ContextGraph;
+import org.cf.smalivm.context.ExecutionGraph;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -27,7 +27,7 @@ public class Optimizer {
     private final List<OptimizationStrategy> performRepeatedlyStrategies;
     private final List<OptimizationStrategy> allStrategies;
 
-    public Optimizer(ContextGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
+    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
         performOnceStrategies = new ArrayList<OptimizationStrategy>();

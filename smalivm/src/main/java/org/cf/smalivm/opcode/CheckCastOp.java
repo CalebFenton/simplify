@@ -1,13 +1,13 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.MethodContext;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
-public class CheckCastOp extends MethodContextOp {
+public class CheckCastOp extends MethodStateOp {
 
     static CheckCastOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -34,11 +34,11 @@ public class CheckCastOp extends MethodContextOp {
     }
 
     @Override
-    public int[] execute(MethodContext mctx) {
+    public int[] execute(MethodState mctx) {
         Object value = mctx.readRegister(targetRegister);
         if (value instanceof UnknownValue) {
             value = new UnknownValue(className);
-        } else if (vm.isClassDefinedLocally(className)) {
+        } else if (vm.isLocalClass(className)) {
             // TODO: make VM keep track of local class hierarchy
         } else {
             // TODO: make exception framework and throw exception if can't cast

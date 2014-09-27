@@ -3,18 +3,29 @@ package org.cf.smalivm.context;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ClassContext extends BaseContext {
+public class ClassState extends BaseState {
 
     private final Map<String, Integer> fieldToRegister;
+    private final String className;
 
-    public ClassContext(ClassContext parent) {
-        this(parent.fieldToRegister.size());
+    ClassState(ClassState parent, ExecutionContext ectx) {
+        super(parent, ectx);
+
+        fieldToRegister = new HashMap<String, Integer>(parent.fieldToRegister);
+        className = parent.className;
     }
 
-    public ClassContext(int fieldCount) {
-        super(fieldCount);
+    public ClassState(ExecutionContext ectx, String className, int fieldCount) {
+        super(ectx, className, fieldCount);
 
         fieldToRegister = new HashMap<String, Integer>(fieldCount);
+        this.className = className;
+    }
+
+    ClassState getChild(ExecutionContext childContext) {
+        ClassState child = new ClassState(childContext, className, fieldToRegister.size());
+
+        return child;
     }
 
     private int getRegister(String fieldNameAndType) {
@@ -63,7 +74,7 @@ public class ClassContext extends BaseContext {
         return sb.toString();
     }
 
-    public boolean equals(ClassContext other) {
+    public boolean equals(ClassState other) {
         return this.toString().equals(other.toString());
     }
 
