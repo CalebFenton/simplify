@@ -30,7 +30,7 @@ public abstract class Op {
         return childAddresses;
     }
 
-    public SideEffect.Level sideEffectType() {
+    public SideEffect.Level sideEffectLevel() {
         return SideEffect.Level.NONE;
     }
 

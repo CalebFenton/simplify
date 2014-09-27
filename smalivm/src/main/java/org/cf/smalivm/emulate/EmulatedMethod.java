@@ -5,7 +5,7 @@ import org.cf.smalivm.context.MethodState;
 
 public interface EmulatedMethod {
 
-    public void execute(MethodState mctx);
+    public void execute(MethodState mState);
 
     public Level getSideEffectType();
 

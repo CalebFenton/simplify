@@ -34,8 +34,8 @@ public class CheckCastOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object value = mctx.readRegister(targetRegister);
+    public int[] execute(MethodState mState) {
+        Object value = mState.readRegister(targetRegister);
         if (value instanceof UnknownValue) {
             value = new UnknownValue(className);
         } else if (vm.isLocalClass(className)) {
@@ -43,7 +43,7 @@ public class CheckCastOp extends MethodStateOp {
         } else {
             // TODO: make exception framework and throw exception if can't cast
         }
-        mctx.assignRegister(targetRegister, value);
+        mState.assignRegister(targetRegister, value);
 
         return getPossibleChildren();
     }

@@ -51,8 +51,8 @@ public class UnaryMathOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object value = mctx.readRegister(srcRegister);
+    public int[] execute(MethodState mState) {
+        Object value = mState.readRegister(srcRegister);
         Object newValue = null;
         if (value instanceof UnknownValue) {
             String destType = getDestinationTypeName(getOpName());
@@ -61,7 +61,7 @@ public class UnaryMathOp extends MethodStateOp {
             newValue = perform(value, getOpName());
         }
 
-        mctx.assignRegister(destRegister, newValue);
+        mState.assignRegister(destRegister, newValue);
 
         return this.getPossibleChildren();
     }

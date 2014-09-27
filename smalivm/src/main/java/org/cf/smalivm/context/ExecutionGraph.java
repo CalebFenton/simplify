@@ -147,8 +147,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
         for (ExecutionNode node : nodePile) {
-            ClassState cstate = node.getClassState(className);
-            Object value = cstate.peekField(fieldNameAndType);
+            ClassState cState = node.getClassState(className);
+            Object value = cState.peekField(fieldNameAndType);
             result.add(value);
         }
 
@@ -205,8 +205,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
         for (ExecutionNode node : nodePile) {
-            MethodState mstate = node.getMethodState();
-            Object value = mstate.peekRegister(register);
+            MethodState mState = node.getMethodState();
+            Object value = mState.peekRegister(register);
             result.add(value);
         }
 
@@ -218,16 +218,16 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addressToNodePile.get(0).get(0);
     }
 
-    public SideEffect.Level getStrongestSideEffectType() {
+    public SideEffect.Level getHighestSideEffectLevel() {
         SideEffect.Level result = SideEffect.Level.NONE;
         for (ExecutionNode node : this) {
             Op op = node.getOp();
-            SideEffect.Level type = op.sideEffectType();
-            switch (type) {
+            SideEffect.Level level = op.sideEffectLevel();
+            switch (level) {
             case STRONG:
-                return type;
+                return level;
             case WEAK:
-                result = type;
+                result = level;
                 break;
             case NONE:
                 break;

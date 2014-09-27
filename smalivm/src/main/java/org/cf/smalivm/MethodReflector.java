@@ -156,7 +156,7 @@ public class MethodReflector {
         }
     }
 
-    private Object[] getArguments(MethodState mctx) {
+    private Object[] getArguments(MethodState mState) {
         int offset = 0;
         if (!isStatic) {
             // First element in context will be instance reference if non-static method.
@@ -164,8 +164,8 @@ public class MethodReflector {
         }
 
         List<Object> args = new ArrayList<Object>();
-        for (int i = offset; i < mctx.getRegisterCount(); i++) {
-            Object arg = mctx.getParameter(i);
+        for (int i = offset; i < mState.getRegisterCount(); i++) {
+            Object arg = mState.getParameter(i);
             String type = parameterTypes.get(i);
             if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
                 // Booleans are represented in Smali and stored internally as integers. Convert to boolean.

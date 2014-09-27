@@ -44,8 +44,8 @@ public class SPutOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        MethodState mstate = ectx.getMethodState();
-        Object value = mstate.readRegister(valueRegister);
+        MethodState mState = ectx.getMethodState();
+        Object value = mState.readRegister(valueRegister);
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
         StaticFieldAccessor.putField(vm, ectx, fieldDescriptor, value);
 
@@ -53,7 +53,7 @@ public class SPutOp extends ExecutionContextOp {
     }
 
     @Override
-    public SideEffect.Level sideEffectType() {
+    public SideEffect.Level sideEffectLevel() {
         return SideEffect.Level.WEAK;
     }
 

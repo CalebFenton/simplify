@@ -19,7 +19,7 @@ public class GotoOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         return getPossibleChildren();
     }
 

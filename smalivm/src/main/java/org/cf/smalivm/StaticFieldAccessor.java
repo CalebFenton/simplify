@@ -24,8 +24,8 @@ public class StaticFieldAccessor {
 
         Object result;
         if (vm.isLocalClass(className)) {
-            ClassState cstate = ectx.getClassState(className);
-            result = cstate.readField(fieldNameAndType);
+            ClassState cState = ectx.getClassState(className);
+            result = cState.readField(fieldNameAndType);
         } else if (MethodReflector.isWhitelisted(className)) {
             // Use reflection
             try {
@@ -52,8 +52,8 @@ public class StaticFieldAccessor {
         String fieldNameAndType = parts[1];
 
         if (vm.isLocalClass(className)) {
-            ClassState cstate = ectx.getClassState(className);
-            cstate.assignField(fieldNameAndType, value);
+            ClassState cState = ectx.getClassState(className);
+            cState.assignField(fieldNameAndType, value);
         } else {
             log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + value);
         }

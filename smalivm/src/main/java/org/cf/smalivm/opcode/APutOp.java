@@ -40,10 +40,10 @@ public class APutOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object value = mctx.readRegister(valueRegister);
-        Object array = mctx.readRegister(arrayRegister);
-        Object indexValue = mctx.readRegister(indexRegister);
+    public int[] execute(MethodState mState) {
+        Object value = mState.readRegister(valueRegister);
+        Object array = mState.readRegister(arrayRegister);
+        Object indexValue = mState.readRegister(indexRegister);
 
         // TODO: Adding unknown elements to arrays is very pessimistic. If the value is not known, the entire array
         // becomes unknown. It's much better (though much harder) to keep track of individual unknown elements. This
@@ -74,7 +74,7 @@ public class APutOp extends MethodStateOp {
         }
 
         // Let the optimizer know the array was modified.
-        mctx.assignRegister(arrayRegister, array);
+        mState.assignRegister(arrayRegister, array);
 
         return getPossibleChildren();
     }

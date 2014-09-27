@@ -30,15 +30,15 @@ public class FillArrayDataOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object value = mctx.readRegister(register);
+    public int[] execute(MethodState mState) {
+        Object value = mState.readRegister(register);
 
         // Payload handler will look at its parent (this op) and determine the
         // target register by looking at what's assigned here.
-        mctx.assignRegister(register, value);
+        mState.assignRegister(register, value);
 
         // But it still needs to know the return address when it's done.
-        mctx.setPseudoInstructionReturnAddress(returnAddress);
+        mState.setPseudoInstructionReturnAddress(returnAddress);
 
         return getPossibleChildren();
     }

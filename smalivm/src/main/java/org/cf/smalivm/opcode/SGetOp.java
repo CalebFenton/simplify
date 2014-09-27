@@ -45,8 +45,8 @@ public class SGetOp extends ExecutionContextOp {
     public int[] execute(ExecutionContext ectx) {
         System.out.println("getting sgetting fd + " + fieldDescriptor);
         Object value = StaticFieldAccessor.getField(vm, ectx, fieldDescriptor);
-        MethodState mstate = ectx.getMethodState();
-        mstate.assignRegister(destRegister, value);
+        MethodState mState = ectx.getMethodState();
+        mState.assignRegister(destRegister, value);
 
         return getPossibleChildren();
     }

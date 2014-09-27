@@ -177,13 +177,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             List<ExecutionNode> pile = mbgraph.getNodePile(address);
-            MethodState mctx = pile.get(0).getMethodState();
-            if (mctx == null) {
+            MethodState mState = pile.get(0).getMethodState();
+            if (mState == null) {
                 log.warn("Null method context. This shouldn't happen!");
                 continue;
             }
 
-            TIntList assigned = mctx.getRegistersAssigned();
+            TIntList assigned = mState.getRegistersAssigned();
             if (assigned.size() == 0) {
                 continue;
             }
@@ -264,8 +264,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         TIntList result = getAddressesNotInCatchBlocks(addressToInstruction, tryBlocks);
         for (int address : result.toArray()) {
             Op op = mbgraph.getOp(address);
-            int sideEffect = op.sideEffectType().ordinal();
-            if (sideEffect > SIDE_EFFECT_THRESHOLD.ordinal()) {
+            int level = op.sideEffectLevel().getLevel();
+            if (level > SIDE_EFFECT_THRESHOLD.getLevel()) {
                 result.remove(address);
             }
         }

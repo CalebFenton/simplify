@@ -51,9 +51,9 @@ public class AGetOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object array = mctx.readRegister(arrayRegister);
-        Object indexValue = mctx.readRegister(indexRegister);
+    public int[] execute(MethodState mState) {
+        Object array = mState.readRegister(arrayRegister);
+        Object indexValue = mState.readRegister(indexRegister);
 
         Object value = null;
         if (array instanceof UnknownValue) {
@@ -69,7 +69,7 @@ public class AGetOp extends MethodStateOp {
             }
         }
 
-        mctx.assignRegister(valueRegister, value);
+        mState.assignRegister(valueRegister, value);
 
         return getPossibleChildren();
     }

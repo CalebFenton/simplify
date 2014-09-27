@@ -68,10 +68,10 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        MethodState parent = mctx.getParent();
+    public int[] execute(MethodState mState) {
+        MethodState parent = mState.getParent();
         int register = parent.getRegistersAssigned().get(0);
-        Object array = mctx.readRegister(register);
+        Object array = mState.readRegister(register);
         if (!(array instanceof UnknownValue)) {
             Class<?> expectedClass = array.getClass().getComponentType();
             for (int i = 0; i < arrayElements.size(); i++) {
@@ -79,10 +79,10 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
                 Object value = getProperValue(number, expectedClass);
                 Array.set(array, i, value);
             }
-            mctx.assignRegister(register, array);
+            mState.assignRegister(register, array);
         }
 
-        int returnAddress = mctx.getParent().getPseudoInstructionReturnAddress();
+        int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
         return new int[] { returnAddress };
     }
 

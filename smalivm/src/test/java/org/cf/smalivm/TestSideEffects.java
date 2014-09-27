@@ -43,7 +43,7 @@ public class TestSideEffects {
         String methodName = "ConstOps()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -51,7 +51,7 @@ public class TestSideEffects {
         String methodName = "EmptyMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -59,7 +59,7 @@ public class TestSideEffects {
         String methodName = "InvokeMethodThatInvokesUnknownMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -67,7 +67,7 @@ public class TestSideEffects {
         String methodName = "InvokeMethodWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -75,7 +75,7 @@ public class TestSideEffects {
         String methodName = "InvokeOfNonAnalyzableMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -83,7 +83,7 @@ public class TestSideEffects {
         String methodName = "InvokeSideEffectMethod(Ljava/lang/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -91,7 +91,7 @@ public class TestSideEffects {
         String methodName = "InvokeUnknownMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -99,7 +99,7 @@ public class TestSideEffects {
         String methodName = "InvokeWhitelistedMethods()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -107,7 +107,7 @@ public class TestSideEffects {
         String methodName = "ModifyInstanceMember()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.WEAK, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.WEAK, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -115,7 +115,7 @@ public class TestSideEffects {
         String methodName = "NewInstanceNonLocalNonWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -123,7 +123,7 @@ public class TestSideEffects {
         String methodName = "NewInstanceNonLocalWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -131,7 +131,7 @@ public class TestSideEffects {
         String methodName = "NewInstanceOfClassWithStaticInitializerWithStrongSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -139,7 +139,7 @@ public class TestSideEffects {
         String methodName = "NewInstanceOfClassWithStaticInitializerWithWeakSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.WEAK, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.WEAK, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -147,7 +147,7 @@ public class TestSideEffects {
         String methodName = "NewInstanceOfMethodWithNoStaticInitializer()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -156,7 +156,7 @@ public class TestSideEffects {
         String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.NONE, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
     @Test
@@ -164,7 +164,7 @@ public class TestSideEffects {
         String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
-        assertEquals(SideEffect.Level.STRONG, graph.getStrongestSideEffectType());
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
     }
 
 }

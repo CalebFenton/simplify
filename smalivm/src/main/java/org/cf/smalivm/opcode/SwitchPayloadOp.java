@@ -63,10 +63,10 @@ public class SwitchPayloadOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object targetValue = mctx.readResultRegister();
+    public int[] execute(MethodState mState) {
+        Object targetValue = mState.readResultRegister();
         // Pseudo points to instruction *after* switch op.
-        int switchOpAddress = mctx.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
+        int switchOpAddress = mState.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
 
         if (targetValue instanceof UnknownValue) {
             int[] children = getTargetAddresses(switchOpAddress, getPossibleChildren());
@@ -84,7 +84,7 @@ public class SwitchPayloadOp extends MethodStateOp {
         }
 
         // Branch target is unspecified. Continue to next op.
-        return new int[] { mctx.getPseudoInstructionReturnAddress() };
+        return new int[] { mState.getPseudoInstructionReturnAddress() };
     }
 
     @Override

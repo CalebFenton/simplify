@@ -53,14 +53,14 @@ public class NewInstanceOp extends ExecutionContextOp {
             instance = new UninitializedInstance(className);
         }
 
-        MethodState mstate = ectx.getMethodState();
-        mstate.assignRegister(destRegister, instance);
+        MethodState mState = ectx.getMethodState();
+        mState.assignRegister(destRegister, instance);
 
         return getPossibleChildren();
     }
 
     @Override
-    public SideEffect.Level sideEffectType() {
+    public SideEffect.Level sideEffectLevel() {
         return sideEffectType;
     }
 

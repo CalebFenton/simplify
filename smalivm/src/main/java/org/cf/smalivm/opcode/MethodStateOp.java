@@ -12,6 +12,6 @@ public abstract class MethodStateOp extends Op {
         super(address, opName, childAddresses);
     }
 
-    public abstract int[] execute(MethodState mctx);
+    public abstract int[] execute(MethodState mState);
 
 }

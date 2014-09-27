@@ -30,13 +30,13 @@ public class SwitchOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         // Use result register to store value to compare. Comparison is handled by payload op.
-        Object value = mctx.readRegister(register);
-        mctx.assignResultRegister(value);
+        Object value = mState.readRegister(register);
+        mState.assignResultRegister(value);
 
         // If switch "falls through", will need the immediate op after this.
-        mctx.setPseudoInstructionReturnAddress(childAddress);
+        mState.setPseudoInstructionReturnAddress(childAddress);
 
         return getPossibleChildren();
     }

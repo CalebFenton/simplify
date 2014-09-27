@@ -65,7 +65,7 @@ public class FilledNewArrayOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         /*
          * The array type is always [I. This only populates the array with values from paramters. It does NOT create
          * n-dimensional arrays, just the parameter for reflect.Arrays.newInstance(). If you use anything but [I the
@@ -74,11 +74,11 @@ public class FilledNewArrayOp extends MethodStateOp {
         int[] dimensions = new int[dimensionRegisters.length];
         for (int i = 0; i < dimensionRegisters.length; i++) {
             int register = dimensionRegisters[i];
-            int dimension = (int) mctx.readRegister(register);
+            int dimension = (int) mState.readRegister(register);
             dimensions[i] = dimension;
         }
 
-        mctx.assignResultRegister(dimensions);
+        mState.assignResultRegister(dimensions);
 
         return getPossibleChildren();
     }

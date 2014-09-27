@@ -5,13 +5,13 @@ import org.cf.smalivm.context.InstanceState;
 
 public class LocalInstance implements Type {
 
-    private InstanceState istate;
+    private InstanceState iState;
 
     private final String smaliType;
 
     public LocalInstance(String smaliType) {
         this.smaliType = smaliType;
-        istate = null;
+        iState = null;
     }
 
     @Override
@@ -26,12 +26,12 @@ public class LocalInstance implements Type {
 
         LocalInstance rhs = (LocalInstance) other;
 
-        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(istate, rhs.istate).isEquals();
+        return new EqualsBuilder().append(smaliType, rhs.smaliType).append(iState, rhs.iState).isEquals();
     }
 
     public InstanceState getState() {
-        // isInitialized -> istate != null ?
-        return istate;
+        // isInitialized -> iState != null ?
+        return iState;
     }
 
     public String getType() {
@@ -42,8 +42,8 @@ public class LocalInstance implements Type {
         return getState() == null;
     }
 
-    public void setContext(InstanceState ictx) {
-        this.istate = ictx;
+    public void setContext(InstanceState iState) {
+        this.iState = iState;
     }
 
     @Override

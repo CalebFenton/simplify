@@ -25,9 +25,9 @@ public class MethodEmulator {
         emulatedMethods.clear();
     }
 
-    public static SideEffect.Level emulate(MethodState mctx, String methodDescriptor, int[] parameterRegisters) {
+    public static SideEffect.Level emulate(MethodState mState, String methodDescriptor, int[] parameterRegisters) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
-        em.execute(mctx);
+        em.execute(mState);
 
         return em.getSideEffectType();
     }

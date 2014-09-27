@@ -32,16 +32,16 @@ public class ExecutionNode {
 
     public int[] execute() {
         ExecutionContext ectx = getContext();
-        MethodState mstate = ectx.getMethodState();
-        log.debug("HANDLING @" + op.getAddress() + ": " + op + "\nState before: " + mstate);
+        MethodState mState = ectx.getMethodState();
+        log.debug("HANDLING @" + op.getAddress() + ": " + op + "\nState before: " + mState);
 
         int[] result = null;
         if (op instanceof MethodStateOp) {
-            result = ((MethodStateOp) op).execute(mstate);
+            result = ((MethodStateOp) op).execute(mState);
         } else if (op instanceof ExecutionContextOp) {
             result = ((ExecutionContextOp) op).execute(ectx);
         }
-        log.debug("State after: " + mstate);
+        log.debug("State after: " + mState);
 
         return result;
     }
@@ -99,16 +99,16 @@ public class ExecutionNode {
         newChild.setParent(this);
     }
 
-    public void setClassState(String className, ClassState cstate) {
-        ectx.setClassState(className, cstate);
+    public void setClassState(String className, ClassState cState) {
+        ectx.setClassState(className, cState);
     }
 
     public void setContext(ExecutionContext ectx) {
         this.ectx = ectx;
     }
 
-    public void setMethodState(MethodState mstate) {
-        ectx.setMethodState(mstate);
+    public void setMethodState(MethodState mState) {
+        ectx.setMethodState(mState);
     }
 
     public void setParent(ExecutionNode parent) {

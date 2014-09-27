@@ -134,11 +134,11 @@ public class IfOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object A = mctx.readRegister(register1);
+    public int[] execute(MethodState mState) {
+        Object A = mState.readRegister(register1);
         Object B = 0;
         if (!compareToZero) {
-            B = mctx.readRegister(register2);
+            B = mState.readRegister(register2);
         }
 
         // Ambiguous predicate. Follow both branches.

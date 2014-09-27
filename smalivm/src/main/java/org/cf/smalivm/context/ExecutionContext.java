@@ -16,14 +16,14 @@ public class ExecutionContext {
     private final Heap heap;
     private final Set<String> initializedClasses;
 
-    private MethodState mstate;
+    private MethodState mState;
     private ExecutionContext parent;
     private final VirtualMachine vm;
 
     public ExecutionContext(ExecutionContext other) {
         vm = other.vm;
-        if (other.mstate != null) {
-            mstate = new MethodState(other.mstate, this);
+        if (other.mState != null) {
+            mState = new MethodState(other.mState, this);
         }
         classNameToState = new HashMap<String, ClassState>(other.classNameToState);
         classNameToSideEffectType = new HashMap<String, SideEffect.Level>(other.classNameToSideEffectType);
@@ -78,7 +78,7 @@ public class ExecutionContext {
     }
 
     public MethodState getMethodState() {
-        return mstate;
+        return mState;
     }
 
     public void initializeClassState(String className, ClassState cState) {
@@ -95,7 +95,7 @@ public class ExecutionContext {
     }
 
     public void setMethodState(MethodState mState) {
-        this.mstate = mState;
+        this.mState = mState;
     }
 
     public void staticallyInitializeClassIfNecessary(String className) {
@@ -122,7 +122,7 @@ public class ExecutionContext {
                 // Error executing. Assume the worst.
                 setClassSideEffectType(className, SideEffect.Level.STRONG);
             } else {
-                sideEffectType = graph.getStrongestSideEffectType();
+                sideEffectType = graph.getHighestSideEffectLevel();
             }
         } else {
             // No clinit for this class.

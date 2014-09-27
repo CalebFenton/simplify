@@ -36,8 +36,8 @@ public class ArrayLengthOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object array = mctx.readRegister(arrayRegister);
+    public int[] execute(MethodState mState) {
+        Object array = mState.readRegister(arrayRegister);
         Object value = null;
         if (array instanceof UnknownValue) {
             value = new UnknownValue("I");
@@ -50,7 +50,7 @@ public class ArrayLengthOp extends MethodStateOp {
                 log.warn("Unexpected non-array class: " + array.getClass() + ", " + array);
             }
         }
-        mctx.assignRegister(destRegister, value);
+        mState.assignRegister(destRegister, value);
 
         return getPossibleChildren();
     }

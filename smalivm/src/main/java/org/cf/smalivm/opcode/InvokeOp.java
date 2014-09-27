@@ -30,8 +30,8 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private static boolean allArgumentsKnown(MethodState mstate) {
-        Object[] registerValues = mstate.getRegisterToValue().values();
+    private static boolean allArgumentsKnown(MethodState mState) {
+        Object[] registerValues = mState.getRegisterToValue().values();
         for (Object value : registerValues) {
             if (value instanceof UnknownValue) {
                 return false;
@@ -152,8 +152,8 @@ public class InvokeOp extends ExecutionContextOp {
         if (vm.isLocalMethod(methodDescriptor)) {
             executeLocalMethod(methodDescriptor, ectx);
         } else {
-            MethodState mstate = ectx.getMethodState();
-            executeNonLocalMethod(methodDescriptor, mstate);
+            MethodState mState = ectx.getMethodState();
+            executeNonLocalMethod(methodDescriptor, mState);
         }
 
         return getPossibleChildren();
@@ -168,7 +168,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     @Override
-    public SideEffect.Level sideEffectType() {
+    public SideEffect.Level sideEffectLevel() {
         return sideEffectType;
     }
 
@@ -200,7 +200,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private void assumeMaximumUnknown(MethodState mstate) {
+    private void assumeMaximumUnknown(MethodState mState) {
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
             if (SmaliClassUtils.isImmutableClass(type)) {
@@ -213,12 +213,12 @@ public class InvokeOp extends ExecutionContextOp {
             log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
             int register = parameterRegisters[i];
             Object value = new UnknownValue(type);
-            mstate.pokeRegister(register, value);
+            mState.pokeRegister(register, value);
         }
 
         if (!returnType.equals("V")) {
             Object value = new UnknownValue(returnType);
-            mstate.assignResultRegister(value);
+            mState.assignResultRegister(value);
         }
     }
 
@@ -262,7 +262,7 @@ public class InvokeOp extends ExecutionContextOp {
             callerContext.getMethodState().assignResultRegister(consensus);
         }
 
-        sideEffectType = graph.getStrongestSideEffectType();
+        sideEffectType = graph.getHighestSideEffectLevel();
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext) {
@@ -305,7 +305,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     private void updateInstanceAndMutableArguments(ExecutionContext callerContext, ExecutionGraph graph) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
-        MethodState mstate = callerContext.getMethodState();
+        MethodState mState = callerContext.getMethodState();
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             boolean mutable = !SmaliClassUtils.isImmutableClass(type);
@@ -315,7 +315,7 @@ public class InvokeOp extends ExecutionContextOp {
 
             int register = parameterRegisters[parameterIndex];
             Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
-            mstate.assignRegister(register, value);
+            mState.assignRegister(register, value);
         }
     }
 

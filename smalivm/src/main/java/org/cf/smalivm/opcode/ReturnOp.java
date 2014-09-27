@@ -33,9 +33,9 @@ public class ReturnOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         if (!getOpName().endsWith("-void")) {
-            mctx.assignReturnRegister(mctx.readRegister(register));
+            mState.assignReturnRegister(mState.readRegister(register));
         }
 
         return getPossibleChildren();

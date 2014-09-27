@@ -278,13 +278,13 @@ public class BinaryMathOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object lhs = mctx.readRegister(arg1Register);
+    public int[] execute(MethodState mState) {
+        Object lhs = mState.readRegister(arg1Register);
         Object rhs = null;
         if (hasLiteral) {
             rhs = narrowLiteral;
         } else {
-            rhs = mctx.readRegister(arg2Register);
+            rhs = mState.readRegister(arg2Register);
         }
 
         Object result;
@@ -296,7 +296,7 @@ public class BinaryMathOp extends MethodStateOp {
                 log.warn("Null result in binary math. Not possibruuu!");
             }
         }
-        mctx.assignRegister(destRegister, result);
+        mState.assignRegister(destRegister, result);
 
         return getPossibleChildren();
     }

@@ -14,19 +14,19 @@ public class MoveOp extends MethodStateOp {
         RESULT
     };
 
-    private static void moveException(MethodState mctx, int toRegister) {
+    private static void moveException(MethodState mState, int toRegister) {
         String type = "Ljava/lang/Exception;";
         Object value = new UnknownValue(type);
-        mctx.assignRegister(toRegister, value);
+        mState.assignRegister(toRegister, value);
     }
 
-    private static void moveRegister(MethodState mctx, int toRegister, int fromRegister) {
-        Object value = mctx.readRegister(fromRegister);
-        mctx.assignRegister(toRegister, value);
+    private static void moveRegister(MethodState mState, int toRegister, int fromRegister) {
+        Object value = mState.readRegister(fromRegister);
+        mState.assignRegister(toRegister, value);
     }
-    private static void moveResult(MethodState mctx, int toRegister) {
-        Object value = mctx.readResultRegister();
-        mctx.assignRegister(toRegister, value);
+    private static void moveResult(MethodState mState, int toRegister) {
+        Object value = mState.readResultRegister();
+        mState.assignRegister(toRegister, value);
     }
     static MoveOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
@@ -64,17 +64,17 @@ public class MoveOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         switch (moveType) {
         case EXCEPTION:
             // TODO: implement with try/catch stuff?
-            moveException(mctx, toRegister);
+            moveException(mState, toRegister);
             break;
         case RESULT:
-            moveResult(mctx, toRegister);
+            moveResult(mState, toRegister);
             break;
         case REGISTER:
-            moveRegister(mctx, toRegister, targetRegister);
+            moveRegister(mState, toRegister, targetRegister);
             break;
         }
 

@@ -51,16 +51,16 @@ class UnimplementedOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         if (setsResult) {
-            mctx.assignResultRegister(new UnknownValue("?"));
+            mState.assignResultRegister(new UnknownValue("?"));
         }
 
         if (registerA >= 0) {
             if (setsRegister) {
-                mctx.assignRegister(registerA, new UnknownValue("?"));
+                mState.assignRegister(registerA, new UnknownValue("?"));
             } else {
-                mctx.readRegister(registerA);
+                mState.readRegister(registerA);
             }
         }
 

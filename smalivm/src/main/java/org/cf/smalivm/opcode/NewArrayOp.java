@@ -44,8 +44,8 @@ public class NewArrayOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
-        Object dimensionValue = mctx.readRegister(dimensionRegister);
+    public int[] execute(MethodState mState) {
+        Object dimensionValue = mState.readRegister(dimensionRegister);
 
         Object instance = null;
         if (dimensionValue instanceof UnknownValue) {
@@ -59,7 +59,7 @@ public class NewArrayOp extends MethodStateOp {
                 e.printStackTrace();
             }
         }
-        mctx.assignRegister(destRegister, instance);
+        mState.assignRegister(destRegister, instance);
 
         return getPossibleChildren();
     }

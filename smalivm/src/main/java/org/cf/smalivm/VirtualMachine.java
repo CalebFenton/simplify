@@ -80,6 +80,7 @@ public class VirtualMachine {
     private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
         return methodDescriptor.split("->", 2)[0];
     }
+
     private final Set<String> localClasses;
     private final int maxCallDepth;
     private final int maxNodeVisits;
@@ -139,26 +140,14 @@ public class VirtualMachine {
         }
 
         // Need to collapse class context multiverse into consensus
-        // build new cstate for every class defined at terminating addresses
+        // build new cState for every class defined at terminating addresses
         // if a class is not initialized at every terminating address, all unknown
         // else
-        // for every field in class, set cstate to consensus
+        // for every field in class, set cState to consensus
         // TODO: !!! graph.getFieldConsensus
 
         return result;
     }
-
-    // private ClassState getStaticClassContext_delete(String className) {
-    // if (!classNameToTemplateState.containsKey(className)) {
-    // log.warn("Peeking context of non-local class: " + className + ". Returning empty context.");
-    // ClassState ctx = new ClassState(0);
-    // classNameToTemplateState.put(className, ctx);
-    //
-    // return ctx;
-    // }
-    //
-    // return classNameToTemplateState.get(className);
-    // }
 
     public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
         ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
@@ -204,13 +193,13 @@ public class VirtualMachine {
         // Assume all input values are unknown.
         ExecutionContext result = new ExecutionContext(templateExecutionContext);
         int parameterCount = getParameterSize(parameterTypes);
-        MethodState mstate = new MethodState(result, registerCount, parameterCount);
+        MethodState mState = new MethodState(result, registerCount, parameterCount);
         for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
-            mstate.assignParameter(parameterIndex, value);
+            mState.assignParameter(parameterIndex, value);
         }
-        result.setMethodState(mstate);
+        result.setMethodState(mState);
 
         return result;
     }
@@ -244,15 +233,15 @@ public class VirtualMachine {
             // Build out context with all fields so they can be enumerated later.
             // This context should be cloned and never changed.
             String className = ReferenceUtil.getReferenceString(classDef);
-            ClassState cstate = new ClassState(result, className, classDef.getFields().size());
+            ClassState cState = new ClassState(result, className, classDef.getFields().size());
             for (BuilderField field : classDef.getFields()) {
                 String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
                 String fieldNameAndType = fieldDescriptor.split("->")[1];
                 String type = fieldNameAndType.split(":")[1];
-                cstate.pokeField(fieldNameAndType, new UnknownValue(type));
+                cState.pokeField(fieldNameAndType, new UnknownValue(type));
             }
 
-            result.setClassState(className, cstate);
+            result.setClassState(className, cState);
 
         }
 

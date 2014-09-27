@@ -91,9 +91,9 @@ public class ConstOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mctx) {
+    public int[] execute(MethodState mState) {
         Object result = getConst();
-        mctx.assignRegister(destRegister, result);
+        mState.assignRegister(destRegister, result);
 
         return getPossibleChildren();
     }

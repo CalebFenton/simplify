@@ -9,7 +9,7 @@ public class org_cf_simplify_Utils_breakpoint implements EmulatedMethod {
 
     private static final Logger log = LoggerFactory.getLogger(org_cf_simplify_Utils_breakpoint.class.getSimpleName());
 
-    public void execute(MethodState mctx) {
+    public void execute(MethodState mState) {
         // To use, add invoke-static {}, Lsimplify/Utils;->breakpoint()V, and set a breakpoint here.
         log.info("For a good time, set a breakpoint here!");
     }
