@@ -46,46 +46,46 @@ public class TestInvokeOp {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
                             new UnknownValue("[I"));
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeNonLocalMethodWithKnownAndUnknownMutableParameters()V", initial,
-                            expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeNonLocalMethodWithKnownAndUnknownMutableParameters()V",
+                            initial, expected);
         }
 
         @Test
-        public void TestInvokeReturnsIntReturnsInt() {
+        public void TestInvokeReturnIntReturnsInt() {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x7);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnsInt()V", expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnInt()V", expected);
         }
 
         @Test
-        public void TestInvokeReturnsParameterReturnsParameter() {
+        public void TestInvokeReturnParameterReturnsParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x5);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnsParameter()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnParameter()V", initial, expected);
         }
 
         @Test
-        public void TestInvokeReturnsVoidReturnsVoid() {
+        public void TestInvokeReturnVoidReturnsVoid() {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, null);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnsVoid()V", expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnVoid()V", expected);
         }
 
         @Test
-        public void TestInvokeTryMutateStringBuilderDoesMutateParameter() {
+        public void TestInvokeMutateStringBuilderDoesMutateParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new StringBuilder("i have been"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new StringBuilder("i have been mutated"));
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeTryMutateStringBuilder()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeMutateStringBuilder()V", initial, expected);
         }
 
         @Test
-        public void TestInvokeTryMutateStringDoesNotMutateParameter() {
+        public void TestInvokeMutateStringDoesNotMutateParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "not mutated");
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "not mutated");
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeTryMutateString()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeMutateString()V", initial, expected);
         }
 
         @Test
@@ -93,8 +93,8 @@ public class TestInvokeOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, 0);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 0x0 }, 1, 0);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
-                            expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V",
+                            initial, expected);
         }
 
         @Test
@@ -103,8 +103,8 @@ public class TestInvokeOp {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
                             new UnknownValue("I"));
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
-                            expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V",
+                            initial, expected);
         }
     }
 

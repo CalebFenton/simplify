@@ -40,13 +40,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildrenAtAddress(address, graph));
         ExecutionNode node;
         while ((node = stack.poll()) != null) {
-            MethodState ctx = node.getMethodState();
+            MethodState mState = node.getMethodState();
             for (int register : assigned.toArray()) {
-                if (ctx.wasRegisterRead(register)) {
+                if (mState.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
                                     + ", " + node.getOp());
                     return true;
-                } else if (ctx.wasRegisterAssigned(register)) {
+                } else if (mState.wasRegisterAssigned(register)) {
                     log.trace("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
                                     + node.getOp());
                     return false;
@@ -264,8 +264,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         TIntList result = getAddressesNotInCatchBlocks(addressToInstruction, tryBlocks);
         for (int address : result.toArray()) {
             Op op = mbgraph.getOp(address);
-            int level = op.sideEffectLevel().getLevel();
-            if (level > SIDE_EFFECT_THRESHOLD.getLevel()) {
+            int level = op.sideEffectLevel().getValue();
+            if (level > SIDE_EFFECT_THRESHOLD.getValue()) {
                 result.remove(address);
             }
         }

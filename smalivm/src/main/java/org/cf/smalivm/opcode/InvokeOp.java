@@ -31,35 +31,14 @@ public class InvokeOp extends ExecutionContextOp {
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
     private static boolean allArgumentsKnown(MethodState mState) {
-        Object[] registerValues = mState.getRegisterToValue().values();
-        for (Object value : registerValues) {
+        for (int register = 0; register < mState.getRegisterCount(); register++) {
+            Object value = mState.peekRegister(register);
             if (value instanceof UnknownValue) {
                 return false;
             }
         }
 
         return true;
-    }
-
-    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
-        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getMethodState().getMutableParameter(parameterIndex);
-        int[] addresses = addressList.toArray();
-        for (int address : addresses) {
-            List<ExecutionNode> nodes = graph.getNodePile(address);
-            for (ExecutionNode node : nodes) {
-                Object otherValue = node.getMethodState().getMutableParameter(parameterIndex);
-
-                if (value != otherValue) {
-                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
-
-                    return new UnknownValue(TypeUtil.getValueType(value));
-                }
-            }
-
-        }
-
-        return value;
     }
 
     static InvokeOp create(Instruction instruction, int address, VirtualMachine vm) {
@@ -131,7 +110,7 @@ public class InvokeOp extends ExecutionContextOp {
     private final int[] parameterRegisters;
     private final List<String> parameterTypes;
     private final String returnType;
-    private SideEffect.Level sideEffectType;
+    private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
 
     private InvokeOp(int address, String opName, int childAddress, String methodDescriptor, String returnType,
@@ -144,7 +123,7 @@ public class InvokeOp extends ExecutionContextOp {
         this.parameterTypes = parameterTypes;
         this.vm = vm;
         this.isStatic = isStatic;
-        sideEffectType = SideEffect.Level.STRONG;
+        sideEffectLevel = SideEffect.Level.STRONG;
     }
 
     @Override
@@ -169,7 +148,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     @Override
     public SideEffect.Level sideEffectLevel() {
-        return sideEffectType;
+        return sideEffectLevel;
     }
 
     @Override
@@ -178,7 +157,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -192,11 +171,11 @@ public class InvokeOp extends ExecutionContextOp {
         return sb.toString();
     }
 
-    private void assignCalleeContextParameters(MethodState callerContext, MethodState calleeContext) {
+    private void assignCalleeContextParameters(MethodState callerState, MethodState calleeState) {
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             int callerRegister = parameterRegisters[parameterIndex];
-            Object value = callerContext.readRegister(callerRegister);
-            calleeContext.assignParameter(parameterIndex, value);
+            Object value = callerState.readRegister(callerRegister);
+            calleeState.assignParameter(parameterIndex, value);
         }
     }
 
@@ -262,20 +241,20 @@ public class InvokeOp extends ExecutionContextOp {
             callerContext.getMethodState().assignResultRegister(consensus);
         }
 
-        sideEffectType = graph.getHighestSideEffectLevel();
+        sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext) {
         MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
         boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
         if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
-            sideEffectType = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
+            sideEffectLevel = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
         } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.
-            sideEffectType = SideEffect.Level.NONE;
+            sideEffectLevel = SideEffect.Level.NONE;
         } else {
             log.debug("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
                             + ". Propigating ambiguity.");
@@ -290,6 +269,7 @@ public class InvokeOp extends ExecutionContextOp {
             Object newInstance = calleeContext.getParameter(0);
             if (originalInstance != newInstance) {
                 // Instance went from UninitializedInstance class to something else.
+                // TODO: add test for this!
                 callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstance);
             } else {
                 // The instance reference could have changed, so mark it as assigned here.
@@ -303,6 +283,27 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
+    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
+        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+        Object value = firstNode.getContext().getMethodState().getParameter(parameterIndex);
+        int[] addresses = addressList.toArray();
+        for (int address : addresses) {
+            List<ExecutionNode> nodes = graph.getNodePile(address);
+            for (ExecutionNode node : nodes) {
+                Object otherValue = node.getContext().getMethodState().getParameter(parameterIndex);
+
+                if (value != otherValue) {
+                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+
+                    return new UnknownValue(TypeUtil.getValueType(value));
+                }
+            }
+
+        }
+
+        return value;
+    }
+
     private void updateInstanceAndMutableArguments(ExecutionContext callerContext, ExecutionGraph graph) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
         MethodState mState = callerContext.getMethodState();
@@ -313,8 +314,8 @@ public class InvokeOp extends ExecutionContextOp {
                 continue;
             }
 
-            int register = parameterRegisters[parameterIndex];
             Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
+            int register = parameterRegisters[parameterIndex];
             mState.assignRegister(register, value);
         }
     }

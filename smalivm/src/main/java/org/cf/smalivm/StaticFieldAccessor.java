@@ -25,7 +25,7 @@ public class StaticFieldAccessor {
         Object result;
         if (vm.isLocalClass(className)) {
             ClassState cState = ectx.getClassState(className);
-            result = cState.readField(fieldNameAndType);
+            result = cState.peekField(fieldNameAndType);
         } else if (MethodReflector.isWhitelisted(className)) {
             // Use reflection
             try {

@@ -1,7 +1,7 @@
 package org.cf.smalivm.context;
 
-import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.util.SmaliClassUtils;
@@ -12,62 +12,79 @@ public class MethodState extends BaseState {
     public static final int ReturnAddress = -3;
     public static final int ReturnRegister = -2;
 
-    private static final String HEAP_ID = "method";
-
-    private final TIntObjectMap<Object> mutableParameterIndexToValue;
+    public static final String MUTABLE_PARAMETER_HEAP = "mutable";
+    public static final String METHOD_HEAP = "method";
 
     private final int parameterCount;
-    public MethodState(ExecutionContext ectx, int parameterCount) {
-        this(ectx, parameterCount, parameterCount);
+    private final TIntSet mutableParameters;
+
+    public MethodState(ExecutionContext ectx, int registerCount) {
+        this(ectx, registerCount, 0);
     }
 
     public MethodState(ExecutionContext ectx, int registerCount, int parameterCount) {
-        super(ectx, HEAP_ID, registerCount);
+        super(ectx, registerCount);
 
         this.parameterCount = parameterCount;
-        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>();
+        mutableParameters = new TIntHashSet(parameterCount);
     }
 
     MethodState(MethodState other, ExecutionContext ectx) {
         super(other, ectx);
 
         this.parameterCount = other.parameterCount;
-        this.mutableParameterIndexToValue = new TIntObjectHashMap<Object>(other.mutableParameterIndexToValue);
+        mutableParameters = new TIntHashSet(other.mutableParameters);
+    }
+
+    private MethodState(MethodState parent, ExecutionContext ectx, TIntSet mutableParameters) {
+        super(parent, ectx);
+
+        this.parameterCount = parent.parameterCount;
+        this.mutableParameters = parent.mutableParameters;
     }
 
     public void assignParameter(int parameterIndex, Object value) {
-        pokeRegister(getParameterStart() + parameterIndex, value);
+        assignRegister(getParameterStart() + parameterIndex, value, METHOD_HEAP);
 
         String type = TypeUtil.getValueType(value);
         type = SmaliClassUtils.javaClassToSmali(type);
         boolean mutable = !SmaliClassUtils.isImmutableClass(type);
         if (mutable) {
-            mutableParameterIndexToValue.put(parameterIndex, value);
+            pokeRegister(parameterIndex, value, MUTABLE_PARAMETER_HEAP);
+            mutableParameters.add(parameterIndex);
         }
+    }
+
+    public void assignRegister(int register, Object value) {
+        super.assignRegister(register, value, METHOD_HEAP);
     }
 
     public void assignResultRegister(Object value) {
-        assignRegister(ResultRegister, value);
+        assignRegister(ResultRegister, value, METHOD_HEAP);
     }
 
     public void assignReturnRegister(Object value) {
-        pokeRegister(ReturnRegister, value);
+        pokeRegister(ReturnRegister, value, METHOD_HEAP);
     }
 
-    // This is for the optimizer.
-    public Object getMutableParameter(int parameterIndex) {
-        MethodState targetContext = this;
-        if (!targetContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
-            targetContext = getAncestorContextWithParameter(parameterIndex);
-        }
-        Object result = targetContext.mutableParameterIndexToValue.get(parameterIndex);
+    public void pokeRegister(int register, Object value) {
+        super.pokeRegister(register, value, METHOD_HEAP);
+    }
 
-        return result;
+    public Object readRegister(int register) {
+        return super.readRegister(register, METHOD_HEAP);
     }
 
     // This is what you want for emulated methods.
     public Object getParameter(int parameterIndex) {
-        return peekRegister(getParameterStart() + parameterIndex);
+        Object value;
+        if (mutableParameters.contains(parameterIndex)) {
+            value = peekRegister(parameterIndex, MUTABLE_PARAMETER_HEAP);
+        } else {
+            value = peekRegister(getParameterStart() + parameterIndex);
+        }
+
+        return value;
     }
 
     public int getParameterCount() {
@@ -87,30 +104,12 @@ public class MethodState extends BaseState {
         return (int) peekRegister(ReturnAddress);
     }
 
-    @Override
     public Object peekRegister(int register) {
-        Object[] parts = peekWithTargetContext(register);
-        Object value = parts[0];
-        MethodState targetContext = (MethodState) parts[1];
-
-        if ((targetContext == this) || (targetContext == null) || (value == null)) {
-            return value;
-        }
-
-        TIntObjectMap<Object> targetRegisterToValue = targetContext.getRegisterToValue();
-        Object targetValue = targetRegisterToValue.get(register);
-        TIntObjectMap<Object> targetParameterIndexToValue = targetContext.mutableParameterIndexToValue;
-        for (int parameterIndex : targetParameterIndexToValue.keys()) {
-            if (targetParameterIndexToValue.get(parameterIndex) == targetValue) {
-                mutableParameterIndexToValue.put(parameterIndex, value);
-            }
-        }
-
-        return value;
+        return super.peekRegister(register, METHOD_HEAP);
     }
 
     public Object readResultRegister() {
-        Object result = readRegister(ResultRegister);
+        Object result = readRegister(ResultRegister, METHOD_HEAP);
         // TODO: removeRegister and see what breaks..
         // removeRegister(ResultRegister);
 
@@ -123,38 +122,67 @@ public class MethodState extends BaseState {
 
     public void setPseudoInstructionReturnAddress(int address) {
         // Pseudo instructions like array-data-payload need return addresses.
-        pokeRegister(ReturnAddress, address);
+        pokeRegister(ReturnAddress, address, METHOD_HEAP);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(super.toString());
-        sb.append("\nparameters: ").append(parameterCount).append("\n");
-        if (hasRegister(ResultRegister)) {
-            sb.append("result: ").append(registerToString(ResultRegister)).append("\n");
+        if (getParameterCount() > 0) {
+            sb.append("\nparameters: ").append(parameterCount).append("\n[");
+            for (int parameterIndex = 0; parameterIndex < getParameterCount(); parameterIndex++) {
+                int register = getParameterStart() + parameterIndex;
+                sb.append("p").append(parameterIndex).append(": ");
+                int targetRegister = register;
+                String heapId = METHOD_HEAP;
+                if (mutableParameters.contains(parameterIndex)) {
+                    targetRegister = parameterIndex;
+                    heapId = MUTABLE_PARAMETER_HEAP;
+                }
+                if (super.hasRegister(targetRegister, heapId)) {
+                    sb.append(registerToString(targetRegister, heapId));
+                } else {
+                    sb.append("*in ancestor*");
+                }
+                sb.append(",\n");
+            }
+            sb.setLength(sb.length() - 2);
+            sb.append("]\n");
         }
-        if (hasRegister(ReturnRegister)) {
-            sb.append("return: ").append(registerToString(ReturnRegister));
+
+        if ((getRegisterCount() - getParameterCount()) > 0) {
+            sb.append("registers: ").append(getRegisterCount()).append("\n[");
+            for (int register = 0; register < (getRegisterCount() - getParameterCount()); register++) {
+                sb.append("r").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
+                .append(",\n");
+            }
+            sb.setLength(sb.length() - 2);
+            sb.append("]");
+        }
+
+        if (hasRegister(ResultRegister, METHOD_HEAP)) {
+            sb.append("\nresult: ").append(registerToString(ResultRegister, METHOD_HEAP));
+        }
+
+        if (hasRegister(ReturnRegister, METHOD_HEAP)) {
+            sb.append("\nreturn: ").append(registerToString(ReturnRegister, METHOD_HEAP));
         }
 
         return sb.toString();
     }
 
-    private MethodState getAncestorContextWithParameter(int parameterIndex) {
-        MethodState currentContext = this;
-        do {
-            if (currentContext.mutableParameterIndexToValue.containsKey(parameterIndex)) {
-                return currentContext;
-            }
-            currentContext = currentContext.getParent();
-        } while (currentContext != null);
+    public boolean wasRegisterRead(int register) {
+        return wasRegisterRead(register, METHOD_HEAP);
+    }
 
-        return null;
+    public void assignRegisterAndUpdateIdentities(int register, Object value) {
+        assignRegisterAndUpdateIdentities(register, value, METHOD_HEAP);
     }
 
     MethodState getChild(ExecutionContext childContext) {
-        MethodState child = new MethodState(childContext, getRegisterCount(), getParameterCount());
+        MethodState child = new MethodState(this, childContext, mutableParameters);
 
         return child;
     }
+
 }

@@ -7,8 +7,12 @@ import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ExecutionContext {
+
+    private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
     private int callDepth;
     private final Map<String, SideEffect.Level> classNameToSideEffectType;
@@ -49,12 +53,13 @@ public class ExecutionContext {
         ExecutionContext child = new ExecutionContext(this.vm);
         child.setCallDepth(callDepth);
         child.setParent(this);
+        child.getHeap().setParent(this.getHeap());
 
         MethodState childMethodState = getMethodState().getChild(child);
         child.setMethodState(childMethodState);
 
         for (String className : classNameToState.keySet()) {
-            ClassState childClassState = getClassState(className).getChild(child);
+            ClassState childClassState = peekClassState(className).getChild(child);
             child.initializeClassState(className, childClassState);
         }
 
@@ -113,7 +118,7 @@ public class ExecutionContext {
         ClassState cState = new ClassState(templateClassState, this);
         initializeClassState(className, cState);
 
-        SideEffect.Level sideEffectType = SideEffect.Level.NONE;
+        SideEffect.Level sideEffectLevel = SideEffect.Level.NONE;
         String clinitDescriptor = className + "-><clinit>()V";
 
         if (vm.isLocalMethod(clinitDescriptor)) {
@@ -122,12 +127,12 @@ public class ExecutionContext {
                 // Error executing. Assume the worst.
                 setClassSideEffectType(className, SideEffect.Level.STRONG);
             } else {
-                sideEffectType = graph.getHighestSideEffectLevel();
+                sideEffectLevel = graph.getHighestSideEffectLevel();
             }
         } else {
             // No clinit for this class.
         }
-        setClassSideEffectType(className, sideEffectType);
+        setClassSideEffectType(className, sideEffectLevel);
     }
 
     private ExecutionContext getTemplate() {
@@ -155,8 +160,8 @@ public class ExecutionContext {
         return classNameToState.get(className);
     }
 
-    void setClassSideEffectType(String className, SideEffect.Level sideEffectType) {
-        classNameToSideEffectType.put(className, sideEffectType);
+    void setClassSideEffectType(String className, SideEffect.Level sideEffectLevel) {
+        classNameToSideEffectType.put(className, sideEffectLevel);
     }
 
 }

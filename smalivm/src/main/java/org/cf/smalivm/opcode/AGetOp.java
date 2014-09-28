@@ -1,13 +1,13 @@
 package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AGetOp extends MethodStateOp {
 
@@ -37,6 +37,7 @@ public class AGetOp extends MethodStateOp {
 
         return new AGetOp(address, opName, childAddress, valueRegister, arrayRegister, indexRegister);
     }
+
     private final int arrayRegister;
     private final int indexRegister;
 

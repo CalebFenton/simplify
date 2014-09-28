@@ -3,42 +3,42 @@
 
 .field public static mutable:[I
 
-.method public static InvokeReturnsVoid()V
+.method public static InvokeReturnVoid()V
     .locals 0
 
-    invoke-static {}, Linvoke_static_test;->ReturnsVoid()V
+    invoke-static {}, Linvoke_static_test;->ReturnVoid()V
 
     return-void
 .end method
 
-.method public static InvokeReturnsInt()V
+.method public static InvokeReturnInt()V
     .locals 0
 
-    invoke-static {}, Linvoke_static_test;->ReturnsInt()I
+    invoke-static {}, Linvoke_static_test;->ReturnInt()I
 
     return-void
 .end method
 
-.method public static InvokeReturnsParameter()V
+.method public static InvokeReturnParameter()V
     .locals 1
 
-    invoke-static {v0}, Linvoke_static_test;->ReturnsParameter(I)I
+    invoke-static {v0}, Linvoke_static_test;->ReturnParameter(I)I
 
     return-void
 .end method
 
-.method public static InvokeTryMutateString()V
+.method public static InvokeMutateString()V
     .locals 1
 
-    invoke-static {v0}, Linvoke_static_test;->TryMutateString(Ljava/lang/String;)V
+    invoke-static {v0}, Linvoke_static_test;->MutateString(Ljava/lang/String;)V
 
     return-void
 .end method
 
-.method public static InvokeTryMutateStringBuilder()V
+.method public static InvokeMutateStringBuilder()V
     .locals 1
 
-    invoke-static {v0}, Linvoke_static_test;->TryMutateStringBuilder(Ljava/lang/StringBuilder;)V
+    invoke-static {v0}, Linvoke_static_test;->MutateStringBuilder(Ljava/lang/StringBuilder;)V
 
     return-void
 .end method
@@ -112,13 +112,13 @@
     return-void
 .end method
 
-.method public static ReturnsVoid()V
+.method public static ReturnVoid()V
     .locals 0
 
     return-void
 .end method
 
-.method public static ReturnsInt()I
+.method public static ReturnInt()I
     .locals 1
 
     const/4 v0, 0x7
@@ -126,7 +126,7 @@
     return v0
 .end method
 
-.method public static ReturnsParameter(I)I
+.method public static ReturnParameter(I)I
     .locals 1
 
     move v0, p0
@@ -135,7 +135,7 @@
     return v0
 .end method
 
-.method public static TryMutateString(Ljava/lang/String;)V
+.method public static MutateString(Ljava/lang/String;)V
     .locals 0
 
     const-string p0, "mutated"
@@ -143,12 +143,12 @@
     return-void
 .end method
 
-.method public static TryMutateStringBuilder(Ljava/lang/StringBuilder;)V
+.method public static MutateStringBuilder(Ljava/lang/StringBuilder;)V
     .locals 1
 
     const-string v0, " mutated"
     invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-    const/4 p0, 0x1
+    const/4 p0, 0x1 # ensure this works if the register is blasted away
 
     return-void
 .end method

@@ -9,7 +9,7 @@ public class ClassState extends BaseState {
     private final Map<String, Integer> fieldToRegister;
 
     public ClassState(ExecutionContext ectx, String className, int fieldCount) {
-        super(ectx, className, fieldCount);
+        super(ectx, fieldCount);
 
         fieldToRegister = new HashMap<String, Integer>(fieldCount);
         this.className = className;
@@ -23,8 +23,10 @@ public class ClassState extends BaseState {
     }
 
     public void assignField(String fieldNameAndType, Object value) {
-        int register = getRegister(fieldNameAndType);
-        assignRegister(register, value);
+        int register = 0;
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(fieldNameAndType);
+        assignRegister(register, value, sb.toString());
     }
 
     public boolean equals(ClassState other) {
@@ -32,21 +34,18 @@ public class ClassState extends BaseState {
     }
 
     public Object peekField(String fieldNameAndType) {
-        int register = getRegister(fieldNameAndType);
-
-        return peekRegister(register);
+        // int register = getRegister(fieldNameAndType);
+        int register = 0;
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(fieldNameAndType);
+        return peekRegister(register, sb.toString());
     }
 
     public void pokeField(String fieldNameAndType, Object value) {
-        int register = getRegister(fieldNameAndType);
-        pokeRegister(register, value);
-    }
-
-    public Object readField(String fieldNameAndType) {
-        // It might be necessary to split up static / instance references later, when class contexts are passed around.
-        int register = getRegister(fieldNameAndType);
-
-        return readRegister(register);
+        int register = 0;
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(fieldNameAndType);
+        pokeRegister(register, value, sb.toString());
     }
 
     @Override
@@ -60,7 +59,7 @@ public class ClassState extends BaseState {
         return sb.toString();
     }
 
-    private int getRegister(String fieldNameAndType) {
+    private int getRegister_no(String fieldNameAndType) {
         int register = 0;
         if (!fieldToRegister.containsKey(fieldNameAndType)) {
             register = fieldToRegister.size();

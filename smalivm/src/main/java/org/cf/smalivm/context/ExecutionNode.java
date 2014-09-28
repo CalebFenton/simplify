@@ -32,6 +32,7 @@ public class ExecutionNode {
 
     public int[] execute() {
         ExecutionContext ectx = getContext();
+        // TODO: print method and class states
         MethodState mState = ectx.getMethodState();
         log.debug("HANDLING @" + op.getAddress() + ": " + op + "\nState before: " + mState);
 

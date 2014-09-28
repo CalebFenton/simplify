@@ -27,7 +27,7 @@ public class NewInstanceOp extends ExecutionContextOp {
 
     private final String className;
     private final int destRegister;
-    private SideEffect.Level sideEffectType;
+    private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
 
     NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className, VirtualMachine vm) {
@@ -36,7 +36,7 @@ public class NewInstanceOp extends ExecutionContextOp {
         this.destRegister = destRegister;
         this.className = className;
         this.vm = vm;
-        sideEffectType = SideEffect.Level.STRONG;
+        sideEffectLevel = SideEffect.Level.STRONG;
     }
 
     @Override
@@ -44,11 +44,11 @@ public class NewInstanceOp extends ExecutionContextOp {
         Object instance = null;
         if (vm.isLocalClass(className)) {
             // New-instance causes static initialization (but not new-array!)
-            sideEffectType = ectx.getClassStateSideEffectType(className);
+            sideEffectLevel = ectx.getClassStateSideEffectType(className);
             instance = new LocalInstance(className);
         } else {
             if (MethodReflector.isWhitelisted(className)) {
-                sideEffectType = SideEffect.Level.NONE;
+                sideEffectLevel = SideEffect.Level.NONE;
             }
             instance = new UninitializedInstance(className);
         }
@@ -61,7 +61,7 @@ public class NewInstanceOp extends ExecutionContextOp {
 
     @Override
     public SideEffect.Level sideEffectLevel() {
-        return sideEffectType;
+        return sideEffectLevel;
     }
 
     @Override

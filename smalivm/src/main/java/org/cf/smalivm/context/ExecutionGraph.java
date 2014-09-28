@@ -251,7 +251,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         TIntList addresses = getConnectedTerminatingAddresses();
         Map<String, Object> result = new HashMap<String, Object>(fieldDescriptors.length);
         for (String fieldDescriptor : fieldDescriptors) {
-            Object value = this.getFieldConsensus(addresses, fieldDescriptor);
+            Object value = getFieldConsensus(addresses, fieldDescriptor);
             result.put(fieldDescriptor, value);
         }
 

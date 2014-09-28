@@ -179,11 +179,11 @@ public class VMTester {
             testRegisterEquals(register, value, consensus);
         }
 
-        for (String contextClassName : classNameToExpectedFieldValue.keySet()) {
-            Map<String, Object> check = classNameToExpectedFieldValue.get(contextClassName);
+        for (String currentClassName : classNameToExpectedFieldValue.keySet()) {
+            Map<String, Object> check = classNameToExpectedFieldValue.get(currentClassName);
             for (String fieldReference : check.keySet()) {
                 Object checkValue = check.get(fieldReference);
-                String fieldDescriptor = contextClassName + "->" + fieldReference;
+                String fieldDescriptor = currentClassName + "->" + fieldReference;
                 Object actualValue = graph.getTerminatingFieldConsensus(fieldDescriptor);
 
                 testFieldEquals(fieldDescriptor, checkValue, actualValue);
