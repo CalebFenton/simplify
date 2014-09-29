@@ -1,24 +1,24 @@
 package org.cf.smalivm.context;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ClassState extends BaseState {
 
     private final String className;
-    private final Map<String, Integer> fieldToRegister;
+    private final Set<String> fieldNameAndTypes;
 
     public ClassState(ExecutionContext ectx, String className, int fieldCount) {
         super(ectx, fieldCount);
 
-        fieldToRegister = new HashMap<String, Integer>(fieldCount);
+        fieldNameAndTypes = new HashSet<String>();
         this.className = className;
     }
 
-    ClassState(ClassState parent, ExecutionContext ectx) {
+    public ClassState(ClassState parent, ExecutionContext ectx) {
         super(parent, ectx);
 
-        fieldToRegister = new HashMap<String, Integer>(parent.fieldToRegister);
+        fieldNameAndTypes = new HashSet<String>(parent.fieldNameAndTypes);
         className = parent.className;
     }
 
@@ -43,6 +43,7 @@ public class ClassState extends BaseState {
 
     public void pokeField(String fieldNameAndType, Object value) {
         int register = 0;
+        fieldNameAndTypes.add(fieldNameAndType);
         StringBuilder sb = new StringBuilder(className);
         sb.append("->").append(fieldNameAndType);
         pokeRegister(register, value, sb.toString());
@@ -51,7 +52,7 @@ public class ClassState extends BaseState {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("Fields:\n");
-        for (String fieldNameAndType : fieldToRegister.keySet()) {
+        for (String fieldNameAndType : fieldNameAndTypes) {
             sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append("\n");
         }
         sb.setLength(sb.length() - 1);
@@ -59,20 +60,8 @@ public class ClassState extends BaseState {
         return sb.toString();
     }
 
-    private int getRegister_no(String fieldNameAndType) {
-        int register = 0;
-        if (!fieldToRegister.containsKey(fieldNameAndType)) {
-            register = fieldToRegister.size();
-            fieldToRegister.put(fieldNameAndType, register);
-        } else {
-            register = fieldToRegister.get(fieldNameAndType);
-        }
-
-        return register;
-    }
-
     ClassState getChild(ExecutionContext childContext) {
-        ClassState child = new ClassState(childContext, className, fieldToRegister.size());
+        ClassState child = new ClassState(childContext, className, fieldNameAndTypes.size());
 
         return child;
     }

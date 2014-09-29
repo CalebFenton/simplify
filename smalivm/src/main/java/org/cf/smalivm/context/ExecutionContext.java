@@ -29,7 +29,12 @@ public class ExecutionContext {
         if (other.mState != null) {
             mState = new MethodState(other.mState, this);
         }
-        classNameToState = new HashMap<String, ClassState>(other.classNameToState);
+        classNameToState = new HashMap<String, ClassState>(other.classNameToState.size());
+        for (String className : other.classNameToState.keySet()) {
+            ClassState otherClassState = other.peekClassState(className);
+            ClassState cState = new ClassState(otherClassState, this);
+            setClassState(className, cState);
+        }
         classNameToSideEffectType = new HashMap<String, SideEffect.Level>(other.classNameToSideEffectType);
         initializedClasses = new HashSet<String>(other.initializedClasses);
         heap = new Heap(other.getHeap());
@@ -60,13 +65,17 @@ public class ExecutionContext {
 
         for (String className : classNameToState.keySet()) {
             ClassState childClassState = peekClassState(className).getChild(child);
-            child.initializeClassState(className, childClassState);
+            child.initializeClass(className, childClassState);
         }
 
         return child;
     }
 
-    public ClassState getClassState(String className) {
+    public Set<String> getInitializedClasses() {
+        return initializedClasses;
+    }
+
+    public ClassState accessClassState(String className) {
         staticallyInitializeClassIfNecessary(className);
 
         return peekClassState(className);
@@ -86,7 +95,7 @@ public class ExecutionContext {
         return mState;
     }
 
-    public void initializeClassState(String className, ClassState cState) {
+    public void initializeClass(String className, ClassState cState) {
         setClassState(className, cState);
         initializedClasses.add(className);
     }
@@ -116,7 +125,7 @@ public class ExecutionContext {
         ExecutionContext templateContext = getTemplate();
         ClassState templateClassState = templateContext.peekClassState(className);
         ClassState cState = new ClassState(templateClassState, this);
-        initializeClassState(className, cState);
+        initializeClass(className, cState);
 
         SideEffect.Level sideEffectLevel = SideEffect.Level.NONE;
         String clinitDescriptor = className + "-><clinit>()V";
@@ -144,7 +153,7 @@ public class ExecutionContext {
         return result;
     }
 
-    private boolean isClassInitialized(String className) {
+    public boolean isClassInitialized(String className) {
         return initializedClasses.contains(className);
     }
 
@@ -156,12 +165,26 @@ public class ExecutionContext {
         return parent;
     }
 
-    ClassState peekClassState(String className) {
+    public ClassState peekClassState(String className) {
         return classNameToState.get(className);
     }
 
     void setClassSideEffectType(String className, SideEffect.Level sideEffectLevel) {
         classNameToSideEffectType.put(className, sideEffectLevel);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        if (mState != null) {
+            sb.append(mState.toString());
+        }
+        for (String className : getInitializedClasses()) {
+            ClassState cState = peekClassState(className);
+            sb.append(cState);
+        }
+
+        return sb.toString();
     }
 
 }

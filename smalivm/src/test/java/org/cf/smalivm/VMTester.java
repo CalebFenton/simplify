@@ -168,7 +168,6 @@ public class VMTester {
                     TIntObjectMap<Object> initialRegisterToValue, TIntObjectMap<Object> expectedRegisterToValue,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue,
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
-
         ExecutionGraph graph = execute(className, methodSignature, initialRegisterToValue, classNameToInitialFieldValue);
         assertNotNull(graph);
 
@@ -255,12 +254,12 @@ public class VMTester {
     private static void setupClassStates(ExecutionContext ectx, Map<String, Map<String, Object>> classNameToFieldValue) {
         for (String className : classNameToFieldValue.keySet()) {
             Map<String, Object> fieldToValue = classNameToFieldValue.get(className);
-            ClassState cState = new ClassState(ectx, className, fieldToValue.size());
+            ClassState cState = ectx.peekClassState(className);
             for (String fieldNameAndType : fieldToValue.keySet()) {
                 Object value = fieldToValue.get(fieldNameAndType);
                 cState.pokeField(fieldNameAndType, value);
             }
-            ectx.initializeClassState(className, cState);
+            ectx.initializeClass(className, cState);
         }
     }
 

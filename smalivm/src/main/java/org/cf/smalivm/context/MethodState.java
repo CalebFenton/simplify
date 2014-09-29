@@ -127,11 +127,14 @@ public class MethodState extends BaseState {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(super.toString());
+        StringBuilder sb = new StringBuilder();
         if (getParameterCount() > 0) {
             sb.append("\nparameters: ").append(parameterCount).append("\n[");
             for (int parameterIndex = 0; parameterIndex < getParameterCount(); parameterIndex++) {
                 int register = getParameterStart() + parameterIndex;
+                if (!super.hasRegister(register, METHOD_HEAP)) {
+                    continue;
+                }
                 sb.append("p").append(parameterIndex).append(": ");
                 int targetRegister = register;
                 String heapId = METHOD_HEAP;
@@ -150,13 +153,21 @@ public class MethodState extends BaseState {
             sb.append("]\n");
         }
 
-        if ((getRegisterCount() - getParameterCount()) > 0) {
-            sb.append("registers: ").append(getRegisterCount()).append("\n[");
+        int localsCount = getRegisterCount() - getParameterCount();
+        if (localsCount > 0) {
+            boolean hadAtLeastOneLocal = false;
+            sb.append("\nlocals: ").append(localsCount).append("\n[");
             for (int register = 0; register < (getRegisterCount() - getParameterCount()); register++) {
+                if (!hasRegister(register, METHOD_HEAP)) {
+                    continue;
+                }
+                hadAtLeastOneLocal = true;
                 sb.append("r").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                .append(",\n");
+                                .append(",\n");
             }
-            sb.setLength(sb.length() - 2);
+            if (hadAtLeastOneLocal) {
+                sb.setLength(sb.length() - 2);
+            }
             sb.append("]");
         }
 

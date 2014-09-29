@@ -32,17 +32,24 @@ public class ExecutionNode {
 
     public int[] execute() {
         ExecutionContext ectx = getContext();
-        // TODO: print method and class states
-        MethodState mState = ectx.getMethodState();
-        log.debug("HANDLING @" + op.getAddress() + ": " + op + "\nState before: " + mState);
+        if (log.isDebugEnabled()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op).append("\nContext before: ")
+                            .append(ectx);
+            log.debug(sb.toString());
+        }
 
         int[] result = null;
         if (op instanceof MethodStateOp) {
+            MethodState mState = ectx.getMethodState();
             result = ((MethodStateOp) op).execute(mState);
         } else if (op instanceof ExecutionContextOp) {
             result = ((ExecutionContextOp) op).execute(ectx);
         }
-        log.debug("State after: " + mState);
+
+        if (log.isDebugEnabled()) {
+            log.debug("Context after: " + ectx);
+        }
 
         return result;
     }
@@ -68,7 +75,7 @@ public class ExecutionNode {
     }
 
     public ClassState getClassState(String className) {
-        return ectx.getClassState(className);
+        return ectx.accessClassState(className);
     }
 
     public ExecutionContext getContext() {
@@ -116,7 +123,9 @@ public class ExecutionNode {
         // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
         // Each execution of an instruction will have a new state.
         this.parent = parent;
-        parent.addChild(this);
+        if (parent != null) {
+            parent.addChild(this);
+        }
     }
 
     public String toGraph() {

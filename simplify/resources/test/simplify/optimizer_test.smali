@@ -8,7 +8,7 @@
   const/4 v1, 0x7
 
   :loop
-  if-eq v0, v1, :end
+  if-ge v0, v1, :end
   add-int/2addr v0, v0
   goto :loop
 

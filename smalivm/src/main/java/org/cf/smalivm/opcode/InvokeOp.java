@@ -9,6 +9,7 @@ import java.util.List;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
@@ -203,6 +204,15 @@ public class InvokeOp extends ExecutionContextOp {
 
     private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext) {
         ExecutionContext result = vm.getRootExecutionContext(methodDescriptor);
+        for (String className : callerContext.getInitializedClasses()) {
+            ClassState callerClassState = callerContext.peekClassState(className);
+            ClassState cState = new ClassState(callerClassState, result);
+            for (String fieldNameAndType : vm.getFieldNameAndTypes(className)) {
+                Object value = callerClassState.peekField(fieldNameAndType);
+                cState.pokeField(fieldNameAndType, value);
+            }
+            result.initializeClass(className, cState);
+        }
         result.setCallDepth(callerContext.getCallDepth() + 1);
         MethodState calleeMethodState = result.getMethodState();
         MethodState callerMethodState = callerContext.getMethodState();
@@ -232,7 +242,7 @@ public class InvokeOp extends ExecutionContextOp {
             return;
         }
 
-        updateInstanceAndMutableArguments(callerContext, graph);
+        collapseAndMergeMultiverse(callerContext, graph);
 
         if (!returnType.equals("V")) {
             TIntList terminating = graph.getConnectedTerminatingAddresses();
@@ -304,7 +314,9 @@ public class InvokeOp extends ExecutionContextOp {
         return value;
     }
 
-    private void updateInstanceAndMutableArguments(ExecutionContext callerContext, ExecutionGraph graph) {
+    private void collapseAndMergeMultiverse(ExecutionContext callerContext, ExecutionGraph graph) {
+        // Update instance, mutable parameters and class states consensus.
+        // They may have changed since calling the method.
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
         MethodState mState = callerContext.getMethodState();
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
@@ -318,6 +330,20 @@ public class InvokeOp extends ExecutionContextOp {
             int register = parameterRegisters[parameterIndex];
             mState.assignRegister(register, value);
         }
-    }
 
+        for (String className : vm.getLocalClasses()) {
+            List<String> fieldNameAndTypes = vm.getFieldNameAndTypes(className);
+            for (String fieldNameAndType : fieldNameAndTypes) {
+                Object value = graph.getFieldConsensus(terminatingAddresses, className, fieldNameAndType);
+                ClassState cState;
+                if (callerContext.isClassInitialized(className)) {
+                    cState = callerContext.peekClassState(className);
+                } else {
+                    cState = new ClassState(callerContext, className, fieldNameAndTypes.size());
+                }
+
+                cState.pokeField(fieldNameAndType, value);
+            }
+        }
+    }
 }

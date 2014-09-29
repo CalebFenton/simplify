@@ -132,10 +132,11 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         Object value = null;
         for (int address : addressList.toArray()) {
             Set<Object> values = getFieldValues(address, className, fieldNameAndType);
-            value = values.toArray()[0];
+            value = values.toArray()[0]; // since it's a set, cute little uniqueness check is possible
             if (values.size() != 1) {
                 log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
                 String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
+
                 return new UnknownValue(type);
             }
         }

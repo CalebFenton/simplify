@@ -1,8 +1,11 @@
 package org.cf.smalivm;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,6 +90,7 @@ public class VirtualMachine {
     private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
     private final Map<String, ExecutionGraph> methodDescriptorToTemplateContextGraph;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
+    private final Map<String, List<String>> classNameToFieldNameAndType;
     private final MethodExecutor methodExecutor;
 
     private final ExecutionContext templateExecutionContext;
@@ -98,6 +102,7 @@ public class VirtualMachine {
         localClasses = buildLocalClasses(classDefs);
         methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
         methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
+        classNameToFieldNameAndType = new HashMap<String, List<String>>();
         templateExecutionContext = buildTemplateExecutionContext(classDefs);
         methodExecutor = new MethodExecutor(this);
 
@@ -136,15 +141,7 @@ public class VirtualMachine {
         } catch (Exception e) {
             log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
             log.debug("Stack trace: ", e);
-            throw e;
         }
-
-        // Need to collapse class context multiverse into consensus
-        // build new cState for every class defined at terminating addresses
-        // if a class is not initialized at every terminating address, all unknown
-        // else
-        // for every field in class, set cState to consensus
-        // TODO: !!! graph.getFieldConsensus
 
         return result;
     }
@@ -208,6 +205,12 @@ public class VirtualMachine {
         return localClasses.contains(className);
     }
 
+    public List<String> getLocalClasses() {
+        String[] classNames = localClasses.toArray(new String[localClasses.size()]);
+
+        return Arrays.asList(classNames);
+    }
+
     public boolean isLocalMethod(String methodDescriptor) {
         return methodDescriptorToTemplateContextGraph.containsKey(methodDescriptor);
     }
@@ -233,19 +236,25 @@ public class VirtualMachine {
             // Build out context with all fields so they can be enumerated later.
             // This context should be cloned and never changed.
             String className = ReferenceUtil.getReferenceString(classDef);
-            ClassState cState = new ClassState(result, className, classDef.getFields().size());
+            Collection<BuilderField> fields = classDef.getFields();
+            List<String> fieldNameAndTypes = new LinkedList<String>();
+            ClassState cState = new ClassState(result, className, fields.size());
             for (BuilderField field : classDef.getFields()) {
                 String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
                 String fieldNameAndType = fieldDescriptor.split("->")[1];
+                fieldNameAndTypes.add(fieldNameAndType);
                 String type = fieldNameAndType.split(":")[1];
                 cState.pokeField(fieldNameAndType, new UnknownValue(type));
             }
-
+            classNameToFieldNameAndType.put(className, fieldNameAndTypes);
             result.setClassState(className, cState);
-
         }
 
         return result;
+    }
+
+    public List<String> getFieldNameAndTypes(String className) {
+        return classNameToFieldNameAndType.get(className);
     }
 
     private BuilderMethod getBuilderMethod(String methodDescriptor) {

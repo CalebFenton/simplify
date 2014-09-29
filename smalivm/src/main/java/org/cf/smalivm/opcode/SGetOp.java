@@ -43,7 +43,6 @@ public class SGetOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        System.out.println("getting sgetting fd + " + fieldDescriptor);
         Object value = StaticFieldAccessor.getField(vm, ectx, fieldDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignRegister(destRegister, value);

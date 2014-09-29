@@ -15,14 +15,13 @@ class BaseState {
     private final int registerCount;
     private final TIntList registersAssigned;
     private final TIntList registersRead;
-    // private final TIntObjectMap<Object> registerToValue;
 
     final ExecutionContext ectx;
 
     BaseState(BaseState parent, ExecutionContext ectx) {
         registerCount = parent.registerCount;
-        registersAssigned = new TIntArrayList();
-        registersRead = new TIntArrayList();
+        registersAssigned = new TIntArrayList(0);
+        registersRead = new TIntArrayList(0);
         this.ectx = ectx;
     }
 
@@ -154,7 +153,7 @@ class BaseState {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-            .append(", hc=").append(value.hashCode());
+                            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();

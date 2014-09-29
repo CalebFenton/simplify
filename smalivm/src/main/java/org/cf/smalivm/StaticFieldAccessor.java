@@ -24,7 +24,7 @@ public class StaticFieldAccessor {
 
         Object result;
         if (vm.isLocalClass(className)) {
-            ClassState cState = ectx.getClassState(className);
+            ClassState cState = ectx.accessClassState(className);
             result = cState.peekField(fieldNameAndType);
         } else if (MethodReflector.isWhitelisted(className)) {
             // Use reflection
@@ -52,7 +52,7 @@ public class StaticFieldAccessor {
         String fieldNameAndType = parts[1];
 
         if (vm.isLocalClass(className)) {
-            ClassState cState = ectx.getClassState(className);
+            ClassState cState = ectx.accessClassState(className);
             cState.assignField(fieldNameAndType, value);
         } else {
             log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + value);
