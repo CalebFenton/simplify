@@ -23,8 +23,8 @@ public class TestSideEffects {
     private static final String CLASS_NAME = "Lside_effects_test;";
     private static Map<String, BuilderClassDef> classNameToDef;
     private static final int MAX_CALL_DEPTH = 10;
-
     private static final int MAX_NODE_VISITS = 100;
+
     @BeforeClass
     public static void setupBeforeClass() {
         classNameToDef = VMTester.buildClassNameToBuilderClassDef();
