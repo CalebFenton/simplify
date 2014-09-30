@@ -55,6 +55,7 @@ public class ClassState extends BaseState {
             sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append("\n");
         }
         sb.setLength(sb.length() - 1);
+        sb.append("\n");
 
         return sb.toString();
     }

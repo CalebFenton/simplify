@@ -9,11 +9,12 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.context.ClassState;
@@ -27,6 +28,8 @@ import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.junit.Assert;
+
+import com.google.common.collect.Sets;
 
 public class VMTester {
 
@@ -81,8 +84,18 @@ public class VMTester {
 
     public static ExecutionGraph execute(String className, String methodSignature,
                     TIntObjectMap<Object> registerToValue, Map<String, Map<String, Object>> classNameToFieldValue) {
-        BuilderClassDef classDef = getBuilderClassDef(className);
-        VirtualMachine vm = new VirtualMachine(Arrays.asList(classDef), MAX_NODE_VISITS, MAX_CALL_DEPTH);
+        return execute(className, methodSignature, registerToValue, classNameToFieldValue, Sets.newHashSet(className));
+    }
+
+    public static ExecutionGraph execute(String className, String methodSignature,
+                    TIntObjectMap<Object> registerToValue, Map<String, Map<String, Object>> classNameToFieldValue,
+                    Set<String> classNamesToStaticInit) {
+        List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>();
+        for (String currentClassName : classNamesToStaticInit) {
+            BuilderClassDef classDef = getBuilderClassDef(currentClassName);
+            classDefs.add(classDef);
+        }
+        VirtualMachine vm = new VirtualMachine(classDefs, MAX_NODE_VISITS, MAX_CALL_DEPTH);
 
         return execute(vm, className, methodSignature, registerToValue, classNameToFieldValue);
     }
@@ -168,7 +181,12 @@ public class VMTester {
                     TIntObjectMap<Object> initialRegisterToValue, TIntObjectMap<Object> expectedRegisterToValue,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue,
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
-        ExecutionGraph graph = execute(className, methodSignature, initialRegisterToValue, classNameToInitialFieldValue);
+        Set<String> classNames = new HashSet<String>();
+        classNames.add(className);
+        classNames.addAll(classNameToInitialFieldValue.keySet());
+        classNames.addAll(classNameToExpectedFieldValue.keySet());
+        ExecutionGraph graph = execute(className, methodSignature, initialRegisterToValue,
+                        classNameToInitialFieldValue, classNames);
         assertNotNull(graph);
 
         for (int register : expectedRegisterToValue.keys()) {

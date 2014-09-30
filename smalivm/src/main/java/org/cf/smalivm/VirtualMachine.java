@@ -1,5 +1,7 @@
 package org.cf.smalivm;
 
+import gnu.trove.list.TIntList;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -142,6 +144,23 @@ public class VirtualMachine {
         } catch (Exception e) {
             log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
             log.debug("Stack trace: ", e);
+        }
+
+        TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
+        for (String currentClassName : getLocalClasses()) {
+            List<String> fieldNameAndTypes = getFieldNameAndTypes(currentClassName);
+            for (String fieldNameAndType : fieldNameAndTypes) {
+                Object value = graph.getFieldConsensus(terminatingAddresses, currentClassName, fieldNameAndType);
+                ClassState currentClassState;
+                if (ectx.isClassInitialized(currentClassName)) {
+                    currentClassState = ectx.peekClassState(currentClassName);
+                } else {
+                    currentClassState = new ClassState(ectx, currentClassName, fieldNameAndTypes.size());
+                    ectx.initializeClass(currentClassName, currentClassState);
+                }
+
+                currentClassState.pokeField(fieldNameAndType, value);
+            }
         }
 
         return result;

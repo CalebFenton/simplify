@@ -56,12 +56,6 @@ public class Main {
         Set<String> finishedMethods = new HashSet<String>();
         for (BuilderMethod method : methods) {
             String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-            if (methodDescriptor.endsWith("-><clinit>()V")) {
-                // Static class initialization is handled by the VM.
-                // TODO: main shouldn't need to know how to do this!
-                continue;
-            }
-
             if (finishedMethods.contains(methodDescriptor)) {
                 continue;
             }

@@ -130,13 +130,21 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     public Object getFieldConsensus(TIntList addressList, String className, String fieldNameAndType) {
         Object value = null;
+        String[] parts = fieldNameAndType.split(":");
+        String type = parts[1];
+
         for (int address : addressList.toArray()) {
+            // If the class wasn't initialized in one path, it's unknown
+            for (ExecutionNode node : getNodePile(address)) {
+                if (!node.getContext().isClassInitialized(className)) {
+                    return new UnknownValue(type);
+                }
+            }
+
             Set<Object> values = getFieldValues(address, className, fieldNameAndType);
             value = values.toArray()[0]; // since it's a set, cute little uniqueness check is possible
             if (values.size() != 1) {
                 log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
-                String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
-
                 return new UnknownValue(type);
             }
         }

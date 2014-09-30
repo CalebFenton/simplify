@@ -16,7 +16,7 @@ public class java_io_PrintStream_println implements EmulatedMethod {
         System.out.println(valueStr);
     }
 
-    public SideEffect.Level getSideEffectType() {
+    public SideEffect.Level getSideEffectLevel() {
         // Do not optimize this away.
         return SideEffect.Level.STRONG;
     }

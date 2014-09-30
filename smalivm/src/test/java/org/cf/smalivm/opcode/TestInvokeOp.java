@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import gnu.trove.map.TIntObjectMap;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.smalivm.VMTester;
@@ -14,6 +15,8 @@ import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
 public class TestInvokeOp {
+
+    private static final String CLASS_WITH_STATIC_INIT = "Lclass_with_static_init;";
 
     public static class TestInvokeStatic {
         private static final String CLASS_NAME = "Linvoke_static_test;";
@@ -105,6 +108,16 @@ public class TestInvokeOp {
 
             VMTester.testMethodState(CLASS_NAME, "InvokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V",
                             initial, expected);
+        }
+
+        @Test
+        public void TestNonDeterministicallyInitializedClassIsAllUnknown() {
+            Map<String, Map<String, Object>> initial = new HashMap<String, Map<String, Object>>();
+            Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_WITH_STATIC_INIT,
+                            "string:Ljava/lang/String;", new UnknownValue("Ljava/lang/String;"));
+
+            VMTester.testClassState(CLASS_NAME, "NonDeterministicallyInitializeClassWithStaticInit()V", initial,
+                            expected);
         }
     }
 

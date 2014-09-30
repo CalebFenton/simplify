@@ -111,7 +111,7 @@ public class MethodState extends BaseState {
     public Object readResultRegister() {
         Object result = readRegister(ResultRegister, METHOD_HEAP);
         // TODO: removeRegister and see what breaks..
-        // removeRegister(ResultRegister);
+        ectx.getHeap().remove(METHOD_HEAP, ResultRegister);
 
         return result;
     }
@@ -163,7 +163,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append("r").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                .append(",\n");
+                                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);

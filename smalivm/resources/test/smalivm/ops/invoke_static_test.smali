@@ -82,6 +82,18 @@
 #.method public static TestUnknownMethodMutableAndImmutableParametersMutateOnlyMutableAndReturnUnknownValue()V
 #.end method
 
+.method public static NonDeterministicallyInitializeClassWithStaticInit()V
+    .locals 1
+
+    sget v0, Lsome_unexistant_class;->fieldy:I
+    if-eqz v0, :was_zero
+
+    invoke-static {}, Lclass_with_static_init;->getString()Ljava/lang/String;
+    move-result v0
+
+    :was_zero
+    return-void
+.end method
 
 .method public static MutateStaticClassField()V
     .locals 2

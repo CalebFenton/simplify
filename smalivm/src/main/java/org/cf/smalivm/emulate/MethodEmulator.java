@@ -29,6 +29,6 @@ public class MethodEmulator {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
         em.execute(mState);
 
-        return em.getSideEffectType();
+        return em.getSideEffectLevel();
     }
 }

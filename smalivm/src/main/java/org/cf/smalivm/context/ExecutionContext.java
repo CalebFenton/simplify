@@ -131,24 +131,32 @@ public class ExecutionContext {
             return;
         }
 
-        ExecutionContext templateContext = getTemplate();
-        ClassState templateClassState = templateContext.peekClassState(className);
-        ClassState cState = new ClassState(templateClassState, this);
-        initializeClass(className, cState);
-
         SideEffect.Level sideEffectLevel = SideEffect.Level.NONE;
         String clinitDescriptor = className + "-><clinit>()V";
-
         if (vm.isLocalMethod(clinitDescriptor)) {
-            ExecutionGraph graph = vm.execute(clinitDescriptor, this);
+            ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
+            ClassState templateClassState = getTemplate().peekClassState(className);
+            ClassState cState = new ClassState(templateClassState, initContext);
+            initContext.initializeClass(className, cState);
+            for (String currentClassName : vm.getLocalClasses()) {
+                if (isClassInitialized(currentClassName)) {
+                    cState = new ClassState(peekClassState(currentClassName), initContext);
+                    initContext.initializeClass(currentClassName, cState);
+                }
+            }
+
+            ExecutionGraph graph = vm.execute(clinitDescriptor, initContext);
             if (graph == null) {
                 // Error executing. Assume the worst.
                 setClassSideEffectType(className, SideEffect.Level.STRONG);
             } else {
                 sideEffectLevel = graph.getHighestSideEffectLevel();
+
             }
         } else {
             // No clinit for this class.
+            ClassState cState = new ClassState(this, className, 0);
+            initializeClass(className, cState);
         }
         setClassSideEffectType(className, sideEffectLevel);
     }
@@ -215,11 +223,14 @@ public class ExecutionContext {
         if (mState != null) {
             sb.append(mState.toString());
         }
+        if (sb.length() > 0) {
+            sb.append("\n");
+        }
         if (getInitializedClasses().size() < 4) {
             // Too many and can blow up heap
             for (String className : getInitializedClasses()) {
                 ClassState cState = peekClassState(className);
-                sb.append(cState);
+                sb.append("Class: ").append(className).append(" ").append(cState);
             }
         }
 

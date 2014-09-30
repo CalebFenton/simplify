@@ -7,6 +7,6 @@ public interface EmulatedMethod {
 
     public void execute(MethodState mState);
 
-    public Level getSideEffectType();
+    public Level getSideEffectLevel();
 
 }
