@@ -158,7 +158,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -204,7 +204,11 @@ public class InvokeOp extends ExecutionContextOp {
 
     private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext) {
         ExecutionContext result = vm.getRootExecutionContext(methodDescriptor);
-        for (String className : callerContext.getInitializedClasses()) {
+        for (String className : vm.getLocalClasses()) {
+            if (!callerContext.isClassInitialized(className)) {
+                continue;
+            }
+
             ClassState callerClassState = callerContext.peekClassState(className);
             ClassState cState = new ClassState(callerClassState, result);
             for (String fieldNameAndType : vm.getFieldNameAndTypes(className)) {

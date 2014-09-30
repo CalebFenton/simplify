@@ -224,6 +224,9 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         for (ExecutionNode node : this) {
             Op op = node.getOp();
             SideEffect.Level level = op.sideEffectLevel();
+            if (level == null) {
+                System.out.println("break");
+            }
             switch (level) {
             case STRONG:
                 return level;

@@ -1,24 +1,23 @@
 package org.cf.smalivm.context;
 
-import java.util.HashSet;
-import java.util.Set;
+import gnu.trove.set.hash.THashSet;
 
 public class ClassState extends BaseState {
 
     private final String className;
-    private final Set<String> fieldNameAndTypes;
+    private final THashSet<String> fieldNameAndTypes;
 
     public ClassState(ExecutionContext ectx, String className, int fieldCount) {
         super(ectx, fieldCount);
 
-        fieldNameAndTypes = new HashSet<String>();
+        fieldNameAndTypes = new THashSet<String>();
         this.className = className;
     }
 
     public ClassState(ClassState parent, ExecutionContext ectx) {
         super(parent, ectx);
 
-        fieldNameAndTypes = new HashSet<String>(parent.fieldNameAndTypes);
+        fieldNameAndTypes = new THashSet<String>(parent.fieldNameAndTypes);
         className = parent.className;
     }
 

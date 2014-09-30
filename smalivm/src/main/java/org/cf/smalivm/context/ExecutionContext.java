@@ -1,8 +1,9 @@
 package org.cf.smalivm.context;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import gnu.trove.map.TMap;
+import gnu.trove.map.hash.THashMap;
+import gnu.trove.set.hash.THashSet;
+
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
@@ -15,8 +16,8 @@ public class ExecutionContext {
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
     private int callDepth;
-    private final Map<String, SideEffect.Level> classNameToSideEffectType;
-    private final Map<String, ClassState> classNameToState;
+    private final TMap<String, SideEffect.Level> classNameToSideEffectLevel;
+    private final TMap<String, ClassState> classNameToState;
     private final Heap heap;
     private final Set<String> initializedClasses;
 
@@ -29,23 +30,23 @@ public class ExecutionContext {
         if (other.mState != null) {
             mState = new MethodState(other.mState, this);
         }
-        classNameToState = new HashMap<String, ClassState>(other.classNameToState.size());
+        classNameToState = new THashMap<String, ClassState>(other.classNameToState.size());
         for (String className : other.classNameToState.keySet()) {
             ClassState otherClassState = other.peekClassState(className);
             ClassState cState = new ClassState(otherClassState, this);
             setClassState(className, cState);
         }
-        classNameToSideEffectType = new HashMap<String, SideEffect.Level>(other.classNameToSideEffectType);
-        initializedClasses = new HashSet<String>(other.initializedClasses);
+        classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(other.classNameToSideEffectLevel);
+        initializedClasses = new THashSet<String>(other.initializedClasses);
         heap = new Heap(other.getHeap());
         callDepth = other.getCallDepth();
     }
 
     public ExecutionContext(VirtualMachine vm) {
         this.vm = vm;
-        classNameToState = new HashMap<String, ClassState>();
-        classNameToSideEffectType = new HashMap<String, SideEffect.Level>();
-        initializedClasses = new HashSet<String>();
+        classNameToState = new THashMap<String, ClassState>(0);
+        classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(0);
+        initializedClasses = new THashSet<String>(0);
         heap = new Heap();
         callDepth = 0;
     }
@@ -60,13 +61,15 @@ public class ExecutionContext {
         child.setParent(this);
         child.getHeap().setParent(this.getHeap());
 
+        // Almost every op access the method state
         MethodState childMethodState = getMethodState().getChild(child);
         child.setMethodState(childMethodState);
 
-        for (String className : classNameToState.keySet()) {
-            ClassState childClassState = peekClassState(className).getChild(child);
-            child.initializeClass(className, childClassState);
-        }
+        // Sparse context testing, for ref only
+        // for (String className : classNameToState.keySet()) {
+        // ClassState childClassState = peekClassState(className).getChild(child);
+        // child.initializeClass(className, childClassState);
+        // }
 
         return child;
     }
@@ -81,10 +84,16 @@ public class ExecutionContext {
         return peekClassState(className);
     }
 
-    public SideEffect.Level getClassStateSideEffectType(String className) {
-        staticallyInitializeClassIfNecessary(className);
+    public SideEffect.Level getClassStateSideEffectLevel(String className) {
+        ExecutionContext ancestor = getAncestorWithClassName(className);
+        if (ancestor != this) {
+            SideEffect.Level level = ancestor.classNameToSideEffectLevel.get(className);
+            if (level != null) {
+                classNameToSideEffectLevel.put(className, level);
+            }
+        }
 
-        return classNameToSideEffectType.get(className);
+        return classNameToSideEffectLevel.get(className);
     }
 
     public Heap getHeap() {
@@ -154,6 +163,13 @@ public class ExecutionContext {
     }
 
     public boolean isClassInitialized(String className) {
+        ExecutionContext ancestor = getAncestorWithClassName(className);
+        if (ancestor != this) {
+            if (ancestor.initializedClasses.contains(className)) {
+                initializedClasses.add(className);
+            }
+        }
+
         return initializedClasses.contains(className);
     }
 
@@ -165,12 +181,32 @@ public class ExecutionContext {
         return parent;
     }
 
+    private ExecutionContext getAncestorWithClassName(String className) {
+        ExecutionContext ancestor = this;
+        do {
+            if (ancestor.classNameToState.containsKey(className)) {
+                return ancestor;
+            }
+
+            ancestor = ancestor.getParent();
+        } while (ancestor != null);
+
+        return ancestor;
+    }
+
     public ClassState peekClassState(String className) {
+        ExecutionContext ancestor = getAncestorWithClassName(className);
+        if (ancestor != this) {
+            ClassState ancestorClassState = ancestor.peekClassState(className);
+            ClassState cState = ancestorClassState.getChild(this);
+            initializeClass(className, cState);
+        }
+
         return classNameToState.get(className);
     }
 
     void setClassSideEffectType(String className, SideEffect.Level sideEffectLevel) {
-        classNameToSideEffectType.put(className, sideEffectLevel);
+        classNameToSideEffectLevel.put(className, sideEffectLevel);
     }
 
     @Override
@@ -179,9 +215,12 @@ public class ExecutionContext {
         if (mState != null) {
             sb.append(mState.toString());
         }
-        for (String className : getInitializedClasses()) {
-            ClassState cState = peekClassState(className);
-            sb.append(cState);
+        if (getInitializedClasses().size() < 4) {
+            // Too many and can blow up heap
+            for (String className : getInitializedClasses()) {
+                ClassState cState = peekClassState(className);
+                sb.append(cState);
+            }
         }
 
         return sb.toString();

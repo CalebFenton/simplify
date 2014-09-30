@@ -1,6 +1,8 @@
 package org.cf.smalivm.context;
 
-import java.util.HashMap;
+import gnu.trove.map.TMap;
+import gnu.trove.map.hash.THashMap;
+
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -17,15 +19,15 @@ class Heap {
 
     private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
 
-    private final Map<HeapKey, Object> heapKeyToValue;
+    private final TMap<HeapKey, Object> heapKeyToValue;
     private Heap parent;
 
     Heap() {
-        heapKeyToValue = new HashMap<HeapKey, Object>();
+        heapKeyToValue = new THashMap<HeapKey, Object>();
     }
 
     Heap(Heap other) {
-        heapKeyToValue = new HashMap<HeapKey, Object>(other.heapKeyToValue);
+        heapKeyToValue = new THashMap<HeapKey, Object>(other.heapKeyToValue);
     }
 
     private static Object cloneRegisterValue(Object value) {
@@ -87,7 +89,7 @@ class Heap {
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
             Exception e = new Exception();
-            log.warn(key + " is being read but is null. Probably a mistake!\n", e);
+            log.warn(key + " is being read but is null. Probably a mistake!", e);
 
             return null;
         }
