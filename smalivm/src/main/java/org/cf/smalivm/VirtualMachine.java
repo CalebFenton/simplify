@@ -130,8 +130,9 @@ public class VirtualMachine {
         ectx.staticallyInitializeClassIfNecessary(className);
 
         ExecutionGraph graph = getInstructionGraphClone(methodDescriptor);
-        ExecutionNode rootNode = graph.getRoot();
+        ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
         rootNode.setContext(ectx);
+        graph.addNode(rootNode);
 
         ExecutionGraph result = null;
         try {
@@ -148,9 +149,9 @@ public class VirtualMachine {
 
     public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
         ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
-        ExecutionGraph result = new ExecutionGraph(graph);
+        ExecutionGraph clone = new ExecutionGraph(graph);
 
-        return result;
+        return clone;
     }
 
     public int getMaxCallDepth() {

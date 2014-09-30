@@ -102,8 +102,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         terminatingAddresses = buildTerminatingAddresses(instructions);
     }
 
-    public void addNode(int address, ExecutionNode child) {
-        addressToNodePile.get(address).add(child);
+    public void addNode(ExecutionNode node) {
+        addressToNodePile.get(node.getAddress()).add(node);
     }
 
     public TIntSet getAddresses() {
@@ -166,9 +166,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     public List<ExecutionNode> getNodePile(int address) {
         List<ExecutionNode> result = addressToNodePile.get(address);
-        if (address > 0) {
-            result = result.subList(1, result.size()); // remove template node
-        }
+        result = result.subList(1, result.size());
 
         return result;
     }
@@ -215,8 +213,13 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionNode getRoot() {
-        // There is only one entry point for a method.
-        return addressToNodePile.get(0).get(0);
+        List<ExecutionNode> pile = addressToNodePile.get(0);
+        // Return node with initialized context if available.
+        if (pile.size() > 1) {
+            return pile.get(1);
+        } else {
+            return pile.get(0);
+        }
     }
 
     public SideEffect.Level getHighestSideEffectLevel() {

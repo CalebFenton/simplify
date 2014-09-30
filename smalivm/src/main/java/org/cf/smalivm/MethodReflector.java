@@ -165,7 +165,7 @@ public class MethodReflector {
 
         List<Object> args = new ArrayList<Object>();
         for (int i = offset; i < mState.getRegisterCount(); i++) {
-            Object arg = mState.getParameter(i);
+            Object arg = mState.peekParameter(i);
             String type = parameterTypes.get(i);
             if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
                 // Booleans are represented in Smali and stored internally as integers. Convert to boolean.

@@ -34,7 +34,8 @@ public class InvokeOp extends ExecutionContextOp {
     private static boolean allArgumentsKnown(MethodState mState) {
         for (int register = 0; register < mState.getRegisterCount(); register++) {
             Object value = mState.peekRegister(register);
-            if (value instanceof UnknownValue) {
+            // TODO: shouldn't ever get nulls, but it happens
+            if ((value instanceof UnknownValue) || (value == null)) {
                 return false;
             }
         }
@@ -158,7 +159,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -246,12 +247,12 @@ public class InvokeOp extends ExecutionContextOp {
             return;
         }
 
+        // This method used to have another, more technical name, but this is more descriptive.
+        // It's also the most awesome method name I've ever made. So it stays.
         collapseAndMergeMultiverse(callerContext, graph);
 
         if (!returnType.equals("V")) {
-            TIntList terminating = graph.getConnectedTerminatingAddresses();
-            // TODO: use getTerminatingRegisterConsensus
-            Object consensus = graph.getRegisterConsensus(terminating, MethodState.ReturnRegister);
+            Object consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
         }
 
@@ -280,7 +281,7 @@ public class InvokeOp extends ExecutionContextOp {
         if (!isStatic) {
             // Handle updating the instance reference
             Object originalInstance = callerContext.peekRegister(parameterRegisters[0]);
-            Object newInstance = calleeContext.getParameter(0);
+            Object newInstance = calleeContext.peekParameter(0);
             if (originalInstance != newInstance) {
                 // Instance went from UninitializedInstance class to something else.
                 // TODO: add test for this!
@@ -299,12 +300,12 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
         ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMethodState().getParameter(parameterIndex);
+        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
         int[] addresses = addressList.toArray();
         for (int address : addresses) {
             List<ExecutionNode> nodes = graph.getNodePile(address);
             for (ExecutionNode node : nodes) {
-                Object otherValue = node.getContext().getMethodState().getParameter(parameterIndex);
+                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
 
                 if (value != otherValue) {
                     log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");

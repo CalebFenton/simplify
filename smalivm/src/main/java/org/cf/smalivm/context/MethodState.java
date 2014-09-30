@@ -76,7 +76,7 @@ public class MethodState extends BaseState {
     }
 
     // This is what you want for emulated methods.
-    public Object getParameter(int parameterIndex) {
+    public Object peekParameter(int parameterIndex) {
         Object value;
         if (mutableParameters.contains(parameterIndex)) {
             value = peekRegister(parameterIndex, MUTABLE_PARAMETER_HEAP);
@@ -129,7 +129,7 @@ public class MethodState extends BaseState {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         if (getParameterCount() > 0) {
-            sb.append("\nparameters: ").append(parameterCount).append("\n[");
+            sb.append("parameters: ").append(parameterCount).append("\n[");
             for (int parameterIndex = 0; parameterIndex < getParameterCount(); parameterIndex++) {
                 int register = getParameterStart() + parameterIndex;
                 if (!super.hasRegister(register, METHOD_HEAP)) {
@@ -163,7 +163,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append("r").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                                .append(",\n");
+                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);

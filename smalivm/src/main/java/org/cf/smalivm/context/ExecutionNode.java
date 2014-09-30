@@ -25,7 +25,7 @@ public class ExecutionNode {
         children = new ArrayList<ExecutionNode>(op.getPossibleChildren().length);
     }
 
-    ExecutionNode(ExecutionNode other) {
+    public ExecutionNode(ExecutionNode other) {
         op = other.op;
         children = new ArrayList<ExecutionNode>(other.getChildren());
     }
@@ -34,7 +34,7 @@ public class ExecutionNode {
         ExecutionContext ectx = getContext();
         if (log.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
-            sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op).append("\nContext before: ")
+            sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op).append("\nContext before:\n")
                             .append(ectx);
             log.debug(sb.toString());
         }
@@ -48,7 +48,7 @@ public class ExecutionNode {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Context after: " + ectx);
+            log.debug("Context after:\n" + ectx);
         }
 
         return result;

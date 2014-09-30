@@ -39,8 +39,7 @@ public class Main {
         System.out.println("With no context, returns: " + value);
 
         // Now execute with parameter
-        graph = vm.getInstructionGraphClone(methodDescriptor);
-        ExecutionContext ectx = graph.getRoot().getContext();
+        ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
 
         // Since this method is not static, the first parameter is a reference to 'this'.
@@ -54,13 +53,12 @@ public class Main {
 
     private static void executePrintParameter(int parameterValue) {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
-        ExecutionGraph graph = vm.getInstructionGraphClone(methodDescriptor);
-        ExecutionContext ectx = graph.getRoot().getContext();
+        ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignParameter(0, parameterValue);
 
         // Execute method with some context
-        vm.execute("Lorg/cf/demosmali/Main;->printParameter(I)V", ectx);
+        vm.execute(methodDescriptor, ectx);
     }
 
 }

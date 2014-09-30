@@ -9,7 +9,7 @@ public class java_io_PrintStream_println implements EmulatedMethod {
     @Override
     public void execute(MethodState mState) {
         // Virtual method, register 0 is System.out (or something else)
-        Object value = mState.getParameter(1);
+        Object value = mState.peekParameter(1);
         String valueStr = (String) value;
 
         // Actually print out any println's executed.

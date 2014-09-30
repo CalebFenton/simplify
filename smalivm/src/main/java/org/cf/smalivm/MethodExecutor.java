@@ -47,7 +47,7 @@ public class MethodExecutor {
                 // consensus for optimization.
                 Op childOp = graph.getTemplateNode(address).getOp();
                 ExecutionNode childNode = currentNode.getChild(childOp);
-                graph.addNode(address, childNode);
+                graph.addNode(childNode);
             }
 
             executeStack.addAll(currentNode.getChildren());
