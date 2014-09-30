@@ -126,3 +126,23 @@
     #@1e
     return-wide v8
 .end method
+
+
+# index out of bounds
+.method public static CatchThingy()V
+    .locals 1
+
+    :try_start_0
+    const/4 v0, 0x1 # @0
+
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_error
+
+    :return
+    return-void # @1
+
+    :catch_error
+    move-exception v0 # @2
+
+    goto :return # @3
+.end method
