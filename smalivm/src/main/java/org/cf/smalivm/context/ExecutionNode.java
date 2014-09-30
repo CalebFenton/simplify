@@ -35,7 +35,7 @@ public class ExecutionNode {
         if (log.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
             sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op).append("\nContext before:\n")
-                            .append(ectx);
+            .append(ectx);
             log.debug(sb.toString());
         }
 
@@ -103,7 +103,6 @@ public class ExecutionNode {
         // http://stream1.gifsoup.com/view/773318/not-the-father-dance-o.gif
         assert index >= 0;
         children.remove(index);
-        children.add(index, newChild);
         newChild.setParent(this);
     }
 

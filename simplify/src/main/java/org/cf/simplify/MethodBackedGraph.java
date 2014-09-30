@@ -121,8 +121,8 @@ public class MethodBackedGraph extends ExecutionGraph {
         int shift = codeUnits - original.getCodeUnits();
         Utils.shiftIntegerMapKeys(address, shift, addressToInstruction);
 
-        Op handler = opFactory.create(replacement, address);
-        replaceInstruction(address, shift, handler, codeUnits);
+        Op op = opFactory.create(replacement, address);
+        replaceInstruction(address, shift, op, codeUnits);
     }
 
     protected void removeInstruction(int address, int codeUnits) {
@@ -149,17 +149,23 @@ public class MethodBackedGraph extends ExecutionGraph {
      * depending on delta between old and new instruction. It also executes the new instruction to build a realistic
      * context to help optimizer, i.e. assigned registers, etc.
      */
-    protected void replaceInstruction(int address, int addressShift, Op handler, int codeUnits) {
+    protected void replaceInstruction(int address, int addressShift, Op op, int codeUnits) {
         Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
 
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
         Map<ExecutionNode, ExecutionNode> oldToNew = new HashMap<ExecutionNode, ExecutionNode>();
         for (int index = 0; index < nodePile.size(); index++) {
             ExecutionNode replacedNode = nodePile.get(index);
-            ExecutionNode newNode = new ExecutionNode(handler);
+            ExecutionNode newNode = new ExecutionNode(op);
 
             nodePile.remove(replacedNode);
             nodePile.add(index, newNode);
+
+            if (index == 0) {
+                // Template node shouldn't have children or context.
+                continue;
+            }
+
             for (ExecutionNode child : replacedNode.getChildren()) {
                 child.setParent(newNode);
             }
@@ -180,7 +186,7 @@ public class MethodBackedGraph extends ExecutionGraph {
 
         // Update any children's parents to the new nodes we made.
         int childAddress = address + codeUnits;
-        nodePile = addressToNodePile.get(childAddress);
+        nodePile = getNodePile(childAddress);
         if (nodePile != null) {
             for (ExecutionNode node : nodePile) {
                 ExecutionNode parent = node.getParent();

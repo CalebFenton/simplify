@@ -34,7 +34,7 @@ public class MethodReflector {
         SafeClasses.add("Ljava/lang/Number;");
         SafeClasses.add("Ljava/lang/Short;");
         SafeClasses.add("Ljava/lang/String;");
-        SafeClasses.add("Ljava/lang/System;");
+        // SafeClasses.add("Ljava/lang/System;"); System.currentTimeMillis?
 
         SafeClasses.add("Ljava/lang/StringBuffer;");
         SafeClasses.add("Ljava/lang/StringBuilder;");

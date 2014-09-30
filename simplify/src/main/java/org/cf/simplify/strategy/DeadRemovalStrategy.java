@@ -8,6 +8,7 @@ import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Set;
 
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
@@ -36,12 +38,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
-    private static boolean areAssignmentsRead(int address, TIntList assigned, ExecutionGraph graph) {
+    private static boolean areAssignmentsRead(int address, TIntList assignedList, ExecutionGraph graph) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildrenAtAddress(address, graph));
         ExecutionNode node;
+        int[] assigned = assignedList.toArray();
         while ((node = stack.poll()) != null) {
             MethodState mState = node.getMethodState();
-            for (int register : assigned.toArray()) {
+            for (int register : assigned) {
                 if (mState.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
                                     + ", " + node.getOp());
@@ -71,7 +74,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         TIntList result = new TIntArrayList();
         boolean inCatch = false;
-        for (int address : addressToInstruction.keys()) {
+        int[] addresses = addressToInstruction.keys();
+        Arrays.sort(addresses);
+        for (int address : addresses) {
             BuilderInstruction instruction = addressToInstruction.get(address);
             if (catchAddresses.contains(address)) {
                 inCatch = true;
@@ -81,6 +86,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             if (inCatch) {
                 Set<Label> labels = instruction.getLocation().getLabels();
                 inCatch = labels.size() == 0;
+                continue;
             }
 
             result.add(address);
@@ -177,12 +183,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             List<ExecutionNode> pile = mbgraph.getNodePile(address);
-            MethodState mState = pile.get(0).getMethodState();
-            if (mState == null) {
-                log.warn("Null method context. This shouldn't happen!");
+            ExecutionContext ectx = pile.get(0).getContext();
+            if (ectx == null) {
+                log.warn("Null execution context @" + address + ". This shouldn't happen!");
                 continue;
             }
 
+            MethodState mState = ectx.getMethodState();
             TIntList assigned = mState.getRegistersAssigned();
             if (assigned.size() == 0) {
                 continue;
