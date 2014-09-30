@@ -31,12 +31,16 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private static boolean allArgumentsKnown(MethodState mState) {
-        for (int register = 0; register < mState.getRegisterCount(); register++) {
-            Object value = mState.peekRegister(register);
-            // TODO: shouldn't ever get nulls, but it happens
-            if ((value instanceof UnknownValue) || (value == null)) {
+    private boolean allArgumentsKnown(MethodState mState) {
+        for (int parameter = 0; parameter < mState.getParameterCount(); parameter++) {
+            Object value = mState.peekParameter(parameter);
+            if (value instanceof UnknownValue) {
                 return false;
+            }
+
+            String type = parameterTypes.get(parameter);
+            if (type.equals("J") || type.equals("D")) {
+                parameter += 1; // these take up two registers
             }
         }
 
@@ -159,7 +163,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -204,26 +208,26 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext) {
-        ExecutionContext result = vm.getRootExecutionContext(methodDescriptor);
+        ExecutionContext calleeContext = vm.getRootExecutionContext(methodDescriptor);
         for (String className : vm.getLocalClasses()) {
             if (!callerContext.isClassInitialized(className)) {
                 continue;
             }
 
             ClassState callerClassState = callerContext.peekClassState(className);
-            ClassState cState = new ClassState(callerClassState, result);
+            ClassState cState = new ClassState(callerClassState, calleeContext);
             for (String fieldNameAndType : vm.getFieldNameAndTypes(className)) {
                 Object value = callerClassState.peekField(fieldNameAndType);
                 cState.pokeField(fieldNameAndType, value);
             }
-            result.initializeClass(className, cState);
+            calleeContext.initializeClass(className, cState);
         }
-        result.setCallDepth(callerContext.getCallDepth() + 1);
-        MethodState calleeMethodState = result.getMethodState();
+        calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
+        MethodState calleeMethodState = calleeContext.getMethodState();
         MethodState callerMethodState = callerContext.getMethodState();
         assignCalleeContextParameters(callerMethodState, calleeMethodState);
 
-        return result;
+        return calleeContext;
     }
 
     private MethodState buildNonLocalCalleeContext(MethodState callerContext) {
