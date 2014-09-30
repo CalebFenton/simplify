@@ -28,3 +28,12 @@
 
   return-void
 .end method
+
+.method public static GetByteWithByte()V
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Byte;->valueOf(B)Ljava/lang/Byte;
+  move-result v0
+
+  return-void
+.end method

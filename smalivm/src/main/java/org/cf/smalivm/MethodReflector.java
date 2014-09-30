@@ -177,6 +177,8 @@ public class MethodReflector {
                     arg = (char) intValue;
                 } else if (type.equals("S") || type.equals("Ljava/lang/Short;")) {
                     arg = (short) intValue;
+                } else if (type.equals("B") || type.equals("Ljava/lang/Byte;")) {
+                    arg = (byte) intValue;
                 }
             }
             args.add(arg);

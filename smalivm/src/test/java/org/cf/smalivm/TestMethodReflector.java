@@ -45,4 +45,12 @@ public class TestMethodReflector {
 
         VMTester.testMethodState(CLASS_NAME, "GetShortWithShort()V", initial, expected);
     }
+
+    @Test
+    public void TestCastsIntegerToByte() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 6);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Byte.valueOf((byte) 6));
+
+        VMTester.testMethodState(CLASS_NAME, "GetByteWithByte()V", initial, expected);
+    }
 }
