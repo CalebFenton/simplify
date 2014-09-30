@@ -167,11 +167,16 @@ public class MethodReflector {
         for (int i = offset; i < mState.getRegisterCount(); i++) {
             Object arg = mState.peekParameter(i);
             String type = parameterTypes.get(i);
-            if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
-                // Booleans are represented in Smali and stored internally as integers. Convert to boolean.
-                if (arg.getClass() == Integer.class) {
-                    int intValue = (Integer) arg;
+
+            // In Dalvik, integer is overloaded and represents a few primitives.
+            if (arg.getClass() == Integer.class) {
+                int intValue = (Integer) arg;
+                if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
                     arg = intValue == 0 ? false : true;
+                } else if (type.equals("C") || type.equals("Ljava/lang/Character;")) {
+                    arg = (char) intValue;
+                } else if (type.equals("S") || type.equals("Ljava/lang/Short;")) {
+                    arg = (short) intValue;
                 }
             }
             args.add(arg);
