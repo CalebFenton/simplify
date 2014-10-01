@@ -142,7 +142,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             }
 
             Set<Object> values = getFieldValues(address, className, fieldNameAndType);
-            value = values.toArray()[0]; // since it's a set, cute little uniqueness check is possible
+            value = values.toArray()[0]; // since set, size == 1 -> consensus
             if (values.size() != 1) {
                 log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
                 return new UnknownValue(type);
@@ -156,7 +156,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
         for (ExecutionNode node : nodePile) {
-            ClassState cState = node.getClassState(className);
+            ClassState cState = node.getContext().peekClassState(className);
             Object value = cState.peekField(fieldNameAndType);
             result.add(value);
         }
