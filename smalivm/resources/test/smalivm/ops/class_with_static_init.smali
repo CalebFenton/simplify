@@ -19,3 +19,11 @@
 
   return v0
 .end method
+
+.method public static getStaticFieldFromInvokeStaticTestClass()Ljava/lang/String;
+  .locals 1
+
+  sget-object v0, Linvoke_static_test;->sometimes_initialized:Ljava/lang/String;
+
+  return v0
+.end method

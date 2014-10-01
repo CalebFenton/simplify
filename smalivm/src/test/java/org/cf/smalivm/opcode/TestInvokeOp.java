@@ -4,6 +4,7 @@ import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.cf.smalivm.VMTester;
@@ -52,6 +53,22 @@ public class TestInvokeOp {
 
             VMTester.testClassState(CLASS_NAME, "InvokeMutateStaticClassFieldNonDeterministically()V", initial,
                             expected);
+        }
+
+        @Test
+        public void TestInvokeMethodOutsideClassThatAccessesThisClassReturnsExpectedValue() {
+            String value = "i have been initialized";
+            TIntObjectMap<Object> initialRegisterToValue = new TIntObjectHashMap<Object>();
+            TIntObjectMap<Object> expectedRegisterToValue = VMTester.buildRegisterState(MethodState.ResultRegister,
+                            value);
+            Map<String, Map<String, Object>> classNameToInitialFieldValue = VMTester.buildClassNameToFieldValue(
+                            CLASS_NAME, "sometimes_initialized:Ljava/lang/String;", value);
+            Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
+                            CLASS_WITH_STATIC_INIT, "string:Ljava/lang/String;", "Uhhh, about 11, sir.");
+
+            VMTester.testMethodAndClassState(CLASS_NAME, "InvokeMethodOutsideClassThatAccessesThisClass()V",
+                            initialRegisterToValue, expectedRegisterToValue, classNameToInitialFieldValue,
+                            classNameToExpectedFieldValue, new HashSet<String>());
         }
 
         @Test

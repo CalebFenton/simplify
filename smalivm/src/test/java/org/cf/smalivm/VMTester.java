@@ -156,7 +156,7 @@ public class VMTester {
         TIntObjectMap<Object> initialRegisterToValue = new TIntObjectHashMap<Object>();
         TIntObjectMap<Object> expectedRegisterToValue = new TIntObjectHashMap<Object>();
         testMethodAndClassState(className, methodSignature, initialRegisterToValue, expectedRegisterToValue,
-                        classNameToInitialFieldValue, classNameToExpectedFieldValue);
+                        classNameToInitialFieldValue, classNameToExpectedFieldValue, new HashSet<String>());
     }
 
     public static void testClassState(String className, String methodSignature,
@@ -165,7 +165,7 @@ public class VMTester {
         TIntObjectMap<Object> expectedRegisterToValue = new TIntObjectHashMap<Object>();
         Map<String, Map<String, Object>> classNameToInitialFieldValue = new HashMap<String, Map<String, Object>>(0);
         testMethodAndClassState(className, methodSignature, initialRegisterToValue, expectedRegisterToValue,
-                        classNameToInitialFieldValue, classNameToExpectedFieldValue);
+                        classNameToInitialFieldValue, classNameToExpectedFieldValue, new HashSet<String>());
     }
 
     public static void testClassState(String className, String methodSignature,
@@ -174,17 +174,19 @@ public class VMTester {
                     Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
         TIntObjectMap<Object> expectedRegisterToValue = new TIntObjectHashMap<Object>();
         testMethodAndClassState(className, methodSignature, initialRegisterToValue, expectedRegisterToValue,
-                        classNameToInitialFieldValue, classNameToExpectedFieldValue);
+                        classNameToInitialFieldValue, classNameToExpectedFieldValue, new HashSet<String>());
     }
 
     public static void testMethodAndClassState(String className, String methodSignature,
                     TIntObjectMap<Object> initialRegisterToValue, TIntObjectMap<Object> expectedRegisterToValue,
                     Map<String, Map<String, Object>> classNameToInitialFieldValue,
-                    Map<String, Map<String, Object>> classNameToExpectedFieldValue) {
+                    Map<String, Map<String, Object>> classNameToExpectedFieldValue,
+                    Set<String> classNamesToMakeAvailable) {
         Set<String> classNames = new HashSet<String>();
         classNames.add(className);
         classNames.addAll(classNameToInitialFieldValue.keySet());
         classNames.addAll(classNameToExpectedFieldValue.keySet());
+        classNames.addAll(classNamesToMakeAvailable);
         ExecutionGraph graph = execute(className, methodSignature, initialRegisterToValue,
                         classNameToInitialFieldValue, classNames);
         assertNotNull(graph);
@@ -220,13 +222,14 @@ public class VMTester {
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = new HashMap<String, Map<String, Object>>(0);
 
         testMethodAndClassState(className, methodSignature, initialRegisterToValue, expectedRegisterToValue,
-                        classNameToInitialFieldValue, classNameToExpectedFieldValue);
+                        classNameToInitialFieldValue, classNameToExpectedFieldValue, new HashSet<String>());
     }
 
     public static void testMethodState(String className, String methodSignature,
                     TIntObjectMap<Object> initialRegisterToValue, TIntObjectMap<Object> expectedRegisterToValue) {
         testMethodAndClassState(className, methodSignature, initialRegisterToValue, expectedRegisterToValue,
-                        new HashMap<String, Map<String, Object>>(0), new HashMap<String, Map<String, Object>>(0));
+                        new HashMap<String, Map<String, Object>>(0), new HashMap<String, Map<String, Object>>(0),
+                        new HashSet<String>());
     }
 
     public static void testVisitation(String className, String methodSignature, int[] expectedVisitations) {

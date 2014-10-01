@@ -3,6 +3,7 @@
 
 .field public static mutable:[I
 .field public static not_initialized:Ljava/lang/String;
+.field public static sometimes_initialized:Ljava/lang/String;
 
 .method public static InvokeReturnVoid()V
     .locals 0
@@ -115,6 +116,13 @@
     return-void
 .end method
 
+.method public static InvokeMethodOutsideClassThatAccessesThisClass()V
+    .locals 1
+
+    invoke-static {}, Lclass_with_static_init;->getStaticFieldFromInvokeStaticTestClass()Ljava/lang/String;
+
+    return-void
+.end method
 
 .method public static MutateStaticClassFieldNonDeterministically()V
     .locals 2
@@ -133,6 +141,7 @@
 
     return-void
 .end method
+
 
 
 
