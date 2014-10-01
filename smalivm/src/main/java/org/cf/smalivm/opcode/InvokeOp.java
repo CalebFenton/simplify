@@ -147,7 +147,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -215,7 +215,8 @@ public class InvokeOp extends ExecutionContextOp {
                 Object value = callerClassState.peekField(fieldNameAndType);
                 cState.pokeField(fieldNameAndType, value);
             }
-            calleeContext.initializeClass(className, cState);
+            SideEffect.Level level = callerContext.getClassStateSideEffectLevel(className);
+            calleeContext.initializeClass(className, cState, level);
         }
         calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
         MethodState calleeMethodState = calleeContext.getMethodState();
@@ -251,7 +252,7 @@ public class InvokeOp extends ExecutionContextOp {
             callerContext.getMethodState().assignResultRegister(consensus);
         }
 
-        sideEffectLevel = graph.getHighestMethodSideEffectLevel();
+        sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext) {

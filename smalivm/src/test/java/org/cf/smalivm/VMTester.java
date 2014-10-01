@@ -277,7 +277,7 @@ public class VMTester {
                 Object value = fieldToValue.get(fieldNameAndType);
                 cState.pokeField(fieldNameAndType, value);
             }
-            ectx.initializeClass(className, cState);
+            ectx.initializeClass(className, cState, SideEffect.Level.NONE);
         }
     }
 
@@ -293,7 +293,7 @@ public class VMTester {
     private static void testFieldEquals(String fieldDescriptor, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append(fieldDescriptor).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-        .append(getClassName(consensus)).append(")");
+                        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -302,7 +302,7 @@ public class VMTester {
     private static void testRegisterEquals(int register, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-        .append(getClassName(consensus)).append(")");
+                        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);

@@ -220,7 +220,8 @@ public class VirtualMachine {
                     currentClassState = callerContext.peekClassState(currentClassName);
                 } else {
                     currentClassState = new ClassState(callerContext, currentClassName, fieldNameAndTypes.size());
-                    callerContext.initializeClass(currentClassName, currentClassState);
+                    SideEffect.Level level = graph.getHighestClassSideEffectLevel(currentClassName);
+                    callerContext.initializeClass(currentClassName, currentClassState, level);
                 }
                 currentClassState.pokeField(fieldNameAndType, value);
             }

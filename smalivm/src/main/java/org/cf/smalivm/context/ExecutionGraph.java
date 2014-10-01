@@ -152,6 +152,18 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return value;
     }
 
+    public Set<String> getAllPossiblyInitializedClasses(TIntList addressList) {
+        Set<String> allClasses = new HashSet<String>();
+        for (int address : addressList.toArray()) {
+            List<ExecutionNode> pile = getNodePile(address);
+            for (ExecutionNode node : pile) {
+                allClasses.addAll(node.getContext().getInitializedClasses());
+            }
+        }
+
+        return allClasses;
+    }
+
     public Set<Object> getFieldValues(int address, String className, String fieldNameAndType) {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
@@ -193,18 +205,26 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return getRegisterConsensus(addresses, register);
     }
 
-    public Object getHighestClassSideEffectLevel(TIntList addressList, String className) {
+    public SideEffect.Level getHighestClassSideEffectLevel(String className) {
+        TIntList addressList = getConnectedTerminatingAddresses();
         SideEffect.Level result = SideEffect.Level.NONE;
-        for (ExecutionNode node : this) {
-            SideEffect.Level level = node.getContext().getClassStateSideEffectLevel(className);
-            switch (level) {
-            case STRONG:
-                return level;
-            case WEAK:
-                result = level;
-                break;
-            case NONE:
-                break;
+        for (int address : addressList.toArray()) {
+            List<ExecutionNode> pile = getNodePile(address);
+            for (ExecutionNode node : pile) {
+                SideEffect.Level level = node.getContext().getClassStateSideEffectLevel(className);
+                if (level == null) {
+                    // Maybe the class wasn't initialized.
+                    continue;
+                }
+                switch (level) {
+                case STRONG:
+                    return level;
+                case WEAK:
+                    result = level;
+                    break;
+                case NONE:
+                    break;
+                }
             }
         }
 
@@ -246,6 +266,30 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         } else {
             return pile.get(0);
         }
+    }
+
+    public SideEffect.Level getHighestSideEffectLevel() {
+        SideEffect.Level result = getHighestMethodSideEffectLevel();
+        if (result == SideEffect.Level.STRONG) {
+            return result;
+        }
+
+        TIntList addressList = getConnectedTerminatingAddresses();
+        Set<String> allClasses = getAllPossiblyInitializedClasses(addressList);
+        for (String className : allClasses) {
+            SideEffect.Level level = getHighestClassSideEffectLevel(className);
+            switch (level) {
+            case STRONG:
+                return level;
+            case WEAK:
+                result = level;
+                break;
+            case NONE:
+                break;
+            }
+        }
+
+        return result;
     }
 
     public SideEffect.Level getHighestMethodSideEffectLevel() {

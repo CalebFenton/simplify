@@ -78,7 +78,7 @@ public class ExecutionContext {
         return initializedClasses;
     }
 
-    public ClassState accessClassState(String className) {
+    public ClassState readClassState(String className) {
         staticallyInitializeClassIfNecessary(className);
 
         return peekClassState(className);
@@ -86,14 +86,12 @@ public class ExecutionContext {
 
     public SideEffect.Level getClassStateSideEffectLevel(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
+        SideEffect.Level level = ancestor.classNameToSideEffectLevel.get(className);
         if (ancestor != this) {
-            SideEffect.Level level = ancestor.classNameToSideEffectLevel.get(className);
-            if (level != null) {
-                classNameToSideEffectLevel.put(className, level);
-            }
+            classNameToSideEffectLevel.put(className, level);
         }
 
-        return classNameToSideEffectLevel.get(className);
+        return level;
     }
 
     public Heap getHeap() {
@@ -104,9 +102,10 @@ public class ExecutionContext {
         return mState;
     }
 
-    public void initializeClass(String className, ClassState cState) {
+    public void initializeClass(String className, ClassState cState, SideEffect.Level level) {
         setClassState(className, cState);
         initializedClasses.add(className);
+        classNameToSideEffectLevel.put(className, level);
     }
 
     public void setCallDepth(int callDepth) {
@@ -137,11 +136,12 @@ public class ExecutionContext {
             ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
             ClassState templateClassState = getTemplate().peekClassState(className);
             ClassState cState = new ClassState(templateClassState, initContext);
-            initContext.initializeClass(className, cState);
+            // real level is set after clinit execution
+            initContext.initializeClass(className, cState, SideEffect.Level.NONE);
             for (String currentClassName : vm.getLocalClasses()) {
                 if (isClassInitialized(currentClassName)) {
                     cState = new ClassState(peekClassState(currentClassName), initContext);
-                    initContext.initializeClass(currentClassName, cState);
+                    initContext.initializeClass(currentClassName, cState, getClassStateSideEffectLevel(className));
                 }
             }
 
@@ -150,13 +150,13 @@ public class ExecutionContext {
                 // Error executing. Assume the worst.
                 sideEffectLevel = SideEffect.Level.STRONG;
             } else {
-                sideEffectLevel = graph.getHighestMethodSideEffectLevel();
+                sideEffectLevel = graph.getHighestSideEffectLevel();
 
             }
         } else {
             // No clinit for this class.
             ClassState cState = new ClassState(this, className, 0);
-            initializeClass(className, cState);
+            initializeClass(className, cState, SideEffect.Level.NONE);
         }
         setClassSideEffectType(className, sideEffectLevel);
     }
@@ -207,7 +207,8 @@ public class ExecutionContext {
         if (ancestor != this) {
             ClassState ancestorClassState = ancestor.peekClassState(className);
             ClassState cState = ancestorClassState.getChild(this);
-            initializeClass(className, cState);
+            SideEffect.Level level = ancestor.getClassStateSideEffectLevel(className);
+            initializeClass(className, cState, level);
         }
 
         return classNameToState.get(className);
