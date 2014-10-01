@@ -89,7 +89,7 @@ class Heap {
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
             Exception e = new Exception();
-            log.warn(key + " is being read but is null. Probably a mistake!", e);
+            log.warn(key + " is being read but is null. Possibly a mistake!", e);
 
             return null;
         }

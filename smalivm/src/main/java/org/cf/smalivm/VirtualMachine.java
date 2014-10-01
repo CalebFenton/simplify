@@ -20,9 +20,10 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
 import org.cf.smalivm.type.LocalInstance;
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
-import org.cf.util.Utils;
+import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
@@ -30,6 +31,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.jf.dexlib2.writer.builder.BuilderMethodParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +92,7 @@ public class VirtualMachine {
     private final int maxCallDepth;
     private final int maxNodeVisits;
     private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
+    private final Map<String, List<String>> methodDescriptorToParameterTypes;
     private final Map<String, ExecutionGraph> methodDescriptorToTemplateContextGraph;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
     private final Map<String, List<String>> classNameToFieldNameAndType;
@@ -103,6 +106,7 @@ public class VirtualMachine {
 
         localClasses = buildLocalClasses(classDefs);
         methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
+        methodDescriptorToParameterTypes = buildMethodDescriptorToParameterTypes(classDefs);
         methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
         classNameToFieldNameAndType = new HashMap<String, List<String>>();
         templateExecutionContext = buildTemplateExecutionContext(classDefs);
@@ -111,6 +115,31 @@ public class VirtualMachine {
         // Build graphs last because that's when ops are created and they may access the VM.
         methodDescriptorToTemplateContextGraph = new HashMap<String, ExecutionGraph>();
         buildMethodDescriptorToTemplateContextGraph(classDefs);
+    }
+
+    private static Map<String, List<String>> buildMethodDescriptorToParameterTypes(List<BuilderClassDef> classDefs) {
+        Map<String, List<String>> result = new HashMap<String, List<String>>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                List<? extends BuilderMethodParameter> builderParameters = method.getParameters();
+                List<String> parameterTypes = new ArrayList<String>(builderParameters.size());
+                for (BuilderMethodParameter builderParameter : builderParameters) {
+                    parameterTypes.add(builderParameter.getType());
+                }
+
+                int accessFlags = method.getAccessFlags();
+                boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+                if (!isStatic) {
+                    // First "parameter" for non-static methods is instance ref
+                    parameterTypes.add(0, method.getDefiningClass());
+                }
+
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                result.put(methodDescriptor, parameterTypes);
+            }
+        }
+
+        return result;
     }
 
     public VirtualMachine(String path) throws Exception {
@@ -128,12 +157,17 @@ public class VirtualMachine {
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) {
+        return execute(methodDescriptor, ectx, null, null);
+    }
+
+    public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
+                    ExecutionContext callerContext, int[] parameterRegisters) {
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        ectx.staticallyInitializeClassIfNecessary(className);
+        calleeContext.staticallyInitializeClassIfNecessary(className);
 
         ExecutionGraph graph = getInstructionGraphClone(methodDescriptor);
         ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
-        rootNode.setContext(ectx);
+        rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 
         ExecutionGraph result = null;
@@ -146,24 +180,68 @@ public class VirtualMachine {
             log.debug("Stack trace: ", e);
         }
 
+        if (callerContext != null) {
+            collapseMultiverse(methodDescriptor, graph, calleeContext, callerContext, parameterRegisters);
+        }
+
+        return result;
+    }
+
+    /*
+     * Get consensus for method and class states for all execution paths and merge them into callerContext.
+     */
+    private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext calleeContext,
+                    ExecutionContext callerContext, int[] parameterRegisters) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
+        MethodState mState = callerContext.getMethodState();
+        List<String> parameterTypes = getParameterTypes(methodDescriptor);
+        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
+            String type = parameterTypes.get(parameterIndex);
+            boolean mutable = !SmaliClassUtils.isImmutableClass(type);
+            if (!mutable) {
+                continue;
+            }
+
+            Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
+            int register = parameterRegisters[parameterIndex];
+            mState.assignRegister(register, value);
+        }
+
         for (String currentClassName : getLocalClasses()) {
             List<String> fieldNameAndTypes = getFieldNameAndTypes(currentClassName);
             for (String fieldNameAndType : fieldNameAndTypes) {
                 Object value = graph.getFieldConsensus(terminatingAddresses, currentClassName, fieldNameAndType);
                 ClassState currentClassState;
-                if (ectx.isClassInitialized(currentClassName)) {
-                    currentClassState = ectx.peekClassState(currentClassName);
+                if (callerContext.isClassInitialized(currentClassName)) {
+                    currentClassState = callerContext.peekClassState(currentClassName);
                 } else {
-                    currentClassState = new ClassState(ectx, currentClassName, fieldNameAndTypes.size());
-                    ectx.initializeClass(currentClassName, currentClassState);
+                    currentClassState = new ClassState(callerContext, currentClassName, fieldNameAndTypes.size());
+                    callerContext.initializeClass(currentClassName, currentClassState);
                 }
-
                 currentClassState.pokeField(fieldNameAndType, value);
             }
         }
+    }
 
-        return result;
+    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
+        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
+        int[] addresses = addressList.toArray();
+        for (int address : addresses) {
+            List<ExecutionNode> nodes = graph.getNodePile(address);
+            for (ExecutionNode node : nodes) {
+                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
+
+                if (value != otherValue) {
+                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+
+                    return new UnknownValue(TypeUtil.getValueType(value));
+                }
+            }
+
+        }
+
+        return value;
     }
 
     public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
@@ -189,36 +267,30 @@ public class VirtualMachine {
         return methodDescriptorToTryCatchList;
     }
 
+    public List<String> getParameterTypes(String methodDescriptor) {
+        return methodDescriptorToParameterTypes.get(methodDescriptor);
+    }
+
     public ExecutionContext getRootExecutionContext(String methodDescriptor) {
         BuilderMethod method = getBuilderMethod(methodDescriptor);
-        int accessFlags = method.getAccessFlags();
         int registerCount = method.getImplementation().getRegisterCount();
-        List<String> parameterTypes = Utils.getParameterTypes(methodDescriptor);
+        List<String> parameterTypes = getParameterTypes(methodDescriptor);
+        int parameterCount = getParameterSize(parameterTypes);
 
+        int accessFlags = method.getAccessFlags();
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
-        if (!isStatic) {
-            // Append instance reference to p0
-            List<String> lst = new ArrayList<String>();
-            String classDescriptor = methodDescriptor.split("->")[0];
-            lst.add(classDescriptor);
-            lst.addAll(parameterTypes);
-            parameterTypes = lst;
-        }
-
-        // TODO: store parameter types for they can be looked up by invokeop instead of carried around
 
         // Assume all input values are unknown.
-        ExecutionContext result = new ExecutionContext(templateExecutionContext);
-        int parameterCount = getParameterSize(parameterTypes);
-        MethodState mState = new MethodState(result, registerCount, parameterCount);
+        ExecutionContext rootContext = new ExecutionContext(templateExecutionContext);
+        MethodState mState = new MethodState(rootContext, registerCount, parameterCount);
         for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
             mState.assignParameter(parameterIndex, value);
         }
-        result.setMethodState(mState);
+        rootContext.setMethodState(mState);
 
-        return result;
+        return rootContext;
     }
 
     public boolean isLocalClass(String className) {
@@ -232,7 +304,7 @@ public class VirtualMachine {
     }
 
     public boolean isLocalMethod(String methodDescriptor) {
-        return methodDescriptorToTemplateContextGraph.containsKey(methodDescriptor);
+        return methodDescriptorToBuilderMethod.containsKey(methodDescriptor);
     }
 
     public void updateInstructionGraph(String methodDescriptor) {

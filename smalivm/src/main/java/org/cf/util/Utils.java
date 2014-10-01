@@ -88,6 +88,8 @@ public class Utils {
     }
 
     public static List<String> getParameterTypes(String methodDescriptor) {
+        // Only use this for non-local methods.
+        // For local methods, there's VirtualMachine#getParameterTypes.
         Matcher m = ParameterIsolator.matcher(methodDescriptor);
         List<String> result = new ArrayList<String>();
         if (m.find()) {

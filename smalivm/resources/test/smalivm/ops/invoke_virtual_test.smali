@@ -10,38 +10,38 @@
     return-void
 .end method
 
-.method public static InvokeReturnsVoid()V
+.method public static InvokeReturnVoid()V
   .locals 1
 
-  invoke-virtual {v0}, Linvoke_virtual_test;->ReturnsVoid()V
+  invoke-virtual {v0}, Linvoke_virtual_test;->ReturnVoid()V
 
   return-void
 .end method
 
-.method public static InvokeReturnsInt()V
+.method public static InvokeReturnInt()V
   .locals 1
 
-  invoke-virtual {v0}, Linvoke_virtual_test;->ReturnsInt()I
+  invoke-virtual {v0}, Linvoke_virtual_test;->ReturnInt()I
 
   return-void
 .end method
 
-.method public static InvokeReturnsParameter()V
+.method public static InvokeReturnParameter()V
   .locals 2
 
-  invoke-virtual {v0, v1}, Linvoke_virtual_test;->ReturnsParameter(I)I
+  invoke-virtual {v0, v1}, Linvoke_virtual_test;->ReturnParameter(I)I
 
   return-void
 .end method
 
 
-.method public ReturnsVoid()V
+.method public ReturnVoid()V
     .locals 0
 
     return-void
 .end method
 
-.method public ReturnsInt()I
+.method public ReturnInt()I
     .locals 1
 
     const/4 v0, 0x7
@@ -49,7 +49,7 @@
     return v0
 .end method
 
-.method public ReturnsParameter(I)I
+.method public ReturnParameter(I)I
     .locals 1
 
     move v0, p1

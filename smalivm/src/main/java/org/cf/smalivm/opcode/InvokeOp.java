@@ -3,7 +3,6 @@ package org.cf.smalivm.opcode;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.cf.smalivm.MethodReflector;
@@ -31,20 +30,25 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private boolean allArgumentsKnown(MethodState mState) {
-        for (int parameter = 0; parameter < mState.getParameterCount(); parameter++) {
-            Object value = mState.peekParameter(parameter);
-            if (value instanceof UnknownValue) {
-                return false;
+    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
+        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
+        int[] addresses = addressList.toArray();
+        for (int address : addresses) {
+            List<ExecutionNode> nodes = graph.getNodePile(address);
+            for (ExecutionNode node : nodes) {
+                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
+
+                if (value != otherValue) {
+                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+
+                    return new UnknownValue(TypeUtil.getValueType(value));
+                }
             }
 
-            String type = parameterTypes.get(parameter);
-            if (type.equals("J") || type.equals("D")) {
-                parameter += 1; // these take up two registers
-            }
         }
 
-        return true;
+        return value;
     }
 
     static InvokeOp create(Instruction instruction, int address, VirtualMachine vm) {
@@ -89,12 +93,16 @@ public class InvokeOp extends ExecutionContextOp {
 
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
         String returnType = methodReference.getReturnType();
-        List<String> parameterTypes = new ArrayList<String>();
+        List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
-        if (!isStatic) {
-            parameterTypes.add(methodReference.getDefiningClass());
+        if (vm.isLocalMethod(methodDescriptor)) {
+            parameterTypes = vm.getParameterTypes(methodDescriptor);
+        } else {
+            parameterTypes = Utils.getParameterTypes(methodDescriptor);
+            if (!isStatic) {
+                parameterTypes.add(methodReference.getDefiningClass());
+            }
         }
-        parameterTypes.addAll(Utils.getParameterTypes(methodDescriptor));
 
         TIntList parameterRegisters = new TIntArrayList();
         for (int i = 0; i < parameterTypes.size(); i++) {
@@ -110,9 +118,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private final boolean isStatic;
-
     private final String methodDescriptor;
-
     private final int[] parameterRegisters;
     private final List<String> parameterTypes;
     private final String returnType;
@@ -175,6 +181,23 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append("}, ").append(methodDescriptor);
 
         return sb.toString();
+    }
+
+    private boolean allArgumentsKnown(MethodState mState) {
+        for (int parameter = 0; parameter < mState.getParameterCount(); parameter++) {
+            Object value = mState.peekParameter(parameter);
+            if (value instanceof UnknownValue) {
+                return false;
+            }
+
+            // TODO: this is fucked up, parameterIndex is not parameterRegister
+            String type = parameterTypes.get(parameter);
+            if (type.equals("J") || type.equals("D")) {
+                parameter += 1; // these take up two registers
+            }
+        }
+
+        return true;
     }
 
     private void assignCalleeContextParameters(MethodState callerState, MethodState calleeState) {
@@ -242,7 +265,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext) {
         ExecutionContext calleeContext = buildLocalCalleeContext(callerContext);
-        ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext);
+        ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
             log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
@@ -250,10 +273,6 @@ public class InvokeOp extends ExecutionContextOp {
 
             return;
         }
-
-        // This method used to have another, more technical name, but this is more descriptive.
-        // It's also the most awesome method name I've ever made. So it stays.
-        collapseAndMergeMultiverse(callerContext, graph);
 
         if (!returnType.equals("V")) {
             Object consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -299,60 +318,6 @@ public class InvokeOp extends ExecutionContextOp {
         if (!returnType.equals("V")) {
             Object returnRegister = calleeContext.readReturnRegister();
             callerContext.assignResultRegister(returnRegister);
-        }
-    }
-
-    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
-        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
-        int[] addresses = addressList.toArray();
-        for (int address : addresses) {
-            List<ExecutionNode> nodes = graph.getNodePile(address);
-            for (ExecutionNode node : nodes) {
-                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
-
-                if (value != otherValue) {
-                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
-
-                    return new UnknownValue(TypeUtil.getValueType(value));
-                }
-            }
-
-        }
-
-        return value;
-    }
-
-    private void collapseAndMergeMultiverse(ExecutionContext callerContext, ExecutionGraph graph) {
-        // Update instance, mutable parameters and class states consensus.
-        // They may have changed since calling the method.
-        TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
-        MethodState mState = callerContext.getMethodState();
-        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
-            String type = parameterTypes.get(parameterIndex);
-            boolean mutable = !SmaliClassUtils.isImmutableClass(type);
-            if (!mutable) {
-                continue;
-            }
-
-            Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
-            int register = parameterRegisters[parameterIndex];
-            mState.assignRegister(register, value);
-        }
-
-        for (String className : vm.getLocalClasses()) {
-            List<String> fieldNameAndTypes = vm.getFieldNameAndTypes(className);
-            for (String fieldNameAndType : fieldNameAndTypes) {
-                Object value = graph.getFieldConsensus(terminatingAddresses, className, fieldNameAndType);
-                ClassState cState;
-                if (callerContext.isClassInitialized(className)) {
-                    cState = callerContext.peekClassState(className);
-                } else {
-                    cState = new ClassState(callerContext, className, fieldNameAndTypes.size());
-                }
-
-                cState.pokeField(fieldNameAndType, value);
-            }
         }
     }
 }

@@ -75,7 +75,6 @@ public class MethodState extends BaseState {
         return super.readRegister(register, METHOD_HEAP);
     }
 
-    // This is what you want for emulated methods.
     public Object peekParameter(int parameterIndex) {
         Object value;
         if (mutableParameters.contains(parameterIndex)) {
@@ -163,7 +162,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append("r").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                                .append(",\n");
+                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);

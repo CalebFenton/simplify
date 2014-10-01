@@ -111,7 +111,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestNonDeterministicallyInitializedClassIsAllUnknown() {
+        public void TestNonDeterministicallyInitializedClassHasUnknownFieldValues() {
             Map<String, Map<String, Object>> initial = new HashMap<String, Map<String, Object>>();
             Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_WITH_STATIC_INIT,
                             "string:Ljava/lang/String;", new UnknownValue("Ljava/lang/String;"));
@@ -125,28 +125,28 @@ public class TestInvokeOp {
         private static final String CLASS_NAME = "Linvoke_virtual_test;";
 
         @Test
-        public void TestInvokeReturnsIntReturnsInt() {
+        public void TestInvokeReturnIntReturnsInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x7);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnsInt()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnInt()V", initial, expected);
         }
 
         @Test
-        public void TestInvokeReturnsParameterReturnsParameter() {
+        public void TestInvokeReturnParameterReturnsParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5,
                             MethodState.ResultRegister, 0x5);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnsParameter()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnParameter()V", initial, expected);
         }
 
         @Test
-        public void TestInvokeReturnsVoidReturnsVoid() {
+        public void TestInvokeReturnVoidReturnsVoid() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, null);
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnsVoid()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnVoid()V", initial, expected);
         }
     }
 
