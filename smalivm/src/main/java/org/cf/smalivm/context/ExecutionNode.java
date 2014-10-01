@@ -35,7 +35,7 @@ public class ExecutionNode {
         if (log.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
             sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op).append("\nContext before:\n")
-                            .append(ectx);
+            .append(ectx);
             log.debug(sb.toString());
         }
 
@@ -74,16 +74,8 @@ public class ExecutionNode {
         return children;
     }
 
-    public ClassState getClassState(String className) {
-        return ectx.accessClassState(className);
-    }
-
     public ExecutionContext getContext() {
         return ectx;
-    }
-
-    public MethodState getMethodState() {
-        return ectx.getMethodState();
     }
 
     public Op getOp() {

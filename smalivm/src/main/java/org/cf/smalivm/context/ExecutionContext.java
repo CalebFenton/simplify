@@ -148,9 +148,9 @@ public class ExecutionContext {
             ExecutionGraph graph = vm.execute(clinitDescriptor, initContext, this, null);
             if (graph == null) {
                 // Error executing. Assume the worst.
-                setClassSideEffectType(className, SideEffect.Level.STRONG);
+                sideEffectLevel = SideEffect.Level.STRONG;
             } else {
-                sideEffectLevel = graph.getHighestSideEffectLevel();
+                sideEffectLevel = graph.getHighestMethodSideEffectLevel();
 
             }
         } else {

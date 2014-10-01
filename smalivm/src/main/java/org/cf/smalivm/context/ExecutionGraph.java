@@ -193,6 +193,24 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return getRegisterConsensus(addresses, register);
     }
 
+    public Object getHighestClassSideEffectLevel(TIntList addressList, String className) {
+        SideEffect.Level result = SideEffect.Level.NONE;
+        for (ExecutionNode node : this) {
+            SideEffect.Level level = node.getContext().getClassStateSideEffectLevel(className);
+            switch (level) {
+            case STRONG:
+                return level;
+            case WEAK:
+                result = level;
+                break;
+            case NONE:
+                break;
+            }
+        }
+
+        return result;
+    }
+
     public Object getRegisterConsensus(TIntList addressList, int register) {
         Object value = null;
         for (int address : addressList.toArray()) {
@@ -212,7 +230,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<Object> result = new HashSet<Object>(nodePile.size());
         for (ExecutionNode node : nodePile) {
-            MethodState mState = node.getMethodState();
+            MethodState mState = node.getContext().getMethodState();
             Object value = mState.peekRegister(register);
             result.add(value);
         }
@@ -230,7 +248,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
     }
 
-    public SideEffect.Level getHighestSideEffectLevel() {
+    public SideEffect.Level getHighestMethodSideEffectLevel() {
         SideEffect.Level result = SideEffect.Level.NONE;
         for (ExecutionNode node : this) {
             Op op = node.getOp();

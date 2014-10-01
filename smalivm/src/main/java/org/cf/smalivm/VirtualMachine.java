@@ -182,7 +182,7 @@ public class VirtualMachine {
             }
         }
 
-        if (callerContext != null) {
+        if ((result != null) && (callerContext != null)) {
             collapseMultiverse(methodDescriptor, graph, calleeContext, callerContext, parameterRegisters);
         }
 

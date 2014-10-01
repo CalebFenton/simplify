@@ -251,7 +251,7 @@ public class InvokeOp extends ExecutionContextOp {
             callerContext.getMethodState().assignResultRegister(consensus);
         }
 
-        sideEffectLevel = graph.getHighestSideEffectLevel();
+        sideEffectLevel = graph.getHighestMethodSideEffectLevel();
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext) {

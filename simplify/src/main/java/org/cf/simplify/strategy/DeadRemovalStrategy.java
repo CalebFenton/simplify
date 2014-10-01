@@ -43,7 +43,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         ExecutionNode node;
         int[] assigned = assignedList.toArray();
         while ((node = stack.poll()) != null) {
-            MethodState mState = node.getMethodState();
+            MethodState mState = node.getContext().getMethodState();
             for (int register : assigned) {
                 if (mState.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
