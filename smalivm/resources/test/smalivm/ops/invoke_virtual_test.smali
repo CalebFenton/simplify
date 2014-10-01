@@ -35,13 +35,13 @@
 .end method
 
 
-.method public ReturnVoid()V
+.method private ReturnVoid()V
     .locals 0
 
     return-void
 .end method
 
-.method public ReturnInt()I
+.method private ReturnInt()I
     .locals 1
 
     const/4 v0, 0x7
@@ -49,7 +49,7 @@
     return v0
 .end method
 
-.method public ReturnParameter(I)I
+.method private ReturnParameter(I)I
     .locals 1
 
     move v0, p1

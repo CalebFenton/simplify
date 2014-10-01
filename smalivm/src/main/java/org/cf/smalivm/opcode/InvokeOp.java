@@ -11,14 +11,13 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
-import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
+import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
 import org.jf.dexlib2.iface.reference.MethodReference;
@@ -30,33 +29,14 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
-        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
-        int[] addresses = addressList.toArray();
-        for (int address : addresses) {
-            List<ExecutionNode> nodes = graph.getNodePile(address);
-            for (ExecutionNode node : nodes) {
-                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
-
-                if (value != otherValue) {
-                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
-
-                    return new UnknownValue(TypeUtil.getValueType(value));
-                }
-            }
-
-        }
-
-        return value;
-    }
-
     static InvokeOp create(Instruction instruction, int address, VirtualMachine vm) {
         int childAddress = address + instruction.getCodeUnits();
         String opName = instruction.getOpcode().name;
 
+        MethodReference methodReference = (MethodReference) ((ReferenceInstruction) instruction).getReference();
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+
         int[] registers = null;
-        MethodReference methodReference = null;
         if (opName.contains("/range")) {
             Instruction3rc instr = (Instruction3rc) instruction;
             int registerCount = instr.getRegisterCount();
@@ -68,11 +48,10 @@ public class InvokeOp extends ExecutionContextOp {
                 registers[i - start] = i;
             }
 
-            methodReference = (MethodReference) instr.getReference();
+            // methodReference = (MethodReference) instr.getReference();
         } else {
             Instruction35c instr = (Instruction35c) instruction;
             int registerCount = instr.getRegisterCount();
-
             registers = new int[registerCount];
             switch (registerCount) {
             case 5:
@@ -88,10 +67,9 @@ public class InvokeOp extends ExecutionContextOp {
                 break;
             }
 
-            methodReference = (MethodReference) instr.getReference();
+            // methodReference = (MethodReference) instr.getReference();
         }
 
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
         String returnType = methodReference.getReturnType();
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
@@ -100,11 +78,11 @@ public class InvokeOp extends ExecutionContextOp {
         } else {
             parameterTypes = Utils.getParameterTypes(methodDescriptor);
             if (!isStatic) {
-                parameterTypes.add(methodReference.getDefiningClass());
+                parameterTypes.add(0, methodReference.getDefiningClass());
             }
         }
 
-        TIntList parameterRegisters = new TIntArrayList();
+        TIntList parameterRegisters = new TIntArrayList(parameterTypes.size());
         for (int i = 0; i < parameterTypes.size(); i++) {
             parameterRegisters.add(registers[i]);
             String type = parameterTypes.get(i);
@@ -169,7 +147,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -194,7 +172,7 @@ public class InvokeOp extends ExecutionContextOp {
         return true;
     }
 
-    private void assignCalleeContextParameters(MethodState callerState, MethodState calleeState) {
+    private void assignCalleeMethodStateParameters(MethodState callerState, MethodState calleeState) {
         for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
             int callerRegister = parameterRegisters[parameterIndex];
             Object value = callerState.readRegister(callerRegister);
@@ -242,7 +220,7 @@ public class InvokeOp extends ExecutionContextOp {
         calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
         MethodState calleeMethodState = calleeContext.getMethodState();
         MethodState callerMethodState = callerContext.getMethodState();
-        assignCalleeContextParameters(callerMethodState, calleeMethodState);
+        assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
 
         return calleeContext;
     }
@@ -251,10 +229,10 @@ public class InvokeOp extends ExecutionContextOp {
         ExecutionContext ectx = new ExecutionContext(vm);
         int parameterSize = VirtualMachine.getParameterSize(parameterTypes);
         int registerCount = parameterSize;
-        MethodState calleeContext = new MethodState(ectx, registerCount, parameterSize);
-        assignCalleeContextParameters(callerContext, calleeContext);
+        MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
+        assignCalleeMethodStateParameters(callerContext, calleeMethodState);
 
-        return calleeContext;
+        return calleeMethodState;
     }
 
     private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext) {

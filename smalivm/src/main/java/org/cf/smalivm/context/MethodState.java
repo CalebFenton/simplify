@@ -16,16 +16,18 @@ public class MethodState extends BaseState {
     public static final String METHOD_HEAP = "method";
 
     private final int parameterCount;
+    private final int parameterSize;
     private final TIntSet mutableParameters;
 
     public MethodState(ExecutionContext ectx, int registerCount) {
-        this(ectx, registerCount, 0);
+        this(ectx, registerCount, 0, 0);
     }
 
-    public MethodState(ExecutionContext ectx, int registerCount, int parameterCount) {
+    public MethodState(ExecutionContext ectx, int registerCount, int parameterCount, int parameterSize) {
         super(ectx, registerCount);
 
         this.parameterCount = parameterCount;
+        this.parameterSize = parameterSize;
         mutableParameters = new TIntHashSet(parameterCount);
     }
 
@@ -33,6 +35,7 @@ public class MethodState extends BaseState {
         super(other, ectx);
 
         this.parameterCount = other.parameterCount;
+        this.parameterSize = other.parameterSize;
         mutableParameters = new TIntHashSet(other.mutableParameters);
     }
 
@@ -40,6 +43,7 @@ public class MethodState extends BaseState {
         super(parent, ectx);
 
         this.parameterCount = parent.parameterCount;
+        this.parameterSize = parent.parameterSize;
         this.mutableParameters = parent.mutableParameters;
     }
 
@@ -91,7 +95,7 @@ public class MethodState extends BaseState {
     }
 
     public int getParameterStart() {
-        return getRegisterCount() - parameterCount;
+        return getRegisterCount() - parameterSize;
     }
 
     @Override
@@ -162,7 +166,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append("r").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                .append(",\n");
+                                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);

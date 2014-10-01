@@ -177,7 +177,9 @@ public class VirtualMachine {
             log.warn(e.toString());
         } catch (Exception e) {
             log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
-            log.debug("Stack trace: ", e);
+            if (log.isDebugEnabled()) {
+                log.debug("Stack trace: ", e);
+            }
         }
 
         if (callerContext != null) {
@@ -235,7 +237,9 @@ public class VirtualMachine {
                 Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
 
                 if (value != otherValue) {
-                    log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+                    if (log.isTraceEnabled()) {
+                        log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+                    }
 
                     return new UnknownValue(TypeUtil.getValueType(value));
                 }
@@ -277,14 +281,14 @@ public class VirtualMachine {
         BuilderMethod method = getBuilderMethod(methodDescriptor);
         int registerCount = method.getImplementation().getRegisterCount();
         List<String> parameterTypes = getParameterTypes(methodDescriptor);
-        int parameterCount = getParameterSize(parameterTypes);
+        int parameterSize = getParameterSize(parameterTypes);
 
         int accessFlags = method.getAccessFlags();
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
 
         // Assume all input values are unknown.
         ExecutionContext rootContext = new ExecutionContext(templateExecutionContext);
-        MethodState mState = new MethodState(rootContext, registerCount, parameterCount);
+        MethodState mState = new MethodState(rootContext, registerCount, parameterTypes.size(), parameterSize);
         for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
             Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);

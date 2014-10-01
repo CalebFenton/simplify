@@ -19,6 +19,27 @@ public class TestInvokeOp {
 
     private static final String CLASS_WITH_STATIC_INIT = "Lclass_with_static_init;";
 
+    public static class TestInvokeReflectedMethod {
+        private static final String CLASS_NAME = "Linvoke_reflected_test;";
+
+        @Test
+        public void TestInvokeLongValueOfWithLongGetsCorrectParameters() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x1000L);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Long(0x1000L));
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeLongValueOf()V", initial, expected);
+        }
+
+        @Test
+        public void TestInvokeStringBuilderAppendWithLong() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new StringBuilder(), 1, 0x1234L);
+            StringBuilder sb = new StringBuilder().append(0x1234L);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, sb, 1, 0x1234L);
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeStringBuilderAppendWithLong()V", initial, expected);
+        }
+    }
+
     public static class TestInvokeStatic {
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
