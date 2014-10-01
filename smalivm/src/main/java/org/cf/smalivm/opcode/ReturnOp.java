@@ -1,11 +1,10 @@
 package org.cf.smalivm.opcode;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ReturnOp extends MethodStateOp {
 
@@ -35,7 +34,8 @@ public class ReturnOp extends MethodStateOp {
     @Override
     public int[] execute(MethodState mState) {
         if (!getOpName().endsWith("-void")) {
-            mState.assignReturnRegister(mState.readRegister(register));
+            Object value = mState.readRegister(register);
+            mState.assignReturnRegister(value);
         }
 
         return getPossibleChildren();

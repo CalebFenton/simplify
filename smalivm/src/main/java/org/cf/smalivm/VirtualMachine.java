@@ -193,18 +193,20 @@ public class VirtualMachine {
     private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
-        MethodState mState = callerContext.getMethodState();
-        List<String> parameterTypes = getParameterTypes(methodDescriptor);
-        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
-            String type = parameterTypes.get(parameterIndex);
-            boolean mutable = !SmaliClassUtils.isImmutableClass(type);
-            if (!mutable) {
-                continue;
-            }
+        if (parameterRegisters != null) {
+            MethodState mState = callerContext.getMethodState();
+            List<String> parameterTypes = getParameterTypes(methodDescriptor);
+            for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
+                String type = parameterTypes.get(parameterIndex);
+                boolean mutable = !SmaliClassUtils.isImmutableClass(type);
+                if (!mutable) {
+                    continue;
+                }
 
-            Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
-            int register = parameterRegisters[parameterIndex];
-            mState.assignRegister(register, value);
+                Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
+                int register = parameterRegisters[parameterIndex];
+                mState.assignRegister(register, value);
+            }
         }
 
         for (String currentClassName : getLocalClasses()) {

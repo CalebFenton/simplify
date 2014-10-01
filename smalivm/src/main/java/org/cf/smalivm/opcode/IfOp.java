@@ -2,8 +2,6 @@ package org.cf.smalivm.opcode;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -11,6 +9,8 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IfOp extends MethodStateOp {
 
@@ -107,6 +107,7 @@ public class IfOp extends MethodStateOp {
             return new IfOp(address, opName, childAddress, ifType, targetAddress, register1);
         }
     }
+
     private boolean compareToZero;
     private final IfType ifType;
     private final NumberComparator numberComparitor;
@@ -150,6 +151,8 @@ public class IfOp extends MethodStateOp {
         if (compareToZero) {
             if (A instanceof Number) {
                 cmp = numberComparitor.compare((Number) A, 0);
+            } else if (A instanceof Boolean) {
+                cmp = numberComparitor.compare((Boolean) A ? 1 : 0, 0);
             } else {
                 // if-*z ops are used to check for null refs
                 cmp = A == null ? 0 : 1;

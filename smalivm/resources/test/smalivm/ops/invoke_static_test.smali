@@ -2,6 +2,7 @@
 .super Ljava/lang/Object;
 
 .field public static mutable:[I
+.field public static not_initialized:Ljava/lang/String;
 
 .method public static InvokeReturnVoid()V
     .locals 0
@@ -106,6 +107,15 @@
     return-void
 .end method
 
+.method public static InvokeReturnUninitializedField()V
+    .locals 0
+
+    invoke-static {}, Linvoke_static_test;->ReturnUninitializedField()Ljava/lang/String;
+
+    return-void
+.end method
+
+
 .method public static MutateStaticClassFieldNonDeterministically()V
     .locals 2
 
@@ -124,13 +134,24 @@
     return-void
 .end method
 
-.method public static ReturnVoid()V
+
+
+.method private static ReturnUninitializedField()Ljava/lang/String;
+    .locals 1
+
+    sget-object v0, Linvoke_static_test;->not_initialized:Ljava/lang/String;
+    return v0
+
+    return-void
+.end method
+
+.method private static ReturnVoid()V
     .locals 0
 
     return-void
 .end method
 
-.method public static ReturnInt()I
+.method private static ReturnInt()I
     .locals 1
 
     const/4 v0, 0x7
@@ -138,7 +159,7 @@
     return v0
 .end method
 
-.method public static ReturnParameter(I)I
+.method private static ReturnParameter(I)I
     .locals 1
 
     move v0, p0
@@ -147,7 +168,7 @@
     return v0
 .end method
 
-.method public static MutateString(Ljava/lang/String;)V
+.method private static MutateString(Ljava/lang/String;)V
     .locals 0
 
     const-string p0, "mutated"
@@ -155,7 +176,7 @@
     return-void
 .end method
 
-.method public static MutateStringBuilder(Ljava/lang/StringBuilder;)V
+.method private static MutateStringBuilder(Ljava/lang/StringBuilder;)V
     .locals 1
 
     const-string v0, " mutated"

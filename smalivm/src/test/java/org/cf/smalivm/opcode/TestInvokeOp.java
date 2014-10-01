@@ -1,6 +1,7 @@
 package org.cf.smalivm.opcode;
 
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -118,6 +119,15 @@ public class TestInvokeOp {
 
             VMTester.testClassState(CLASS_NAME, "NonDeterministicallyInitializeClassWithStaticInit()V", initial,
                             expected);
+        }
+
+        @Test
+        public void TestInvokeReturnUninitializedFieldDoesNotReturnNull() {
+            TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, new UnknownValue(
+                            "Ljava/lang/String;"));
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnUninitializedField()V", initial, expected);
         }
     }
 

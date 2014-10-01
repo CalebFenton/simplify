@@ -145,7 +145,7 @@ public class ExecutionContext {
                 }
             }
 
-            ExecutionGraph graph = vm.execute(clinitDescriptor, initContext);
+            ExecutionGraph graph = vm.execute(clinitDescriptor, initContext, this, null);
             if (graph == null) {
                 // Error executing. Assume the worst.
                 setClassSideEffectType(className, SideEffect.Level.STRONG);
@@ -221,7 +221,7 @@ public class ExecutionContext {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         if (mState != null) {
-            sb.append(mState.toString());
+            sb.append("Method: ").append(mState.toString());
         }
         if (sb.length() > 0) {
             sb.append("\n");

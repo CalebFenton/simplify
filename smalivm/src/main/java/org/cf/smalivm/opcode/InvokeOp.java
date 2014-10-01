@@ -169,7 +169,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -184,16 +184,10 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private boolean allArgumentsKnown(MethodState mState) {
-        for (int parameter = 0; parameter < mState.getParameterCount(); parameter++) {
-            Object value = mState.peekParameter(parameter);
+        for (int parameterIndex = 0; parameterIndex < mState.getParameterCount(); parameterIndex++) {
+            Object value = mState.peekParameter(parameterIndex);
             if (value instanceof UnknownValue) {
                 return false;
-            }
-
-            // TODO: this is fucked up, parameterIndex is not parameterRegister
-            String type = parameterTypes.get(parameter);
-            if (type.equals("J") || type.equals("D")) {
-                parameter += 1; // these take up two registers
             }
         }
 

@@ -153,7 +153,7 @@ class BaseState {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-                            .append(", hc=").append(value.hashCode());
+            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();

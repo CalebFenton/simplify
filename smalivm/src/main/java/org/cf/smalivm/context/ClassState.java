@@ -14,18 +14,24 @@ public class ClassState extends BaseState {
         this.className = className;
     }
 
-    public ClassState(ClassState parent, ExecutionContext ectx) {
-        super(parent, ectx);
+    private ClassState(ClassState parent, ExecutionContext childContext, THashSet<String> fieldNameAndTypes) {
+        super(childContext, fieldNameAndTypes.size());
 
-        fieldNameAndTypes = new THashSet<String>(parent.fieldNameAndTypes);
-        className = parent.className;
+        this.fieldNameAndTypes = fieldNameAndTypes;
+        this.className = parent.className;
+    }
+
+    public ClassState(ClassState other, ExecutionContext ectx) {
+        super(other, ectx);
+
+        fieldNameAndTypes = new THashSet<String>(other.fieldNameAndTypes);
+        className = other.className;
     }
 
     public void assignField(String fieldNameAndType, Object value) {
         int register = 0;
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(fieldNameAndType);
-        assignRegister(register, value, sb.toString());
+        String heapKey = getKey(fieldNameAndType);
+        assignRegister(register, value, heapKey);
     }
 
     public boolean equals(ClassState other) {
@@ -33,19 +39,24 @@ public class ClassState extends BaseState {
     }
 
     public Object peekField(String fieldNameAndType) {
-        // int register = getRegister(fieldNameAndType);
         int register = 0;
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(fieldNameAndType);
-        return peekRegister(register, sb.toString());
+        String heapKey = getKey(fieldNameAndType);
+
+        return peekRegister(register, heapKey);
     }
 
     public void pokeField(String fieldNameAndType, Object value) {
         int register = 0;
+        String heapKey = getKey(fieldNameAndType);
+        pokeRegister(register, value, heapKey);
+    }
+
+    private String getKey(String fieldNameAndType) {
         fieldNameAndTypes.add(fieldNameAndType);
         StringBuilder sb = new StringBuilder(className);
         sb.append("->").append(fieldNameAndType);
-        pokeRegister(register, value, sb.toString());
+
+        return sb.toString();
     }
 
     @Override
@@ -61,7 +72,7 @@ public class ClassState extends BaseState {
     }
 
     ClassState getChild(ExecutionContext childContext) {
-        ClassState child = new ClassState(childContext, className, fieldNameAndTypes.size());
+        ClassState child = new ClassState(this, childContext, fieldNameAndTypes);
 
         return child;
     }

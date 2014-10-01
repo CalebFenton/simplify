@@ -118,7 +118,9 @@ public class MethodReflector {
     }
 
     public void reflect(MethodState calleeContext) {
-        log.debug("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
+        if (log.isDebugEnabled()) {
+            log.debug("Reflecting " + methodDescriptor + " with context:\n" + calleeContext);
+        }
 
         Object result = null;
         try {

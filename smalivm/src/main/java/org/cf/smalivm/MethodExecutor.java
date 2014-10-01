@@ -29,7 +29,7 @@ public class MethodExecutor {
     ExecutionGraph execute(ExecutionGraph graph) throws MaxNodeVisitsExceeded, MaxCallDepthExceeded {
         String methodDescriptor = graph.getMethodDescriptor();
         ExecutionNode currentNode = graph.getRoot();
-        if (log.isDebugEnabled()) {
+        if (log.isInfoEnabled()) {
             log.info("Executing " + methodDescriptor + ", depth=" + currentNode.getCallDepth());
         }
         if (currentNode.getCallDepth() > vm.getMaxCallDepth()) {

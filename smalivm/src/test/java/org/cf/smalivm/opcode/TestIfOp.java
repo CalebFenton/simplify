@@ -33,6 +33,13 @@ public class TestIfOp {
         }
 
         @Test
+        public void TestIfFalseBooleanEqualZero() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Boolean(false));
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
+        @Test
         public void TestIfNullEqualZero() {
             String methodSignature = "IfEqualZero()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, null);
@@ -50,6 +57,13 @@ public class TestIfOp {
         public void TestIfPrimitiveArrayNotEqualZero() {
             String methodSignature = "IfNotEqualZero()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[] { 0x1 });
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
+        @Test
+        public void TestIfTrueBooleanNotEqualZero() {
+            String methodSignature = "IfNotEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Boolean(true));
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
         }
     }
@@ -235,6 +249,7 @@ public class TestIfOp {
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
         }
     }
+
     public static class TestValueTypeCombinations {
         @Test
         public void TestIfEqualWithBooleanAndChar() {
@@ -432,7 +447,22 @@ public class TestIfOp {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (short) 1, 1, (long) 1);
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
         }
+
+        @Test
+        public void TestIfFalseEqualZero() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, false);
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
+        @Test
+        public void TestIfTrueNotEqualZero() {
+            String methodSignature = "IfNotEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, true);
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
     }
+
     private static final String CLASS_NAME = "Lif_test;";
 
     private static final int IF = 0;

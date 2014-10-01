@@ -19,6 +19,7 @@ class Heap {
 
     private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
 
+    // TODO: rework all *State classes to build keys and perfomr lookups by key
     private final TMap<HeapKey, Object> heapKeyToValue;
     private Heap parent;
 
