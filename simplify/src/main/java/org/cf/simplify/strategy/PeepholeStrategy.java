@@ -74,6 +74,9 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     boolean canPeepClassForName(int address) {
+        if (!mbgraph.wasAddressReached(address)) {
+            return false;
+        }
         Op handler = mbgraph.getOp(address);
         if (!(handler instanceof InvokeOp)) {
             return false;
