@@ -11,7 +11,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TestPeepholeOptimizer {
+public class TestPeepholeStrategy {
 
     private static final String CLASS_NAME = "Lpeephole_optimizer_test;";
 

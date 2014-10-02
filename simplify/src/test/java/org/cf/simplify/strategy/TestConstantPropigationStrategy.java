@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
-public class TestConstantBuilder {
+public class TestConstantPropigationStrategy {
 
     public static class WithKnownValues {
         @Test
@@ -95,7 +95,7 @@ public class TestConstantBuilder {
     }
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestConstantBuilder.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(TestConstantPropigationStrategy.class.getSimpleName());
 
     static final String CLASS_NAME = "Lconstant_builder_test;";
 

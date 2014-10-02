@@ -10,12 +10,12 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TestDeadAnalyzer {
+public class TestDeadRemovalStrategy {
 
     private static final String CLASS_NAME = "Ldead_detector_test;";
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestDeadAnalyzer.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(TestDeadRemovalStrategy.class.getSimpleName());
 
     @Test
     public void TestDeadCodeIsRemoved() {
