@@ -287,9 +287,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         // This is a hack to prevent handlers from being removed
         // And it's probably not a good idea to remove the last op in a method because it either returns or jumps.
-        result.removeAll(getHandlerCodeAddresses(mbgraph));
         result.sort();
         result.removeAt(result.size() - 1);
+        result.removeAll(getHandlerCodeAddresses(mbgraph));
 
         for (int address : result.toArray()) {
             Op op = mbgraph.getOp(address);

@@ -79,7 +79,6 @@ public class TestDeadRemovalStrategy {
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getDeadAssignmentAddresses();
-        strategy.perform();
         TIntList expected = new TIntArrayList(new int[] { 0 });
 
         assertEquals(expected, found);

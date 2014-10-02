@@ -40,6 +40,13 @@ public class TestIfOp {
         }
 
         @Test
+        public void TestIfZeroIntegerEqualZero() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Integer(0));
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
+        @Test
         public void TestIfNullEqualZero() {
             String methodSignature = "IfEqualZero()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, null);
