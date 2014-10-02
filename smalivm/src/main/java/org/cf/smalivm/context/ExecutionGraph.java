@@ -366,6 +366,9 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
         // If this address was reached during execution there will be clones in the pile.
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
+        if (nodePile == null) {
+            System.out.println("break");
+        }
         if (nodePile.size() < 1) {
             log.warn("Node pile @" + address + " has no template node.");
         }

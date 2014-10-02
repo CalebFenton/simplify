@@ -131,22 +131,30 @@ public class MethodReflector {
             Object[] args = getArguments(calleeContext);
             if (methodName.equals("<init>")) {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
-                log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
+                if (log.isDebugEnabled()) {
+                    log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
+                }
                 result = ConstructorUtils.invokeConstructor(clazz, args);
                 calleeContext.assignParameter(0, result); // kind of a hack, just store newly init'ed value here
             } else {
                 if (isStatic) {
-                    log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
+                    if (log.isDebugEnabled()) {
+                        log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args="
+                                        + Arrays.toString(args));
+                    }
                     result = MethodUtils.invokeStaticMethod(clazz, methodName, args);
                 } else {
                     Object target = calleeContext.peekRegister(0);
-                    log.debug("Reflecting " + methodDescriptor + ", target=" + target + " args="
-                                    + Arrays.toString(args));
+                    if (log.isDebugEnabled()) {
+                        log.debug("Reflecting " + methodDescriptor + ", target=" + target + " args="
+                                        + Arrays.toString(args));
+                    }
                     result = MethodUtils.invokeMethod(target, methodName, args);
                 }
             }
-        } catch (ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException
-                        | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException
+                        | InstantiationException | IllegalAccessException | IllegalArgumentException
+                        | InvocationTargetException e) {
             result = new UnknownValue(returnType);
             log.warn("Failed to reflect " + methodDescriptor);
             log.debug("Stack trace:", e);
@@ -170,17 +178,19 @@ public class MethodReflector {
             Object arg = mState.peekParameter(i);
             String type = parameterTypes.get(i);
 
-            // In Dalvik, integer is overloaded and represents a few primitives.
-            if (arg.getClass() == Integer.class) {
-                int intValue = (Integer) arg;
-                if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
-                    arg = intValue == 0 ? false : true;
-                } else if (type.equals("C") || type.equals("Ljava/lang/Character;")) {
-                    arg = (char) intValue;
-                } else if (type.equals("S") || type.equals("Ljava/lang/Short;")) {
-                    arg = (short) intValue;
-                } else if (type.equals("B") || type.equals("Ljava/lang/Byte;")) {
-                    arg = (byte) intValue;
+            if (arg != null) {
+                // In Dalvik, integer is overloaded and represents a few primitives.
+                if (Integer.class == arg.getClass()) {
+                    int intValue = (Integer) arg;
+                    if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
+                        arg = intValue == 0 ? false : true;
+                    } else if (type.equals("C") || type.equals("Ljava/lang/Character;")) {
+                        arg = (char) intValue;
+                    } else if (type.equals("S") || type.equals("Ljava/lang/Short;")) {
+                        arg = (short) intValue;
+                    } else if (type.equals("B") || type.equals("Ljava/lang/Byte;")) {
+                        arg = (byte) intValue;
+                    }
                 }
             }
             args.add(arg);

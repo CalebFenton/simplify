@@ -180,6 +180,7 @@ public class VirtualMachine {
             if (log.isDebugEnabled()) {
                 log.debug("Stack trace: ", e);
             }
+            e.printStackTrace();
         }
 
         if ((result != null) && (callerContext != null)) {
