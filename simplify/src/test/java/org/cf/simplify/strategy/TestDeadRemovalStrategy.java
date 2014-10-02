@@ -72,4 +72,17 @@ public class TestDeadRemovalStrategy {
 
         assertEquals(expected, found);
     }
+
+    @Test
+    public void TestDeadTryCatchBlockIsRemoved() {
+        String methodSignature = "DeadTryCatchBlock()V";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getDeadAssignmentAddresses();
+        strategy.perform();
+        TIntList expected = new TIntArrayList(new int[] { 0 });
+
+        assertEquals(expected, found);
+    }
+
 }

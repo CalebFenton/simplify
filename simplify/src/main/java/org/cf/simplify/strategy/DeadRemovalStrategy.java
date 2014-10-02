@@ -268,8 +268,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getValidAddresses(MethodBackedGraph mbgraph) {
         List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
         TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
-        TIntList result = getAddressesNotInTryCatchBlocks(addressToInstruction, tryBlocks);
-        // TIntList result = new TIntArrayList(mbgraph.getAddresses());
+        // TIntList result = getAddressesNotInTryCatchBlocks(addressToInstruction, tryBlocks);
+        TIntList result = new TIntArrayList(mbgraph.getAddresses());
         for (int address : result.toArray()) {
             Op op = mbgraph.getOp(address);
             int level = op.sideEffectLevel().getValue();

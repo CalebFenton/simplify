@@ -192,6 +192,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     public Op getOp(int address) {
         List<ExecutionNode> pile = addressToNodePile.get(address);
+        // same pile implies same op, just grab the bottom
         ExecutionNode bottomNode = pile.get(0);
 
         return bottomNode.getOp();

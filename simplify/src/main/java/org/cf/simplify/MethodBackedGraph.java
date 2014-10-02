@@ -5,9 +5,12 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -18,6 +21,7 @@ import org.cf.smalivm.opcode.OpFactory;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
+import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -89,25 +93,84 @@ public class MethodBackedGraph extends ExecutionGraph {
         TIntList indexes = new TIntArrayList();
         addresses.sort();
         addresses.reverse();
-        log.info("Remove addresses: " + addresses);
+        if (log.isInfoEnabled()) {
+            log.info("Remove addresses: " + addresses);
+        }
         for (int address : addresses.toArray()) {
             BuilderInstruction instruction = addressToInstruction.get(address);
             MethodLocation location = instruction.getLocation();
             location.getDebugItems().clear();
-            log.debug("@" + addresses + " is index " + location.getIndex());
+            System.out.println("@" + address + " is index " + location.getIndex());
+            if (log.isDebugEnabled()) {
+                log.debug("@" + address + " is index " + location.getIndex());
+            }
             indexes.add(location.getIndex());
 
             // Shifting down will remove this address
             int shift = -instruction.getCodeUnits();
             Utils.shiftIntegerMapKeys(address, shift, addressToInstruction);
-            removeInstruction(address, instruction.getCodeUnits());
+            removeNodes(address, instruction.getCodeUnits());
         }
 
         // Need to remove in reverse order or indexes will get out of sync.
         indexes.sort();
         indexes.reverse();
         for (int index : indexes.toArray()) {
+            migrateLabelsIfPossible(index);
+
             implementation.removeInstruction(index);
+
+            removeEmptyTryCatchBlocks();
+        }
+    }
+
+    private void removeEmptyTryCatchBlocks() {
+        List<BuilderTryBlock> rb = new ArrayList<BuilderTryBlock>();
+        for (BuilderTryBlock tryBlock : implementation.getTryBlocks()) {
+            MethodLocation startLocation = tryBlock.start.getLocation();
+            MethodLocation endLocation = tryBlock.end.getLocation();
+            if (startLocation.getCodeAddress() == endLocation.getCodeAddress()) {
+                // Empty!
+                List<Label> remove = new ArrayList<Label>(3);
+                remove.add(tryBlock.start);
+                remove.add(tryBlock.end);
+                remove.add(tryBlock.exceptionHandler.getHandler());
+                startLocation.getLabels().retainAll(remove);
+
+                rb.add(tryBlock);
+            }
+        }
+
+        // tryBlocks is immutable, and the tryBlock isn't removed, dex fails to decompile
+        // should probably submit a patch...
+        try {
+            Field f = implementation.getClass().getDeclaredField("tryBlocks");
+            f.setAccessible(true);
+            ArrayList<BuilderTryBlock> tryBlocks = (ArrayList<BuilderTryBlock>) f.get(implementation);
+            tryBlocks.removeAll(rb);
+        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private void migrateLabelsIfPossible(int index) {
+        /*
+         * If it has a label, try and move it down. If it can't move down, just delete it. The only two instructions at
+         * the bottom of a method are return and goto. Or else instructions will run past end of method.
+         */
+        int instructionCount = implementation.getInstructions().size();
+        if (index < (instructionCount - 1)) {
+            BuilderInstruction moveFrom = implementation.getInstructions().get(index);
+            Set<Label> labelSet = moveFrom.getLocation().getLabels();
+            if (1 < labelSet.size()) {
+                BuilderInstruction moveTo = implementation.getInstructions().get(index + 1);
+                List<Label> labels = new ArrayList<Label>(labelSet.size());
+                moveFrom.getLocation().getLabels().removeAll(labelSet);
+                for (Label label : labels) {
+                    moveTo.getLocation().getLabels().add(label);
+                }
+            }
         }
     }
 
@@ -125,7 +188,7 @@ public class MethodBackedGraph extends ExecutionGraph {
         replaceInstruction(address, shift, op, codeUnits);
     }
 
-    protected void removeInstruction(int address, int codeUnits) {
+    protected void removeNodes(int address, int codeUnits) {
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
         for (ExecutionNode removedNode : nodePile) {
             ExecutionNode parentNode = removedNode.getParent();

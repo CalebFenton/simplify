@@ -26,6 +26,20 @@
   return-void
 .end method
 
+.method public static DeadOpWithLabel()I
+  .locals 2
+
+  const/4 v0, 0x1
+  if-gtz v0, :return
+
+  const/4 v0, 0x1
+
+  :return
+  const/4 v1, 0x1
+
+  return v0
+.end method
+
 .method public static UselessGoto()V
   .locals 0
 
@@ -35,6 +49,19 @@
   return-void
 .end method
 
+.method public static DeadTryCatchBlock()V
+  .locals 1
+
+  :try_start_1
+  const/4 v0, 0x2
+
+  :try_end_1
+  .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
+
+  :catch_1
+  :end
+  return-void
+.end method
 
 .method public static UnusedResultNoSideEffects()I
   .locals 1
