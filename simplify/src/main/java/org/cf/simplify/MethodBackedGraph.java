@@ -5,7 +5,6 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -100,19 +99,18 @@ public class MethodBackedGraph extends ExecutionGraph {
             BuilderInstruction instruction = addressToInstruction.get(address);
             MethodLocation location = instruction.getLocation();
             location.getDebugItems().clear();
-            System.out.println("@" + address + " is index " + location.getIndex());
             if (log.isDebugEnabled()) {
                 log.debug("@" + address + " is index " + location.getIndex());
             }
             indexes.add(location.getIndex());
 
-            // Shifting down will remove this address
+            // Shifting down also removes this address key
             int shift = -instruction.getCodeUnits();
             Utils.shiftIntegerMapKeys(address, shift, addressToInstruction);
-            removeNodes(address, instruction.getCodeUnits());
+            removeNodePile(address, shift);
         }
 
-        // Need to remove in reverse order or indexes will get out of sync.
+        // Go in reverse order because implementation reorders on removal
         indexes.sort();
         indexes.reverse();
         for (int index : indexes.toArray()) {
@@ -125,33 +123,45 @@ public class MethodBackedGraph extends ExecutionGraph {
     }
 
     private void removeEmptyTryCatchBlocks() {
-        List<BuilderTryBlock> rb = new ArrayList<BuilderTryBlock>();
-        for (BuilderTryBlock tryBlock : implementation.getTryBlocks()) {
-            MethodLocation startLocation = tryBlock.start.getLocation();
-            MethodLocation endLocation = tryBlock.end.getLocation();
-            if (startLocation.getCodeAddress() == endLocation.getCodeAddress()) {
-                // Empty!
-                List<Label> remove = new ArrayList<Label>(3);
-                remove.add(tryBlock.start);
-                remove.add(tryBlock.end);
-                remove.add(tryBlock.exceptionHandler.getHandler());
-                startLocation.getLabels().retainAll(remove);
-
-                rb.add(tryBlock);
-            }
-        }
-
-        // tryBlocks is immutable, and the tryBlock isn't removed, dex fails to decompile
-        // should probably submit a patch...
+        /*
+         * MutableMethodImplementation#getTryBlocks() returns immutable collection. Maybe dexlib should be smart enough
+         * to remove the try block if start, end and catch labels are removed, but it isn't. To be fair, this is a
+         * strange event.
+         */
+        ArrayList<BuilderTryBlock> tryBlocks = null;
         try {
-            Field f = implementation.getClass().getDeclaredField("tryBlocks");
-            f.setAccessible(true);
-            ArrayList<BuilderTryBlock> tryBlocks = (ArrayList<BuilderTryBlock>) f.get(implementation);
-            tryBlocks.removeAll(rb);
+            java.lang.reflect.Field f = implementation.getClass().getDeclaredField("tryBlocks");
+            f.setAccessible(true); // I DO WHAT I WANT.
+            tryBlocks = (ArrayList<BuilderTryBlock>) f.get(implementation);
         } catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
             e.printStackTrace();
         }
 
+        TIntList indexes = new TIntArrayList();
+        for (BuilderTryBlock tryBlock : implementation.getTryBlocks()) {
+            MethodLocation startLocation = tryBlock.start.getLocation();
+            MethodLocation endLocation = tryBlock.end.getLocation();
+            if (startLocation.getCodeAddress() == endLocation.getCodeAddress()) {
+                // Empty try block!
+
+                // Use indexOf, because if you try and remove by object reference, it needs to call equals, which will
+                // fail because we just wiped out the labels and dexlib is like "wtf".
+                indexes.add(tryBlocks.indexOf(tryBlock));
+
+                List<Label> remove = new ArrayList<Label>();
+                remove.add(tryBlock.start);
+                remove.add(tryBlock.end);
+                remove.add(tryBlock.exceptionHandler.getHandler());
+                startLocation.getLabels().removeAll(remove);
+            }
+        }
+
+        // Remove from the end to avoid re-indexing
+        indexes.sort();
+        indexes.reverse();
+        for (int index : indexes.toArray()) {
+            tryBlocks.remove(index);
+        }
     }
 
     private void migrateLabelsIfPossible(int index) {
@@ -188,22 +198,22 @@ public class MethodBackedGraph extends ExecutionGraph {
         replaceInstruction(address, shift, op, codeUnits);
     }
 
-    protected void removeNodes(int address, int codeUnits) {
+    private void removeNodePile(int address, int shift) {
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
         for (ExecutionNode removedNode : nodePile) {
             ExecutionNode parentNode = removedNode.getParent();
+            if (parentNode != null) {
+                parentNode.removeChild(removedNode);
+            }
             for (ExecutionNode childNode : removedNode.getChildren()) {
                 // parentNode could be null, and that's ok
                 childNode.setParent(parentNode);
             }
-
-            if (parentNode != null) {
-                parentNode.removeChild(removedNode);
-            }
         }
 
         // addressToNodePile.remove(address);
-        Utils.shiftIntegerMapKeys(address, -codeUnits, addressToNodePile);
+        // Ops in node pile still have old addresses
+        Utils.shiftIntegerMapKeys(address, shift, addressToNodePile);
     }
 
     /*
@@ -213,19 +223,18 @@ public class MethodBackedGraph extends ExecutionGraph {
      * context to help optimizer, i.e. assigned registers, etc.
      */
     protected void replaceInstruction(int address, int addressShift, Op op, int codeUnits) {
-        Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
-
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
-        Map<ExecutionNode, ExecutionNode> oldToNew = new HashMap<ExecutionNode, ExecutionNode>();
+        Map<ExecutionNode, ExecutionNode> replacedToNew = new HashMap<ExecutionNode, ExecutionNode>();
         for (int index = 0; index < nodePile.size(); index++) {
             ExecutionNode replacedNode = nodePile.get(index);
             ExecutionNode newNode = new ExecutionNode(op);
+            nodePile.set(index, newNode);
 
-            nodePile.remove(replacedNode);
-            nodePile.add(index, newNode);
+            if (index == TEMPLATE_NODE_INDEX) {
+                assert replacedNode.getContext() == null;
+                assert replacedNode.getParent() == null;
+                assert replacedNode.getChildren().size() == 0;
 
-            if (index == 0) {
-                // Template node shouldn't have children or context.
                 continue;
             }
 
@@ -239,22 +248,24 @@ public class MethodBackedGraph extends ExecutionGraph {
                 parentNode.replaceChild(replacedNode, newNode);
                 newContext = parentNode.getContext().getChild();
             } else {
+                assert address == METHOD_ROOT_ADDRESS;
                 newContext = vm.getRootExecutionContext(methodDescriptor);
             }
             newNode.setContext(newContext);
             newNode.execute();
 
-            oldToNew.put(replacedNode, newNode);
+            replacedToNew.put(replacedNode, newNode);
         }
 
         // Update any children's parents to the new nodes we made.
+        Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
         int childAddress = address + codeUnits;
         nodePile = getNodePile(childAddress);
         if (nodePile != null) {
             for (ExecutionNode node : nodePile) {
                 ExecutionNode parent = node.getParent();
-                if (oldToNew.containsKey(parent)) {
-                    node.setParent(oldToNew.get(parent));
+                if (replacedToNew.containsKey(parent)) {
+                    node.setParent(replacedToNew.get(parent));
                 }
             }
         }

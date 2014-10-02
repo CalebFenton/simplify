@@ -265,17 +265,40 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+    private static TIntSet getHandlerCodeAddresses(MethodBackedGraph mbgraph) {
+        TIntSet result = new TIntHashSet();
         List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
-        TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
+        for (BuilderTryBlock tryBlock : tryBlocks) {
+            List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
+            for (BuilderExceptionHandler handler : handlers) {
+                result.add(handler.getHandlerCodeAddress());
+            }
+        }
+
+        return result;
+    }
+
+    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+        // List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
+        // TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
         // TIntList result = getAddressesNotInTryCatchBlocks(addressToInstruction, tryBlocks);
+
         TIntList result = new TIntArrayList(mbgraph.getAddresses());
+
+        // This is a hack to prevent handlers from being removed
+        // And it's probably not a good idea to remove the last op in a method because it either returns or jumps.
+        result.removeAll(getHandlerCodeAddresses(mbgraph));
+        result.sort();
+        result.removeAt(result.size() - 1);
+
         for (int address : result.toArray()) {
             Op op = mbgraph.getOp(address);
             int level = op.sideEffectLevel().getValue();
             if (level > SIDE_EFFECT_THRESHOLD.getValue()) {
                 result.remove(address);
+                continue;
             }
+
         }
 
         return result;

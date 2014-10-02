@@ -32,6 +32,9 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     private static final Logger log = LoggerFactory.getLogger(ExecutionGraph.class.getSimpleName());
 
+    protected static final int TEMPLATE_NODE_INDEX = 0;
+    protected static final int METHOD_ROOT_ADDRESS = 0;
+
     private static TIntObjectMap<List<ExecutionNode>> buildAddressToNodePile(VirtualMachine vm,
                     String methodDescriptor, List<BuilderInstruction> instructions) {
         OpFactory opFactory = new OpFactory(vm, methodDescriptor);
@@ -192,8 +195,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     public Op getOp(int address) {
         List<ExecutionNode> pile = addressToNodePile.get(address);
-        // same pile implies same op, just grab the bottom
-        ExecutionNode bottomNode = pile.get(0);
+        // same pile implies same op
+        ExecutionNode bottomNode = pile.get(TEMPLATE_NODE_INDEX);
 
         return bottomNode.getOp();
     }
@@ -259,12 +262,12 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionNode getRoot() {
-        List<ExecutionNode> pile = addressToNodePile.get(0);
+        List<ExecutionNode> pile = addressToNodePile.get(METHOD_ROOT_ADDRESS);
         // Return node with initialized context if available.
         if (pile.size() > 1) {
             return pile.get(1);
         } else {
-            return pile.get(0);
+            return pile.get(TEMPLATE_NODE_INDEX);
         }
     }
 
@@ -312,7 +315,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionNode getTemplateNode(int address) {
-        return addressToNodePile.get(address).get(0);
+        return addressToNodePile.get(address).get(TEMPLATE_NODE_INDEX);
     }
 
     public Object getTerminatingFieldConsensus(String fieldDescriptor) {
@@ -359,7 +362,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public boolean wasAddressReached(int address) {
-        if (0 == address) {
+        if (METHOD_ROOT_ADDRESS == address) {
             // Root is always reachable
             return true;
         }

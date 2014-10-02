@@ -117,7 +117,7 @@ public class Utils {
         }
 
         TIntList addressesToShift = new TIntArrayList(intToObject.keys());
-        // Only adjust addresses after the replacement point
+        // Exclude anything before startAddress
         for (int currentAddress : addressesToShift.toArray()) {
             if (currentAddress <= startAddress) {
                 addressesToShift.remove(currentAddress);
@@ -126,7 +126,7 @@ public class Utils {
 
         addressesToShift.sort();
         if (shift > 0) {
-            // Shifting addresses up, so start at the end to avoid overwriting keys.
+            // Shifting keys up, so start at the end to avoid overwriting keys.
             addressesToShift.reverse();
         }
 
