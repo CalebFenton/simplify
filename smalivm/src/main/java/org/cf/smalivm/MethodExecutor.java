@@ -19,14 +19,13 @@ public class MethodExecutor {
     private static Logger log = LoggerFactory.getLogger(MethodExecutor.class.getSimpleName());
 
     private final VirtualMachine vm;
-    private final TIntIntMap addressToNodeVisitCounts;
 
     MethodExecutor(VirtualMachine vm) {
         this.vm = vm;
-        addressToNodeVisitCounts = new TIntIntHashMap();
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxNodeVisitsExceeded, MaxCallDepthExceeded {
+        TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
         ExecutionNode currentNode = graph.getRoot();
         if (log.isInfoEnabled()) {
@@ -39,7 +38,7 @@ public class MethodExecutor {
         Deque<ExecutionNode> executeStack = new ArrayDeque<ExecutionNode>();
         executeStack.push(currentNode);
         while ((currentNode = executeStack.poll()) != null) {
-            checkMaxVisits(currentNode, methodDescriptor);
+            checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount, vm.getMaxNodeVisits());
 
             int[] childAddresses = currentNode.execute();
             for (int address : childAddresses) {
@@ -56,15 +55,16 @@ public class MethodExecutor {
         return graph;
     }
 
-    private void checkMaxVisits(ExecutionNode node, String methodDescriptor) throws MaxNodeVisitsExceeded {
+    private static void checkMaxVisits(ExecutionNode node, String methodDescriptor,
+                    TIntIntMap addressToVisitCount, int maxNodeVisits) throws MaxNodeVisitsExceeded {
         int address = node.getAddress();
-        int visitCount = addressToNodeVisitCounts.get(address);
-        if (visitCount > vm.getMaxNodeVisits()) {
+        int visitCount = addressToVisitCount.get(address);
+        if (visitCount > maxNodeVisits) {
             throw new MaxNodeVisitsExceeded(node, methodDescriptor);
         }
-        boolean adjusted = addressToNodeVisitCounts.adjustValue(address, 1);
+        boolean adjusted = addressToVisitCount.adjustValue(address, 1);
         if (!adjusted) {
-            addressToNodeVisitCounts.put(address, 1);
+            addressToVisitCount.put(address, 1);
         }
     }
 
