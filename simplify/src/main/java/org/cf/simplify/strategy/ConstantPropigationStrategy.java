@@ -7,10 +7,12 @@ import java.util.Map;
 import java.util.Set;
 
 import org.cf.simplify.MethodBackedGraph;
+import org.cf.smalivm.opcode.AGetOp;
 import org.cf.smalivm.opcode.BinaryMathOp;
 import org.cf.smalivm.opcode.MoveOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.ReturnOp;
+import org.cf.smalivm.opcode.SGetOp;
 import org.cf.smalivm.opcode.UnaryMathOp;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
@@ -34,7 +36,7 @@ import org.slf4j.LoggerFactory;
 public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     private static final Set<Class<?>> ConstantizableOps = new HashSet<Class<?>>(Arrays.asList(BinaryMathOp.class,
-                    UnaryMathOp.class, MoveOp.class, ReturnOp.class));
+                    UnaryMathOp.class, MoveOp.class, ReturnOp.class, SGetOp.class, AGetOp.class));
 
     private static final Set<String> ConstantizableTypes = new HashSet<String>(Arrays.asList("I", "Z", "B", "S", "C",
                     "J", "F", "D", "java.lang.String", "java.lang.Class"));
@@ -47,6 +49,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     private static boolean canConstantizeOp(Op op) {
         return ConstantizableOps.contains(op.getClass());
     }
+
     private static boolean canConstantizeType(String type) {
         return ConstantizableTypes.contains(type);
     }

@@ -39,6 +39,33 @@
   return v0
 .end method
 
+.method public static StaticGetWhitelistedClassMember()V
+  .locals 1
+
+  sget v0, Ljava/lang/Integer;->MAX_VALUE:I
+
+  return-void
+.end method
+
+.method public static ArrayGet()V
+  .locals 2
+
+  aget v0, v0, v1
+
+  return-void
+.end method
+
+.method public static NonDeterministicallyExecuteConstableOp()V
+  .locals 1
+
+  if-eqz v0, :end
+
+  sget v0, Ljava/lang/Integer;->MAX_VALUE:I
+
+  :end
+  return-void
+.end method
+
 .method private static AddOneNoSideEffects(I)I
   .locals 0
 

@@ -3,6 +3,7 @@ package org.cf.simplify.strategy;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
@@ -21,22 +22,74 @@ public class TestConstantBuilder {
 
     public static class WithKnownValues {
         @Test
-        public void TestBinaryMathOpIsConstantized() {
+        public void TestBinaryMathOpIsConstable() {
             String methodSignature = "BinaryMathOp()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 3);
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
             ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
+            assertAddressesConstantizable(mbgraph, strategy, 0);
+        }
+
+        @Test
+        public void TestNonDeterministicallyExecuteConstableOpIsConstable() {
+            String methodSignature = "NonDeterministicallyExecuteConstableOp()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
+            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
+            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
+            assertAddressesConstantizable(mbgraph, strategy, 2); // sget
+        }
+
+        @Test
+        public void TestMoveOpIsWithConst16IsConstable() {
+            String methodSignature = "MoveV0IntoV1()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
+            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
+            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
+            assertAddressesConstantizable(mbgraph, strategy, 0);
+        }
+
+        @Test
+        public void TestSGetIsConstable() {
+            String methodSignature = "StaticGetWhitelistedClassMember()V";
+            TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
+            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
+            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
+            assertAddressesConstantizable(mbgraph, strategy, 0);
+        }
+
+        @Test
+        public void TestAGetIsConstable() {
+            String methodSignature = "ArrayGet()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[5], 1, 0);
+            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
+            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
+            assertAddressesConstantizable(mbgraph, strategy, 0);
+        }
+
+        @Test
+        public void TestMoveOpIsWithConst4IsConstable() {
+            String methodSignature = "MoveV0IntoV1()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x7);
+            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
+            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
             assertAddressesConstantizable(mbgraph, strategy, 0);
         }
     }
 
     public static class WithUnknownValues {
         @Test
-        public void TestBinaryMathOpIsNotConstantized() {
+        public void TestBinaryMathOpIsNotConstable() {
             String methodSignature = "BinaryMathOp()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
             ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+
             assertAddressesConstantizable(mbgraph, strategy);
         }
     }
@@ -58,4 +111,5 @@ public class TestConstantBuilder {
             }
         }
     }
+
 }
