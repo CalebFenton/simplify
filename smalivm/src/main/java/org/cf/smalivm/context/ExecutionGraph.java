@@ -143,7 +143,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
             Set<Object> values = getFieldValues(address, className, fieldNameAndType);
             value = values.toArray()[0]; // since set, size == 1 -> consensus
-            if (values.size() != 1) {
+            if (1 != values.size()) {
                 log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
                 return new UnknownValue(type);
             }
@@ -359,17 +359,14 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public boolean wasAddressReached(int address) {
-        if (address == 0) {
+        if (0 == address) {
             // Root is always reachable
             return true;
         }
 
         // If this address was reached during execution there will be clones in the pile.
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
-        if (nodePile == null) {
-            System.out.println("break");
-        }
-        if (nodePile.size() < 1) {
+        if (1 >= nodePile.size()) {
             log.warn("Node pile @" + address + " has no template node.");
         }
 

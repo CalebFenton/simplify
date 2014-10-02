@@ -116,7 +116,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
-        addresses = getValidAddresses(mbgraph);
     }
 
     @Override

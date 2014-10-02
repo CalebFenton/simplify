@@ -1,6 +1,7 @@
 package org.cf.simplify.strategy;
 
-import gnu.trove.set.TIntSet;
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     private final MethodBackedGraph mbgraph;
     private int peepCount;
+    private TIntList addresses;
 
     public PeepholeStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
@@ -38,25 +40,37 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return result;
     }
 
-    public boolean perform() {
-        TIntSet addresses = mbgraph.getAddresses();
+    void peepClassForName() {
+        TIntList peepAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            BuilderInstruction original = mbgraph.getInstruction(address);
             if (canPeepClassForName(address)) {
-                int nextAddress = address + original.getCodeUnits();
-                if (addresses.contains(nextAddress)) {
-                    BuilderInstruction nextInstruction = mbgraph.getInstruction(nextAddress);
-                    if (nextInstruction.getOpcode().name.startsWith("move-result")) {
-                        // There is a move-result after the instruction being replaced. "Deal" with it.
-                        mbgraph.removeInstruction(nextAddress);
-                    }
-                }
-
-                BuilderInstruction replacement = buildClassForNameReplacement(address);
-                mbgraph.replaceInstruction(address, replacement);
-                peepCount++;
+                peepAddresses.add(address);
             }
         }
+
+        peepCount += peepAddresses.size();
+        peepAddresses.sort();
+        peepAddresses.reverse();
+        for (int address : peepAddresses.toArray()) {
+            BuilderInstruction original = mbgraph.getInstruction(address);
+            int nextAddress = address + original.getCodeUnits();
+            if (addresses.contains(nextAddress)) {
+                BuilderInstruction nextInstruction = mbgraph.getInstruction(nextAddress);
+                if (nextInstruction.getOpcode().name.startsWith("move-result")) {
+                    // There is a move-result after the instruction being replaced. "Deal" with it.
+                    mbgraph.removeInstruction(nextAddress);
+                }
+            }
+
+            BuilderInstruction replacement = buildClassForNameReplacement(address);
+            mbgraph.replaceInstruction(address, replacement);
+        }
+    }
+
+    public boolean perform() {
+        addresses = getValidAddresses(mbgraph);
+
+        peepClassForName();
 
         return peepCount > 0;
     }
@@ -74,9 +88,6 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     boolean canPeepClassForName(int address) {
-        if (!mbgraph.wasAddressReached(address)) {
-            return false;
-        }
         Op handler = mbgraph.getOp(address);
         if (!(handler instanceof InvokeOp)) {
             return false;
@@ -125,6 +136,17 @@ public class PeepholeStrategy implements OptimizationStrategy {
         System.out.println(value1 + " " + value2 + " " + value3);
 
         return false;
+    }
+
+    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+        TIntList result = new TIntArrayList(mbgraph.getAddresses().toArray());
+        for (int address : result.toArray()) {
+            if (!mbgraph.wasAddressReached(address)) {
+                result.remove(address);
+            }
+        }
+
+        return result;
     }
 
 }

@@ -25,7 +25,7 @@ public class OptionBean implements Serializable {
     private int maxCallDepth = 20;
 
     @Option(name = "--max-node-visits", usage = "Limit instruction visitation. Lower is faster, but misses things.")
-    private int maxNodeVisits = 2000;
+    private int maxNodeVisits = 200;
 
     @Option(name = "--max-passes", usage = "Limit optimization passes.")
     private int maxOptimizationPasses = 100;
