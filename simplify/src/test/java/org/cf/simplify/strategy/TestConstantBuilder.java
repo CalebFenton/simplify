@@ -102,7 +102,7 @@ public class TestConstantBuilder {
     static void assertAddressesConstantizable(MethodBackedGraph mbgraph, ConstantPropigationStrategy strategy,
                     int... expectedAddresses) {
         TIntSet expected = new TIntHashSet(expectedAddresses);
-        for (int address : mbgraph.getAddresses().toArray()) {
+        for (int address : mbgraph.getAddresses()) {
             boolean canConstantize = strategy.canConstantizeAddress(address);
             if (expected.contains(address)) {
                 assertTrue("address " + address + " should be constantizable", canConstantize);

@@ -24,7 +24,7 @@ public class TestPeepholeOptimizer {
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
         TIntSet expected = new TIntHashSet(new int[] { 2 });
-        for (int address : mbgraph.getAddresses().toArray()) {
+        for (int address : mbgraph.getAddresses()) {
             if (expected.contains(address)) {
                 assertTrue(address + " can be peeped", strategy.canPeepClassForName(address));
             }
@@ -37,7 +37,7 @@ public class TestPeepholeOptimizer {
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
         TIntSet expected = new TIntHashSet(new int[] { 2 });
-        for (int address : mbgraph.getAddresses().toArray()) {
+        for (int address : mbgraph.getAddresses()) {
             if (expected.contains(address)) {
                 assertTrue(address + " can be peeped", strategy.canPeepClassForName(address));
             }

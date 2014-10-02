@@ -44,6 +44,7 @@ public class MethodExecutor {
             for (int address : childAddresses) {
                 // Each visit adds a new ExecutionNode in the pile. Piles can be inspected later for register / field
                 // consensus for optimization.
+
                 Op childOp = graph.getTemplateNode(address).getOp();
                 ExecutionNode childNode = currentNode.getChild(childOp);
                 graph.addNode(childNode);
@@ -55,8 +56,8 @@ public class MethodExecutor {
         return graph;
     }
 
-    private static void checkMaxVisits(ExecutionNode node, String methodDescriptor,
-                    TIntIntMap addressToVisitCount, int maxNodeVisits) throws MaxNodeVisitsExceeded {
+    private static void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount,
+                    int maxNodeVisits) throws MaxNodeVisitsExceeded {
         int address = node.getAddress();
         int visitCount = addressToVisitCount.get(address);
         if (visitCount > maxNodeVisits) {

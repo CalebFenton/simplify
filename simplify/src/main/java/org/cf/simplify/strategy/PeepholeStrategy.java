@@ -139,7 +139,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     TIntList getValidAddresses(MethodBackedGraph mbgraph) {
-        TIntList result = new TIntArrayList(mbgraph.getAddresses().toArray());
+        TIntList result = new TIntArrayList(mbgraph.getAddresses());
         for (int address : result.toArray()) {
             if (!mbgraph.wasAddressReached(address)) {
                 result.remove(address);

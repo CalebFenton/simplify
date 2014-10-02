@@ -61,7 +61,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private static TIntList getAddressesNotInCatchBlocks(TIntObjectMap<BuilderInstruction> addressToInstruction,
+    private static TIntList getAddressesNotInTryCatchBlocks(TIntObjectMap<BuilderInstruction> addressToInstruction,
                     List<BuilderTryBlock> tryBlocks) {
         TIntList catchAddresses = new TIntArrayList();
         for (BuilderTryBlock tryBlock : tryBlocks) {
@@ -85,7 +85,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
             if (inCatch) {
                 Set<Label> labels = instruction.getLocation().getLabels();
-                inCatch = labels.size() == 0;
+                inCatch = 0 == labels.size();
                 continue;
             }
 
@@ -116,6 +116,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
+        addresses = getValidAddresses(mbgraph);
     }
 
     @Override
@@ -267,7 +268,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getValidAddresses(MethodBackedGraph mbgraph) {
         List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
         TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
-        TIntList result = getAddressesNotInCatchBlocks(addressToInstruction, tryBlocks);
+        TIntList result = getAddressesNotInTryCatchBlocks(addressToInstruction, tryBlocks);
+        // TIntList result = new TIntArrayList(mbgraph.getAddresses());
         for (int address : result.toArray()) {
             Op op = mbgraph.getOp(address);
             int level = op.sideEffectLevel().getValue();

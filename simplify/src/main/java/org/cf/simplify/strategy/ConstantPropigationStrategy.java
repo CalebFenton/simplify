@@ -202,7 +202,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     @Override
     public boolean perform() {
-        for (int address : mbgraph.getAddresses().toArray()) {
+        for (int address : mbgraph.getAddresses()) {
             BuilderInstruction original = mbgraph.getInstruction(address);
             if (canConstantizeAddress(address)) {
                 BuilderInstruction constInstruction = buildConstant(address);

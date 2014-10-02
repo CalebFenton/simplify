@@ -4,7 +4,6 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.set.TIntSet;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -106,8 +105,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         addressToNodePile.get(node.getAddress()).add(node);
     }
 
-    public TIntSet getAddresses() {
-        return addressToNodePile.keySet();
+    public int[] getAddresses() {
+        return addressToNodePile.keySet().toArray();
     }
 
     public TIntList getConnectedTerminatingAddresses() {
@@ -366,7 +365,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
         // If this address was reached during execution there will be clones in the pile.
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
-        if (1 >= nodePile.size()) {
+        if (1 > nodePile.size()) {
             log.warn("Node pile @" + address + " has no template node.");
         }
 

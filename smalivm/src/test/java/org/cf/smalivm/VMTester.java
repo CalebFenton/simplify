@@ -239,7 +239,7 @@ public class VMTester {
     public static void testVisitation(String className, String methodSignature,
                     TIntObjectMap<Object> initialRegisterToValue, int[] expectedVisitations) {
         ExecutionGraph graph = VMTester.execute(className, methodSignature, initialRegisterToValue);
-        int[] addresses = graph.getAddresses().toArray();
+        int[] addresses = graph.getAddresses();
         TIntList expectedVisits = new TIntArrayList(expectedVisitations);
         TIntList actualVisits = new TIntArrayList();
         for (int address : addresses) {
