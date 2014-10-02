@@ -160,8 +160,29 @@ public class VirtualMachine {
         return execute(methodDescriptor, ectx, null, null);
     }
 
+    private void mergeClassStates(ExecutionContext mergeFrom, ExecutionContext mergeTo) {
+        for (String className : getLocalClasses()) {
+            if (!mergeFrom.isClassInitialized(className)) {
+                continue;
+            }
+
+            ClassState fromClassState = mergeFrom.peekClassState(className);
+            ClassState toClassState = new ClassState(fromClassState, mergeTo);
+            for (String fieldNameAndType : getFieldNameAndTypes(className)) {
+                Object value = fromClassState.peekField(fieldNameAndType);
+                toClassState.pokeField(fieldNameAndType, value);
+            }
+            SideEffect.Level level = mergeFrom.getClassStateSideEffectLevel(className);
+            mergeTo.initializeClass(className, toClassState, level);
+        }
+    }
+
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) {
+        if (callerContext != null) {
+            mergeClassStates(callerContext, calleeContext);
+        }
+
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
         calleeContext.staticallyInitializeClassIfNecessary(className);
 

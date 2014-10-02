@@ -8,7 +8,6 @@ import java.util.List;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
@@ -147,7 +146,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -204,24 +203,12 @@ public class InvokeOp extends ExecutionContextOp {
 
     private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext) {
         ExecutionContext calleeContext = vm.getRootExecutionContext(methodDescriptor);
-        for (String className : vm.getLocalClasses()) {
-            if (!callerContext.isClassInitialized(className)) {
-                continue;
-            }
-
-            ClassState callerClassState = callerContext.peekClassState(className);
-            ClassState cState = new ClassState(callerClassState, calleeContext);
-            for (String fieldNameAndType : vm.getFieldNameAndTypes(className)) {
-                Object value = callerClassState.peekField(fieldNameAndType);
-                cState.pokeField(fieldNameAndType, value);
-            }
-            SideEffect.Level level = callerContext.getClassStateSideEffectLevel(className);
-            calleeContext.initializeClass(className, cState, level);
-        }
         calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
-        MethodState calleeMethodState = calleeContext.getMethodState();
         MethodState callerMethodState = callerContext.getMethodState();
+        MethodState calleeMethodState = calleeContext.getMethodState();
         assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
+
+        // Class state merging is handled by the VM.
 
         return calleeContext;
     }

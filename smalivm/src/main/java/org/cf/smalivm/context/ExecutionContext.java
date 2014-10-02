@@ -138,20 +138,6 @@ public class ExecutionContext {
             ClassState cState = new ClassState(templateClassState, initContext);
             // real level is set after clinit execution
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
-            for (String currentClassName : vm.getLocalClasses()) {
-                if (!isClassInitialized(currentClassName)) {
-                    continue;
-                }
-
-                ClassState callerClassState = peekClassState(currentClassName);
-                cState = new ClassState(callerClassState, initContext);
-                for (String fieldNameAndType : vm.getFieldNameAndTypes(currentClassName)) {
-                    Object value = callerClassState.peekField(fieldNameAndType);
-                    cState.pokeField(fieldNameAndType, value);
-                }
-                SideEffect.Level level = getClassStateSideEffectLevel(currentClassName);
-                initContext.initializeClass(currentClassName, cState, level);
-            }
 
             ExecutionGraph graph = vm.execute(clinitDescriptor, initContext, this, null);
             if (graph == null) {
@@ -159,7 +145,6 @@ public class ExecutionContext {
                 sideEffectLevel = SideEffect.Level.STRONG;
             } else {
                 sideEffectLevel = graph.getHighestSideEffectLevel();
-
             }
         } else {
             // No clinit for this class.
