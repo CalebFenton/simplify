@@ -4,6 +4,7 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import org.cf.smalivm.type.TypeUtil;
+import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
 
 public class MethodState extends BaseState {
@@ -52,7 +53,7 @@ public class MethodState extends BaseState {
 
         String type = TypeUtil.getValueType(value);
         type = SmaliClassUtils.javaClassToSmali(type);
-        boolean mutable = !SmaliClassUtils.isImmutableClass(type);
+        boolean mutable = !ImmutableUtils.isImmutableClass(type);
         if (mutable) {
             pokeRegister(parameterIndex, value, MUTABLE_PARAMETER_HEAP);
             mutableParameters.add(parameterIndex);

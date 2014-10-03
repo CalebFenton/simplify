@@ -26,7 +26,7 @@ public class StaticFieldAccessor {
         if (vm.isLocalClass(className)) {
             ClassState cState = ectx.readClassState(className);
             result = cState.peekField(fieldNameAndType);
-        } else if (MethodReflector.isWhitelisted(className)) {
+        } else if (MethodReflector.canReflect(className)) {
             // Use reflection
             try {
                 String javaClassName = SmaliClassUtils.smaliClassToJava(className);

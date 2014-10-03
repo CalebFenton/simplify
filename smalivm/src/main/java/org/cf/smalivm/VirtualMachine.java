@@ -17,13 +17,13 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ImmutableUtils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
@@ -38,6 +38,10 @@ import org.slf4j.LoggerFactory;
 public class VirtualMachine {
 
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
+
+    private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
+    private static final int DEFAULT_MAX_METHOD_VISITS = DEFAULT_MAX_ADDRESS_VISITS * 500;
+    private static final int DEFAULT_MAX_CALL_DEPTH = 20;
 
     public static int getParameterSize(List<String> parameterTypes) {
         int result = 0;
@@ -144,8 +148,12 @@ public class VirtualMachine {
         return result;
     }
 
+    public VirtualMachine(List<BuilderClassDef> classDefs) {
+        this(classDefs, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
+    }
+
     public VirtualMachine(String path) throws Exception {
-        this(path, 1000, 20, 1000 * 1000);
+        this(path, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
     }
 
     public VirtualMachine(String path, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) throws Exception {
@@ -223,7 +231,7 @@ public class VirtualMachine {
             List<String> parameterTypes = getParameterTypes(methodDescriptor);
             for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
                 String type = parameterTypes.get(parameterIndex);
-                boolean mutable = !SmaliClassUtils.isImmutableClass(type);
+                boolean mutable = !ImmutableUtils.isImmutableClass(type);
                 if (!mutable) {
                     continue;
                 }

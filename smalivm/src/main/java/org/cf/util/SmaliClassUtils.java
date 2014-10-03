@@ -20,43 +20,11 @@ public class SmaliClassUtils {
         PrimitiveTypes.put("C", Character.TYPE);
     }
 
-    public static boolean isImmutableClass(String smaliClassName) {
-        if (smaliClassName.startsWith("[")) {
-            // Array elements can always be mutated
-            return false;
-        }
-
-        if (smaliClassName.equals("?")) {
-            // Unknown type. Was probably lazy somewhere and didn't get implied type.
-            return false;
-        }
-
-        // TODO: https://github.com/MutabilityDetector/MutabilityDetector
-        if (smaliClassName.equals("Ljava/lang/String;")) {
-            return true;
-        }
-
-        if (isPrimitiveType(smaliClassName)) {
-            return true;
-        }
-
-        String className = smaliClassName.substring(1, smaliClassName.length() - 1).replaceAll("/", ".");
-        try {
-            Class<?> clazz = ClassUtils.getClass(className, false);
-            boolean result = ClassUtils.isPrimitiveOrWrapper(clazz);
-
-            return result;
-        } catch (ClassNotFoundException e) {
-        }
-
-        return false;
-    }
-
     public static boolean isPrimitiveType(String type) {
         return PrimitiveTypes.containsKey(getBaseClass(type));
     }
 
-    public static String javaClassToSmali(Class klazz) {
+    public static String javaClassToSmali(Class<?> klazz) {
         return javaClassToSmali(klazz.getName());
     }
 

@@ -13,7 +13,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ImmutableUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
@@ -182,7 +182,7 @@ public class InvokeOp extends ExecutionContextOp {
     private void assumeMaximumUnknown(MethodState mState) {
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
-            if (SmaliClassUtils.isImmutableClass(type)) {
+            if (ImmutableUtils.isImmutableClass(type)) {
                 log.trace(type + " is immutable");
                 continue;
             }

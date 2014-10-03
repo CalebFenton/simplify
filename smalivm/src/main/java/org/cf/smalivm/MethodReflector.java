@@ -1,14 +1,18 @@
 package org.cf.smalivm;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.ConfigLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,71 +20,23 @@ public class MethodReflector {
 
     private static Logger log = LoggerFactory.getLogger(MethodReflector.class.getSimpleName());
 
-    private static List<String> SafeClasses;
-    private static List<String> SafeMethods;
+    private static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
+    private static final String SAFE_METHODS_PATH = "safe_methods.cfg";
+    private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
+
+    private static Set<String> SafeClasses;
+    private static Set<String> SafeMethods;
+
     static {
-        // No method from any safe class should ever have any side effects (e.g. IO)
-        // TODO: get exhaustive list
-        SafeClasses = new ArrayList<String>();
-        SafeClasses.add("Ljava/lang/Object;");
-        SafeClasses.add("Ljava/lang/Boolean;");
-        SafeClasses.add("Ljava/lang/Byte;");
-        SafeClasses.add("Ljava/lang/Character;");
-        SafeClasses.add("Ljava/lang/CharSequence;");
-        SafeClasses.add("Ljava/lang/Double;");
-        SafeClasses.add("Ljava/lang/Float;");
-        SafeClasses.add("Ljava/lang/Integer;");
-        SafeClasses.add("Ljava/lang/Long;");
-        SafeClasses.add("Ljava/lang/Number;");
-        SafeClasses.add("Ljava/lang/Short;");
-        SafeClasses.add("Ljava/lang/String;");
-        // SafeClasses.add("Ljava/lang/System;"); System.currentTimeMillis?
-
-        SafeClasses.add("Ljava/lang/StringBuffer;");
-        SafeClasses.add("Ljava/lang/StringBuilder;");
-
-        SafeClasses.add("Ljava/math/BigDecimal;");
-        SafeClasses.add("Ljava/math/BigInteger;");
-
-        SafeClasses.add("Ljava/util/Map;");
-        SafeClasses.add("Ljava/util/HashMap;");
-        SafeClasses.add("Ljava/util/Hashtable;");
-
-        SafeClasses.add("Ljava/util/List;");
-        SafeClasses.add("Ljava/util/ArrayList;");
-
-        SafeClasses.add("Ljava/util/Set;");
-        SafeClasses.add("Ljava/util/HashSet;");
-
-        SafeClasses.add("Lorg/json/JSONObject;");
-        SafeClasses.add("Lorg/json/JSONArray;");
-
-        SafeClasses.add("Ljavax/crypto/Cipher;");
-        SafeClasses.add("Ljavax/crypto/spec/SecretKeySpec;");
-        SafeClasses.add("Ljavax/crypto/spec/IvParameterSpec;");
-        SafeClasses.add("Ljava/security/Key;");
-        SafeClasses.add("Ljava/security/spec/AlgorithmParameterSpec;");
-
-        SafeMethods = new ArrayList<String>();
-        SafeMethods.add("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;");
+        try {
+            loadSafeClasses();
+            loadSafeMethods();
+        } catch (Exception e) {
+            log.warn("Error loading safe class definitions.", e);
+        }
     }
 
-    public static boolean canReflect(String methodDescriptor) {
-        String[] parts = methodDescriptor.split("->");
-        String className = parts[0];
-
-        if (SafeClasses.contains(className)) {
-            return true;
-        }
-
-        if (SafeMethods.contains(methodDescriptor)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    public static boolean isWhitelisted(String typeDescriptor) {
+    public static boolean canReflect(String typeDescriptor) {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
 
@@ -96,6 +52,21 @@ public class MethodReflector {
         }
 
         return false;
+    }
+
+    private static void loadSafeClasses() throws IOException {
+        // Methods from safe classes must not have any side effects, e.g. any IO.
+        List<String> lines = ConfigLoader.loadConfig(SAFE_CLASSES_PATH);
+        SafeClasses = new HashSet<String>(lines);
+    }
+
+    private static void loadSafeMethods() throws IOException {
+        // Some classes may be mostly safe except a few methods. Either exclude or emulate them.
+        List<String> lines = ConfigLoader.loadConfig(SAFE_METHODS_PATH);
+        SafeMethods = new HashSet<String>(lines);
+
+        List<String> unsafe = ConfigLoader.loadConfig(UNSAFE_METHODS_PATH);
+        SafeMethods.removeAll(unsafe);
     }
 
     private final String className;

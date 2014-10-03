@@ -21,8 +21,8 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.7.+'
 
     // Parsing and writing dex files
-    //compile 'org.smali:dexlib2:2.+'
-    compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.4.jar')
+    compile 'org.smali:dexlib2:2.+'
+    //compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.4.jar')
     compile 'org.smali:smali:2.+'
     compile 'org.smali:baksmali:2.+'
 

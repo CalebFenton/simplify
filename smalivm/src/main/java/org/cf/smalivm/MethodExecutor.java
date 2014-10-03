@@ -25,7 +25,8 @@ public class MethodExecutor {
         this.vm = vm;
     }
 
-    ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded {
+    ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         int totalVisits = 0;
         String methodDescriptor = graph.getMethodDescriptor();

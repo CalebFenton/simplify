@@ -48,7 +48,7 @@ public class NewInstanceOp extends ExecutionContextOp {
             sideEffectLevel = ectx.getClassStateSideEffectLevel(className);
             instance = new LocalInstance(className);
         } else {
-            if (MethodReflector.isWhitelisted(className)) {
+            if (MethodReflector.canReflect(className)) {
                 sideEffectLevel = SideEffect.Level.NONE;
             }
             instance = new UninitializedInstance(className);
