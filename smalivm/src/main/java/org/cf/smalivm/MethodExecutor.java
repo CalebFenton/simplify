@@ -20,28 +20,40 @@ public class MethodExecutor {
     private static Logger log = LoggerFactory.getLogger(MethodExecutor.class.getSimpleName());
 
     private final VirtualMachine vm;
+    private int totalVisits;
 
     MethodExecutor(VirtualMachine vm) {
         this.vm = vm;
+        totalVisits = 0;
+    }
+
+    private void resetTotalVisits() {
+        totalVisits = 0;
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded {
+    MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
-        int totalVisits = 0;
         String methodDescriptor = graph.getMethodDescriptor();
         ExecutionNode currentNode = graph.getRoot();
+        int callDepth = currentNode.getCallDepth();
         if (log.isInfoEnabled()) {
-            log.info("Executing " + methodDescriptor + ", depth=" + currentNode.getCallDepth());
+            log.info("Executing " + methodDescriptor + ", depth=" + callDepth);
         }
         if (currentNode.getCallDepth() > vm.getMaxCallDepth()) {
             throw new MaxCallDepthExceeded(methodDescriptor);
         }
 
+        if (callDepth == 0) {
+            // This is a new entry point.
+            resetTotalVisits();
+        }
+
         Deque<ExecutionNode> executeStack = new ArrayDeque<ExecutionNode>();
         executeStack.push(currentNode);
         while ((currentNode = executeStack.poll()) != null) {
-            checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount, totalVisits);
+            totalVisits += 1;
+            checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount);
 
             int[] childAddresses = currentNode.execute();
             for (int address : childAddresses) {
@@ -59,8 +71,8 @@ public class MethodExecutor {
         return graph;
     }
 
-    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount,
-                    int totalVisits) throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
+    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)
+                    throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
         if (totalVisits > vm.getMaxMethodVisits()) {
             throw new MaxMethodVisitsExceeded(node, methodDescriptor);
         }

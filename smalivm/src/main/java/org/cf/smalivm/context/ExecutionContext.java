@@ -65,12 +65,6 @@ public class ExecutionContext {
         MethodState childMethodState = getMethodState().getChild(child);
         child.setMethodState(childMethodState);
 
-        // Sparse context testing, for ref only
-        // for (String className : classNameToState.keySet()) {
-        // ClassState childClassState = peekClassState(className).getChild(child);
-        // child.initializeClass(className, childClassState);
-        // }
-
         return child;
     }
 
@@ -134,6 +128,7 @@ public class ExecutionContext {
         String clinitDescriptor = className + "-><clinit>()V";
         if (vm.isLocalMethod(clinitDescriptor)) {
             ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
+            initContext.setCallDepth(getCallDepth() + 1);
             ClassState templateClassState = getTemplate().peekClassState(className);
             ClassState cState = new ClassState(templateClassState, initContext);
             // real level is set after clinit execution

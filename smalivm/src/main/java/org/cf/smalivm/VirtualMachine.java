@@ -205,9 +205,13 @@ public class VirtualMachine {
         try {
             result = methodExecutor.execute(graph);
         } catch (MaxCallDepthExceeded | MaxAddressVisitsExceeded e) {
-            log.warn(e.toString());
+            if (log.isWarnEnabled()) {
+                log.warn(e.toString());
+            }
         } catch (Exception e) {
-            log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
+            if (log.isWarnEnabled()) {
+                log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
+            }
             if (log.isDebugEnabled()) {
                 log.debug("Stack trace: ", e);
             }

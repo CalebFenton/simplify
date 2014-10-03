@@ -26,10 +26,10 @@ public class OptionBean implements Serializable {
     private int maxCallDepth = 20;
 
     @Option(name = "--max-address-visits", usage = "Maximum visits of particular address. Raise for long loops.")
-    private int maxAddressVisits = 500;
+    private int maxAddressVisits = 50;
 
     @Option(name = "--max-method-visits", usage = "Maximum visits over all addresses in method. Higher for longer methods + loops.")
-    private int maxMethodVisits = maxAddressVisits * 1000; // assuming ~1000 instructions per method
+    private int maxMethodVisits = maxAddressVisits * 200;
 
     @Option(name = "--max-passes", usage = "Limit optimization passes.")
     private int maxOptimizationPasses = 100;

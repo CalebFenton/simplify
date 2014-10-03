@@ -183,7 +183,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public int getNodeCount() {
-        return addressToNodePile.size();
+        int totalSize = addressToNodePile.size();
+        int templateCount = addressToNodePile.keys().length;
+
+        return totalSize - templateCount;
     }
 
     public List<ExecutionNode> getNodePile(int address) {
