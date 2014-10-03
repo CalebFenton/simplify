@@ -247,7 +247,7 @@ public class InvokeOp extends ExecutionContextOp {
         boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
         if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
             sideEffectLevel = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
-        } else if (allArgumentsKnown && MethodReflector.canReflect(methodDescriptor)) {
+        } else if (allArgumentsKnown && MethodReflector.isSafe(methodDescriptor)) {
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play
 

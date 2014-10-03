@@ -22,10 +22,10 @@ public class MethodReflector {
 
     private static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
     private static final String SAFE_METHODS_PATH = "safe_methods.cfg";
-    private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
-
     private static Set<String> SafeClasses;
+
     private static Set<String> SafeMethods;
+    private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
 
     static {
         try {
@@ -36,7 +36,7 @@ public class MethodReflector {
         }
     }
 
-    public static boolean canReflect(String typeDescriptor) {
+    public static boolean isSafe(String typeDescriptor) {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
 

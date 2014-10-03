@@ -26,7 +26,7 @@ public class StaticFieldAccessor {
         if (vm.isLocalClass(className)) {
             ClassState cState = ectx.readClassState(className);
             result = cState.peekField(fieldNameAndType);
-        } else if (MethodReflector.canReflect(className)) {
+        } else if (MethodReflector.isSafe(className)) {
             // Use reflection
             try {
                 String javaClassName = SmaliClassUtils.smaliClassToJava(className);
@@ -35,8 +35,12 @@ public class StaticFieldAccessor {
                 result = field.get(null);
             } catch (ClassNotFoundException | IllegalArgumentException | IllegalAccessException e) {
                 result = new UnknownValue(fieldType);
-                log.warn("Couldn't access field: " + fieldDescriptor);
-                log.debug("Stack trace:", e);
+                if (log.isWarnEnabled()) {
+                    log.warn("Couldn't access field: " + fieldDescriptor);
+                }
+                if (log.isDebugEnabled()) {
+                    log.debug("Stack trace:", e);
+                }
             }
         } else {
             // Access denied!
@@ -55,7 +59,9 @@ public class StaticFieldAccessor {
             ClassState cState = ectx.readClassState(className);
             cState.assignField(fieldNameAndType, value);
         } else {
-            log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + value);
+            if (log.isWarnEnabled()) {
+                log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + value);
+            }
         }
     }
 
