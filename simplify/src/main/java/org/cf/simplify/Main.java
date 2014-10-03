@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.cf.smalivm.VirtualMachine;
@@ -37,19 +36,14 @@ public class Main {
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(bean.getOutputAPILevel());
         List<BuilderClassDef> classes = Dexifier.dexifySmaliFiles(bean.getInFile(), dexBuilder);
-        if (bean.getClassFilter() != null) {
-            filterTypes(classes, bean.getClassFilter());
-        }
-
         List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
         for (BuilderClassDef klazz : classes) {
             methods.addAll(klazz.getMethods());
         }
-        if (bean.getMethodFilter() != null) {
-            filterTypes(methods, bean.getMethodFilter());
-        }
+        filterTypes(methods, bean.getIncludeFilter(), bean.getExcludeFilter());
 
-        VirtualMachine vm = new VirtualMachine(classes, bean.getMaxNodeVisits(), bean.getMaxCallDepth());
+        VirtualMachine vm = new VirtualMachine(classes, bean.getMaxAddressVisits(), bean.getMaxCallDepth(),
+                        bean.getMaxMethodVisits());
 
         // TODO: investigate sorting methods by implementation size. maybe shorter methods can be optimized more easily
         // and will speed up optimizations of dependent methods.
@@ -71,10 +65,7 @@ public class Main {
             Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
             boolean madeChanges = opt.simplify(bean.getMaxOptimizationPasses());
             if (madeChanges) {
-                /*
-                 * All objects associated with this method (dexbuilder, implementation) have been updated in the
-                 * optimizer. Poke the VM to re-build the graph based on them.
-                 */
+                // Optimizer changed the implementation. Re-build graph based on changes.
                 vm.updateInstructionGraph(methodDescriptor);
             } else {
                 finishedMethods.add(methodDescriptor);
@@ -86,12 +77,15 @@ public class Main {
         dexBuilder.writeTo(new FileDataStore(outFile));
     }
 
-    private static void filterTypes(List<? extends Reference> refs, Pattern filterPattern) {
+    private static void filterTypes(List<? extends Reference> refs, Pattern positive, Pattern negative) {
         for (Iterator<? extends Reference> it = refs.iterator(); it.hasNext();) {
             Reference ref = it.next();
             String name = ReferenceUtil.getReferenceString(ref);
-            Matcher m = filterPattern.matcher(name);
-            if (!m.find()) {
+            if ((positive != null) && !positive.matcher(name).find()) {
+                it.remove();
+            }
+
+            if ((negative != null) && negative.matcher(name).find()) {
                 it.remove();
             }
         }

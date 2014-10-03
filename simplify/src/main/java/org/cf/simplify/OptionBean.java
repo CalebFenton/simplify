@@ -13,25 +13,26 @@ public class OptionBean implements Serializable {
 
     private static final long serialVersionUID = -8592147369856820020L;
 
-    @Option(name = "-c", aliases = { "--class-filter" }, metaVar = "regex", handler = PatternOptionHandler.class, usage = "Only simplify classes matching filter")
-    private Pattern classFilter;
-
     @Option(name = "-h", aliases = { "--help" }, usage = "Be helpful", help = true)
     private boolean help;
 
-    private File inFile;
+    @Option(name = "-et", aliases = { "--exclude-types" }, metaVar = "regex", handler = PatternOptionHandler.class, usage = "Don't simplify matching types. Aapplied after include.")
+    private Pattern excludeFilter;
+
+    @Option(name = "-it", aliases = { "--include-types" }, metaVar = "regex", handler = PatternOptionHandler.class, usage = "Only simplify type signatures matching regex.")
+    private Pattern includeFilter;
 
     @Option(name = "--max-call-depth", usage = "Limit method call depth. Lower is faster, but misses things.")
     private int maxCallDepth = 20;
 
-    @Option(name = "--max-node-visits", usage = "Limit instruction visitation. Lower is faster, but misses things.")
-    private int maxNodeVisits = 200;
+    @Option(name = "--max-address-visits", usage = "Maximum visits of particular address. Raise for long loops.")
+    private int maxAddressVisits = 200;
+
+    @Option(name = "--max-method-visits", usage = "Maximum visits over all addresses in method. Higher for longer methods + loops.")
+    private int maxMethodVisits = maxAddressVisits * 1000; // assuming ~1000 instructions per method
 
     @Option(name = "--max-passes", usage = "Limit optimization passes.")
     private int maxOptimizationPasses = 100;
-
-    @Option(name = "-m", aliases = { "--method-filter" }, metaVar = "regex", handler = PatternOptionHandler.class, usage = "Only simplify methods matching filter")
-    private Pattern methodFilter;
 
     @Option(name = "-o", aliases = { "--output" }, metaVar = "output", handler = FileOptionHandler.class, usage = "Output DEX file, default is <infile>_simple.dex")
     private File outFile;
@@ -45,9 +46,7 @@ public class OptionBean implements Serializable {
     @Option(name = "-vv", aliases = { "--vverbose" }, usage = "Be very verbose")
     private boolean vverbose;
 
-    public Pattern getClassFilter() {
-        return classFilter;
-    }
+    private File inFile;
 
     public File getInFile() {
         return inFile;
@@ -57,16 +56,24 @@ public class OptionBean implements Serializable {
         return maxCallDepth;
     }
 
-    public int getMaxNodeVisits() {
-        return maxNodeVisits;
+    public int getMaxAddressVisits() {
+        return maxAddressVisits;
+    }
+
+    public int getMaxMethodVisits() {
+        return maxMethodVisits;
     }
 
     public int getMaxOptimizationPasses() {
         return maxOptimizationPasses;
     }
 
-    public Pattern getMethodFilter() {
-        return methodFilter;
+    public Pattern getExcludeFilter() {
+        return excludeFilter;
+    }
+
+    public Pattern getIncludeFilter() {
+        return includeFilter;
     }
 
     public File getOutFile() {

@@ -8,8 +8,9 @@ import java.util.Deque;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
-import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.opcode.Op;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +25,9 @@ public class MethodExecutor {
         this.vm = vm;
     }
 
-    ExecutionGraph execute(ExecutionGraph graph) throws MaxNodeVisitsExceeded, MaxCallDepthExceeded {
+    ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
+        int totalVisits = 0;
         String methodDescriptor = graph.getMethodDescriptor();
         ExecutionNode currentNode = graph.getRoot();
         if (log.isInfoEnabled()) {
@@ -38,7 +40,7 @@ public class MethodExecutor {
         Deque<ExecutionNode> executeStack = new ArrayDeque<ExecutionNode>();
         executeStack.push(currentNode);
         while ((currentNode = executeStack.poll()) != null) {
-            checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount, vm.getMaxNodeVisits());
+            checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount, totalVisits);
 
             int[] childAddresses = currentNode.execute();
             for (int address : childAddresses) {
@@ -56,12 +58,16 @@ public class MethodExecutor {
         return graph;
     }
 
-    private static void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount,
-                    int maxNodeVisits) throws MaxNodeVisitsExceeded {
+    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount,
+                    int totalVisits) throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
+        if (totalVisits > vm.getMaxMethodVisits()) {
+            throw new MaxMethodVisitsExceeded(node, methodDescriptor);
+        }
+
         int address = node.getAddress();
         int visitCount = addressToVisitCount.get(address);
-        if (visitCount > maxNodeVisits) {
-            throw new MaxNodeVisitsExceeded(node, methodDescriptor);
+        if (visitCount > vm.getMaxAddressVisits()) {
+            throw new MaxAddressVisitsExceeded(node, methodDescriptor);
         }
         boolean adjusted = addressToVisitCount.adjustValue(address, 1);
         if (!adjusted) {

@@ -18,7 +18,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
-import org.cf.smalivm.exception.MaxNodeVisitsExceeded;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
@@ -90,7 +90,8 @@ public class VirtualMachine {
 
     private final Set<String> localClasses;
     private final int maxCallDepth;
-    private final int maxNodeVisits;
+    private final int maxAddressVisits;
+    private final int maxMethodVisits;
     private final Map<String, BuilderMethod> methodDescriptorToBuilderMethod;
     private final Map<String, List<String>> methodDescriptorToParameterTypes;
     private final Map<String, ExecutionGraph> methodDescriptorToTemplateContextGraph;
@@ -100,8 +101,9 @@ public class VirtualMachine {
 
     private final ExecutionContext templateExecutionContext;
 
-    public VirtualMachine(List<BuilderClassDef> classDefs, int maxNodeVisits, int maxCallDepth) {
-        this.maxNodeVisits = maxNodeVisits;
+    public VirtualMachine(List<BuilderClassDef> classDefs, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
+        this.maxAddressVisits = maxAddressVisits;
+        this.maxMethodVisits = maxMethodVisits;
         this.maxCallDepth = maxCallDepth;
 
         localClasses = buildLocalClasses(classDefs);
@@ -143,11 +145,11 @@ public class VirtualMachine {
     }
 
     public VirtualMachine(String path) throws Exception {
-        this(path, 2000, 20);
+        this(path, 1000, 20, 1000 * 1000);
     }
 
-    public VirtualMachine(String path, int maxNodeVisits, int maxCallDepth) throws Exception {
-        this(Dexifier.dexifySmaliFiles(path), maxNodeVisits, maxCallDepth);
+    public VirtualMachine(String path, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) throws Exception {
+        this(Dexifier.dexifySmaliFiles(path), maxAddressVisits, maxCallDepth, maxMethodVisits);
     }
 
     public ExecutionGraph execute(String methodDescriptor) {
@@ -194,7 +196,7 @@ public class VirtualMachine {
         ExecutionGraph result = null;
         try {
             result = methodExecutor.execute(graph);
-        } catch (MaxCallDepthExceeded | MaxNodeVisitsExceeded e) {
+        } catch (MaxCallDepthExceeded | MaxAddressVisitsExceeded e) {
             log.warn(e.toString());
         } catch (Exception e) {
             log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
@@ -283,8 +285,12 @@ public class VirtualMachine {
         return maxCallDepth;
     }
 
-    public int getMaxNodeVisits() {
-        return maxNodeVisits;
+    public int getMaxAddressVisits() {
+        return maxAddressVisits;
+    }
+
+    public int getMaxMethodVisits() {
+        return maxMethodVisits;
     }
 
     public Set<String> getMethodDescriptors() {
