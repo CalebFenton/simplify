@@ -2,18 +2,15 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.map.TIntObjectMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SideEffect;
@@ -27,7 +24,6 @@ import org.cf.smalivm.opcode.Op;
 import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
-import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,40 +57,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private static TIntList getAddressesNotInTryCatchBlocks(TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    List<BuilderTryBlock> tryBlocks) {
-        TIntList catchAddresses = new TIntArrayList();
-        for (BuilderTryBlock tryBlock : tryBlocks) {
-            List<? extends BuilderExceptionHandler> exceptionHandlers = tryBlock.getExceptionHandlers();
-            for (BuilderExceptionHandler handler : exceptionHandlers) {
-                int address = handler.getHandlerCodeAddress();
-                catchAddresses.add(address);
-            }
-        }
-
-        TIntList result = new TIntArrayList();
-        boolean inCatch = false;
-        int[] addresses = addressToInstruction.keys();
-        Arrays.sort(addresses);
-        for (int address : addresses) {
-            BuilderInstruction instruction = addressToInstruction.get(address);
-            if (catchAddresses.contains(address)) {
-                inCatch = true;
-                continue;
-            }
-
-            if (inCatch) {
-                Set<Label> labels = instruction.getLocation().getLabels();
-                inCatch = 0 == labels.size();
-                continue;
-            }
-
-            result.add(address);
-        }
-
-        return result;
-    }
-
     private static List<ExecutionNode> getChildrenAtAddress(int address, ExecutionGraph graph) {
         List<ExecutionNode> result = new ArrayList<ExecutionNode>();
         List<ExecutionNode> nodePile = graph.getNodePile(address);
@@ -107,16 +69,20 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private TIntList addresses;
 
-    private int deadAssignmentCount = 0;
-    private int deadBranchCount = 0;
-    private int deadCount = 0;
-    private int deadResultCount = 0;
+    private int deadAssignmentCount;
+    private int deadBranchCount;
+    private int deadCount;
+    private int deadResultCount;
 
     private final MethodBackedGraph mbgraph;
 
     public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
         addresses = getValidAddresses(mbgraph);
+        deadAssignmentCount = 0;
+        deadBranchCount = 0;
+        deadCount = 0;
+        deadResultCount = 0;
     }
 
     @Override
@@ -271,7 +237,17 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         for (BuilderTryBlock tryBlock : tryBlocks) {
             List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
             for (BuilderExceptionHandler handler : handlers) {
-                result.add(handler.getHandlerCodeAddress());
+                int address = handler.getHandlerCodeAddress();
+                BuilderInstruction instruction = mbgraph.getInstruction(address);
+                do {
+                    // Add all instructions until return, goto, etc.
+                    result.add(address);
+                    address += instruction.getCodeUnits();
+                    instruction = mbgraph.getInstruction(address);
+                    if (instruction != null) {
+                        result.add(address);
+                    }
+                } while ((instruction != null) && instruction.getOpcode().canContinue());
             }
         }
 

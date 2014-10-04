@@ -146,3 +146,41 @@
 
     goto :return # @3
 .end method
+
+# direct methods
+.method public static TroubleTry()I
+    .locals 8
+
+    const/4 v5, 0x4
+
+    new-instance v0, Ljava/lang/Integer;
+
+    :try_start_0
+    invoke-static {}, Lcant_remove;->this()V
+
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    new-instance v0, Ljava/lang/Integer;
+
+    :try_start_1
+    new-instance v1, Ljava/lang/Integer;
+    :try_end_1
+    .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
+
+    :goto_0
+    return v5
+
+    :catch_0
+    move-exception v0
+
+    :goto_1
+    invoke-virtual {v1}, Ljava/lang/Exception;->printStackTrace()V
+
+    goto :goto_0
+
+    :catch_1
+    move-exception v1
+
+    goto :goto_1
+.end method

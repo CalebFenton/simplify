@@ -114,12 +114,12 @@ public class MethodBackedGraph extends ExecutionGraph {
         indexes.sort();
         indexes.reverse();
         for (int index : indexes.toArray()) {
-            migrateLabelsIfPossible(index);
+            tryMigrateLabels(index);
 
             implementation.removeInstruction(index);
-
-            removeEmptyTryCatchBlocks();
         }
+
+        removeEmptyTryCatchBlocks();
     }
 
     private void removeEmptyTryCatchBlocks() {
@@ -164,22 +164,20 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
     }
 
-    private void migrateLabelsIfPossible(int index) {
-        /*
-         * If it has a label, try and move it down. If it can't move down, just delete it. The only two instructions at
-         * the bottom of a method are return and goto. Or else instructions will run past end of method.
-         */
+    private void tryMigrateLabels(int index) {
+        // If it has a label, and it's not the last instruction, move it to the next instruction.
         int instructionCount = implementation.getInstructions().size();
         if (index < (instructionCount - 1)) {
+            // Not last instruction
             BuilderInstruction moveFrom = implementation.getInstructions().get(index);
             Set<Label> labelSet = moveFrom.getLocation().getLabels();
-            if (1 < labelSet.size()) {
+            if (0 < labelSet.size()) {
                 BuilderInstruction moveTo = implementation.getInstructions().get(index + 1);
                 List<Label> labels = new ArrayList<Label>(labelSet.size());
-                moveFrom.getLocation().getLabels().removeAll(labelSet);
                 for (Label label : labels) {
                     moveTo.getLocation().getLabels().add(label);
                 }
+                // moveFrom.getLocation().getLabels().removeAll(labelSet);
             }
         }
     }
