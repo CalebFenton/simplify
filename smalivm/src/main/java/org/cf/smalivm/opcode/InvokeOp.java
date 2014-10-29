@@ -146,7 +146,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -228,7 +228,7 @@ public class InvokeOp extends ExecutionContextOp {
         ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
-            log.info("Problem executing " + methodDescriptor + ", propigating ambiguity.");
+            log.info("Problem executing " + methodDescriptor + ", propagating ambiguity.");
             assumeMaximumUnknown(callerContext.getMethodState());
 
             return;
