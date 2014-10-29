@@ -15,6 +15,8 @@ public class MethodEmulator {
     private static Map<String, EmulatedMethod> emulatedMethods = new HashMap<String, EmulatedMethod>();
     static {
         addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", new org_cf_simplify_Utils_breakpoint());
+        addMethod("Ljava/lang/Class;->getPackage()Ljava/lang/Package;", new java_lang_Class_getPackage());
+        addMethod("Ljava/lang/Package;->getName()Ljava/lang/String;", new java_lang_Package_getName());
         addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", new java_lang_Class_forName());
         addMethod("Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;",
                         new java_lang_Class_getMethod());

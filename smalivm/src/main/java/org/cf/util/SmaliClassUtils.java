@@ -69,6 +69,13 @@ public class SmaliClassUtils {
         return ClassUtils.primitiveToWrapper(primitiveClass).getName();
     }
 
+    public static String getPackageName(String smaliType) {
+        String packageName = smaliType.substring(1, smaliType.lastIndexOf("/"));
+        packageName = packageName.replaceAll("/", ".");
+
+        return packageName;
+    }
+
     private static String getBaseClass(String className) {
         // Remove any array qualifiers, e.g. [[B (2d byte array) becomes B
         return className.replace("[", "");
