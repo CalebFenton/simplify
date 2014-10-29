@@ -26,6 +26,7 @@ import org.cf.util.Dexifier;
 import org.cf.util.ImmutableUtils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
+import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
@@ -67,6 +68,10 @@ public class VirtualMachine {
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderMethod method : classDef.getMethods()) {
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                MethodImplementation implementation = method.getImplementation();
+                if (implementation == null) {
+                    continue;
+                }
                 result.put(methodDescriptor, method);
             }
         }
@@ -80,7 +85,11 @@ public class VirtualMachine {
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderMethod method : classDef.getMethods()) {
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                result.put(methodDescriptor, method.getImplementation().getTryBlocks());
+                MethodImplementation implementation = method.getImplementation();
+                if (implementation == null) {
+                    continue;
+                }
+                result.put(methodDescriptor, implementation.getTryBlocks());
             }
         }
 
@@ -363,6 +372,10 @@ public class VirtualMachine {
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderMethod method : classDef.getMethods()) {
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                MethodImplementation implementation = method.getImplementation();
+                if (implementation == null) {
+                    continue;
+                }
                 updateInstructionGraph(methodDescriptor);
             }
         }
