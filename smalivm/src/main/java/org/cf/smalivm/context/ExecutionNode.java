@@ -34,8 +34,8 @@ public class ExecutionNode {
         ExecutionContext ectx = getContext();
         if (log.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
-            sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op).append("\nContext before:\n")
-            .append(ectx);
+            sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op);
+            sb.append("\nContext before:\n").append(ectx);
             log.debug(sb.toString());
         }
 

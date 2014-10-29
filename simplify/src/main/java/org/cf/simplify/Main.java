@@ -21,6 +21,8 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
+
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
@@ -34,8 +36,18 @@ public class Main {
             System.exit(0);
         }
 
+        if (bean.isVerbose()) {
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
+                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+            rootLogger.setLevel(Level.toLevel("debug"));
+        } else if (bean.isVverbose()) {
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
+                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+            rootLogger.setLevel(Level.toLevel("trace"));
+        }
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(bean.getOutputAPILevel());
         List<BuilderClassDef> classes = Dexifier.dexifySmaliFiles(bean.getInFile(), dexBuilder);
+
         List<BuilderMethod> methods = new ArrayList<BuilderMethod>();
         for (BuilderClassDef klazz : classes) {
             methods.addAll(klazz.getMethods());

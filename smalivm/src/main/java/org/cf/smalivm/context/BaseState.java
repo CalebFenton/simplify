@@ -88,13 +88,13 @@ class BaseState {
     }
 
     public void pokeRegister(int register, Object value, String heapId) {
-        if (log.isDebugEnabled()) {
+        if (log.isTraceEnabled()) {
             StringBuilder sb = new StringBuilder();
             // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
             // for (int i = 2; i < ste.length; i++) {
             // sb.append("\n\t").append(ste[i]);
             // }
-            log.debug("Setting r" + register + " = " + registerValueToString(value) + sb.toString());
+            log.trace("Setting r" + register + " = " + registerValueToString(value) + sb.toString());
         }
 
         ectx.getHeap().set(heapId, register, value);
@@ -153,7 +153,7 @@ class BaseState {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-            .append(", hc=").append(value.hashCode());
+                            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();

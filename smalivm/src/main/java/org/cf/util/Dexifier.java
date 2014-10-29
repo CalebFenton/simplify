@@ -27,7 +27,9 @@ public class Dexifier {
     private static final Logger log = LoggerFactory.getLogger(Dexifier.class.getSimpleName());
 
     public static BuilderClassDef dexifySmaliFile(File smaliFile, DexBuilder dexBuilder) throws Exception {
-        log.info("Dexifying: " + smaliFile);
+        if (log.isInfoEnabled()) {
+            log.info("Dexifying: " + smaliFile);
+        }
 
         FileInputStream fis = new FileInputStream(smaliFile.getAbsolutePath());
         InputStreamReader reader = new InputStreamReader(fis, "UTF-8");
