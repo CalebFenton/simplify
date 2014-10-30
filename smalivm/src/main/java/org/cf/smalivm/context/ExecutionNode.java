@@ -98,10 +98,6 @@ public class ExecutionNode {
         newChild.setParent(this);
     }
 
-    public void setClassState(String className, ClassState cState) {
-        ectx.setClassState(className, cState);
-    }
-
     public void setContext(ExecutionContext ectx) {
         this.ectx = ectx;
     }

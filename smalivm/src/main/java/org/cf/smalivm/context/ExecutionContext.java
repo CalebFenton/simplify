@@ -31,12 +31,13 @@ public class ExecutionContext {
             mState = new MethodState(other.mState, this);
         }
         classNameToState = new THashMap<String, ClassState>(other.classNameToState.size());
+        classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(classNameToState.size());
         for (String className : other.classNameToState.keySet()) {
             ClassState otherClassState = other.peekClassState(className);
             ClassState cState = new ClassState(otherClassState, this);
-            setClassState(className, cState);
+            SideEffect.Level otherLevel = other.getClassStateSideEffectLevel(className);
+            setClassState(className, cState, otherLevel);
         }
-        classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(other.classNameToSideEffectLevel);
         initializedClasses = new THashSet<String>(other.initializedClasses);
         heap = new Heap(other.getHeap());
         callDepth = other.getCallDepth();
@@ -80,6 +81,10 @@ public class ExecutionContext {
 
     public SideEffect.Level getClassStateSideEffectLevel(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
+        if (ancestor == null) {
+            return null;
+        }
+
         SideEffect.Level level = ancestor.classNameToSideEffectLevel.get(className);
         if (ancestor != this) {
             classNameToSideEffectLevel.put(className, level);
@@ -97,17 +102,21 @@ public class ExecutionContext {
     }
 
     public void initializeClass(String className, ClassState cState, SideEffect.Level level) {
-        setClassState(className, cState);
+        setClassState(className, cState, level);
+        setClassInitialized(className);
+    }
+
+    private void setClassInitialized(String className) {
         initializedClasses.add(className);
-        classNameToSideEffectLevel.put(className, level);
     }
 
     public void setCallDepth(int callDepth) {
         this.callDepth = callDepth;
     }
 
-    public void setClassState(String className, ClassState cState) {
+    public void setClassState(String className, ClassState cState, SideEffect.Level level) {
         classNameToState.put(className, cState);
+        classNameToSideEffectLevel.put(className, level);
     }
 
     public void setMethodState(MethodState mState) {
@@ -129,9 +138,10 @@ public class ExecutionContext {
         if (vm.isLocalMethod(clinitDescriptor)) {
             ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
             initContext.setCallDepth(getCallDepth() + 1);
-            ClassState templateClassState = getTemplate().peekClassState(className);
-            ClassState cState = new ClassState(templateClassState, initContext);
-            // real level is set after clinit execution
+
+            // ClassState templateClassState = getTemplate().peekClassState(className);
+            // ClassState cState = new ClassState(templateClassState, initContext);
+            ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
 
             ExecutionGraph graph = vm.execute(clinitDescriptor, initContext, this, null);
@@ -143,8 +153,7 @@ public class ExecutionContext {
             }
         } else {
             // No clinit for this class.
-            ClassState cState = new ClassState(this, className, 0);
-            initializeClass(className, cState, SideEffect.Level.NONE);
+            setClassInitialized(className);
         }
         setClassSideEffectType(className, sideEffectLevel);
     }
@@ -160,6 +169,10 @@ public class ExecutionContext {
 
     public boolean isClassInitialized(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
+        if (ancestor == null) {
+            return false;
+        }
+
         if (ancestor != this) {
             if (ancestor.initializedClasses.contains(className)) {
                 initializedClasses.add(className);
@@ -196,6 +209,7 @@ public class ExecutionContext {
             ClassState ancestorClassState = ancestor.peekClassState(className);
             ClassState cState = ancestorClassState.getChild(this);
             SideEffect.Level level = ancestor.getClassStateSideEffectLevel(className);
+            // Must initialize, because the ancestor probably just has the template class state.
             initializeClass(className, cState, level);
         }
 

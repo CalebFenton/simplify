@@ -90,11 +90,13 @@ class BaseState {
     public void pokeRegister(int register, Object value, String heapId) {
         if (log.isTraceEnabled()) {
             StringBuilder sb = new StringBuilder();
+            sb.append("Setting ").append(heapId).append(":").append(register).append(" = ")
+            .append(registerValueToString(value));
             // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
             // for (int i = 2; i < ste.length; i++) {
             // sb.append("\n\t").append(ste[i]);
             // }
-            log.trace("Setting r" + register + " = " + registerValueToString(value) + sb.toString());
+            log.trace(sb.toString());
         }
 
         ectx.getHeap().set(heapId, register, value);
@@ -116,7 +118,8 @@ class BaseState {
 
     public boolean wasRegisterRead(int register, String heapId) {
         Object value = peekRegister(register, heapId);
-        if (ClassUtils.isPrimitiveOrWrapper(value.getClass()) || (value.getClass() == String.class)) {
+        if ((value != null)
+                        && (ClassUtils.isPrimitiveOrWrapper(value.getClass()) || (value.getClass() == String.class))) {
             /*
              * This is a hack which suggests maintaining register types. Primitives are stored internally as their
              * wrappers. They'll equals() even if they're different object instances and the check in the else below
@@ -153,7 +156,7 @@ class BaseState {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-                            .append(", hc=").append(value.hashCode());
+            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();

@@ -123,7 +123,7 @@ public class VirtualMachine {
         methodDescriptorToBuilderMethod = buildMethodDescriptorToBuilderMethod(classDefs);
         methodDescriptorToParameterTypes = buildMethodDescriptorToParameterTypes(classDefs);
         methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
-        classNameToFieldNameAndType = new HashMap<String, List<String>>();
+        classNameToFieldNameAndType = buildClassNameToFieldNameAndType(classDefs);
         templateExecutionContext = buildTemplateExecutionContext(classDefs);
         methodExecutor = new MethodExecutor(this);
 
@@ -179,27 +179,27 @@ public class VirtualMachine {
         return execute(methodDescriptor, ectx, null, null);
     }
 
-    private void mergeClassStates(ExecutionContext mergeFrom, ExecutionContext mergeTo) {
+    private void inheritClassStates(ExecutionContext parent, ExecutionContext child) {
         for (String className : getLocalClasses()) {
-            if (!mergeFrom.isClassInitialized(className)) {
+            if (!parent.isClassInitialized(className)) {
                 continue;
             }
 
-            ClassState fromClassState = mergeFrom.peekClassState(className);
-            ClassState toClassState = new ClassState(fromClassState, mergeTo);
+            ClassState fromClassState = parent.peekClassState(className);
+            ClassState toClassState = new ClassState(fromClassState, child);
             for (String fieldNameAndType : getFieldNameAndTypes(className)) {
                 Object value = fromClassState.peekField(fieldNameAndType);
                 toClassState.pokeField(fieldNameAndType, value);
             }
-            SideEffect.Level level = mergeFrom.getClassStateSideEffectLevel(className);
-            mergeTo.initializeClass(className, toClassState, level);
+            SideEffect.Level level = parent.getClassStateSideEffectLevel(className);
+            child.initializeClass(className, toClassState, level);
         }
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) {
         if (callerContext != null) {
-            mergeClassStates(callerContext, calleeContext);
+            inheritClassStates(callerContext, calleeContext);
         }
 
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
@@ -218,6 +218,8 @@ public class VirtualMachine {
                 log.warn(e.toString());
             }
         } catch (Exception e) {
+            System.out.println(e);
+            e.printStackTrace();
             if (log.isWarnEnabled()) {
                 log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
             }
@@ -256,17 +258,23 @@ public class VirtualMachine {
         }
 
         for (String currentClassName : getLocalClasses()) {
+            if (!callerContext.isClassInitialized(currentClassName)
+                            && !calleeContext.isClassInitialized(currentClassName)) {
+                continue;
+            }
+
             List<String> fieldNameAndTypes = getFieldNameAndTypes(currentClassName);
+            ClassState currentClassState;
+            if (callerContext.isClassInitialized(currentClassName)) {
+                currentClassState = callerContext.peekClassState(currentClassName);
+            } else {
+                currentClassState = new ClassState(callerContext, currentClassName, fieldNameAndTypes.size());
+                SideEffect.Level level = graph.getHighestClassSideEffectLevel(currentClassName);
+                callerContext.initializeClass(currentClassName, currentClassState, level);
+            }
+
             for (String fieldNameAndType : fieldNameAndTypes) {
                 Object value = graph.getFieldConsensus(terminatingAddresses, currentClassName, fieldNameAndType);
-                ClassState currentClassState;
-                if (callerContext.isClassInitialized(currentClassName)) {
-                    currentClassState = callerContext.peekClassState(currentClassName);
-                } else {
-                    currentClassState = new ClassState(callerContext, currentClassName, fieldNameAndTypes.size());
-                    SideEffect.Level level = graph.getHighestClassSideEffectLevel(currentClassName);
-                    callerContext.initializeClass(currentClassName, currentClassState, level);
-                }
                 currentClassState.pokeField(fieldNameAndType, value);
             }
         }
@@ -335,8 +343,11 @@ public class VirtualMachine {
         int accessFlags = method.getAccessFlags();
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
 
+        ExecutionContext rootContext = new ExecutionContext(this);
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        addTemplateClassState(rootContext, className);
+
         // Assume all input values are unknown.
-        ExecutionContext rootContext = new ExecutionContext(templateExecutionContext);
         MethodState mState = new MethodState(rootContext, registerCount, parameterTypes.size(), parameterSize);
         for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
             String type = parameterTypes.get(parameterIndex);
@@ -381,27 +392,41 @@ public class VirtualMachine {
         }
     }
 
-    private ExecutionContext buildTemplateExecutionContext(List<BuilderClassDef> classDefs) {
-        ExecutionContext result = new ExecutionContext(this);
+    private Map<String, List<String>> buildClassNameToFieldNameAndType(List<BuilderClassDef> classDefs) {
+        Map<String, List<String>> classNameToFieldNameAndType = new HashMap<String, List<String>>();
         for (BuilderClassDef classDef : classDefs) {
-            // Build out context with all fields so they can be enumerated later.
-            // This context should be cloned and never changed.
             String className = ReferenceUtil.getReferenceString(classDef);
             Collection<BuilderField> fields = classDef.getFields();
             List<String> fieldNameAndTypes = new LinkedList<String>();
-            ClassState cState = new ClassState(result, className, fields.size());
-            for (BuilderField field : classDef.getFields()) {
+            for (BuilderField field : fields) {
                 String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
                 String fieldNameAndType = fieldDescriptor.split("->")[1];
                 fieldNameAndTypes.add(fieldNameAndType);
-                String type = fieldNameAndType.split(":")[1];
-                cState.pokeField(fieldNameAndType, new UnknownValue(type));
             }
             classNameToFieldNameAndType.put(className, fieldNameAndTypes);
-            result.setClassState(className, cState);
+        }
+
+        return classNameToFieldNameAndType;
+    }
+
+    private ExecutionContext buildTemplateExecutionContext(List<BuilderClassDef> classDefs) {
+        ExecutionContext result = new ExecutionContext(this);
+        for (BuilderClassDef classDef : classDefs) {
+            String className = ReferenceUtil.getReferenceString(classDef);
+            addTemplateClassState(result, className);
         }
 
         return result;
+    }
+
+    private void addTemplateClassState(ExecutionContext ectx, String className) {
+        List<String> fieldNameAndTypes = getFieldNameAndTypes(className);
+        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
+        ectx.setClassState(className, cState, SideEffect.Level.NONE);
+        for (String fieldNameAndType : fieldNameAndTypes) {
+            String type = fieldNameAndType.split(":")[1];
+            cState.pokeField(fieldNameAndType, new UnknownValue(type));
+        }
     }
 
     public List<String> getFieldNameAndTypes(String className) {

@@ -10,6 +10,7 @@ public class UnknownValue implements Type {
 
     @Override
     public boolean equals(Object other) {
+        // i.e. NULL != NULL
         return false;
     }
 
