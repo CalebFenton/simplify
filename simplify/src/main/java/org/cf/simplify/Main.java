@@ -39,8 +39,12 @@ public class Main {
         if (bean.isVerbose()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
-            rootLogger.setLevel(Level.toLevel("debug"));
+            rootLogger.setLevel(Level.toLevel("info"));
         } else if (bean.isVverbose()) {
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
+                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+            rootLogger.setLevel(Level.toLevel("debug"));
+        } else if (bean.isVvverbose()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.toLevel("trace"));

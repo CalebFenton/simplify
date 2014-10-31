@@ -90,8 +90,10 @@ class Heap {
          */
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
-            Exception e = new Exception();
-            log.warn(key + " is being read but is null. Possibly a mistake!", e);
+            if (log.isWarnEnabled()) {
+                Exception e = new Exception();
+                log.warn("Undefined value for " + key + " Possibly a mistake!", e);
+            }
 
             return null;
         }
