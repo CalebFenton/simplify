@@ -112,8 +112,6 @@ public class VirtualMachine {
     private final Map<String, List<String>> classNameToFieldNameAndType;
     private final MethodExecutor methodExecutor;
 
-    private final ExecutionContext templateExecutionContext;
-
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
         this.maxAddressVisits = maxAddressVisits;
         this.maxMethodVisits = maxMethodVisits;
@@ -124,7 +122,6 @@ public class VirtualMachine {
         methodDescriptorToParameterTypes = buildMethodDescriptorToParameterTypes(classDefs);
         methodDescriptorToTryCatchList = buildMethodDescriptorToTryCatchList(classDefs);
         classNameToFieldNameAndType = buildClassNameToFieldNameAndType(classDefs);
-        templateExecutionContext = buildTemplateExecutionContext(classDefs);
         methodExecutor = new MethodExecutor(this);
 
         // Build graphs last because that's when ops are created and they may access the VM.
@@ -326,8 +323,8 @@ public class VirtualMachine {
         return methodDescriptorToBuilderMethod.keySet();
     }
 
-    public Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> getMethodToTryCatchList() {
-        return methodDescriptorToTryCatchList;
+    public List<? extends TryBlock<? extends ExceptionHandler>> getTryCatchList(String methodDescriptor) {
+        return methodDescriptorToTryCatchList.get(methodDescriptor);
     }
 
     public List<String> getParameterTypes(String methodDescriptor) {
@@ -407,16 +404,6 @@ public class VirtualMachine {
         }
 
         return classNameToFieldNameAndType;
-    }
-
-    private ExecutionContext buildTemplateExecutionContext(List<BuilderClassDef> classDefs) {
-        ExecutionContext result = new ExecutionContext(this);
-        for (BuilderClassDef classDef : classDefs) {
-            String className = ReferenceUtil.getReferenceString(classDef);
-            addTemplateClassState(result, className);
-        }
-
-        return result;
     }
 
     private void addTemplateClassState(ExecutionContext ectx, String className) {

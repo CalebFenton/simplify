@@ -307,6 +307,14 @@ public class TestBinaryMathOp {
         }
 
         @Test
+        public void TestDivWithCatch() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 0);
+            int[] expected = new int[] { 0, 2, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "DivIntWithCatch()V", initial, expected);
+        }
+
+        @Test
         public void TestDivIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);

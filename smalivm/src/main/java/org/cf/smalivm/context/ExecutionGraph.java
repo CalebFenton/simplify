@@ -245,6 +245,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             if (values.size() != 1) {
                 log.trace("No conensus for register #" + register + ", returning unknown");
                 String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
+
                 return new UnknownValue(type);
             }
         }

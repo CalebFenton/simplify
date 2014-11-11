@@ -75,6 +75,25 @@
     return-void
 .end method
 
+.method public static DivIntWithCatch()V
+    .locals 2
+
+    :try_start_0
+    # Floating point percision literals do not throw ArithmeticException
+    div-int v0, v0, v1 # @0
+
+    :try_end_0
+    .catch Ljava/lang/ArithmeticException; {:try_start_0 .. :try_end_0} :catch_0
+
+    :return
+    return-void # @2
+
+    :catch_0
+    move-exception v0 # @3
+
+    goto :return # @4
+.end method
+
 .method public static DivInt2Addr()V
     .locals 2
 
