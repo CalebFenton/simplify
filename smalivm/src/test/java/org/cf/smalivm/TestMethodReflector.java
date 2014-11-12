@@ -53,4 +53,5 @@ public class TestMethodReflector {
 
         VMTester.testMethodState(CLASS_NAME, "GetByteWithByte()V", initial, expected);
     }
+
 }
