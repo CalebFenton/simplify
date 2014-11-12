@@ -45,6 +45,15 @@ public class TestBinaryMathOp {
         }
 
         @Test
+        public void TestDivDoubleWithCatchWithDiv0Exception() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5D, 1, 0D);
+            // Floats and doubles do not throw exceptions for div0
+            int[] expected = new int[] { 0, 2 };
+
+            VMTester.testVisitation(CLASS_NAME, "DivDoubleWithCatch()V", initial, expected);
+        }
+
+        @Test
         public void TestMulDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D * 20.5D);
@@ -124,6 +133,15 @@ public class TestBinaryMathOp {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9F / 0.5F);
 
             VMTester.testMethodState(CLASS_NAME, "DivFloat2Addr()V", initial, expected);
+        }
+
+        @Test
+        public void TestDivFloatWithCatchWithDiv0Exception() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5F, 1, 0F);
+            // Floats and doubles do not throw exceptions for div0
+            int[] expected = new int[] { 0, 2 };
+
+            VMTester.testVisitation(CLASS_NAME, "DivFloatWithCatch()V", initial, expected);
         }
 
         @Test
@@ -307,9 +325,17 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivWithCatch() {
+        public void TestDivIntWithCatchWithDiv0Exception() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 0);
             int[] expected = new int[] { 0, 2, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "DivIntWithCatch()V", initial, expected);
+        }
+
+        @Test
+        public void TestDivIntWithCatchWithNoException() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 5);
+            int[] expected = new int[] { 0, 2 };
 
             VMTester.testVisitation(CLASS_NAME, "DivIntWithCatch()V", initial, expected);
         }
@@ -612,6 +638,22 @@ public class TestBinaryMathOp {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000000L / 3L);
 
             VMTester.testMethodState(CLASS_NAME, "DivLong2Addr()V", initial, expected);
+        }
+
+        @Test
+        public void TestDivLongWithCatchWithDiv0Exception() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5L, 1, 0L);
+            int[] expected = new int[] { 0, 2, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "DivLongWithCatch()V", initial, expected);
+        }
+
+        @Test
+        public void TestDivLongWithCatchWithNoException() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5L, 1, 5);
+            int[] expected = new int[] { 0, 2 };
+
+            VMTester.testVisitation(CLASS_NAME, "DivLongWithCatch()V", initial, expected);
         }
 
         @Test
