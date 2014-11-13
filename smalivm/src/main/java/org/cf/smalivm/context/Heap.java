@@ -90,9 +90,9 @@ class Heap {
          */
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
-            if (log.isWarnEnabled()) {
+            if (log.isTraceEnabled()) {
                 Exception e = new Exception();
-                log.warn("Undefined value for " + key + " Possibly a mistake!", e);
+                log.trace("Undefined value for " + key + " Possibly a mistake!", e);
             }
 
             return null;

@@ -38,12 +38,6 @@ import org.slf4j.LoggerFactory;
 
 public class VirtualMachine {
 
-    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
-
-    private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
-    private static final int DEFAULT_MAX_METHOD_VISITS = DEFAULT_MAX_ADDRESS_VISITS * 500;
-    private static final int DEFAULT_MAX_CALL_DEPTH = 20;
-
     public static int getParameterSize(List<String> parameterTypes) {
         int result = 0;
         for (String type : parameterTypes) {
@@ -68,11 +62,32 @@ public class VirtualMachine {
         for (BuilderClassDef classDef : classDefs) {
             for (BuilderMethod method : classDef.getMethods()) {
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                MethodImplementation implementation = method.getImplementation();
-                if (implementation == null) {
-                    continue;
-                }
                 result.put(methodDescriptor, method);
+            }
+        }
+
+        return result;
+    }
+
+    private static Map<String, List<String>> buildMethodDescriptorToParameterTypes(List<BuilderClassDef> classDefs) {
+        Map<String, List<String>> result = new HashMap<String, List<String>>(classDefs.size());
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                List<? extends BuilderMethodParameter> builderParameters = method.getParameters();
+                List<String> parameterTypes = new ArrayList<String>(builderParameters.size());
+                for (BuilderMethodParameter builderParameter : builderParameters) {
+                    parameterTypes.add(builderParameter.getType());
+                }
+
+                int accessFlags = method.getAccessFlags();
+                boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+                if (!isStatic) {
+                    // First "parameter" for non-static methods is instance ref
+                    parameterTypes.add(0, method.getDefiningClass());
+                }
+
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                result.put(methodDescriptor, parameterTypes);
             }
         }
 
@@ -101,6 +116,35 @@ public class VirtualMachine {
         return methodDescriptor.split("->", 2)[0];
     }
 
+    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
+        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
+        int[] addresses = addressList.toArray();
+        for (int address : addresses) {
+            List<ExecutionNode> nodes = graph.getNodePile(address);
+            for (ExecutionNode node : nodes) {
+                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
+
+                if (value != otherValue) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+                    }
+
+                    return new UnknownValue(TypeUtil.getValueType(value));
+                }
+            }
+
+        }
+
+        return value;
+    }
+
+    private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
+
+    private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
+
+    private static final int DEFAULT_MAX_METHOD_VISITS = DEFAULT_MAX_ADDRESS_VISITS * 500;
+    private static final int DEFAULT_MAX_CALL_DEPTH = 20;
     private final Set<String> localClasses;
     private final int maxCallDepth;
     private final int maxAddressVisits;
@@ -111,6 +155,10 @@ public class VirtualMachine {
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryCatchList;
     private final Map<String, List<String>> classNameToFieldNameAndType;
     private final MethodExecutor methodExecutor;
+
+    public VirtualMachine(List<BuilderClassDef> classDefs) {
+        this(classDefs, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
+    }
 
     public VirtualMachine(List<BuilderClassDef> classDefs, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
         this.maxAddressVisits = maxAddressVisits;
@@ -129,35 +177,6 @@ public class VirtualMachine {
         buildMethodDescriptorToTemplateContextGraph(classDefs);
     }
 
-    private static Map<String, List<String>> buildMethodDescriptorToParameterTypes(List<BuilderClassDef> classDefs) {
-        Map<String, List<String>> result = new HashMap<String, List<String>>(classDefs.size());
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                List<? extends BuilderMethodParameter> builderParameters = method.getParameters();
-                List<String> parameterTypes = new ArrayList<String>(builderParameters.size());
-                for (BuilderMethodParameter builderParameter : builderParameters) {
-                    parameterTypes.add(builderParameter.getType());
-                }
-
-                int accessFlags = method.getAccessFlags();
-                boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
-                if (!isStatic) {
-                    // First "parameter" for non-static methods is instance ref
-                    parameterTypes.add(0, method.getDefiningClass());
-                }
-
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                result.put(methodDescriptor, parameterTypes);
-            }
-        }
-
-        return result;
-    }
-
-    public VirtualMachine(List<BuilderClassDef> classDefs) {
-        this(classDefs, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
-    }
-
     public VirtualMachine(String path) throws Exception {
         this(path, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
     }
@@ -167,6 +186,9 @@ public class VirtualMachine {
     }
 
     public ExecutionGraph execute(String methodDescriptor) {
+        if (!methodHasImplementation(methodDescriptor)) {
+            return null;
+        }
         ExecutionContext ectx = getRootExecutionContext(methodDescriptor);
 
         return execute(methodDescriptor, ectx);
@@ -174,23 +196,6 @@ public class VirtualMachine {
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) {
         return execute(methodDescriptor, ectx, null, null);
-    }
-
-    private void inheritClassStates(ExecutionContext parent, ExecutionContext child) {
-        for (String className : getLocalClasses()) {
-            if (!parent.isClassInitialized(className)) {
-                continue;
-            }
-
-            ClassState fromClassState = parent.peekClassState(className);
-            ClassState toClassState = new ClassState(fromClassState, child);
-            for (String fieldNameAndType : getFieldNameAndTypes(className)) {
-                Object value = fromClassState.peekField(fieldNameAndType);
-                toClassState.pokeField(fieldNameAndType, value);
-            }
-            SideEffect.Level level = parent.getClassStateSideEffectLevel(className);
-            child.initializeClass(className, toClassState, level);
-        }
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
@@ -215,8 +220,6 @@ public class VirtualMachine {
                 log.warn(e.toString());
             }
         } catch (Exception e) {
-            System.out.println(e);
-            e.printStackTrace();
             if (log.isWarnEnabled()) {
                 log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
             }
@@ -230,6 +233,137 @@ public class VirtualMachine {
         }
 
         return result;
+    }
+
+    public List<String> getFieldNameAndTypes(String className) {
+        return classNameToFieldNameAndType.get(className);
+    }
+
+    public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
+        ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
+        ExecutionGraph clone = new ExecutionGraph(graph);
+
+        return clone;
+    }
+
+    public List<String> getLocalClasses() {
+        String[] classNames = localClasses.toArray(new String[localClasses.size()]);
+
+        return Arrays.asList(classNames);
+    }
+
+    public int getMaxAddressVisits() {
+        return maxAddressVisits;
+    }
+
+    public int getMaxCallDepth() {
+        return maxCallDepth;
+    }
+
+    public int getMaxMethodVisits() {
+        return maxMethodVisits;
+    }
+
+    public Set<String> getMethodDescriptors() {
+        return methodDescriptorToBuilderMethod.keySet();
+    }
+
+    public List<String> getParameterTypes(String methodDescriptor) {
+        return methodDescriptorToParameterTypes.get(methodDescriptor);
+    }
+
+    public ExecutionContext getRootExecutionContext(String methodDescriptor) {
+        BuilderMethod method = getBuilderMethod(methodDescriptor);
+        MethodImplementation impl = method.getImplementation();
+        if (null == impl) {
+            // Interface or abstract methods have no implementation. Shouldn't be executing them.
+            throw new IllegalArgumentException("No implementation for " + methodDescriptor);
+        }
+        int registerCount = impl.getRegisterCount();
+        List<String> parameterTypes = getParameterTypes(methodDescriptor);
+        int parameterSize = getParameterSize(parameterTypes);
+
+        int accessFlags = method.getAccessFlags();
+        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+
+        ExecutionContext rootContext = new ExecutionContext(this);
+        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        addTemplateClassState(rootContext, className);
+
+        // Assume all input values are unknown.
+        MethodState mState = new MethodState(rootContext, registerCount, parameterTypes.size(), parameterSize);
+        for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
+            String type = parameterTypes.get(parameterIndex);
+            Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
+            mState.assignParameter(parameterIndex, value);
+        }
+        rootContext.setMethodState(mState);
+
+        return rootContext;
+    }
+
+    public List<? extends TryBlock<? extends ExceptionHandler>> getTryCatchList(String methodDescriptor) {
+        return methodDescriptorToTryCatchList.get(methodDescriptor);
+    }
+
+    public boolean isLocalClass(String className) {
+        return localClasses.contains(className);
+    }
+
+    public boolean isLocalMethod(String methodDescriptor) {
+        return methodDescriptorToBuilderMethod.containsKey(methodDescriptor);
+    }
+
+    public boolean methodHasImplementation(String methodDescriptor) {
+        BuilderMethod method = getBuilderMethod(methodDescriptor);
+
+        return null != method.getImplementation();
+    }
+
+    public void updateInstructionGraph(String methodDescriptor) {
+        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
+        ExecutionGraph graph = new ExecutionGraph(this, method);
+        methodDescriptorToTemplateContextGraph.put(methodDescriptor, graph);
+    }
+
+    private void addTemplateClassState(ExecutionContext ectx, String className) {
+        List<String> fieldNameAndTypes = getFieldNameAndTypes(className);
+        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
+        ectx.setClassState(className, cState, SideEffect.Level.NONE);
+        for (String fieldNameAndType : fieldNameAndTypes) {
+            String type = fieldNameAndType.split(":")[1];
+            cState.pokeField(fieldNameAndType, new UnknownValue(type));
+        }
+    }
+
+    private Map<String, List<String>> buildClassNameToFieldNameAndType(List<BuilderClassDef> classDefs) {
+        Map<String, List<String>> classNameToFieldNameAndType = new HashMap<String, List<String>>();
+        for (BuilderClassDef classDef : classDefs) {
+            String className = ReferenceUtil.getReferenceString(classDef);
+            Collection<BuilderField> fields = classDef.getFields();
+            List<String> fieldNameAndTypes = new LinkedList<String>();
+            for (BuilderField field : fields) {
+                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
+                String fieldNameAndType = fieldDescriptor.split("->")[1];
+                fieldNameAndTypes.add(fieldNameAndType);
+            }
+            classNameToFieldNameAndType.put(className, fieldNameAndTypes);
+        }
+
+        return classNameToFieldNameAndType;
+    }
+
+    private void buildMethodDescriptorToTemplateContextGraph(final List<BuilderClassDef> classDefs) {
+        for (BuilderClassDef classDef : classDefs) {
+            for (BuilderMethod method : classDef.getMethods()) {
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+                MethodImplementation implementation = method.getImplementation();
+                if (implementation == null) {
+                    continue;
+                }
+                updateInstructionGraph(methodDescriptor);
+            }
+        }
     }
 
     /*
@@ -277,151 +411,25 @@ public class VirtualMachine {
         }
     }
 
-    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
-        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
-        int[] addresses = addressList.toArray();
-        for (int address : addresses) {
-            List<ExecutionNode> nodes = graph.getNodePile(address);
-            for (ExecutionNode node : nodes) {
-                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
-
-                if (value != otherValue) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
-                    }
-
-                    return new UnknownValue(TypeUtil.getValueType(value));
-                }
-            }
-
-        }
-
-        return value;
-    }
-
-    public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
-        ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
-        ExecutionGraph clone = new ExecutionGraph(graph);
-
-        return clone;
-    }
-
-    public int getMaxCallDepth() {
-        return maxCallDepth;
-    }
-
-    public int getMaxAddressVisits() {
-        return maxAddressVisits;
-    }
-
-    public int getMaxMethodVisits() {
-        return maxMethodVisits;
-    }
-
-    public Set<String> getMethodDescriptors() {
-        return methodDescriptorToBuilderMethod.keySet();
-    }
-
-    public List<? extends TryBlock<? extends ExceptionHandler>> getTryCatchList(String methodDescriptor) {
-        return methodDescriptorToTryCatchList.get(methodDescriptor);
-    }
-
-    public List<String> getParameterTypes(String methodDescriptor) {
-        return methodDescriptorToParameterTypes.get(methodDescriptor);
-    }
-
-    public ExecutionContext getRootExecutionContext(String methodDescriptor) {
-        BuilderMethod method = getBuilderMethod(methodDescriptor);
-        int registerCount = method.getImplementation().getRegisterCount();
-        List<String> parameterTypes = getParameterTypes(methodDescriptor);
-        int parameterSize = getParameterSize(parameterTypes);
-
-        int accessFlags = method.getAccessFlags();
-        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
-
-        ExecutionContext rootContext = new ExecutionContext(this);
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        addTemplateClassState(rootContext, className);
-
-        // Assume all input values are unknown.
-        MethodState mState = new MethodState(rootContext, registerCount, parameterTypes.size(), parameterSize);
-        for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
-            String type = parameterTypes.get(parameterIndex);
-            Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
-            mState.assignParameter(parameterIndex, value);
-        }
-        rootContext.setMethodState(mState);
-
-        return rootContext;
-    }
-
-    public boolean isLocalClass(String className) {
-        return localClasses.contains(className);
-    }
-
-    public List<String> getLocalClasses() {
-        String[] classNames = localClasses.toArray(new String[localClasses.size()]);
-
-        return Arrays.asList(classNames);
-    }
-
-    public boolean isLocalMethod(String methodDescriptor) {
-        return methodDescriptorToBuilderMethod.containsKey(methodDescriptor);
-    }
-
-    public void updateInstructionGraph(String methodDescriptor) {
-        BuilderMethod method = methodDescriptorToBuilderMethod.get(methodDescriptor);
-        ExecutionGraph graph = new ExecutionGraph(this, method);
-        methodDescriptorToTemplateContextGraph.put(methodDescriptor, graph);
-    }
-
-    private void buildMethodDescriptorToTemplateContextGraph(final List<BuilderClassDef> classDefs) {
-        for (BuilderClassDef classDef : classDefs) {
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                MethodImplementation implementation = method.getImplementation();
-                if (implementation == null) {
-                    continue;
-                }
-                updateInstructionGraph(methodDescriptor);
-            }
-        }
-    }
-
-    private Map<String, List<String>> buildClassNameToFieldNameAndType(List<BuilderClassDef> classDefs) {
-        Map<String, List<String>> classNameToFieldNameAndType = new HashMap<String, List<String>>();
-        for (BuilderClassDef classDef : classDefs) {
-            String className = ReferenceUtil.getReferenceString(classDef);
-            Collection<BuilderField> fields = classDef.getFields();
-            List<String> fieldNameAndTypes = new LinkedList<String>();
-            for (BuilderField field : fields) {
-                String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
-                String fieldNameAndType = fieldDescriptor.split("->")[1];
-                fieldNameAndTypes.add(fieldNameAndType);
-            }
-            classNameToFieldNameAndType.put(className, fieldNameAndTypes);
-        }
-
-        return classNameToFieldNameAndType;
-    }
-
-    private void addTemplateClassState(ExecutionContext ectx, String className) {
-        List<String> fieldNameAndTypes = getFieldNameAndTypes(className);
-        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
-        ectx.setClassState(className, cState, SideEffect.Level.NONE);
-        for (String fieldNameAndType : fieldNameAndTypes) {
-            String type = fieldNameAndType.split(":")[1];
-            cState.pokeField(fieldNameAndType, new UnknownValue(type));
-        }
-    }
-
-    public List<String> getFieldNameAndTypes(String className) {
-        return classNameToFieldNameAndType.get(className);
-    }
-
     private BuilderMethod getBuilderMethod(String methodDescriptor) {
         return methodDescriptorToBuilderMethod.get(methodDescriptor);
+    }
+
+    private void inheritClassStates(ExecutionContext parent, ExecutionContext child) {
+        for (String className : getLocalClasses()) {
+            if (!parent.isClassInitialized(className)) {
+                continue;
+            }
+
+            ClassState fromClassState = parent.peekClassState(className);
+            ClassState toClassState = new ClassState(fromClassState, child);
+            for (String fieldNameAndType : getFieldNameAndTypes(className)) {
+                Object value = fromClassState.peekField(fieldNameAndType);
+                toClassState.pokeField(fieldNameAndType, value);
+            }
+            SideEffect.Level level = parent.getClassStateSideEffectLevel(className);
+            child.initializeClass(className, toClassState, level);
+        }
     }
 
 }

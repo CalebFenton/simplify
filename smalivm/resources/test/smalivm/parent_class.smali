@@ -28,3 +28,7 @@
     #@2
     return-object v0
 .end method
+
+# virtual methods
+.method public abstract abstractMethod()Ljava/lang/String;
+.end method

@@ -12,6 +12,7 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
+import org.cf.smalivm.type.Type;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.Utils;
@@ -25,8 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class InvokeOp extends ExecutionContextOp {
-
-    private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
     static InvokeOp create(Instruction instruction, int address, VirtualMachine vm) {
         int childAddress = address + instruction.getCodeUnits();
@@ -94,6 +93,8 @@ public class InvokeOp extends ExecutionContextOp {
                         parameterTypes, vm, isStatic);
     }
 
+    private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
+
     private final boolean isStatic;
     private final String methodDescriptor;
     private final int[] parameterRegisters;
@@ -118,7 +119,14 @@ public class InvokeOp extends ExecutionContextOp {
     @Override
     public int[] execute(ExecutionContext ectx) {
         if (vm.isLocalMethod(methodDescriptor)) {
-            executeLocalMethod(methodDescriptor, ectx);
+            if (!isStatic && !vm.methodHasImplementation(methodDescriptor)) {
+                // Must be an interface or abstract method reference.
+                // Resolve the actual target method
+                String targetMethod = getTargetMethod(ectx);
+                executeLocalMethod(targetMethod, ectx);
+            } else {
+                executeLocalMethod(methodDescriptor, ectx);
+            }
         } else {
             MethodState mState = ectx.getMethodState();
             executeNonLocalMethod(methodDescriptor, mState);
@@ -201,7 +209,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext) {
+    private ExecutionContext buildLocalCalleeContext(String methodDescriptor, ExecutionContext callerContext) {
         ExecutionContext calleeContext = vm.getRootExecutionContext(methodDescriptor);
         calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
         MethodState callerMethodState = callerContext.getMethodState();
@@ -224,7 +232,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext) {
-        ExecutionContext calleeContext = buildLocalCalleeContext(callerContext);
+        ExecutionContext calleeContext = buildLocalCalleeContext(methodDescriptor, callerContext);
         ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
@@ -279,5 +287,17 @@ public class InvokeOp extends ExecutionContextOp {
             Object returnRegister = calleeContext.readReturnRegister();
             callerContext.assignResultRegister(returnRegister);
         }
+    }
+
+    private String getTargetMethod(ExecutionContext ectx) {
+        String methodSignature = methodDescriptor.split("->")[1];
+        int targetRegister = parameterRegisters[0];
+        Object value = ectx.getMethodState().peekRegister(targetRegister);
+        assert (value instanceof Type);
+        String actualType = ((Type) value).getType();
+        StringBuilder sb = new StringBuilder(actualType);
+        sb.append("->").append(methodSignature);
+
+        return sb.toString();
     }
 }

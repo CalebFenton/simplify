@@ -38,7 +38,7 @@ public class MethodExecutor {
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-    MaxMethodVisitsExceeded {
+                    MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
         List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks = vm.getTryCatchList(methodDescriptor);
@@ -67,6 +67,9 @@ public class MethodExecutor {
             try {
                 childAddresses = currentNode.execute();
             } catch (Exception ex) {
+                if (log.isWarnEnabled()) {
+                    log.warn(currentNode + " generated an exception:", ex);
+                }
                 childAddresses = currentNode.getOp().getPossibleChildren();
                 int[] catchAddresses = getCatchAddresses(ex, currentNode.getAddress(), tryBlocks);
                 addChildrenToGraph(graph, catchAddresses, currentNode);
