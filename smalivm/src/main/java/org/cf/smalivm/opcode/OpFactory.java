@@ -168,6 +168,7 @@ public final class OpFactory {
         case CMPL_DOUBLE:
         case CMPL_FLOAT:
         case CMP_LONG:
+            // TODO: implement
             break;
 
         case CONST:
@@ -255,6 +256,7 @@ public final class OpFactory {
             break;
 
         case INSTANCE_OF:
+            // TODO: implement
             break;
 
         case INVOKE_DIRECT:
@@ -344,6 +346,7 @@ public final class OpFactory {
             break;
 
         case THROW:
+            // TODO: implement
             break;
         }
 

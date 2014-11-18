@@ -135,7 +135,7 @@ public class ExecutionContext {
 
         SideEffect.Level sideEffectLevel = SideEffect.Level.NONE;
         String clinitDescriptor = className + "-><clinit>()V";
-        if (vm.isLocalMethod(clinitDescriptor)) {
+        if (vm.getClassManager().isLocalMethod(clinitDescriptor)) {
             ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
             initContext.setCallDepth(getCallDepth() + 1);
 

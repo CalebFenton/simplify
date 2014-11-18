@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.util.Dexifier;
@@ -58,8 +59,8 @@ public class Main {
         }
         filterTypes(methods, bean.getIncludeFilter(), bean.getExcludeFilter());
 
-        VirtualMachine vm = new VirtualMachine(classes, bean.getMaxAddressVisits(), bean.getMaxCallDepth(),
-                        bean.getMaxMethodVisits());
+        VirtualMachine vm = new VirtualMachine(new ClassManager(classes), bean.getMaxAddressVisits(),
+                        bean.getMaxCallDepth(), bean.getMaxMethodVisits());
 
         // TODO: investigate sorting methods by implementation size. maybe shorter methods can be optimized more easily
         // and will speed up optimizations of dependent methods.

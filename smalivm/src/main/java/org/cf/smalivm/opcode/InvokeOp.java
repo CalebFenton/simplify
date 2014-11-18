@@ -5,6 +5,7 @@ import gnu.trove.list.array.TIntArrayList;
 
 import java.util.List;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -71,8 +72,9 @@ public class InvokeOp extends ExecutionContextOp {
         String returnType = methodReference.getReturnType();
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
-        if (vm.isLocalMethod(methodDescriptor)) {
-            parameterTypes = vm.getParameterTypes(methodDescriptor);
+        ClassManager classManager = vm.getClassManager();
+        if (classManager.isLocalMethod(methodDescriptor)) {
+            parameterTypes = classManager.getParameterTypes(methodDescriptor);
         } else {
             parameterTypes = Utils.getParameterTypes(methodDescriptor);
             if (!isStatic) {
@@ -118,8 +120,9 @@ public class InvokeOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        if (vm.isLocalMethod(methodDescriptor)) {
-            if (!isStatic && !vm.methodHasImplementation(methodDescriptor)) {
+        ClassManager classManager = vm.getClassManager();
+        if (classManager.isLocalMethod(methodDescriptor)) {
+            if (!isStatic && !classManager.methodHasImplementation(methodDescriptor)) {
                 // Must be an interface or abstract method reference.
                 // Resolve the actual target method
                 String targetMethod = getTargetMethod(ectx);
@@ -154,7 +157,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {

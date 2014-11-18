@@ -41,7 +41,8 @@ public class MethodExecutor {
                     MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
-        List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks = vm.getTryCatchList(methodDescriptor);
+        List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks = vm.getClassManager().getTryCatchList(
+                        methodDescriptor);
 
         ExecutionNode currentNode = graph.getRoot();
         int callDepth = currentNode.getCallDepth();
