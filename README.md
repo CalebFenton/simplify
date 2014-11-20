@@ -73,6 +73,3 @@ Dead code includes:
 * unreached / unreachable instructions
 
 This example shows the first two types being removed.
-
-###TODO
-* Exception handling - Exceptions are dropped on the floor and catch blocks are never reached. This makes certain optimizations difficult or impossible. It's easy to answer the question "did this instruction throw an exception", but it gets tricky when dealing with ambiguous values. Lots of tedious work will need to be done for each opcode to consider possible exceptions. It should be fairly easy to bubble them up to the VM and enter catch blocks appropriately once raised.
