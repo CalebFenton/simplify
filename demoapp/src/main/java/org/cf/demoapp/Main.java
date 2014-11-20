@@ -1,5 +1,6 @@
 package org.cf.demoapp;
 
+import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -13,8 +14,10 @@ public class Main {
     private static VirtualMachine vm;
 
     public static void main(String[] args) throws Exception {
-        // Load Smali files at SmaliPath into virtual machine
-        vm = new VirtualMachine(SmaliPath);
+        // This acts as an interface between the smali files themselves and the dexlib2 objects.
+        SmaliClassManager classManager = new SmaliClassManager(SmaliPath);
+
+        vm = new VirtualMachine(classManager);
 
         // Hook println with our own implementation
         MethodEmulator.addMethod("Ljava/io/PrintStream;->println(Ljava/lang/String;)V",

@@ -5,7 +5,7 @@ import gnu.trove.list.array.TIntArrayList;
 
 import java.util.List;
 
-import org.cf.smalivm.ClassManager;
+import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -72,7 +72,7 @@ public class InvokeOp extends ExecutionContextOp {
         String returnType = methodReference.getReturnType();
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
-        ClassManager classManager = vm.getClassManager();
+        SmaliClassManager classManager = vm.getClassManager();
         if (classManager.isLocalMethod(methodDescriptor)) {
             parameterTypes = classManager.getParameterTypes(methodDescriptor);
         } else {
@@ -120,7 +120,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        ClassManager classManager = vm.getClassManager();
+        SmaliClassManager classManager = vm.getClassManager();
         if (classManager.isLocalMethod(methodDescriptor)) {
             if (!isStatic && !classManager.methodHasImplementation(methodDescriptor)) {
                 // Must be an interface or abstract method reference.

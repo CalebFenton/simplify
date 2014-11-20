@@ -7,39 +7,24 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
-import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.junit.Assert;
 
 import com.google.common.collect.Sets;
 
 public class VMTester {
-
-    private static final Map<String, BuilderClassDef> classNameToDef = buildClassNameToBuilderClassDef();
-    private static DexBuilder dexBuilder;
-    private static final String TEST_DIRECTORY = "resources/test";
-
-    public static Map<String, BuilderClassDef> buildClassNameToBuilderClassDef() {
-        return getClassNameToBuilderClassDef(TEST_DIRECTORY);
-    }
 
     public static Map<String, Map<String, Object>> buildClassNameToFieldValue(String className, Object... params) {
         Map<String, Map<String, Object>> result = new HashMap<String, Map<String, Object>>(1);
@@ -88,12 +73,7 @@ public class VMTester {
     public static ExecutionGraph execute(String className, String methodSignature,
                     TIntObjectMap<Object> registerToValue, Map<String, Map<String, Object>> classNameToFieldValue,
                     Set<String> classNamesToStaticInit) {
-        List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>();
-        for (String currentClassName : classNamesToStaticInit) {
-            BuilderClassDef classDef = getBuilderClassDef(currentClassName);
-            classDefs.add(classDef);
-        }
-        VirtualMachine vm = new VirtualMachine(classDefs);
+        VirtualMachine vm = getTestVM();
 
         return execute(vm, className, methodSignature, registerToValue, classNameToFieldValue);
     }
@@ -101,51 +81,26 @@ public class VMTester {
     public static ExecutionGraph execute(VirtualMachine vm, String className, String methodSignature,
                     TIntObjectMap<Object> registerToValue, Map<String, Map<String, Object>> classNameToFieldValue) {
         String methodDescriptor = className + "->" + methodSignature;
-        ExecutionContext ectx = getSetupExecutionContext(vm, methodDescriptor, registerToValue, classNameToFieldValue);
+        ExecutionContext ectx = getInitializedExecutionContext(vm, methodDescriptor, registerToValue,
+                        classNameToFieldValue);
         ExecutionGraph graph = vm.execute(methodDescriptor, ectx);
 
         return graph;
     }
 
-    public static BuilderClassDef getBuilderClassDef(String className) {
-        return classNameToDef.get(className);
-    }
-
-    public static BuilderMethod getBuilderMethod(String className, String methodSignature) {
-        String methodDescriptor = className + "->" + methodSignature;
-        for (BuilderMethod method : getBuilderClassDef(className).getMethods()) {
-            String currentDescriptor = ReferenceUtil.getMethodDescriptor(method);
-            if (methodDescriptor.equals(currentDescriptor)) {
-                return method;
-            }
-        }
-
-        return null;
-    }
-
-    public static Map<String, BuilderClassDef> getClassNameToBuilderClassDef(String path) {
-        File testDir = new File(TEST_DIRECTORY);
-        String[] extensions = new String[] { "smali" };
-        List<File> smaliFiles = new ArrayList<File>(FileUtils.listFiles(testDir, extensions, true));
-
-        dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
-        Map<String, BuilderClassDef> result = new HashMap<String, BuilderClassDef>();
-        List<BuilderClassDef> classDefs;
-        try {
-            classDefs = Dexifier.dexifySmaliFiles(smaliFiles, dexBuilder);
-            for (BuilderClassDef classDef : classDefs) {
-                result.put(classDef.getType(), classDef);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            System.exit(-1); // do not pass go, do not collect 200 monies
-        }
-
-        return result;
+    public static SmaliClassManager getClassManager() {
+        return classManager;
     }
 
     public static DexBuilder getDexBuilder() {
         return dexBuilder;
+    }
+
+    public static VirtualMachine getTestVM() {
+        dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
+        classManager = new SmaliClassManager(TEST_DIRECTORY, dexBuilder);
+
+        return new VirtualMachine(classManager);
     }
 
     public static void testClassState(String className, String methodSignature,
@@ -261,7 +216,7 @@ public class VMTester {
         return result;
     }
 
-    private static ExecutionContext getSetupExecutionContext(VirtualMachine vm, String methodDescriptor,
+    private static ExecutionContext getInitializedExecutionContext(VirtualMachine vm, String methodDescriptor,
                     TIntObjectMap<Object> registerToValue, Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
         setupMethodState(ectx, registerToValue);
@@ -294,7 +249,7 @@ public class VMTester {
     private static void testFieldEquals(String fieldDescriptor, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append(fieldDescriptor).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -303,7 +258,7 @@ public class VMTester {
     private static void testRegisterEquals(int register, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -329,5 +284,11 @@ public class VMTester {
             Assert.assertEquals(msg, value, consensus);
         }
     }
+
+    private static final String TEST_DIRECTORY = "resources/test";
+
+    private static DexBuilder dexBuilder;
+
+    private static SmaliClassManager classManager;
 
 }

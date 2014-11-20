@@ -2,14 +2,11 @@ package org.cf.smalivm;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestSideEffects {
@@ -23,17 +20,11 @@ public class TestSideEffects {
     private static final String CLASS_NAME = "Lside_effects_test;";
     private static Map<String, BuilderClassDef> classNameToDef;
 
-    @BeforeClass
-    public static void setupBeforeClass() {
-        classNameToDef = VMTester.buildClassNameToBuilderClassDef();
-    }
-
     private VirtualMachine vm;
 
     @Before
     public void setupVM() throws Exception {
-        List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>(classNameToDef.values());
-        vm = new VirtualMachine(classDefs);
+        vm = VMTester.getTestVM();
     }
 
     @Test

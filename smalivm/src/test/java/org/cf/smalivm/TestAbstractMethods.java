@@ -2,13 +2,8 @@ package org.cf.smalivm;
 
 import static org.junit.Assert.assertEquals;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -24,7 +19,7 @@ public class TestAbstractMethods {
 
         @Before
         public void setupVM() {
-            vm = getVM();
+            vm = VMTester.getTestVM();
         }
 
         @Test
@@ -53,7 +48,7 @@ public class TestAbstractMethods {
 
         @Before
         public void setupVM() {
-            vm = getVM();
+            vm = VMTester.getTestVM();
         }
 
         @Test
@@ -63,12 +58,6 @@ public class TestAbstractMethods {
 
             assertEquals(null, graph);
         }
-    }
-
-    private static VirtualMachine getVM() {
-        Map<String, BuilderClassDef> classNameToDef = VMTester.buildClassNameToBuilderClassDef();
-        List<BuilderClassDef> classDefs = new ArrayList<BuilderClassDef>(classNameToDef.values());
-        return new VirtualMachine(classDefs);
     }
 
 }

@@ -16,12 +16,9 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.Dexifier;
 import org.cf.util.ImmutableUtils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.MethodImplementation;
-import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,38 +64,27 @@ public class VirtualMachine {
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
 
     private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
-    private static final int DEFAULT_MAX_METHOD_VISITS = DEFAULT_MAX_ADDRESS_VISITS * 500;
     private static final int DEFAULT_MAX_CALL_DEPTH = 20;
+    private static final int DEFAULT_MAX_METHOD_VISITS = DEFAULT_MAX_ADDRESS_VISITS * 500;
 
     private final int maxCallDepth;
     private final int maxAddressVisits;
     private final int maxMethodVisits;
     private final MethodExecutor methodExecutor;
-    private final ClassManager classManager;
-    private final Map<String, ExecutionGraph> methodDescriptorToTemplateContextGraph;
+    private final SmaliClassManager classManager;
+    private final Map<BuilderMethod, ExecutionGraph> methodToTemplateContextGraph;
 
-    public VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
+    public VirtualMachine(SmaliClassManager manager) {
+        this(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
+    }
+
+    public VirtualMachine(SmaliClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
         this.classManager = manager;
         this.maxAddressVisits = maxAddressVisits;
         this.maxMethodVisits = maxMethodVisits;
         this.maxCallDepth = maxCallDepth;
-
         methodExecutor = new MethodExecutor(this);
-
-        methodDescriptorToTemplateContextGraph = new HashMap<String, ExecutionGraph>();
-        buildMethodDescriptorToTemplateContextGraph();
-    }
-
-    public VirtualMachine(List<BuilderClassDef> classDefs) {
-        this(new ClassManager(classDefs), DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
-    }
-
-    public VirtualMachine(String path) throws Exception {
-        this(path, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
-    }
-
-    public VirtualMachine(String path, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) throws Exception {
-        this(new ClassManager(Dexifier.dexifySmaliFiles(path)), maxAddressVisits, maxCallDepth, maxMethodVisits);
+        methodToTemplateContextGraph = new HashMap<BuilderMethod, ExecutionGraph>();
     }
 
     public ExecutionGraph execute(String methodDescriptor) {
@@ -151,12 +137,16 @@ public class VirtualMachine {
         return result;
     }
 
-    public ClassManager getClassManager() {
+    public SmaliClassManager getClassManager() {
         return classManager;
     }
 
     public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
-        ExecutionGraph graph = methodDescriptorToTemplateContextGraph.get(methodDescriptor);
+        BuilderMethod method = classManager.getMethod(methodDescriptor);
+        if (!methodToTemplateContextGraph.containsKey(method)) {
+            updateInstructionGraph(methodDescriptor);
+        }
+        ExecutionGraph graph = methodToTemplateContextGraph.get(method);
         ExecutionGraph clone = new ExecutionGraph(graph);
 
         return clone;
@@ -180,7 +170,7 @@ public class VirtualMachine {
             throw new IllegalArgumentException("No implementation for " + methodDescriptor);
         }
 
-        BuilderMethod method = classManager.getBuilderMethod(methodDescriptor);
+        BuilderMethod method = classManager.getMethod(methodDescriptor);
         MethodImplementation impl = method.getImplementation();
         int registerCount = impl.getRegisterCount();
         List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
@@ -209,31 +199,18 @@ public class VirtualMachine {
     }
 
     public void updateInstructionGraph(String methodDescriptor) {
-        BuilderMethod method = classManager.getBuilderMethod(methodDescriptor);
+        BuilderMethod method = classManager.getMethod(methodDescriptor);
         ExecutionGraph graph = new ExecutionGraph(this, method);
-        methodDescriptorToTemplateContextGraph.put(methodDescriptor, graph);
+        methodToTemplateContextGraph.put(method, graph);
     }
 
     private void addTemplateClassState(ExecutionContext ectx, String className) {
-        List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
+        List<String> fieldNameAndTypes = classManager.getFieldNameAndType(className);
         ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
         ectx.setClassState(className, cState, SideEffect.Level.NONE);
         for (String fieldNameAndType : fieldNameAndTypes) {
             String type = fieldNameAndType.split(":")[1];
             cState.pokeField(fieldNameAndType, new UnknownValue(type));
-        }
-    }
-
-    private void buildMethodDescriptorToTemplateContextGraph() {
-        for (String classDescriptor : classManager.getLocalClasses()) {
-            BuilderClassDef classDef = classManager.getBuilderClass(classDescriptor);
-            for (BuilderMethod method : classDef.getMethods()) {
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                if (!classManager.methodHasImplementation(methodDescriptor)) {
-                    continue;
-                }
-                updateInstructionGraph(methodDescriptor);
-            }
         }
     }
 
@@ -259,13 +236,13 @@ public class VirtualMachine {
             }
         }
 
-        for (String currentClassName : classManager.getLocalClasses()) {
+        for (String currentClassName : classManager.getClassNames()) {
             if (!callerContext.isClassInitialized(currentClassName)
                             && !calleeContext.isClassInitialized(currentClassName)) {
                 continue;
             }
 
-            List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(currentClassName);
+            List<String> fieldNameAndTypes = classManager.getFieldNameAndType(currentClassName);
             ClassState currentClassState;
             if (callerContext.isClassInitialized(currentClassName)) {
                 currentClassState = callerContext.peekClassState(currentClassName);
@@ -283,14 +260,14 @@ public class VirtualMachine {
     }
 
     private void inheritClassStates(ExecutionContext parent, ExecutionContext child) {
-        for (String className : classManager.getLocalClasses()) {
+        for (String className : classManager.getClassNames()) {
             if (!parent.isClassInitialized(className)) {
                 continue;
             }
 
             ClassState fromClassState = parent.peekClassState(className);
             ClassState toClassState = new ClassState(fromClassState, child);
-            for (String fieldNameAndType : classManager.getFieldNameAndTypes(className)) {
+            for (String fieldNameAndType : classManager.getFieldNameAndType(className)) {
                 Object value = fromClassState.peekField(fieldNameAndType);
                 toClassState.pokeField(fieldNameAndType, value);
             }
