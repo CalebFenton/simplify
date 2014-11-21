@@ -10,7 +10,7 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
-public class TestAbstractMethods {
+public class TestMethodInheritence {
 
     public static class ChildClass {
         private static final String CLASS_NAME = "Lchild_class;";
@@ -39,6 +39,16 @@ public class TestAbstractMethods {
 
             assertEquals(EXPECTED_VALUE, value);
         }
+
+        @Test
+        public void TestInvokingParentMethodWorks() {
+            String methodName = "callsParentMethod()Ljava/lang/String;";
+            ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+            String value = (String) graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+
+            assertEquals("parentMethod", value);
+        }
+
     }
 
     public static class ParentClass {
