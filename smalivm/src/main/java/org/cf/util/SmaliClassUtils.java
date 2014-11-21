@@ -29,28 +29,29 @@ public class SmaliClassUtils {
     }
 
     public static String javaClassToSmali(String className) {
-        if (className.endsWith(";") || (className.length() == 1)) {
-            // Already Smali format
-            return className;
-        }
-        if (className.startsWith("[")) {
+        if (PrimitiveTypes.containsKey(getBaseClass(className))) {
             return className;
         }
 
-        for (String key : PrimitiveTypes.keySet()) {
-            String typeName = PrimitiveTypes.get(key).getName();
-            if (typeName.equals(className)) {
-                return key;
-            }
+        if (className.startsWith("[")) {
+            return className.replaceAll("\\.", "/");
+        }
+
+        if (className.endsWith(";") || (1 == className.length())) {
+            // Already Smali format
+            return className;
         }
 
         return "L" + className.replaceAll("\\.", "/") + ";";
     }
 
     public static String smaliClassToJava(String className) {
-        Class<?> type = PrimitiveTypes.get(className);
-        if (type != null) {
-            return type.getName();
+        if (PrimitiveTypes.containsKey(getBaseClass(className))) {
+            return className;
+        }
+
+        if (className.startsWith("[")) {
+            return className.replaceAll("/", "\\.");
         }
 
         if (className.equals("?")) {
