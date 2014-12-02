@@ -146,7 +146,7 @@ public class InvokeOp extends ExecutionContextOp {
 
             SmaliClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
-                ExecutionContext calleeContext = buildLocalCalleeContext(methodDescriptor, ectx);
+                ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
                 if (classManager.methodHasImplementation(targetMethod)) {
                     executeLocalMethod(targetMethod, ectx, calleeContext);
                 } else {
@@ -188,7 +188,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
