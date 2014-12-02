@@ -184,7 +184,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -315,7 +315,6 @@ public class InvokeOp extends ExecutionContextOp {
     private String getLocalTargetForVirtualMethod(ExecutionContext ectx) {
         int targetRegister = parameterRegisters[0];
         Object value = ectx.getMethodState().peekRegister(targetRegister);
-        assert (value instanceof Type) || (value instanceof Class);
         String actualType;
         if (value instanceof Type) {
             actualType = ((Type) value).getType();
@@ -327,26 +326,29 @@ public class InvokeOp extends ExecutionContextOp {
             actualType = SmaliClassUtils.smaliPrimitiveToJavaWrapper(actualType);
         }
         String methodSignature = methodDescriptor.split("->")[1];
-        String targetMethod = getLocalTargetForVirtualMethod(actualType, methodSignature, new HashSet<String>());
+        SmaliClassManager classManager = vm.getClassManager();
+        String targetMethod = getLocalTargetForVirtualMethod(actualType, methodSignature, classManager,
+                        new HashSet<String>());
 
         return targetMethod != null ? targetMethod : methodDescriptor;
     }
 
-    private String getLocalTargetForVirtualMethod(String className, String methodSignature, Set<String> visited) {
+    private String getLocalTargetForVirtualMethod(String className, String methodSignature,
+                    SmaliClassManager classManager, Set<String> visited) {
         visited.add(className);
         StringBuilder sb = new StringBuilder(className);
         sb.append("->").append(methodSignature);
         String methodDescriptor = sb.toString();
 
-        SmaliClassManager classManager = vm.getClassManager();
-        boolean isSafe = MethodReflector.isSafe(methodDescriptor);
-        boolean isLocal = classManager.isLocalMethod(methodDescriptor);
-        if (!isSafe && !isLocal) {
+        boolean isLocalMethod = classManager.isLocalMethod(methodDescriptor);
+        if ((isLocalMethod && classManager.methodHasImplementation(methodDescriptor))
+                        || MethodReflector.isSafe(methodDescriptor)) {
             return methodDescriptor;
         }
 
-        if (isSafe || (isLocal && classManager.methodHasImplementation(methodDescriptor))) {
-            return methodDescriptor;
+        if (!classManager.isLocalClass(className)) {
+            // Can't trace any further up.
+            return null;
         }
 
         BuilderClassDef classDef = classManager.getClass(className);
@@ -360,7 +362,7 @@ public class InvokeOp extends ExecutionContextOp {
             if (visited.contains(parent)) {
                 continue;
             }
-            String target = getLocalTargetForVirtualMethod(parent, methodSignature, visited);
+            String target = getLocalTargetForVirtualMethod(parent, methodSignature, classManager, visited);
             if (null != target) {
                 return target;
             }

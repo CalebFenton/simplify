@@ -48,7 +48,6 @@ public class TestMethodInheritence {
 
             assertEquals("parentMethod", value);
         }
-
     }
 
     public static class ParentClass {

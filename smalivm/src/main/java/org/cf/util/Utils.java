@@ -60,16 +60,17 @@ public class Utils {
 
     public static Object getArrayInstanceFromSmaliTypeReference(String typeReference, int[] dimensions,
                     boolean isLocalClass) throws ClassNotFoundException {
-        // int dimensionCount = getDimensionCount(typeReference) - 1;
         String baseClassName = SmaliClassUtils.getBaseClass(typeReference);
-        String javaClassName = null;
+        String javaClassName;
         if (isLocalClass) {
             javaClassName = LocalInstance.class.getName();
         } else {
             javaClassName = SmaliClassUtils.smaliClassToJava(baseClassName);
         }
 
-        Class<?> klazz = ClassUtils.getClass(javaClassName);
+        int dimensionCount = getDimensionCount(typeReference) - 1;
+        String classNameWithDimensions = addDimensionsToClassName(javaClassName, dimensionCount);
+        Class<?> klazz = ClassUtils.getClass(classNameWithDimensions);
         Object result = Array.newInstance(klazz, dimensions);
 
         if (isLocalClass) {
@@ -135,7 +136,7 @@ public class Utils {
         }
     }
 
-    private static String getClassForNameFromSmaliClass(String className, int dimensionCount) {
+    private static String addDimensionsToClassName(String className, int dimensionCount) {
         // Apache's ClassUtils.forName expects someArray[] instead of [someArray
         StringBuilder sb = new StringBuilder(className);
         for (int i = 0; i < dimensionCount; i++) {
