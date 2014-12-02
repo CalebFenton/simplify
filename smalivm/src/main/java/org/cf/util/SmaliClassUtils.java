@@ -1,25 +1,37 @@
 package org.cf.util;
 
-import java.util.HashMap;
-import java.util.Map;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 
 public class SmaliClassUtils {
 
-    private static Map<String, Class<?>> primitiveClassNameToWrapperClass;
+    private static BiMap<String, String> smaliPrimitiveToJavaWrapper;
+    private static BiMap<String, String> smaliPrimitiveToJavaName;
     static {
-        primitiveClassNameToWrapperClass = new HashMap<String, Class<?>>(8);
-        primitiveClassNameToWrapperClass.put("I", Integer.class);
-        primitiveClassNameToWrapperClass.put("S", Short.class);
-        primitiveClassNameToWrapperClass.put("J", Long.class);
-        primitiveClassNameToWrapperClass.put("B", Byte.class);
-        primitiveClassNameToWrapperClass.put("D", Double.class);
-        primitiveClassNameToWrapperClass.put("F", Float.class);
-        primitiveClassNameToWrapperClass.put("Z", Boolean.class);
-        primitiveClassNameToWrapperClass.put("C", Character.class);
+        smaliPrimitiveToJavaWrapper = HashBiMap.create();
+        smaliPrimitiveToJavaWrapper.put("I", Integer.class.getName());
+        smaliPrimitiveToJavaWrapper.put("S", Short.class.getName());
+        smaliPrimitiveToJavaWrapper.put("J", Long.class.getName());
+        smaliPrimitiveToJavaWrapper.put("B", Byte.class.getName());
+        smaliPrimitiveToJavaWrapper.put("D", Double.class.getName());
+        smaliPrimitiveToJavaWrapper.put("F", Float.class.getName());
+        smaliPrimitiveToJavaWrapper.put("Z", Boolean.class.getName());
+        smaliPrimitiveToJavaWrapper.put("C", Character.class.getName());
+
+        smaliPrimitiveToJavaName = HashBiMap.create();
+        smaliPrimitiveToJavaName.put("I", int.class.getName());
+        smaliPrimitiveToJavaName.put("S", short.class.getName());
+        smaliPrimitiveToJavaName.put("J", long.class.getName());
+        smaliPrimitiveToJavaName.put("B", byte.class.getName());
+        smaliPrimitiveToJavaName.put("D", double.class.getName());
+        smaliPrimitiveToJavaName.put("F", float.class.getName());
+        smaliPrimitiveToJavaName.put("Z", boolean.class.getName());
+        smaliPrimitiveToJavaName.put("C", char.class.getName());
+
     }
 
     public static boolean isPrimitiveType(String type) {
-        return primitiveClassNameToWrapperClass.containsKey(getBaseClass(type));
+        return smaliPrimitiveToJavaName.containsKey(getBaseClass(type));
     }
 
     public static String javaClassToSmali(Class<?> klazz) {
@@ -31,9 +43,9 @@ public class SmaliClassUtils {
             return className.replaceAll("\\.", "/");
         }
 
-        Class<?> klazz = primitiveClassNameToWrapperClass.get(className);
-        if (klazz != null) {
-            return klazz.getName();
+        String javaName = smaliPrimitiveToJavaName.inverse().get(className);
+        if (null != javaName) {
+            return javaName;
         }
 
         if (className.endsWith(";") || (1 == className.length())) {
@@ -49,9 +61,10 @@ public class SmaliClassUtils {
             return className.replaceAll("/", "\\.");
         }
 
-        Class<?> klazz = primitiveClassNameToWrapperClass.get(className);
-        if (null != klazz) {
-            return klazz.getName(); // e.g. I becomes int
+        String javaName = smaliPrimitiveToJavaName.get(className);
+        if (null != javaName) {
+            // e.g. I becomes int
+            return javaName;
         }
 
         if (className.equals("?")) {
@@ -65,19 +78,19 @@ public class SmaliClassUtils {
     }
 
     public static String smaliPrimitiveToJavaWrapper(String className) {
-        Class<?> primitiveClass = primitiveClassNameToWrapperClass.get(getBaseClass(className));
-        if (null == primitiveClass) {
+        String javaWrapper = smaliPrimitiveToJavaWrapper.get(getBaseClass(className));
+        if (null == javaWrapper) {
             return null;
         }
 
         if (!className.startsWith("[")) {
-            return primitiveClass.getName();
+            return javaWrapper;
         }
 
         int lastIndex = className.lastIndexOf("[");
         String dimens = className.substring(0, lastIndex + 1);
         StringBuilder sb = new StringBuilder(dimens);
-        sb.append("L").append(primitiveClass.getName()).append(";");
+        sb.append("L").append(javaWrapper).append(";");
 
         return sb.toString();
     }

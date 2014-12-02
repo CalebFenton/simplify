@@ -2,7 +2,6 @@ package org.cf.smalivm;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -102,9 +101,8 @@ public class MethodReflector {
             // Class<?> clazz = ClassUtils.getClass(className, false);
             // String leading 'L' and trailing ';' from smali type descriptor
             Class<?> clazz = Class.forName(className.substring(1, className.length() - 1));
-
             Object[] args = getArguments(calleeContext);
-            if (methodName.equals("<init>")) {
+            if ("<init>".equals(methodName)) {
                 // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
                 if (log.isDebugEnabled()) {
                     log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays.toString(args));
@@ -153,13 +151,13 @@ public class MethodReflector {
             offset = 1;
         }
 
-        List<Object> args = new ArrayList<Object>();
+        int size = parameterTypes.size() - offset;
+        Object[] args = new Object[size];
         for (int i = offset; i < mState.getRegisterCount(); i++) {
             Object arg = mState.peekParameter(i);
             String type = parameterTypes.get(i);
-
-            if (arg != null) {
-                // In Dalvik, integer is overloaded and represents a few primitives.
+            if (null != arg) {
+                // In Dalvik, integer is overloaded and may represent a few primitives.
                 if (Integer.class == arg.getClass()) {
                     int intValue = (Integer) arg;
                     if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
@@ -173,7 +171,7 @@ public class MethodReflector {
                     }
                 }
             }
-            args.add(arg);
+            args[i - offset] = arg;
 
             if (type.equals("J") || type.equals("D")) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
@@ -181,7 +179,7 @@ public class MethodReflector {
             }
         }
 
-        return args.toArray();
+        return args;
     }
 
 }

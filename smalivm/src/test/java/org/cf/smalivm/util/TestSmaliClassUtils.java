@@ -14,7 +14,6 @@ public class TestSmaliClassUtils {
     private static final String SMALI_CLASS = "Lsome/package/Class;";
     private static final String PACKAGE_NAME = "some.package";
     private static final Map<String, String> smaliClassToJavaClass;
-    private static final Map<String, String> javaClassToSmaliClass;
     private static final Map<String, Boolean> stringToIsPrimitive;
     private static final Map<String, Class<?>> primitiveTypeToWrapperClass;
 
@@ -22,16 +21,10 @@ public class TestSmaliClassUtils {
         smaliClassToJavaClass = new HashMap<String, String>();
         smaliClassToJavaClass.put("Lthis/is/Test;", "this.is.Test");
         smaliClassToJavaClass.put("[Lthis/is/Test;", "[Lthis.is.Test;");
-        smaliClassToJavaClass.put("I", "java.lang.Integer");
-        smaliClassToJavaClass.put("B", "java.lang.Byte");
+        smaliClassToJavaClass.put("I", "int");
+        smaliClassToJavaClass.put("B", "byte");
         smaliClassToJavaClass.put("[I", "[I");
         smaliClassToJavaClass.put("[[Z", "[[Z");
-
-        javaClassToSmaliClass = new HashMap<String, String>();
-        javaClassToSmaliClass.put("this.is.Test", "Lthis/is/Test;");
-        javaClassToSmaliClass.put("[Lthis.is.Test;", "[Lthis/is/Test;");
-        javaClassToSmaliClass.put("[I", "[I");
-        javaClassToSmaliClass.put("[[Z", "[[Z");
 
         stringToIsPrimitive = new HashMap<String, Boolean>();
         stringToIsPrimitive.put("Lsome/class;", false);
@@ -80,9 +73,9 @@ public class TestSmaliClassUtils {
 
     @Test
     public void TestJavaClassToSmali() {
-        for (Entry<String, String> entry : javaClassToSmaliClass.entrySet()) {
-            String javaClass = entry.getKey();
-            String expected = entry.getValue();
+        for (Entry<String, String> entry : smaliClassToJavaClass.entrySet()) {
+            String javaClass = entry.getValue();
+            String expected = entry.getKey();
             String actual = SmaliClassUtils.javaClassToSmali(javaClass);
 
             assertEquals(expected, actual);
