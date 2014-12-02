@@ -17,3 +17,8 @@ build/
 # Logging
 log.txt
 /bin/
+
+
+smalivm/doc
+simplify/doc
+demoapp/doc
