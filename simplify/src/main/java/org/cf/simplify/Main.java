@@ -36,7 +36,7 @@ public class Main {
         VirtualMachine vm = new VirtualMachine(classManager, bean.getMaxAddressVisits(), bean.getMaxCallDepth(),
                         bean.getMaxMethodVisits());
 
-        for (String className : classManager.getClassNames()) {
+        for (String className : classManager.getNonFrameworkClassNames()) {
             Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
             filterMethods(methodDescriptors, bean.getIncludeFilter(), bean.getExcludeFilter());
 
