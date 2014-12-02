@@ -145,8 +145,9 @@ public class InvokeOp extends ExecutionContextOp {
 
             SmaliClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
+                ExecutionContext calleeContext = buildLocalCalleeContext(methodDescriptor, ectx);
                 if (classManager.methodHasImplementation(targetMethod)) {
-                    executeLocalMethod(targetMethod, ectx);
+                    executeLocalMethod(targetMethod, ectx, calleeContext);
                 } else {
                     if (log.isWarnEnabled()) {
                         log.warn("Attempting to execute local method without implementation: " + targetMethod
@@ -155,6 +156,8 @@ public class InvokeOp extends ExecutionContextOp {
                     assumeMaximumUnknown(ectx.getMethodState());
                 }
             } else {
+                markCallerRegistersRead(ectx.getMethodState());
+
                 if (log.isWarnEnabled()) {
                     log.warn("Attempting to execute unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
                 }
@@ -184,7 +187,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -207,6 +210,12 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         return true;
+    }
+
+    private void markCallerRegistersRead(MethodState callerState) {
+        for (int callerRegister : parameterRegisters) {
+            callerState.readRegister(callerRegister);
+        }
     }
 
     private void assignCalleeMethodStateParameters(MethodState callerState, MethodState calleeState) {
@@ -251,18 +260,18 @@ public class InvokeOp extends ExecutionContextOp {
         return calleeContext;
     }
 
-    private MethodState buildNonLocalCalleeContext(MethodState callerContext) {
+    private MethodState buildNonLocalCalleeContext(MethodState callerMethodState) {
         ExecutionContext ectx = new ExecutionContext(vm);
         int parameterSize = VirtualMachine.getParameterSize(parameterTypes);
         int registerCount = parameterSize;
         MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
-        assignCalleeMethodStateParameters(callerContext, calleeMethodState);
+        assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
 
         return calleeMethodState;
     }
 
-    private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext) {
-        ExecutionContext calleeContext = buildLocalCalleeContext(methodDescriptor, callerContext);
+    private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext,
+                    ExecutionContext calleeContext) {
         ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
