@@ -36,6 +36,9 @@ public class SmaliClassManager {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliClassManager.class.getSimpleName());
 
+    // Use separate dex builder to intern framework classes so they're not included in output dex
+    private static final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
+
     private final Map<String, SmaliFile> classNameToSmaliFile;
     private final DexBuilder dexBuilder;
     private final Map<String, BuilderClassDef> classNameToClassDef;
@@ -283,7 +286,11 @@ public class SmaliClassManager {
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
         BuilderClassDef classDef;
         try {
-            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), dexBuilder);
+            if (SmaliFileFactory.isFrameworkClass(className)) {
+                classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), frameworkDexBuilder);
+            } else {
+                classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), dexBuilder);
+            }
         } catch (Exception e) {
             if (log.isErrorEnabled()) {
                 log.error("Error while loading class necessary for " + typeDescriptor, e);
