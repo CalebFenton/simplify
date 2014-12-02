@@ -28,7 +28,7 @@ public class ConstOp extends MethodStateOp {
     }
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());;
+    private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
 
     static ConstOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -142,7 +142,8 @@ public class ConstOp extends MethodStateOp {
         if (constType == ConstType.CLASS) {
             String className = (String) literal;
             try {
-                result = ClassUtils.getClass(SmaliClassUtils.smaliClassToJava(className));
+                String javaClassName = SmaliClassUtils.smaliClassToJava(className);
+                result = ClassUtils.getClass(javaClassName);
             } catch (ClassNotFoundException e) {
                 result = new UnknownValue(className);
                 // log.warn("Could not find class for const-class: " + className);

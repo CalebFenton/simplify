@@ -13,6 +13,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
@@ -117,18 +118,19 @@ public class VirtualMachine {
         ExecutionGraph result = null;
         try {
             result = methodExecutor.execute(graph);
-        } catch (MaxCallDepthExceeded | MaxAddressVisitsExceeded e) {
+        } catch (MaxCallDepthExceeded | MaxAddressVisitsExceeded | MaxMethodVisitsExceeded e) {
             if (log.isWarnEnabled()) {
                 log.warn(e.toString());
             }
-        } catch (Exception e) {
-            if (log.isWarnEnabled()) {
-                log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
-            }
-            if (log.isDebugEnabled()) {
-                log.debug("Stack trace: ", e);
-            }
         }
+        // catch (Exception e) {
+        // if (log.isWarnEnabled()) {
+        // log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
+        // }
+        // if (log.isDebugEnabled()) {
+        // log.debug("Stack trace: ", e);
+        // }
+        // }
 
         if ((result != null) && (callerContext != null)) {
             collapseMultiverse(methodDescriptor, graph, calleeContext, callerContext, parameterRegisters);
@@ -195,7 +197,8 @@ public class VirtualMachine {
     }
 
     public boolean isLocalClass(String classDescriptor) {
-        return classManager.isLocalClass(classDescriptor);
+        // If it's local but reflected, should be treated as non-local.
+        return classManager.isLocalClass(classDescriptor) && !MethodReflector.isSafe(classDescriptor);
     }
 
     public void updateInstructionGraph(String methodDescriptor) {
@@ -204,8 +207,8 @@ public class VirtualMachine {
         methodToTemplateContextGraph.put(method, graph);
     }
 
-    private void addTemplateClassState(ExecutionContext ectx, String className) {
-        List<String> fieldNameAndTypes = classManager.getFieldNameAndType(className);
+    public void addTemplateClassState(ExecutionContext ectx, String className) {
+        List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
         ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
         ectx.setClassState(className, cState, SideEffect.Level.NONE);
         for (String fieldNameAndType : fieldNameAndTypes) {
@@ -242,7 +245,7 @@ public class VirtualMachine {
                 continue;
             }
 
-            List<String> fieldNameAndTypes = classManager.getFieldNameAndType(currentClassName);
+            List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(currentClassName);
             ClassState currentClassState;
             if (callerContext.isClassInitialized(currentClassName)) {
                 currentClassState = callerContext.peekClassState(currentClassName);
@@ -260,14 +263,14 @@ public class VirtualMachine {
     }
 
     private void inheritClassStates(ExecutionContext parent, ExecutionContext child) {
-        for (String className : classManager.getClassNames()) {
+        for (String className : classManager.getLoadedClassNames()) {
             if (!parent.isClassInitialized(className)) {
                 continue;
             }
 
             ClassState fromClassState = parent.peekClassState(className);
             ClassState toClassState = new ClassState(fromClassState, child);
-            for (String fieldNameAndType : classManager.getFieldNameAndType(className)) {
+            for (String fieldNameAndType : classManager.getFieldNameAndTypes(className)) {
                 Object value = fromClassState.peekField(fieldNameAndType);
                 toClassState.pokeField(fieldNameAndType, value);
             }

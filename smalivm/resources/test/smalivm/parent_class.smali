@@ -29,6 +29,17 @@
     return-object v0
 .end method
 
-# virtual methods
 .method public abstract abstractMethod()Ljava/lang/String;
+.end method
+
+.method public parentMethod()Ljava/lang/String;
+    .locals 1
+
+    #@0
+    .prologue
+    .line 6
+    const-string v0, "parentMethod"
+
+    #@2
+    return-object v0
 .end method

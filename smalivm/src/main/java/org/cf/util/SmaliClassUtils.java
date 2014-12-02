@@ -3,25 +3,23 @@ package org.cf.util;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.lang3.ClassUtils;
-
 public class SmaliClassUtils {
 
-    private static Map<String, Class<?>> PrimitiveTypes;
+    private static Map<String, Class<?>> primitiveClassNameToWrapperClass;
     static {
-        PrimitiveTypes = new HashMap<String, Class<?>>(8);
-        PrimitiveTypes.put("I", Integer.TYPE);
-        PrimitiveTypes.put("S", Short.TYPE);
-        PrimitiveTypes.put("J", Long.TYPE);
-        PrimitiveTypes.put("B", Byte.TYPE);
-        PrimitiveTypes.put("D", Double.TYPE);
-        PrimitiveTypes.put("F", Float.TYPE);
-        PrimitiveTypes.put("Z", Boolean.TYPE);
-        PrimitiveTypes.put("C", Character.TYPE);
+        primitiveClassNameToWrapperClass = new HashMap<String, Class<?>>(8);
+        primitiveClassNameToWrapperClass.put("I", Integer.class);
+        primitiveClassNameToWrapperClass.put("S", Short.class);
+        primitiveClassNameToWrapperClass.put("J", Long.class);
+        primitiveClassNameToWrapperClass.put("B", Byte.class);
+        primitiveClassNameToWrapperClass.put("D", Double.class);
+        primitiveClassNameToWrapperClass.put("F", Float.class);
+        primitiveClassNameToWrapperClass.put("Z", Boolean.class);
+        primitiveClassNameToWrapperClass.put("C", Character.class);
     }
 
     public static boolean isPrimitiveType(String type) {
-        return PrimitiveTypes.containsKey(getBaseClass(type));
+        return primitiveClassNameToWrapperClass.containsKey(getBaseClass(type));
     }
 
     public static String javaClassToSmali(Class<?> klazz) {
@@ -29,12 +27,13 @@ public class SmaliClassUtils {
     }
 
     public static String javaClassToSmali(String className) {
-        if (PrimitiveTypes.containsKey(getBaseClass(className))) {
-            return className;
-        }
-
         if (className.startsWith("[")) {
             return className.replaceAll("\\.", "/");
+        }
+
+        Class<?> klazz = primitiveClassNameToWrapperClass.get(className);
+        if (klazz != null) {
+            return klazz.getName();
         }
 
         if (className.endsWith(";") || (1 == className.length())) {
@@ -46,12 +45,13 @@ public class SmaliClassUtils {
     }
 
     public static String smaliClassToJava(String className) {
-        if (PrimitiveTypes.containsKey(getBaseClass(className))) {
-            return className;
-        }
-
         if (className.startsWith("[")) {
             return className.replaceAll("/", "\\.");
+        }
+
+        Class<?> klazz = primitiveClassNameToWrapperClass.get(className);
+        if (null != klazz) {
+            return klazz.getName(); // e.g. I becomes int
         }
 
         if (className.equals("?")) {
@@ -65,9 +65,21 @@ public class SmaliClassUtils {
     }
 
     public static String smaliPrimitiveToJavaWrapper(String className) {
-        Class<?> primitiveClass = PrimitiveTypes.get(getBaseClass(className));
+        Class<?> primitiveClass = primitiveClassNameToWrapperClass.get(getBaseClass(className));
+        if (null == primitiveClass) {
+            return null;
+        }
 
-        return ClassUtils.primitiveToWrapper(primitiveClass).getName();
+        if (!className.startsWith("[")) {
+            return primitiveClass.getName();
+        }
+
+        int lastIndex = className.lastIndexOf("[");
+        String dimens = className.substring(0, lastIndex + 1);
+        StringBuilder sb = new StringBuilder(dimens);
+        sb.append("L").append(primitiveClass.getName()).append(";");
+
+        return sb.toString();
     }
 
     public static String getPackageName(String smaliType) {
@@ -77,7 +89,7 @@ public class SmaliClassUtils {
         return packageName;
     }
 
-    private static String getBaseClass(String className) {
+    public static String getBaseClass(String className) {
         // Remove any array qualifiers, e.g. [[B (2d byte array) becomes B
         return className.replace("[", "");
     }

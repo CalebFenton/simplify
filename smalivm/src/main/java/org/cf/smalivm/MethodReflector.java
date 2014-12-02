@@ -36,6 +36,10 @@ public class MethodReflector {
         }
     }
 
+    public static boolean canReflect(String typeDescriptor) {
+        return isSafe(typeDescriptor);
+    }
+
     public static boolean isSafe(String typeDescriptor) {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
@@ -127,8 +131,13 @@ public class MethodReflector {
                         | InstantiationException | IllegalAccessException | IllegalArgumentException
                         | InvocationTargetException e) {
             result = new UnknownValue(returnType);
-            log.warn("Failed to reflect " + methodDescriptor);
-            log.debug("Stack trace:", e);
+            if (log.isWarnEnabled()) {
+                log.warn("Failed to reflect " + methodDescriptor);
+            }
+
+            if (log.isDebugEnabled()) {
+                log.debug("Stack trace:", e);
+            }
         }
 
         boolean returnsVoid = returnType.equals("V");

@@ -1,6 +1,7 @@
 package org.cf.smalivm;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -11,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.cf.util.Dexifier;
-import org.cf.util.SmaliClassNameParser;
+import org.cf.util.SmaliFileFactory;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.MethodImplementation;
@@ -25,11 +26,17 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * The class manager is responsible for loading Smali files into dexlib2 objects and making them available.
+ *
+ * @author cfenton
+ *
+ */
 public class SmaliClassManager {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliClassManager.class.getSimpleName());
 
-    private final Map<String, File> classNameToFile;
+    private final Map<String, SmaliFile> classNameToSmaliFile;
     private final DexBuilder dexBuilder;
     private final Map<String, BuilderClassDef> classNameToClassDef;
     private final Map<String, BuilderMethod> methodDescriptorToMethod;
@@ -37,8 +44,19 @@ public class SmaliClassManager {
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryBlocks;
     private final Map<String, List<String>> classNameToFieldNameAndType;
 
-    public SmaliClassManager(File smaliPath, DexBuilder dexBuilder) {
-        classNameToFile = SmaliClassNameParser.getClassNameToFile(smaliPath);
+    /**
+     *
+     * @param smaliPath
+     *            Path to Smali file or folder
+     * @param dexBuilder
+     * @throws IOException
+     */
+    public SmaliClassManager(File smaliPath, DexBuilder dexBuilder) throws IOException {
+        Set<SmaliFile> smaliFiles = SmaliFileFactory.getSmaliFiles(smaliPath);
+        classNameToSmaliFile = new HashMap<String, SmaliFile>();
+        for (SmaliFile smaliFile : smaliFiles) {
+            classNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
+        }
         this.dexBuilder = dexBuilder;
         classNameToClassDef = new HashMap<String, BuilderClassDef>();
         methodDescriptorToMethod = new HashMap<String, BuilderMethod>();
@@ -47,36 +65,96 @@ public class SmaliClassManager {
         classNameToFieldNameAndType = new HashMap<String, List<String>>();
     }
 
-    public SmaliClassManager(String smaliPath) {
+    /**
+     *
+     * @param smaliPath
+     *            Path to Smali file or folder
+     * @throws IOException
+     */
+    public SmaliClassManager(String smaliPath) throws IOException {
         this(smaliPath, DexBuilder.makeDexBuilder());
     }
 
-    public SmaliClassManager(String smaliPath, DexBuilder dexBuilder) {
+    /**
+     *
+     * @param smaliPath
+     *            Path to Smali file or folder
+     * @param dexBuilder
+     * @throws IOException
+     */
+    public SmaliClassManager(String smaliPath, DexBuilder dexBuilder) throws IOException {
         this(new File(smaliPath), dexBuilder);
     }
 
+    /**
+     * Loads the class if it has not been loaded.
+     *
+     * @param className
+     *            Fully qualified Smali class descriptor
+     * @return class definition for the given class name
+     */
     public BuilderClassDef getClass(String className) {
         loadClassIfNecessary(className);
 
         return classNameToClassDef.get(className);
     }
 
+    /**
+     * Does not load any Smali files.
+     *
+     * @return all local class names, including framework
+     */
     public Set<String> getClassNames() {
-        return classNameToFile.keySet();
+        return classNameToSmaliFile.keySet();
     }
 
-    public List<String> getFieldNameAndType(String className) {
+    /**
+     * Does not load any Smali files.
+     *
+     * @return all local class names, excluding framework
+     */
+    public Set<String> getNonFrameworkClassNames() {
+        Set<String> classNames = new HashSet<String>();
+        for (String className : classNameToSmaliFile.keySet()) {
+            if (!SmaliFileFactory.isFrameworkClass(className)) {
+                classNames.add(className);
+            }
+        }
+
+        return classNames;
+    }
+
+    public Set<String> getLoadedClassNames() {
+        return classNameToClassDef.keySet();
+    }
+
+    /**
+     *
+     * @param className
+     * @return
+     */
+    public List<String> getFieldNameAndTypes(String className) {
         loadClassIfNecessary(className);
 
         return classNameToFieldNameAndType.get(className);
     }
 
+    /**
+     *
+     * @param methodDescriptor
+     * @return
+     */
     public BuilderMethod getMethod(String methodDescriptor) {
         loadClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToMethod.get(methodDescriptor);
     }
 
+    /**
+     *
+     * @param className
+     * @return
+     */
     public Set<String> getMethodDescriptors(String className) {
         loadClassIfNecessary(className);
 
@@ -90,22 +168,42 @@ public class SmaliClassManager {
         return methodNames;
     }
 
+    /**
+     *
+     * @param methodDescriptor
+     * @return
+     */
     public List<String> getParameterTypes(String methodDescriptor) {
         loadClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToParameterTypes.get(methodDescriptor);
     }
 
+    /**
+     *
+     * @param methodDescriptor
+     * @return
+     */
     public List<? extends TryBlock<? extends ExceptionHandler>> getTryBlocks(String methodDescriptor) {
         loadClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToTryBlocks.get(methodDescriptor);
     }
 
+    /**
+     *
+     * @param className
+     * @return true if the Smali file for the className was available at runtime
+     */
     public boolean isLocalClass(String className) {
-        return classNameToFile.containsKey(className);
+        return classNameToSmaliFile.containsKey(className);
     }
 
+    /**
+     *
+     * @param methodDescriptor
+     * @return true if {@link=isLocalClass} is true, and method is defined for class
+     */
     public boolean isLocalMethod(String methodDescriptor) {
         String[] parts = methodDescriptor.split("->");
         String className = parts[0];
@@ -116,6 +214,11 @@ public class SmaliClassManager {
         return getMethod(methodDescriptor) != null;
     }
 
+    /**
+     *
+     * @param methodDescriptor
+     * @return
+     */
     public boolean methodHasImplementation(String methodDescriptor) {
         BuilderMethod method = getMethod(methodDescriptor);
 
@@ -173,16 +276,18 @@ public class SmaliClassManager {
     private void loadClassIfNecessary(String typeDescriptor) {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
-        if (classNameToClassDef.containsKey(className)) {
+        if (getLoadedClassNames().contains(className)) {
             return;
         }
 
-        File smaliFile = classNameToFile.get(className);
+        SmaliFile smaliFile = classNameToSmaliFile.get(className);
         BuilderClassDef classDef;
         try {
-            classDef = Dexifier.dexifySmaliFile(smaliFile, dexBuilder);
+            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), dexBuilder);
         } catch (Exception e) {
-            log.error("Unable to dexify " + smaliFile, e);
+            if (log.isErrorEnabled()) {
+                log.error("Error while loading class necessary for " + typeDescriptor, e);
+            }
             System.exit(-1);
             return;
         }

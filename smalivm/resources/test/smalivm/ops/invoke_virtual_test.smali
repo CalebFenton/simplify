@@ -34,6 +34,14 @@
   return-void
 .end method
 
+.method public static InvokeGetComponentType()V
+  .locals 1
+
+  const-class v0, [I
+  invoke-virtual {v0}, Ljava/lang/Class;->getComponentType()Ljava/lang/Class;
+
+  return-void
+.end method
 
 .method private ReturnVoid()V
     .locals 0

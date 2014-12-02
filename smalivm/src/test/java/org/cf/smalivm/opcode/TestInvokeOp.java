@@ -196,6 +196,14 @@ public class TestInvokeOp {
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnVoid()V", initial, expected);
         }
+
+        @Test
+        public void TestInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[0]);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, int.class);
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeGetComponentType()V", initial, expected);
+        }
     }
 
 }

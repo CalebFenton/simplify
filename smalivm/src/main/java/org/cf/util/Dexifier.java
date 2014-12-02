@@ -2,6 +2,7 @@ package org.cf.util;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +32,13 @@ public class Dexifier {
             log.info("Dexifying: " + smaliFile);
         }
 
-        FileInputStream fis = new FileInputStream(smaliFile.getAbsolutePath());
-        InputStreamReader reader = new InputStreamReader(fis, "UTF-8");
+        return dexifySmaliFile(smaliFile.getAbsolutePath(), new FileInputStream(smaliFile), dexBuilder);
+    }
 
+    public static BuilderClassDef dexifySmaliFile(String filePath, InputStream is, DexBuilder dexBuilder)
+                    throws Exception {
+        File smaliFile = new File(filePath);
+        InputStreamReader reader = new InputStreamReader(is, "UTF-8");
         LexerErrorInterface lexer = new smaliFlexLexer(reader);
         ((smaliFlexLexer) lexer).setSourceFile(smaliFile);
         CommonTokenStream tokens = new CommonTokenStream((TokenSource) lexer);

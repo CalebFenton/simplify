@@ -14,9 +14,8 @@ public class Main {
     private static VirtualMachine vm;
 
     public static void main(String[] args) throws Exception {
-        // This acts as an interface between the smali files themselves and the dexlib2 objects.
+        // The class manager is responsible for loading Smali files.
         SmaliClassManager classManager = new SmaliClassManager(SmaliPath);
-
         vm = new VirtualMachine(classManager);
 
         // Hook println with our own implementation
