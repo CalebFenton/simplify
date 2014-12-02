@@ -127,8 +127,8 @@ public class InvokeOp extends ExecutionContextOp {
             targetMethod = getLocalTargetForVirtualMethod(ectx);
         }
 
+        MethodState callerContext = ectx.getMethodState();
         if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
-            MethodState callerContext = ectx.getMethodState();
             MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
             if (allArgumentsKnown) {
@@ -139,6 +139,7 @@ public class InvokeOp extends ExecutionContextOp {
                 if (log.isTraceEnabled()) {
                     log.trace("Not emulating / reflecting " + targetMethod + " because all args not known.");
                 }
+                assumeMaximumUnknown(callerContext);
             }
         } else {
             // This assumes if reflection fails, not worth it to try possibly cached framework classes.
@@ -153,15 +154,15 @@ public class InvokeOp extends ExecutionContextOp {
                         log.warn("Attempting to execute local method without implementation: " + targetMethod
                                         + ". Assuming maxiumum ambiguity.");
                     }
-                    assumeMaximumUnknown(ectx.getMethodState());
+                    assumeMaximumUnknown(callerContext);
                 }
             } else {
-                markCallerRegistersRead(ectx.getMethodState());
+                markCallerRegistersRead(callerContext);
 
                 if (log.isWarnEnabled()) {
                     log.warn("Attempting to execute unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
                 }
-                assumeMaximumUnknown(ectx.getMethodState());
+                assumeMaximumUnknown(callerContext);
             }
         }
 
@@ -230,15 +231,34 @@ public class InvokeOp extends ExecutionContextOp {
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
             if (ImmutableUtils.isImmutableClass(type)) {
-                log.trace(type + " is immutable");
+                if (log.isTraceEnabled()) {
+                    log.trace(type + " is immutable");
+                }
                 continue;
             }
 
             // TODO: add option to mark all class states unknown instead of just method state
 
-            log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
             int register = parameterRegisters[i];
-            Object value = new UnknownValue(type);
+            Object value = mState.peekRegister(register);
+            if (null != value) {
+                // It might be dumb to mark nulls as unknown..
+
+                String actualType = SmaliClassUtils.javaClassToSmali(value.getClass());
+                if (ImmutableUtils.isImmutableClass(actualType)) {
+                    // I.e. parameter type might be Ljava/lang/Object;, but actual type is Ljava/lang/String;
+                    if (log.isTraceEnabled()) {
+                        log.trace(type + " is immutable");
+                    }
+                    continue;
+                }
+            }
+
+            value = new UnknownValue(type);
+            if (log.isDebugEnabled()) {
+                log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
+            }
+
             mState.pokeRegister(register, value);
         }
 
