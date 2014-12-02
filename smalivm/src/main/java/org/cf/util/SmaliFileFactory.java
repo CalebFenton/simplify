@@ -6,9 +6,12 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -22,14 +25,13 @@ public class SmaliFileFactory {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliFileFactory.class.getSimpleName());
 
-    private static Set<SmaliFile> frameworkSmaliFiles;
-    private static Set<String> frameworkClasses;
+    private Map<String, SmaliFile> frameworkClassNameToSmaliFile;
 
-    public static Set<SmaliFile> getSmaliFiles(String path) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(String path) throws IOException {
         return getSmaliFiles(new String[] { path });
     }
 
-    public static Set<SmaliFile> getSmaliFiles(String[] paths) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(String[] paths) throws IOException {
         File[] files = new File[paths.length];
         for (int i = 0; i < paths.length; i++) {
             files[i] = new File(paths[i]);
@@ -38,16 +40,16 @@ public class SmaliFileFactory {
         return getSmaliFiles(files);
     }
 
-    public static Set<SmaliFile> getSmaliFiles(File file) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(File file) throws IOException {
         return getSmaliFiles(new File[] { file });
     }
 
-    public static boolean isFrameworkClass(String className) {
-        return frameworkClasses.contains(className);
+    public boolean isFrameworkClass(String className) {
+        return frameworkClassNameToSmaliFile.containsKey(className);
     }
 
-    private static void cacheFrameworkSmaliFiles() throws IOException {
-        SmaliFileFactory.frameworkSmaliFiles = new HashSet<SmaliFile>();
+    private void cacheFrameworkSmaliFiles() throws IOException {
+        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>();
         final File jarFile = new File(SmaliFileFactory.class.getProtectionDomain().getCodeSource().getLocation()
                         .getPath());
         if (jarFile.isFile()) { // Run when JAR
@@ -61,7 +63,7 @@ public class SmaliFileFactory {
                     name = sb.toString();
                     InputStream is = SmaliFileFactory.class.getResourceAsStream(name);
                     SmaliFile smaliFile = new SmaliFile(name, is);
-                    frameworkSmaliFiles.add(smaliFile);
+                    frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
                 }
             }
             jar.close();
@@ -78,7 +80,7 @@ public class SmaliFileFactory {
                         InputStream is = SmaliFileFactory.class.getResourceAsStream(path);
                         // Smali files that are resources expect resource paths, not absolute paths
                         SmaliFile smaliFile = new SmaliFile(path, is);
-                        frameworkSmaliFiles.add(smaliFile);
+                        frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
                     }
                 } catch (URISyntaxException ex) {
                     // never happens (famous last words, ikr?)
@@ -86,31 +88,38 @@ public class SmaliFileFactory {
             }
         }
 
-        frameworkClasses = new HashSet<String>();
-        for (SmaliFile sf : frameworkSmaliFiles) {
+        for (SmaliFile sf : frameworkClassNameToSmaliFile.values()) {
             sf.setIsResource(true);
-            frameworkClasses.add(sf.getClassName());
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Located " + frameworkSmaliFiles.size() + " framework classes.");
+            log.debug("Located " + frameworkClassNameToSmaliFile.size() + " framework classes.");
         }
-
     }
 
-    public static Set<SmaliFile> getSmaliFiles(File[] files) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(File[] files) throws IOException {
         Set<SmaliFile> smaliFiles = new HashSet<SmaliFile>();
-        if (null == SmaliFileFactory.frameworkSmaliFiles) {
-            cacheFrameworkSmaliFiles();
-        }
-        smaliFiles.addAll(frameworkSmaliFiles);
-
+        Set<String> inputClasses = new HashSet<String>();
         for (File file : files) {
             List<File> matches = getFilesWithSmaliExtension(file);
             for (File match : matches) {
                 SmaliFile smaliFile = new SmaliFile(match);
                 smaliFiles.add(smaliFile);
+                inputClasses.add(smaliFile.getClassName());
             }
+        }
+
+        if (null == frameworkClassNameToSmaliFile) {
+            cacheFrameworkSmaliFiles();
+        }
+
+        for (Entry<String, SmaliFile> entry : frameworkClassNameToSmaliFile.entrySet()) {
+            String className = entry.getKey();
+            if (inputClasses.contains(className)) {
+                // Do not override input class with framework class
+                frameworkClassNameToSmaliFile.remove(className);
+            }
+            smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
         }
 
         return smaliFiles;

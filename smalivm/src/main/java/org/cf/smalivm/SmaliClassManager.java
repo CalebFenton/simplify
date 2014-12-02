@@ -46,6 +46,7 @@ public class SmaliClassManager {
     private final Map<String, List<String>> methodDescriptorToParameterTypes;
     private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryBlocks;
     private final Map<String, List<String>> classNameToFieldNameAndType;
+    private final SmaliFileFactory smaliFileFactory;
 
     /**
      *
@@ -55,7 +56,8 @@ public class SmaliClassManager {
      * @throws IOException
      */
     public SmaliClassManager(File smaliPath, DexBuilder dexBuilder) throws IOException {
-        Set<SmaliFile> smaliFiles = SmaliFileFactory.getSmaliFiles(smaliPath);
+        smaliFileFactory = new SmaliFileFactory();
+        Set<SmaliFile> smaliFiles = smaliFileFactory.getSmaliFiles(smaliPath);
         classNameToSmaliFile = new HashMap<String, SmaliFile>();
         for (SmaliFile smaliFile : smaliFiles) {
             classNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
@@ -119,12 +121,16 @@ public class SmaliClassManager {
     public Set<String> getNonFrameworkClassNames() {
         Set<String> classNames = new HashSet<String>();
         for (String className : classNameToSmaliFile.keySet()) {
-            if (!SmaliFileFactory.isFrameworkClass(className)) {
+            if (!smaliFileFactory.isFrameworkClass(className)) {
                 classNames.add(className);
             }
         }
 
         return classNames;
+    }
+
+    public boolean isFrameworkClass(String className) {
+        return smaliFileFactory.isFrameworkClass(className);
     }
 
     public Set<String> getLoadedClassNames() {
@@ -286,7 +292,7 @@ public class SmaliClassManager {
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
         BuilderClassDef classDef;
         try {
-            if (SmaliFileFactory.isFrameworkClass(className)) {
+            if (smaliFileFactory.isFrameworkClass(className)) {
                 classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), frameworkDexBuilder);
             } else {
                 classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), dexBuilder);
