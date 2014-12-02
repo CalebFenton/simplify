@@ -10,25 +10,25 @@ dependencies {
     compile project(':smalivm')
 
     // Lazy
-    compile 'commons-io:commons-io:2.+'
-    compile 'org.apache.commons:commons-lang3:3.+'
+    compile 'commons-io:commons-io:2.4'
+    compile 'org.apache.commons:commons-lang3:3.3.2'
 
     // CLI parsing
-    compile 'args4j:args4j:2.0.+'
+    compile 'args4j:args4j:2.0.29'
 
-    // Primitive high-speed primitve collections
-    compile 'net.sf.trove4j:trove4j:3.+'
+    // Primitive collections
+    compile 'net.sf.trove4j:trove4j:3.0.3'
 
-    // Benchmarking
-    compile 'org.perfidix:perfidix:3.+'
+    // Perfromance benchmarking
+    compile 'org.perfidix:perfidix:3.6.9'
 
     // Logging
-    compile 'org.slf4j:slf4j-api:1.7.+'
-    compile 'ch.qos.logback:logback-core:1.+'
-    compile 'ch.qos.logback:logback-classic:1.+'
+    compile 'org.slf4j:slf4j-api:1.7.7'
+    compile 'ch.qos.logback:logback-core:1.1.2'
+    compile 'ch.qos.logback:logback-classic:1.1.2'
 
-    runtime 'org.codehaus.groovy:groovy-all:2.3.6'
+    runtime 'org.codehaus.groovy:groovy-all:2.4.0-beta-4'
 
-    testCompile group: 'junit', name: 'junit', version: '4.+'
+    testCompile 'junit:junit:4.12-beta-3'
     testCompile files(project(':smalivm').sourceSets.test.output.classesDir)
 }
