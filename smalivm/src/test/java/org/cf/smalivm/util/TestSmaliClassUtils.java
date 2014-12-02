@@ -14,15 +14,24 @@ public class TestSmaliClassUtils {
     private static final String SMALI_CLASS = "Lsome/package/Class;";
     private static final String PACKAGE_NAME = "some.package";
     private static final Map<String, String> smaliClassToJavaClass;
+    private static final Map<String, String> javaClassToSmaliClass;
     private static final Map<String, Boolean> stringToIsPrimitive;
+    private static final Map<String, Class<?>> primitiveTypeToWrapperClass;
 
     static {
         smaliClassToJavaClass = new HashMap<String, String>();
         smaliClassToJavaClass.put("Lthis/is/Test;", "this.is.Test");
         smaliClassToJavaClass.put("[Lthis/is/Test;", "[Lthis.is.Test;");
-        smaliClassToJavaClass.put("I", "I");
+        smaliClassToJavaClass.put("I", "java.lang.Integer");
+        smaliClassToJavaClass.put("B", "java.lang.Byte");
         smaliClassToJavaClass.put("[I", "[I");
         smaliClassToJavaClass.put("[[Z", "[[Z");
+
+        javaClassToSmaliClass = new HashMap<String, String>();
+        javaClassToSmaliClass.put("this.is.Test", "Lthis/is/Test;");
+        javaClassToSmaliClass.put("[Lthis.is.Test;", "[Lthis/is/Test;");
+        javaClassToSmaliClass.put("[I", "[I");
+        javaClassToSmaliClass.put("[[Z", "[[Z");
 
         stringToIsPrimitive = new HashMap<String, Boolean>();
         stringToIsPrimitive.put("Lsome/class;", false);
@@ -37,6 +46,18 @@ public class TestSmaliClassUtils {
         stringToIsPrimitive.put("B", true);
         stringToIsPrimitive.put("[I", true);
         stringToIsPrimitive.put("[[I", true);
+
+        primitiveTypeToWrapperClass = new HashMap<String, Class<?>>();
+        primitiveTypeToWrapperClass.put("I", Integer.class);
+        primitiveTypeToWrapperClass.put("Z", Boolean.class);
+        primitiveTypeToWrapperClass.put("C", Character.class);
+        primitiveTypeToWrapperClass.put("S", Short.class);
+        primitiveTypeToWrapperClass.put("D", Double.class);
+        primitiveTypeToWrapperClass.put("F", Float.class);
+        primitiveTypeToWrapperClass.put("J", Long.class);
+        primitiveTypeToWrapperClass.put("B", Byte.class);
+        primitiveTypeToWrapperClass.put("[I", Integer[].class);
+        primitiveTypeToWrapperClass.put("[[I", Integer[][].class);
     }
 
     @Test
@@ -59,9 +80,9 @@ public class TestSmaliClassUtils {
 
     @Test
     public void TestJavaClassToSmali() {
-        for (Entry<String, String> entry : smaliClassToJavaClass.entrySet()) {
-            String javaClass = entry.getValue();
-            String expected = entry.getKey();
+        for (Entry<String, String> entry : javaClassToSmaliClass.entrySet()) {
+            String javaClass = entry.getKey();
+            String expected = entry.getValue();
             String actual = SmaliClassUtils.javaClassToSmali(javaClass);
 
             assertEquals(expected, actual);
@@ -74,6 +95,17 @@ public class TestSmaliClassUtils {
             String smaliClass = entry.getKey();
             String expected = entry.getValue();
             String actual = SmaliClassUtils.smaliClassToJava(smaliClass);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void TestSmaliPrimitiveToJavaWrapper() {
+        for (Entry<String, Class<?>> entry : primitiveTypeToWrapperClass.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue().getName();
+            String actual = SmaliClassUtils.smaliPrimitiveToJavaWrapper(className);
 
             assertEquals(expected, actual);
         }

@@ -3,11 +3,13 @@ package org.cf.smalivm.opcode;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -16,6 +18,7 @@ import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.Type;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
+import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
@@ -23,6 +26,7 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,8 +50,6 @@ public class InvokeOp extends ExecutionContextOp {
             for (int i = start; i < end; i++) {
                 registers[i - start] = i;
             }
-
-            // methodReference = (MethodReference) instr.getReference();
         } else {
             Instruction35c instr = (Instruction35c) instruction;
             int registerCount = instr.getRegisterCount();
@@ -65,8 +67,6 @@ public class InvokeOp extends ExecutionContextOp {
                 registers[0] = instr.getRegisterC();
                 break;
             }
-
-            // methodReference = (MethodReference) instr.getReference();
         }
 
         String returnType = methodReference.getReturnType();
@@ -120,19 +120,46 @@ public class InvokeOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        SmaliClassManager classManager = vm.getClassManager();
-        if (classManager.isLocalMethod(methodDescriptor)) {
-            if (!isStatic && !classManager.methodHasImplementation(methodDescriptor)) {
-                // Must be an interface or abstract method reference.
-                // Resolve the actual target method
-                String targetMethod = getTargetMethod(ectx);
-                executeLocalMethod(targetMethod, ectx);
+        String targetMethod = methodDescriptor;
+        if (getOpName().endsWith("-virtual")) {
+            // Method call might be to interface or abstract class.
+            // Try and resolve what the actual virtual target is.
+            targetMethod = getLocalTargetForVirtualMethod(ectx);
+        }
+
+        if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
+            MethodState callerContext = ectx.getMethodState();
+            MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
+            boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
+            if (allArgumentsKnown) {
+                executeNonLocalMethod(targetMethod, callerContext, calleeContext);
+
+                return getPossibleChildren();
             } else {
-                executeLocalMethod(methodDescriptor, ectx);
+                if (log.isTraceEnabled()) {
+                    log.trace("Not emulating / reflecting " + targetMethod + " because all args not known.");
+                }
             }
         } else {
-            MethodState mState = ectx.getMethodState();
-            executeNonLocalMethod(methodDescriptor, mState);
+            // This assumes if reflection fails, not worth it to try possibly cached framework classes.
+
+            SmaliClassManager classManager = vm.getClassManager();
+            if (classManager.isLocalMethod(targetMethod)) {
+                if (classManager.methodHasImplementation(targetMethod)) {
+                    executeLocalMethod(targetMethod, ectx);
+                } else {
+                    if (log.isWarnEnabled()) {
+                        log.warn("Attempting to execute local method without implementation: " + targetMethod
+                                        + ". Assuming maxiumum ambiguity.");
+                    }
+                    assumeMaximumUnknown(ectx.getMethodState());
+                }
+            } else {
+                if (log.isWarnEnabled()) {
+                    log.warn("Attempting to execute unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
+                }
+                assumeMaximumUnknown(ectx.getMethodState());
+            }
         }
 
         return getPossibleChildren();
@@ -157,7 +184,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getOpName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -253,23 +280,16 @@ public class InvokeOp extends ExecutionContextOp {
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
-    private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext) {
-        MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
-        boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
-        if (allArgumentsKnown && MethodEmulator.canEmulate(methodDescriptor)) {
+    private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext, MethodState calleeContext) {
+        assert allArgumentsKnown(calleeContext);
+        if (MethodEmulator.canEmulate(methodDescriptor)) {
             sideEffectLevel = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
-        } else if (allArgumentsKnown && MethodReflector.isSafe(methodDescriptor)) {
+        } else if (MethodReflector.canReflect(methodDescriptor)) {
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.
             sideEffectLevel = SideEffect.Level.NONE;
-        } else {
-            log.debug("Unknown argument(s) or can't find/emulate/reflect " + methodDescriptor
-                            + ". Propigating ambiguity.");
-            assumeMaximumUnknown(callerContext);
-
-            return;
         }
 
         if (!isStatic) {
@@ -292,15 +312,60 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private String getTargetMethod(ExecutionContext ectx) {
-        String methodSignature = methodDescriptor.split("->")[1];
+    private String getLocalTargetForVirtualMethod(ExecutionContext ectx) {
         int targetRegister = parameterRegisters[0];
         Object value = ectx.getMethodState().peekRegister(targetRegister);
-        assert (value instanceof Type);
-        String actualType = ((Type) value).getType();
-        StringBuilder sb = new StringBuilder(actualType);
-        sb.append("->").append(methodSignature);
+        assert (value instanceof Type) || (value instanceof Class);
+        String actualType;
+        if (value instanceof Type) {
+            actualType = ((Type) value).getType();
+        } else {
+            actualType = SmaliClassUtils.javaClassToSmali(value.getClass().getName());
+        }
 
-        return sb.toString();
+        if (SmaliClassUtils.isPrimitiveType(actualType)) {
+            actualType = SmaliClassUtils.smaliPrimitiveToJavaWrapper(actualType);
+        }
+        String methodSignature = methodDescriptor.split("->")[1];
+        String targetMethod = getLocalTargetForVirtualMethod(actualType, methodSignature, new HashSet<String>());
+
+        return targetMethod != null ? targetMethod : methodDescriptor;
+    }
+
+    private String getLocalTargetForVirtualMethod(String className, String methodSignature, Set<String> visited) {
+        visited.add(className);
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(methodSignature);
+        String methodDescriptor = sb.toString();
+
+        SmaliClassManager classManager = vm.getClassManager();
+        boolean isSafe = MethodReflector.isSafe(methodDescriptor);
+        boolean isLocal = classManager.isLocalMethod(methodDescriptor);
+        if (!isSafe && !isLocal) {
+            return methodDescriptor;
+        }
+
+        if (isSafe || (isLocal && classManager.methodHasImplementation(methodDescriptor))) {
+            return methodDescriptor;
+        }
+
+        BuilderClassDef classDef = classManager.getClass(className);
+        Set<String> parents = new HashSet<String>();
+        parents.addAll(classDef.getInterfaces());
+        if (null != classDef.getSuperclass()) {
+            parents.add(classDef.getSuperclass());
+        }
+
+        for (String parent : parents) {
+            if (visited.contains(parent)) {
+                continue;
+            }
+            String target = getLocalTargetForVirtualMethod(parent, methodSignature, visited);
+            if (null != target) {
+                return target;
+            }
+        }
+
+        return null;
     }
 }

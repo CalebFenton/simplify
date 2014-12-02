@@ -139,8 +139,6 @@ public class ExecutionContext {
             ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
             initContext.setCallDepth(getCallDepth() + 1);
 
-            // ClassState templateClassState = getTemplate().peekClassState(className);
-            // ClassState cState = new ClassState(templateClassState, initContext);
             ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
 
@@ -156,15 +154,6 @@ public class ExecutionContext {
             setClassInitialized(className);
         }
         setClassSideEffectType(className, sideEffectLevel);
-    }
-
-    private ExecutionContext getTemplate() {
-        ExecutionContext result = this;
-        while (result.getParent() != null) {
-            result = result.getParent();
-        }
-
-        return result;
     }
 
     public boolean isClassInitialized(String className) {
@@ -205,7 +194,9 @@ public class ExecutionContext {
 
     public ClassState peekClassState(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
-        if (ancestor != this) {
+        if (ancestor == null) {
+            vm.addTemplateClassState(this, className);
+        } else if (ancestor != this) {
             ClassState ancestorClassState = ancestor.peekClassState(className);
             ClassState cState = ancestorClassState.getChild(this);
             SideEffect.Level level = ancestor.getClassStateSideEffectLevel(className);
