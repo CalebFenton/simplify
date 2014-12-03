@@ -22,7 +22,7 @@ public abstract class Op {
         return address;
     }
 
-    public final String getOpName() {
+    public final String getName() {
         return opName;
     }
 

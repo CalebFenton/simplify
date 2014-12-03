@@ -43,9 +43,9 @@ public class CmpOp extends MethodStateOp {
 
         Object value;
         if ((arg1 instanceof UnknownValue) || (arg2 instanceof UnknownValue)) {
-            if (getOpName().endsWith("float")) {
+            if (getName().endsWith("float")) {
                 value = new UnknownValue("F");
-            } else if (getOpName().endsWith("double")) {
+            } else if (getName().endsWith("double")) {
                 value = new UnknownValue("D");
             } else {
                 value = new UnknownValue("J");
@@ -71,13 +71,13 @@ public class CmpOp extends MethodStateOp {
 
         int value = 0;
         if (arg1IsNan || arg2IsNan) {
-            if (getOpName().startsWith("cmpg")) {
+            if (getName().startsWith("cmpg")) {
                 value = 1;
             } else { // cmpl
                 value = -1;
             }
         } else {
-            if (getOpName().endsWith("float")) {
+            if (getName().endsWith("float")) {
                 Float castVal1 = (Float) val1;
                 Float castVal2 = (Float) val2;
                 if (castVal1.equals(castVal2)) {
@@ -88,7 +88,7 @@ public class CmpOp extends MethodStateOp {
                 } else if (castVal1 < castVal2) {
                     value = -1;
                 }
-            } else if (getOpName().endsWith("double")) {
+            } else if (getName().endsWith("double")) {
                 Double castVal1 = (Double) val1;
                 Double castVal2 = (Double) val2;
                 if (castVal1.equals(castVal2)) {
@@ -117,7 +117,7 @@ public class CmpOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(destRegister).append(", r").append(arg1Register).append(", r").append(arg2Register);
 
         return sb.toString();

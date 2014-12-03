@@ -66,7 +66,7 @@ public class NewArrayOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(destRegister).append(", r").append(dimensionRegister).append(", ").append(typeReference);
 
         return sb.toString();

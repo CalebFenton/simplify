@@ -33,7 +33,7 @@ public class ReturnOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        if (!getOpName().endsWith("-void")) {
+        if (!getName().endsWith("-void")) {
             Object value = mState.readRegister(register);
             mState.assignReturnRegister(value);
         }
@@ -43,7 +43,7 @@ public class ReturnOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         if (register != Integer.MIN_VALUE) {
             sb.append(" r").append(register);
         }

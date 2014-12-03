@@ -57,7 +57,7 @@ public class ArrayLengthOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(destRegister).append(", r").append(arrayRegister);
 
         return sb.toString();

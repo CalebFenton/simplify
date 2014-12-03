@@ -50,7 +50,7 @@ public class CheckCastOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(targetRegister).append(", ").append(className);
 
         return sb.toString();

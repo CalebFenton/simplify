@@ -69,7 +69,7 @@ class UnimplementedOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
 
         if (registerA >= 0) {
             sb.append(" r").append(registerA);
