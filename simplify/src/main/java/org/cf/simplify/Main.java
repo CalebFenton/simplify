@@ -77,18 +77,25 @@ public class Main {
     }
 
     private static void setLogLevel(OptionBean bean) {
+        if (bean.isQuiet()) {
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
+                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+            rootLogger.setLevel(Level.OFF);
+            return;
+        }
+
         if (bean.isVerbose()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
-            rootLogger.setLevel(Level.toLevel("info"));
+            rootLogger.setLevel(Level.INFO);
         } else if (bean.isVverbose()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
-            rootLogger.setLevel(Level.toLevel("debug"));
+            rootLogger.setLevel(Level.DEBUG);
         } else if (bean.isVvverbose()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
-            rootLogger.setLevel(Level.toLevel("trace"));
+            rootLogger.setLevel(Level.TRACE);
         }
     }
 
