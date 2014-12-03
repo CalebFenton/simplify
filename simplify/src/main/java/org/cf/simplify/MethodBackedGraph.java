@@ -196,6 +196,16 @@ public class MethodBackedGraph extends ExecutionGraph {
         replaceInstruction(address, shift, op, codeUnits);
     }
 
+    public void insertInstruction(int address, BuilderInstruction instruction) {
+        BuilderInstruction original = addressToInstruction.get(address);
+        int index = original.getLocation().getIndex();
+
+        // addInstruction(int, instruction) will insert with reindex
+        implementation.addInstruction(index, instruction);
+        int shift = instruction.getCodeUnits();
+        Utils.shiftIntegerMapKeys(address - original.getCodeUnits(), shift, addressToInstruction);
+    }
+
     private void removeNodePile(int address, int shift) {
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
         for (ExecutionNode removedNode : nodePile) {

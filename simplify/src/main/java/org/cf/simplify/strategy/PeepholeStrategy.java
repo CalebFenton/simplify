@@ -15,6 +15,8 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
+import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
@@ -67,10 +69,50 @@ public class PeepholeStrategy implements OptimizationStrategy {
         }
     }
 
+    void peepStringInit() {
+        TIntList peepAddresses = new TIntArrayList();
+        for (int address : addresses.toArray()) {
+            BuilderInstruction original = mbgraph.getInstruction(address);
+            if (!(original instanceof Instruction35c)) {
+                // Not an invoke direct
+                continue;
+            }
+
+            Instruction35c instr = (Instruction35c) original;
+            MethodReference methodReference = (MethodReference) instr.getReference();
+            String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+            if (!methodDescriptor.startsWith("Ljava/lang/String;-><init>(")) {
+                continue;
+            }
+
+            int instanceRegister = instr.getRegisterC();
+            Object value = mbgraph.getRegisterConsensus(address, instanceRegister);
+            if (!(value instanceof String)) {
+                // Not UnknownValue
+                continue;
+            }
+            peepAddresses.add(address);
+        }
+
+        peepCount += peepAddresses.size();
+        peepAddresses.sort();
+        peepAddresses.reverse();
+        for (int address : peepAddresses.toArray()) {
+            BuilderInstruction original = mbgraph.getInstruction(address);
+            Instruction35c instr = (Instruction35c) original;
+            int instanceRegister = instr.getRegisterC();
+            Object value = mbgraph.getRegisterConsensus(address, instanceRegister);
+            BuilderInstruction replacement = ConstantPropigationStrategy.buildConstant(value, instanceRegister,
+                            mbgraph.getDexBuilder());
+            mbgraph.replaceInstruction(address, replacement);
+        }
+    }
+
     public boolean perform() {
         addresses = getValidAddresses(mbgraph);
 
         peepClassForName();
+        peepStringInit();
 
         return peepCount > 0;
     }

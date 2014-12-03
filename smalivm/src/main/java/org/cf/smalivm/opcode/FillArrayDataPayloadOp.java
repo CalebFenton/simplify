@@ -2,14 +2,14 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FillArrayDataPayloadOp extends MethodStateOp {
 
@@ -56,6 +56,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
 
         return new FillArrayDataPayloadOp(address, opName, instr.getElementWidth(), instr.getArrayElements());
     }
+
     private final List<Number> arrayElements;
 
     private final int elementWidth;
@@ -71,7 +72,8 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     public int[] execute(MethodState mState) {
         MethodState parent = mState.getParent();
         int register = parent.getRegistersAssigned().get(0);
-        Object array = mState.readRegister(register);
+        // Read instead of peek because this shouldn't count as an actual use for the optimizer
+        Object array = mState.peekRegister(register);
         if (!(array instanceof UnknownValue)) {
             Class<?> expectedClass = array.getClass().getComponentType();
             for (int i = 0; i < arrayElements.size(); i++) {

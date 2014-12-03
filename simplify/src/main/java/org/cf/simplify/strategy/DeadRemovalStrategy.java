@@ -130,10 +130,14 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             Op op = mbgraph.getOp(address);
-            log.debug("Dead test @" + address + " for: " + op);
+            if (log.isDebugEnabled()) {
+                log.debug("Dead test @" + address + " for: " + op);
+            }
 
             if (!mbgraph.wasAddressReached(address)) {
-                log.debug("dead: " + op);
+                if (log.isDebugEnabled()) {
+                    log.debug("dead: " + op);
+                }
                 result.add(address);
             }
         }
@@ -151,7 +155,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             List<ExecutionNode> pile = mbgraph.getNodePile(address);
             ExecutionContext ectx = pile.get(0).getContext();
             if (ectx == null) {
-                log.warn("Null execution context @" + address + ". This shouldn't happen!");
+                if (log.isWarnEnabled()) {
+                    log.warn("Null execution context @" + address + ". This shouldn't happen!");
+                }
                 continue;
             }
 
@@ -162,12 +168,16 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             Op op = mbgraph.getOp(address);
-            log.debug("Read assignments test @" + address + " for: " + op);
+            if (log.isDebugEnabled()) {
+                log.debug("Read assignments test @" + address + " for: " + op);
+            }
             if (areAssignmentsRead(address, assigned, mbgraph)) {
                 continue;
             }
 
-            log.debug("dead assignment: " + op + ", registers=" + assigned);
+            if (log.isDebugEnabled()) {
+                log.debug("dead assignment: " + op + ", registers=" + assigned);
+            }
             result.add(address);
         }
 
@@ -187,7 +197,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 continue;
             }
 
-            log.debug("Results usage test @" + address + " for: " + op);
+            if (log.isDebugEnabled()) {
+                log.debug("Results usage test @" + address + " for: " + op);
+            }
             String returnType = ((InvokeOp) op).getReturnType();
             if (returnType.equals("V")) {
                 continue;
@@ -203,7 +215,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 continue;
             }
 
-            log.info("dead result: " + op);
+            if (log.isDebugEnabled()) {
+                log.info("dead result: " + op);
+            }
             result.add(address);
         }
 
@@ -231,7 +245,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    private static TIntSet getHandlerCodeAddresses(MethodBackedGraph mbgraph) {
+    private static TIntSet getExceptionHandlerCodeAddresses(MethodBackedGraph mbgraph) {
         TIntSet result = new TIntHashSet();
         List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
         for (BuilderTryBlock tryBlock : tryBlocks) {
@@ -255,29 +269,32 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     TIntList getValidAddresses(MethodBackedGraph mbgraph) {
-        // List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
-        // TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
-        // TIntList result = getAddressesNotInTryCatchBlocks(addressToInstruction, tryBlocks);
+        TIntList validAddresses = new TIntArrayList(mbgraph.getAddresses());
+        // Keep the last address. It's a hack. Last op is normally a return, goto, etc.
+        // Though could be array-payload (but we don't check, hence hack)
+        validAddresses.sort();
+        validAddresses.removeAt(validAddresses.size() - 1);
 
-        TIntList result = new TIntArrayList(mbgraph.getAddresses());
+        // For now, don't remove any exception handler code until VM actually understands them.
+        validAddresses.removeAll(getExceptionHandlerCodeAddresses(mbgraph));
 
-        // This is a hack to prevent handlers from being removed
-        // And it's probably not a good idea to remove the last op in a method because it either returns or jumps.
-        result.sort();
-        result.removeAt(result.size() - 1);
-        result.removeAll(getHandlerCodeAddresses(mbgraph));
-
-        for (int address : result.toArray()) {
+        for (int address : validAddresses.toArray()) {
             Op op = mbgraph.getOp(address);
             int level = op.sideEffectLevel().getValue();
             if (level > SIDE_EFFECT_THRESHOLD.getValue()) {
-                result.remove(address);
+                validAddresses.remove(address);
                 continue;
             }
 
+            // TODO: replace with class ref when implemented
+            if (op.getOpName().equals("nop")) {
+                // Usually, the only reason a nop exists is because it was generated by the compiler.
+                // Most decompilers are smart enough to deal with them.
+                validAddresses.remove(address);
+            }
         }
 
-        return result;
+        return validAddresses;
     }
 
 }
