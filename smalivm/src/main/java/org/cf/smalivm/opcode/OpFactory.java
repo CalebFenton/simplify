@@ -168,7 +168,7 @@ public final class OpFactory {
         case CMPL_DOUBLE:
         case CMPL_FLOAT:
         case CMP_LONG:
-            // TODO: implement
+            result = OpType.COMPARE;
             break;
 
         case CONST:
@@ -394,7 +394,7 @@ public final class OpFactory {
             result = CheckCastOp.create(instruction, address, vm);
             break;
         case COMPARE:
-            // TODO: implement
+            result = CmpOp.create(instruction, address);
             break;
         case FILLED_NEW_ARRAY:
             result = FilledNewArrayOp.create(instruction, address, vm);
