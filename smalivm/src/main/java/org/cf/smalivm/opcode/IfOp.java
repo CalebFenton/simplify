@@ -178,7 +178,7 @@ public class IfOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
 
         sb.append(" r").append(register1);
         if (!compareToZero) {

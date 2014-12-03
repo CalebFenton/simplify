@@ -59,7 +59,7 @@ public class SPutOp extends ExecutionContextOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(valueRegister).append(", ").append(fieldDescriptor);
 
         return sb.toString();

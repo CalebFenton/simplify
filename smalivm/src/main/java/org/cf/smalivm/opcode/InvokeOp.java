@@ -121,7 +121,7 @@ public class InvokeOp extends ExecutionContextOp {
     @Override
     public int[] execute(ExecutionContext ectx) {
         String targetMethod = methodDescriptor;
-        if (getOpName().endsWith("-virtual")) {
+        if (getName().endsWith("-virtual")) {
             // Method call might be to interface or abstract class.
             // Try and resolve what the actual virtual target is.
             targetMethod = getLocalTargetForVirtualMethod(ectx);
@@ -184,9 +184,9 @@ public class InvokeOp extends ExecutionContextOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" {");
-        if (getOpName().contains("/range")) {
+        if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
                             .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {

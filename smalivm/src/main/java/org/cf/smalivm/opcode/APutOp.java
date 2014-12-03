@@ -56,15 +56,15 @@ public class APutOp extends MethodStateOp {
                 String type = array.getClass().getName();
                 array = new UnknownValue(type);
             } else {
-                if (getOpName().endsWith("-wide")) {
+                if (getName().endsWith("-wide")) {
                     value = (long) value;
-                } else if (getOpName().endsWith("-boolean")) {
+                } else if (getName().endsWith("-boolean")) {
                     value = ((int) value == 1 ? true : false);
-                } else if (getOpName().endsWith("-byte")) {
+                } else if (getName().endsWith("-byte")) {
                     value = (byte) value;
-                } else if (getOpName().endsWith("-char")) {
+                } else if (getName().endsWith("-char")) {
                     value = (char) ((int) value);
-                } else if (getOpName().endsWith("-short")) {
+                } else if (getName().endsWith("-short")) {
                     value = (short) ((int) value);
                 }
 
@@ -81,7 +81,7 @@ public class APutOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
 
         return sb.toString();

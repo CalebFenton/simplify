@@ -25,7 +25,7 @@ public class GotoOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
 
         sb.append(" #").append(getPossibleChildren()[0]);
 

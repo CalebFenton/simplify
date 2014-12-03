@@ -55,10 +55,10 @@ public class UnaryMathOp extends MethodStateOp {
         Object value = mState.readRegister(srcRegister);
         Object newValue = null;
         if (value instanceof UnknownValue) {
-            String destType = getDestinationTypeName(getOpName());
+            String destType = getDestinationTypeName(getName());
             newValue = new UnknownValue(destType);
         } else {
-            newValue = perform(value, getOpName());
+            newValue = perform(value, getName());
         }
 
         mState.assignRegister(destRegister, newValue);
@@ -68,7 +68,7 @@ public class UnaryMathOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(destRegister).append(", r").append(srcRegister);
 
         return sb.toString();

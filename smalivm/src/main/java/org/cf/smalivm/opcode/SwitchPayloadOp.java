@@ -89,7 +89,7 @@ public class SwitchPayloadOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" [");
         for (SwitchElement element : switchElements) {
             sb.append(element.getKey()).append(" -> #").append(element.getOffset()).append(", ");

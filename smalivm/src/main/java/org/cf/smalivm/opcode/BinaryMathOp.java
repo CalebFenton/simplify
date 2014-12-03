@@ -303,11 +303,11 @@ public class BinaryMathOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getOpName());
+        StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(destRegister).append(", ").append("r").append(arg1Register);
         if (hasLiteral) {
             sb.append(", 0x").append(Integer.toHexString(narrowLiteral));
-        } else if (!getOpName().endsWith("/2addr")) {
+        } else if (!getName().endsWith("/2addr")) {
             sb.append(", r").append(arg2Register);
         }
 
