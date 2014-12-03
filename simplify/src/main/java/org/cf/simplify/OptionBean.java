@@ -49,6 +49,9 @@ public class OptionBean implements Serializable {
     @Option(name = "-vvv", aliases = { "--vvverbose" }, usage = "Abandon all hope ye who enter here")
     private boolean vvverbose;
 
+    @Option(name = "-q", aliases = { "--quiet" }, usage = "Be quiet")
+    private boolean quiet;
+
     private File inFile;
 
     public File getInFile() {
@@ -101,6 +104,10 @@ public class OptionBean implements Serializable {
 
     public boolean isVvverbose() {
         return vvverbose;
+    }
+
+    public boolean isQuiet() {
+        return quiet;
     }
 
     @Option(name = "-i", aliases = { "--input" }, metaVar = "input", handler = FileOptionHandler.class, usage = "Input SMALI file or folder", required = true)
