@@ -22,7 +22,7 @@ dependencies {
 
     // Parsing and writing dex files
     //compile 'org.smali:dexlib2:2.0.4'
-    compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.4.jar')
+    compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')
     compile 'org.smali:smali:2.0.3'
     compile 'org.smali:baksmali:2.0.3'
 
