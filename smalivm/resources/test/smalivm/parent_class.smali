@@ -1,5 +1,5 @@
 .class Lparent_class;
-.super Ljava/lang/Object;
+.super Lgrandparent_class;
 
 
 # direct methods

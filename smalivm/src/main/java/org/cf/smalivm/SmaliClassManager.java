@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.Dexifier;
+import org.cf.util.SmaliClassUtils;
 import org.cf.util.SmaliFileFactory;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.ExceptionHandler;
@@ -310,4 +312,65 @@ public class SmaliClassManager {
         addFieldNameAndTypes(classDef);
     }
 
+    public boolean isInstance(Class childClass, Class targetClass) throws UnknownAncestors {
+        String childType = SmaliClassUtils.javaClassToSmali(childClass);
+        String targetType = SmaliClassUtils.javaClassToSmali(targetClass);
+
+        return isInstance(childType, targetType);
+    }
+
+    public boolean isInstance(String childType, String targetType) throws UnknownAncestors {
+        return isInstance(childType, targetType, new HashSet<String>());
+    }
+
+    private boolean isInstance(String childType, String targetType, Set<String> visited) throws UnknownAncestors {
+        if (childType.equals(targetType)) {
+            return true;
+        }
+
+        Set<String> parents = getAncestors(childType);
+        for (String parent : parents) {
+            if (visited.contains(parent)) {
+                continue;
+            }
+            visited.add(parent);
+
+            if (parent.equals(targetType)) {
+                return true;
+            } else if (isInstance(parent, targetType, visited)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Set<String> getAncestors(String className) throws UnknownAncestors {
+        Set<String> parents = new HashSet<String>();
+        if (isLocalClass(className)) {
+            BuilderClassDef classDef = getClass(className);
+            parents.addAll(classDef.getInterfaces());
+            if (null != classDef.getSuperclass()) {
+                parents.add(classDef.getSuperclass());
+            }
+        } else {
+            String javaClass = SmaliClassUtils.smaliClassToJava(className);
+            try {
+                Class<?> klazz = Class.forName(javaClass);
+                Class<?>[] interfaces = klazz.getInterfaces();
+                for (Class<?> interFace : interfaces) {
+                    parents.add(SmaliClassUtils.javaClassToSmali(interFace));
+                }
+                Class<?> superklazz = klazz.getSuperclass();
+                if (null != superklazz) {
+                    parents.add(SmaliClassUtils.javaClassToSmali(superklazz));
+                }
+            } catch (ClassNotFoundException e) {
+                log.warn("Unable to determine ancestory for non-local class: " + javaClass);
+                throw new UnknownAncestors(className);
+            }
+        }
+
+        return parents;
+    }
 }

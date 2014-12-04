@@ -2,7 +2,9 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.exception.UnknownAncestors;
+import org.cf.smalivm.type.Type;
+import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
@@ -36,14 +38,23 @@ public class CheckCastOp extends MethodStateOp {
     @Override
     public int[] execute(MethodState mState) {
         Object value = mState.readRegister(targetRegister);
-        if (value instanceof UnknownValue) {
-            value = new UnknownValue(className);
-        } else if (vm.isLocalClass(className)) {
-            // TODO: make VM keep track of local class hierarchy
+        String type;
+        if (value instanceof Type) {
+            type = ((Type) value).getType();
         } else {
-            // TODO: make exception framework and throw exception if can't cast
+            type = SmaliClassUtils.javaClassToSmali(value.getClass());
         }
-        mState.assignRegister(targetRegister, value);
+
+        try {
+            if (!vm.getClassManager().isInstance(type, className)) {
+                // TODO: make exception framework and throw exception if can't cast
+                // should include realistic stac track
+                throw new ClassCastException();
+            }
+        } catch (UnknownAncestors e) {
+            // TODO Auto-generated catch block
+            throw new ClassCastException();
+        }
 
         return getPossibleChildren();
     }
