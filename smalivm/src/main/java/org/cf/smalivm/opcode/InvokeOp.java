@@ -124,7 +124,9 @@ public class InvokeOp extends ExecutionContextOp {
         if (getName().endsWith("-virtual")) {
             // Method call might be to interface or abstract class.
             // Try and resolve what the actual virtual target is.
-            targetMethod = getLocalTargetForVirtualMethod(ectx);
+            int targetRegister = parameterRegisters[0];
+            Object value = ectx.getMethodState().peekRegister(targetRegister);
+            targetMethod = getLocalTargetForVirtualMethod(value);
         }
 
         MethodState callerContext = ectx.getMethodState();
@@ -188,7 +190,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -341,9 +343,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private String getLocalTargetForVirtualMethod(ExecutionContext ectx) {
-        int targetRegister = parameterRegisters[0];
-        Object value = ectx.getMethodState().peekRegister(targetRegister);
+    private String getLocalTargetForVirtualMethod(Object value) {
         String actualType;
         if (value instanceof Type) {
             actualType = ((Type) value).getType();
@@ -377,6 +377,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         if (!classManager.isLocalClass(className)) {
             // Can't trace any further up.
+            // Note, also checked if this is white-listed Java API
             return null;
         }
 
@@ -399,4 +400,5 @@ public class InvokeOp extends ExecutionContextOp {
 
         return null;
     }
+
 }
