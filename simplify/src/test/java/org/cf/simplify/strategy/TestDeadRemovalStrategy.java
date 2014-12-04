@@ -24,7 +24,7 @@ public class TestDeadRemovalStrategy {
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getDeadAddresses();
         found.sort();
-        TIntList expected = new TIntArrayList(new int[] { 2, 3, 4, 5 });
+        TIntList expected = new TIntArrayList(new int[] { 2 });
 
         assertEquals(expected, found);
     }
