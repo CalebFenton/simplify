@@ -18,7 +18,7 @@ public class TestDeadRemovalStrategy {
     private static final Logger log = LoggerFactory.getLogger(TestDeadRemovalStrategy.class.getSimpleName());
 
     @Test
-    public void TestDeadCodeIsRemoved() {
+    public void testDeadCodeIsRemoved() {
         String methodSignature = "DeadCode()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
@@ -30,7 +30,7 @@ public class TestDeadRemovalStrategy {
     }
 
     @Test
-    public void TestUnusedAssignmentIsRemoved() {
+    public void testUnusedAssignmentIsRemoved() {
         String methodSignature = "UnusedAssignment()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
@@ -41,7 +41,7 @@ public class TestDeadRemovalStrategy {
     }
 
     @Test
-    public void TestUnusedResultNoSideEffectsRemovesInvoke() {
+    public void testUnusedResultNoSideEffectsRemovesInvoke() {
         String methodSignature = "UnusedResultNoSideEffects()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
@@ -52,7 +52,7 @@ public class TestDeadRemovalStrategy {
     }
 
     @Test
-    public void TestUnusedResultWithSideEffectsIsNotValidForRemoval() {
+    public void testUnusedResultWithSideEffectsIsNotValidForRemoval() {
         String methodSignature = "UnusedResultWithSideEffects()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
@@ -63,7 +63,7 @@ public class TestDeadRemovalStrategy {
     }
 
     @Test
-    public void TestUselessGotoIsRemoved() {
+    public void testUselessGotoIsRemoved() {
         String methodSignature = "UselessGoto()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
@@ -74,7 +74,7 @@ public class TestDeadRemovalStrategy {
     }
 
     @Test
-    public void TestDeadTryCatchBlockIsRemoved() {
+    public void testDeadTryCatchBlockIsRemoved() {
         String methodSignature = "DeadTryCatchBlock()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);

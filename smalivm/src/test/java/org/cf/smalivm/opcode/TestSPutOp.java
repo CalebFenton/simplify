@@ -12,7 +12,7 @@ public class TestSPutOp {
     private static final String CLASS_NAME = "Lsput_test;";
 
     @Test
-    public void TestStaticPutBoolean() {
+    public void testStaticPutBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, true);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myBoolean:Z", true);
@@ -21,7 +21,7 @@ public class TestSPutOp {
     }
 
     @Test
-    public void TestStaticPutByte() {
+    public void testStaticPutByte() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (byte) 0xFF);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myByte:B", (byte) 0xFF);
@@ -30,7 +30,7 @@ public class TestSPutOp {
     }
 
     @Test
-    public void TestStaticPutChar() {
+    public void testStaticPutChar() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, '!');
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myChar:C", '!');
@@ -39,7 +39,7 @@ public class TestSPutOp {
     }
 
     @Test
-    public void TestStaticPutInt() {
+    public void testStaticPutInt() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myInt:I", 0x42);
@@ -48,7 +48,7 @@ public class TestSPutOp {
     }
 
     @Test
-    public void TestStaticPutObject() {
+    public void testStaticPutObject() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "Do not pray for an easy life");
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myString:Ljava/lang/String;", "Do not pray for an easy life");
@@ -57,7 +57,7 @@ public class TestSPutOp {
     }
 
     @Test
-    public void TestStaticPutShort() {
+    public void testStaticPutShort() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (short) 0x4242);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myShort:S", (short) 0x4242);
@@ -66,7 +66,7 @@ public class TestSPutOp {
     }
 
     @Test
-    public void TestStaticPutWide() {
+    public void testStaticPutWide() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);
         Map<String, Map<String, Object>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldValue(
                         CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);

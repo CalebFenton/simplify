@@ -22,7 +22,7 @@ public class TestConstantPropigationStrategy {
 
     public static class WithKnownValues {
         @Test
-        public void TestBinaryMathOpIsConstable() {
+        public void testBinaryMathOpIsConstable() {
             String methodSignature = "BinaryMathOp()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 3);
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
@@ -32,7 +32,7 @@ public class TestConstantPropigationStrategy {
         }
 
         @Test
-        public void TestNonDeterministicallyExecuteConstableOpIsConstable() {
+        public void testNonDeterministicallyExecuteConstableOpIsConstable() {
             String methodSignature = "NonDeterministicallyExecuteConstableOp()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
@@ -42,7 +42,7 @@ public class TestConstantPropigationStrategy {
         }
 
         @Test
-        public void TestMoveOpIsWithConst16IsConstable() {
+        public void testMoveOpIsWithConst16IsConstable() {
             String methodSignature = "MoveV0IntoV1()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
@@ -52,7 +52,7 @@ public class TestConstantPropigationStrategy {
         }
 
         @Test
-        public void TestSGetIsConstable() {
+        public void testSGetIsConstable() {
             String methodSignature = "StaticGetWhitelistedClassMember()V";
             TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
@@ -62,7 +62,7 @@ public class TestConstantPropigationStrategy {
         }
 
         @Test
-        public void TestAGetIsConstable() {
+        public void testAGetIsConstable() {
             String methodSignature = "ArrayGet()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[5], 1, 0);
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
@@ -72,7 +72,7 @@ public class TestConstantPropigationStrategy {
         }
 
         @Test
-        public void TestMoveOpIsWithConst4IsConstable() {
+        public void testMoveOpIsWithConst4IsConstable() {
             String methodSignature = "MoveV0IntoV1()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x7);
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
@@ -84,7 +84,7 @@ public class TestConstantPropigationStrategy {
 
     public static class WithUnknownValues {
         @Test
-        public void TestBinaryMathOpIsNotConstable() {
+        public void testBinaryMathOpIsNotConstable() {
             String methodSignature = "BinaryMathOp()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);

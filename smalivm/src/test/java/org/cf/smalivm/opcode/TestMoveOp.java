@@ -17,14 +17,14 @@ public class TestMoveOp {
     private static final String CLASS_NAME = "Lmove_test;";
 
     @Test
-    public void TestMoveException() {
+    public void testMoveException() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Ljava/lang/Exception;"));
 
         VMTester.testMethodState(CLASS_NAME, "TestMoveException()V", expected);
     }
 
     @Test
-    public void TestMoveRegisterObject() {
+    public void testMoveRegisterObject() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Object());
 
         // Must invoke VM directly to ensure reference identity
@@ -41,7 +41,7 @@ public class TestMoveOp {
     }
 
     @Test
-    public void TestMoveRegisterPrimitive() {
+    public void testMoveRegisterPrimitive() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 42, 1, 42);
 
@@ -49,7 +49,7 @@ public class TestMoveOp {
     }
 
     @Test
-    public void TestMoveResult() {
+    public void testMoveResult() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(MethodState.ResultRegister, 42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 42);
 

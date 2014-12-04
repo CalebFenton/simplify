@@ -12,7 +12,7 @@ public class TestAGetOp {
     private static final String CLASS_NAME = "Laget_test;";
 
     @Test
-    public void TestArrayGet() {
+    public void testArrayGet() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
 
@@ -20,7 +20,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetBoolean() {
+    public void testArrayGetBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[] { true }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, true);
 
@@ -28,7 +28,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetByte() {
+    public void testArrayGetByte() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[] { 0xe }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (byte) 0xe);
 
@@ -36,7 +36,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetChar() {
+    public void testArrayGetChar() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[] { 'a' }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'a');
 
@@ -44,7 +44,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetObject() {
+    public void testArrayGetObject() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
                         CLASS_NAME) }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
@@ -53,7 +53,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetShort() {
+    public void testArrayGetShort() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[] { 0x42 }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x42);
 
@@ -61,7 +61,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetUninitializedPrimitive() {
+    public void testArrayGetUninitializedPrimitive() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (new int[1])[0]);
 
@@ -69,7 +69,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetUnknownArray() {
+    public void testArrayGetUnknownArray() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -77,7 +77,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetUnknownElement() {
+    public void testArrayGetUnknownElement() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Object[] { new UnknownValue("I"), 5 }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -85,7 +85,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetUnknownIndex() {
+    public void testArrayGetUnknownIndex() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, new UnknownValue("I"));
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -93,7 +93,7 @@ public class TestAGetOp {
     }
 
     @Test
-    public void TestArrayGetWide() {
+    public void testArrayGetWide() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[] { 0x10000000000L }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000000000L);
 

@@ -12,7 +12,7 @@ public class TestNewInstanceOp {
     private static final String CLASS_NAME = "Lnew_instance_test;";
 
     @Test
-    public void TestLocalClass() {
+    public void testLocalClass() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
@@ -20,7 +20,7 @@ public class TestNewInstanceOp {
     }
 
     @Test
-    public void TestNonLocalClass() {
+    public void testNonLocalClass() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
                         new UninitializedInstance("Ljava/lang/Integer;"));

@@ -15,7 +15,7 @@ public class TestMethodReflector {
     private static final String CLASS_NAME = "Lmethod_reflector_test;";
 
     @Test
-    public void TestCastsIntegerToCharacter() {
+    public void testCastsIntegerToCharacter() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(1, (int) 'a');
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Character('a'));
 
@@ -23,7 +23,7 @@ public class TestMethodReflector {
     }
 
     @Test
-    public void TestCastsIntegerToBooleanWithTrue() {
+    public void testCastsIntegerToBooleanWithTrue() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(1, true);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Boolean(true));
 
@@ -31,7 +31,7 @@ public class TestMethodReflector {
     }
 
     @Test
-    public void TestCastsIntegerToBooleanWithFalse() {
+    public void testCastsIntegerToBooleanWithFalse() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(1, false);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Boolean(false));
 
@@ -39,7 +39,7 @@ public class TestMethodReflector {
     }
 
     @Test
-    public void TestCastsIntegerToShort() {
+    public void testCastsIntegerToShort() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Short.valueOf((short) 5));
 
@@ -47,7 +47,7 @@ public class TestMethodReflector {
     }
 
     @Test
-    public void TestCastsIntegerToByte() {
+    public void testCastsIntegerToByte() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 6);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Byte.valueOf((byte) 6));
 

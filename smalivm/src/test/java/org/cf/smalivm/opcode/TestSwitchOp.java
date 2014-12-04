@@ -15,21 +15,21 @@ public class TestSwitchOp {
         private static final String METHOD_NAME = "PackedSwitch()V";
 
         @Test
-        public void TestKnownPredicateVisitsExpectedLabel() {
+        public void testKnownPredicateVisitsExpectedLabel() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
             int[] expected = new int[] { 0, 1, 5, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
-        public void TestUnhandledPredicateVisitsNextOp() {
+        public void testUnhandledPredicateVisitsNextOp() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 100);
             int[] expected = new int[] { 0, 1, 4, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
-        public void TestUnknownPredicateVisitsAllLabelsAndNextOp() {
+        public void testUnknownPredicateVisitsAllLabelsAndNextOp() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             int[] expected = new int[] { 0, 1, 4, 5, 6, 7, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
@@ -40,21 +40,21 @@ public class TestSwitchOp {
         private static final String METHOD_NAME = "SparseSwitch()V";
 
         @Test
-        public void TestKnownPredicateVisitsExpectedLabel() {
+        public void testKnownPredicateVisitsExpectedLabel() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 1);
             int[] expected = new int[] { 0, 1, 5, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
-        public void TestUnhandledPredicateVisitsNextOp() {
+        public void testUnhandledPredicateVisitsNextOp() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 100);
             int[] expected = new int[] { 0, 1, 4, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
-        public void TestUnknownPredicateVisitsAllLabelsAndNextOp() {
+        public void testUnknownPredicateVisitsAllLabelsAndNextOp() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             int[] expected = new int[] { 0, 1, 4, 5, 6, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
