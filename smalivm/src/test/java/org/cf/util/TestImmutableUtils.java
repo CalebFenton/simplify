@@ -7,7 +7,7 @@ import org.junit.Test;
 public class TestImmutableUtils {
 
     @Test
-    public void TestStringsImmutable() {
+    public void testStringsImmutable() {
         assertTrue(ImmutableUtils.isImmutableClass("Ljava/lang/String;"));
     }
 

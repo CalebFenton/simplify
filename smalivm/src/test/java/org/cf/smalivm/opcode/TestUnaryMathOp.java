@@ -14,7 +14,7 @@ public class TestUnaryMathOp {
     public static class TestStartDouble {
 
         @Test
-        public void TestDoubleToFloat() {
+        public void testDoubleToFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 220D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 220F);
 
@@ -22,7 +22,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestDoubleToInt() {
+        public void testDoubleToInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 200D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 200);
 
@@ -30,7 +30,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestDoubleToLong() {
+        public void testDoubleToLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 210D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 210L);
 
@@ -38,7 +38,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNegDouble() {
+        public void testNegDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 15.1D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -15.1D);
 
@@ -50,7 +50,7 @@ public class TestUnaryMathOp {
     public static class TestStartFloat {
 
         @Test
-        public void TestFloatToDouble() {
+        public void testFloatToDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 120F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 120D);
 
@@ -58,7 +58,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestFloatToInt() {
+        public void testFloatToInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 100F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 100);
 
@@ -66,7 +66,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestFloatToLong() {
+        public void testFloatToLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 110F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 110L);
 
@@ -74,7 +74,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNegFloat() {
+        public void testNegFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 10.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -10.5F);
 
@@ -86,7 +86,7 @@ public class TestUnaryMathOp {
     public static class TestStartInt {
 
         @Test
-        public void TestIntToByte() {
+        public void testIntToByte() {
             Integer val = 128;
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, val);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, val.byteValue());
@@ -95,7 +95,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestIntToChar() {
+        public void testIntToChar() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x62);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (char) 0x62);
 
@@ -103,7 +103,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestIntToDouble() {
+        public void testIntToDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 13);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 13D);
 
@@ -111,7 +111,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestIntToFloat() {
+        public void testIntToFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 12);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 12F);
 
@@ -119,7 +119,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestIntToLong() {
+        public void testIntToLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 11);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 11L);
 
@@ -127,7 +127,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestIntToShort() {
+        public void testIntToShort() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x10);
 
@@ -135,7 +135,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNegInt() {
+        public void testNegInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0x42);
 
@@ -143,7 +143,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNegUnknownInt() {
+        public void testNegUnknownInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -151,7 +151,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNotInt() {
+        public void testNotInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~0x42);
 
@@ -159,7 +159,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNotUnknownInt() {
+        public void testNotUnknownInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -167,7 +167,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToByte() {
+        public void testUnknownIntToByte() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("B"));
 
@@ -175,7 +175,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToChar() {
+        public void testUnknownIntToChar() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("C"));
 
@@ -183,7 +183,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToDouble() {
+        public void testUnknownIntToDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("D"));
 
@@ -191,7 +191,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToFloat() {
+        public void testUnknownIntToFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("F"));
 
@@ -199,7 +199,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToLong() {
+        public void testUnknownIntToLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("J"));
 
@@ -207,7 +207,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestUnknownIntToShort() {
+        public void testUnknownIntToShort() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("S"));
 
@@ -219,7 +219,7 @@ public class TestUnaryMathOp {
     public static class TestStartLong {
 
         @Test
-        public void TestLongToDouble() {
+        public void testLongToDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 23L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 23D);
 
@@ -227,7 +227,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestLongToFloat() {
+        public void testLongToFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22F);
 
@@ -235,7 +235,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestLongToInt() {
+        public void testLongToInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 21L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 21);
 
@@ -243,7 +243,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNegLong() {
+        public void testNegLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0x100L);
 
@@ -251,7 +251,7 @@ public class TestUnaryMathOp {
         }
 
         @Test
-        public void TestNotLong() {
+        public void testNotLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 100L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~100L);
 

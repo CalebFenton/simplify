@@ -24,7 +24,7 @@ public class TestInvokeOp {
         private static final String CLASS_NAME = "Linvoke_reflected_test;";
 
         @Test
-        public void TestInvokeLongValueOfWithLongGetsCorrectParameters() {
+        public void testInvokeLongValueOfWithLongGetsCorrectParameters() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x1000L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Long(0x1000L));
 
@@ -32,7 +32,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeStringBuilderAppendWithLong() {
+        public void testInvokeStringBuilderAppendWithLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new StringBuilder(), 1, 0x1234L);
             StringBuilder sb = new StringBuilder().append(0x1234L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, sb, 1, 0x1234L);
@@ -45,7 +45,7 @@ public class TestInvokeOp {
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
         @Test
-        public void TestInvokeMutateStaticClassFieldNonDeterministicallyPropigatesUnknown() {
+        public void testInvokeMutateStaticClassFieldNonDeterministicallyPropigatesUnknown() {
             Map<String, Map<String, Object>> initial = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
                             new int[] { 3, 3, 3 });
             Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
@@ -56,7 +56,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeMethodOutsideClassThatAccessesThisClassReturnsExpectedValue() {
+        public void testInvokeMethodOutsideClassThatAccessesThisClassReturnsExpectedValue() {
             String value = "i have been initialized";
             TIntObjectMap<Object> initialRegisterToValue = new TIntObjectHashMap<Object>();
             TIntObjectMap<Object> expectedRegisterToValue = VMTester.buildRegisterState(MethodState.ResultRegister,
@@ -72,7 +72,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeMutateStaticClassFieldPropigatesChanges() {
+        public void testInvokeMutateStaticClassFieldPropigatesChanges() {
             Map<String, Map<String, Object>> initial = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
                             new int[] { 3, 3, 3 });
             Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_NAME, "mutable:[I",
@@ -82,7 +82,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeNonLocalMethodWithKnownAndUnknownMutableParametersMutatesBoth() {
+        public void testInvokeNonLocalMethodWithKnownAndUnknownMutableParametersMutatesBoth() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
                             "[I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
@@ -93,14 +93,14 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeReturnIntReturnsInt() {
+        public void testInvokeReturnIntReturnsInt() {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x7);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnInt()V", expected);
         }
 
         @Test
-        public void TestInvokeReturnParameterReturnsParameter() {
+        public void testInvokeReturnParameterReturnsParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x5);
 
@@ -108,14 +108,14 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeReturnVoidReturnsVoid() {
+        public void testInvokeReturnVoidReturnsVoid() {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, null);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeReturnVoid()V", expected);
         }
 
         @Test
-        public void TestInvokeMutateStringBuilderDoesMutateParameter() {
+        public void testInvokeMutateStringBuilderDoesMutateParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new StringBuilder("i have been"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new StringBuilder("i have been mutated"));
 
@@ -123,7 +123,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeMutateStringDoesNotMutateParameter() {
+        public void testInvokeMutateStringDoesNotMutateParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "not mutated");
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "not mutated");
 
@@ -131,7 +131,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestKnownMutableParametersAreMutatedWithDeterministicExecution() {
+        public void testKnownMutableParametersAreMutatedWithDeterministicExecution() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, 0);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 0x0 }, 1, 0);
 
@@ -140,7 +140,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestKnownMutableParametersAreMutatedWithNonDeterministicExecution() {
+        public void testKnownMutableParametersAreMutatedWithNonDeterministicExecution() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x5 }, 1, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
                             new UnknownValue("I"));
@@ -150,7 +150,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestNonDeterministicallyInitializedClassHasUnknownFieldValues() {
+        public void testNonDeterministicallyInitializedClassHasUnknownFieldValues() {
             Map<String, Map<String, Object>> initial = new HashMap<String, Map<String, Object>>();
             Map<String, Map<String, Object>> expected = VMTester.buildClassNameToFieldValue(CLASS_WITH_STATIC_INIT,
                             "string:Ljava/lang/String;", new UnknownValue("Ljava/lang/String;"));
@@ -160,7 +160,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeReturnUninitializedFieldDoesNotReturnNull() {
+        public void testInvokeReturnUninitializedFieldDoesNotReturnNull() {
             TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, new UnknownValue(
                             "Ljava/lang/String;"));
@@ -173,7 +173,7 @@ public class TestInvokeOp {
         private static final String CLASS_NAME = "Linvoke_virtual_test;";
 
         @Test
-        public void TestInvokeReturnIntReturnsInt() {
+        public void testInvokeReturnIntReturnsInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x7);
 
@@ -181,7 +181,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeReturnParameterReturnsParameter() {
+        public void testInvokeReturnParameterReturnsParameter() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x5,
                             MethodState.ResultRegister, 0x5);
@@ -190,7 +190,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeReturnVoidReturnsVoid() {
+        public void testInvokeReturnVoidReturnsVoid() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, null);
 
@@ -198,7 +198,7 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void TestInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
+        public void testInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[0]);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, int.class);
 

@@ -54,14 +54,14 @@ public class TestSmaliClassUtils {
     }
 
     @Test
-    public void TestGetPackageName() {
+    public void testGetPackageName() {
         String packageName = SmaliClassUtils.getPackageName(SMALI_CLASS);
 
         assertEquals(PACKAGE_NAME, packageName);
     }
 
     @Test
-    public void TestIsPrimitiveType() {
+    public void testIsPrimitiveType() {
         for (Entry<String, Boolean> entry : stringToIsPrimitive.entrySet()) {
             String string = entry.getKey();
             boolean expected = entry.getValue();
@@ -72,7 +72,7 @@ public class TestSmaliClassUtils {
     }
 
     @Test
-    public void TestJavaClassToSmali() {
+    public void testJavaClassToSmali() {
         for (Entry<String, String> entry : smaliClassToJavaClass.entrySet()) {
             String javaClass = entry.getValue();
             String expected = entry.getKey();
@@ -83,7 +83,7 @@ public class TestSmaliClassUtils {
     }
 
     @Test
-    public void TestSmaliClassToJava() {
+    public void testSmaliClassToJava() {
         for (Entry<String, String> entry : smaliClassToJavaClass.entrySet()) {
             String smaliClass = entry.getKey();
             String expected = entry.getValue();
@@ -94,7 +94,7 @@ public class TestSmaliClassUtils {
     }
 
     @Test
-    public void TestSmaliPrimitiveToJavaWrapper() {
+    public void testSmaliPrimitiveToJavaWrapper() {
         for (Entry<String, Class<?>> entry : primitiveTypeToWrapperClass.entrySet()) {
             String className = entry.getKey();
             String expected = entry.getValue().getName();

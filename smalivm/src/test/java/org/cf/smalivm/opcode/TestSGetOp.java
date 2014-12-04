@@ -13,7 +13,7 @@ public class TestSGetOp {
     private static final String CLASS_NAME = "Lsget_test;";
 
     @Test
-    public void TestStaticGetBoolean() {
+    public void testStaticGetBoolean() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myBoolean:Z", true);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, true);
@@ -22,7 +22,7 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetByte() {
+    public void testStaticGetByte() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myByte:B", (byte) 0xf);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (byte) 0xf);
@@ -31,7 +31,7 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetChar() {
+    public void testStaticGetChar() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myChar:C", 'x');
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'x');
@@ -40,7 +40,7 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetInt() {
+    public void testStaticGetInt() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myInt:I", 0x42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
@@ -49,7 +49,7 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetObject() {
+    public void testStaticGetObject() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myString:Ljava/lang/String;", "They tried and died.");
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "They tried and died.");
@@ -58,7 +58,7 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetShort() {
+    public void testStaticGetShort() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myShort:S", (short) 0x100);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x100);
@@ -67,21 +67,21 @@ public class TestSGetOp {
     }
 
     @Test
-    public void TestStaticGetUnknownClassField() {
+    public void testStaticGetUnknownClassField() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
         VMTester.testMethodState(CLASS_NAME, "StaticGetUnknownClassField()V", expected);
     }
 
     @Test
-    public void TestStaticGetWhitelistedClassField() {
+    public void testStaticGetWhitelistedClassField() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Integer.MAX_VALUE);
 
         VMTester.testMethodState(CLASS_NAME, "StaticGetWhitelistedClassField()V", expected);
     }
 
     @Test
-    public void TestStaticGetWide() {
+    public void testStaticGetWide() {
         Map<String, Map<String, Object>> classNameToFieldValue = VMTester.buildClassNameToFieldValue(CLASS_NAME,
                         "myLong:J", 0xFFFFFFFFFL);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xFFFFFFFFFL);

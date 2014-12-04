@@ -19,7 +19,7 @@ public class TestPeepholeStrategy {
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
     @Test
-    public void TestInvokeClassForNameWithKnownClassIsReplaced() {
+    public void testInvokeClassForNameWithKnownClassIsReplaced() {
         String methodName = "InvokeClassForNameWithKnownClass()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
@@ -32,7 +32,7 @@ public class TestPeepholeStrategy {
     }
 
     @Test
-    public void TestInvokeClassForNameWithUnknownClassIsReplaced() {
+    public void testInvokeClassForNameWithUnknownClassIsReplaced() {
         String methodName = "InvokeClassForNameWithUnknownClass()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);

@@ -12,56 +12,56 @@ public class TestConstOp {
     private static final String CLASS_NAME = "Lconst_test;";
 
     @Test
-    public void TestConst() {
+    public void testConst() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42424242);
 
         VMTester.testMethodState(CLASS_NAME, "TestConst()V", expected);
     }
 
     @Test
-    public void TestConst16() {
+    public void testConst16() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x4242);
 
         VMTester.testMethodState(CLASS_NAME, "TestConst16()V", expected);
     }
 
     @Test
-    public void TestConst4() {
+    public void testConst4() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3);
 
         VMTester.testMethodState(CLASS_NAME, "TestConst4()V", expected);
     }
 
     @Test
-    public void TestConstClassLocal() {
+    public void testConstClassLocal() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
 
         VMTester.testMethodState(CLASS_NAME, "TestConstClassLocal()V", expected);
     }
 
     @Test
-    public void TestConstClassRemote() {
+    public void testConstClassRemote() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Object.class);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstClassRemote()V", expected);
     }
 
     @Test
-    public void TestConstClassUnknown() {
+    public void testConstClassUnknown() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Lunknown/class;"));
 
         VMTester.testMethodState(CLASS_NAME, "TestConstClassUnknown()V", expected);
     }
 
     @Test
-    public void TestConstHigh16() {
+    public void testConstHigh16() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42420000);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstHigh16()V", expected);
     }
 
     @Test
-    public void TestConstString() {
+    public void testConstString() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
                         "When I need to identify rebels, I look for men with principles");
 
@@ -69,7 +69,7 @@ public class TestConstOp {
     }
 
     @Test
-    public void TestConstStringJumbo() {
+    public void testConstStringJumbo() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0,
                         "When I need to identify JUMBO rebels, I look for JUMBO men with JUMBO principles");
 
@@ -77,35 +77,35 @@ public class TestConstOp {
     }
 
     @Test
-    public void TestConstWide() {
+    public void testConstWide() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x4242424242424242L);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstWide()V", expected);
     }
 
     @Test
-    public void TestConstWide16() {
+    public void testConstWide16() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x4242L);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstWide16()V", expected);
     }
 
     @Test
-    public void TestConstWide32() {
+    public void testConstWide32() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x1b7740L);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstWide32()V", expected);
     }
 
     @Test
-    public void TestConstWideHigh16() {
+    public void testConstWideHigh16() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x4242000000000000L);
 
         VMTester.testMethodState(CLASS_NAME, "TestConstWideHigh16()V", expected);
     }
 
     @Test
-    public void TestNegativeConst16() {
+    public void testNegativeConst16() {
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0xf);
 
         VMTester.testMethodState(CLASS_NAME, "TestNegativeConst16()V", expected);

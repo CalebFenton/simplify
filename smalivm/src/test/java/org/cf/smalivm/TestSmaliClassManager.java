@@ -21,40 +21,40 @@ public class TestSmaliClassManager {
     }
 
     @Test
-    public void TestChildIsInstanceOfParent() throws UnknownAncestors {
+    public void testChildIsInstanceOfParent() throws UnknownAncestors {
         boolean isInstance = manager.isInstance("Lchild_class;", "Lparent_class;");
 
         assertTrue(isInstance);
     }
 
     @Test
-    public void TestChildIsInstanceOfGrandParent() throws UnknownAncestors {
+    public void testChildIsInstanceOfGrandParent() throws UnknownAncestors {
         boolean isInstance = manager.isInstance("Lchild_class;", "Lgrandparent_class;");
 
         assertTrue(isInstance);
     }
 
     @Test
-    public void TestParentIsNotInstanceOfChild() throws UnknownAncestors {
+    public void testParentIsNotInstanceOfChild() throws UnknownAncestors {
         boolean isInstance = manager.isInstance("Lparent_class;", "Lchild_class;");
 
         assertFalse(isInstance);
     }
 
     @Test
-    public void TestStringIsInstanceOfObject() throws UnknownAncestors {
+    public void testStringIsInstanceOfObject() throws UnknownAncestors {
         boolean isInstance = manager.isInstance(String.class, Object.class);
 
         assertTrue(isInstance);
     }
 
     @Test(expected = UnknownAncestors.class)
-    public void TestUnknownChildThrowsUnknownAncestors() throws UnknownAncestors {
+    public void testUnknownChildThrowsUnknownAncestors() throws UnknownAncestors {
         manager.isInstance("Lthis_certainly_wont_exists;", "Lparent_class;");
     }
 
     @Test
-    public void TestUnknownParentDoesNotThrowUnknownAncestors() throws UnknownAncestors {
+    public void testUnknownParentDoesNotThrowUnknownAncestors() throws UnknownAncestors {
         manager.isInstance("Lchild_class;", "Lthis_certainly_wont_exists;");
     }
 

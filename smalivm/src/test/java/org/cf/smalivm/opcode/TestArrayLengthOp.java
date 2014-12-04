@@ -13,7 +13,7 @@ public class TestArrayLengthOp {
 
     public static class TestObjectArrays {
         @Test
-        public void TestArrayLengthForEmptyIntegerArray() {
+        public void testArrayLengthForEmptyIntegerArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Integer[] {});
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -21,7 +21,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForIntegerArray() {
+        public void testArrayLengthForIntegerArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Integer[] { 1, 2, 3 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3);
 
@@ -29,7 +29,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForStringArray() {
+        public void testArrayLengthForStringArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new String[] { "isn't", "this", "where" });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3);
 
@@ -37,7 +37,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForUnknownValueOfIntegerType() {
+        public void testArrayLengthForUnknownValueOfIntegerType() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("[Ljava/lang/Integer;"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -45,7 +45,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForUnknownValueOfPrimitiveType() {
+        public void testArrayLengthForUnknownValueOfPrimitiveType() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("[I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -55,7 +55,7 @@ public class TestArrayLengthOp {
 
     public static class TestPrimitiveArrays {
         @Test
-        public void TestArrayLengthForEmptyIntArray() {
+        public void testArrayLengthForEmptyIntArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] {});
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -63,7 +63,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForIntArray() {
+        public void testArrayLengthForIntArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 1, 2, 3 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3);
 
@@ -71,7 +71,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForLongArray() {
+        public void testArrayLengthForLongArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[] { 1, 2, 3, 4 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 4);
 
@@ -79,7 +79,7 @@ public class TestArrayLengthOp {
         }
 
         @Test
-        public void TestArrayLengthForShortArray() {
+        public void testArrayLengthForShortArray() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[] { 1, 2 });
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2);
 

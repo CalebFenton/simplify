@@ -12,7 +12,7 @@ public class TestAPutOp {
     private static final String CLASS_NAME = "Laput_test;";
 
     @Test
-    public void TestArrayPut() {
+    public void testArrayPut() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, 0, 2, 4);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 4 });
 
@@ -20,7 +20,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutBoolean() {
+    public void testArrayPutBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[1], 1, 0, 2, 0x1);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new boolean[] { true });
 
@@ -28,7 +28,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutByte() {
+    public void testArrayPutByte() {
         Byte b = 0xf;
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, b);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new byte[] { 0xf });
@@ -37,7 +37,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutChar() {
+    public void testArrayPutChar() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, (int) '$');
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new char[] { '$' });
 
@@ -45,7 +45,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutObject() {
+    public void testArrayPutObject() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance[1], 1, 0, 2,
                         new LocalInstance(CLASS_NAME));
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
@@ -55,7 +55,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutShort() {
+    public void testArrayPutShort() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[1], 1, 0, 2, 0x42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 0x42 });
 
@@ -63,7 +63,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutUnkownIndex() {
+    public void testArrayPutUnkownIndex() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, new UnknownValue("I"), 2, 5);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"));
 
@@ -71,7 +71,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutUnkownValue() {
+    public void testArrayPutUnkownValue() {
         // Ideally, setting an element unknown shouldn't set the entire array unknown. See APutOp for more details.
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, 0, 2, new UnknownValue("I"));
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"));
@@ -80,7 +80,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void TestArrayPutWide() {
+    public void testArrayPutWide() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[1], 1, 0, 2, 10000000000L);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new long[] { 10000000000L });
 

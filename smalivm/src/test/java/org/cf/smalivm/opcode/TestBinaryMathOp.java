@@ -13,7 +13,7 @@ public class TestBinaryMathOp {
 
     public static class TestDouble {
         @Test
-        public void TestAddDouble() {
+        public void testAddDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D + 20.5D);
 
@@ -21,7 +21,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddDouble2Addr() {
+        public void testAddDouble2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D + 20.5D);
 
@@ -29,7 +29,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivDouble() {
+        public void testDivDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9D, 2, 0.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9D / 0.5D);
 
@@ -37,7 +37,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivDouble2Addr() {
+        public void testDivDouble2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9D, 2, 0.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9D / 0.5D);
 
@@ -45,7 +45,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivDoubleWithCatchWithDiv0Exception() {
+        public void testDivDoubleWithCatchWithDiv0Exception() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5D, 1, 0D);
             // Floats and doubles do not throw exceptions for div0
             int[] expected = new int[] { 0, 2 };
@@ -54,7 +54,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulDouble() {
+        public void testMulDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D * 20.5D);
 
@@ -62,7 +62,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulDouble2Addr() {
+        public void testMulDouble2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D * 20.5D);
 
@@ -70,7 +70,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemDouble() {
+        public void testRemDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9D, 2, 0.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9D % 0.5D);
 
@@ -78,7 +78,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemDouble2Addr() {
+        public void testRemDouble2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9D, 2, 0.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9D % 0.5D);
 
@@ -86,7 +86,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubDouble() {
+        public void testSubDouble() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D - 20.5D);
 
@@ -94,7 +94,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubDouble2Addr() {
+        public void testSubDouble2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5D - 20.5D);
 
@@ -104,7 +104,7 @@ public class TestBinaryMathOp {
 
     public static class TestFloat {
         @Test
-        public void TestAddFloat() {
+        public void testAddFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5F + 20.5F);
 
@@ -112,7 +112,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddFloat2Addr() {
+        public void testAddFloat2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5F + 20.5F);
 
@@ -120,7 +120,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivFloat() {
+        public void testDivFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9F, 1, 0.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9F / 0.5F);
 
@@ -128,7 +128,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivFloat2Addr() {
+        public void testDivFloat2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9F, 1, 0.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9F / 0.5F);
 
@@ -136,7 +136,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivFloatWithCatchWithDiv0Exception() {
+        public void testDivFloatWithCatchWithDiv0Exception() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5F, 1, 0F);
             // Floats and doubles do not throw exceptions for div0
             int[] expected = new int[] { 0, 2 };
@@ -145,7 +145,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulFloat() {
+        public void testMulFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5F * 20.5F);
 
@@ -153,7 +153,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulFloat2Addr() {
+        public void testMulFloat2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5F * 20.5F);
 
@@ -161,7 +161,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemFloat() {
+        public void testRemFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9F, 1, 0.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9F % 0.5F);
 
@@ -169,7 +169,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemFloat2Addr() {
+        public void testRemFloat2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22.9F, 1, 0.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22.9F % 0.5F);
 
@@ -177,7 +177,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubFloat() {
+        public void testSubFloat() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5F - 20.5F);
 
@@ -185,7 +185,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubFloat2Addr() {
+        public void testSubFloat2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0.5F - 20.5F);
 
@@ -195,7 +195,7 @@ public class TestBinaryMathOp {
 
     public static class TestInteger {
         @Test
-        public void TestAddByteAndChar() {
+        public void testAddByteAndChar() {
             Byte b = 0xf;
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 'a', 1, b);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'a' + b);
@@ -204,7 +204,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddInt() {
+        public void testAddInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 + 7);
 
@@ -212,7 +212,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddInt2Addr() {
+        public void testAddInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 + 7);
 
@@ -220,7 +220,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntAndByte() {
+        public void testAddIntAndByte() {
             Byte b = 0xf;
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, b);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 12);
@@ -229,7 +229,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntAndChar() {
+        public void testAddIntAndChar() {
             // Compiler will actually produce something like this.
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, "$".charAt(0), 1, 11);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, "$".charAt(0) + 11);
@@ -238,7 +238,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntAndUnknownChar() {
+        public void testAddIntAndUnknownChar() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("C"), 1, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -246,7 +246,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntAndUnknownCharAndByte() {
+        public void testAddIntAndUnknownCharAndByte() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("C"), 1, new UnknownValue(
                             "B"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
@@ -255,7 +255,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntAndUnknownInt() {
+        public void testAddIntAndUnknownInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
 
@@ -263,21 +263,21 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddIntLit16() {
+        public void testAddIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -0xf);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (-0xf + 0xff));
             VMTester.testMethodState(CLASS_NAME, "AddIntLit16()V", initial, expected);
         }
 
         @Test
-        public void TestAddIntLit8() {
+        public void testAddIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -0xf);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (-0xf + 0xf));
             VMTester.testMethodState(CLASS_NAME, "AddIntLit8()V", initial, expected);
         }
 
         @Test
-        public void TestAndInt() {
+        public void testAndInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 7);
 
@@ -285,7 +285,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAndInt2Addr() {
+        public void testAndInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 7);
 
@@ -293,7 +293,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAndIntLit16() {
+        public void testAndIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 0xff);
 
@@ -301,7 +301,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAndIntLit8() {
+        public void testAndIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 2 & 0xf);
 
@@ -309,7 +309,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivInt() {
+        public void testDivInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 12, 1, 3);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 12 / 3);
 
@@ -317,7 +317,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivInt2Addr() {
+        public void testDivInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 12, 1, 3);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 12 / 3);
 
@@ -325,7 +325,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivIntWithCatchWithDiv0Exception() {
+        public void testDivIntWithCatchWithDiv0Exception() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 0);
             int[] expected = new int[] { 0, 2, 3, 4 };
 
@@ -333,7 +333,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivIntWithCatchWithNoException() {
+        public void testDivIntWithCatchWithNoException() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 5);
             int[] expected = new int[] { 0, 2 };
 
@@ -341,7 +341,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivIntLit16() {
+        public void testDivIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -349,7 +349,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivIntLit8() {
+        public void testDivIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -357,7 +357,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulInt() {
+        public void testMulInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 * 7);
 
@@ -365,7 +365,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulInt2Addr() {
+        public void testMulInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 10);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 * 10);
 
@@ -373,7 +373,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulIntLit16() {
+        public void testMulIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 * 0xff);
 
@@ -381,7 +381,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulIntLit8() {
+        public void testMulIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 * 0xf);
 
@@ -389,7 +389,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrInt() {
+        public void testOrInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 2);
 
@@ -397,7 +397,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrInt2Addr() {
+        public void testOrInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 2);
 
@@ -405,7 +405,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrIntLit16() {
+        public void testOrIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 0xff);
 
@@ -413,7 +413,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrIntLit8() {
+        public void testOrIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 | 0xf);
 
@@ -421,7 +421,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemInt() {
+        public void testRemInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 % 5);
 
@@ -429,7 +429,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemInt2Addr() {
+        public void testRemInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 % 5);
 
@@ -437,7 +437,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemIntLit16() {
+        public void testRemIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100 % 0xff);
 
@@ -445,7 +445,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemIntLit8() {
+        public void testRemIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10 % 0xf);
 
@@ -453,7 +453,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRSubInt() {
+        public void testRSubInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xff - 7);
 
@@ -461,7 +461,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRSubIntLit8() {
+        public void testRSubIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0xf - 7);
 
@@ -469,7 +469,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShlInt() {
+        public void testShlInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 << 2);
 
@@ -477,7 +477,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShlInt2Addr() {
+        public void testShlInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 5 << 2);
 
@@ -485,7 +485,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShlIntLit8() {
+        public void testShlIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 3);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 3 << 0x2);
 
@@ -493,7 +493,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShrInt() {
+        public void testShrInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 >> 2);
 
@@ -501,7 +501,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShrInt2Addr() {
+        public void testShrInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 >> 2);
 
@@ -509,7 +509,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShrIntLit8() {
+        public void testShrIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 >> 2);
 
@@ -517,7 +517,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubInt() {
+        public void testSubInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 - 7);
 
@@ -525,7 +525,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubInt2Addr() {
+        public void testSubInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -3, 1, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -3 - 7);
 
@@ -533,7 +533,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestUshrInt() {
+        public void testUshrInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -14, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -14 >>> 2);
 
@@ -541,7 +541,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestUshrInt2Addr() {
+        public void testUshrInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -14, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -14 >>> 2);
 
@@ -549,7 +549,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestUshrIntLit8() {
+        public void testUshrIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, -14);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -14 >>> 2);
 
@@ -557,7 +557,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorInt() {
+        public void testXorInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 2);
 
@@ -565,7 +565,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorInt2Addr() {
+        public void testXorInt2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7, 1, 2);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 2);
 
@@ -573,7 +573,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorIntLit16() {
+        public void testXorIntLit16() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 0x10);
 
@@ -581,7 +581,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorIntLit8() {
+        public void testXorIntLit8() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 7);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 7 ^ 3);
 
@@ -593,7 +593,7 @@ public class TestBinaryMathOp {
     public static class TestLong {
 
         @Test
-        public void TestAddLong() {
+        public void testAddLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100000000L, 2, 0x200000000L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100000000L + 0x200000000L);
 
@@ -601,7 +601,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAddLong2Addr() {
+        public void testAddLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100000000L, 2, 0x200000000L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100000000L + 0x200000000L);
 
@@ -609,7 +609,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAndLong() {
+        public void testAndLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x12345abcdL, 2, 0x1234567890L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x12345abcdL & 0x1234567890L);
 
@@ -617,7 +617,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestAndLong2Addr() {
+        public void testAndLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x12345abcdL, 2, 0x1234567890L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x12345abcdL & 0x1234567890L);
 
@@ -625,7 +625,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivLong() {
+        public void testDivLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x300000000L, 2, 3L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000000L / 3L);
 
@@ -633,7 +633,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivLong2Addr() {
+        public void testDivLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x300000000L, 2, 3L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000000L / 3L);
 
@@ -641,7 +641,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivLongWithCatchWithDiv0Exception() {
+        public void testDivLongWithCatchWithDiv0Exception() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5L, 1, 0L);
             int[] expected = new int[] { 0, 2, 3, 4 };
 
@@ -649,7 +649,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestDivLongWithCatchWithNoException() {
+        public void testDivLongWithCatchWithNoException() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5L, 1, 5);
             int[] expected = new int[] { 0, 2 };
 
@@ -657,7 +657,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulLong() {
+        public void testMulLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x300000000L, 2, 3L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000000L * 3L);
 
@@ -665,7 +665,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestMulLong2Addr() {
+        public void testMulLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x300000000L, 2, 3L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000000L * 3L);
 
@@ -673,7 +673,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrLong() {
+        public void testOrLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x12345abcdL, 2, 0x1234567890L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x12345abcdL | 0x1234567890L);
 
@@ -681,7 +681,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestOrLong2Addr() {
+        public void testOrLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x12345abcdL, 2, 0x1234567890L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x12345abcdL | 0x1234567890L);
 
@@ -689,7 +689,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemLong() {
+        public void testRemLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x300000123L, 2, 3L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000123L % 3L);
 
@@ -697,7 +697,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestRemLong2Addr() {
+        public void testRemLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x300000123L, 2, 3L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x300000123L % 3L);
 
@@ -705,7 +705,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShlLong() {
+        public void testShlLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10000L, 2, 5L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000L << 5L);
 
@@ -713,7 +713,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShlLong2Addr() {
+        public void testShlLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10000L, 2, 5L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000L << 5L);
 
@@ -721,7 +721,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShrLong() {
+        public void testShrLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10000L, 2, 5L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000L >> 5L);
 
@@ -729,7 +729,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestShrLong2Addr() {
+        public void testShrLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10000L, 2, 5L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000L >> 5L);
 
@@ -737,7 +737,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubLong() {
+        public void testSubLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100000000L, 2, 0x200000000L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100000000L - 0x200000000L);
 
@@ -745,7 +745,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestSubLong2Addr() {
+        public void testSubLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100000000L, 2, 0x200000000L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x100000000L - 0x200000000L);
 
@@ -753,7 +753,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestUshrLong() {
+        public void testUshrLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10000L, 2, 5L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000L >>> 5L);
 
@@ -761,7 +761,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestUshrLong2Addr() {
+        public void testUshrLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10000L, 2, 5L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000L >>> 5L);
 
@@ -769,7 +769,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorLong() {
+        public void testXorLong() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x12345abcdL, 2, 0x1234567890L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x12345abcdL ^ 0x1234567890L);
 
@@ -777,7 +777,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void TestXorLong2Addr() {
+        public void testXorLong2Addr() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x12345abcdL, 2, 0x1234567890L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x12345abcdL ^ 0x1234567890L);
 

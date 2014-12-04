@@ -15,7 +15,7 @@ public class TestCmpOp {
 
     public static class TestDouble {
         @Test
-        public void TestCmplDoubleWithLessThan() {
+        public void testCmplDoubleWithLessThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -23,7 +23,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithGreaterThan() {
+        public void testCmplDoubleWithGreaterThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 20.5D, 2, 0.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -31,7 +31,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithEqual() {
+        public void testCmplDoubleWithEqual() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 4.5D, 2, 4.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -39,7 +39,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithNaN() {
+        public void testCmplDoubleWithNaN() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, Double.NaN);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -47,7 +47,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithUnknownArgment() {
+        public void testCmplDoubleWithUnknownArgment() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 2, new UnknownValue("D"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("D"));
 
@@ -55,7 +55,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgDoubleWithLessThan() {
+        public void testCmpgDoubleWithLessThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, 20.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -63,7 +63,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgDoubleWithGreaterThan() {
+        public void testCmpgDoubleWithGreaterThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 20.5D, 2, 0.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -71,7 +71,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgDoubleWithEqual() {
+        public void testCmpgDoubleWithEqual() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 4.5D, 2, 4.5D);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -79,7 +79,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgDoubleWithNaN() {
+        public void testCmpgDoubleWithNaN() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5D, 2, Double.NaN);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -87,7 +87,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgDoubleWithUnknownArgment() {
+        public void testCmpgDoubleWithUnknownArgment() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 2, new UnknownValue("D"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("D"));
 
@@ -97,7 +97,7 @@ public class TestCmpOp {
 
     public static class TestFloat {
         @Test
-        public void TestCmplFloatWithLessThan() {
+        public void testCmplFloatWithLessThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -105,7 +105,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplFloatWithGreaterThan() {
+        public void testCmplFloatWithGreaterThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 20.5F, 1, 0.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -113,7 +113,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplFloatWithEqual() {
+        public void testCmplFloatWithEqual() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 4.5F, 1, 4.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -121,7 +121,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplFloatWithNaN() {
+        public void testCmplFloatWithNaN() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, Float.NaN);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -129,7 +129,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplFloatWithUnknownArgment() {
+        public void testCmplFloatWithUnknownArgment() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, new UnknownValue("F"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("F"));
 
@@ -137,7 +137,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgFloatWithLessThan() {
+        public void testCmpgFloatWithLessThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, 20.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -145,7 +145,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgFloatWithGreaterThan() {
+        public void testCmpgFloatWithGreaterThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 20.5F, 1, 0.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -153,7 +153,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgFloatWithEqual() {
+        public void testCmpgFloatWithEqual() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 4.5F, 1, 4.5F);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -161,7 +161,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgFloatWithNaN() {
+        public void testCmpgFloatWithNaN() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, Float.NaN);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -169,7 +169,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmpgFloatWithUnknownArgment() {
+        public void testCmpgFloatWithUnknownArgment() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0.5F, 1, new UnknownValue("F"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("F"));
 
@@ -179,7 +179,7 @@ public class TestCmpOp {
 
     public static class TestLong {
         @Test
-        public void TestCmpLongWithLessThan() {
+        public void testCmpLongWithLessThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10L, 2, 0x100000L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -1);
 
@@ -187,7 +187,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithGreaterThan() {
+        public void testCmplDoubleWithGreaterThan() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100000L, 2, 0x10L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1);
 
@@ -195,7 +195,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithEqual() {
+        public void testCmplDoubleWithEqual() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100L, 2, 0x100L);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0);
 
@@ -203,7 +203,7 @@ public class TestCmpOp {
         }
 
         @Test
-        public void TestCmplDoubleWithUnknownArgument() {
+        public void testCmplDoubleWithUnknownArgument() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100L, 2, new UnknownValue("J"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("J"));
 

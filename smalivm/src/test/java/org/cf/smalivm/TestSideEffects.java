@@ -28,7 +28,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestConstOpsHaveNoSideEffects() {
+    public void testConstOpsHaveNoSideEffects() {
         String methodName = "ConstOps()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -36,7 +36,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestEmptyMethodHasNoSideEffects() {
+    public void testEmptyMethodHasNoSideEffects() {
         String methodName = "EmptyMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -44,7 +44,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeMethodThatInvokesUnknownMethodHasStrongSideEffects() {
+    public void testInvokeMethodThatInvokesUnknownMethodHasStrongSideEffects() {
         String methodName = "InvokeMethodThatInvokesUnknownMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -52,7 +52,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeMethodWithNoSideEffectsHasNoSideEffects() {
+    public void testInvokeMethodWithNoSideEffectsHasNoSideEffects() {
         String methodName = "InvokeMethodWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -60,7 +60,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeOfNonAnalyzableMethodHasStrongSideEffects() {
+    public void testInvokeOfNonAnalyzableMethodHasStrongSideEffects() {
         String methodName = "InvokeOfNonAnalyzableMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -68,7 +68,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeSideEffectMethodHasStrongSideEffects() {
+    public void testInvokeSideEffectMethodHasStrongSideEffects() {
         String methodName = "InvokeSideEffectMethod(Ljava/lang/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -76,7 +76,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeUnknownMethodHasStrongSideEffects() {
+    public void testInvokeUnknownMethodHasStrongSideEffects() {
         String methodName = "InvokeUnknownMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -84,7 +84,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestInvokeWhitelistedMethodsHasNoSideEffects() {
+    public void testInvokeWhitelistedMethodsHasNoSideEffects() {
         String methodName = "InvokeWhitelistedMethods()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -92,7 +92,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestModifyInstanceMemberHasStrongSideEffects() {
+    public void testModifyInstanceMemberHasStrongSideEffects() {
         String methodName = "ModifyInstanceMember()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -100,7 +100,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() {
+    public void testNewInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() {
         String methodName = "NewInstanceNonLocalNonWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -108,7 +108,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceNonLocalWhitelistedClassHasNoSideEffects() {
+    public void testNewInstanceNonLocalWhitelistedClassHasNoSideEffects() {
         String methodName = "NewInstanceNonLocalWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -116,7 +116,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects() {
+    public void testNewInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects() {
         String methodName = "NewInstanceOfClassWithStaticInitializerWithStrongSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -124,7 +124,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceOfClassWithStaticInitializerWithWeakSideEffectsHasWeakSideEffects() {
+    public void testNewInstanceOfClassWithStaticInitializerWithWeakSideEffectsHasWeakSideEffects() {
         String methodName = "NewInstanceOfClassWithStaticInitializerWithWeakSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -132,7 +132,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() {
+    public void testNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() {
         String methodName = "NewInstanceOfMethodWithNoStaticInitializer()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -140,7 +140,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects() {
+    public void testNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects() {
         // Method names? Pssh, we have method PARAGRAPHS.
         String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
@@ -149,7 +149,7 @@ public class TestSideEffects {
     }
 
     @Test
-    public void TestWriteOutputStreamHasStrongSideEffects() {
+    public void testWriteOutputStreamHasStrongSideEffects() {
         String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 

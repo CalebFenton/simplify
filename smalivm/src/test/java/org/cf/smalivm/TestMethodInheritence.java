@@ -23,7 +23,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void TestInvokingAbstractMethodThroughParentReferenceWorks() {
+        public void testInvokingAbstractMethodThroughParentReferenceWorks() {
             String methodName = "callsAbstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             String value = (String) graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -32,7 +32,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void TestInvokingImplemenetedAbstractMethodWorks() {
+        public void testInvokingImplemenetedAbstractMethodWorks() {
             String methodName = "abstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             String value = (String) graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -41,7 +41,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void TestInvokingParentMethodWorks() {
+        public void testInvokingParentMethodWorks() {
             String methodName = "callsParentMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             String value = (String) graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -61,7 +61,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void TestExecutingAbstractMethodReturnsNull() {
+        public void testExecutingAbstractMethodReturnsNull() {
             String methodName = "abstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
