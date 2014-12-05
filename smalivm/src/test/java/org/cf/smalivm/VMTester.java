@@ -262,7 +262,7 @@ public class VMTester {
     private static void testFieldEquals(String fieldDescriptor, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append(fieldDescriptor).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -271,7 +271,7 @@ public class VMTester {
     private static void testRegisterEquals(int register, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -279,7 +279,7 @@ public class VMTester {
 
     private static void testValueEquals(Object value, Object consensus, String msg) {
         if (value != null) {
-            assertNotNull(consensus);
+            assertNotNull(msg, consensus);
         }
 
         if (value == null) {

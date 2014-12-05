@@ -29,7 +29,7 @@ public class VirtualMachine {
     public static int getParameterSize(List<String> parameterTypes) {
         int result = 0;
         for (String type : parameterTypes) {
-            result += type.equals("J") || type.equals("D") ? 2 : 1;
+            result += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
 
         return result;
@@ -39,18 +39,17 @@ public class VirtualMachine {
         return methodDescriptor.split("->", 2)[0];
     }
 
-    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterIndex) {
+    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterRegister) {
         ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMethodState().peekParameter(parameterIndex);
+        Object value = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
         int[] addresses = addressList.toArray();
         for (int address : addresses) {
             List<ExecutionNode> nodes = graph.getNodePile(address);
             for (ExecutionNode node : nodes) {
-                Object otherValue = node.getContext().getMethodState().peekParameter(parameterIndex);
-
+                Object otherValue = node.getContext().getMethodState().peekParameter(parameterRegister);
                 if (value != otherValue) {
                     if (log.isTraceEnabled()) {
-                        log.trace("No conensus value for parameterIndex #" + parameterIndex + ", returning unknown");
+                        log.trace("No conensus value for r" + parameterRegister + ". Returning unknown.");
                     }
 
                     return new UnknownValue(TypeUtil.getValueType(value));
@@ -186,10 +185,17 @@ public class VirtualMachine {
 
         // Assume all input values are unknown.
         MethodState mState = new MethodState(rootContext, registerCount, parameterTypes.size(), parameterSize);
-        for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
-            String type = parameterTypes.get(parameterIndex);
-            Object value = (!isStatic && (parameterIndex == 0)) ? new LocalInstance(type) : new UnknownValue(type);
-            mState.assignParameter(parameterIndex, value);
+        int firstParameter = mState.getParameterStart();
+        int parameterRegister = firstParameter;
+        for (String type : parameterTypes) {
+            Object value;
+            if (!isStatic && (parameterRegister == firstParameter)) {
+                value = new LocalInstance(type);
+            } else {
+                value = new UnknownValue(type);
+            }
+            mState.assignParameter(parameterRegister, value);
+            parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
         rootContext.setMethodState(mState);
 
@@ -226,16 +232,18 @@ public class VirtualMachine {
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
             List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
-            for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
+            int parameterRegister = calleeContext.getMethodState().getParameterStart();
+            for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
                 String type = parameterTypes.get(parameterIndex);
-                boolean mutable = !ImmutableUtils.isImmutableClass(type);
-                if (!mutable) {
+                if (ImmutableUtils.isImmutableClass(type)) {
                     continue;
                 }
 
-                Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterIndex);
+                Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
                 int register = parameterRegisters[parameterIndex];
                 mState.assignRegister(register, value);
+
+                parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
             }
         }
 

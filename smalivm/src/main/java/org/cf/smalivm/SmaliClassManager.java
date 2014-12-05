@@ -2,7 +2,6 @@ package org.cf.smalivm;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -259,7 +258,7 @@ public class SmaliClassManager {
 
     private void addParameterTypes(BuilderMethod method) {
         List<? extends BuilderMethodParameter> builderParameters = method.getParameters();
-        List<String> parameterTypes = new ArrayList<String>(builderParameters.size());
+        List<String> parameterTypes = new LinkedList<String>();
         for (BuilderMethodParameter builderParameter : builderParameters) {
             parameterTypes.add(builderParameter.getType());
         }
@@ -313,6 +312,10 @@ public class SmaliClassManager {
     }
 
     public boolean isInstance(Class childClass, Class targetClass) throws UnknownAncestors {
+        if ((childClass == null) || (targetClass == null)) {
+            return false;
+        }
+
         String childType = SmaliClassUtils.javaClassToSmali(childClass);
         String targetType = SmaliClassUtils.javaClassToSmali(targetClass);
 
@@ -320,7 +323,20 @@ public class SmaliClassManager {
     }
 
     public boolean isInstance(String childType, String targetType) throws UnknownAncestors {
-        return isInstance(childType, targetType, new HashSet<String>());
+        /*
+         * Note: not 100% sure how java's instanceof works with arrays, but some poking shows it compares the base
+         * classes, and will not compile if types are incompatible, e.g. Integer[][] vs Object[].
+         */
+        String baseChild = SmaliClassUtils.getBaseClass(childType);
+        if (SmaliClassUtils.isPrimitiveType(baseChild)) {
+            baseChild = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseChild));
+        }
+        String baseTarget = SmaliClassUtils.getBaseClass(targetType);
+        if (SmaliClassUtils.isPrimitiveType(baseTarget)) {
+            baseTarget = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseTarget));
+        }
+
+        return isInstance(baseChild, baseTarget, new HashSet<String>());
     }
 
     private boolean isInstance(String childType, String targetType, Set<String> visited) throws UnknownAncestors {
@@ -366,7 +382,6 @@ public class SmaliClassManager {
                     parents.add(SmaliClassUtils.javaClassToSmali(superklazz));
                 }
             } catch (ClassNotFoundException e) {
-                log.warn("Unable to determine ancestory for non-local class: " + javaClass);
                 throw new UnknownAncestors(className);
             }
         }

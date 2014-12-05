@@ -198,6 +198,15 @@ public class TestInvokeOp {
         }
 
         @Test
+        public void testInvokeVirtualManyParametersThrowsNoExceptions() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), 1, 0x100L, 3,
+                            0x200L, 5, 0x300L, 7, 0x3);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, 0x3);
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeRangeManyParameters()V", initial, expected);
+        }
+
+        @Test
         public void testInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[0]);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, int.class);

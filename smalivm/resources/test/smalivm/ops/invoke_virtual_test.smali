@@ -43,6 +43,19 @@
   return-void
 .end method
 
+.method public static InvokeRangeManyParameters()V
+  .locals 8
+
+  # v0 - instance
+  # v1 - I
+  # v2+v3 - J
+  # v4+v5 - J
+  # v6+v7 - J
+  invoke-virtual/range {v0 .. v7}, Linvoke_virtual_test;->ManyParametersReturnsLast(JJJI)I
+
+  return-void
+.end method
+
 .method private ReturnVoid()V
     .locals 0
 
@@ -63,4 +76,10 @@
     move v0, p1
 
     return v0
+.end method
+
+.method private ManyParametersReturnsLast(JJJI)I
+  .locals 0
+
+  return v7
 .end method

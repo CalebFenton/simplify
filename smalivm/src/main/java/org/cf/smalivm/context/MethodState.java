@@ -48,15 +48,15 @@ public class MethodState extends BaseState {
         this.mutableParameters = parent.mutableParameters;
     }
 
-    public void assignParameter(int parameterIndex, Object value) {
-        assignRegister(getParameterStart() + parameterIndex, value, METHOD_HEAP);
+    public void assignParameter(int parameterRegister, Object value) {
+        assignRegister(parameterRegister, value, METHOD_HEAP);
 
         String type = TypeUtil.getValueType(value);
         type = SmaliClassUtils.javaClassToSmali(type);
         boolean mutable = !ImmutableUtils.isImmutableClass(type);
         if (mutable) {
-            pokeRegister(parameterIndex, value, MUTABLE_PARAMETER_HEAP);
-            mutableParameters.add(parameterIndex);
+            pokeRegister(parameterRegister, value, MUTABLE_PARAMETER_HEAP);
+            mutableParameters.add(parameterRegister);
         }
     }
 
@@ -80,12 +80,12 @@ public class MethodState extends BaseState {
         return super.readRegister(register, METHOD_HEAP);
     }
 
-    public Object peekParameter(int parameterIndex) {
+    public Object peekParameter(int parameterRegister) {
         Object value;
-        if (mutableParameters.contains(parameterIndex)) {
-            value = peekRegister(parameterIndex, MUTABLE_PARAMETER_HEAP);
+        if (mutableParameters.contains(parameterRegister)) {
+            value = peekRegister(parameterRegister, MUTABLE_PARAMETER_HEAP);
         } else {
-            value = peekRegister(getParameterStart() + parameterIndex);
+            value = peekRegister(parameterRegister);
         }
 
         return value;
@@ -134,28 +134,23 @@ public class MethodState extends BaseState {
         StringBuilder sb = new StringBuilder();
         if (getParameterCount() > 0) {
             sb.append("parameters: ").append(parameterCount).append("\n[");
-            boolean hadAtLeastOneParameter = false;
-            for (int parameterIndex = 0; parameterIndex < getParameterCount(); parameterIndex++) {
-                int register = getParameterStart() + parameterIndex;
-                if (!super.hasRegister(register, METHOD_HEAP)) {
-                    continue;
-                }
-                hadAtLeastOneParameter = true;
-                sb.append("p").append(parameterIndex).append(": ");
-                int targetRegister = register;
-                String heapId = METHOD_HEAP;
-                if (mutableParameters.contains(parameterIndex)) {
-                    targetRegister = parameterIndex;
-                    heapId = MUTABLE_PARAMETER_HEAP;
-                }
-                if (super.hasRegister(targetRegister, heapId)) {
-                    sb.append(registerToString(targetRegister, heapId));
+            boolean printingAtLeastOneParameter = false;
+            for (int parameterRegister = getParameterStart(); parameterRegister < getRegisterCount();) {
+                sb.append("p").append(parameterRegister).append(": ");
+                if (super.hasRegister(parameterRegister, METHOD_HEAP)) {
+                    printingAtLeastOneParameter = true;
+                    sb.append(registerToString(parameterRegister, METHOD_HEAP));
+                    String type = TypeUtil.getValueType(peekRegisterType(parameterRegister, METHOD_HEAP));
+                    if ("J".equals(type) || "D".equals(type)) {
+                        parameterRegister += 1;
+                    }
+                    sb.append(",\n");
                 } else {
                     sb.append("*in ancestor*");
                 }
-                sb.append(",\n");
+                parameterRegister++;
             }
-            if (hadAtLeastOneParameter) {
+            if (printingAtLeastOneParameter) {
                 sb.setLength(sb.length() - 2);
             }
             sb.append("]");
@@ -171,7 +166,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append("v").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                                .append(",\n");
+                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);

@@ -21,15 +21,17 @@ public class MethodReflector {
 
     private static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
     private static final String SAFE_METHODS_PATH = "safe_methods.cfg";
-    private static Set<String> SafeClasses;
-
-    private static Set<String> SafeMethods;
     private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
+
+    private static Set<String> SafeClasses;
+    private static Set<String> SafeMethods;
+    private static Set<String> UnsafeMethods;
 
     static {
         try {
             loadSafeClasses();
             loadSafeMethods();
+            loadUnsafeMethods();
         } catch (Exception e) {
             log.warn("Error loading safe class definitions.", e);
         }
@@ -43,7 +45,7 @@ public class MethodReflector {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
 
-        if (SafeClasses.contains(className)) {
+        if (SafeClasses.contains(className) && !UnsafeMethods.contains(typeDescriptor)) {
             return true;
         }
 
@@ -64,12 +66,13 @@ public class MethodReflector {
     }
 
     private static void loadSafeMethods() throws IOException {
-        // Some classes may be mostly safe except a few methods. Either exclude or emulate them.
         List<String> lines = ConfigLoader.loadConfig(SAFE_METHODS_PATH);
         SafeMethods = new HashSet<String>(lines);
+    }
 
-        List<String> unsafe = ConfigLoader.loadConfig(UNSAFE_METHODS_PATH);
-        SafeMethods.removeAll(unsafe);
+    private static void loadUnsafeMethods() throws IOException {
+        List<String> lines = ConfigLoader.loadConfig(UNSAFE_METHODS_PATH);
+        UnsafeMethods = new HashSet<String>(lines);
     }
 
     private final String className;
@@ -173,7 +176,7 @@ public class MethodReflector {
             }
             args[i - offset] = arg;
 
-            if (type.equals("J") || type.equals("D")) {
+            if ("J".equals(type) || "D".equals(type)) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
                 i++;
             }
