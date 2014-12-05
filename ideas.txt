@@ -1,7 +1,19 @@
-Benchmark SparseArray vs TIntObjectMap
+whitelist methods
+many Class.is*, other stuff
 
-ContextGraph should be able to poop out a MethodContext that consiststs of terminating register values
-  This could be used when invoking, and we don't care about analyzing the graph, and just want the end state
+emulate
+Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  return methods from any whitelisted class
+
+getField() - emulated methods should support many Class.* methods, either as part of the interface, or inherited
+if they're inherited, base class can implement all of them and return unknown values of the correct type
+
+Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  invoke ourselves or run emulated method
+
+Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+  easy: return any whitelisted class
+  hard: easy + do something with emulated classes
 
 Emulate / spoof stack traces
 
@@ -19,8 +31,18 @@ Emulate / spoof stack traces
   invoke-virtual {v2}, Ljava/lang/Thread;->getStackTrace()[Ljava/lang/StackTraceElement;
 
 
-Hashcode / Equals
-  ContextNode
-  Handler
-  MethodContext
-  VirtualMachineContext
+Hashcode? / Equals?
+  ExecutionNode, Op, *State, etc.
+
+
+Success stories
+java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
+java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
+
+
+Android class lifecycle initialization
+  sometimes it can be assumed onCreate has been called
+  or just give a list of methods to be called before whatever else
+
+  java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
+  ArrayLists are initialized in onCreate, but since that's not known, everything fails
