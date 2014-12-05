@@ -21,6 +21,8 @@ public final class OpFactory {
         FILLED_NEW_ARRAY,
         GOTO,
         IF,
+        IGET,
+        IPUT,
         INSTANCE_OF,
         INVOKE,
         MONITOR,
@@ -34,7 +36,7 @@ public final class OpFactory {
         SWITCH,
         SWITCH_PAYLOAD,
         UNARY_MATH,
-        UNIMPLEMENTED
+        UNIMPLEMENTED,
     };
 
     @SuppressWarnings("unused")
@@ -246,6 +248,9 @@ public final class OpFactory {
         case IGET_OBJECT:
         case IGET_SHORT:
         case IGET_WIDE:
+            result = OpType.IGET;
+            break;
+
         case IPUT:
         case IPUT_BOOLEAN:
         case IPUT_BYTE:
@@ -253,6 +258,7 @@ public final class OpFactory {
         case IPUT_OBJECT:
         case IPUT_SHORT:
         case IPUT_WIDE:
+            result = OpType.IPUT;
             break;
 
         case INSTANCE_OF:
@@ -374,6 +380,12 @@ public final class OpFactory {
             break;
         case IF:
             result = IfOp.create(instruction, address);
+            break;
+        case IGET:
+            result = IGetOp.create(instruction, address, vm);
+            break;
+        case IPUT:
+            result = IPutOp.create(instruction, address, vm);
             break;
         case SWITCH:
             result = SwitchOp.create(instruction, address);
