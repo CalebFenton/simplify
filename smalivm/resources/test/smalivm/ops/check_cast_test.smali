@@ -12,7 +12,7 @@
 .method public static CastToObjectArray()V
     .locals 1
 
-    check-cast v0, Ljava/lang/Integer;
+    check-cast v0, [Ljava/lang/Integer;
 
     return-void
 .end method
@@ -33,7 +33,15 @@
   return-void
 .end method
 
-.method public static CastToKnownLocalParentClass()V
+.method public static CastToLocalParentClass()V
+  .locals 1
+
+  check-cast v0, Lparent_class;
+
+  return-void
+.end method
+
+.method public static CastToLocalGrandParentClass()V
   .locals 1
 
   check-cast v0, Lparent_class;

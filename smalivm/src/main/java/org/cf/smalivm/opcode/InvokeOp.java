@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode;
 
 import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.list.linked.TIntLinkedList;
 
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +16,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.Type;
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
@@ -82,11 +83,12 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        TIntList parameterRegisters = new TIntArrayList(parameterTypes.size());
-        for (int i = 0; i < parameterTypes.size(); i++) {
+        int i = 0;
+        TIntList parameterRegisters = new TIntLinkedList(parameterTypes.size());
+        for (String parameterType : parameterTypes) {
             parameterRegisters.add(registers[i]);
-            String type = parameterTypes.get(i);
-            if (type.equals("J") || type.equals("D")) {
+            i++;
+            if (parameterType.equals("J") || parameterType.equals("D")) {
                 i++;
             }
         }
@@ -121,7 +123,7 @@ public class InvokeOp extends ExecutionContextOp {
     @Override
     public int[] execute(ExecutionContext ectx) {
         String targetMethod = methodDescriptor;
-        if (getName().endsWith("-virtual")) {
+        if (getName().contains("-virtual")) { // -virtual/range
             // Method call might be to interface or abstract class.
             // Try and resolve what the actual virtual target is.
             int targetRegister = parameterRegisters[0];
@@ -205,11 +207,13 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private boolean allArgumentsKnown(MethodState mState) {
-        for (int parameterIndex = 0; parameterIndex < mState.getParameterCount(); parameterIndex++) {
-            Object value = mState.peekParameter(parameterIndex);
+        for (int parameterRegister = mState.getParameterStart(); parameterRegister < mState.getRegisterCount();) {
+            Object value = mState.peekParameter(parameterRegister);
             if (value instanceof UnknownValue) {
                 return false;
             }
+            String type = TypeUtil.getValueType(value);
+            parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
 
         return true;
@@ -222,10 +226,13 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void assignCalleeMethodStateParameters(MethodState callerState, MethodState calleeState) {
-        for (int parameterIndex = 0; parameterIndex < parameterRegisters.length; parameterIndex++) {
-            int callerRegister = parameterRegisters[parameterIndex];
+        int parameterRegister = calleeState.getParameterStart();
+        for (int i = 0; i < parameterRegisters.length; i++) {
+            int callerRegister = parameterRegisters[i];
             Object value = callerState.readRegister(callerRegister);
-            calleeState.assignParameter(parameterIndex, value);
+            calleeState.assignParameter(parameterRegister, value);
+            String type = parameterTypes.get(i);
+            parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
     }
 
@@ -362,6 +369,43 @@ public class InvokeOp extends ExecutionContextOp {
         return targetMethod != null ? targetMethod : methodDescriptor;
     }
 
+    private static boolean doesNonLocalMethodExist(String className, String methodSignature) {
+        Class<?> klazz = null;
+        try {
+            klazz = Class.forName(SmaliClassUtils.smaliClassToJava(className));
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(methodSignature);
+        List<String> paramList = Utils.getParameterTypes(sb.toString());
+        Class<?>[] params = new Class<?>[paramList.size()];
+        for (int i = 0; i < paramList.size(); i++) {
+            String paramName = paramList.get(i);
+            try {
+                if (SmaliClassUtils.isPrimitiveType(paramName)) {
+                    params[i] = SmaliClassUtils.getPrimitiveType(SmaliClassUtils.smaliClassToJava(paramName));
+                } else {
+                    params[i] = Class.forName(SmaliClassUtils.smaliClassToJava(paramName));
+                }
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        }
+
+        String methodName = methodSignature.split("\\(")[0];
+        try {
+            klazz.getMethod(methodName, params);
+        } catch (NoSuchMethodException e) {
+            return false;
+        } catch (SecurityException e) {
+            return false;
+        }
+
+        return true;
+    }
+
     private String getLocalTargetForVirtualMethod(String className, String methodSignature,
                     SmaliClassManager classManager, Set<String> visited) {
         visited.add(className);
@@ -370,8 +414,11 @@ public class InvokeOp extends ExecutionContextOp {
         String methodDescriptor = sb.toString();
 
         boolean isLocalMethod = classManager.isLocalMethod(methodDescriptor);
-        if ((isLocalMethod && classManager.methodHasImplementation(methodDescriptor))
-                        || MethodReflector.isSafe(methodDescriptor)) {
+        if ((isLocalMethod && classManager.methodHasImplementation(methodDescriptor))) {
+            return methodDescriptor;
+        }
+
+        if (MethodReflector.isSafe(methodDescriptor) && doesNonLocalMethodExist(className, methodSignature)) {
             return methodDescriptor;
         }
 
@@ -400,5 +447,4 @@ public class InvokeOp extends ExecutionContextOp {
 
         return null;
     }
-
 }

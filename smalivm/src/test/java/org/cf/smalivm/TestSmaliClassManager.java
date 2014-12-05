@@ -48,6 +48,34 @@ public class TestSmaliClassManager {
         assertTrue(isInstance);
     }
 
+    @Test
+    public void testStringArrayIsInstanceOfObjectArray() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(String[].class, Object[].class);
+
+        assertTrue(isInstance);
+    }
+
+    @Test
+    public void testIntPrimitiveIsInstanceOfInteger() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, Integer.class);
+
+        assertTrue(isInstance);
+    }
+
+    @Test
+    public void testIntPrimitiveIsInstanceOfNumber() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, Number.class);
+
+        assertTrue(isInstance);
+    }
+
+    @Test
+    public void testIntPrimitiveIsNotInstanceOfLong() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, Long.class);
+
+        assertFalse(isInstance);
+    }
+
     @Test(expected = UnknownAncestors.class)
     public void testUnknownChildThrowsUnknownAncestors() throws UnknownAncestors {
         manager.isInstance("Lthis_certainly_wont_exists;", "Lparent_class;");

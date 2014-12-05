@@ -8,8 +8,12 @@ import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CheckCastOp extends MethodStateOp {
+
+    private static final Logger log = LoggerFactory.getLogger(CheckCastOp.class.getSimpleName());
 
     static CheckCastOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -47,13 +51,12 @@ public class CheckCastOp extends MethodStateOp {
 
         try {
             if (!vm.getClassManager().isInstance(type, className)) {
-                // TODO: make exception framework and throw exception if can't cast
-                // should include realistic stac track
-                throw new ClassCastException();
+                // TODO: exception should be filled with spoofed stack trace
+                // throw new ClassCastException("Class - " + className);
             }
         } catch (UnknownAncestors e) {
-            // TODO Auto-generated catch block
-            throw new ClassCastException();
+            log.warn("Unable to determine ancestory for class", e);
+            // Could be framework class that's just not part of the VM (yet)
         }
 
         return getPossibleChildren();
