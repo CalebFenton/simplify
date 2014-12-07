@@ -1,6 +1,7 @@
 package org.cf.simplify;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,11 +31,11 @@ public class Optimizer {
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
-        performOnceStrategies = new ArrayList<OptimizationStrategy>();
+        performOnceStrategies = new LinkedList<OptimizationStrategy>();
         performOnceStrategies.add(new ConstantPropigationStrategy(mbgraph));
         performOnceStrategies.add(new PeepholeStrategy(mbgraph));
 
-        performRepeatedlyStrategies = new ArrayList<OptimizationStrategy>();
+        performRepeatedlyStrategies = new LinkedList<OptimizationStrategy>();
         performRepeatedlyStrategies.add(new DeadRemovalStrategy(mbgraph));
 
         allStrategies = new ArrayList<OptimizationStrategy>();
