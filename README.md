@@ -1,18 +1,59 @@
-Simplifier
-==========
+Simplify
+========
 
-Semantics simplification and deobfuscation
-------------------------------------------
+Generic Android Deobfuscator
+----------------------------
 
-Simplifier takes Smali files as input and produces a simpler and (hopefully) semantically equivalent Dalvik executable. The main use case for this is as a generic deobfuscator. There are two main parts to the project:
+Simplify uses a virtual machine to understand what an app does. Then, it applies optimizations to create code that behaves identically, but is easier for a human to understand. Specifically, it takes Smali files as input and outputs a Dex file with (hopefully) identical semantics but less complicated structure.
 
-1. Smali Virtual Machine (smalivm) - A VM designed to handle ambiguous values and multiple possible execution paths. If a conditional has an ambiguous predicate, both positive and negative branches are followed. Ambiguity is assumed pessimistically. E.g. If a method is invoked, but cannot be executed, any mutable parameters are assumed mutated and marked as ambiguous. Heap state (method and class values) is maintained for each execution of each instruction. The result of the execution of a method is a context sensitive graph.
+For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine semantics. Then, it uses the apps own code to decrypt the strings and replaces the encrypted strings and the decryption method calls with the decrypted versions. It's a generic deobfuscator becuase Simplify doesn't need to know how the decyrption works ahead of time. This technique also works well for eliminating different types of white noise, such as no-ops and useless arithmetic.
 
-2. Simplify - An optimizer that understands how to examine the graph produced by smalivm. It performs constant propagation, dead code removal, and some specific peephole optimizations.
+**Before / After**
 
-It is still in early development, so don't expect everything (or anything) to work. :D
+<section>
+<p align="center">
+<img src="https://cloud.githubusercontent.com/assets/1356658/5330710/b2a0df34-7dbc-11e4-980c-1d3e27a62faa.png" alt="Lots of method calls, no clear meaning" height="320px" align="center" />
+<img src="https://cloud.githubusercontent.com/assets/1356658/5330711/b2a104b4-7dbc-11e4-8533-f707bc2c1e6c.png" alt="Lots of string literals, much more obvious meaning" height="320px" align="center" />
+</p>
+</section>
 
-###Trivial Optimization Example
+There are three parts to the project:
+
+1. **Smali Virtual Machine (SmaliVM)** - A VM designed to handle ambiguous values and multiple possible execution paths. For example, if there is an `if`, and the predicate includes unknown values (user input, current time, read from a file, etc.), the VM will assume either one could happen, and takes the `true` and `false` paths. This increases uncertainty, but maintains fidelity. SmaliVM's output is a graph that represents what the app could do. It contains every possible execution path and the register and class member values at each possible execution of every instruction.
+2. **Simplify** - The optimizer. It takes the graphs from SmaliVM and applies optimizations like constant propagation, dead code removal, and  specific peephole optimizations.
+3. **Demoapp** - A short and heavily commented project that shows how to get started using SmaliVM.
+
+
+Troubleshooting
+---------------
+
+Simplify is still in early stages of development. If you encounter a failure, try these recommendations, in order:
+
+1. Limit the target methods and classes to just the essentials with `-it`. Simplify will try and run over the entire app by default, which means more possibility for failure. Limiting to just one class or a few important methods improves chances significantly.
+2. If methods fail to simplify because of errors related to maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
+3. Try with `-v` or `-vv` and report the issue.
+4. Try again, but do not break eye contact. Simpify can sense fear.
+
+
+Reporting Issues
+----------------
+
+Two main things are needed to reproduce and fix problems:
+
+1. The APK. If it's legal and possible, please link to the APK.
+2. The full command used.
+
+Optional, but still useful, is a verbose log output around the error.
+
+
+Reporting Success
+-----------------
+
+Did Simplify just save you a few hours of suffering? Send an e-mail to calebjfenton (AT) gmail [dot] com. If that's not your thing, send a pull request with bug fixes.
+
+
+
+### Optimization Example
 ```
 .method public static test1()I
     .locals 2
@@ -29,7 +70,7 @@ It is still in early development, so don't expect everything (or anything) to wo
 .end method
 ```
 
-The above code is an obtuse way to say `v0 = 1`. This is an obfuscation technique. SmaliVM understands how to use the Java API when it's safe, and will reflect the Integer methods.
+The above code is an obtuse way to say `v0 = 1`. This is sometimes used as an obfuscation technique.
 
 
 ###After Constant Propagation
@@ -43,7 +84,8 @@ The above code is an obtuse way to say `v0 = 1`. This is an obfuscation techniqu
     invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
 
     invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
-    const/4 v0, 0x1 # move replaced with const
+    # move-result replaced with const/4
+    const/4 v0, 0x1
 
     # known return register value prepended with const
     const/4 v0, 0x1
@@ -52,7 +94,8 @@ The above code is an obtuse way to say `v0 = 1`. This is an obfuscation techniqu
 .end method
 ```
 
-Certain single assignment instructions can be replaced with constant instructions when there is consensus of the potential register value between all nodes for that particular instruction. In this example `move-result` is constantized, as well as `return` because there is only one possible value and it is not ambiguous.
+Some single assignment instructions can be replaced with constant instructions when there is consensus of the value being assigned of all the possible executions of that instruction. If the instruction is outside of a loop, there will only be one node in the graph for that instruction.
+In this example `move-result` is constantized, as well as `return` because there is only one possible value (consensus) and it is not unkown.
 
 
 ###After Dead Code Removal
@@ -68,8 +111,6 @@ Certain single assignment instructions can be replaced with constant instruction
 
 Dead code includes:
 
-* unreferenced assignments
-* method calls with no side-effects
-* unreached / unreachable instructions
-
-This example shows the first two types being removed.
+* unreferenced assignments - assigning something and never using it
+* method calls with no side-effects - `Ljava/lang/Integer;->intValue()I` has no side-effects
+* unreached / unreachable instructions - code inside of an `if (false)` block, none in this example
