@@ -19,8 +19,12 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PeepholeStrategy implements OptimizationStrategy {
+
+    private static final Logger log = LoggerFactory.getLogger(PeepholeStrategy.class.getSimpleName());
 
     private static final String ClassForNameSignature = "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
     private static final String MethodInvokeSignature = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
@@ -104,14 +108,18 @@ public class PeepholeStrategy implements OptimizationStrategy {
             Object value = mbgraph.getRegisterConsensus(address, instanceRegister);
             BuilderInstruction replacement = ConstantPropigationStrategy.buildConstant(value, instanceRegister,
                             mbgraph.getDexBuilder());
+            if (log.isDebugEnabled()) {
+                log.debug("Peeping string init @" + address + " " + mbgraph.getOp(address));
+            }
             mbgraph.replaceInstruction(address, replacement);
         }
     }
 
     public boolean perform() {
         addresses = getValidAddresses(mbgraph);
-
         peepClassForName();
+
+        addresses = getValidAddresses(mbgraph);
         peepStringInit();
 
         return peepCount > 0;
