@@ -12,8 +12,8 @@ For example, if an app's strings are encrypted, Simplify will interpret the app 
 
 <section>
 <p align="center">
-<img src="https://cloud.githubusercontent.com/assets/1356658/5331911/1e790c86-7df4-11e4-91e7-aba1d2c63b98.png" alt="Lots of method calls, no clear meaning" height="420px" align="center" />
-<img src="https://cloud.githubusercontent.com/assets/1356658/5331912/1ecc6d7c-7df4-11e4-9572-bc3d41303842.png" alt="Wow, such literal, much meaning" height="420px" align="center" />
+<img src="https://cloud.githubusercontent.com/assets/1356658/5331911/1e790c86-7df4-11e4-91e7-aba1d2c63b98.png" alt="Lots of method calls, no clear meaning" height="400px" align="center" />
+<img src="https://cloud.githubusercontent.com/assets/1356658/5331912/1ecc6d7c-7df4-11e4-9572-bc3d41303842.png" alt="Wow, such literal, much meaning" height="400px" align="center" />
 </p>
 </section>
 
@@ -22,6 +22,21 @@ There are three parts to the project:
 1. **Smali Virtual Machine (SmaliVM)** - A VM designed to handle ambiguous values and multiple possible execution paths. For example, if there is an `if`, and the predicate includes unknown values (user input, current time, read from a file, etc.), the VM will assume either one could happen, and takes the `true` and `false` paths. This increases uncertainty, but maintains fidelity. SmaliVM's output is a graph that represents what the app could do. It contains every possible execution path and the register and class member values at each possible execution of every instruction.
 2. **Simplify** - The optimizer. It takes the graphs from SmaliVM and applies optimizations like constant propagation, dead code removal, and  specific peephole optimizations.
 3. **Demoapp** - A short and heavily commented project that shows how to get started using SmaliVM.
+
+
+Building
+--------
+
+**There is a bug with dexlib 2.0.3 which can cause Simplify to fail often.**
+To work around, you must:
+* Clone and build [Smali](https://github.com/JesusFreke/smali)
+* Modify this line in [smalivm/build.gradle](smalivm/build.gradle) to point to the built jar, if different:
+
+`compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')`
+
+Sorry for this step. It won't be necessary once updated dexlib is released.
+
+To build the jar, use `./gradlew shadowJar`
 
 
 Troubleshooting
