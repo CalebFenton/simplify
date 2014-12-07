@@ -72,7 +72,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     public int[] execute(MethodState mState) {
         MethodState parent = mState.getParent();
         int register = parent.getRegistersAssigned().get(0);
-        // Read instead of peek because this shouldn't count as an actual use for the optimizer
+        // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
         Object array = mState.peekRegister(register);
         if (!(array instanceof UnknownValue)) {
             Class<?> expectedClass = array.getClass().getComponentType();
@@ -81,7 +81,8 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
                 Object value = getProperValue(number, expectedClass);
                 Array.set(array, i, value);
             }
-            mState.assignRegister(register, array);
+            // Poke rather than assign for the optimizer.
+            mState.pokeRegister(register, array);
         }
 
         int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
