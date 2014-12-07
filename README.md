@@ -12,8 +12,8 @@ For example, if an app's strings are encrypted, Simplify will interpret the app 
 
 <section>
 <p align="center">
-<img src="https://cloud.githubusercontent.com/assets/1356658/5331885/16ac7b74-7df3-11e4-992d-0e987c0bc2f8.png" alt="Lots of method calls, no clear meaning" height="300px" align="center" />
-<img src="https://cloud.githubusercontent.com/assets/1356658/5331886/16c28e78-7df3-11e4-8fa0-8816ae7d98fe.png" alt="Wow, such literal, much meaning" height="300px" align="center" />
+<img src="https://cloud.githubusercontent.com/assets/1356658/5331911/1e790c86-7df4-11e4-91e7-aba1d2c63b98.png" alt="Lots of method calls, no clear meaning" height="300px" align="center" />
+<img src="https://cloud.githubusercontent.com/assets/1356658/5331912/1ecc6d7c-7df4-11e4-9572-bc3d41303842.png" alt="Wow, such literal, much meaning" height="300px" align="center" />
 </p>
 </section>
 
