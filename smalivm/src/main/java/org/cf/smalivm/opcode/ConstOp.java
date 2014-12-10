@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 public class ConstOp extends MethodStateOp {
 
-    private static enum ConstType {
+    private static enum ConstantType {
         CLASS,
         LOCAL_TYPE,
         NARROW,
@@ -35,12 +35,12 @@ public class ConstOp extends MethodStateOp {
         int childAddress = address + instruction.getCodeUnits();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
 
-        ConstType constType = null;
+        ConstantType constType = null;
         Object literal = null;
         if (opName.matches("const-string(?:/jumbo)?")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             literal = ((StringReference) instr.getReference()).getString();
-            constType = ConstType.STRING;
+            constType = ConstantType.STRING;
         } else if (opName.endsWith("-class")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             Reference classRef = instr.getReference();
@@ -49,50 +49,51 @@ public class ConstOp extends MethodStateOp {
 
             // Defer class lookup for execute. We may want to handle any possible errors there.
             if (vm.isLocalClass(className)) {
-                constType = ConstType.LOCAL_TYPE;
+                constType = ConstantType.LOCAL_TYPE;
             } else {
-                constType = ConstType.CLASS;
+                constType = ConstantType.CLASS;
             }
         } else if (opName.contains("-wide")) {
             WideLiteralInstruction instr = (WideLiteralInstruction) instruction;
             literal = instr.getWideLiteral();
-            constType = ConstType.WIDE;
+            constType = ConstantType.WIDE;
         } else {
             NarrowLiteralInstruction instr = (NarrowLiteralInstruction) instruction;
             literal = instr.getNarrowLiteral();
-            constType = ConstType.NARROW;
+            constType = ConstantType.NARROW;
         }
 
         return new ConstOp(address, opName, childAddress, destRegister, constType, literal);
     }
 
-    private final ConstType constType;
+    private final ConstantType constantType;
     private final int destRegister;
     private final Object literal;
 
-    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstType constType, Object literal) {
+    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstantType constType,
+                    Object literal) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
-        this.constType = constType;
+        this.constantType = constType;
         this.literal = literal;
     }
 
     private ConstOp(int address, String opName, int childAddress, int destRegister, int literal) {
-        this(address, opName, childAddress, destRegister, ConstType.NARROW, literal);
+        this(address, opName, childAddress, destRegister, ConstantType.NARROW, literal);
     }
 
     private ConstOp(int address, String opName, int childAddress, int destRegister, long literal) {
-        this(address, opName, childAddress, destRegister, ConstType.WIDE, literal);
+        this(address, opName, childAddress, destRegister, ConstantType.WIDE, literal);
     }
 
     private ConstOp(int address, String opName, int childAddress, int destRegister, String literal) {
-        this(address, opName, childAddress, destRegister, ConstType.STRING, literal);
+        this(address, opName, childAddress, destRegister, ConstantType.STRING, literal);
     }
 
     @Override
     public int[] execute(MethodState mState) {
-        Object result = getConst();
+        Object result = getConstant();
         mState.assignRegister(destRegister, result);
 
         return getPossibleChildren();
@@ -104,7 +105,7 @@ public class ConstOp extends MethodStateOp {
 
         sb.append(" r").append(destRegister).append(", ");
         String val;
-        switch (constType) {
+        switch (constantType) {
         case LOCAL_TYPE:
         case CLASS:
             sb.append(literal);
@@ -113,18 +114,18 @@ public class ConstOp extends MethodStateOp {
             // sb.append("0x").append(Integer.toHexString(Integer.parseInt(literal.toString())));
             val = Integer.toString((int) literal, 16);
             if (val.startsWith("-")) {
-                sb.append("-");
+                sb.append('-');
                 val = val.substring(1);
             }
             sb.append("0x").append(val);
             break;
         case STRING:
-            sb.append("\"").append((String) literal).append("\"");
+            sb.append('"').append((String) literal).append('"');
             break;
         case WIDE:
             val = Long.toString((long) literal, 16);
             if (val.startsWith("-")) {
-                sb.append("-");
+                sb.append('-');
                 val = val.substring(1);
             }
             sb.append("0x").append(val);
@@ -137,19 +138,17 @@ public class ConstOp extends MethodStateOp {
         return sb.toString();
     }
 
-    private Object getConst() {
+    public Object getConstant() {
         Object result = null;
-        if (constType == ConstType.CLASS) {
+        if (ConstantType.CLASS == constantType) {
             String className = (String) literal;
             try {
                 String javaClassName = SmaliClassUtils.smaliClassToJava(className);
                 result = ClassUtils.getClass(javaClassName);
             } catch (ClassNotFoundException e) {
                 result = new UnknownValue(className);
-                // log.warn("Could not find class for const-class: " + className);
-                // e.printStackTrace();
             }
-        } else if (constType == ConstType.LOCAL_TYPE) {
+        } else if (ConstantType.LOCAL_TYPE == constantType) {
             String className = (String) literal;
             result = new LocalInstance(className);
         } else {

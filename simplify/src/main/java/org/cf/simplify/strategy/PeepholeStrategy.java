@@ -192,19 +192,19 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     boolean canPeepClassForName(int address) {
-        Op handler = mbgraph.getOp(address);
-        if (!(handler instanceof InvokeOp)) {
+        Op op = mbgraph.getOp(address);
+        if (!(op instanceof InvokeOp)) {
             return false;
         }
 
         BuilderInstruction instruction = mbgraph.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
-        String ref = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!ref.equals(ClassForNameSignature)) {
+        String methodDescriptor = ReferenceUtil.getReferenceString(instr.getReference());
+        if (!methodDescriptor.equals(ClassForNameSignature)) {
             return false;
         }
 
-        int[] parameterRegisters = ((InvokeOp) handler).getParameterRegisters();
+        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int registerA = parameterRegisters[0];
         Object classNameValue = mbgraph.getRegisterConsensus(address, registerA);
         if (classNameValue instanceof UnknownValue) {
@@ -222,8 +222,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         BuilderInstruction instruction = mbgraph.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
-        String ref = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!ref.equals(MethodInvokeSignature)) {
+        String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
+        if (!methodSignature.equals(MethodInvokeSignature)) {
             return false;
         }
 
