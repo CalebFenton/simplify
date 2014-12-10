@@ -238,7 +238,7 @@ public class MethodBackedGraph extends ExecutionGraph {
             ExecutionNode newNode = new ExecutionNode(op);
             nodePile.set(index, newNode);
 
-            if (index == TEMPLATE_NODE_INDEX) {
+            if (TEMPLATE_NODE_INDEX == index) {
                 assert replacedNode.getContext() == null;
                 assert replacedNode.getParent() == null;
                 assert replacedNode.getChildren().size() == 0;
@@ -256,7 +256,7 @@ public class MethodBackedGraph extends ExecutionGraph {
                 parentNode.replaceChild(replacedNode, newNode);
                 newContext = parentNode.getContext().getChild();
             } else {
-                assert address == METHOD_ROOT_ADDRESS;
+                assert METHOD_ROOT_ADDRESS == address;
                 newContext = vm.getRootExecutionContext(methodDescriptor);
             }
             newNode.setContext(newContext);
@@ -288,6 +288,16 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
 
         return result;
+    }
+
+    public List<ExecutionNode> getChildrenAtAddress(int address) {
+        List<ExecutionNode> children = new ArrayList<ExecutionNode>();
+        List<ExecutionNode> nodePile = getNodePile(address);
+        for (ExecutionNode node : nodePile) {
+            children.addAll(node.getChildren());
+        }
+
+        return children;
     }
 
 }
