@@ -102,13 +102,12 @@ public class VMTester {
     }
 
     public static VirtualMachine getTestVM() {
-        if (null == classManager) {
-            try {
-                classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());
-            } catch (IOException e) {
-                e.printStackTrace();
-                System.exit(-1);
-            }
+        SmaliClassManager classManager = null;
+        try {
+            classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(-1);
         }
 
         return new VirtualMachine(classManager);

@@ -10,6 +10,14 @@
   return-void
 .end method
 
+.method public static StringInit()V
+  .locals 2
+
+  invoke-direct {v0, v1}, Ljava/lang/String;-><init>([B)V
+
+  return-void
+.end method
+
 .method public static MethodInvokeWith3Locals()V
   .locals 3
 
