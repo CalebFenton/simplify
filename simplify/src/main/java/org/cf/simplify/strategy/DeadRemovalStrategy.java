@@ -6,7 +6,6 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -15,7 +14,6 @@ import java.util.Map;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ExecutionContext;
-import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.GotoOp;
@@ -34,13 +32,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
-    private static boolean areAssignmentsRead(int address, TIntList assignedList, ExecutionGraph graph) {
-        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildrenAtAddress(address, graph));
+    private static boolean areRegistersRead(int address, TIntList registerList, MethodBackedGraph graph) {
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildrenAtAddress(address));
         ExecutionNode node;
-        int[] assigned = assignedList.toArray();
+        int[] registers = registerList.toArray();
         while ((node = stack.poll()) != null) {
             MethodState mState = node.getContext().getMethodState();
-            for (int register : assigned) {
+            for (int register : registers) {
                 if (mState.wasRegisterRead(register)) {
                     log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
                                     + ", " + node.getOp());
@@ -57,18 +55,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private static List<ExecutionNode> getChildrenAtAddress(int address, ExecutionGraph graph) {
-        List<ExecutionNode> result = new ArrayList<ExecutionNode>();
-        List<ExecutionNode> nodePile = graph.getNodePile(address);
-        for (ExecutionNode node : nodePile) {
-            result.addAll(node.getChildren());
-        }
-
-        return result;
-    }
-
     private TIntList addresses;
-
     private int deadAssignmentCount;
     private int deadBranchCount;
     private int deadCount;
@@ -171,7 +158,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             if (log.isDebugEnabled()) {
                 log.debug("Read assignments test @" + address + " for: " + op);
             }
-            if (areAssignmentsRead(address, assigned, mbgraph)) {
+
+            if (areRegistersRead(address, assigned, mbgraph)) {
                 continue;
             }
 

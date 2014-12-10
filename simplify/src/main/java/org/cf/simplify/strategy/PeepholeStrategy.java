@@ -2,11 +2,18 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.list.linked.TIntLinkedList;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.simplify.MethodBackedGraph;
+import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UnknownValue;
@@ -44,6 +51,23 @@ public class PeepholeStrategy implements OptimizationStrategy {
         result.put("peeps", peepCount);
 
         return result;
+    }
+
+    void peepMethodInvoke() {
+        TIntList peepAddresses = new TIntArrayList();
+        for (int address : addresses.toArray()) {
+            if (canPeepMethodInvoke(address)) {
+                peepAddresses.add(address);
+            }
+        }
+
+        peepCount += peepAddresses.size();
+        peepAddresses.sort();
+        peepAddresses.reverse();
+        for (int address : peepAddresses.toArray()) {
+            BuilderInstruction replacement = buildMethodInvokeReplacement(address);
+            mbgraph.replaceInstruction(address, replacement);
+        }
     }
 
     void peepClassForName() {
@@ -119,6 +143,9 @@ public class PeepholeStrategy implements OptimizationStrategy {
         addresses = getValidAddresses(mbgraph);
         peepClassForName();
 
+        // addresses = getValidAddresses(mbgraph);
+        // peepMethodInvoke();
+
         addresses = getValidAddresses(mbgraph);
         peepStringInit();
 
@@ -135,6 +162,33 @@ public class PeepholeStrategy implements OptimizationStrategy {
         BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
 
         return constClassInstruction;
+    }
+
+    BuilderInstruction buildMethodInvokeReplacement(int address) {
+        Op op = mbgraph.getOp(address);
+        TIntSet parentAddressSet = new TIntHashSet();
+        for (ExecutionNode node : mbgraph.getNodePile(address)) {
+            parentAddressSet.add(node.getParent().getAddress());
+        }
+        TIntList parentAddresses = new TIntArrayList(parentAddressSet);
+        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
+        int methodRegister = parameterRegisters[0];
+        int targetRegister = parameterRegisters[1];
+        int parametersRegister = parameterRegisters[2];
+
+        Object value1 = mbgraph.getRegisterConsensus(parentAddresses, methodRegister);
+        Object value2 = mbgraph.getRegisterConsensus(parentAddresses, targetRegister);
+        Object value3 = mbgraph.getRegisterConsensus(parentAddresses, parametersRegister);
+
+        // need 0-?? available registers, then pull out the parameters with a-get into them
+        // then build a proper invoke
+        // String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
+        // String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
+        // BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
+        // BuilderInstruction methodInvokeInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register,
+        // classRef);
+
+        return null;
     }
 
     boolean canPeepClassForName(int address) {
@@ -161,8 +215,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     boolean canPeepMethodInvoke(int address) {
-        Op handler = mbgraph.getOp(address);
-        if (!(handler instanceof InvokeOp)) {
+        Op op = mbgraph.getOp(address);
+        if (!(op instanceof InvokeOp)) {
             return false;
         }
 
@@ -173,19 +227,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             return false;
         }
 
-        int[] parameterRegisters = ((InvokeOp) handler).getParameterRegisters();
-        int methodRegister = parameterRegisters[0];
-        int targetRegister = parameterRegisters[1];
-        int parametersRegister = parameterRegisters[2];
-
-        Object value1 = mbgraph.getRegisterConsensus(address, methodRegister);
-        Object value2 = mbgraph.getRegisterConsensus(address, targetRegister);
-        Object value3 = mbgraph.getRegisterConsensus(address, parametersRegister);
-
-        // check instanceof UnknownValue
-        System.out.println(value1 + " " + value2 + " " + value3);
-
-        return false;
+        return true;
     }
 
     TIntList getValidAddresses(MethodBackedGraph mbgraph) {
@@ -199,4 +241,43 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return result;
     }
 
+    private TIntList getAvailableRegisters(int address, MethodBackedGraph mbgraph) {
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(mbgraph.getChildrenAtAddress(address));
+        ExecutionNode node = stack.getFirst();
+        if (null == node) {
+            // Only return should not have children.
+            MethodState mState = mbgraph.getNodePile(address).get(0).getContext().getMethodState();
+            TIntList available = new TIntLinkedList();
+            // They're all available!
+            for (int i = 0; i < mState.getRegisterCount(); i++) {
+                available.add(i);
+            }
+
+            return available;
+        }
+
+        int[] registers = new int[node.getContext().getMethodState().getRegisterCount()];
+        for (int i = 0; i < registers.length; i++) {
+            registers[i] = i;
+        }
+        TIntSet unavailable = new TIntHashSet();
+        TIntList available = new TIntLinkedList();
+        while ((node = stack.poll()) != null) {
+            MethodState mState = node.getContext().getMethodState();
+            for (int register : registers) {
+                if (unavailable.contains(register) || available.contains(register)) {
+                    continue;
+                }
+
+                if (mState.wasRegisterRead(register)) {
+                    unavailable.add(register);
+                } else if (mState.wasRegisterAssigned(register)) {
+                    available.add(register);
+                }
+            }
+            stack.addAll(node.getChildren());
+        }
+
+        return available;
+    }
 }

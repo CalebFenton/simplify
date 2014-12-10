@@ -19,20 +19,19 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
             log.warn("Emulated Class.getMethod of " + param0.getClass() + " not supported");
         }
 
-        Class<?> instance = (Class<?>) mState.peekParameter(0);
+        Class<?> instance = (Class<?>) param0;
+        // this is wrong, needs tests
+        // should almost always be able to return unknownvalue with correct method name
         String className = SmaliClassUtils.javaClassToSmali(instance);
         if (!MethodReflector.isSafe(className)) {
             mState.assignReturnRegister(new UnknownValue("Ljava/lang/Class;"));
             return;
         }
 
-        Class<?>[] parameterTypes = new Class<?>[mState.getParameterCount() - 1];
-        for (int i = 0; i < parameterTypes.length; i++) {
-            parameterTypes[i] = (Class<?>) mState.peekParameter(i);
-        }
+        String methodName = (String) mState.peekParameter(1);
+        Class<?>[] methodParams = (Class<?>[]) mState.peekParameter(2);
 
-        java.lang.reflect.Method result = instance.getMethod(className, parameterTypes);
-        System.out.println("return: " + result);
+        java.lang.reflect.Method result = instance.getMethod(methodName, methodParams);
         mState.assignReturnRegister(result);
     }
 

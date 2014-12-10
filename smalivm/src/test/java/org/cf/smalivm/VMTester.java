@@ -29,7 +29,6 @@ public class VMTester {
 
     private static final String TEST_DIRECTORY = "resources/test";
 
-    private static DexBuilder dexBuilder;
     private static SmaliClassManager classManager;
 
     public static Map<String, Map<String, Object>> buildClassNameToFieldValue(String className, Object... params) {
@@ -99,14 +98,13 @@ public class VMTester {
     }
 
     public static DexBuilder getDexBuilder() {
-        return dexBuilder;
+        return DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
     }
 
     public static VirtualMachine getTestVM() {
-        dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
         if (null == classManager) {
             try {
-                classManager = new SmaliClassManager(TEST_DIRECTORY, dexBuilder);
+                classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());
             } catch (IOException e) {
                 e.printStackTrace();
                 System.exit(-1);
@@ -262,7 +260,7 @@ public class VMTester {
     private static void testFieldEquals(String fieldDescriptor, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append(fieldDescriptor).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-        .append(getClassName(consensus)).append(")");
+                        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -271,7 +269,7 @@ public class VMTester {
     private static void testRegisterEquals(int register, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-        .append(getClassName(consensus)).append(")");
+                        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);

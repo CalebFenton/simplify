@@ -344,7 +344,7 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        if (!returnType.equals("V")) {
+        if (!"V".equals(returnType)) {
             Object returnRegister = calleeContext.readReturnRegister();
             callerContext.assignResultRegister(returnRegister);
         }

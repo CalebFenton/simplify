@@ -1,47 +1,46 @@
 .class Lpeephole_optimizer_test;
 .super Ljava/lang/Object;
 
-.method public static InvokeClassForNameWithUnknownClass()V
+.method public static ClassForName()V
   .locals 1
 
-  const-string v0, "com.funky.unknown.class"
   invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
   move-result v0
 
   return-void
 .end method
 
-.method public static InvokeClassForNameWithKnownClass()V
-  .locals 1
+.method public static MethodInvokeWith3Locals()V
+  .locals 3
 
-  const-string v0, "java.lang.String"
-  invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
-  move-result v0
-
-  return-void
-.end method
-
-.method public static MethodInvokeWithUnknownMethod()V
-  .locals 1
-
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
 
   return-void
 .end method
 
-.method public static MethodInvokeWithUnknownTarget()V
-  .locals 1
+.method public static MethodInvokeWith6Locals()V
+  .locals 3
 
-
-  return-void
-.end method
-
-.method public static MethodInvokeWithUnknownParameters()V
-  .locals 1
-
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
 
   return-void
 .end method
 
+.method public static MethodInvokeWith30LocalsAndNoneAvailable()V
+  .locals 3
+
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
+
+  invoke-static/range {v3 .. v29}, Lthese/registers/are;->mine()V
+
+  return-void
+.end method
+
+# Change to virtual, add static
+# Add test case for each type of invoke needed
 .method public static MethodInvokeForKnownMethodAndTargetAndParameters()V
   .locals 3
 
@@ -72,14 +71,6 @@
   # v3 = method, v4 = target, v0 = parameters
   invoke-virtual {v3, v4, v0}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
   move-result-object v3
-
-  return-void
-.end method
-
-.method public static MethodInvokeForMethodWithSetVisible()V
-  .locals 1
-
-  # Should not replace method call since reflection is necessary
 
   return-void
 .end method
