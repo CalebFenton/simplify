@@ -1,8 +1,8 @@
 package org.cf.smalivm.type;
 
-public interface Type {
+public interface LocalType {
 
-    public String getType();
+    public String getName();
 
     public String toString();
 

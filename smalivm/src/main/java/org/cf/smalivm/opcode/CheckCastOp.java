@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.smalivm.type.Type;
+import org.cf.smalivm.type.LocalType;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
@@ -43,8 +43,8 @@ public class CheckCastOp extends MethodStateOp {
     public int[] execute(MethodState mState) {
         Object value = mState.readRegister(targetRegister);
         String type;
-        if (value instanceof Type) {
-            type = ((Type) value).getType();
+        if (value instanceof LocalType) {
+            type = ((LocalType) value).getName();
         } else {
             type = SmaliClassUtils.javaClassToSmali(value.getClass());
         }

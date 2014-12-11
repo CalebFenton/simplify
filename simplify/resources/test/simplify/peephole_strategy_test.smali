@@ -28,7 +28,7 @@
 .end method
 
 .method public static MethodInvokeWith6Locals()V
-  .locals 3
+  .locals 6
 
   invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
   move-result-object v0
@@ -37,7 +37,7 @@
 .end method
 
 .method public static MethodInvokeWith30LocalsAndNoneAvailable()V
-  .locals 3
+  .locals 30
 
   invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
   move-result-object v0

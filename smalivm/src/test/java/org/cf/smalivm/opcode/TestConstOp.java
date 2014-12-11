@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.type.LocalInstance;
+import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.UnknownValue;
 import org.junit.Test;
 
@@ -34,7 +34,7 @@ public class TestConstOp {
 
     @Test
     public void testConstClassLocal() {
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalClass(CLASS_NAME));
 
         VMTester.testMethodState(CLASS_NAME, "TestConstClassLocal()V", expected);
     }

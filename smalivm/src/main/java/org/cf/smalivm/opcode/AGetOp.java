@@ -15,7 +15,7 @@ public class AGetOp extends MethodStateOp {
     private static final Logger log = LoggerFactory.getLogger(AGetOp.class.getSimpleName());
 
     private static String getUnknownArrayInnerType(UnknownValue array) {
-        String outerType = array.getType();
+        String outerType = array.getName();
         String result = null;
         if (outerType.equals("?")) {
             result = "?";

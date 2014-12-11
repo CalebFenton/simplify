@@ -1,6 +1,6 @@
 package org.cf.smalivm.type;
 
-public class EmulatedType implements Type {
+public class EmulatedType implements LocalType {
 
     private String extra;
     private String smaliType;
@@ -10,7 +10,7 @@ public class EmulatedType implements Type {
     }
 
     @Override
-    public String getType() {
+    public String getName() {
         return smaliType;
     }
 
@@ -20,6 +20,14 @@ public class EmulatedType implements Type {
 
     public void setExtra(String extra) {
         this.extra = extra;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(getName());
+        sb.append(", extra=").append(extra);
+
+        return sb.toString();
     }
 
 }

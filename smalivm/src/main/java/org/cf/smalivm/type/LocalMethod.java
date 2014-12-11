@@ -2,12 +2,12 @@ package org.cf.smalivm.type;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 
-public class UninitializedInstance implements LocalType {
+public class LocalMethod implements LocalType {
 
     private final String smaliType;
 
-    public UninitializedInstance(String smaliType) {
-        this.smaliType = smaliType;
+    public LocalMethod(String methodName) {
+        this.smaliType = methodName;
     }
 
     @Override
@@ -16,13 +16,13 @@ public class UninitializedInstance implements LocalType {
             return false;
         } else if (other == this) {
             return true;
-        } else if (!(other instanceof UninitializedInstance)) {
+        } else if (!(other instanceof LocalMethod)) {
             return false;
         }
 
-        UninitializedInstance rhs = (UninitializedInstance) other;
+        LocalMethod rhs = (LocalMethod) other;
 
-        return new EqualsBuilder().append(smaliType, rhs.getName()).isEquals();
+        return new EqualsBuilder().append(smaliType, rhs.smaliType).isEquals();
     }
 
     public String getName() {
@@ -31,6 +31,7 @@ public class UninitializedInstance implements LocalType {
 
     @Override
     public String toString() {
-        return "Uninitialized " + smaliType;
+        return smaliType;
     }
+
 }
