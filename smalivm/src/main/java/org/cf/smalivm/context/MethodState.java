@@ -77,7 +77,7 @@ public class MethodState extends BaseState {
     }
 
     public Object readRegister(int register) {
-        return super.readRegister(register, METHOD_HEAP);
+        return readRegister(register, METHOD_HEAP);
     }
 
     public Object peekParameter(int parameterRegister) {
@@ -114,7 +114,6 @@ public class MethodState extends BaseState {
 
     public Object readResultRegister() {
         Object result = readRegister(ResultRegister, METHOD_HEAP);
-        // TODO: removeRegister and see what breaks..
         ectx.getHeap().remove(METHOD_HEAP, ResultRegister);
 
         return result;

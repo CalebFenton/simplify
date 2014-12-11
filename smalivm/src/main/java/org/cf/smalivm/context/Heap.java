@@ -14,10 +14,10 @@ import com.rits.cloning.Cloner;
 
 class Heap {
 
+    private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
+
     // TODO: add immutable classes to cloner so it avoids cloning them
     private static final Cloner cloner = new Cloner();
-
-    private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
 
     private final Map<String, Object> keyToValue;
 
@@ -50,7 +50,8 @@ class Heap {
     }
 
     private Set<String> keySet() {
-        return keyToValue.keySet();
+        // It's not that I don't trust you to mutate the keys, but I don't trust you.
+        return new HashSet<String>(keyToValue.keySet());
     }
 
     void setParent(Heap parent) {
@@ -62,7 +63,7 @@ class Heap {
     }
 
     Object get(String heapId, int register) {
-        String key = getKey(heapId, register);
+        String key = buildKey(heapId, register);
 
         return get(key);
     }
@@ -91,8 +92,7 @@ class Heap {
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
             if (log.isTraceEnabled()) {
-                Exception e = new Exception();
-                log.trace("Undefined value for " + key + " Possibly a mistake!", e);
+                log.trace("Undefined value for " + key + " Possibly a mistake!", new Exception());
             }
 
             return null;
@@ -107,8 +107,11 @@ class Heap {
         Object cloneValue = cloneRegisterValue(targetValue);
         Set<String> reassigned = getReassignedKeysBetweenChildAndAncestor(this, ancestor);
         Set<String> potential = ancestor.keySet();
-        potential.removeAll(reassigned);
         for (String currentKey : potential) {
+            if (reassigned.contains(currentKey)) {
+                continue;
+            }
+
             Object currentValue = ancestor.get(currentKey);
             if (targetValue == currentValue) {
                 set(currentKey, cloneValue);
@@ -118,15 +121,15 @@ class Heap {
         return cloneValue;
     }
 
-    private String getKey(String heapId, int register) {
+    private String buildKey(String heapId, int register) {
         StringBuilder sb = new StringBuilder(heapId);
-        sb.append(":").append(register);
+        sb.append(':').append(register);
 
         return sb.toString();
     }
 
     boolean hasRegister(String heapId, int register) {
-        String key = getKey(heapId, register);
+        String key = buildKey(heapId, register);
 
         return hasKey(key);
     }
@@ -136,7 +139,7 @@ class Heap {
     }
 
     void remove(String heapId, int register) {
-        String key = getKey(heapId, register);
+        String key = buildKey(heapId, register);
 
         remove(key);
     }
@@ -146,7 +149,7 @@ class Heap {
     }
 
     void set(String heapId, int register, Object value) {
-        String key = getKey(heapId, register);
+        String key = buildKey(heapId, register);
         set(key, value);
     }
 
@@ -159,7 +162,7 @@ class Heap {
     }
 
     void update(String heapId, int register, Object value) {
-        String key = getKey(heapId, register);
+        String key = buildKey(heapId, register);
         update(key, value);
     }
 
