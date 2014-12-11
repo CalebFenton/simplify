@@ -1,4 +1,4 @@
-.class Lpeephole_optimizer_test;
+.class Lpeephole_strategy_test;
 .super Ljava/lang/Object;
 
 .method public static ClassForName()V
