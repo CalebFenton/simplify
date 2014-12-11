@@ -1,6 +1,7 @@
 package org.cf.smalivm.type;
 
-public class UnknownValue implements Type {
+
+public class UnknownValue implements LocalType {
 
     private String smaliType;
 
@@ -14,7 +15,7 @@ public class UnknownValue implements Type {
         return false;
     }
 
-    public String getType() {
+    public String getName() {
         return smaliType;
     }
 

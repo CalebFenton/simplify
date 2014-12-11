@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.LocalInstance;
+import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -21,7 +21,7 @@ public class ConstOp extends MethodStateOp {
 
     private static enum ConstantType {
         CLASS,
-        LOCAL_TYPE,
+        LOCAL_CLASS,
         NARROW,
         STRING,
         WIDE
@@ -49,7 +49,7 @@ public class ConstOp extends MethodStateOp {
 
             // Defer class lookup for execute. We may want to handle any possible errors there.
             if (vm.isLocalClass(className)) {
-                constType = ConstantType.LOCAL_TYPE;
+                constType = ConstantType.LOCAL_CLASS;
             } else {
                 constType = ConstantType.CLASS;
             }
@@ -93,7 +93,7 @@ public class ConstOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object result = getConstant();
+        Object result = buildConstant();
         mState.assignRegister(destRegister, result);
 
         return getPossibleChildren();
@@ -106,7 +106,7 @@ public class ConstOp extends MethodStateOp {
         sb.append(" r").append(destRegister).append(", ");
         String val;
         switch (constantType) {
-        case LOCAL_TYPE:
+        case LOCAL_CLASS:
         case CLASS:
             sb.append(literal);
             break;
@@ -138,7 +138,7 @@ public class ConstOp extends MethodStateOp {
         return sb.toString();
     }
 
-    public Object getConstant() {
+    private Object buildConstant() {
         Object result = null;
         if (ConstantType.CLASS == constantType) {
             String className = (String) literal;
@@ -148,13 +148,14 @@ public class ConstOp extends MethodStateOp {
             } catch (ClassNotFoundException e) {
                 result = new UnknownValue(className);
             }
-        } else if (ConstantType.LOCAL_TYPE == constantType) {
+        } else if (ConstantType.LOCAL_CLASS == constantType) {
             String className = (String) literal;
-            result = new LocalInstance(className);
+            result = new LocalClass(className);
         } else {
             result = literal;
         }
 
         return result;
     }
+
 }

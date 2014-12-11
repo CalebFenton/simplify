@@ -6,8 +6,8 @@ public class TypeUtil {
         String result;
         if (value == null) {
             result = "null";
-        } else if (value instanceof Type) {
-            result = ((Type) value).getType();
+        } else if (value instanceof LocalType) {
+            result = ((LocalType) value).getName();
         } else {
             result = value.getClass().getName();
         }

@@ -1,15 +1,14 @@
 package org.cf.simplify.strategy;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import gnu.trove.map.TIntObjectMap;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
 
-import org.cf.simplify.Main;
+import java.lang.reflect.Method;
+
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -27,10 +26,10 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class TestPeepholeStrategy {
 
-    private static final String CLASS_NAME = "Lpeephole_optimizer_test;";
+    private static final String CLASS_NAME = "Lpeephole_strategy_test;";
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(TestPeepholeStrategy.class.getSimpleName());
 
     private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(args);
@@ -98,17 +97,24 @@ public class TestPeepholeStrategy {
         // -same as static
         // direct
         // -same as static
-        @Test
-        public void testInvokeMethodInvokeForKnownMethodAndTargetAndParameters() {
-            String methodName = "MethodInvokeForKnownMethodAndTargetAndParameters()V";
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
-            PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
-            TIntSet expected = new TIntHashSet(new int[] { 28 });
-            for (int address : mbgraph.getAddresses()) {
-                if (expected.contains(address)) {
-                    assertTrue(address + " can be peeped", strategy.canPeepMethodInvoke(address));
-                }
+        private static final Method staticNonLocalPublicMethodWithOneParameter = getMethod(Integer.class, "valueOf",
+                        String.class);
+
+        private static Method getMethod(Class<?> klazz, String methodName, Class<?> parameterTypes) {
+            try {
+                return klazz.getMethod(methodName, parameterTypes);
+            } catch (NoSuchMethodException | SecurityException e) {
+                e.printStackTrace();
+                return null;
             }
+        }
+
+        @Test
+        public void testInvokeStaticNonLocalPublicMethodWithOneParameterWithAvailableLocals() {
+            MethodBackedGraph mbgraph = getOptimizedGraph("MethodInvokeWith6Locals()V", 0,
+                            staticNonLocalPublicMethodWithOneParameter, 1, 0, 2, "42");
+            Op op = mbgraph.getOp(0);
+            System.out.println(op);
         }
 
     }

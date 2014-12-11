@@ -15,7 +15,7 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
-import org.cf.smalivm.type.Type;
+import org.cf.smalivm.type.LocalType;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
@@ -352,8 +352,8 @@ public class InvokeOp extends ExecutionContextOp {
 
     private String getLocalTargetForVirtualMethod(Object value) {
         String actualType;
-        if (value instanceof Type) {
-            actualType = ((Type) value).getType();
+        if (value instanceof LocalType) {
+            actualType = ((LocalType) value).getName();
         } else {
             actualType = SmaliClassUtils.javaClassToSmali(value.getClass().getName());
         }

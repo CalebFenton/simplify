@@ -143,8 +143,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
         addresses = getValidAddresses(mbgraph);
         peepClassForName();
 
-        // addresses = getValidAddresses(mbgraph);
-        // peepMethodInvoke();
+        addresses = getValidAddresses(mbgraph);
+        peepMethodInvoke();
 
         addresses = getValidAddresses(mbgraph);
         peepStringInit();
@@ -176,10 +176,11 @@ public class PeepholeStrategy implements OptimizationStrategy {
         int targetRegister = parameterRegisters[1];
         int parametersRegister = parameterRegisters[2];
 
-        Object value1 = mbgraph.getRegisterConsensus(parentAddresses, methodRegister);
-        Object value2 = mbgraph.getRegisterConsensus(parentAddresses, targetRegister);
-        Object value3 = mbgraph.getRegisterConsensus(parentAddresses, parametersRegister);
+        Object methodValue = mbgraph.getRegisterConsensus(parentAddresses, methodRegister);
+        Object targetValue = mbgraph.getRegisterConsensus(parentAddresses, targetRegister);
+        Object parametersValue = mbgraph.getRegisterConsensus(parentAddresses, parametersRegister);
 
+        TIntList availableRegisters = getAvailableRegisters(address);
         // need 0-?? available registers, then pull out the parameters with a-get into them
         // then build a proper invoke
         // String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
@@ -227,6 +228,13 @@ public class PeepholeStrategy implements OptimizationStrategy {
             return false;
         }
 
+        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
+        int methodRegister = parameterRegisters[0];
+        Object methodValue = mbgraph.getRegisterConsensus(address, methodRegister);
+        if (methodValue instanceof UnknownValue) {
+            return false;
+        }
+
         return true;
     }
 
@@ -241,7 +249,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return result;
     }
 
-    private TIntList getAvailableRegisters(int address, MethodBackedGraph mbgraph) {
+    private TIntList getAvailableRegisters(int address) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(mbgraph.getChildrenAtAddress(address));
         ExecutionNode node = stack.getFirst();
         if (null == node) {

@@ -1,6 +1,5 @@
 package org.cf.smalivm.emulate;
 
-import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -20,19 +19,19 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
         }
 
         Class<?> instance = (Class<?>) param0;
-        // this is wrong, needs tests
-        // should almost always be able to return unknownvalue with correct method name
-        String className = SmaliClassUtils.javaClassToSmali(instance);
-        if (!MethodReflector.isSafe(className)) {
-            mState.assignReturnRegister(new UnknownValue("Ljava/lang/Class;"));
-            return;
-        }
-
         String methodName = (String) mState.peekParameter(1);
-        Class<?>[] methodParams = (Class<?>[]) mState.peekParameter(2);
+        String className = SmaliClassUtils.javaClassToSmali(instance);
 
-        java.lang.reflect.Method result = instance.getMethod(methodName, methodParams);
-        mState.assignReturnRegister(result);
+        Class<?>[] methodParams = (Class<?>[]) mState.peekParameter(2);
+        Object method = null;
+        try {
+            method = instance.getMethod(methodName, methodParams);
+            mState.assignReturnRegister(method);
+        } catch (NoSuchMethodException | SecurityException e) {
+            method = new UnknownValue("Ljava/lang/Reflect/Method;");
+            mState.assignReturnRegister(method);
+            throw e;
+        }
     }
 
     public SideEffect.Level getSideEffectLevel() {

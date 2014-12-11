@@ -3,7 +3,7 @@ package org.cf.smalivm.type;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.cf.smalivm.context.InstanceState;
 
-public class LocalInstance implements Type {
+public class LocalInstance implements LocalType {
 
     private InstanceState iState;
 
@@ -34,7 +34,7 @@ public class LocalInstance implements Type {
         return iState;
     }
 
-    public String getType() {
+    public String getName() {
         return smaliType;
     }
 
