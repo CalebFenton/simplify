@@ -229,7 +229,8 @@ public class VMTester {
     private static ExecutionContext getInitializedExecutionContext(VirtualMachine vm, String methodDescriptor,
                     TIntObjectMap<Object> registerToValue, Map<String, Map<String, Object>> classNameToInitialFieldValue) {
         ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
-        setupMethodState(ectx, registerToValue);
+        int registerCount = ectx.getMethodState().getRegisterCount();
+        setupMethodState(ectx, registerToValue, registerCount);
         setupClassStates(ectx, classNameToInitialFieldValue);
 
         return ectx;
@@ -247,8 +248,8 @@ public class VMTester {
         }
     }
 
-    private static void setupMethodState(ExecutionContext ectx, TIntObjectMap<Object> registerToValue) {
-        MethodState mState = new MethodState(ectx, registerToValue.size());
+    private static void setupMethodState(ExecutionContext ectx, TIntObjectMap<Object> registerToValue, int registerCount) {
+        MethodState mState = new MethodState(ectx, registerCount);
         for (int register : registerToValue.keys()) {
             Object value = registerToValue.get(register);
             mState.assignRegister(register, value);
@@ -259,7 +260,7 @@ public class VMTester {
     private static void testFieldEquals(String fieldDescriptor, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append(fieldDescriptor).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
@@ -268,7 +269,7 @@ public class VMTester {
     private static void testRegisterEquals(int register, Object value, Object consensus) {
         StringBuilder sb = new StringBuilder();
         sb.append("r").append(register).append(" class(expected=").append(getClassName(value)).append(", consensus=")
-                        .append(getClassName(consensus)).append(")");
+        .append(getClassName(consensus)).append(")");
         String msg = sb.toString();
 
         testValueEquals(value, consensus, msg);
