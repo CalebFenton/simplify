@@ -1,13 +1,14 @@
 package org.cf.demoapp;
 
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.EmulatedMethod;
 
 public class java_io_PrintStream_println implements EmulatedMethod {
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(VirtualMachine vm, MethodState mState) {
         // Virtual method, register 0 is System.out (or something else)
         Object value = mState.peekParameter(1);
         String valueStr = (String) value;

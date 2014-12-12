@@ -4,10 +4,10 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 
 public class LocalMethod implements LocalType {
 
-    private final String smaliType;
+    private final String methodDescriptor;
 
-    public LocalMethod(String methodName) {
-        this.smaliType = methodName;
+    public LocalMethod(String methodDescriptor) {
+        this.methodDescriptor = methodDescriptor;
     }
 
     @Override
@@ -22,16 +22,16 @@ public class LocalMethod implements LocalType {
 
         LocalMethod rhs = (LocalMethod) other;
 
-        return new EqualsBuilder().append(smaliType, rhs.smaliType).isEquals();
+        return new EqualsBuilder().append(methodDescriptor, rhs.methodDescriptor).isEquals();
     }
 
     public String getName() {
-        return smaliType;
+        return methodDescriptor;
     }
 
     @Override
     public String toString() {
-        return smaliType;
+        return methodDescriptor;
     }
 
 }

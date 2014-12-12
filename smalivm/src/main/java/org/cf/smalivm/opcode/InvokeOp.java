@@ -321,7 +321,7 @@ public class InvokeOp extends ExecutionContextOp {
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext, MethodState calleeContext) {
         assert allArgumentsKnown(calleeContext);
         if (MethodEmulator.canEmulate(methodDescriptor)) {
-            sideEffectLevel = MethodEmulator.emulate(calleeContext, methodDescriptor, getParameterRegisters());
+            sideEffectLevel = MethodEmulator.emulate(vm, calleeContext, methodDescriptor, getParameterRegisters());
         } else if (MethodReflector.canReflect(methodDescriptor)) {
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play

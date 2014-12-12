@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,10 +35,11 @@ public class MethodEmulator {
         emulatedMethods.clear();
     }
 
-    public static SideEffect.Level emulate(MethodState mState, String methodDescriptor, int[] parameterRegisters) {
+    public static SideEffect.Level emulate(VirtualMachine vm, MethodState mState, String methodDescriptor,
+                    int[] parameterRegisters) {
         EmulatedMethod em = emulatedMethods.get(methodDescriptor);
         try {
-            em.execute(mState);
+            em.execute(vm, mState);
         } catch (Exception e) {
             // TODO: try/catch handling :D
             if (log.isWarnEnabled()) {
