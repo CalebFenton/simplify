@@ -149,8 +149,14 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     static BuilderInstruction buildConstant(Object value, int register, DexBuilder dexBuilder) {
         String type = getUnboxedType(TypeUtil.getValueType(value));
         BuilderInstruction result = null;
-        if (type.equals("I") || type.equals("B") || type.equals("S") || type.equals("C")) {
+        if (type.equals("I")) {
             result = buildConstant((Integer) value, register);
+        } else if (type.equals("B")) {
+            result = buildConstant(((Byte) value).intValue(), register);
+        } else if (type.equals("S")) {
+            result = buildConstant(((Short) value).intValue(), register);
+        } else if (type.equals("C")) {
+            result = buildConstant(((Character) value).charValue(), register);
         } else if (type.equals("Z")) {
             result = buildConstant(((Boolean) value), register);
         } else if (type.equals("J")) {
