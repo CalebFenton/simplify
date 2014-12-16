@@ -7,8 +7,12 @@ import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class FilledNewArrayOp extends MethodStateOp {
+
+    private static final Logger log = LoggerFactory.getLogger(FilledNewArrayOp.class.getSimpleName());
 
     static FilledNewArrayOp create(Instruction instruction, int address, VirtualMachine vm) {
         String opName = instruction.getOpcode().name;
@@ -67,30 +71,29 @@ public class FilledNewArrayOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        boolean assigned = false;
         /*
-         * The array type is always [I. This only populates the array with values from paramters. It does NOT create
-         * n-dimensional arrays, just the parameter for reflect.Arrays.newInstance(). If you use anything but [I the
-         * code fails verification and a few decompilers (not disassemblers) choke.
+         * This populates a 1-dimensional integer array with values from the parameters. It does NOT create
+         * n-dimensional arrays. It's usually used to create parameter for Arrays.newInstance(). If you use anything but
+         * [I the code fails verification and a few decompilers (not disassemblers) choke.
          */
         int[] dimensions = new int[dimensionRegisters.length];
         for (int i = 0; i < dimensionRegisters.length; i++) {
             int register = dimensionRegisters[i];
-	    Object reg = mState.readRegister(register);
-	    if (reg instanceof UnknownValue) {
-		mState.assignResultRegister(new UnknownValue("[I"));
-		assigned = true;
-		break;
-	    } else if (reg instanceof Number) {
-		dimensions[i] = (int) reg;
-	    } else {
-		// Shouldn't be proper smali if it reaches here
-	    }
+            Object value = mState.readRegister(register);
+            if (!(value instanceof Number)) {
+                mState.assignResultRegister(new UnknownValue("[I"));
+                if (!(value instanceof UnknownValue)) {
+                    if (log.isWarnEnabled()) {
+                        log.warn("Unexpected value type for " + toString() + ": " + value.getClass());
+                    }
+                }
+                return getPossibleChildren();
+            } else {
+                dimensions[i] = (int) value;
+            }
         }
 
-	if (!assigned) {
-	    mState.assignResultRegister(dimensions);
-	}
+        mState.assignResultRegister(dimensions);
 
         return getPossibleChildren();
     }
@@ -98,14 +101,13 @@ public class FilledNewArrayOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-
-        sb.append("{");
+        sb.append('{');
         if (dimensionRegisters.length > 5) {
-            sb.append("r").append(dimensionRegisters[0]).append(" .. r")
+            sb.append('r').append(dimensionRegisters[0]).append(" .. r")
                             .append(dimensionRegisters[dimensionRegisters.length - 1]).append("}, ");
         } else {
             for (int dimensionRegister : dimensionRegisters) {
-                sb.append("r").append(dimensionRegister).append(", ");
+                sb.append('r').append(dimensionRegister).append(", ");
             }
             sb.setLength(sb.length() - 2);
         }
