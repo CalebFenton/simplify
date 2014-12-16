@@ -2,18 +2,11 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.list.linked.TIntLinkedList;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.simplify.MethodBackedGraph;
-import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UnknownValue;
@@ -34,11 +27,11 @@ public class PeepholeStrategy implements OptimizationStrategy {
     private static final Logger log = LoggerFactory.getLogger(PeepholeStrategy.class.getSimpleName());
 
     private static final String ClassForNameSignature = "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
-    private static final String MethodInvokeSignature = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
 
     private final MethodBackedGraph mbgraph;
     private int peepCount;
     private TIntList addresses;
+    private boolean madeChanges;
 
     public PeepholeStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
@@ -53,23 +46,6 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return result;
     }
 
-    void peepMethodInvoke() {
-        TIntList peepAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            if (canPeepMethodInvoke(address)) {
-                peepAddresses.add(address);
-            }
-        }
-
-        peepCount += peepAddresses.size();
-        peepAddresses.sort();
-        peepAddresses.reverse();
-        for (int address : peepAddresses.toArray()) {
-            BuilderInstruction replacement = buildMethodInvokeReplacement(address);
-            mbgraph.replaceInstruction(address, replacement);
-        }
-    }
-
     void peepClassForName() {
         TIntList peepAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
@@ -78,7 +54,13 @@ public class PeepholeStrategy implements OptimizationStrategy {
             }
         }
 
+        if (0 == peepAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
         peepCount += peepAddresses.size();
+
         peepAddresses.sort();
         peepAddresses.reverse();
         for (int address : peepAddresses.toArray()) {
@@ -122,7 +104,13 @@ public class PeepholeStrategy implements OptimizationStrategy {
             peepAddresses.add(address);
         }
 
+        if (0 == peepAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
         peepCount += peepAddresses.size();
+
         peepAddresses.sort();
         peepAddresses.reverse();
         for (int address : peepAddresses.toArray()) {
@@ -140,16 +128,15 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     public boolean perform() {
+        madeChanges = false;
+
         addresses = getValidAddresses(mbgraph);
         peepClassForName();
 
         addresses = getValidAddresses(mbgraph);
-        peepMethodInvoke();
-
-        addresses = getValidAddresses(mbgraph);
         peepStringInit();
 
-        return peepCount > 0;
+        return madeChanges;
     }
 
     BuilderInstruction buildClassForNameReplacement(int address) {
@@ -162,34 +149,6 @@ public class PeepholeStrategy implements OptimizationStrategy {
         BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
 
         return constClassInstruction;
-    }
-
-    BuilderInstruction buildMethodInvokeReplacement(int address) {
-        Op op = mbgraph.getOp(address);
-        TIntSet parentAddressSet = new TIntHashSet();
-        for (ExecutionNode node : mbgraph.getNodePile(address)) {
-            parentAddressSet.add(node.getParent().getAddress());
-        }
-        TIntList parentAddresses = new TIntArrayList(parentAddressSet);
-        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
-        int methodRegister = parameterRegisters[0];
-        int targetRegister = parameterRegisters[1];
-        int parametersRegister = parameterRegisters[2];
-
-        Object methodValue = mbgraph.getRegisterConsensus(parentAddresses, methodRegister);
-        Object targetValue = mbgraph.getRegisterConsensus(parentAddresses, targetRegister);
-        Object parametersValue = mbgraph.getRegisterConsensus(parentAddresses, parametersRegister);
-
-        TIntList availableRegisters = getAvailableRegisters(address);
-        // need 0-?? available registers, then pull out the parameters with a-get into them
-        // then build a proper invoke
-        // String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
-        // String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
-        // BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
-        // BuilderInstruction methodInvokeInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register,
-        // classRef);
-
-        return null;
     }
 
     boolean canPeepClassForName(int address) {
@@ -215,29 +174,6 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return true;
     }
 
-    boolean canPeepMethodInvoke(int address) {
-        Op op = mbgraph.getOp(address);
-        if (!(op instanceof InvokeOp)) {
-            return false;
-        }
-
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
-        ReferenceInstruction instr = (ReferenceInstruction) instruction;
-        String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!methodSignature.equals(MethodInvokeSignature)) {
-            return false;
-        }
-
-        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
-        int methodRegister = parameterRegisters[0];
-        Object methodValue = mbgraph.getRegisterConsensus(address, methodRegister);
-        if (methodValue instanceof UnknownValue) {
-            return false;
-        }
-
-        return true;
-    }
-
     TIntList getValidAddresses(MethodBackedGraph mbgraph) {
         TIntList result = new TIntArrayList(mbgraph.getAddresses());
         for (int address : result.toArray()) {
@@ -249,43 +185,4 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return result;
     }
 
-    private TIntList getAvailableRegisters(int address) {
-        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(mbgraph.getChildrenAtAddress(address));
-        ExecutionNode node = stack.getFirst();
-        if (null == node) {
-            // Only return should not have children.
-            MethodState mState = mbgraph.getNodePile(address).get(0).getContext().getMethodState();
-            TIntList available = new TIntLinkedList();
-            // They're all available!
-            for (int i = 0; i < mState.getRegisterCount(); i++) {
-                available.add(i);
-            }
-
-            return available;
-        }
-
-        int[] registers = new int[node.getContext().getMethodState().getRegisterCount()];
-        for (int i = 0; i < registers.length; i++) {
-            registers[i] = i;
-        }
-        TIntSet unavailable = new TIntHashSet();
-        TIntList available = new TIntLinkedList();
-        while ((node = stack.poll()) != null) {
-            MethodState mState = node.getContext().getMethodState();
-            for (int register : registers) {
-                if (unavailable.contains(register) || available.contains(register)) {
-                    continue;
-                }
-
-                if (mState.wasRegisterRead(register)) {
-                    unavailable.add(register);
-                } else if (mState.wasRegisterAssigned(register)) {
-                    available.add(register);
-                }
-            }
-            stack.addAll(node.getChildren());
-        }
-
-        return available;
-    }
 }

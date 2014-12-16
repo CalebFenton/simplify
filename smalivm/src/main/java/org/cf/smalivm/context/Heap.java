@@ -16,7 +16,6 @@ class Heap {
 
     private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
 
-    // TODO: add immutable classes to cloner so it avoids cloning them
     private static final Cloner cloner = new Cloner();
 
     private final Map<String, Object> keyToValue;

@@ -31,9 +31,10 @@ public class OptimizerTester {
                     TIntObjectMap<Object> initial, Map<String, Map<String, Object>> classNameToFieldValue) {
         VirtualMachine vm = VMTester.getTestVM();
         String methodDescriptor = className + "->" + methodSignature;
+        ExecutionGraph graph = VMTester.execute(vm, className, methodSignature, initial, classNameToFieldValue);
+
         BuilderMethod method = vm.getClassManager().getMethod(methodDescriptor);
         DexBuilder dexBuilder = VMTester.getDexBuilder();
-        ExecutionGraph graph = VMTester.execute(vm, className, methodSignature, initial, classNameToFieldValue);
 
         return new MethodBackedGraph(graph, method, vm, dexBuilder);
     }

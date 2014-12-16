@@ -33,7 +33,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
     private static boolean areRegistersRead(int address, TIntList registerList, MethodBackedGraph graph) {
-        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildrenAtAddress(address));
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildren(address));
         ExecutionNode node;
         int[] registers = registerList.toArray();
         while ((node = stack.poll()) != null) {

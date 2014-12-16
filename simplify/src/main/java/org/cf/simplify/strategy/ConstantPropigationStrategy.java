@@ -183,6 +183,8 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     private final MethodBackedGraph mbgraph;
 
+    private boolean madeChanges;
+
     public ConstantPropigationStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
         constantCount = 0;
@@ -208,13 +210,16 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     @Override
     public boolean perform() {
+        madeChanges = false;
+
         for (int address : mbgraph.getAddresses()) {
             BuilderInstruction original = mbgraph.getInstruction(address);
             if (canConstantizeAddress(address)) {
+                madeChanges = true;
+
                 BuilderInstruction constInstruction = buildConstant(address);
                 if (original.getOpcode().name().startsWith("RETURN")) {
-                    // TODO: insert const rather than replace return op
-                    log.warn("Return op constantizing not impelemented.");
+                    mbgraph.insertInstruction(address, constInstruction);
                 } else {
                     mbgraph.replaceInstruction(address, constInstruction);
                 }
@@ -222,7 +227,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             }
         }
 
-        return constantCount > 0;
+        return madeChanges;
     }
 
     boolean canConstantizeAddress(int address) {

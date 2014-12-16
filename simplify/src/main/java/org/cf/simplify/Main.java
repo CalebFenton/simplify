@@ -41,20 +41,25 @@ public class Main {
             filterMethods(methodDescriptors, bean.getIncludeFilter(), bean.getExcludeFilter());
 
             for (String methodDescriptor : methodDescriptors) {
-                System.out.println("Executing: " + methodDescriptor);
-                ExecutionGraph graph = vm.execute(methodDescriptor);
-                if (graph == null) {
-                    System.out.println("Skipping " + methodDescriptor);
-                    continue;
-                }
+                boolean reExecute = false;
+                do {
+                    System.out.println("Executing: " + methodDescriptor);
+                    ExecutionGraph graph = vm.execute(methodDescriptor);
+                    if (graph == null) {
+                        System.out.println("Skipping " + methodDescriptor);
+                        break;
+                    }
 
-                BuilderMethod method = classManager.getMethod(methodDescriptor);
-                Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
-                boolean madeChanges = opt.simplify(bean.getMaxOptimizationPasses());
-                if (madeChanges) {
-                    // Optimizer changed the implementation. Re-build graph based on changes.
-                    vm.updateInstructionGraph(methodDescriptor);
-                }
+                    BuilderMethod method = classManager.getMethod(methodDescriptor);
+                    Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
+                    opt.simplify(bean.getMaxOptimizationPasses());
+                    if (opt.madeChanges()) {
+                        // Optimizer changed the implementation. Re-build graph based on changes.
+                        vm.updateInstructionGraph(methodDescriptor);
+                    }
+
+                    reExecute = opt.reExecute();
+                } while (reExecute);
             }
         }
 

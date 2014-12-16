@@ -33,12 +33,12 @@ public class ImmutableUtils {
 
     public static boolean isImmutableClass(String smaliClassName) {
         if (smaliClassName.startsWith("[")) {
-            // Array elements can always be mutated
+            // Array contents can always be mutated
             return false;
         }
 
         if (smaliClassName.equals("?")) {
-            // Unknown type. Was probably lazy somewhere and didn't get implied type.
+            // Unknown type. Probably lazy and didn't get implied type.
             return false;
         }
 

@@ -1,6 +1,8 @@
 package org.cf.util;
 
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.BiMap;
@@ -52,6 +54,15 @@ public class SmaliClassUtils {
 
     public static String javaClassToSmali(Class<?> klazz) {
         return javaClassToSmali(klazz.getName());
+    }
+
+    public static List<String> javaClassToSmali(Class<?>[] classes) {
+        List<String> smaliNames = new LinkedList<String>();
+        for (Class<?> klazz : classes) {
+            smaliNames.add(javaClassToSmali(klazz));
+        }
+
+        return smaliNames;
     }
 
     public static String javaClassToSmali(String className) {

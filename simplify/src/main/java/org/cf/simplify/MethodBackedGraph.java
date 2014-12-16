@@ -2,10 +2,16 @@ package org.cf.simplify;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +21,10 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpFactory;
+import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -74,6 +82,10 @@ public class MethodBackedGraph extends ExecutionGraph {
 
     public BuilderInstruction getInstruction(int address) {
         return addressToInstruction.get(address);
+    }
+
+    public VirtualMachine getVM() {
+        return vm;
     }
 
     public List<BuilderTryBlock> getTryBlocks() {
@@ -197,13 +209,49 @@ public class MethodBackedGraph extends ExecutionGraph {
     }
 
     public void insertInstruction(int address, BuilderInstruction instruction) {
+        // Insert + shift instructions
         BuilderInstruction original = addressToInstruction.get(address);
         int index = original.getLocation().getIndex();
-
-        // addInstruction(int, instruction) will insert with reindex
         implementation.addInstruction(index, instruction);
         int shift = instruction.getCodeUnits();
-        Utils.shiftIntegerMapKeys(address - original.getCodeUnits(), shift, addressToInstruction);
+        Utils.shiftIntegerMapKeys(address - 1, shift, addressToInstruction);
+        addressToInstruction.put(address, instruction);
+
+        // Insert + shift nodes
+        List<ExecutionNode> shiftedNodePile = addressToNodePile.get(address);
+        Utils.shiftIntegerMapKeys(address - 1, shift, addressToNodePile);
+        List<ExecutionNode> addedNodePile = new ArrayList<ExecutionNode>();
+        addressToNodePile.put(address, addedNodePile);
+
+        // Create + execute new nodes, adjust parent-child relationships
+        Op op = opFactory.create(instruction, address);
+        for (index = 0; index < shiftedNodePile.size(); index++) {
+            ExecutionNode newNode = new ExecutionNode(op);
+            addedNodePile.add(index, newNode);
+
+            ExecutionNode shiftedNode = shiftedNodePile.get(index);
+            if (TEMPLATE_NODE_INDEX == index) {
+                assert shiftedNode.getContext() == null;
+                assert shiftedNode.getParent() == null;
+                assert shiftedNode.getChildren().size() == 0;
+
+                continue;
+            }
+
+            ExecutionNode parentNode = shiftedNode.getParent();
+            ExecutionContext newContext;
+            if (parentNode != null) {
+                parentNode.replaceChild(shiftedNode, newNode);
+                newContext = parentNode.getContext().getChild();
+            } else {
+                assert METHOD_ROOT_ADDRESS == address;
+                newContext = vm.getRootExecutionContext(methodDescriptor);
+            }
+            shiftedNode.setParent(newNode);
+
+            newNode.setContext(newContext);
+            newNode.execute();
+        }
     }
 
     private void removeNodePile(int address, int shift) {
@@ -224,12 +272,6 @@ public class MethodBackedGraph extends ExecutionGraph {
         Utils.shiftIntegerMapKeys(address, shift, addressToNodePile);
     }
 
-    /*
-     * Need to be able to update a graph to pass around between optimization strategies. This does a shallow update, not
-     * touching any handlers or individual nodes. It just updates addressToNodePile by shifting addresses up or down,
-     * depending on delta between old and new instruction. It also executes the new instruction to build a realistic
-     * context to help optimizer, i.e. assigned registers, etc.
-     */
     protected void replaceInstruction(int address, int addressShift, Op op, int codeUnits) {
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
         Map<ExecutionNode, ExecutionNode> replacedToNew = new HashMap<ExecutionNode, ExecutionNode>();
@@ -290,7 +332,21 @@ public class MethodBackedGraph extends ExecutionGraph {
         return result;
     }
 
-    public List<ExecutionNode> getChildrenAtAddress(int address) {
+    public TIntList getParentAddresses(int address) {
+        TIntSet parentAddressSet = new TIntHashSet();
+        for (ExecutionNode node : getNodePile(address)) {
+            ExecutionNode parent = node.getParent();
+            if (null == parent) {
+                continue;
+            }
+            parentAddressSet.add(parent.getAddress());
+        }
+        TIntList parentAddresses = new TIntArrayList(parentAddressSet);
+
+        return parentAddresses;
+    }
+
+    public List<ExecutionNode> getChildren(int address) {
         List<ExecutionNode> children = new ArrayList<ExecutionNode>();
         List<ExecutionNode> nodePile = getNodePile(address);
         for (ExecutionNode node : nodePile) {
@@ -298,6 +354,68 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
 
         return children;
+    }
+
+    public TIntList getAvailableRegisters(int address) {
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildren(address));
+        ExecutionNode node = stack.getFirst();
+        if (null == node) {
+            // Edge case.
+            assert getTemplateNode(address).getOp() instanceof ReturnOp;
+            MethodState mState = getNodePile(address).get(0).getContext().getMethodState();
+            TIntList available = new TIntLinkedList();
+            // They're all available!
+            for (int i = 0; i < mState.getRegisterCount(); i++) {
+                available.add(i);
+            }
+
+            return available;
+        }
+
+        int[] registers = new int[node.getContext().getMethodState().getRegisterCount()];
+        for (int i = 0; i < registers.length; i++) {
+            registers[i] = i;
+        }
+        TIntSet registersRead = new TIntHashSet();
+        TIntSet registersAssigned = new TIntHashSet();
+        while ((node = stack.poll()) != null) {
+            MethodState mState = node.getContext().getMethodState();
+            for (int register : registers) {
+                if (registersRead.contains(register) || registersAssigned.contains(register)) {
+                    continue;
+                }
+
+                if (mState.wasRegisterRead(register)) {
+                    registersRead.add(register);
+                } else if (mState.wasRegisterAssigned(register)) {
+                    registersAssigned.add(register);
+                }
+            }
+            stack.addAll(node.getChildren());
+        }
+
+        TIntList available = new TIntLinkedList();
+        for (int register : registers) {
+            if (registersRead.contains(register)) {
+                continue;
+            }
+            available.add(register);
+        }
+
+        return available;
+    }
+
+    public String toSmali() {
+        int[] addresses = getAddresses();
+        Arrays.sort(addresses);
+        StringBuilder sb = new StringBuilder();
+        for (int address : addresses) {
+            Op op = getOp(address);
+            sb.append(op.toString()).append('\n');
+        }
+        sb.setLength(sb.length() - 1);
+
+        return sb.toString();
     }
 
 }

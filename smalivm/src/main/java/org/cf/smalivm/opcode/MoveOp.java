@@ -24,10 +24,12 @@ public class MoveOp extends MethodStateOp {
         Object value = mState.readRegister(fromRegister);
         mState.assignRegister(toRegister, value);
     }
+
     private static void moveResult(MethodState mState, int toRegister) {
         Object value = mState.readResultRegister();
         mState.assignRegister(toRegister, value);
     }
+
     static MoveOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
@@ -47,9 +49,7 @@ public class MoveOp extends MethodStateOp {
     }
 
     private final MoveType moveType;
-
     private int targetRegister;
-
     private final int toRegister;
 
     private MoveOp(int address, String opName, int nextInstructionAddress, int toRegister, int targetRegister) {

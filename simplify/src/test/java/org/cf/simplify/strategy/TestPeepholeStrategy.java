@@ -3,12 +3,9 @@ package org.cf.simplify.strategy;
 import static org.junit.Assert.assertEquals;
 import gnu.trove.map.TIntObjectMap;
 
-import java.lang.reflect.Method;
-
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -78,45 +75,6 @@ public class TestPeepholeStrategy {
 
             assertEquals("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", methodDescriptor);
         }
-    }
-
-    public static class TestPeepMethodInvoke {
-        // static
-        // -unknown method - still know the name, make sure it's emulated correctly
-        // -unknown target - still optimizes, still know the register
-        // -unknown parameters - still optimizes, know the registers
-        // _local private
-        // -local non-private
-        // -remote private - can't eliminate
-        // -0 registers
-        // -1 registers, possibly bump up .locals size
-        // -2 registers
-        // -6 registers (/range), all low enough
-        // -6 registers, not all low enough, /wide?
-        // virtual
-        // -same as static
-        // direct
-        // -same as static
-        private static final Method staticNonLocalPublicMethodWithOneParameter = getMethod(Integer.class, "valueOf",
-                        String.class);
-
-        private static Method getMethod(Class<?> klazz, String methodName, Class<?> parameterTypes) {
-            try {
-                return klazz.getMethod(methodName, parameterTypes);
-            } catch (NoSuchMethodException | SecurityException e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-
-        @Test
-        public void testInvokeStaticNonLocalPublicMethodWithOneParameterWithAvailableLocals() {
-            MethodBackedGraph mbgraph = getOptimizedGraph("MethodInvokeWith6Locals()V", 0,
-                            staticNonLocalPublicMethodWithOneParameter, 1, 0, 2, "42");
-            Op op = mbgraph.getOp(0);
-            System.out.println(op);
-        }
-
     }
 
     public static class TestStringInit {
