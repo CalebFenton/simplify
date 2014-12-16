@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
@@ -66,6 +67,7 @@ public class FilledNewArrayOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
+        boolean assigned = false;
         /*
          * The array type is always [I. This only populates the array with values from paramters. It does NOT create
          * n-dimensional arrays, just the parameter for reflect.Arrays.newInstance(). If you use anything but [I the
@@ -74,11 +76,21 @@ public class FilledNewArrayOp extends MethodStateOp {
         int[] dimensions = new int[dimensionRegisters.length];
         for (int i = 0; i < dimensionRegisters.length; i++) {
             int register = dimensionRegisters[i];
-            int dimension = (int) mState.readRegister(register);
-            dimensions[i] = dimension;
+	    Object reg = mState.readRegister(register);
+	    if (reg instanceof UnknownValue) {
+		mState.assignResultRegister(new UnknownValue("[I"));
+		assigned = true;
+		break;
+	    } else if (reg instanceof Number) {
+		dimensions[i] = (int) reg;
+	    } else {
+		// Shouldn't be proper smali if it reaches here
+	    }
         }
 
-        mState.assignResultRegister(dimensions);
+	if (!assigned) {
+	    mState.assignResultRegister(dimensions);
+	}
 
         return getPossibleChildren();
     }
