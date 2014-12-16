@@ -2,6 +2,7 @@ package org.cf.simplify.strategy;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
@@ -19,6 +20,20 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
 public class TestConstantPropigationStrategy {
+
+    public static class SimpleValues {
+        @Test
+	    public void testIntCasts() {
+            try {
+                ConstantPropigationStrategy.buildConstant(Integer.valueOf(10), 0, null);
+                ConstantPropigationStrategy.buildConstant(Byte.valueOf((byte) 0), 0, null);
+                ConstantPropigationStrategy.buildConstant(Short.valueOf((short) 0), 0, null);
+                ConstantPropigationStrategy.buildConstant(Character.valueOf('D'), 0, null);
+            } catch (Exception exception) {
+                fail("Exception occured while building constants : " + exception);
+            }
+        }
+    }
 
     public static class WithKnownValues {
         @Test
