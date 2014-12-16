@@ -1,6 +1,5 @@
 package org.cf.smalivm.emulate;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.util.Set;
 
@@ -11,6 +10,7 @@ import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
+import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +22,7 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
         Object classValue = mState.peekParameter(0);
         String methodName = (String) mState.peekParameter(1);
         Object parameterTypesValue = mState.peekParameter(2);
-        Class<?>[] parameterTypes = castParameterTypesValue(parameterTypesValue);
+        Class<?>[] parameterTypes = Utils.castToClassArray(parameterTypesValue);
 
         Object methodValue;
         if (classValue instanceof Class<?>) {
@@ -44,16 +44,6 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
         }
 
         mState.assignReturnRegister(methodValue);
-    }
-
-    private Class<?>[] castParameterTypesValue(Object value) {
-        int arrayLength = value == null ? 0 : Array.getLength(value);
-        Class<?>[] parameterTypes = new Class<?>[arrayLength];
-        for (int i = 0; i < parameterTypes.length; i++) {
-            parameterTypes[i] = (Class<?>) Array.get(value, i);
-        }
-
-        return parameterTypes;
     }
 
     private LocalMethod getLocalMethod(VirtualMachine vm, LocalClass localClass, String methodName,

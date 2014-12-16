@@ -18,6 +18,7 @@ import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
+import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
@@ -25,15 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VirtualMachine {
-
-    public static int getParameterSize(List<String> parameterTypes) {
-        int result = 0;
-        for (String type : parameterTypes) {
-            result += "J".equals(type) || "D".equals(type) ? 2 : 1;
-        }
-
-        return result;
-    }
 
     private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
         return methodDescriptor.split("->", 2)[0];
@@ -175,7 +167,7 @@ public class VirtualMachine {
         MethodImplementation impl = method.getImplementation();
         int registerCount = impl.getRegisterCount();
         List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        int parameterSize = getParameterSize(parameterTypes);
+        int parameterSize = Utils.getRegisterSize(parameterTypes);
         int accessFlags = method.getAccessFlags();
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
 

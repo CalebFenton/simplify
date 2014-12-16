@@ -7,12 +7,15 @@ import gnu.trove.map.TIntObjectMap;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.type.LocalInstance;
+import org.jf.dexlib2.writer.builder.BuilderTypeList;
+import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
 public class Utils {
 
@@ -163,4 +166,41 @@ public class Utils {
             }
         }
     }
+
+    public static Class<?>[] castToClassArray(Object objectArr) {
+        int arrayLength = objectArr == null ? 0 : Array.getLength(objectArr);
+        Class<?>[] classArray = new Class<?>[arrayLength];
+        for (int i = 0; i < classArray.length; i++) {
+            classArray[i] = (Class<?>) Array.get(objectArr, i);
+        }
+
+        return classArray;
+    }
+
+    public static int getRegisterSize(List<String> parameterTypeNames) {
+        int size = 0;
+        for (String name : parameterTypeNames) {
+            size += "J".equals(name) || "D".equals(name) ? 2 : 1;
+        }
+
+        return size;
+    }
+
+    public static int getRegisterSize(Class<?>[] parameterTypes) {
+        return getRegisterSize(SmaliClassUtils.javaClassToSmali(parameterTypes));
+    }
+
+    public static List<String> builderTypeListToStringList(BuilderTypeList typeList) {
+        List<String> typeNames = new LinkedList<String>();
+        for (BuilderTypeReference type : typeList) {
+            typeNames.add(type.getType());
+        }
+
+        return typeNames;
+    }
+
+    public static int getRegisterSize(BuilderTypeList typeList) {
+        return getRegisterSize(builderTypeListToStringList(typeList));
+    }
+
 }

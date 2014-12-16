@@ -291,7 +291,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     private MethodState buildNonLocalCalleeContext(MethodState callerMethodState) {
         ExecutionContext ectx = new ExecutionContext(vm);
-        int parameterSize = VirtualMachine.getParameterSize(parameterTypes);
+        int parameterSize = Utils.getRegisterSize(parameterTypes);
         int registerCount = parameterSize;
         MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
         assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
@@ -345,8 +345,8 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         if (!"V".equals(returnType)) {
-            Object returnRegister = calleeContext.readReturnRegister();
-            callerContext.assignResultRegister(returnRegister);
+            Object returnValue = calleeContext.readReturnRegister();
+            callerContext.assignResultRegister(returnValue);
         }
     }
 

@@ -29,6 +29,7 @@ public final class OpFactory {
         MOVE,
         NEW_ARRAY,
         NEW_INSTANCE,
+        NOP,
         RETURN,
         RETURN_VOID,
         SGET,
@@ -308,7 +309,7 @@ public final class OpFactory {
             break;
 
         case NOP:
-            // Handled by default.
+            result = OpType.NOP;
             break;
 
         case PACKED_SWITCH:
@@ -430,6 +431,9 @@ public final class OpFactory {
             break;
         case NEW_INSTANCE:
             result = NewInstanceOp.create(instruction, address, vm);
+            break;
+        case NOP:
+            result = NopOp.create(instruction, address);
             break;
         case AGET:
             result = AGetOp.create(instruction, address);

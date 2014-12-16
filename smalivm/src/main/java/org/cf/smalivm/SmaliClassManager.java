@@ -151,8 +151,21 @@ public class SmaliClassManager {
 
     /**
      *
+     * @param className
+     * @param methodSignature
+     * @return BuilderMethod for className and methodSignature, or null if not found
+     */
+    public BuilderMethod getMethod(String className, String methodSignature) {
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(methodSignature);
+
+        return getMethod(sb.toString());
+    }
+
+    /**
+     *
      * @param methodDescriptor
-     * @return
+     * @return BuilderMethod for methodDescriptor, or null if not found
      */
     public BuilderMethod getMethod(String methodDescriptor) {
         loadClassIfNecessary(methodDescriptor);
