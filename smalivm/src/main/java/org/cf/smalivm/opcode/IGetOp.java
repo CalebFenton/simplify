@@ -46,8 +46,7 @@ public class IGetOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        // TODO: build option to allow instance member lookups
-        // disabled because fidelity concerns, i.e. they may have been modified by another thread
+        // TODO: https://github.com/CalebFenton/simplify/issues/22
         MethodState mState = ectx.getMethodState();
         mState.readRegister(instanceRegister);
         String type = fieldDescriptor.split(":")[1];

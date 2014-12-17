@@ -48,9 +48,6 @@ public class IPutOp extends ExecutionContextOp {
     public int[] execute(ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
         Object value = mState.readRegister(valueRegister);
-
-        // TODO: make option to allow instance variable mutation
-        // for now, just mark it read and assigned for the optimizer
         Object instance = mState.readRegister(instanceRegister);
 
         return getPossibleChildren();

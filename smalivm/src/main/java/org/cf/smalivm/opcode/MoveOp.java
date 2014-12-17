@@ -67,7 +67,6 @@ public class MoveOp extends MethodStateOp {
     public int[] execute(MethodState mState) {
         switch (moveType) {
         case EXCEPTION:
-            // TODO: implement with try/catch stuff?
             moveException(mState, toRegister);
             break;
         case RESULT:
