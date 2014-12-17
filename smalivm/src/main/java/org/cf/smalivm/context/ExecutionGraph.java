@@ -108,7 +108,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public int[] getAddresses() {
-        return addressToNodePile.keySet().toArray();
+        return addressToNodePile.keys();
     }
 
     public TIntList getConnectedTerminatingAddresses() {
@@ -204,8 +204,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public Object getRegisterConsensus(int address, int register) {
-        TIntList addresses = new TIntArrayList(1);
-        addresses.add(address);
+        TIntList addresses = new TIntArrayList(new int[] { address });
 
         return getRegisterConsensus(addresses, register);
     }
@@ -373,8 +372,12 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
         // If this address was reached during execution there will be clones in the pile.
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
-        if (1 > nodePile.size()) {
+        if (nodePile == null) {
+            System.out.println("nullity!!");
+        }
+        if ((nodePile == null) || (1 > nodePile.size())) {
             log.warn("Node pile @" + address + " has no template node.");
+            return false;
         }
 
         return nodePile.size() > 1;

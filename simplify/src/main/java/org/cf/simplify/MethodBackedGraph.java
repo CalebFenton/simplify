@@ -25,6 +25,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpFactory;
 import org.cf.smalivm.opcode.ReturnOp;
+import org.cf.smalivm.opcode.ReturnVoidOp;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -50,6 +51,27 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
 
         return result;
+    }
+
+    private void shiftOpAddresses(int startAddress, int shift) {
+        for (int nodeAddress : addressToNodePile.keys()) {
+            if (nodeAddress <= startAddress) {
+                continue;
+            }
+
+            // All nodes at an address have the same op. No need to modify the entire node pile.
+            ExecutionNode node = getTemplateNode(nodeAddress);
+            Op op = node.getOp();
+            op.setAddress(op.getAddress() + shift);
+
+            int[] childAddresses = op.getPossibleChildren();
+            if (childAddresses.length > 0) {
+                for (int i = 0; i < childAddresses.length; i++) {
+                    childAddresses[i] += shift;
+                }
+                op.setPossibleChildren(childAddresses);
+            }
+        }
     }
 
     private final TIntObjectMap<BuilderInstruction> addressToInstruction;
@@ -134,6 +156,7 @@ public class MethodBackedGraph extends ExecutionGraph {
         removeEmptyTryCatchBlocks();
     }
 
+    @SuppressWarnings("unchecked")
     private void removeEmptyTryCatchBlocks() {
         /*
          * MutableMethodImplementation#getTryBlocks() returns immutable collection. Maybe dexlib should be smart enough
@@ -168,7 +191,7 @@ public class MethodBackedGraph extends ExecutionGraph {
             }
         }
 
-        // Remove from the end to avoid re-indexing
+        // Remove from the end to avoid re-indexing invalidations
         indexes.sort();
         indexes.reverse();
         for (int index : indexes.toArray()) {
@@ -208,6 +231,11 @@ public class MethodBackedGraph extends ExecutionGraph {
         replaceInstruction(address, shift, op, codeUnits);
     }
 
+    private void shiftNodePileAddresses(int startAddress, int shift) {
+        shiftOpAddresses(startAddress, shift);
+        Utils.shiftIntegerMapKeys(startAddress, shift, addressToNodePile);
+    }
+
     public void insertInstruction(int address, BuilderInstruction instruction) {
         // Insert + shift instructions
         BuilderInstruction original = addressToInstruction.get(address);
@@ -219,7 +247,7 @@ public class MethodBackedGraph extends ExecutionGraph {
 
         // Insert + shift nodes
         List<ExecutionNode> shiftedNodePile = addressToNodePile.get(address);
-        Utils.shiftIntegerMapKeys(address - 1, shift, addressToNodePile);
+        shiftNodePileAddresses(address - 1, shift);
         List<ExecutionNode> addedNodePile = new ArrayList<ExecutionNode>();
         addressToNodePile.put(address, addedNodePile);
 
@@ -267,12 +295,10 @@ public class MethodBackedGraph extends ExecutionGraph {
             }
         }
 
-        // addressToNodePile.remove(address);
-        // Ops in node pile still have old addresses
-        Utils.shiftIntegerMapKeys(address, shift, addressToNodePile);
+        shiftNodePileAddresses(address, shift);
     }
 
-    protected void replaceInstruction(int address, int addressShift, Op op, int codeUnits) {
+    protected void replaceInstruction(int address, int shift, Op op, int codeUnits) {
         List<ExecutionNode> nodePile = addressToNodePile.get(address);
         Map<ExecutionNode, ExecutionNode> replacedToNew = new HashMap<ExecutionNode, ExecutionNode>();
         for (int index = 0; index < nodePile.size(); index++) {
@@ -308,17 +334,17 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
 
         // Update any children's parents to the new nodes we made.
-        Utils.shiftIntegerMapKeys(address, addressShift, addressToNodePile);
-        int childAddress = address + codeUnits;
-        nodePile = getNodePile(childAddress);
-        if (nodePile != null) {
-            for (ExecutionNode node : nodePile) {
-                ExecutionNode parent = node.getParent();
-                if (replacedToNew.containsKey(parent)) {
-                    node.setParent(replacedToNew.get(parent));
-                }
-            }
-        }
+        shiftNodePileAddresses(address, shift);
+        // int childAddress = address + codeUnits;
+        // nodePile = getNodePile(childAddress);
+        // if (nodePile != null) {
+        // for (ExecutionNode node : nodePile) {
+        // ExecutionNode parent = node.getParent();
+        // if (replacedToNew.containsKey(parent)) {
+        // node.setParent(replacedToNew.get(parent));
+        // }
+        // }
+        // }
     }
 
     TIntList getReachedAddresses() {
@@ -358,10 +384,11 @@ public class MethodBackedGraph extends ExecutionGraph {
 
     public TIntList getAvailableRegisters(int address) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildren(address));
-        ExecutionNode node = stack.getFirst();
+        ExecutionNode node = stack.peek();
         if (null == node) {
             // Edge case.
-            assert getTemplateNode(address).getOp() instanceof ReturnOp;
+            assert (getTemplateNode(address).getOp() instanceof ReturnOp)
+                            || (getTemplateNode(address).getOp() instanceof ReturnVoidOp);
             MethodState mState = getNodePile(address).get(0).getContext().getMethodState();
             TIntList available = new TIntLinkedList();
             // They're all available!
