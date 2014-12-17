@@ -32,7 +32,8 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
                 methodValue = new UnknownValue("Ljava/lang/reflect/Method;");
             }
         } else if (classValue instanceof LocalClass) {
-            methodValue = getLocalMethod(vm, (LocalClass) classValue, methodName, parameterTypes);
+            LocalClass localClass = (LocalClass) classValue;
+            methodValue = getLocalMethod(vm, localClass, methodName, parameterTypes);
             if (null == methodValue) {
                 methodValue = new UnknownValue("Ljava/lang/reflect/Method;");
             }
