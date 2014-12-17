@@ -4,8 +4,8 @@ import org.cf.smalivm.SideEffect;
 
 public abstract class Op {
 
-    private final int address;
-    private final int[] childAddresses;
+    private int address;
+    private int[] childAddresses;
     private final String opName;
 
     Op(int address, String opName, int childAddress) {
@@ -32,6 +32,14 @@ public abstract class Op {
 
     public SideEffect.Level sideEffectLevel() {
         return SideEffect.Level.NONE;
+    }
+
+    public void setAddress(int address) {
+        this.address = address;
+    }
+
+    public void setPossibleChildren(int[] childAddresses) {
+        this.childAddresses = childAddresses;
     }
 
     @Override
