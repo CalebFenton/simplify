@@ -192,7 +192,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             if (op.getName().contains("-direct")) {
-                // Not sure about initializers..
+                // Initializers shouldn't be removed because they setup instance state.
                 continue;
             }
 
