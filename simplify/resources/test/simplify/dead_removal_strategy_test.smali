@@ -1,5 +1,13 @@
-.class Ldead_detector_test;
+.class Ldead_removal_strategy_test;
 .super Ljava/lang/Object;
+
+.method public constructor <init>()V
+  .locals 1
+
+  invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+  return-void
+.end method
 
 .method public static UnusedAssignment()I
   .locals 1
@@ -67,7 +75,7 @@
   .locals 1
 
   const/4 v0, 0x2
-  invoke-static {v0}, Ldead_detector_test;->AddOneNoSideEffects(I)I
+  invoke-static {v0}, Ldead_removal_strategy_test;->AddOneNoSideEffects(I)I
 
   return v0
 .end method
@@ -76,7 +84,7 @@
   .locals 1
 
   const/4 v0, 0x2
-  invoke-static {v0}, Ldead_detector_test;->AddOneWithSideEffects(I)I
+  invoke-static {v0}, Ldead_removal_strategy_test;->AddOneWithSideEffects(I)I
 
   return v0
 .end method

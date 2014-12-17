@@ -1,7 +1,7 @@
 package org.cf.smalivm.context;
 
 import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.list.linked.TIntLinkedList;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.type.TypeUtil;
@@ -20,8 +20,8 @@ class BaseState {
 
     BaseState(BaseState parent, ExecutionContext ectx) {
         registerCount = parent.registerCount;
-        registersAssigned = new TIntArrayList(0);
-        registersRead = new TIntArrayList(0);
+        registersAssigned = new TIntLinkedList();
+        registersRead = new TIntLinkedList();
         this.ectx = ectx;
     }
 
@@ -31,8 +31,8 @@ class BaseState {
 
     BaseState(ExecutionContext ectx, int registerCount) {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
-        registersAssigned = new TIntArrayList(0);
-        registersRead = new TIntArrayList(0);
+        registersAssigned = new TIntLinkedList();
+        registersRead = new TIntLinkedList();
 
         // This is locals + parameters
         this.registerCount = registerCount;
@@ -92,6 +92,7 @@ class BaseState {
             StringBuilder sb = new StringBuilder();
             sb.append("Setting ").append(heapId).append(":").append(register).append(" = ")
             .append(registerValueToString(value));
+            // VERY noisy
             // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
             // for (int i = 2; i < ste.length; i++) {
             // sb.append("\n\t").append(ste[i]);

@@ -151,11 +151,21 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
             MethodState mState = ectx.getMethodState();
             TIntList assigned = mState.getRegistersAssigned();
-            if (assigned.size() == 0) {
+            if (0 >= assigned.size()) {
                 continue;
             }
 
             Op op = mbgraph.getOp(address);
+            if (op.sideEffectLevel() != SideEffect.Level.NONE) {
+                // Could have modified class state
+                continue;
+            }
+
+            if (op.getName().startsWith("invoke-direct") && mbgraph.getMethodDescriptor().contains("-><init>(")) {
+                // Instance initializer shouldn't be removed.
+                continue;
+            }
+
             if (log.isDebugEnabled()) {
                 log.debug("Read assignments test @" + address + " for: " + op);
             }
