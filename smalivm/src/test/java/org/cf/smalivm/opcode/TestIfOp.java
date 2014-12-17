@@ -47,6 +47,20 @@ public class TestIfOp {
         }
 
         @Test
+	    public void testIfZeroIntegerEqualZeroWithByteTrue() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (byte) 0x0);
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, RETURN });
+        }
+
+        @Test
+	    public void testIfZeroIntegerEqualZeroWithByteFalse() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, (byte) 0x7);
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, new int[] { IF, NOP, RETURN });
+        }
+
+        @Test
         public void testIfNullEqualZero() {
             String methodSignature = "IfEqualZero()V";
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, null);
