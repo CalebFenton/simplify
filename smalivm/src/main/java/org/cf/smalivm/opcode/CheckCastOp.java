@@ -51,7 +51,7 @@ public class CheckCastOp extends MethodStateOp {
 
         try {
             if (!vm.getClassManager().isInstance(type, className)) {
-                // TODO: exception should be filled with spoofed stack trace
+                // TODO: https://github.com/CalebFenton/simplify/issues/12
                 // throw new ClassCastException("Class - " + className);
             }
         } catch (UnknownAncestors e) {

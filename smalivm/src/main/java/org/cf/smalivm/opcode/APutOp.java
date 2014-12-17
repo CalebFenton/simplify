@@ -46,10 +46,7 @@ public class APutOp extends MethodStateOp {
         Object array = mState.readRegister(arrayRegister);
         Object indexValue = mState.readRegister(indexRegister);
 
-        // TODO: Adding unknown elements to arrays is very pessimistic. If the value is not known, the entire array
-        // becomes unknown. It's much better (though much harder) to keep track of individual unknown elements. This
-        // requires more robust and complex array handling. After this thing moves past proof of concept, please fix,
-        // future me.
+        // TODO: https://github.com/CalebFenton/simplify/issues/21
         if (array instanceof UnknownValue) {
             // Do nothing. :(
         } else {
