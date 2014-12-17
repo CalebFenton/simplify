@@ -119,7 +119,7 @@ public class Utils {
         }
 
         TIntList addressesToShift = new TIntArrayList(intToObject.keys());
-        // Exclude anything before startAddress
+        // Exclude anything before and including startAddress
         for (int currentAddress : addressesToShift.toArray()) {
             if (currentAddress <= startAddress) {
                 addressesToShift.remove(currentAddress);
@@ -204,30 +204,61 @@ public class Utils {
     }
 
     public static Integer getIntegerValue(Object obj) {
-        Integer intValue;
-        if (obj instanceof Integer) {
-            intValue = (Integer) obj;
-        } else if (obj instanceof Short) {
-            intValue = ((Short) obj).intValue();
-        } else if (obj instanceof Byte) {
-            intValue = ((Byte) obj).intValue();
-        } else if (obj instanceof Character) {
-            intValue = (int) ((Character) obj).charValue();
-        } else if (obj instanceof Short) {
-            intValue = ((Short) obj).intValue();
-        } else if (obj instanceof Boolean) {
-            intValue = ((Boolean) obj) ? 1 : 0;
-        } else if (obj instanceof Double) {
-            intValue = ((Double) obj).intValue();
-        } else if (obj instanceof Float) {
-            intValue = ((Float) obj).intValue();
-        } else if (obj instanceof Long) {
-            intValue = ((Long) obj).intValue();
-        } else {
-            // Attempt to save us if all else fails
-            intValue = ((Integer) obj).intValue();
-        }
+        Integer intValue = (Integer) castToPrimitiveWrapper(obj, "Ljava/lang/Integer;");
 
         return intValue;
     }
+
+    public static Object castToPrimitiveWrapper(Object value, String targetType) {
+        // TODO: add tests for this + confirm dalvik works this way
+
+        // Dalvik handles multiple types like integers normally, but since we have type information from the field
+        // descriptor, try and cast it appropriately now.
+        if (value instanceof Number) {
+            Number castValue = (Number) value;
+            if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {
+                return castValue.byteValue();
+            } else if ("D".equals(targetType) || "Ljava/lang/Double;".equals(targetType)) {
+                return castValue.doubleValue();
+            } else if ("F".equals(targetType) || "Ljava/lang/Float;".equals(targetType)) {
+                return castValue.floatValue();
+            } else if ("I".equals(targetType) || "Ljava/lang/Integer;".equals(targetType)) {
+                return castValue.intValue();
+            } else if ("L".equals(targetType) || "Ljava/lang/Long;".equals(targetType)) {
+                return castValue.longValue();
+            } else if ("S".equals(targetType) || "Ljava/lang/Short;".equals(targetType)) {
+                return castValue.shortValue();
+            } else if ("C".equals(targetType) || "Ljava/lang/Character;".equals(targetType)) {
+                return (char) castValue.intValue();
+            } else if ("Z".equals(targetType) || "Ljava/lang/Boolean;".equals(targetType)) {
+                return castValue.intValue() != 0 ? true : false;
+            }
+        } else if (value instanceof Boolean) {
+            Boolean castValue = (Boolean) value;
+            if ("Z".equals(targetType) || "Ljava/lang/Boolean;".equals(targetType)) {
+                return castValue;
+            } else if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {
+                return castValue ? 1 : 0;
+            } else if ("I".equals(targetType) || "Ljava/lang/Integer;".equals(targetType)) {
+                return castValue ? 1 : 0;
+            } else if ("S".equals(targetType) || "Ljava/lang/Short;".equals(targetType)) {
+                return castValue ? 1 : 0;
+            }
+        } else if (value instanceof Character) {
+            Character castValue = (Character) value;
+            Integer intValue = (int) castValue;
+            if ("Z".equals(targetType) || "Ljava/lang/Boolean;".equals(targetType)) {
+                return (int) castValue != 0 ? true : false;
+            } else if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {
+                return intValue.byteValue();
+            } else if ("I".equals(targetType) || "Ljava/lang/Integer;".equals(targetType)) {
+                return intValue;
+            } else if ("S".equals(targetType) || "Ljava/lang/Short;".equals(targetType)) {
+                return intValue.shortValue();
+            }
+        }
+
+        return value;
+    }
+
 }
