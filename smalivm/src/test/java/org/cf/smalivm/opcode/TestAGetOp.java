@@ -20,6 +20,14 @@ public class TestAGetOp {
     }
 
     @Test
+    public void testArrayGetBadValue() {
+	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 2);
+	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, null);
+
+	VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
+    }
+
+    @Test
     public void testArrayGetBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[] { true }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, true);
