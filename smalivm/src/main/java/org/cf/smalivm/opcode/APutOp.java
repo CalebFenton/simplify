@@ -1,13 +1,14 @@
 package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class APutOp extends MethodStateOp {
 
@@ -56,28 +57,22 @@ public class APutOp extends MethodStateOp {
                 String type = array.getClass().getName();
                 array = new UnknownValue(type);
             } else {
-                // Properly class cast - avoid LocalInstance
-                // as it never needs conversions as it is only
-		// ever used for aput-object calls
                 if (value instanceof Number) {
-		    // long and boolean are both properly read
-		    if (getName().endsWith("-wide")) {
-			value = (long) value;
-		    } else if (getName().endsWith("-boolean")) {
-			value = ((int) value == 1 ? true : false);
-		    } else {
-			// First properly convert to a true Integer before continuing
-			// to avoid class-cast exceptions
-			value = getIntegerObject(value);
-			if (getName().endsWith("-byte")) {
-			    value = ((Integer) value).byteValue();
-			} else if (getName().endsWith("-char")) {
-			    value = Character.valueOf((char) ((Integer) value).intValue());
-			} else if (getName().endsWith("-short")) {
-			    value = ((Integer) value).shortValue();
-			}
-		    }
-		}
+                    if (getName().endsWith("-wide")) {
+                        value = (long) value;
+                    } else if (getName().endsWith("-boolean")) {
+                        value = ((int) value == 1 ? true : false);
+                    } else {
+                        Integer intValue = Utils.getIntegerValue(value);
+                        if (getName().endsWith("-byte")) {
+                            value = intValue.byteValue();
+                        } else if (getName().endsWith("-char")) {
+                            value = (char) intValue.intValue();
+                        } else if (getName().endsWith("-short")) {
+                            value = intValue.shortValue();
+                        }
+                    }
+                }
 
                 int index = (int) indexValue;
                 Array.set(array, index, value);
@@ -88,39 +83,6 @@ public class APutOp extends MethodStateOp {
         mState.assignRegister(arrayRegister, array);
 
         return getPossibleChildren();
-    }
-
-    /*
-     * Function for ensuring we can get the integer object
-     * and prevent class-cast exceptions.
-     *
-     * TODO: If this needs to be used elsewhere it should
-     * likely get refacotred into a helper instance of
-     * something
-     */
-    private Integer getIntegerObject(Object obj) {
-	Integer returnable = null;
-
-        // Check if we need to actually do anything but cast
-        if (obj instanceof Integer) {
-            returnable = (Integer) obj;
-        } else {
-            // Perform proper casting for the Primatives
-	    if (obj instanceof Short) {
-		returnable = ((Short) obj).intValue();
-	    } else if (obj instanceof Byte) {
-		returnable = ((Byte) obj).intValue();
-	    } else if (obj instanceof Character) {
-		returnable = (int) ((Character) obj).charValue();
-	    } else if (obj instanceof Short) {
-		returnable = ((Short) obj).intValue();
-	    } else {
-		// Attempt to save us if all else fails
-		returnable = ((Integer) obj).intValue();
-	    }
-	}
-
-	return returnable;
     }
 
     @Override

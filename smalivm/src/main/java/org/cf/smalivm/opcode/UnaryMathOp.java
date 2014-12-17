@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 
@@ -39,6 +40,7 @@ public class UnaryMathOp extends MethodStateOp {
         int srcRegister = instr.getRegisterB();
         return new UnaryMathOp(address, opName, childAddress, destRegister, srcRegister);
     }
+
     private final int destRegister;
 
     private final int srcRegister;
@@ -105,16 +107,8 @@ public class UnaryMathOp extends MethodStateOp {
                 result = typedValue.floatValue();
             }
         } else if (opName.startsWith("int")) {
-	    // 'Short's can actually be passed to 'int' functions
-	    // which will cause exceptions unless we grab the intValue
-	    // from them first
-	    Integer typedValue = null;
-	    if (value instanceof Short) {
-		typedValue = ((Short) value).intValue();
-	    } else {
-		typedValue = (Integer) value;
-	    }
-
+            // Could be something other than an int, such as short
+            Integer typedValue = Utils.getIntegerValue(value);
             if (opName.endsWith("byte")) {
                 result = typedValue.byteValue();
             } else if (opName.endsWith("char")) {
@@ -136,7 +130,7 @@ public class UnaryMathOp extends MethodStateOp {
                 Float typedValue = (Float) value;
                 result = -typedValue;
             } else if (opName.endsWith("int")) {
-                Integer typedValue = (Integer) value;
+                Integer typedValue = Utils.getIntegerValue(value);
                 result = -typedValue;
             } else if (opName.endsWith("long")) {
                 Long typedValue = (Long) value;
@@ -144,7 +138,7 @@ public class UnaryMathOp extends MethodStateOp {
             }
         } else if (opName.startsWith("not")) {
             if (opName.endsWith("int")) {
-                Integer typedValue = (Integer) value;
+                Integer typedValue = Utils.getIntegerValue(value);
                 result = ~typedValue;
             } else if (opName.endsWith("long")) {
                 Long typedValue = (Long) value;

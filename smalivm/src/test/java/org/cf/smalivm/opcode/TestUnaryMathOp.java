@@ -84,41 +84,37 @@ public class TestUnaryMathOp {
     }
 
     public static class TestStartInt {
-
         @Test
         public void testIntToByte() {
-            Integer val = 128;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, val);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, val.byteValue());
+            Integer value = 128;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, value.byteValue());
 
             VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
         }
 
-
-	/*
-	 * int-to-* can actually be passed a 'Short's, so we need to specifically handle
-	 * this, specifically this was identified in an obfuscation technique (where I think
-	 * it is used by mistake as it will result in a loss of accuracy if the short goes
-	 * over the bounds of a byte):
-	 *
-	 *    invoke-static {v0}, Ljava/lang/Short;->parseShort(Ljava/lang/String;)S
-	 *    move-result v0
-	 *    int-to-byte v0, v0
-	 */
         @Test
-	public void testIntToByteFromShort() {
-	    Short val = 1000;
-	    TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, val);
-	    TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, val.byteValue());
+        public void testIntToByteWithShort() {
+            Short value = 1000;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, value.byteValue());
 
-	    VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
         }
-
 
         @Test
         public void testIntToChar() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x62);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (char) 0x62);
+
+            VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
+        }
+
+        @Test
+        public void testIntToCharWithShort() {
+            Short value = 0x62;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (char) value.intValue());
 
             VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
         }
@@ -164,6 +160,15 @@ public class TestUnaryMathOp {
         }
 
         @Test
+        public void testNegIntWithShort() {
+            Short value = 0x42;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -value);
+
+            VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
+        }
+
+        @Test
         public void testNegUnknownInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
@@ -175,6 +180,15 @@ public class TestUnaryMathOp {
         public void testNotInt() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~0x42);
+
+            VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
+        }
+
+        @Test
+        public void testNotIntWithShort() {
+            Short value = 0x42;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~value);
 
             VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
         }
