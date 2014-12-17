@@ -1,4 +1,4 @@
-.class Lconstant_builder_test;
+.class Lconstant_propigation_strategy_test;
 .super Ljava/lang/Object;
 
 # TODO: Long, Float, Double, Byte, Char, Class and String

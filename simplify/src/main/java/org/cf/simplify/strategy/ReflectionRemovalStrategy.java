@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.opcode.InvokeOp;
@@ -107,7 +108,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
         for (int index = 0; index < parameterTypes.size(); index++) {
             int register = registers.get(index);
-            BuilderInstruction constInstruction = ConstantPropigationStrategy.buildConstant(index, register);
+            BuilderInstruction constInstruction = ConstantBuilder.buildConstant(index, register);
             BuilderInstruction arrayGet = new BuilderInstruction23x(Opcode.AGET_OBJECT, register, arrayRegister,
                             register);
             String typeName = parameterTypes.get(index);

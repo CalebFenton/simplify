@@ -19,7 +19,6 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpFactory;
 import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
@@ -243,10 +242,11 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             Set<Object> values = getRegisterValues(address, register);
             value = values.toArray()[0];
             if (values.size() != 1) {
-                log.trace("No conensus for register #" + register + ", returning unknown");
-                String type = SmaliClassUtils.javaClassToSmali(TypeUtil.getValueType(value));
+                if (log.isTraceEnabled()) {
+                    log.trace("No conensus for register #" + register + ", returning unknown");
+                }
 
-                return new UnknownValue(type);
+                return new UnknownValue(TypeUtil.getValueType(value));
             }
         }
 

@@ -2,7 +2,6 @@ package org.cf.simplify.strategy;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import gnu.trove.set.TIntSet;
@@ -21,19 +20,10 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class TestConstantPropigationStrategy {
 
-    public static class SimpleValues {
-        @Test
-	    public void testIntCasts() {
-            try {
-                ConstantPropigationStrategy.buildConstant(Integer.valueOf(10), 0, null);
-                ConstantPropigationStrategy.buildConstant(Byte.valueOf((byte) 0), 0, null);
-                ConstantPropigationStrategy.buildConstant(Short.valueOf((short) 0), 0, null);
-                ConstantPropigationStrategy.buildConstant(Character.valueOf('D'), 0, null);
-            } catch (Exception exception) {
-                fail("Exception occured while building constants : " + exception);
-            }
-        }
-    }
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(TestConstantPropigationStrategy.class.getSimpleName());
+
+    private static final String CLASS_NAME = "Lconstant_propigation_strategy_test;";
 
     public static class WithKnownValues {
         @Test
@@ -108,11 +98,6 @@ public class TestConstantPropigationStrategy {
             assertAddressesConstantizable(mbgraph, strategy);
         }
     }
-
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestConstantPropigationStrategy.class.getSimpleName());
-
-    static final String CLASS_NAME = "Lconstant_builder_test;";
 
     static void assertAddressesConstantizable(MethodBackedGraph mbgraph, ConstantPropigationStrategy strategy,
                     int... expectedAddresses) {

@@ -6,6 +6,7 @@ import gnu.trove.list.array.TIntArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
@@ -118,7 +119,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             Instruction35c instr = (Instruction35c) original;
             int instanceRegister = instr.getRegisterC();
             Object value = mbgraph.getRegisterConsensus(address, instanceRegister);
-            BuilderInstruction replacement = ConstantPropigationStrategy.buildConstant(value, instanceRegister,
+            BuilderInstruction replacement = ConstantBuilder.buildConstant(value, instanceRegister,
                             mbgraph.getDexBuilder());
             if (log.isDebugEnabled()) {
                 log.debug("Peeping string init @" + address + " " + mbgraph.getOp(address));
