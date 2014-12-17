@@ -25,8 +25,37 @@ public class IfOp extends MethodStateOp {
 
     class NumberComparator<T extends Number & Comparable> implements Comparator<T> {
         public int compare(T a, T b) throws ClassCastException {
-            return a.compareTo(b);
+	    return getIntegerObject(a).compareTo(getIntegerObject(b));
         }
+
+	// TODO: Extract to helper class ?
+	//
+	// Attempt to save us from class-cast exceptions incase
+	// a primative is passed as a parameter
+	private Integer getIntegerObject(Object obj) {
+	    Integer returnable = null;
+
+            // Check if we need to actually do anything but cast
+            if (obj instanceof Integer) {
+                returnable = (Integer) obj;
+            } else {
+                // Perform proper casting for the Primatives
+		if (obj instanceof Short) {
+		    returnable = ((Short) obj).intValue();
+		} else if (obj instanceof Byte) {
+		    returnable = ((Byte) obj).intValue();
+		} else if (obj instanceof Character) {
+		    returnable = (int) ((Character) obj).charValue();
+		} else if (obj instanceof Short) {
+		    returnable = ((Short) obj).intValue();
+		} else {
+		    // Attempt to save us if all else fails
+		    returnable = ((Integer) obj).intValue();
+		}
+            }
+
+            return returnable;
+	}
     }
 
     private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());

@@ -105,7 +105,16 @@ public class UnaryMathOp extends MethodStateOp {
                 result = typedValue.floatValue();
             }
         } else if (opName.startsWith("int")) {
-            Integer typedValue = (Integer) value;
+	    // 'Short's can actually be passed to 'int' functions
+	    // which will cause exceptions unless we grab the intValue
+	    // from them first
+	    Integer typedValue = null;
+	    if (value instanceof Short) {
+		typedValue = ((Short) value).intValue();
+	    } else {
+		typedValue = (Integer) value;
+	    }
+
             if (opName.endsWith("byte")) {
                 result = typedValue.byteValue();
             } else if (opName.endsWith("char")) {
