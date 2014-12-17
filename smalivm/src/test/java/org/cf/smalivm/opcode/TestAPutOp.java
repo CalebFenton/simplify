@@ -37,7 +37,24 @@ public class TestAPutOp {
     }
 
     @Test
+    public void testArrayPutByteFromInt() {
+	int b = 0xf;
+	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, b);
+	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new byte[] { 0xf });
+
+	VMTester.testMethodState(CLASS_NAME, "TestArrayPutByte()V", initial, expected);
+    }
+
+    @Test
     public void testArrayPutChar() {
+	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, '$');
+	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new char[] { '$' });
+
+	VMTester.testMethodState(CLASS_NAME, "TestArrayPutChar()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayPutCharFromInt() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, (int) '$');
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new char[] { '$' });
 
@@ -56,14 +73,22 @@ public class TestAPutOp {
 
     @Test
     public void testArrayPutShort() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[1], 1, 0, 2, 0x42);
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[1], 1, 0, 2, (short) 0x42);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 0x42 });
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayPutShort()V", initial, expected);
     }
 
     @Test
-    public void testArrayPutUnkownIndex() {
+    public void testArrayPutShortFromInt() {
+	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[1], 1, 0, 2, (int) 0x42);
+	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 0x42 });
+
+	VMTester.testMethodState(CLASS_NAME, "TestArrayPutShort()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayPutUnknownIndex() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, new UnknownValue("I"), 2, 5);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"));
 
@@ -71,7 +96,7 @@ public class TestAPutOp {
     }
 
     @Test
-    public void testArrayPutUnkownValue() {
+    public void testArrayPutUnknownValue() {
         // Ideally, setting an element unknown shouldn't set the entire array unknown. See APutOp for more details.
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, 0, 2, new UnknownValue("I"));
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"));
