@@ -31,26 +31,26 @@ public class TestAPutOp {
     public void testArrayPutByte() {
         Byte b = 0xf;
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, b);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new byte[] { 0xf });
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new byte[] { b });
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayPutByte()V", initial, expected);
     }
 
     @Test
     public void testArrayPutByteFromInt() {
-	int b = 0xf;
-	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, b);
-	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new byte[] { 0xf });
+        int b = 0xf;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[1], 1, 0, 2, b);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new byte[] { (byte) b });
 
-	VMTester.testMethodState(CLASS_NAME, "TestArrayPutByte()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPutByte()V", initial, expected);
     }
 
     @Test
     public void testArrayPutChar() {
-	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, '$');
-	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new char[] { '$' });
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[1], 1, 0, 2, '$');
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new char[] { '$' });
 
-	VMTester.testMethodState(CLASS_NAME, "TestArrayPutChar()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPutChar()V", initial, expected);
     }
 
     @Test
@@ -81,10 +81,10 @@ public class TestAPutOp {
 
     @Test
     public void testArrayPutShortFromInt() {
-	TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[1], 1, 0, 2, (int) 0x42);
-	TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 0x42 });
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[1], 1, 0, 2, 0x42);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new short[] { 0x42 });
 
-	VMTester.testMethodState(CLASS_NAME, "TestArrayPutShort()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPutShort()V", initial, expected);
     }
 
     @Test

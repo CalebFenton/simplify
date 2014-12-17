@@ -203,4 +203,31 @@ public class Utils {
         return getRegisterSize(builderTypeListToStringList(typeList));
     }
 
+    public static Integer getIntegerValue(Object obj) {
+        Integer intValue;
+        if (obj instanceof Integer) {
+            intValue = (Integer) obj;
+        } else if (obj instanceof Short) {
+            intValue = ((Short) obj).intValue();
+        } else if (obj instanceof Byte) {
+            intValue = ((Byte) obj).intValue();
+        } else if (obj instanceof Character) {
+            intValue = (int) ((Character) obj).charValue();
+        } else if (obj instanceof Short) {
+            intValue = ((Short) obj).intValue();
+        } else if (obj instanceof Boolean) {
+            intValue = ((Boolean) obj) ? 1 : 0;
+        } else if (obj instanceof Double) {
+            intValue = ((Double) obj).intValue();
+        } else if (obj instanceof Float) {
+            intValue = ((Float) obj).intValue();
+        } else if (obj instanceof Long) {
+            intValue = ((Long) obj).intValue();
+        } else {
+            // Attempt to save us if all else fails
+            intValue = ((Integer) obj).intValue();
+        }
+
+        return intValue;
+    }
 }

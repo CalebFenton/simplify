@@ -1,10 +1,10 @@
 package org.cf.smalivm.opcode;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
@@ -21,41 +21,6 @@ public class IfOp extends MethodStateOp {
         LESS,
         LESS_OR_EQUAL,
         NOT_EQUAL
-    }
-
-    class NumberComparator<T extends Number & Comparable> implements Comparator<T> {
-        public int compare(T a, T b) throws ClassCastException {
-	    return getIntegerObject(a).compareTo(getIntegerObject(b));
-        }
-
-	// TODO: Extract to helper class ?
-	//
-	// Attempt to save us from class-cast exceptions incase
-	// a primative is passed as a parameter
-	private Integer getIntegerObject(Object obj) {
-	    Integer returnable = null;
-
-            // Check if we need to actually do anything but cast
-            if (obj instanceof Integer) {
-                returnable = (Integer) obj;
-            } else {
-                // Perform proper casting for the Primatives
-		if (obj instanceof Short) {
-		    returnable = ((Short) obj).intValue();
-		} else if (obj instanceof Byte) {
-		    returnable = ((Byte) obj).intValue();
-		} else if (obj instanceof Character) {
-		    returnable = (int) ((Character) obj).charValue();
-		} else if (obj instanceof Short) {
-		    returnable = ((Short) obj).intValue();
-		} else {
-		    // Attempt to save us if all else fails
-		    returnable = ((Integer) obj).intValue();
-		}
-            }
-
-            return returnable;
-	}
     }
 
     private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
@@ -139,7 +104,6 @@ public class IfOp extends MethodStateOp {
 
     private boolean compareToZero;
     private final IfType ifType;
-    private final NumberComparator numberComparitor;
 
     private final int register1;
     private int register2;
@@ -153,7 +117,6 @@ public class IfOp extends MethodStateOp {
         this.targetAddress = targetAddress;
         this.register1 = register1;
         compareToZero = true;
-        numberComparitor = new NumberComparator();
     }
 
     private IfOp(int address, String opName, int childAddress, IfType ifType, int targetAddress, int register1,
@@ -178,24 +141,28 @@ public class IfOp extends MethodStateOp {
 
         int cmp = Integer.MIN_VALUE;
         if (compareToZero) {
-            if (A instanceof Number) {
-                cmp = numberComparitor.compare((Number) A, 0);
-            } else if (A instanceof Boolean) {
-                cmp = numberComparitor.compare((Boolean) A ? 1 : 0, 0);
-            } else {
+            if (A == null) {
                 // if-*z ops are used to check for null refs
                 cmp = A == null ? 0 : 1;
+            } else if (((A instanceof Number) || (A instanceof Boolean) || (A instanceof Character))
+                            && ((B instanceof Number) || (B instanceof Boolean) || (B instanceof Character))) {
+                Integer aIntValue = Utils.getIntegerValue(A);
+                cmp = aIntValue.compareTo((Integer) B);
+            } else {
+                cmp = A == B ? 0 : 1;
             }
         } else if (((A instanceof Number) || (A instanceof Boolean) || (A instanceof Character))
                         && ((B instanceof Number) || (B instanceof Boolean) || (B instanceof Character))) {
-            BigDecimal Acmp = widenToBigDecimal(A);
-            BigDecimal Bcmp = widenToBigDecimal(B);
-            cmp = Acmp.compareTo(Bcmp);
+            Integer aIntValue = Utils.getIntegerValue(A);
+            Integer bIntValue = Utils.getIntegerValue(B);
+            cmp = aIntValue.compareTo(bIntValue);
         } else {
             cmp = A == B ? 0 : 1;
         }
 
-        log.trace("IF compare: " + A + " vs " + B + " = " + cmp);
+        if (log.isTraceEnabled()) {
+            log.trace("IF compare: " + A + " vs " + B + " = " + cmp);
+        }
 
         int result = getPossibleChildren()[0];
         if (isTrue(ifType, cmp)) {
@@ -208,7 +175,6 @@ public class IfOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-
         sb.append(" r").append(register1);
         if (!compareToZero) {
             sb.append(", r").append(register2);
