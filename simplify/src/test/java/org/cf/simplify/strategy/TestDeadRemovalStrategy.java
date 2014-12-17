@@ -6,13 +6,15 @@ import gnu.trove.list.array.TIntArrayList;
 
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.simplify.OptimizerTester;
+import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TestDeadRemovalStrategy {
 
-    private static final String CLASS_NAME = "Ldead_detector_test;";
+    private static final String CLASS_NAME = "Ldead_removal_strategy_test;";
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(TestDeadRemovalStrategy.class.getSimpleName());
@@ -82,6 +84,17 @@ public class TestDeadRemovalStrategy {
         TIntList expected = new TIntArrayList(new int[] { 0 });
 
         assertEquals(expected, found);
+    }
+
+    @Test
+    public void testInstanceInitializerIsNotRemoved() {
+        String methodSignature = "<init>()V";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        strategy.perform();
+
+        BuilderInstruction instruction = mbgraph.getInstruction(0);
+        assertEquals(Opcode.INVOKE_DIRECT, instruction.getOpcode());
     }
 
 }
