@@ -1,3 +1,5 @@
+6494727's phone/b;->a([Ljava/lang/String;) is not working and looks like it should
+
 whitelist methods
 many Class.is*, other stuff
 
@@ -46,3 +48,12 @@ Android class lifecycle initialization
 
   java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
   ArrayLists are initialized in onCreate, but since that's not known, everything fails
+
+
+allow emulated methods to handle unknown values
+
+two issues:
+inner classes are not always resolved properly, should add tests for this, look at base64$coder
+methods with arrays, like anything in 8748278, don't optimize correctly
+
+
