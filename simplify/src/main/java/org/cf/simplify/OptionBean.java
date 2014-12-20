@@ -119,4 +119,20 @@ public class OptionBean implements Serializable {
         outFile = new File(baseName + "_simple.dex");
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Max address visits: ").append(getMaxAddressVisits()).append('\n');
+        sb.append("Max call depth: ").append(getMaxCallDepth()).append('\n');
+        sb.append("Max method visits: ").append(getMaxMethodVisits()).append('\n');
+        sb.append("Max optimization passes: ").append(getMaxOptimizationPasses()).append('\n');
+        sb.append("Output API level: ").append(getOutputAPILevel()).append('\n');
+        sb.append("Exclude filter: ").append(getExcludeFilter()).append('\n');
+        sb.append("Include filter: ").append(getIncludeFilter()).append('\n');
+        sb.append("Input file: ").append(getInFile()).append('\n');
+        sb.append("Output file: ").append(getOutFile());
+
+        return sb.toString();
+    }
+
 }
