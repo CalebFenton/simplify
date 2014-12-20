@@ -43,7 +43,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         TIntList fourBitValues = new TIntArrayList();
         for (int i = 0; i < values.size(); i++) {
             int value = values.get(i);
-            if (value <= 0b1111) {
+            if (value <= 0b1111) { // you don't see this literal format every day
                 fourBitValues.add(value);
             }
         }
@@ -181,7 +181,6 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             parameterTypes = SmaliClassUtils.javaClassToSmali(method.getParameterTypes());
             parameterRegisterCount = Utils.getRegisterSize(parameterTypes);
             methodRef = buildMethodReference(method);
-            mbgraph.getDexBuilder().internMethodReference(methodRef);
         } else if (methodValue instanceof LocalMethod) {
             LocalMethod method = (LocalMethod) methodValue;
             BuilderMethod methodDef = mbgraph.getVM().getClassManager().getMethod(method.getName());
@@ -191,7 +190,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             classAccessFlags = manager.getClass(declaringClass).getAccessFlags();
             parameterTypes = Utils.builderTypeListToStringList(methodDef.getParameterTypes());
             parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
-            methodRef = methodDef;
+            methodRef = mbgraph.getDexBuilder().internMethodReference(methodDef);
         }
         boolean isStatic = (methodAccessFlags & AccessFlags.STATIC.getValue()) != 0;
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
@@ -370,7 +369,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    void removeMethodInvoke() {
+    private void removeMethodInvoke() {
         TIntList invokeAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
             if (canRemoveMethodInvoke(address)) {

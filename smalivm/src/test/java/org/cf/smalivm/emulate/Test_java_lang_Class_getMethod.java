@@ -65,9 +65,14 @@ public class Test_java_lang_Class_getMethod {
         @Test
         public void testGetNonExistantMethodReturnsUnknownValue() throws Exception {
             // TODO: https://github.com/CalebFenton/simplify/issues/5
-            // should return unknown value and also say it "may" have thrown an exception
-            MethodState mState = getMethodState(vm, CLASS, "yoDawgThisMethodWillNeverExist", null);
-            emulatedMethod.execute(vm, mState);
+            String methodName = "yoDawgThisMethodWillNeverExist";
+            MethodState mState = getMethodState(vm, CLASS, methodName, null);
+            try {
+                emulatedMethod.execute(vm, mState);
+            } catch (NoSuchMethodException e) {
+                assertEquals(methodName, e.getMessage());
+            }
+
             Object expected = new UnknownValue("Ljava/lang/reflect/Method;");
             Object actual = mState.readRegister(MethodState.ReturnRegister);
 
@@ -106,9 +111,15 @@ public class Test_java_lang_Class_getMethod {
         }
 
         @Test
-        public void testGetNonExistantMethodReturnsUnknownValue() throws Exception {
-            MethodState mState = getMethodState(vm, CLASS, "yoDawgThisMethodWillNeverExist", null);
-            emulatedMethod.execute(vm, mState);
+        public void testGetNonExistantMethodThrowsExceptionAndReturnsUnknownValue() throws Exception {
+            String methodName = "yoDawgThisMethodWillNeverExist";
+            MethodState mState = getMethodState(vm, CLASS, methodName, null);
+            try {
+                emulatedMethod.execute(vm, mState);
+            } catch (NoSuchMethodException e) {
+                assertEquals(CLASS.getName() + "." + methodName + "()", e.getMessage());
+            }
+
             Object expected = new UnknownValue("Ljava/lang/reflect/Method;");
             Object actual = mState.readRegister(MethodState.ReturnRegister);
 

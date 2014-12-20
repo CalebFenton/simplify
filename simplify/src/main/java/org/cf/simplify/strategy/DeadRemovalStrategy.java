@@ -16,6 +16,7 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.opcode.APutOp;
 import org.cf.smalivm.opcode.GotoOp;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.NopOp;
@@ -33,20 +34,30 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
-    private static boolean areRegistersRead(int address, TIntList registerList, MethodBackedGraph graph) {
+    private static boolean areRegistersUsed(int address, TIntList registerList, MethodBackedGraph graph) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildren(address));
         ExecutionNode node;
         int[] registers = registerList.toArray();
         while ((node = stack.poll()) != null) {
             MethodState mState = node.getContext().getMethodState();
             for (int register : registers) {
+                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
+                // Read check must come first because this still counts as a usage.
                 if (mState.wasRegisterRead(register)) {
-                    log.trace("r" + register + " is read after this address (" + address + ") @" + node.getAddress()
-                                    + ", " + node.getOp());
+                    if (log.isTraceEnabled()) {
+                        log.trace("r" + register + " is read after " + address + " @ " + node.getAddress() + ", "
+                                        + node.getOp());
+                    }
+
                     return true;
-                } else if (mState.wasRegisterAssigned(register)) {
-                    log.trace("r" + register + " is reassigned without being read @" + node.getAddress() + ", "
-                                    + node.getOp());
+                }
+                // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
+                else if (mState.wasRegisterAssigned(register) && !(node.getOp() instanceof APutOp)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r" + register + " is reassigned after " + address + " @ " + node.getAddress() + ", "
+                                        + node.getOp());
+                    }
+
                     return false;
                 }
             }
@@ -170,7 +181,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 log.debug("Read assignments test @" + address + " for: " + op);
             }
 
-            if (areRegistersRead(address, assigned, mbgraph)) {
+            if (areRegistersUsed(address, assigned, mbgraph)) {
                 continue;
             }
 

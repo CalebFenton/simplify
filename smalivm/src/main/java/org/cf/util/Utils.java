@@ -57,15 +57,15 @@ public class Utils {
     }
 
     public static Object getArrayInstanceFromSmaliTypeReference(String typeReference, int dimension,
-                    boolean isLocalClass) throws ClassNotFoundException {
-        return getArrayInstanceFromSmaliTypeReference(typeReference, new int[] { dimension }, isLocalClass);
+                    boolean useLocalClass) throws ClassNotFoundException {
+        return getArrayInstanceFromSmaliTypeReference(typeReference, new int[] { dimension }, useLocalClass);
     }
 
     public static Object getArrayInstanceFromSmaliTypeReference(String typeReference, int[] dimensions,
-                    boolean isLocalClass) throws ClassNotFoundException {
+                    boolean useLocalClass) throws ClassNotFoundException {
         String baseClassName = SmaliClassUtils.getBaseClass(typeReference);
         String javaClassName;
-        if (isLocalClass) {
+        if (useLocalClass) {
             javaClassName = LocalInstance.class.getName();
         } else {
             javaClassName = SmaliClassUtils.smaliClassToJava(baseClassName);
@@ -76,7 +76,7 @@ public class Utils {
         Class<?> klazz = ClassUtils.getClass(classNameWithDimensions);
         Object result = Array.newInstance(klazz, dimensions);
 
-        if (isLocalClass) {
+        if (useLocalClass) {
             populateLocalInstanceArray(result, baseClassName);
         }
 
@@ -165,16 +165,6 @@ public class Utils {
                 populateLocalInstanceArray(element, className);
             }
         }
-    }
-
-    public static Class<?>[] castToClassArray(Object objectArr) {
-        int arrayLength = objectArr == null ? 0 : Array.getLength(objectArr);
-        Class<?>[] classArray = new Class<?>[arrayLength];
-        for (int i = 0; i < classArray.length; i++) {
-            classArray[i] = (Class<?>) Array.get(objectArr, i);
-        }
-
-        return classArray;
     }
 
     public static int getRegisterSize(List<String> parameterTypeNames) {

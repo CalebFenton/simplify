@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,7 +39,7 @@ public class SmaliClassManager {
     private static final Logger log = LoggerFactory.getLogger(SmaliClassManager.class.getSimpleName());
 
     // Use separate dex builder to intern framework classes so they're not included in output dex
-    private static final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
+    private final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
 
     private final Map<String, SmaliFile> classNameToSmaliFile;
     private final DexBuilder dexBuilder;
@@ -130,8 +131,16 @@ public class SmaliClassManager {
         return classNames;
     }
 
-    public boolean isFrameworkClass(String className) {
+    public boolean isFramework(String typeName) {
+        String className = typeName.split("->")[0];
+
         return smaliFileFactory.isFrameworkClass(className);
+    }
+
+    public boolean isSafeFramework(String typeName) {
+        String className = typeName.split("->")[0];
+
+        return smaliFileFactory.isSafeFrameworkClass(className);
     }
 
     public Set<String> getLoadedClassNames() {
@@ -307,7 +316,9 @@ public class SmaliClassManager {
         BuilderClassDef classDef;
         try {
             if (smaliFileFactory.isFrameworkClass(className)) {
-                classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), frameworkDexBuilder);
+                InputStream is = smaliFile.open();
+                classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, frameworkDexBuilder);
+                is.close();
             } else {
                 classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), dexBuilder);
             }
@@ -324,7 +335,7 @@ public class SmaliClassManager {
         addFieldNameAndTypes(classDef);
     }
 
-    public boolean isInstance(Class childClass, Class targetClass) throws UnknownAncestors {
+    public boolean isInstance(Class<?> childClass, Class<?> targetClass) throws UnknownAncestors {
         if ((childClass == null) || (targetClass == null)) {
             return false;
         }
@@ -401,4 +412,5 @@ public class SmaliClassManager {
 
         return parents;
     }
+
 }

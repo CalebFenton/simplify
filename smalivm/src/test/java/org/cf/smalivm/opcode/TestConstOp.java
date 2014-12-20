@@ -4,7 +4,6 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.LocalClass;
-import org.cf.smalivm.type.UnknownValue;
 import org.junit.Test;
 
 public class TestConstOp {
@@ -47,8 +46,8 @@ public class TestConstOp {
     }
 
     @Test
-    public void testConstClassUnknown() {
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("Lunknown/class;"));
+    public void testConstClassOfUnknownClassReturnsLocalClass() {
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalClass("Lunknown/class;"));
 
         VMTester.testMethodState(CLASS_NAME, "TestConstClassUnknown()V", expected);
     }

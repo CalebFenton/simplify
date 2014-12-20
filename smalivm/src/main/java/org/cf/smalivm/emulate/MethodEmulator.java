@@ -31,6 +31,12 @@ public class MethodEmulator {
         return emulatedMethods.containsKey(methodDescriptor);
     }
 
+    public static boolean canHandleUnknownValues(String methodDescriptor) {
+        EmulatedMethod method = emulatedMethods.get(methodDescriptor);
+
+        return (method != null) && (method instanceof UnknownValuesMethod);
+    }
+
     public static void clearMethods() {
         emulatedMethods.clear();
     }
@@ -41,9 +47,9 @@ public class MethodEmulator {
         try {
             em.execute(vm, mState);
         } catch (Exception e) {
-            // TODO: try/catch handling :D
+            // TODO: exception handling
             if (log.isWarnEnabled()) {
-                log.warn("Exception while emulating method " + methodDescriptor, e);
+                log.warn("Exception emulating method " + methodDescriptor, e);
             }
         }
 
