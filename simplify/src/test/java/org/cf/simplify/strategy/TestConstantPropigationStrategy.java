@@ -1,16 +1,19 @@
 package org.cf.simplify.strategy;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
 
+import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.UnknownValue;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
+import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
+import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
+import org.jf.dexlib2.iface.instruction.WideLiteralInstruction;
+import org.jf.dexlib2.iface.reference.Reference;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -25,90 +28,133 @@ public class TestConstantPropigationStrategy {
 
     private static final String CLASS_NAME = "Lconstant_propigation_strategy_test;";
 
+    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(args);
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+        ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+        strategy.perform();
+
+        return mbgraph;
+    }
+
+    private static void testEquals(BuilderInstruction expected, MethodBackedGraph mbgraph, int address) {
+        BuilderInstruction actual = mbgraph.getInstruction(address);
+
+        assertEquals(expected.getOpcode(), actual.getOpcode());
+
+        if (expected instanceof OneRegisterInstruction) {
+            int expectedRegister = ((OneRegisterInstruction) expected).getRegisterA();
+            int actualRegister = ((OneRegisterInstruction) actual).getRegisterA();
+
+            assertEquals(expectedRegister, actualRegister);
+        }
+
+        if (expected instanceof NarrowLiteralInstruction) {
+            int expectedLiteral = ((NarrowLiteralInstruction) expected).getNarrowLiteral();
+            int actualLiteral = ((NarrowLiteralInstruction) actual).getNarrowLiteral();
+
+            assertEquals(expectedLiteral, actualLiteral);
+        }
+
+        if (expected instanceof WideLiteralInstruction) {
+            long expectedLiteral = ((WideLiteralInstruction) expected).getWideLiteral();
+            long actualLiteral = ((WideLiteralInstruction) actual).getWideLiteral();
+
+            assertEquals(expectedLiteral, actualLiteral);
+        }
+
+        if (expected instanceof ReferenceInstruction) {
+            Reference expectedRef = ((ReferenceInstruction) expected).getReference();
+            Reference actualRef = ((ReferenceInstruction) actual).getReference();
+
+            assertEquals(expectedRef, actualRef);
+        }
+    }
+
     public static class WithKnownValues {
         @Test
-        public void testBinaryMathOpIsConstable() {
-            String methodSignature = "BinaryMathOp()V";
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 3);
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+        public void testAddInt2AddrConstantizesToExpectedInstruction() {
+            String methodName = "AddInt2Addr()V";
+            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 0, 3);
+            BuilderInstruction expected = ConstantBuilder.buildConstant(6, 0);
 
-            assertAddressesConstantizable(mbgraph, strategy, 0);
+            testEquals(expected, mbgraph, 0);
         }
 
         @Test
-        public void testNonDeterministicallyExecuteConstableOpIsConstable() {
-            String methodSignature = "NonDeterministicallyExecuteConstableOp()V";
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+        public void testNonDeterministicallyExecuteConstableOpConstantizesToExpectedInstruction() {
+            String methodName = "NonDeterministicallyStaticGetIntegerMaxValue(I)V";
+            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 1, new UnknownValue("I"));
+            BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
-            assertAddressesConstantizable(mbgraph, strategy, 2); // sget
+            testEquals(expected, mbgraph, 2);
         }
 
         @Test
-        public void testMoveOpIsWithConst16IsConstable() {
-            String methodSignature = "MoveV0IntoV1()V";
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+        public void testMoveOpIsWithConst16ConstantizesToExpectedInstruction() {
+            int value = 0x42;
+            String methodName = "MoveV0IntoV1()V";
+            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 0, value);
+            BuilderInstruction expected = ConstantBuilder.buildConstant(value, 1);
 
-            assertAddressesConstantizable(mbgraph, strategy, 0);
+            testEquals(expected, mbgraph, 0);
         }
 
         @Test
         public void testSGetIsConstable() {
-            String methodSignature = "StaticGetWhitelistedClassMember()V";
-            TIntObjectMap<Object> initial = new TIntObjectHashMap<Object>();
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+            String methodName = "StaticGetIntegerMaxValue()V";
+            MethodBackedGraph mbgraph = getOptimizedGraph(methodName);
+            BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
-            assertAddressesConstantizable(mbgraph, strategy, 0);
+            testEquals(expected, mbgraph, 0);
         }
 
         @Test
         public void testAGetIsConstable() {
-            String methodSignature = "ArrayGet()V";
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[5], 1, 0);
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+            String methodName = "ArrayGetFromV0AtV1ToV0()V";
+            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, 1, 1);
+            BuilderInstruction expected = ConstantBuilder.buildConstant(7, 0);
 
-            assertAddressesConstantizable(mbgraph, strategy, 0);
-        }
-
-        @Test
-        public void testMoveOpIsWithConst4IsConstable() {
-            String methodSignature = "MoveV0IntoV1()V";
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x7);
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
-
-            assertAddressesConstantizable(mbgraph, strategy, 0);
+            testEquals(expected, mbgraph, 0);
         }
     }
 
     public static class WithUnknownValues {
         @Test
-        public void testBinaryMathOpIsNotConstable() {
-            String methodSignature = "BinaryMathOp()V";
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodSignature, initial);
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+        public void testAddInt2AddrDoesNotConstantize() {
+            String methodName = "AddInt2Addr()V";
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new UnknownValue("I"));
 
-            assertAddressesConstantizable(mbgraph, strategy);
+            testEquals(before.getInstruction(0), after, 0);
         }
-    }
 
-    static void assertAddressesConstantizable(MethodBackedGraph mbgraph, ConstantPropigationStrategy strategy,
-                    int... expectedAddresses) {
-        TIntSet expected = new TIntHashSet(expectedAddresses);
-        for (int address : mbgraph.getAddresses()) {
-            boolean canConstantize = strategy.canConstantizeAddress(address);
-            if (expected.contains(address)) {
-                assertTrue("address " + address + " should be constantizable", canConstantize);
-            } else {
-                assertFalse("address " + address + " should NOT be constantizable", canConstantize);
-            }
+        @Test
+        public void testMoveOpDoesNotConstantize() {
+            UnknownValue value = new UnknownValue("I");
+            String methodName = "MoveV0IntoV1()V";
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+            MethodBackedGraph after = getOptimizedGraph(methodName, 0, value);
+
+            testEquals(before.getInstruction(0), after, 0);
+        }
+
+        @Test
+        public void testAGetWithUnknownIndexDoesNotConstantize() {
+            String methodName = "ArrayGetFromV0AtV1ToV0()V";
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, 1, new UnknownValue("I"));
+
+            testEquals(before.getInstruction(0), after, 0);
+        }
+
+        @Test
+        public void testAGetWithUnknownArrayDoesNotConstantize() {
+            String methodName = "ArrayGetFromV0AtV1ToV0()V";
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new UnknownValue("[I"), 1, 0);
+
+            testEquals(before.getInstruction(0), after, 0);
         }
     }
 
