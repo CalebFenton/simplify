@@ -105,3 +105,16 @@
 
   return p0
 .end method
+
+.method public static MoveP0IntoV0With30Locals(I)V
+    .locals 30
+
+    # invoke-static needs 4 bit registers, so gotta move from p0 to v0
+    move-object/from16 v0, p0
+    invoke-static {v0}, Lsome/silly/class;->NotAMethod(I)V
+
+    # the crux. optimizer must see p0 is not used, but know v0 is, so don't remove the move-object/from16.
+    move-object/from16 p0, v0
+
+    return-object p0
+.end method

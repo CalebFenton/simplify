@@ -34,13 +34,18 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
-    private static boolean areRegistersUsed(int address, TIntList registerList, MethodBackedGraph graph) {
+    private static boolean isAnyRegisterUsed(int address, TIntList registerList, MethodBackedGraph graph) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildren(address));
         ExecutionNode node;
         int[] registers = registerList.toArray();
+        TIntSet reassigned = new TIntHashSet();
         while ((node = stack.poll()) != null) {
             MethodState mState = node.getContext().getMethodState();
             for (int register : registers) {
+                if (reassigned.contains(register)) {
+                    continue;
+                }
+
                 // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
                 // Read check must come first because this still counts as a usage.
                 if (mState.wasRegisterRead(register)) {
@@ -58,7 +63,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                                         + node.getOp());
                     }
 
-                    return false;
+                    // Go on to the next register. This one is for sure not used, but maybe others are.
+                    reassigned.add(register);
+                    break;
                 }
             }
             stack.addAll(node.getChildren());
@@ -181,7 +188,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 log.debug("Read assignments test @" + address + " for: " + op);
             }
 
-            if (areRegistersUsed(address, assigned, mbgraph)) {
+            if (isAnyRegisterUsed(address, assigned, mbgraph)) {
                 continue;
             }
 
