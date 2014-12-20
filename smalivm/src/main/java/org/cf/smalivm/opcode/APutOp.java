@@ -4,6 +4,7 @@ import java.lang.reflect.Array;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
@@ -71,8 +72,16 @@ public class APutOp extends MethodStateOp {
                     }
                 }
 
-                int index = (int) indexValue;
-                Array.set(array, index, value);
+                int index = Utils.getIntegerValue(indexValue);
+                if (index >= Array.getLength(array)) {
+                    if (log.isWarnEnabled()) {
+                        log.warn("Array index out of bounds @" + getAddress() + " for " + toString());
+                    }
+                    String type = SmaliClassUtils.javaClassToSmali(array.getClass());
+                    array = new UnknownValue(type);
+                } else {
+                    Array.set(array, index, value);
+                }
             }
         }
 
