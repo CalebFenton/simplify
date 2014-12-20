@@ -56,7 +56,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return madeChanges;
     }
 
-    boolean canConstantizeAddress(int address) {
+    private boolean canConstantizeAddress(int address) {
         if (!mbgraph.wasAddressReached(address)) {
             return false;
         }
