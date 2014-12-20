@@ -20,6 +20,23 @@ public class TestAGetOp {
     }
 
     @Test
+    public void testArrayGetWithIndexOutOfBoundsReturnsUnknownValue() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 1);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayGetWithShortIndex() {
+        Short index = 0;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, index);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(index.intValue(), 0x42);
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
+    }
+
+    @Test
     public void testArrayGetBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[] { true }, 1, 0);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, true);
