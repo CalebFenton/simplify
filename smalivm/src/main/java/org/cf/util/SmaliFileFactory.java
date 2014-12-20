@@ -2,19 +2,12 @@ package org.cf.util;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 
 import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.SmaliFile;
@@ -48,52 +41,38 @@ public class SmaliFileFactory {
         return frameworkClassNameToSmaliFile.containsKey(className);
     }
 
-    private void cacheFrameworkSmaliFiles() throws IOException {
-        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>();
-        final File jarFile = new File(SmaliFileFactory.class.getProtectionDomain().getCodeSource().getLocation()
-                        .getPath());
-        if (jarFile.isFile()) { // Run when JAR
-            final JarFile jar = new JarFile(jarFile);
-            final Enumeration<JarEntry> entries = jar.entries();
-            while (entries.hasMoreElements()) {
-                String name = entries.nextElement().getName();
-                if (name.startsWith("reflib/android-17/") && name.toLowerCase().endsWith(".smali")) {
-                    StringBuilder sb = new StringBuilder("/");
-                    sb.append(name);
-                    name = sb.toString();
-                    InputStream is = SmaliFileFactory.class.getResourceAsStream(name);
-                    SmaliFile smaliFile = new SmaliFile(name, is);
-                    frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
-                }
-            }
-            jar.close();
-        } else { // Run with IDE
-            final URL url = SmaliFileFactory.class.getResource("/reflib/android-17");
-            if (url != null) {
-                try {
-                    List<File> resFiles = (List<File>) FileUtils.listFiles(new File(url.toURI()),
-                                    new String[] { "smali" }, true);
-                    for (File resFile : resFiles) {
-                        String absPath = resFile.getAbsolutePath();
-                        int pos = absPath.lastIndexOf("/reflib/android-17/");
-                        String path = absPath.substring(pos);
-                        InputStream is = SmaliFileFactory.class.getResourceAsStream(path);
-                        // Smali files that are resources expect resource paths, not absolute paths
-                        SmaliFile smaliFile = new SmaliFile(path, is);
-                        frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
-                    }
-                } catch (URISyntaxException ex) {
-                    // never happens (famous last words, ikr?)
-                }
-            }
+    public boolean isSafeFrameworkClass(String className) {
+        SmaliFile smaliFile = frameworkClassNameToSmaliFile.get(className);
+        if (null == smaliFile) {
+            return false;
         }
 
-        for (SmaliFile sf : frameworkClassNameToSmaliFile.values()) {
-            sf.setIsResource(true);
+        return smaliFile.isSafeFrameworkClass();
+    }
+
+    private void cacheFramework() throws IOException {
+        long startTime = System.currentTimeMillis();
+
+        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>();
+        List<String> frameworkClassesCfg = ConfigLoader.loadConfig("framework_classes.cfg");
+        Set<String> safeFrameworkClasses = new HashSet<String>(ConfigLoader.loadConfig("safe_framework_classes.cfg"));
+        for (String line : frameworkClassesCfg) {
+            String[] parts = line.split(":");
+            String className = parts[0];
+            String path = parts[1];
+            SmaliFile smaliFile = new SmaliFile(path, className);
+            smaliFile.setIsResource(true);
+            smaliFile.setIsSafeFramework(safeFrameworkClasses.contains(className));
+            frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Located " + frameworkClassNameToSmaliFile.size() + " framework classes.");
+            long endTime = System.currentTimeMillis();
+            long totalTime = endTime - startTime; // assuming time has not gone backwards
+            StringBuilder sb = new StringBuilder();
+            sb.append("Cached ").append(frameworkClassNameToSmaliFile.size()).append(" framework classes in ")
+            .append(totalTime).append(" ms.");
+            log.debug(sb.toString());
         }
     }
 
@@ -110,17 +89,13 @@ public class SmaliFileFactory {
         }
 
         if (null == frameworkClassNameToSmaliFile) {
-            cacheFrameworkSmaliFiles();
+            cacheFramework();
         }
 
-        for (Entry<String, SmaliFile> entry : frameworkClassNameToSmaliFile.entrySet()) {
-            String className = entry.getKey();
-            if (inputClasses.contains(className)) {
-                // Do not override input class with framework class
-                frameworkClassNameToSmaliFile.remove(className);
-            }
-            smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
-        }
+        // Do not override input class with framework class
+        frameworkClassNameToSmaliFile.entrySet().removeAll(inputClasses);
+
+        smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
 
         return smaliFiles;
     }

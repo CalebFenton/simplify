@@ -112,7 +112,7 @@
 .method public static NewInstanceNonLocalNonWhitelistedClass()V
   .locals 1
 
-  new-instance v0, Ljava/lang/Thread;
+  new-instance v0, Lsome/non/local;
 
   return-void
 .end method

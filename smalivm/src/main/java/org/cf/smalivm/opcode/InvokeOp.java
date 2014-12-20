@@ -75,7 +75,9 @@ public class InvokeOp extends ExecutionContextOp {
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
         SmaliClassManager classManager = vm.getClassManager();
-        if (classManager.isLocalMethod(methodDescriptor)) {
+        if (classManager.isLocalMethod(methodDescriptor)
+                        && !(classManager.isFramework(methodDescriptor) && !classManager
+                                        .isSafeFramework(methodDescriptor))) {
             parameterTypes = classManager.getParameterTypes(methodDescriptor);
         } else {
             parameterTypes = Utils.getParameterTypes(methodDescriptor);
@@ -89,7 +91,7 @@ public class InvokeOp extends ExecutionContextOp {
         for (String parameterType : parameterTypes) {
             parameterRegisters.add(registers[i]);
             i++;
-            if (parameterType.equals("J") || parameterType.equals("D")) {
+            if ("J".equals(parameterType) || "D".equals(parameterType)) {
                 i++;
             }
         }
@@ -133,10 +135,11 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         MethodState callerContext = ectx.getMethodState();
+        // Try to reflect or emulate before using local class.
         if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
             MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
-            if (allArgumentsKnown) {
+            if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
                 executeNonLocalMethod(targetMethod, callerContext, calleeContext);
 
                 return getPossibleChildren();
@@ -147,20 +150,32 @@ public class InvokeOp extends ExecutionContextOp {
                 assumeMaximumUnknown(callerContext);
             }
         } else {
-            // This assumes if reflection fails, not worth it to try possibly cached framework classes.
+            // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
 
             SmaliClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
-                ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
-                if (classManager.methodHasImplementation(targetMethod)) {
-                    executeLocalMethod(targetMethod, ectx, calleeContext);
-                } else {
+                if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Not executing unsafe local method: " + targetMethod
+                                        + ". Assuming maxiumum ambiguity.");
+                    }
+                    assumeMaximumUnknown(callerContext);
+
+                    return getPossibleChildren();
+                }
+
+                if (!classManager.methodHasImplementation(targetMethod)) {
                     if (log.isWarnEnabled()) {
                         log.warn("Attempting to execute local method without implementation: " + targetMethod
                                         + ". Assuming maxiumum ambiguity.");
                     }
                     assumeMaximumUnknown(callerContext);
+
+                    return getPossibleChildren();
                 }
+
+                ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
+                executeLocalMethod(targetMethod, ectx, calleeContext);
             } else {
                 markCallerRegistersRead(callerContext);
 
@@ -193,7 +208,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -325,10 +340,11 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext, MethodState calleeContext) {
-        assert allArgumentsKnown(calleeContext);
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             sideEffectLevel = MethodEmulator.emulate(vm, calleeContext, methodDescriptor, getParameterRegisters());
         } else if (MethodReflector.canReflect(methodDescriptor)) {
+            assert allArgumentsKnown(calleeContext);
+
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play
 

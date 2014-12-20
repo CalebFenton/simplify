@@ -76,7 +76,8 @@ public class APutOp extends MethodStateOp {
             }
         }
 
-        // Let the optimizer know the array was modified.
+        // In most cases, register assignment means the old value was blown away. The optimizer handles assignments for
+        // this op specially.
         mState.assignRegister(arrayRegister, array);
 
         return getPossibleChildren();
