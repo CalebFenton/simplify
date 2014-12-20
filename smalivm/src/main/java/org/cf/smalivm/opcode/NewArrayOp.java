@@ -61,7 +61,7 @@ public class NewArrayOp extends MethodStateOp {
         if (dimensionValue instanceof UnknownValue) {
             instance = new UnknownValue(typeReference);
         } else {
-            int dimension = (int) dimensionValue;
+            int dimension = Utils.getIntegerValue(dimensionValue);
             try {
                 // TODO: easy, determine if dalvik clinit's classes on new-array
                 instance = Utils.getArrayInstanceFromSmaliTypeReference(typeReference, dimension, useLocalClass);
