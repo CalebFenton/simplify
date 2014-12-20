@@ -1,13 +1,18 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
@@ -82,14 +87,13 @@ public class TestInvokeOp {
         }
 
         @Test
-        public void testInvokeNonLocalMethodWithKnownAndUnknownMutableParametersMutatesBoth() {
+        public void testInvokeNonExistantMethodWithTwoArrayParametersWithUnknownParameterMutatesAllParameters() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 3, 5, 7 }, 1, new UnknownValue(
                             "[I"));
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1,
                             new UnknownValue("[I"));
 
-            VMTester.testMethodState(CLASS_NAME, "InvokeNonLocalMethodWithKnownAndUnknownMutableParameters()V",
-                            initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "InvokeNonExistantMethodWithTwoArrayParameters()V", initial, expected);
         }
 
         @Test
@@ -212,6 +216,25 @@ public class TestInvokeOp {
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(MethodState.ResultRegister, int.class);
 
             VMTester.testMethodState(CLASS_NAME, "InvokeGetComponentType()V", initial, expected);
+        }
+    }
+
+    public static class TestMethodStateProperties {
+        private static final String CLASS_NAME = "Linvoke_static_test;";
+
+        @Test
+        public void testInvokeNonExistantMethodWithTwoArrayParametersWithUnknownParameterMutatesAllParameters() {
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0 }, 1, new int[] { 0 });
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "InvokeNonExistantMethodWithTwoArrayParameters()V",
+                            initial);
+            List<ExecutionNode> invokeNodes = graph.getNodePile(0);
+            assertEquals(1, invokeNodes.size());
+
+            MethodState mState = invokeNodes.get(0).getContext().getMethodState();
+            assertTrue(mState.wasRegisterRead(0));
+            assertTrue(mState.wasRegisterRead(1));
+            assertTrue(mState.wasRegisterAssigned(0));
+            assertTrue(mState.wasRegisterAssigned(1));
         }
     }
 

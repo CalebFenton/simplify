@@ -177,8 +177,6 @@ public class InvokeOp extends ExecutionContextOp {
                 ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
                 executeLocalMethod(targetMethod, ectx, calleeContext);
             } else {
-                markCallerRegistersRead(callerContext);
-
                 if (log.isDebugEnabled()) {
                     log.debug("Unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
                 }
@@ -235,12 +233,6 @@ public class InvokeOp extends ExecutionContextOp {
         return true;
     }
 
-    private void markCallerRegistersRead(MethodState callerState) {
-        for (int callerRegister : parameterRegisters) {
-            callerState.readRegister(callerRegister);
-        }
-    }
-
     private void assignCalleeMethodStateParameters(MethodState callerState, MethodState calleeState) {
         int parameterRegister = calleeState.getParameterStart();
         for (int i = 0; i < parameterRegisters.length; i++) {
@@ -257,7 +249,7 @@ public class InvokeOp extends ExecutionContextOp {
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
             int register = parameterRegisters[i];
-            Object value = mState.peekRegister(register);
+            Object value = mState.readRegister(register);
             if (null == value) {
                 // Nulls don't mutate.
                 continue;
