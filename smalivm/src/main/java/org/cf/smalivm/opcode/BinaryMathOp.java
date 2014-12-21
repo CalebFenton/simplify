@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
@@ -318,8 +319,8 @@ public class BinaryMathOp extends MethodStateOp {
         Object result = null;
         switch (mathOperandType) {
         case INT:
-            lhs = massageIntoInt(lhs);
-            rhs = massageIntoInt(rhs);
+            lhs = Utils.getIntegerValue(lhs);
+            rhs = Utils.getIntegerValue(rhs);
             result = doIntegerOperation(mathOperator, (Integer) lhs, (Integer) rhs);
             break;
         case LONG:
@@ -331,19 +332,6 @@ public class BinaryMathOp extends MethodStateOp {
         case DOUBLE:
             result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
             break;
-        }
-
-        return result;
-    }
-
-    private Object massageIntoInt(Object value) {
-        Object result;
-        if (value instanceof Character) {
-            result = (int) (char) value;
-        } else if (value instanceof Byte) {
-            result = ((Byte) value).intValue();
-        } else {
-            result = value;
         }
 
         return result;
