@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
@@ -89,7 +90,7 @@ public class FilledNewArrayOp extends MethodStateOp {
                 }
                 return getPossibleChildren();
             } else {
-                dimensions[i] = (int) value;
+                dimensions[i] = Utils.getIntegerValue(value);
             }
         }
 
@@ -104,7 +105,7 @@ public class FilledNewArrayOp extends MethodStateOp {
         sb.append('{');
         if (dimensionRegisters.length > 5) {
             sb.append('r').append(dimensionRegisters[0]).append(" .. r")
-                            .append(dimensionRegisters[dimensionRegisters.length - 1]).append("}, ");
+            .append(dimensionRegisters[dimensionRegisters.length - 1]).append("}, ");
         } else {
             for (int dimensionRegister : dimensionRegisters) {
                 sb.append('r').append(dimensionRegister).append(", ");

@@ -1,7 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import java.math.BigDecimal;
-
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
@@ -68,18 +66,6 @@ public class IfOp extends MethodStateOp {
         }
 
         return result;
-    }
-
-    private static BigDecimal widenToBigDecimal(Object value) {
-        // Value should be primitive wrapper (Integer, Character, Boolean, etc.)
-        if (value instanceof Character) {
-            value = (int) ((char) value);
-        } else if (value instanceof Boolean) {
-            value = ((boolean) value) ? 1 : 0;
-        }
-        BigDecimal bigD = new BigDecimal(value.toString());
-
-        return bigD; // lol
     }
 
     static IfOp create(Instruction instruction, int address) {

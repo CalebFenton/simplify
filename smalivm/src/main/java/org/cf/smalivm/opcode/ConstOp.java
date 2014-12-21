@@ -110,7 +110,6 @@ public class ConstOp extends MethodStateOp {
             sb.append(literal);
             break;
         case NARROW:
-            // sb.append("0x").append(Integer.toHexString(Integer.parseInt(literal.toString())));
             val = Integer.toString((int) literal, 16);
             if (val.startsWith("-")) {
                 sb.append('-');
@@ -131,7 +130,6 @@ public class ConstOp extends MethodStateOp {
             break;
         default:
             break;
-
         }
 
         return sb.toString();
