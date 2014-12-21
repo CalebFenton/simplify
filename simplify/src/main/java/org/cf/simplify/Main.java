@@ -36,12 +36,15 @@ public class Main {
             log.info(bean.toString());
         }
 
+        long startTime = System.currentTimeMillis();
+
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(bean.getOutputAPILevel());
         SmaliClassManager classManager = new SmaliClassManager(bean.getInFile(), dexBuilder);
         VirtualMachine vm = new VirtualMachine(classManager, bean.getMaxAddressVisits(), bean.getMaxCallDepth(),
                         bean.getMaxMethodVisits());
 
-        for (String className : classManager.getNonFrameworkClassNames()) {
+        Set<String> classNames = classManager.getNonFrameworkClassNames();
+        for (String className : classNames) {
             Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
             filterMethods(methodDescriptors, bean.getIncludeFilter(), bean.getExcludeFilter());
 
@@ -67,6 +70,10 @@ public class Main {
                 } while (reExecute);
             }
         }
+
+        long totalTime = System.currentTimeMillis() - startTime;
+        System.out.println("Simplified " + classNames.size() + " classes in " + totalTime + " ms.");
+        System.out.println(Optimizer.getTotalOptimizationCounts());
 
         File outFile = bean.getOutFile();
         System.out.println("Writing result to " + outFile);
