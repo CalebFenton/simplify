@@ -57,14 +57,17 @@ public class APutOp extends MethodStateOp {
             } else {
                 if (value instanceof Number) {
                     if (getName().endsWith("-wide")) {
-                        value = (long) value;
+                        // No need to cast anything
                     } else if (getName().endsWith("-boolean")) {
-                        value = ((int) value == 1 ? true : false);
+                        // Booleans are represented by integer literals, so need to convert
+                        Integer intValue = Utils.getIntegerValue(value);
+                        value = (intValue == 1 ? true : false);
                     } else {
                         Integer intValue = Utils.getIntegerValue(value);
                         if (getName().endsWith("-byte")) {
                             value = intValue.byteValue();
                         } else if (getName().endsWith("-char")) {
+                            // Characters, like boolean, are represented by integers
                             value = (char) intValue.intValue();
                         } else if (getName().endsWith("-short")) {
                             value = intValue.shortValue();
