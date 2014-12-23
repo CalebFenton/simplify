@@ -65,12 +65,7 @@ public class AGetOp extends MethodStateOp {
                 value = new UnknownValue(innerType);
             } else {
                 int index = (int) indexValue;
-		if (index < Array.getLength(array)) {
-		    value = Array.get(array, index);
-		} else {
-		    // This means we've gone out of bounds of a previously initialized
-		    // array as we've branched to an unknown child due to UnknownValue somewhere
-		}
+                value = Array.get(array, index);
             }
         }
 
