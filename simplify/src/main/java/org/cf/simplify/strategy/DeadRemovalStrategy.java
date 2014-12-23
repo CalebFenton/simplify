@@ -34,10 +34,10 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final SideEffect.Level SIDE_EFFECT_THRESHOLD = SideEffect.Level.WEAK;
 
-    private static boolean isAnyRegisterUsed(int address, TIntList registerList, MethodBackedGraph graph) {
+    private static boolean isAnyRegisterUsed(int address, TIntSet registerSet, MethodBackedGraph graph) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildren(address));
         ExecutionNode node;
-        int[] registers = registerList.toArray();
+        int[] registers = registerSet.toArray();
         TIntSet reassigned = new TIntHashSet();
         while ((node = stack.poll()) != null) {
             MethodState mState = node.getContext().getMethodState();
@@ -65,7 +65,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
                     // Go on to the next register. This one is for sure not used, but maybe others are.
                     reassigned.add(register);
-                    break;
+                    continue;
                 }
             }
             stack.addAll(node.getChildren());
@@ -151,91 +151,128 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
+    private boolean isDeadAssignment(int address) {
+        if (!mbgraph.wasAddressReached(address)) {
+            return false;
+        }
+
+        List<ExecutionNode> pile = mbgraph.getNodePile(address);
+        ExecutionContext ectx = pile.get(0).getContext();
+        if (ectx == null) {
+            if (log.isWarnEnabled()) {
+                log.warn("Null execution context @" + address + ". This shouldn't happen!");
+            }
+
+            return false;
+        }
+
+        MethodState mState = ectx.getMethodState();
+        TIntSet assigned = mState.getRegistersAssigned();
+        if (0 >= assigned.size()) {
+            // Has no assignment, so not a "dead assignment"
+            return false;
+        }
+
+        Op op = mbgraph.getOp(address);
+        if (op.sideEffectLevel() != SideEffect.Level.NONE) {
+            // Could have modified class state
+            return false;
+        }
+
+        if (op.getName().startsWith("invoke-direct") && mbgraph.getMethodDescriptor().contains("-><init>(")) {
+            // Instance initializer shouldn't be removed.
+            return false;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Read assignments test @" + address + " for: " + op);
+        }
+
+        if (address == 130) {
+            System.out.println("wtf");
+        }
+        if (isAnyRegisterUsed(address, assigned, mbgraph)) {
+            return false;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("dead assignment: " + op + ", registers=" + assigned);
+        }
+
+        return true;
+    }
+
     TIntList getDeadAssignmentAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            if (!mbgraph.wasAddressReached(address)) {
-                continue;
+            if (isDeadAssignment(address)) {
+                result.add(address);
             }
-
-            List<ExecutionNode> pile = mbgraph.getNodePile(address);
-            ExecutionContext ectx = pile.get(0).getContext();
-            if (ectx == null) {
-                if (log.isWarnEnabled()) {
-                    log.warn("Null execution context @" + address + ". This shouldn't happen!");
-                }
-                continue;
-            }
-
-            MethodState mState = ectx.getMethodState();
-            TIntList assigned = mState.getRegistersAssigned();
-            if (0 >= assigned.size()) {
-                continue;
-            }
-
-            Op op = mbgraph.getOp(address);
-            if (op.sideEffectLevel() != SideEffect.Level.NONE) {
-                // Could have modified class state
-                continue;
-            }
-
-            if (op.getName().startsWith("invoke-direct") && mbgraph.getMethodDescriptor().contains("-><init>(")) {
-                // Instance initializer shouldn't be removed.
-                continue;
-            }
-
-            if (log.isDebugEnabled()) {
-                log.debug("Read assignments test @" + address + " for: " + op);
-            }
-
-            if (isAnyRegisterUsed(address, assigned, mbgraph)) {
-                continue;
-            }
-
-            if (log.isDebugEnabled()) {
-                log.debug("dead assignment: " + op + ", registers=" + assigned);
-            }
-            result.add(address);
         }
 
         return result;
     }
 
+    private boolean isDeadResult(int address) {
+        Op op = mbgraph.getOp(address);
+        if (!(op instanceof InvokeOp)) {
+            return false;
+        }
+
+        if (op.getName().startsWith("invoke-direct") && mbgraph.getMethodDescriptor().contains("-><init>(")) {
+            // Initializers shouldn't be removed because they setup instance state.
+            return false;
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Results usage test @" + address + " for: " + op);
+        }
+
+        if (op.sideEffectLevel() != SideEffect.Level.NONE) {
+            // Could have modified class state
+            return false;
+        }
+
+        String returnType = ((InvokeOp) op).getReturnType();
+        if ("V".equals(returnType)) {
+            return false;
+        }
+
+        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        int nextAddress = address + instruction.getCodeUnits();
+        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        if (nextInstr == null) {
+            return false;
+        }
+
+        if (nextInstr.getOpcode().name.startsWith("move-result")) {
+            return false;
+        }
+
+        List<ExecutionNode> pile = mbgraph.getNodePile(address);
+        ExecutionContext ectx = pile.get(0).getContext();
+        MethodState mState = ectx.getMethodState();
+        TIntSet assigned = mState.getRegistersAssigned();
+        if (0 < assigned.size()) {
+            if (isAnyRegisterUsed(address, assigned, mbgraph)) {
+                // Result may not be used, but assignments *are* used
+                return false;
+            }
+        }
+
+        if (log.isDebugEnabled()) {
+            log.info("dead result: " + mbgraph.getOp(address));
+        }
+
+        return true;
+    }
+
     TIntList getDeadResultAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOp(address);
-            if (!(op instanceof InvokeOp)) {
-                continue;
+            if (isDeadResult(address)) {
+                result.add(address);
             }
-
-            if (op.getName().contains("-direct")) {
-                // Initializers shouldn't be removed because they setup instance state.
-                continue;
-            }
-
-            if (log.isDebugEnabled()) {
-                log.debug("Results usage test @" + address + " for: " + op);
-            }
-            String returnType = ((InvokeOp) op).getReturnType();
-            if (returnType.equals("V")) {
-                continue;
-            }
-
-            BuilderInstruction instruction = mbgraph.getInstruction(address);
-            int nextAddress = address + instruction.getCodeUnits();
-            BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
-            if (nextInstr == null) {
-                continue;
-            }
-            if (nextInstr.getOpcode().name.startsWith("move-result")) {
-                continue;
-            }
-
-            if (log.isDebugEnabled()) {
-                log.info("dead result: " + op);
-            }
-            result.add(address);
         }
 
         return result;

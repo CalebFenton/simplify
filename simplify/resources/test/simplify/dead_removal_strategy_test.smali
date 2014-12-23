@@ -118,3 +118,12 @@
 
     return-object p0
 .end method
+
+.method public static AppendV0ToV1StringBuilderAndReturnResult()V
+  .locals 5
+
+  invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+  move-result-object v1
+
+  return-object v1
+.end method
