@@ -21,6 +21,9 @@ public class MethodEmulator {
         addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", new java_lang_Class_forName());
         addMethod("Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;",
                         new java_lang_Class_getMethod());
+        // For now, they work identically.
+        addMethod("Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;",
+                        new java_lang_Class_getMethod());
     }
 
     public static void addMethod(String methodDescriptor, EmulatedMethod method) {
