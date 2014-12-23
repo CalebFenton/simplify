@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.slf4j.Logger;
@@ -78,37 +79,19 @@ public class CmpOp extends MethodStateOp {
             }
         } else {
             if (getName().endsWith("float")) {
-                Float castVal1 = (Float) val1;
-                Float castVal2 = (Float) val2;
-                if (castVal1.equals(castVal2)) {
-                    // The docs say "b == c" but I don't think they mean identity.
-                    value = 0;
-                } else if (castVal1 > castVal2) {
-                    value = 1;
-                } else if (castVal1 < castVal2) {
-                    value = -1;
-                }
+                Float castVal1 = Utils.getFloatValue(val1);
+                Float castVal2 = Utils.getFloatValue(val2);
+                // The docs say "b == c" but I don't think they mean identity.
+                value = Float.compare(castVal1, castVal2);
             } else if (getName().endsWith("double")) {
-                Double castVal1 = (Double) val1;
-                Double castVal2 = (Double) val2;
-                if (castVal1.equals(castVal2)) {
-                    // The docs say "b == c" but I don't think they mean identity.
-                    value = 0;
-                } else if (castVal1 > castVal2) {
-                    value = 1;
-                } else if (castVal1 < castVal2) {
-                    value = -1;
-                }
+                Double castVal1 = Utils.getDoubleValue(val1);
+                Double castVal2 = Utils.getDoubleValue(val2);
+                // The docs say "b == c" but I don't think they mean identity.
+                value = Double.compare(castVal1, castVal2);
             } else {
-                Long castVal1 = (Long) val1;
-                Long castVal2 = (Long) val2;
-                if (castVal1 == castVal2) {
-                    value = 0;
-                } else if (castVal1 > castVal2) {
-                    value = 1;
-                } else if (castVal1 < castVal2) {
-                    value = -1;
-                }
+                Long castVal1 = Utils.getLongValue(val1);
+                Long castVal2 = Utils.getLongValue(val2);
+                value = Long.compare(castVal1, castVal2);
             }
         }
 
