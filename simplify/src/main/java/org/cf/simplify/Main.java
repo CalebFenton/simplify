@@ -20,6 +20,8 @@ import ch.qos.logback.classic.Level;
 
 public class Main {
 
+    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
+
     public static void main(String[] args) throws Exception {
         OptionBean bean = new OptionBean();
         CmdLineParser parser = new CmdLineParser(bean);
@@ -30,13 +32,19 @@ public class Main {
         }
 
         setLogLevel(bean);
+        if (log.isInfoEnabled()) {
+            log.info(bean.toString());
+        }
+
+        long startTime = System.currentTimeMillis();
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(bean.getOutputAPILevel());
         SmaliClassManager classManager = new SmaliClassManager(bean.getInFile(), dexBuilder);
         VirtualMachine vm = new VirtualMachine(classManager, bean.getMaxAddressVisits(), bean.getMaxCallDepth(),
                         bean.getMaxMethodVisits());
 
-        for (String className : classManager.getNonFrameworkClassNames()) {
+        Set<String> classNames = classManager.getNonFrameworkClassNames();
+        for (String className : classNames) {
             Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
             filterMethods(methodDescriptors, bean.getIncludeFilter(), bean.getExcludeFilter());
 
@@ -45,7 +53,7 @@ public class Main {
                 do {
                     System.out.println("Executing: " + methodDescriptor);
                     ExecutionGraph graph = vm.execute(methodDescriptor);
-                    if (graph == null) {
+                    if (null == graph) {
                         System.out.println("Skipping " + methodDescriptor);
                         break;
                     }
@@ -54,7 +62,7 @@ public class Main {
                     Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
                     opt.simplify(bean.getMaxOptimizationPasses());
                     if (opt.madeChanges()) {
-                        // Optimizer changed the implementation. Re-build graph based on changes.
+                        // Optimizer changed the implementation. Re-build graph to include changes.
                         vm.updateInstructionGraph(methodDescriptor);
                     }
 
@@ -62,6 +70,10 @@ public class Main {
                 } while (reExecute);
             }
         }
+
+        long totalTime = System.currentTimeMillis() - startTime;
+        System.out.println("Simplified " + classNames.size() + " classes in " + totalTime + " ms.");
+        System.out.println(Optimizer.getTotalOptimizationCounts());
 
         File outFile = bean.getOutFile();
         System.out.println("Writing result to " + outFile);
@@ -103,7 +115,5 @@ public class Main {
             rootLogger.setLevel(Level.TRACE);
         }
     }
-
-    private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
 }

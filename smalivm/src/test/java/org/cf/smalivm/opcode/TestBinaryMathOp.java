@@ -238,6 +238,24 @@ public class TestBinaryMathOp {
         }
 
         @Test
+        public void testAddIntAndShort() {
+            Short value = 5;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value, 1, 11);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, value + 11);
+
+            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
+        public void testAddIntAndBoolean() {
+            Boolean value = true;
+            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value, 1, 11);
+            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 1 + 11);
+
+            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+        }
+
+        @Test
         public void testAddIntAndUnknownChar() {
             TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("C"), 1, 5);
             TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));

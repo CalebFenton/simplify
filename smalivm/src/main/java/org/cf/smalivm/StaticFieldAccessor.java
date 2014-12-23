@@ -7,6 +7,7 @@ import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
+import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +55,10 @@ public class StaticFieldAccessor {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
-
+        String type = fieldNameAndType.split(":")[1];
+        if (SmaliClassUtils.isPrimitiveType(type)) {
+            value = Utils.castToPrimitiveWrapper(value, type);
+        }
         if (vm.isLocalClass(className)) {
             ClassState cState = ectx.readClassState(className);
             cState.assignField(fieldNameAndType, value);
@@ -64,5 +68,4 @@ public class StaticFieldAccessor {
             }
         }
     }
-
 }

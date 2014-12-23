@@ -17,6 +17,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.LocalType;
 import org.cf.smalivm.type.TypeUtil;
+import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
@@ -74,7 +75,9 @@ public class InvokeOp extends ExecutionContextOp {
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
         SmaliClassManager classManager = vm.getClassManager();
-        if (classManager.isLocalMethod(methodDescriptor)) {
+        if (classManager.isLocalMethod(methodDescriptor)
+                        && !(classManager.isFramework(methodDescriptor) && !classManager
+                                        .isSafeFramework(methodDescriptor))) {
             parameterTypes = classManager.getParameterTypes(methodDescriptor);
         } else {
             parameterTypes = Utils.getParameterTypes(methodDescriptor);
@@ -88,7 +91,7 @@ public class InvokeOp extends ExecutionContextOp {
         for (String parameterType : parameterTypes) {
             parameterRegisters.add(registers[i]);
             i++;
-            if (parameterType.equals("J") || parameterType.equals("D")) {
+            if ("J".equals(parameterType) || "D".equals(parameterType)) {
                 i++;
             }
         }
@@ -132,10 +135,11 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         MethodState callerContext = ectx.getMethodState();
+        // Try to reflect or emulate before using local class.
         if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
             MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
-            if (allArgumentsKnown) {
+            if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
                 executeNonLocalMethod(targetMethod, callerContext, calleeContext);
 
                 return getPossibleChildren();
@@ -146,25 +150,35 @@ public class InvokeOp extends ExecutionContextOp {
                 assumeMaximumUnknown(callerContext);
             }
         } else {
-            // This assumes if reflection fails, not worth it to try possibly cached framework classes.
+            // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
 
             SmaliClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
-                ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
-                if (classManager.methodHasImplementation(targetMethod)) {
-                    executeLocalMethod(targetMethod, ectx, calleeContext);
-                } else {
+                if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {
+                    if (log.isDebugEnabled()) {
+                        log.debug("Not executing unsafe local method: " + targetMethod
+                                        + ". Assuming maxiumum ambiguity.");
+                    }
+                    assumeMaximumUnknown(callerContext);
+
+                    return getPossibleChildren();
+                }
+
+                if (!classManager.methodHasImplementation(targetMethod)) {
                     if (log.isWarnEnabled()) {
                         log.warn("Attempting to execute local method without implementation: " + targetMethod
                                         + ". Assuming maxiumum ambiguity.");
                     }
                     assumeMaximumUnknown(callerContext);
-                }
-            } else {
-                markCallerRegistersRead(callerContext);
 
-                if (log.isWarnEnabled()) {
-                    log.warn("Attempting to execute unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
+                    return getPossibleChildren();
+                }
+
+                ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
+                executeLocalMethod(targetMethod, ectx, calleeContext);
+            } else {
+                if (log.isDebugEnabled()) {
+                    log.debug("Unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
                 }
                 assumeMaximumUnknown(callerContext);
             }
@@ -219,12 +233,6 @@ public class InvokeOp extends ExecutionContextOp {
         return true;
     }
 
-    private void markCallerRegistersRead(MethodState callerState) {
-        for (int callerRegister : parameterRegisters) {
-            callerState.readRegister(callerRegister);
-        }
-    }
-
     private void assignCalleeMethodStateParameters(MethodState callerState, MethodState calleeState) {
         int parameterRegister = calleeState.getParameterStart();
         for (int i = 0; i < parameterRegisters.length; i++) {
@@ -237,27 +245,32 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void assumeMaximumUnknown(MethodState mState) {
+        // TODO: add option to mark all class states unknown instead of just method state
         for (int i = 0; i < parameterTypes.size(); i++) {
             String type = parameterTypes.get(i);
-            if (ImmutableUtils.isImmutableClass(type)) {
-                if (log.isTraceEnabled()) {
-                    log.trace(type + " is immutable");
-                }
+            int register = parameterRegisters[i];
+            Object value = mState.readRegister(register);
+            if (null == value) {
+                // Nulls don't mutate.
                 continue;
             }
 
-            // TODO: add option to mark all class states unknown instead of just method state
-
-            int register = parameterRegisters[i];
-            Object value = mState.peekRegister(register);
-            if (null != value) {
-                // It might be dumb to mark nulls as unknown..
-
-                String actualType = SmaliClassUtils.javaClassToSmali(value.getClass());
-                if (ImmutableUtils.isImmutableClass(actualType)) {
-                    // I.e. parameter type might be Ljava/lang/Object;, but actual type is Ljava/lang/String;
+            boolean isInitializing = methodDescriptor.contains(";-><init>(")
+                            && (value instanceof UninitializedInstance);
+            if (!isInitializing) {
+                // May be immutable type, but if this is the initializer, internal state would be changing.
+                if (ImmutableUtils.isImmutableClass(type)) {
                     if (log.isTraceEnabled()) {
-                        log.trace(type + " is immutable");
+                        log.trace(type + " (parameter) is immutable");
+                    }
+                    continue;
+                }
+
+                String actualType = TypeUtil.getValueType(value);
+                if (ImmutableUtils.isImmutableClass(actualType)) {
+                    // Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
+                    if (log.isTraceEnabled()) {
+                        log.trace(type + " (actual) is immutable");
                     }
                     continue;
                 }
@@ -271,7 +284,7 @@ public class InvokeOp extends ExecutionContextOp {
             mState.pokeRegister(register, value);
         }
 
-        if (!returnType.equals("V")) {
+        if (!"V".equals(returnType)) {
             Object value = new UnknownValue(returnType);
             mState.assignResultRegister(value);
         }
@@ -319,10 +332,11 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext, MethodState calleeContext) {
-        assert allArgumentsKnown(calleeContext);
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             sideEffectLevel = MethodEmulator.emulate(vm, calleeContext, methodDescriptor, getParameterRegisters());
         } else if (MethodReflector.canReflect(methodDescriptor)) {
+            assert allArgumentsKnown(calleeContext);
+
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext); // playa play
 

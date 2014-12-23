@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 # TODO: Long, Float, Double, Byte, Char, Class and String
-.method public static BinaryMathOp()V
+.method public static AddInt2Addr()V
   .locals 1
 
   add-int/2addr v0, v0
@@ -39,7 +39,7 @@
   return v0
 .end method
 
-.method public static StaticGetWhitelistedClassMember()V
+.method public static StaticGetIntegerMaxValue()V
   .locals 1
 
   sget v0, Ljava/lang/Integer;->MAX_VALUE:I
@@ -47,7 +47,7 @@
   return-void
 .end method
 
-.method public static ArrayGet()V
+.method public static ArrayGetFromV0AtV1ToV0()V
   .locals 2
 
   aget v0, v0, v1
@@ -55,10 +55,10 @@
   return-void
 .end method
 
-.method public static NonDeterministicallyExecuteConstableOp()V
+.method public static NonDeterministicallyStaticGetIntegerMaxValue(I)V
   .locals 1
 
-  if-eqz v0, :end
+  if-eqz p0, :end
 
   sget v0, Ljava/lang/Integer;->MAX_VALUE:I
 

@@ -20,8 +20,34 @@ public class TestAPutOp {
     }
 
     @Test
+    public void testArrayPutWithShortIndex() {
+        Short index = 0;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, index, 2, 4);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new int[] { 4 });
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPut()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayPutWithIndexOutOfBoundsReturnsUnknownValue() {
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, 5, 2, 4);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("[I"));
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPut()V", initial, expected);
+    }
+
+    @Test
     public void testArrayPutBoolean() {
         TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[1], 1, 0, 2, 0x1);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new boolean[] { true });
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPutBoolean()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayPutBooleanWithShortValue() {
+        Short value = 0x1;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[1], 1, 0, 2, value);
         TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new boolean[] { true });
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayPutBoolean()V", initial, expected);
@@ -105,9 +131,28 @@ public class TestAPutOp {
     }
 
     @Test
-    public void testArrayPutWide() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[1], 1, 0, 2, 10000000000L);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new long[] { 10000000000L });
+    public void testArrayPutWideWithLong() {
+        Long value = 10000000000L;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[1], 1, 0, 2, value);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new long[] { value });
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPutWide()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayPutWideWithDouble() {
+        Double value = 100000000000D;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new double[1], 1, 0, 2, value);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new double[] { value });
+
+        VMTester.testMethodState(CLASS_NAME, "TestArrayPutWide()V", initial, expected);
+    }
+
+    @Test
+    public void testArrayPutWideWithFloat() {
+        Float value = 10.45F;
+        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new float[1], 1, 0, 2, value);
+        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new float[] { value });
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayPutWide()V", initial, expected);
     }

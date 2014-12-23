@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UnknownValue;
@@ -146,6 +147,10 @@ public class PeepholeStrategy implements OptimizationStrategy {
         int register = parameterRegisters[0];
         String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
         String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
+        Object classValue = mbgraph.getRegisterConsensus(address, MethodState.ResultRegister);
+        if (classValue instanceof UnknownValue) {
+            log.warn("Optimizing Class.forName of potentially non-existant class: " + smaliClassName);
+        }
         BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
         BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
 
