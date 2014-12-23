@@ -35,8 +35,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     protected static final int METHOD_ROOT_ADDRESS = 0;
 
     private static TIntObjectMap<List<ExecutionNode>> buildAddressToNodePile(VirtualMachine vm,
-                    String methodDescriptor, List<BuilderInstruction> instructions) {
-        OpFactory opFactory = new OpFactory(vm, methodDescriptor);
+                    List<BuilderInstruction> instructions) {
+        OpFactory opFactory = new OpFactory(vm);
         TIntObjectMap<List<ExecutionNode>> result = new TIntObjectHashMap<List<ExecutionNode>>();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
@@ -99,7 +99,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         List<BuilderInstruction> instructions = implementation.getInstructions();
-        addressToNodePile = buildAddressToNodePile(vm, methodDescriptor, instructions);
+        addressToNodePile = buildAddressToNodePile(vm, instructions);
         terminatingAddresses = buildTerminatingAddresses(instructions);
     }
 

@@ -91,7 +91,7 @@ public class MethodBackedGraph extends ExecutionGraph {
         implementation = (MutableMethodImplementation) method.getImplementation();
         addressToInstruction = buildAddressToInstruction(implementation.getInstructions());
         this.vm = vm;
-        opFactory = new OpFactory(vm, methodDescriptor);
+        opFactory = new OpFactory(vm);
     }
 
     public TIntObjectMap<BuilderInstruction> getAddressToInstruction() {

@@ -41,7 +41,7 @@ public class TestBinaryMathOp {
             mockBi = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
 
-            opFactory = new OpFactory(mockVm, null);
+            opFactory = new OpFactory(mockVm);
 
         }
 
