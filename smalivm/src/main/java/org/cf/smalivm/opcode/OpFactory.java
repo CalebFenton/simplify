@@ -362,7 +362,7 @@ public final class OpFactory {
 
     private final VirtualMachine vm;
 
-    public OpFactory(VirtualMachine vm, String methodDescriptor) {
+    public OpFactory(VirtualMachine vm) {
         this.vm = vm;
     }
 
