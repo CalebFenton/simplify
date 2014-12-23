@@ -64,7 +64,7 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testInvokeClassForNameForLocalClassIsReplaced() {
-            testForExpectedInstruction("peephole_optimizer_test", "Lpeephole_optimizer_test;");
+            testForExpectedInstruction("peephole_strategy_test", "Lpeephole_strategy_test;");
         }
 
         @Test

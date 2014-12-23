@@ -58,6 +58,14 @@ public class SmaliClassUtils {
         return smaliPrimitiveToJavaName.containsKey(getBaseClass(type));
     }
 
+    public static boolean isWrapperType(String type) {
+        return smaliWrapperToSmaliPrimitive(type) != null;
+    }
+
+    public static boolean isPrimitiveOrWrapperType(String type) {
+        return isPrimitiveType(type) || isWrapperType(type);
+    }
+
     public static String javaClassToSmali(Class<?> klazz) {
         return javaClassToSmali(klazz.getName());
     }

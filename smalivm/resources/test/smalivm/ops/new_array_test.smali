@@ -1,7 +1,7 @@
 .class Lnew_array_test;
 .super Ljava/lang/Object;
 
-.method public static TestNewArrayPrimitive()V
+.method public static TestNewIntegerArray()V
     .locals 1
 
     new-array v0, v0, [I
@@ -9,7 +9,7 @@
     return-void
 .end method
 
-.method public static TestNewArrayPrimitiveMultidimensional()V
+.method public static TestNewIntegerArrayArray()V
     .locals 1
 
     new-array v0, v0, [[I
@@ -17,7 +17,7 @@
     return-void
 .end method
 
-.method public static TestNewArrayLocal()V
+.method public static TestNewLocalClassArray()V
     .locals 1
 
     new-array v0, v0, [Lnew_array_test;
@@ -25,7 +25,7 @@
     return-void
 .end method
 
-.method public static TestNewArrayLocalMultidimensional()V
+.method public static TestNewLocalClassArrayArray()V
     .locals 1
 
     new-array v0, v0, [[Lnew_array_test;

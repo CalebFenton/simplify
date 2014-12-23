@@ -4,6 +4,7 @@ import java.lang.reflect.Array;
 
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
@@ -46,10 +47,7 @@ public class APutOp extends MethodStateOp {
         Object array = mState.readRegister(arrayRegister);
         Object indexValue = mState.readRegister(indexRegister);
 
-        // TODO: Adding unknown elements to arrays is very pessimistic. If the value is not known, the entire array
-        // becomes unknown. It's much better (though much harder) to keep track of individual unknown elements. This
-        // requires more robust and complex array handling. After this thing moves past proof of concept, please fix,
-        // future me.
+        // TODO: https://github.com/CalebFenton/simplify/issues/21
         if (array instanceof UnknownValue) {
             // Do nothing. :(
         } else {
@@ -59,14 +57,17 @@ public class APutOp extends MethodStateOp {
             } else {
                 if (value instanceof Number) {
                     if (getName().endsWith("-wide")) {
-                        value = (long) value;
+                        // No need to cast anything
                     } else if (getName().endsWith("-boolean")) {
-                        value = ((int) value == 1 ? true : false);
+                        // Booleans are represented by integer literals, so need to convert
+                        Integer intValue = Utils.getIntegerValue(value);
+                        value = (intValue == 1 ? true : false);
                     } else {
                         Integer intValue = Utils.getIntegerValue(value);
                         if (getName().endsWith("-byte")) {
                             value = intValue.byteValue();
                         } else if (getName().endsWith("-char")) {
+                            // Characters, like boolean, are represented by integers
                             value = (char) intValue.intValue();
                         } else if (getName().endsWith("-short")) {
                             value = intValue.shortValue();
@@ -74,12 +75,21 @@ public class APutOp extends MethodStateOp {
                     }
                 }
 
-                int index = (int) indexValue;
-                Array.set(array, index, value);
+                int index = Utils.getIntegerValue(indexValue);
+                if (index >= Array.getLength(array)) {
+                    if (log.isWarnEnabled()) {
+                        log.warn("Array index out of bounds @" + getAddress() + " for " + toString());
+                    }
+                    String type = SmaliClassUtils.javaClassToSmali(array.getClass());
+                    array = new UnknownValue(type);
+                } else {
+                    Array.set(array, index, value);
+                }
             }
         }
 
-        // Let the optimizer know the array was modified.
+        // In most cases, register assignment means the old value was blown away. The optimizer handles assignments for
+        // this op specially.
         mState.assignRegister(arrayRegister, array);
 
         return getPossibleChildren();

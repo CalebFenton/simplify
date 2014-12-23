@@ -56,7 +56,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return madeChanges;
     }
 
-    boolean canConstantizeAddress(int address) {
+    private boolean canConstantizeAddress(int address) {
         if (!mbgraph.wasAddressReached(address)) {
             return false;
         }
@@ -74,6 +74,9 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         }
 
         String unboxedValueType = TypeUtil.getUnboxedType(consensus);
+        if (27 == address) {
+            System.out.println("wtf");
+        }
         if (!ConstantBuilder.canConstantizeType(unboxedValueType)) {
             return false;
         }

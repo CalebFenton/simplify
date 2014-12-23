@@ -1,8 +1,10 @@
 package org.cf.simplify;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.cf.simplify.strategy.ConstantPropigationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
@@ -21,6 +23,8 @@ public class Optimizer {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(Optimizer.class.getSimpleName());
+
+    private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
     private final List<OptimizationStrategy> allStrategies;
     private final MethodBackedGraph mbgraph;
@@ -73,16 +77,24 @@ public class Optimizer {
         } while ((sweep < maxSweeps) && madeChanges);
 
         StringBuilder sb = new StringBuilder("Optimizations: ");
-        int totalCount = 0;
+        int sweepCount = 0;
         for (OptimizationStrategy strategy : allStrategies) {
             Map<String, Integer> optimizations = strategy.getOptimizationCounts();
             for (String key : optimizations.keySet()) {
+                Integer totalCount = totalOptimizationCounts.get(key);
+                if (null == totalCount) {
+                    totalCount = 0;
+                }
+
                 int count = optimizations.get(key);
                 totalCount += count;
-                sb.append(key).append("=").append(count).append(", ");
+                totalOptimizationCounts.put(key, totalCount);
+
+                sweepCount += count;
+                sb.append(key).append('=').append(count).append(", ");
             }
         }
-        madeChanges = totalCount > 0;
+        madeChanges = sweepCount > 0;
 
         if (sb.length() > "Optimizations: ".length()) {
             sb.setLength(sb.length() - 2);
@@ -96,6 +108,18 @@ public class Optimizer {
 
     public boolean reExecute() {
         return reExecute;
+    }
+
+    public static String getTotalOptimizationCounts() {
+        StringBuilder sb = new StringBuilder("Total optimizations: ");
+        for (Entry<String, Integer> entry : totalOptimizationCounts.entrySet()) {
+            sb.append(entry.getKey()).append('=').append(entry.getValue()).append(", ");
+        }
+        if (sb.length() > "Total optimizations: ".length()) {
+            sb.setLength(sb.length() - 2);
+        }
+
+        return sb.toString();
     }
 
 }

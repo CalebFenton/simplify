@@ -10,8 +10,11 @@ import java.util.Set;
 import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ConfigLoader;
+import org.cf.util.SmaliClassUtils;
+import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,25 +161,17 @@ public class MethodReflector {
         Object[] args = new Object[size];
         for (int i = offset; i < mState.getRegisterCount(); i++) {
             Object arg = mState.peekParameter(i);
-            String type = parameterTypes.get(i);
+            String parameterType = parameterTypes.get(i);
             if (null != arg) {
                 // In Dalvik, integer is overloaded and may represent a few primitives.
-                if (Integer.class == arg.getClass()) {
-                    int intValue = (Integer) arg;
-                    if (type.equals("Z") || type.equals("Ljava/lang/Boolean;")) {
-                        arg = intValue == 0 ? false : true;
-                    } else if (type.equals("C") || type.equals("Ljava/lang/Character;")) {
-                        arg = (char) intValue;
-                    } else if (type.equals("S") || type.equals("Ljava/lang/Short;")) {
-                        arg = (short) intValue;
-                    } else if (type.equals("B") || type.equals("Ljava/lang/Byte;")) {
-                        arg = (byte) intValue;
-                    }
+                String argType = TypeUtil.getValueType(arg);
+                if (SmaliClassUtils.isPrimitiveOrWrapperType(argType)) {
+                    arg = Utils.castToPrimitiveWrapper(arg, parameterType);
                 }
             }
             args[i - offset] = arg;
 
-            if ("J".equals(type) || "D".equals(type)) {
+            if ("J".equals(parameterType) || "D".equals(parameterType)) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
                 i++;
             }

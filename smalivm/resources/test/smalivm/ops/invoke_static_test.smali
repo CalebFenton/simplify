@@ -45,7 +45,7 @@
     return-void
 .end method
 
-.method public static InvokeNonLocalMethodWithKnownAndUnknownMutableParameters()V
+.method public static InvokeNonExistantMethodWithTwoArrayParameters()V
     .locals 1
 
     invoke-static {v0, v1}, Lim_not_your_friend_buddy;->Im_not_your_buddy_guy([I[I)V

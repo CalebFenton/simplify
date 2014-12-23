@@ -11,6 +11,8 @@ import java.io.InputStreamReader;
 import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -22,45 +24,15 @@ public class SmaliFile {
     private final String path;
     private final String className;
     private boolean isResource;
-
-    public SmaliFile(String path, InputStream inputStream) {
-        this.path = path;
-        className = getClassName(new BufferedInputStream(inputStream));
-    }
+    private boolean isSafeFramework;
 
     public SmaliFile(File file) throws FileNotFoundException {
-        this(file.getAbsolutePath(), new FileInputStream(file));
+        this(file.getAbsolutePath(), getClassName(new BufferedInputStream(new FileInputStream(file))));
     }
 
-    public InputStream open() throws URISyntaxException, FileNotFoundException {
-        if (isResource) {
-            return SmaliFile.class.getResourceAsStream(path);
-        } else {
-            File file = new File(path);
-
-            return new FileInputStream(file);
-        }
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    public void setIsResource(boolean isResource) {
-        this.isResource = isResource;
-    }
-
-    public boolean isResource() {
-        return this.isResource;
-    }
-
-    @Override
-    public int hashCode() {
-        return new HashCodeBuilder(11, 61).append(className).toHashCode();
+    public SmaliFile(String path, String className) {
+        this.path = path;
+        this.className = className;
     }
 
     @Override
@@ -76,7 +48,62 @@ public class SmaliFile {
         return new EqualsBuilder().append(className, rhs.className).isEquals();
     }
 
-    private String getClassName(BufferedInputStream inputStream) {
+    public String getClassName() {
+        return className;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(11, 61).append(className).toHashCode();
+    }
+
+    public boolean isResource() {
+        return isResource;
+    }
+
+    public void setIsSafeFramework(boolean isSafeFramework) {
+        this.isSafeFramework = isSafeFramework;
+    }
+
+    public boolean isSafeFrameworkClass() {
+        return isSafeFramework;
+    }
+
+    private static ZipInputStream getReflibStream() {
+        InputStream is = SmaliFile.class.getClassLoader().getResourceAsStream("reflib.zip");
+
+        return new ZipInputStream(is);
+    }
+
+    public InputStream open() throws URISyntaxException, IOException {
+        if (isResource) {
+            ZipInputStream zis = getReflibStream();
+            for (ZipEntry ze; (ze = zis.getNextEntry()) != null;) {
+                if (ze.getName().equals(getPath())) {
+                    return zis;
+                }
+            }
+
+            return null;
+        } else {
+            return new FileInputStream(new File(path));
+        }
+    }
+
+    public void setIsResource(boolean isResource) {
+        this.isResource = isResource;
+    }
+
+    @Override
+    public String toString() {
+        return path;
+    }
+
+    private static String getClassName(BufferedInputStream inputStream) {
         String className = null;
         try {
             InputStreamReader isr = new InputStreamReader(inputStream, "UTF-8");
@@ -106,11 +133,6 @@ public class SmaliFile {
         }
 
         return className;
-    }
-
-    @Override
-    public String toString() {
-        return path;
     }
 
 }

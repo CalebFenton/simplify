@@ -4,7 +4,6 @@ import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
@@ -35,12 +34,12 @@ public class ConstOp extends MethodStateOp {
         int childAddress = address + instruction.getCodeUnits();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
 
-        ConstantType constType = null;
+        ConstantType constantType = null;
         Object literal = null;
         if (opName.matches("const-string(?:/jumbo)?")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             literal = ((StringReference) instr.getReference()).getString();
-            constType = ConstantType.STRING;
+            constantType = ConstantType.STRING;
         } else if (opName.endsWith("-class")) {
             ReferenceInstruction instr = (ReferenceInstruction) instruction;
             Reference classRef = instr.getReference();
@@ -49,33 +48,33 @@ public class ConstOp extends MethodStateOp {
 
             // Defer class lookup for execute. We may want to handle any possible errors there.
             if (vm.isLocalClass(className)) {
-                constType = ConstantType.LOCAL_CLASS;
+                constantType = ConstantType.LOCAL_CLASS;
             } else {
-                constType = ConstantType.CLASS;
+                constantType = ConstantType.CLASS;
             }
         } else if (opName.contains("-wide")) {
             WideLiteralInstruction instr = (WideLiteralInstruction) instruction;
             literal = instr.getWideLiteral();
-            constType = ConstantType.WIDE;
+            constantType = ConstantType.WIDE;
         } else {
             NarrowLiteralInstruction instr = (NarrowLiteralInstruction) instruction;
             literal = instr.getNarrowLiteral();
-            constType = ConstantType.NARROW;
+            constantType = ConstantType.NARROW;
         }
 
-        return new ConstOp(address, opName, childAddress, destRegister, constType, literal);
+        return new ConstOp(address, opName, childAddress, destRegister, constantType, literal);
     }
 
     private final ConstantType constantType;
     private final int destRegister;
     private final Object literal;
 
-    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstantType constType,
+    private ConstOp(int address, String opName, int childAddress, int destRegister, ConstantType constantType,
                     Object literal) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
-        this.constantType = constType;
+        this.constantType = constantType;
         this.literal = literal;
     }
 
@@ -93,8 +92,8 @@ public class ConstOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object result = buildConstant();
-        mState.assignRegister(destRegister, result);
+        Object constant = buildConstant();
+        mState.assignRegister(destRegister, constant);
 
         return getPossibleChildren();
     }
@@ -146,7 +145,11 @@ public class ConstOp extends MethodStateOp {
                 String javaClassName = SmaliClassUtils.smaliClassToJava(className);
                 result = ClassUtils.getClass(javaClassName);
             } catch (ClassNotFoundException e) {
-                result = new UnknownValue(className);
+                // It could be a framework class we're not aware of.
+                if (log.isWarnEnabled()) {
+                    log.warn("Unknown class: " + className + ", assuming it's local.");
+                }
+                result = new LocalClass(className);
             }
         } else if (ConstantType.LOCAL_CLASS == constantType) {
             String className = (String) literal;
