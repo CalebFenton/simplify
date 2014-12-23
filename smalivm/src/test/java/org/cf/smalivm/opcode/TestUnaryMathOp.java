@@ -1,15 +1,188 @@
 package org.cf.smalivm.opcode;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(Enclosed.class)
 public class TestUnaryMathOp {
+
+    @RunWith(MockitoJUnitRunner.class)
+    public static class UnitTest {
+
+        // Mocks
+        BuilderInstruction mockBi;
+        OpFactory opFactory;
+
+        UnaryMathOp underTest;
+
+        @Before
+        public void setUp() {
+            VirtualMachine mockVm = mock(VirtualMachine.class);
+            mockBi = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
+
+            opFactory = new OpFactory(mockVm);
+        }
+
+        @Test
+        public void canDoubletoFloat() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345612345D);
+            when(mockBi.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Double(11204.0345612345D).floatValue()));
+        }
+
+        @Test
+        public void canDoubletoInt() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345612345D);
+            when(mockBi.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Double(11204.0345612345D).intValue()));
+        }
+
+        @Test
+        public void canDoubletoLong() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345612345D);
+            when(mockBi.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Double(11204.0345612345D).longValue()));
+        }
+
+        @Test
+        public void canFloatToDouble() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345F);
+            when(mockBi.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Float(11204.0345F).doubleValue()));
+        }
+
+        @Test
+        public void canFloatToInt() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345F);
+            when(mockBi.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Float(11204.0345F).intValue()));
+        }
+
+        @Test
+        public void canFloatToLong() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345F);
+            when(mockBi.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Float(11204.0345F).longValue()));
+        }
+
+        @Test
+        public void canLongToFloat() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(112040345L);
+            when(mockBi.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Long(112040345L).floatValue()));
+        }
+
+        @Test
+        public void canLongToInt() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(112040345L);
+            when(mockBi.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Long(112040345L).intValue()));
+        }
+
+        @Test
+        public void canLongToDouble() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(112040345L);
+            when(mockBi.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Long(112040345L).doubleValue()));
+        }
+
+        @Test
+        public void canIntToByte() {
+
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(10);
+            when(mockBi.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
+
+            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Integer(10).byteValue()));
+        }
+
+    }
 
     public static class TestStartDouble {
 

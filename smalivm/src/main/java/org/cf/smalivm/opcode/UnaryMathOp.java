@@ -80,7 +80,7 @@ public class UnaryMathOp extends MethodStateOp {
         // Stupid, but simple. Deals.
         Object result = null;
         if (opName.startsWith("double")) {
-            Double typedValue = (Double) value;
+            Double typedValue = Utils.getDoubleValue(value);
             if (opName.endsWith("float")) {
                 result = typedValue.floatValue();
             } else if (opName.endsWith("int")) {
@@ -89,7 +89,7 @@ public class UnaryMathOp extends MethodStateOp {
                 result = typedValue.longValue();
             }
         } else if (opName.startsWith("float")) {
-            Float typedValue = (Float) value;
+            Float typedValue = Utils.getFloatValue(value);
             if (opName.endsWith("double")) {
                 result = typedValue.doubleValue();
             } else if (opName.endsWith("int")) {
@@ -98,7 +98,7 @@ public class UnaryMathOp extends MethodStateOp {
                 result = typedValue.longValue();
             }
         } else if (opName.startsWith("long")) {
-            Long typedValue = (Long) value;
+            Long typedValue = Utils.getLongValue(value);
             if (opName.endsWith("double")) {
                 result = typedValue.doubleValue();
             } else if (opName.endsWith("int")) {
@@ -124,16 +124,17 @@ public class UnaryMathOp extends MethodStateOp {
             }
         } else if (opName.startsWith("neg")) {
             if (opName.endsWith("double")) {
-                Double typedValue = (Double) value;
+                Double typedValue = Utils.getDoubleValue(value);
+                ;
                 result = -typedValue;
             } else if (opName.endsWith("float")) {
-                Float typedValue = (Float) value;
+                Float typedValue = Utils.getFloatValue(value);
                 result = -typedValue;
             } else if (opName.endsWith("int")) {
                 Integer typedValue = Utils.getIntegerValue(value);
                 result = -typedValue;
             } else if (opName.endsWith("long")) {
-                Long typedValue = (Long) value;
+                Long typedValue = Utils.getLongValue(value);
                 result = -typedValue;
             }
         } else if (opName.startsWith("not")) {
@@ -141,7 +142,7 @@ public class UnaryMathOp extends MethodStateOp {
                 Integer typedValue = Utils.getIntegerValue(value);
                 result = ~typedValue;
             } else if (opName.endsWith("long")) {
-                Long typedValue = (Long) value;
+                Long typedValue = Utils.getLongValue(value);
                 result = ~typedValue;
             }
         }
