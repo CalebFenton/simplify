@@ -98,9 +98,9 @@ public class ConstantBuilder implements Dependancy {
     public static BuilderInstruction buildConstant(int value, int register) {
         BuilderInstruction result;
         int bitSize = getBitSize(value);
-        if (bitSize < 4) {
+        if ((bitSize < 4) && ((register & 0xFFFFFFF0) == 0)) {
             result = new BuilderInstruction11n(Opcode.CONST_4, register, value);
-        } else if (bitSize < 16) {
+        } else if ((bitSize < 16) && ((register & 0xFFFFFF00) == 0)) {
             result = new BuilderInstruction21s(Opcode.CONST_16, register, value);
         } else {
             result = new BuilderInstruction31i(Opcode.CONST, register, value);
@@ -112,9 +112,9 @@ public class ConstantBuilder implements Dependancy {
     public static BuilderInstruction buildConstant(long value, int register) {
         BuilderInstruction result;
         int bitSize = getBitSize(value);
-        if (bitSize < 16) {
+        if ((bitSize < 16) && ((register & 0xFFFFFF00) == 0)) {
             result = new BuilderInstruction21s(Opcode.CONST_WIDE_16, register, (int) value);
-        } else if (bitSize < 32) {
+        } else if ((bitSize < 32) && ((register & 0xFFFFFF00) == 0)) {
             result = new BuilderInstruction31i(Opcode.CONST_WIDE_32, register, (int) value);
         } else {
             result = new BuilderInstruction51l(Opcode.CONST_WIDE, register, value);
