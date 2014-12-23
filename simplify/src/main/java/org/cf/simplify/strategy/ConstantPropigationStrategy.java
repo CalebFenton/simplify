@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
+import org.cf.simplify.Dependancy;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.TypeUtil;
@@ -21,7 +22,10 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     private int constantCount;
     private boolean madeChanges;
 
+    protected ConstantBuilder constantBuilder;
+
     public ConstantPropigationStrategy(MethodBackedGraph mbgraph) {
+        getDependancies();
         this.mbgraph = mbgraph;
         constantCount = 0;
     }
@@ -43,7 +47,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             if (canConstantizeAddress(address)) {
                 madeChanges = true;
 
-                BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, mbgraph);
+                BuilderInstruction constInstruction = constantBuilder.buildConstant(address, mbgraph);
                 if (original.getOpcode().name().startsWith("RETURN")) {
                     mbgraph.insertInstruction(address, constInstruction);
                 } else {
@@ -62,26 +66,34 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         }
 
         Op op = mbgraph.getOp(address);
-        if (!ConstantBuilder.canConstantizeOp(op)) {
+        if (!constantBuilder.canConstantizeOp(op)) {
             return false;
         }
 
         OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
         int register = instruction.getRegisterA();
         Object consensus = mbgraph.getRegisterConsensus(address, register);
-        if (consensus instanceof UnknownValue) {
+        // Consensus may be null if we have correct syntax without legitimate values (fake code)
+        if ((consensus instanceof UnknownValue) || (consensus == null)) {
             return false;
         }
 
         String unboxedValueType = TypeUtil.getUnboxedType(consensus);
-        if (27 == address) {
-            System.out.println("wtf");
-        }
-        if (!ConstantBuilder.canConstantizeType(unboxedValueType)) {
+        if (!constantBuilder.canConstantizeType(unboxedValueType)) {
             return false;
         }
 
         return true;
+    }
+
+    protected void getDependancies() {
+        if (constantBuilder == null) {
+            constantBuilder = new ConstantBuilder();
+        }
+    }
+
+    protected void setDependancies(Dependancy dependancy) {
+        constantBuilder = (ConstantBuilder) dependancy;
     }
 
 }

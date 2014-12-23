@@ -1,15 +1,110 @@
 package org.cf.smalivm.opcode;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(Enclosed.class)
 public class TestBinaryMathOp {
+
+    @RunWith(MockitoJUnitRunner.class)
+    public static class UnitTest {
+
+        // Mocks
+        BuilderInstruction mockBi;
+        OpFactory opFactory;
+
+        BinaryMathOp underTest;
+
+        @Before
+        public void setUp() {
+            VirtualMachine mockVm = mock(VirtualMachine.class);
+            mockBi = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
+
+            opFactory = new OpFactory(mockVm, null);
+
+        }
+
+        @Test
+        public void canDoLongDivision() {
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(1120403456L).thenReturn(1149239296L);
+            // Causes getFactoryType to return BINARY_MATH and perform LONG math
+            when(mockBi.getOpcode()).thenReturn(Opcode.DIV_LONG);
+
+            underTest = (BinaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            // This will be zed since we lose precision if we're doing math/casting properly
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(0L));
+        }
+
+        @Test
+        public void canDoFloatDivision() {
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(1120403456.43F).thenReturn(1149239296.32F);
+            // Causes getFactoryType to return BINARY_MATH and perform FLOAT math
+            when(mockBi.getOpcode()).thenReturn(Opcode.DIV_FLOAT);
+
+            underTest = (BinaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(0.97490877F));
+        }
+
+        @Test
+        public void canDoIntDivision() {
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(Integer.parseInt("10")).thenReturn(
+                            Integer.parseInt("4"));
+            // Causes getFactoryType to return BINARY_MATH and perform INT math
+            when(mockBi.getOpcode()).thenReturn(Opcode.DIV_INT);
+
+            underTest = (BinaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            // If we're casting properly we drop everything and only retain the two
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(Integer.parseInt("2")));
+        }
+
+        @Test
+        public void canDoDoubleDivision() {
+            MethodState mockMs = mock(MethodState.class);
+
+            when(mockMs.readRegister(any(Integer.class))).thenReturn(1586.2D).thenReturn(2536.9D);
+            // Causes getFactoryType to return BINARY_MATH and perform DOUBLE math
+            when(mockBi.getOpcode()).thenReturn(Opcode.DIV_DOUBLE);
+
+            underTest = (BinaryMathOp) opFactory.create(mockBi, 0);
+            underTest.execute(mockMs);
+
+            // If we're casting properly we drop everything and only retain the two
+            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(0.6252512909456424D));
+        }
+    }
 
     public static class TestDouble {
         @Test
