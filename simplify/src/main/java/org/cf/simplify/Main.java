@@ -22,6 +22,8 @@ public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
+    private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
+
     public static void main(String[] args) throws Exception {
         OptionBean bean = new OptionBean();
         CmdLineParser parser = new CmdLineParser(bean);
@@ -47,6 +49,9 @@ public class Main {
         for (String className : classNames) {
             Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
             filterMethods(methodDescriptors, bean.getIncludeFilter(), bean.getExcludeFilter());
+            if (!bean.includeSupportLibrary()) {
+                filterSupportLibrary(methodDescriptors);
+            }
 
             for (String methodDescriptor : methodDescriptors) {
                 boolean reExecute = false;
@@ -89,6 +94,15 @@ public class Main {
             }
 
             if ((negative != null) && negative.matcher(name).find()) {
+                it.remove();
+            }
+        }
+    }
+
+    private static void filterSupportLibrary(Collection<String> methodDescriptors) {
+        for (Iterator<String> it = methodDescriptors.iterator(); it.hasNext();) {
+            String name = it.next();
+            if (SUPPORT_LIBRARY_PATTERN.matcher(name).find()) {
                 it.remove();
             }
         }
