@@ -324,12 +324,18 @@ public class BinaryMathOp extends MethodStateOp {
             result = doIntegerOperation(mathOperator, (Integer) lhs, (Integer) rhs);
             break;
         case LONG:
+            lhs = Utils.getLongValue(lhs);
+            rhs = Utils.getLongValue(rhs);
             result = doLongOperation(mathOperator, (Long) lhs, (Long) rhs);
             break;
         case FLOAT:
+            lhs = Utils.getFloatValue(lhs);
+            rhs = Utils.getFloatValue(rhs);
             result = doFloatOperation(mathOperator, (Float) lhs, (Float) rhs);
             break;
         case DOUBLE:
+            lhs = Utils.getDoubleValue(lhs);
+            rhs = Utils.getDoubleValue(rhs);
             result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
             break;
         }
