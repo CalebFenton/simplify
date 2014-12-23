@@ -1,7 +1,7 @@
 package org.cf.smalivm.context;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.linked.TIntLinkedList;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.type.TypeUtil;
@@ -13,15 +13,15 @@ class BaseState {
     private static final Logger log = LoggerFactory.getLogger(BaseState.class.getSimpleName());
 
     private final int registerCount;
-    private final TIntList registersAssigned;
-    private final TIntList registersRead;
+    private final TIntSet registersAssigned;
+    private final TIntSet registersRead;
 
     final ExecutionContext ectx;
 
     BaseState(BaseState parent, ExecutionContext ectx) {
         registerCount = parent.registerCount;
-        registersAssigned = new TIntLinkedList();
-        registersRead = new TIntLinkedList();
+        registersAssigned = new TIntHashSet();
+        registersRead = new TIntHashSet();
         this.ectx = ectx;
     }
 
@@ -31,8 +31,8 @@ class BaseState {
 
     BaseState(ExecutionContext ectx, int registerCount) {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
-        registersAssigned = new TIntLinkedList();
-        registersRead = new TIntLinkedList();
+        registersAssigned = new TIntHashSet();
+        registersRead = new TIntHashSet();
 
         // This is locals + parameters
         this.registerCount = registerCount;
@@ -65,11 +65,11 @@ class BaseState {
         return registerCount;
     }
 
-    public TIntList getRegistersAssigned() {
+    public TIntSet getRegistersAssigned() {
         return registersAssigned;
     }
 
-    public TIntList getRegistersRead() {
+    public TIntSet getRegistersRead() {
         return registersRead;
     }
 
@@ -91,7 +91,7 @@ class BaseState {
         if (log.isTraceEnabled()) {
             StringBuilder sb = new StringBuilder();
             sb.append("Setting ").append(heapId).append(":").append(register).append(" = ")
-            .append(registerValueToString(value));
+                            .append(registerValueToString(value));
             // VERY noisy
             // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
             // for (int i = 2; i < ste.length; i++) {
@@ -133,7 +133,7 @@ class BaseState {
              * It's not enough to examine registersRead for object references. v0 and v1 may contain the same object,
              * and v0 is never read.
              */
-            TIntList registers = getRegistersRead();
+            TIntSet registers = getRegistersRead();
             for (int currentRegister : registers.toArray()) {
                 Object currentValue = peekRegister(currentRegister, heapId);
                 if (value == currentValue) {
@@ -157,7 +157,7 @@ class BaseState {
             sb.append("type=null, value=null");
         } else {
             sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-            .append(", hc=").append(value.hashCode());
+                            .append(", hc=").append(value.hashCode());
         }
 
         return sb.toString();
