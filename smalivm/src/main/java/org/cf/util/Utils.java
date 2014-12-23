@@ -199,6 +199,24 @@ public class Utils {
         return intValue;
     }
 
+    public static Float getFloatValue(Object obj) {
+        Float floatValue = (Float) castToPrimitiveWrapper(obj, "Ljava/lang/Float;");
+
+        return floatValue;
+    }
+
+    public static Double getDoubleValue(Object obj) {
+        Double doubleValue = (Double) castToPrimitiveWrapper(obj, "Ljava/lang/Double;");
+
+        return doubleValue;
+    }
+
+    public static Long getLongValue(Object obj) {
+        Long longValue = (Long) castToPrimitiveWrapper(obj, "Ljava/lang/Long;");
+
+        return longValue;
+    }
+
     public static Object castToPrimitiveWrapper(Object value, String targetType) {
         // TODO: add tests for this + confirm dalvik works this way
 
