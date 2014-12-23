@@ -23,10 +23,10 @@ public class OptionBean implements Serializable {
     private Pattern includeFilter;
 
     @Option(name = "--max-call-depth", usage = "Limit method call depth. Lower is faster, but misses things.")
-    private int maxCallDepth = 20;
+    private int maxCallDepth = 50;
 
     @Option(name = "--max-address-visits", usage = "Maximum visits of particular address. Raise for long loops.")
-    private int maxAddressVisits = 200;
+    private int maxAddressVisits = 10000;
 
     @Option(name = "--max-method-visits", usage = "Maximum visits over all addresses in method. Higher for longer methods + loops.")
     private int maxMethodVisits = maxAddressVisits * 200;
@@ -52,18 +52,29 @@ public class OptionBean implements Serializable {
     @Option(name = "-q", aliases = { "--quiet" }, usage = "Be quiet")
     private boolean quiet;
 
+    @Option(name = "--include-support", usage = "Include support library package path")
+    private boolean includeSupportLibrary;
+
     private File inFile;
+
+    public Pattern getExcludeFilter() {
+        return excludeFilter;
+    }
+
+    public Pattern getIncludeFilter() {
+        return includeFilter;
+    }
 
     public File getInFile() {
         return inFile;
     }
 
-    public int getMaxCallDepth() {
-        return maxCallDepth;
-    }
-
     public int getMaxAddressVisits() {
         return maxAddressVisits;
+    }
+
+    public int getMaxCallDepth() {
+        return maxCallDepth;
     }
 
     public int getMaxMethodVisits() {
@@ -74,14 +85,6 @@ public class OptionBean implements Serializable {
         return maxOptimizationPasses;
     }
 
-    public Pattern getExcludeFilter() {
-        return excludeFilter;
-    }
-
-    public Pattern getIncludeFilter() {
-        return includeFilter;
-    }
-
     public File getOutFile() {
         return outFile;
     }
@@ -90,8 +93,16 @@ public class OptionBean implements Serializable {
         return outputAPILevel;
     }
 
+    public boolean includeSupportLibrary() {
+        return includeSupportLibrary;
+    }
+
     public boolean isHelp() {
         return help;
+    }
+
+    public boolean isQuiet() {
+        return quiet;
     }
 
     public boolean isVerbose() {
@@ -106,10 +117,6 @@ public class OptionBean implements Serializable {
         return vvverbose;
     }
 
-    public boolean isQuiet() {
-        return quiet;
-    }
-
     @Option(name = "-i", aliases = { "--input" }, metaVar = "input", handler = FileOptionHandler.class, usage = "Input SMALI file or folder", required = true)
     private void setInFile(File inFile) {
         this.inFile = inFile;
@@ -122,6 +129,7 @@ public class OptionBean implements Serializable {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+        sb.append("Include support library: ").append(includeSupportLibrary).append('\n');
         sb.append("Max address visits: ").append(getMaxAddressVisits()).append('\n');
         sb.append("Max call depth: ").append(getMaxCallDepth()).append('\n');
         sb.append("Max method visits: ").append(getMaxMethodVisits()).append('\n');
