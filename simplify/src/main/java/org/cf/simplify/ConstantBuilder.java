@@ -27,7 +27,7 @@ import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
-public class ConstantBuilder {
+public class ConstantBuilder implements Dependancy {
 
     private static final String LAST_16_BITS_ZERO = "0000000000000000";
     private static final String LAST_48_BITS_ZERO = "000000000000000000000000000000000000000000000000";
@@ -38,11 +38,11 @@ public class ConstantBuilder {
     private static final Set<String> ConstantizableTypes = new HashSet<String>(Arrays.asList("I", "Z", "B", "S", "C",
                     "J", "F", "D", "Ljava/lang/String;", "Ljava/lang/Class;"));
 
-    public static boolean canConstantizeOp(Op op) {
+    public boolean canConstantizeOp(Op op) {
         return ConstantizableOps.contains(op.getClass());
     }
 
-    public static boolean canConstantizeType(String type) {
+    public boolean canConstantizeType(String type) {
         return ConstantizableTypes.contains(type);
     }
 

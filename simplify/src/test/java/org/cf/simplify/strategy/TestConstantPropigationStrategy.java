@@ -1,6 +1,10 @@
 package org.cf.simplify.strategy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.simplify.ConstantBuilder;
@@ -17,6 +21,7 @@ import org.jf.dexlib2.iface.reference.Reference;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.mockito.runners.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +73,35 @@ public class TestConstantPropigationStrategy {
             Reference actualRef = ((ReferenceInstruction) actual).getReference();
 
             assertEquals(expectedRef, actualRef);
+        }
+    }
+
+    @RunWith(MockitoJUnitRunner.class)
+    public static class UnitTests {
+        @Test
+        public void testConstantizablesHandlesNull() {
+
+            // Mocks
+            MethodBackedGraph mockmbGraph = mock(MethodBackedGraph.class);
+            ConstantBuilder constantBuilder = mock(ConstantBuilder.class);
+            BuilderInstruction mockBI = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(OneRegisterInstruction.class));
+
+            // Object underTest
+            ConstantPropigationStrategy underTest = new ConstantPropigationStrategy(mockmbGraph);
+            underTest.setDependancies(constantBuilder);
+
+            // Actions to mock to create previous bug
+            when(mockmbGraph.getAddresses()).thenReturn(new int[] { 1 });
+            when(mockmbGraph.getInstruction(1)).thenReturn(null).thenReturn(mockBI);
+            when(mockmbGraph.wasAddressReached(1)).thenReturn(true);
+            when(mockmbGraph.getOp(1)).thenReturn(null);
+            when(((OneRegisterInstruction) mockBI).getRegisterA()).thenReturn(2);
+            when(mockmbGraph.getRegisterConsensus(1, 2)).thenReturn(null);
+            when(constantBuilder.canConstantizeOp(null)).thenReturn(true);
+
+            // Should now return that no changes have been made opposed to crash
+            assertFalse(underTest.perform());
         }
     }
 
