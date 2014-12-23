@@ -33,7 +33,7 @@ public class Main {
 
         setLogLevel(bean);
         if (log.isInfoEnabled()) {
-            log.info(bean.toString());
+            log.info("Options:\n" + bean.toString());
         }
 
         long startTime = System.currentTimeMillis();
@@ -65,6 +65,7 @@ public class Main {
                         // Optimizer changed the implementation. Re-build graph to include changes.
                         vm.updateInstructionGraph(methodDescriptor);
                     }
+                    System.out.println(opt.getOptimizationCounts());
 
                     reExecute = opt.reExecute();
                 } while (reExecute);
