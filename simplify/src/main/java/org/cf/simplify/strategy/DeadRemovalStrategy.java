@@ -188,9 +188,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             log.debug("Read assignments test @" + address + " for: " + op);
         }
 
-        if (address == 130) {
-            System.out.println("wtf");
-        }
         if (isAnyRegisterUsed(address, assigned, mbgraph)) {
             return false;
         }
