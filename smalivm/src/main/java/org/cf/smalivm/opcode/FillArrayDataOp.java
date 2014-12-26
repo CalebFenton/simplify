@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
@@ -31,13 +32,13 @@ public class FillArrayDataOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object value = mState.readRegister(register);
+        HeapItem item = mState.readRegister(register);
 
-        // Payload handler will look at its parent (this op) and determine the
-        // target register by looking at what's assigned here.
-        mState.assignRegister(register, value);
+        // Mark register as assigned because next op will be payload, and it uses assigned register in this op to
+        // determine target register for payload.
+        mState.assignRegister(register, item);
 
-        // But it still needs to know the return address when it's done.
+        // It needs to know return address when finished since payload ops do not continue to next address.
         mState.setPseudoInstructionReturnAddress(returnAddress);
 
         return getPossibleChildren();
@@ -46,7 +47,6 @@ public class FillArrayDataOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-
         sb.append(" r").append(register).append(", #").append(getPossibleChildren()[0]);
 
         return sb.toString();

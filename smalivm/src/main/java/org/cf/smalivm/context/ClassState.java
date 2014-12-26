@@ -31,14 +31,21 @@ public class ClassState extends BaseState {
     public void assignField(String fieldNameAndType, Object value) {
         int register = 0;
         String heapKey = getKey(fieldNameAndType);
-        assignRegister(register, value, heapKey);
+        String type = fieldNameAndType.split(":")[1];
+        assignRegister(register, new HeapItem(value, type), heapKey);
+    }
+
+    public void assignField(String fieldNameAndType, HeapItem item) {
+        int register = 0;
+        String heapKey = getKey(fieldNameAndType);
+        assignRegister(register, item, heapKey);
     }
 
     public boolean equals(ClassState other) {
         return this.toString().equals(other.toString());
     }
 
-    public Object peekField(String fieldNameAndType) {
+    public HeapItem peekField(String fieldNameAndType) {
         int register = 0;
         String heapKey = getKey(fieldNameAndType);
 
@@ -48,7 +55,14 @@ public class ClassState extends BaseState {
     public void pokeField(String fieldNameAndType, Object value) {
         int register = 0;
         String heapKey = getKey(fieldNameAndType);
-        pokeRegister(register, value, heapKey);
+        String type = fieldNameAndType.split(":")[1];
+        pokeRegister(register, new HeapItem(value, type), heapKey);
+    }
+
+    public void pokeField(String fieldNameAndType, HeapItem item) {
+        int register = 0;
+        String heapKey = getKey(fieldNameAndType);
+        pokeRegister(register, item, heapKey);
     }
 
     private String getKey(String fieldNameAndType) {
@@ -63,10 +77,10 @@ public class ClassState extends BaseState {
     public String toString() {
         StringBuilder sb = new StringBuilder("Fields:\n");
         for (String fieldNameAndType : fieldNameAndTypes) {
-            sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append("\n");
+            sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append('\n');
         }
         sb.setLength(sb.length() - 1);
-        sb.append("\n");
+        sb.append('\n');
 
         return sb.toString();
     }

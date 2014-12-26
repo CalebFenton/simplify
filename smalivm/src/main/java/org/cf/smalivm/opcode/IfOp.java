@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
@@ -43,29 +43,29 @@ public class IfOp extends MethodStateOp {
     }
 
     private static boolean isTrue(IfType ifType, int cmp) {
-        boolean result = false;
+        boolean isTrue = false;
         switch (ifType) {
         case EQUAL:
-            result = (cmp == 0);
+            isTrue = (cmp == 0);
             break;
         case GREATER:
-            result = (cmp == 1);
+            isTrue = (cmp == 1);
             break;
         case GREATOR_OR_EQUAL:
-            result = (cmp >= 0);
+            isTrue = (cmp >= 0);
             break;
         case LESS:
-            result = (cmp == -1);
+            isTrue = (cmp == -1);
             break;
         case LESS_OR_EQUAL:
-            result = (cmp <= 0);
+            isTrue = (cmp <= 0);
             break;
         case NOT_EQUAL:
-            result = (cmp != 0);
+            isTrue = (cmp != 0);
             break;
         }
 
-        return result;
+        return isTrue;
     }
 
     static IfOp create(Instruction instruction, int address) {
@@ -114,40 +114,39 @@ public class IfOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object A = mState.readRegister(register1);
-        Object B = 0;
-        if (!compareToZero) {
-            B = mState.readRegister(register2);
-        }
+        HeapItem lhsItem = mState.readRegister(register1);
+        HeapItem rhsItem = compareToZero ? new HeapItem(0, "I") : mState.readRegister(register2);
 
         // Ambiguous predicate. Follow both branches.
-        if ((A instanceof UnknownValue) || (B instanceof UnknownValue)) {
+        if ((lhsItem.isUnknown()) || (rhsItem.isUnknown())) {
             return getPossibleChildren();
         }
 
+        Object lhs = lhsItem.getValue();
+        Object rhs = rhsItem.getValue();
         int cmp = Integer.MIN_VALUE;
         if (compareToZero) {
-            if (A == null) {
+            if (lhs == null) {
                 // if-*z ops are used to check for null refs
-                cmp = A == null ? 0 : 1;
-            } else if (((A instanceof Number) || (A instanceof Boolean) || (A instanceof Character))
-                            && ((B instanceof Number) || (B instanceof Boolean) || (B instanceof Character))) {
-                Integer aIntValue = Utils.getIntegerValue(A);
-                cmp = aIntValue.compareTo((Integer) B);
+                cmp = lhs == null ? 0 : 1;
+            } else if (((lhs instanceof Number) || (lhs instanceof Boolean) || (lhs instanceof Character))
+                            && ((rhs instanceof Number) || (rhs instanceof Boolean) || (rhs instanceof Character))) {
+                Integer aIntValue = Utils.getIntegerValue(lhs);
+                cmp = aIntValue.compareTo((Integer) rhs);
             } else {
-                cmp = A == B ? 0 : 1;
+                cmp = lhs == rhs ? 0 : 1;
             }
-        } else if (((A instanceof Number) || (A instanceof Boolean) || (A instanceof Character))
-                        && ((B instanceof Number) || (B instanceof Boolean) || (B instanceof Character))) {
-            Integer aIntValue = Utils.getIntegerValue(A);
-            Integer bIntValue = Utils.getIntegerValue(B);
+        } else if (((lhs instanceof Number) || (lhs instanceof Boolean) || (lhs instanceof Character))
+                        && ((rhs instanceof Number) || (rhs instanceof Boolean) || (rhs instanceof Character))) {
+            Integer aIntValue = Utils.getIntegerValue(lhs);
+            Integer bIntValue = Utils.getIntegerValue(rhs);
             cmp = aIntValue.compareTo(bIntValue);
         } else {
-            cmp = A == B ? 0 : 1;
+            cmp = lhs == rhs ? 0 : 1;
         }
 
         if (log.isTraceEnabled()) {
-            log.trace("IF compare: " + A + " vs " + B + " = " + cmp);
+            log.trace("IF compare: " + lhs + " vs " + rhs + " = " + cmp);
         }
 
         int result = getPossibleChildren()[0];

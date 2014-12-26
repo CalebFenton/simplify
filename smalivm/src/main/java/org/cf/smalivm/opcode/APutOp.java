@@ -2,9 +2,8 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
@@ -13,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 public class APutOp extends MethodStateOp {
 
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(APutOp.class.getSimpleName());
 
     static APutOp create(Instruction instruction, int address) {
@@ -30,7 +28,6 @@ public class APutOp extends MethodStateOp {
 
     private final int arrayRegister;
     private final int indexRegister;
-
     private final int valueRegister;
 
     public APutOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {
@@ -43,54 +40,55 @@ public class APutOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object value = mState.readRegister(valueRegister);
-        Object array = mState.readRegister(arrayRegister);
-        Object indexValue = mState.readRegister(indexRegister);
+        HeapItem putItem = mState.readRegister(valueRegister);
+        HeapItem arrayItem = mState.readRegister(arrayRegister);
+        HeapItem indexItem = mState.readRegister(indexRegister);
 
         // TODO: https://github.com/CalebFenton/simplify/issues/21
-        if (array instanceof UnknownValue) {
+        if (arrayItem.isUnknown()) {
             // Do nothing. :(
         } else {
-            if ((value instanceof UnknownValue) || (indexValue instanceof UnknownValue)) {
-                String type = array.getClass().getName();
-                array = new UnknownValue(type);
+            if ((putItem.isUnknown()) || (indexItem.isUnknown())) {
+                String type = arrayItem.getType();
+                arrayItem = HeapItem.newUnknown(type);
             } else {
-                if (value instanceof Number) {
+                Object putValue = putItem.getValue();
+                if (putValue instanceof Number) {
                     if (getName().endsWith("-wide")) {
                         // No need to cast anything
                     } else if (getName().endsWith("-boolean")) {
                         // Booleans are represented by integer literals, so need to convert
-                        Integer intValue = Utils.getIntegerValue(value);
-                        value = (intValue == 1 ? true : false);
+                        Integer intValue = Utils.getIntegerValue(putValue);
+                        putValue = (intValue == 1 ? true : false);
                     } else {
-                        Integer intValue = Utils.getIntegerValue(value);
+                        Integer intValue = Utils.getIntegerValue(putValue);
                         if (getName().endsWith("-byte")) {
-                            value = intValue.byteValue();
+                            putValue = intValue.byteValue();
                         } else if (getName().endsWith("-char")) {
                             // Characters, like boolean, are represented by integers
-                            value = (char) intValue.intValue();
+                            putValue = (char) intValue.intValue();
                         } else if (getName().endsWith("-short")) {
-                            value = intValue.shortValue();
+                            putValue = intValue.shortValue();
                         }
                     }
                 }
 
-                int index = Utils.getIntegerValue(indexValue);
+                int index = indexItem.getIntegerValue();
+                Object array = arrayItem.getValue();
                 if (index >= Array.getLength(array)) {
                     if (log.isWarnEnabled()) {
                         log.warn("Array index out of bounds @" + getAddress() + " for " + toString());
                     }
-                    String type = SmaliClassUtils.javaClassToSmali(array.getClass());
-                    array = new UnknownValue(type);
+                    arrayItem = HeapItem.newUnknown(arrayItem.getType());
                 } else {
-                    Array.set(array, index, value);
+                    Array.set(array, index, putValue);
                 }
             }
         }
 
         // In most cases, register assignment means the old value was blown away. The optimizer handles assignments for
         // this op specially.
-        mState.assignRegister(arrayRegister, array);
+        mState.assignRegister(arrayRegister, arrayItem);
 
         return getPossibleChildren();
     }

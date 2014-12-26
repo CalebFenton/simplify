@@ -45,8 +45,8 @@ public class Main {
         MethodState mState = ectx.getMethodState();
 
         // Since this method is not static, the first parameter is a reference to 'this'.
-        // So the integer parameter goes in index 1.
-        mState.assignParameter(1, parameterValue);
+        // So the integer parameter goes in index 1 with a type of "I"
+        mState.assignParameter(1, parameterValue, "I");
         graph = vm.execute(methodDescriptor, ectx);
 
         value = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -57,7 +57,7 @@ public class Main {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
         ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
-        mState.assignParameter(0, parameterValue);
+        mState.assignParameter(0, parameterValue, "I");
 
         // Execute method with some context
         vm.execute(methodDescriptor, ectx);

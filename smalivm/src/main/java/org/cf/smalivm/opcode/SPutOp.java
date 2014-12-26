@@ -4,6 +4,7 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
@@ -45,9 +46,9 @@ public class SPutOp extends ExecutionContextOp {
     @Override
     public int[] execute(ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
-        Object value = mState.readRegister(valueRegister);
+        HeapItem item = mState.readRegister(valueRegister);
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
-        StaticFieldAccessor.putField(vm, ectx, fieldDescriptor, value);
+        StaticFieldAccessor.putField(vm, ectx, fieldDescriptor, item);
 
         return getPossibleChildren();
     }

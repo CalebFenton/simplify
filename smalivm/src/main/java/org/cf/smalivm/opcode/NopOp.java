@@ -33,9 +33,7 @@ public class NopOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-
-        return sb.toString();
+        return getName();
     }
 
 }

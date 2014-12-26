@@ -4,14 +4,15 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.SwitchElement;
 import org.jf.dexlib2.iface.instruction.SwitchPayload;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SwitchPayloadOp extends MethodStateOp {
 
@@ -64,17 +65,16 @@ public class SwitchPayloadOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object targetValue = mState.readResultRegister();
+        HeapItem targetItem = mState.readResultRegister();
         // Pseudo points to instruction *after* switch op.
         int switchOpAddress = mState.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
-
-        if (targetValue instanceof UnknownValue) {
+        if (targetItem.isUnknown()) {
             int[] children = getTargetAddresses(switchOpAddress, getPossibleChildren());
 
             return children;
         }
 
-        int targetKey = (Integer) targetValue;
+        int targetKey = Utils.getIntegerValue(targetItem.getValue());
         for (SwitchElement element : switchElements) {
             if (element.getKey() == targetKey) {
                 int targetAddress = getTargetAddress(switchOpAddress, element.getOffset());

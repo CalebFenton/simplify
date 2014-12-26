@@ -4,6 +4,7 @@ import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
@@ -55,7 +56,8 @@ public class NewInstanceOp extends ExecutionContextOp {
         }
 
         MethodState mState = ectx.getMethodState();
-        mState.assignRegister(destRegister, instance);
+        HeapItem instanceItem = new HeapItem(instance, className);
+        mState.assignRegister(destRegister, instanceItem);
 
         return getPossibleChildren();
     }

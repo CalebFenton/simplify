@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 public class ExecutionContext {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
     private int callDepth;

@@ -7,6 +7,7 @@ import java.util.Set;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.LocalInstance;
@@ -20,12 +21,13 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
 
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_getMethod.class.getSimpleName());
 
-    private static final String UNKNOWN_VALUE_TYPE = "Ljava/lang/reflect/Method;";
+    private static final String RETURN_TYPE = "Ljava/lang/reflect/Method;";
 
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
-        Object classValue = mState.peekParameter(0);
-        String methodName = (String) mState.peekParameter(1);
-        Object[] parameterTypesValue = (Object[]) mState.peekParameter(2);
+        HeapItem classItem = mState.peekParameter(0);
+        Object classValue = classItem.getValue();
+        String methodName = (String) mState.peekParameter(1).getValue();
+        Object[] parameterTypesValue = (Object[]) mState.peekParameter(2).getValue();
 
         Object methodValue;
         if (classValue instanceof Class<?>) {
@@ -35,25 +37,26 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
                 methodValue = getNonLocalMethod((Class<?>) classValue, methodName, parameterTypes);
             } catch (NoSuchMethodException | SecurityException e) {
                 // Assuming Android doesn't have this method since our JVM doesn't.
-                mState.assignReturnRegister(new UnknownValue(UNKNOWN_VALUE_TYPE));
+                mState.assignReturnRegister(HeapItem.newUnknown(RETURN_TYPE));
+                // TODO: fill with convincing stacktrace
                 throw e;
             }
         } else if (classValue instanceof LocalClass) {
             LocalClass localClass = (LocalClass) classValue;
             methodValue = getLocalMethod(vm, localClass, methodName, parameterTypesValue);
-            mState.assignReturnRegister(methodValue);
             if ((methodValue instanceof UnknownValue) || "<init>".equals(methodName) || "<clinit>".equals(methodName)) {
+                mState.assignReturnRegister(HeapItem.newUnknown(RETURN_TYPE));
                 // TODO: fill with convincing lies
                 throw new NoSuchMethodException(methodName);
             }
         } else {
             if (log.isErrorEnabled()) {
-                log.error("Class.getMethod with " + classValue + " has unexpected type and confuses me.");
+                log.error("Class.getMethod with " + classItem + " has unexpected type and confuses me.");
             }
-            methodValue = new UnknownValue(UNKNOWN_VALUE_TYPE);
+            methodValue = new UnknownValue();
         }
 
-        mState.assignReturnRegister(methodValue);
+        mState.assignReturnRegister(methodValue, RETURN_TYPE);
     }
 
     private Object getLocalMethod(VirtualMachine vm, LocalClass localClass, String methodName,
@@ -61,7 +64,7 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
         SmaliClassManager classManager = vm.getClassManager();
         String className = localClass.getName();
         if (!classManager.isLocalClass(className)) {
-            return new UnknownValue(UNKNOWN_VALUE_TYPE);
+            return new UnknownValue();
         }
 
         String targetMethodSignature = buildMethodSignature(className, methodName, parameterTypesValue);
@@ -72,7 +75,7 @@ public class java_lang_Class_getMethod implements EmulatedMethod {
             }
         }
 
-        return new UnknownValue(UNKNOWN_VALUE_TYPE);
+        return new UnknownValue();
     }
 
     private String buildMethodSignature(String className, String methodName, Object[] parameterTypes) {

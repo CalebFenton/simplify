@@ -10,30 +10,20 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.rits.cloning.Cloner;
-
 class Heap {
 
     private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
 
-    private static final Cloner cloner = new Cloner();
-
-    private final Map<String, Object> keyToValue;
+    private final Map<String, HeapItem> keyToHeapItem;
 
     private Heap parent;
 
     Heap() {
-        keyToValue = new HashMap<String, Object>();
+        keyToHeapItem = new HashMap<String, HeapItem>();
     }
 
     Heap(Heap other) {
-        keyToValue = new HashMap<String, Object>(other.keyToValue);
-    }
-
-    private static Object cloneRegisterValue(Object value) {
-        Object result = cloner.deepClone(value);
-
-        return result;
+        keyToHeapItem = new HashMap<String, HeapItem>(other.keyToHeapItem);
     }
 
     private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
@@ -50,7 +40,7 @@ class Heap {
 
     private Set<String> keySet() {
         // It's not that I don't trust you to mutate the keys, but I don't trust you.
-        return new HashSet<String>(keyToValue.keySet());
+        return new HashSet<String>(keyToHeapItem.keySet());
     }
 
     void setParent(Heap parent) {
@@ -61,7 +51,7 @@ class Heap {
         return parent;
     }
 
-    Object get(String heapId, int register) {
+    HeapItem get(String heapId, int register) {
         String key = buildKey(heapId, register);
 
         return get(key);
@@ -80,9 +70,9 @@ class Heap {
         return ancestor;
     }
 
-    Object get(String key) {
+    HeapItem get(String key) {
         if (hasKey(key)) {
-            return keyToValue.get(key);
+            return keyToHeapItem.get(key);
         }
 
         /*
@@ -102,8 +92,8 @@ class Heap {
          * excluding mappings which are no longer valid. E.g. peeking v0, and v0 and v1 both point to same object, pull
          * down both mappings, but only if v1 was not reassigned between now and then.
          */
-        Object targetValue = ancestor.get(key);
-        Object cloneValue = cloneRegisterValue(targetValue);
+        HeapItem targetItem = ancestor.get(key);
+        HeapItem cloneItem = new HeapItem(targetItem);
         Set<String> reassigned = getReassignedKeysBetweenChildAndAncestor(this, ancestor);
         Set<String> potential = ancestor.keySet();
         for (String currentKey : potential) {
@@ -111,13 +101,13 @@ class Heap {
                 continue;
             }
 
-            Object currentValue = ancestor.get(currentKey);
-            if (targetValue == currentValue) {
-                set(currentKey, cloneValue);
+            HeapItem currentItem = ancestor.get(currentKey);
+            if (targetItem.getValue() == currentItem.getValue()) {
+                set(currentKey, cloneItem);
             }
         }
 
-        return cloneValue;
+        return cloneItem;
     }
 
     private String buildKey(String heapId, int register) {
@@ -134,7 +124,7 @@ class Heap {
     }
 
     boolean hasKey(String key) {
-        return keyToValue.containsKey(key);
+        return keyToHeapItem.containsKey(key);
     }
 
     void remove(String heapId, int register) {
@@ -144,39 +134,43 @@ class Heap {
     }
 
     private void remove(String key) {
-        keyToValue.remove(key);
+        keyToHeapItem.remove(key);
     }
 
-    void set(String heapId, int register, Object value) {
+    void set(String heapId, int register, Object value, String type) {
+        set(heapId, register, new HeapItem(value, type));
+    }
+
+    void set(String heapId, int register, HeapItem item) {
         String key = buildKey(heapId, register);
-        set(key, value);
+        set(key, item);
     }
 
-    private void set(String key, Object value) {
-        keyToValue.put(key, value);
+    private void set(String key, HeapItem item) {
+        keyToHeapItem.put(key, item);
     }
 
-    Map<String, Object> getKeyToValue() {
-        return keyToValue;
+    Map<String, HeapItem> getKeyToItem() {
+        return keyToHeapItem;
     }
 
-    void update(String heapId, int register, Object value) {
+    void update(String heapId, int register, HeapItem item) {
         String key = buildKey(heapId, register);
-        update(key, value);
+        update(key, item);
     }
 
-    void update(String key, Object value) {
+    void update(String key, HeapItem item) {
         /*
          * When replacing an uninitialized instance object, need to update all registers that also point to that object.
          * This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
          * time.
          */
 
-        Object oldValue = get(key);
+        HeapItem oldItem = get(key);
         for (String currentKey : keySet()) {
-            Object currentValue = get(currentKey);
-            if (oldValue == currentValue) {
-                set(currentKey, value);
+            HeapItem currentValue = get(currentKey);
+            if (oldItem.getValue() == currentValue.getValue()) {
+                set(currentKey, item);
             }
         }
     }

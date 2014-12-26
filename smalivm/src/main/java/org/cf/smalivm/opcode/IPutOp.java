@@ -47,8 +47,9 @@ public class IPutOp extends ExecutionContextOp {
     @Override
     public int[] execute(ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
-        Object value = mState.readRegister(valueRegister);
-        Object instance = mState.readRegister(instanceRegister);
+        // Commented out, because unused, for now
+        // HeapItem valueItem = mState.readRegister(valueRegister);
+        // HeapItem instanceItem = mState.readRegister(instanceRegister);
 
         return getPossibleChildren();
     }

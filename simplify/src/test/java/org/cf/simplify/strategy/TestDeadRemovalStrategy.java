@@ -8,6 +8,7 @@ import gnu.trove.map.TIntObjectMap;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.context.HeapItem;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.junit.Test;
@@ -22,7 +23,7 @@ public class TestDeadRemovalStrategy {
     private static final Logger log = LoggerFactory.getLogger(TestDeadRemovalStrategy.class.getSimpleName());
 
     private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(args);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         strategy.perform();

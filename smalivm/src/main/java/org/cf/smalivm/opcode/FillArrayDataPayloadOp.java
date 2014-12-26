@@ -4,8 +4,9 @@ import java.lang.reflect.Array;
 import java.util.List;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
 import org.slf4j.Logger;
@@ -58,7 +59,6 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     }
 
     private final List<Number> arrayElements;
-
     private final int elementWidth;
 
     private FillArrayDataPayloadOp(int address, String opName, int elementWidth, List<Number> arrayElements) {
@@ -71,10 +71,11 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     @Override
     public int[] execute(MethodState mState) {
         MethodState parent = mState.getParent();
-        int register = parent.getRegistersAssigned().toArray()[0];
+        int targetRegister = parent.getRegistersAssigned().toArray()[0];
         // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
-        Object array = mState.peekRegister(register);
-        if (!(array instanceof UnknownValue)) {
+        HeapItem arrayItem = mState.peekRegister(targetRegister);
+        if (!(arrayItem.isUnknown())) {
+            Object array = arrayItem.getValue();
             Class<?> expectedClass = array.getClass().getComponentType();
             for (int i = 0; i < arrayElements.size(); i++) {
                 Number number = arrayElements.get(i);
@@ -82,10 +83,12 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
                 Array.set(array, i, value);
             }
             // Poke rather than assign for the optimizer.
-            mState.pokeRegister(register, array);
+            String type = SmaliClassUtils.javaClassToSmali(expectedClass);
+            mState.pokeRegister(targetRegister, arrayItem, type);
         }
 
         int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
+
         return new int[] { returnAddress };
     }
 

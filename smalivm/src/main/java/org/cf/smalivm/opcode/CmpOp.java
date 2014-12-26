@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
@@ -19,47 +19,46 @@ public class CmpOp extends MethodStateOp {
 
         Instruction23x instr = (Instruction23x) instruction;
         int destRegister = instr.getRegisterA();
-        int arg1Register = instr.getRegisterB();
-        int arg2Register = instr.getRegisterC();
+        int lhsRegister = instr.getRegisterB();
+        int rhsRegister = instr.getRegisterC();
 
-        return new CmpOp(address, opName, childAddress, destRegister, arg1Register, arg2Register);
+        return new CmpOp(address, opName, childAddress, destRegister, lhsRegister, rhsRegister);
     }
 
     private final int destRegister;
-    private final int arg1Register;
-    private final int arg2Register;
+    private final int lhsRegister;
+    private final int rhsRegister;
 
-    public CmpOp(int address, String opName, int childAddress, int destRegister, int arg1Register, int arg2Register) {
+    public CmpOp(int address, String opName, int childAddress, int destRegister, int lhsRegister, int rhsRegister) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
-        this.arg1Register = arg1Register;
-        this.arg2Register = arg2Register;
+        this.lhsRegister = lhsRegister;
+        this.rhsRegister = rhsRegister;
     }
 
     @Override
     public int[] execute(MethodState mState) {
-        Object arg1 = mState.readRegister(arg1Register);
-        Object arg2 = mState.readRegister(arg2Register);
+        HeapItem lhsItem = mState.readRegister(lhsRegister);
+        HeapItem rhsItem = mState.readRegister(rhsRegister);
 
-        Object value;
-        if ((arg1 instanceof UnknownValue) || (arg2 instanceof UnknownValue)) {
-            if (getName().endsWith("float")) {
-                value = new UnknownValue("F");
-            } else if (getName().endsWith("double")) {
-                value = new UnknownValue("D");
-            } else {
-                value = new UnknownValue("J");
-            }
+        HeapItem item;
+        if ((lhsItem.isUnknown()) || (rhsItem.isUnknown())) {
+            item = HeapItem.newUnknown("I");
         } else {
-            assert arg1 instanceof Number;
-            assert arg2 instanceof Number;
-            assert arg1.getClass() == arg2.getClass();
+            Object lhs = lhsItem.getValue();
+            Object rhs = rhsItem.getValue();
 
-            value = cmp((Number) arg1, (Number) arg2);
+            assert lhs instanceof Number;
+            assert rhs instanceof Number;
+            assert lhs.getClass() == rhs.getClass();
+            assert lhsItem.getType().equals(rhsItem.getType());
+
+            int cmp = cmp((Number) lhs, (Number) rhs);
+            item = new HeapItem(cmp, "I");
         }
 
-        mState.assignRegister(destRegister, value);
+        mState.assignRegister(destRegister, item);
 
         return getPossibleChildren();
     }
@@ -101,7 +100,7 @@ public class CmpOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(arg1Register).append(", r").append(arg2Register);
+        sb.append(" r").append(destRegister).append(", r").append(lhsRegister).append(", r").append(rhsRegister);
 
         return sb.toString();
     }

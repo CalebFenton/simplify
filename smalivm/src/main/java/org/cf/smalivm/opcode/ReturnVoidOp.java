@@ -1,10 +1,9 @@
 package org.cf.smalivm.opcode;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ReturnVoidOp extends MethodStateOp {
 
@@ -28,8 +27,7 @@ public class ReturnVoidOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        return sb.toString();
+        return getName();
     }
 
 }

@@ -13,12 +13,10 @@ import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.LocalType;
-import org.cf.smalivm.type.TypeUtil;
-import org.cf.smalivm.type.UninitializedInstance;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
@@ -130,8 +128,8 @@ public class InvokeOp extends ExecutionContextOp {
             // Method call might be to interface or abstract class.
             // Try and resolve what the actual virtual target is.
             int targetRegister = parameterRegisters[0];
-            Object value = ectx.getMethodState().peekRegister(targetRegister);
-            targetMethod = getLocalTargetForVirtualMethod(value);
+            HeapItem item = ectx.getMethodState().peekRegister(targetRegister);
+            targetMethod = getLocalTargetForVirtualMethod(item.getValue());
         }
 
         MethodState callerContext = ectx.getMethodState();
@@ -211,7 +209,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -227,11 +225,11 @@ public class InvokeOp extends ExecutionContextOp {
 
     private boolean allArgumentsKnown(MethodState mState) {
         for (int parameterRegister = mState.getParameterStart(); parameterRegister < mState.getRegisterCount();) {
-            Object value = mState.peekParameter(parameterRegister);
-            if (value instanceof UnknownValue) {
+            HeapItem item = mState.peekParameter(parameterRegister);
+            if (item.isUnknown()) {
                 return false;
             }
-            String type = TypeUtil.getValueType(value);
+            String type = item.getType();
             parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
 
@@ -242,9 +240,11 @@ public class InvokeOp extends ExecutionContextOp {
         int parameterRegister = calleeState.getParameterStart();
         for (int i = 0; i < parameterRegisters.length; i++) {
             int callerRegister = parameterRegisters[i];
-            Object value = callerState.readRegister(callerRegister);
-            calleeState.assignParameter(parameterRegister, value);
+            HeapItem item = callerState.readRegister(callerRegister);
+            // Since we have explicit type, over ride any implied type as it may be inaccurate.
+            // For example, might think it's an int when really it's a short or boolean.
             String type = parameterTypes.get(i);
+            calleeState.assignParameter(parameterRegister, new HeapItem(item.getValue(), type));
             parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
     }
@@ -252,16 +252,18 @@ public class InvokeOp extends ExecutionContextOp {
     private void assumeMaximumUnknown(MethodState mState) {
         // TODO: add option to mark all class states unknown instead of just method state
         for (int i = 0; i < parameterTypes.size(); i++) {
+            // Always prefer explicit type over implied from heap item.
+            // I.e. "const/4 v0, 0x0" can mean null, 0x1 can be true, etc.
             String type = parameterTypes.get(i);
             int register = parameterRegisters[i];
-            Object value = mState.readRegister(register);
+            HeapItem item = mState.readRegister(register);
+            Object value = item.getValue();
             if (null == value) {
                 // Nulls don't mutate.
                 continue;
             }
 
-            boolean isInitializing = methodDescriptor.contains(";-><init>(")
-                            && (value instanceof UninitializedInstance);
+            boolean isInitializing = methodDescriptor.contains(";-><init>(");
             if (!isInitializing) {
                 // May be immutable type, but if this is the initializer, internal state would be changing.
                 if (ImmutableUtils.isImmutableClass(type)) {
@@ -271,8 +273,7 @@ public class InvokeOp extends ExecutionContextOp {
                     continue;
                 }
 
-                String actualType = TypeUtil.getValueType(value);
-                if (ImmutableUtils.isImmutableClass(actualType)) {
+                if (item.isImmutable()) {
                     // Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
                     if (log.isTraceEnabled()) {
                         log.trace(type + " (actual) is immutable");
@@ -281,17 +282,17 @@ public class InvokeOp extends ExecutionContextOp {
                 }
             }
 
-            value = new UnknownValue(type);
+            item = HeapItem.newUnknown(type);
             if (log.isDebugEnabled()) {
                 log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
             }
 
-            mState.pokeRegister(register, value);
+            mState.pokeRegister(register, item);
         }
 
         if (!"V".equals(returnType)) {
-            Object value = new UnknownValue(returnType);
-            mState.assignResultRegister(value);
+            HeapItem item = HeapItem.newUnknown(returnType);
+            mState.assignResultRegister(item);
         }
     }
 
@@ -329,7 +330,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         if (!returnType.equals("V")) {
-            Object consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
         }
 
@@ -351,21 +352,21 @@ public class InvokeOp extends ExecutionContextOp {
 
         if (!isStatic) {
             // Handle updating the instance reference
-            Object originalInstance = callerContext.peekRegister(parameterRegisters[0]);
-            Object newInstance = calleeContext.peekParameter(0);
-            if (originalInstance != newInstance) {
+            HeapItem originalInstanceItem = callerContext.peekRegister(parameterRegisters[0]);
+            HeapItem newInstanceItem = calleeContext.peekParameter(0);
+            if (originalInstanceItem.getValue() != newInstanceItem.getValue()) {
                 // Instance went from UninitializedInstance class to something else.
                 // TODO: add test for this!
-                callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstance);
+                callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
             } else {
                 // The instance reference could have changed, so mark it as assigned here.
-                callerContext.assignRegister(parameterRegisters[0], newInstance);
+                callerContext.assignRegister(parameterRegisters[0], newInstanceItem);
             }
         }
 
         if (!"V".equals(returnType)) {
-            Object returnValue = calleeContext.readReturnRegister();
-            callerContext.assignResultRegister(returnValue);
+            HeapItem returnItem = calleeContext.readReturnRegister();
+            callerContext.assignResultRegister(returnItem);
         }
     }
 

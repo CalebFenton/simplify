@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.util.SmaliClassUtils;
@@ -26,7 +27,6 @@ public class ConstOp extends MethodStateOp {
         WIDE
     }
 
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
 
     static ConstOp create(Instruction instruction, int address, VirtualMachine vm) {
@@ -93,7 +93,8 @@ public class ConstOp extends MethodStateOp {
     @Override
     public int[] execute(MethodState mState) {
         Object constant = buildConstant();
-        mState.assignRegister(destRegister, constant);
+        HeapItem constantItem = new HeapItem(constant, getConstantTypeString());
+        mState.assignRegister(destRegister, constantItem);
 
         return getPossibleChildren();
     }
@@ -101,7 +102,6 @@ public class ConstOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-
         sb.append(" r").append(destRegister).append(", ");
         String val;
         switch (constantType) {
@@ -133,6 +133,38 @@ public class ConstOp extends MethodStateOp {
         }
 
         return sb.toString();
+    }
+
+    private String getConstantTypeString() {
+        // Type strings are somewhat ambiguous here. Dalvik treats a multiple types as I (char, byte, etc.) and multiple
+        // types as "wide" (long, float). Logic elsewhere must infer actual types when necessary, such as by opcode.
+        String type;
+        switch (constantType) {
+        case CLASS:
+        case LOCAL_CLASS:
+            type = "Ljava/lang/Class;";
+            break;
+        case NARROW:
+            type = "I";
+            break;
+        case STRING:
+            type = "Ljava/lang/String;";
+            break;
+        case WIDE:
+            if ("const-wide".equals(getName())) {
+                type = "D";
+            } else {
+                type = "J";
+            }
+            break;
+        default:
+            if (log.isWarnEnabled()) {
+                log.warn("Unexpected constant type: " + constantType);
+            }
+            type = "?"; // should never happen
+        }
+
+        return type;
     }
 
     private Object buildConstant() {

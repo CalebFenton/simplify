@@ -11,6 +11,7 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -27,193 +28,203 @@ public class TestUnaryMathOp {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
-
-        // Mocks
-        BuilderInstruction mockBi;
-        OpFactory opFactory;
-
-        UnaryMathOp underTest;
+        private BuilderInstruction instruction;
+        private OpFactory opFactory;
+        private MethodState mState;
+        private UnaryMathOp underTest;
 
         @Before
         public void setUp() {
-            VirtualMachine mockVm = mock(VirtualMachine.class);
-            mockBi = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
-
-            opFactory = new OpFactory(mockVm);
+            VirtualMachine vm = mock(VirtualMachine.class);
+            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
+            opFactory = new OpFactory(vm);
+            mState = mock(MethodState.class);
         }
 
         @Test
-        public void canDoubletoFloat() {
+        public void canDoubleToFloat() {
+            Double value = 11204.0345612345D;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("D");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345612345D);
-            when(mockBi.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Double(11204.0345612345D).floatValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.floatValue(), "F")));
         }
 
         @Test
-        public void canDoubletoInt() {
+        public void canDoubleToInt() {
+            Double value = 11204.0345612345D;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("D");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345612345D);
-            when(mockBi.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Double(11204.0345612345D).intValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.intValue(), "I")));
         }
 
         @Test
-        public void canDoubletoLong() {
+        public void canDoubleToLong() {
+            Double value = 11204.0345612345D;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("D");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345612345D);
-            when(mockBi.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Double(11204.0345612345D).longValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.longValue(), "J")));
         }
 
         @Test
         public void canFloatToDouble() {
+            Float value = 11204.0345F;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("F");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345F);
-            when(mockBi.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Float(11204.0345F).doubleValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.doubleValue(), "D")));
         }
 
         @Test
         public void canFloatToInt() {
+            Float value = 11204.0345F;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("F");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345F);
-            when(mockBi.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Float(11204.0345F).intValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.intValue(), "I")));
         }
 
         @Test
         public void canFloatToLong() {
+            Float value = 11204.0345F;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("F");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(11204.0345F);
-            when(mockBi.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Float(11204.0345F).longValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.longValue(), "J")));
         }
 
         @Test
         public void canLongToFloat() {
+            Long value = 112040345L;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("J");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(112040345L);
-            when(mockBi.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Long(112040345L).floatValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.floatValue(), "F")));
         }
 
         @Test
         public void canLongToInt() {
+            Long value = 112040345L;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("J");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(112040345L);
-            when(mockBi.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Long(112040345L).intValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.intValue(), "I")));
         }
 
         @Test
         public void canLongToDouble() {
+            Long value = 112040345L;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("J");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(112040345L);
-            when(mockBi.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Long(112040345L).doubleValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.doubleValue(), "D")));
         }
 
         @Test
         public void canIntToByte() {
+            Integer value = 10;
+            HeapItem mockItem = mock(HeapItem.class);
+            when(mockItem.getValue()).thenReturn(value);
+            when(mockItem.getType()).thenReturn("I");
+            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
 
-            MethodState mockMs = mock(MethodState.class);
+            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
+            underTest.execute(mState);
 
-            when(mockMs.readRegister(any(Integer.class))).thenReturn(10);
-            when(mockBi.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
-
-            underTest = (UnaryMathOp) opFactory.create(mockBi, 0);
-            underTest.execute(mockMs);
-
-            verify(mockMs, times(1)).assignRegister(any(Integer.class), eq(new Integer(10).byteValue()));
+            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.byteValue(), "B")));
         }
 
     }
+
+    private static final String CLASS_NAME = "Lunary_math_test;";
 
     public static class TestStartDouble {
 
         @Test
         public void testDoubleToFloat() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 220D);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 220F);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 220D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 220F, "F");
 
             VMTester.testMethodState(CLASS_NAME, "DoubleToFloat()V", initial, expected);
         }
 
         @Test
         public void testDoubleToInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 200D);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 200);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 200D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 200, "I");
 
             VMTester.testMethodState(CLASS_NAME, "DoubleToInt()V", initial, expected);
         }
 
         @Test
         public void testDoubleToLong() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 210D);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 210L);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 210D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 210L, "J");
 
             VMTester.testMethodState(CLASS_NAME, "DoubleToLong()V", initial, expected);
         }
 
         @Test
         public void testNegDouble() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 15.1D);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -15.1D);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 15.1D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -15.1D, "D");
 
             VMTester.testMethodState(CLASS_NAME, "NegDouble()V", initial, expected);
         }
@@ -221,47 +232,45 @@ public class TestUnaryMathOp {
     }
 
     public static class TestStartFloat {
-
         @Test
         public void testFloatToDouble() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 120F);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 120D);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 120F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 120D, "D");
 
             VMTester.testMethodState(CLASS_NAME, "FloatToDouble()V", initial, expected);
         }
 
         @Test
         public void testFloatToInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 100F);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 100);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 100F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 100, "I");
 
             VMTester.testMethodState(CLASS_NAME, "FloatToInt()V", initial, expected);
         }
 
         @Test
         public void testFloatToLong() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 110F);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 110L);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 110F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 110L, "J");
 
             VMTester.testMethodState(CLASS_NAME, "FloatToLong()V", initial, expected);
         }
 
         @Test
         public void testNegFloat() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 10.5F);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -10.5F);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 10.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -10.5F, "F");
 
             VMTester.testMethodState(CLASS_NAME, "NegFloat()V", initial, expected);
         }
-
     }
 
     public static class TestStartInt {
         @Test
         public void testIntToByte() {
             Integer value = 128;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, value.byteValue());
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, value.byteValue(), "B");
 
             VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
         }
@@ -269,16 +278,16 @@ public class TestUnaryMathOp {
         @Test
         public void testIntToByteWithShort() {
             Short value = 1000;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, value.byteValue());
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, value.byteValue(), "B");
 
             VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
         }
 
         @Test
         public void testIntToChar() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x62);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (char) 0x62);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x62, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (char) 0x62, "C");
 
             VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
         }
@@ -286,48 +295,48 @@ public class TestUnaryMathOp {
         @Test
         public void testIntToCharWithShort() {
             Short value = 0x62;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (char) value.intValue());
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (char) value.intValue(), "C");
 
             VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
         }
 
         @Test
         public void testIntToDouble() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 13);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 13D);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 13, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 13D, "D");
 
             VMTester.testMethodState(CLASS_NAME, "IntToDouble()V", initial, expected);
         }
 
         @Test
         public void testIntToFloat() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 12);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 12F);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 12, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 12F, "F");
 
             VMTester.testMethodState(CLASS_NAME, "IntToFloat()V", initial, expected);
         }
 
         @Test
         public void testIntToLong() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 11);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 11L);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 11, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 11L, "J");
 
             VMTester.testMethodState(CLASS_NAME, "IntToLong()V", initial, expected);
         }
 
         @Test
         public void testIntToShort() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x10);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x10);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (short) 0x10, "S");
 
             VMTester.testMethodState(CLASS_NAME, "IntToShort()V", initial, expected);
         }
 
         @Test
         public void testNegInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0x42);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x42, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -0x42, "I");
 
             VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
         }
@@ -335,24 +344,24 @@ public class TestUnaryMathOp {
         @Test
         public void testNegIntWithShort() {
             Short value = 0x42;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -value);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -value, "S");
 
             VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
         }
 
         @Test
         public void testNegUnknownInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
 
             VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
         }
 
         @Test
         public void testNotInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x42);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~0x42);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x42, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, ~0x42, "I");
 
             VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
         }
@@ -360,64 +369,64 @@ public class TestUnaryMathOp {
         @Test
         public void testNotIntWithShort() {
             Short value = 0x42;
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, value);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~value);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, ~value, "S");
 
             VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
         }
 
         @Test
         public void testNotUnknownInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
 
             VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToByte() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("B"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "B");
 
             VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToChar() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("C"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "C");
 
             VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToDouble() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("D"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "D");
 
             VMTester.testMethodState(CLASS_NAME, "IntToDouble()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToFloat() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("F"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "F");
 
             VMTester.testMethodState(CLASS_NAME, "IntToFloat()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToLong() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("J"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "J");
 
             VMTester.testMethodState(CLASS_NAME, "IntToLong()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToShort() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("I"));
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("S"));
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "S");
 
             VMTester.testMethodState(CLASS_NAME, "IntToShort()V", initial, expected);
         }
@@ -428,46 +437,43 @@ public class TestUnaryMathOp {
 
         @Test
         public void testLongToDouble() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 23L);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 23D);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 23L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 23D, "D");
 
             VMTester.testMethodState(CLASS_NAME, "LongToDouble()V", initial, expected);
         }
 
         @Test
         public void testLongToFloat() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 22L);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 22F);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22F, "F");
 
             VMTester.testMethodState(CLASS_NAME, "LongToFloat()V", initial, expected);
         }
 
         @Test
         public void testLongToInt() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 21L);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 21);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 21L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 21, "I");
 
             VMTester.testMethodState(CLASS_NAME, "LongToInt()V", initial, expected);
         }
 
         @Test
         public void testNegLong() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 0x100L);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, -0x100L);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -0x100L, "J");
 
             VMTester.testMethodState(CLASS_NAME, "NegLong()V", initial, expected);
         }
 
         @Test
         public void testNotLong() {
-            TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 100L);
-            TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, ~100L);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 100L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, ~100L, "J");
 
             VMTester.testMethodState(CLASS_NAME, "NotLong()V", initial, expected);
         }
-
     }
-
-    private static final String CLASS_NAME = "Lunary_math_test;";
 
 }
