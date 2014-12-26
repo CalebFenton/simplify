@@ -3,8 +3,6 @@ package org.cf.smalivm.context;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import org.apache.commons.lang3.ClassUtils;
-import org.cf.smalivm.type.TypeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,15 +38,15 @@ class BaseState {
         this.ectx = ectx;
     }
 
-    public void assignRegister(int register, Object value, String heapId) {
+    public void assignRegister(int register, HeapItem item, String heapId) {
         getRegistersAssigned().add(register);
 
-        pokeRegister(register, value, heapId);
+        pokeRegister(register, item, heapId);
     }
 
-    public void assignRegisterAndUpdateIdentities(int register, Object value, String heapId) {
+    public void assignRegisterAndUpdateIdentities(int register, HeapItem item, String heapId) {
         getRegistersAssigned().add(register);
-        ectx.getHeap().update(heapId, register, value);
+        ectx.getHeap().update(heapId, register, item);
     }
 
     public BaseState getParent() {
@@ -77,21 +75,14 @@ class BaseState {
         return ectx.getHeap().hasRegister(heapId, register);
     }
 
-    public Object peekRegister(int register, String heapId) {
+    public HeapItem peekRegister(int register, String heapId) {
         return ectx.getHeap().get(heapId, register);
     }
 
-    public String peekRegisterType(int register, String heapId) {
-        Object value = peekRegister(register, heapId);
-
-        return TypeUtil.getValueType(value);
-    }
-
-    public void pokeRegister(int register, Object value, String heapId) {
+    public void pokeRegister(int register, HeapItem item, String heapId) {
         if (log.isTraceEnabled()) {
             StringBuilder sb = new StringBuilder();
-            sb.append("Setting ").append(heapId).append(":").append(register).append(" = ")
-                            .append(registerValueToString(value));
+            sb.append("Setting ").append(heapId).append(':').append(register).append(" = ").append(item);
             // VERY noisy
             // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
             // for (int i = 2; i < ste.length; i++) {
@@ -100,10 +91,10 @@ class BaseState {
             log.trace(sb.toString());
         }
 
-        ectx.getHeap().set(heapId, register, value);
+        ectx.getHeap().set(heapId, register, item);
     }
 
-    public Object readRegister(int register, String heapId) {
+    public HeapItem readRegister(int register, String heapId) {
         getRegistersRead().add(register);
 
         return peekRegister(register, heapId);
@@ -118,27 +109,20 @@ class BaseState {
     }
 
     public boolean wasRegisterRead(int register, String heapId) {
-        Object value = peekRegister(register, heapId);
-        if ((value != null)
-                        && (ClassUtils.isPrimitiveOrWrapper(value.getClass()) || (value.getClass() == String.class))) {
-            /*
-             * This is a hack which suggests maintaining register types. Primitives are stored internally as their
-             * wrappers. They'll equals() even if they're different object instances and the check in the else below
-             * will cause any register containing a value which might also be contained in a primitive wrapper to appear
-             * to be referencing the same object, which throws off the optimizer.
-             */
-            return registersRead.contains(register);
-        } else {
-            /*
-             * It's not enough to examine registersRead for object references. v0 and v1 may contain the same object,
-             * and v0 is never read.
-             */
-            TIntSet registers = getRegistersRead();
-            for (int currentRegister : registers.toArray()) {
-                Object currentValue = peekRegister(currentRegister, heapId);
-                if (value == currentValue) {
-                    return true;
-                }
+        HeapItem item = peekRegister(register, heapId);
+        if (getRegistersRead().contains(register)) {
+            return true;
+        }
+
+        if (null == item) {
+            return false;
+        }
+
+        // Don't just examine registersRead, v0 and v1 may contain the same object reference, but v0 is never read.
+        for (int currentRegister : getRegistersRead().toArray()) {
+            HeapItem currentItem = peekRegister(currentRegister, heapId);
+            if (item.getValue() == currentItem.getValue()) {
+                return true;
             }
         }
 
@@ -146,21 +130,9 @@ class BaseState {
     }
 
     protected String registerToString(int register, String heapId) {
-        Object value = peekRegister(register, heapId);
+        HeapItem item = peekRegister(register, heapId);
 
-        return registerValueToString(value);
-    }
-
-    protected String registerValueToString(Object value) {
-        StringBuilder sb = new StringBuilder();
-        if (value == null) {
-            sb.append("type=null, value=null");
-        } else {
-            sb.append("type=").append(TypeUtil.getValueType(value)).append(", value=").append(value.toString())
-                            .append(", hc=").append(value.hashCode());
-        }
-
-        return sb.toString();
+        return item.toString();
     }
 
 }

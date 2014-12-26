@@ -2,9 +2,11 @@ package org.cf.smalivm;
 
 import gnu.trove.map.TIntObjectMap;
 
+import org.cf.smalivm.context.HeapItem;
 import org.junit.Test;
 
 public class TestMethodReflector {
+
     /*
      * A side-effect is any modification of state that persists outside the method, e.g. changing class static or
      * instance variables, file and network IO, etc. To determine with 100% accuracy is tricky, and a lot of work, so we
@@ -15,43 +17,41 @@ public class TestMethodReflector {
     private static final String CLASS_NAME = "Lmethod_reflector_test;";
 
     @Test
-    public void testCastsIntegerToCharacter() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(1, (int) 'a');
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Character('a'));
+    public void testInitCharacterWithChar() {
+        char value = 'a';
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(1, value, "C");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, Character.valueOf(value),
+                        "Ljava/lang/Character;");
 
         VMTester.testMethodState(CLASS_NAME, "InitCharacterWithChar()V", initial, expected);
     }
 
     @Test
-    public void testCastsIntegerToBooleanWithTrue() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(1, true);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Boolean(true));
+    public void testInitBooleanWithBoolean() {
+        boolean value = true;
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(1, value, "Z");
+        TIntObjectMap<HeapItem> expected = VMTester
+                        .buildRegisterState(0, Boolean.valueOf(value), "Ljava/lang/Boolean;");
 
         VMTester.testMethodState(CLASS_NAME, "InitBooleanWithBoolean()V", initial, expected);
     }
 
     @Test
-    public void testCastsIntegerToBooleanWithFalse() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(1, false);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new Boolean(false));
+    public void testShrotValueOfShort() {
+        short value = 5;
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, Short.valueOf(value), "Ljava/lang/Short;");
 
-        VMTester.testMethodState(CLASS_NAME, "InitBooleanWithBoolean()V", initial, expected);
-    }
-
-    @Test
-    public void testCastsIntegerToShort() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 5);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Short.valueOf((short) 5));
-
-        VMTester.testMethodState(CLASS_NAME, "GetShortWithShort()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "ShortValueOfShort()V", initial, expected);
     }
 
     @Test
     public void testCastsIntegerToByte() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, 6);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, Byte.valueOf((byte) 6));
+        byte value = 6;
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "B");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, Byte.valueOf(value), "Ljava/lang/Byte;");
 
-        VMTester.testMethodState(CLASS_NAME, "GetByteWithByte()V", initial, expected);
+        VMTester.testMethodState(CLASS_NAME, "ByteValueOfByte()V", initial, expected);
     }
 
 }

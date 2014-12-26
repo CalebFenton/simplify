@@ -8,10 +8,10 @@ import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -98,8 +98,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
             }
 
             int instanceRegister = instr.getRegisterC();
-            Object value = mbgraph.getRegisterConsensus(address, instanceRegister);
-            if (!(value instanceof String)) {
+            HeapItem item = mbgraph.getRegisterConsensus(address, instanceRegister);
+            if (!(item.getValue() instanceof String)) {
                 // Not UnknownValue
                 continue;
             }
@@ -119,9 +119,9 @@ public class PeepholeStrategy implements OptimizationStrategy {
             BuilderInstruction original = mbgraph.getInstruction(address);
             Instruction35c instr = (Instruction35c) original;
             int instanceRegister = instr.getRegisterC();
-            Object value = mbgraph.getRegisterConsensus(address, instanceRegister);
-            BuilderInstruction replacement = ConstantBuilder.buildConstant(value, instanceRegister,
-                            mbgraph.getDexBuilder());
+            HeapItem item = mbgraph.getRegisterConsensus(address, instanceRegister);
+            BuilderInstruction replacement = ConstantBuilder.buildConstant(item.getValue(), item.getUnboxedValueType(),
+                            instanceRegister, mbgraph.getDexBuilder());
             if (log.isDebugEnabled()) {
                 log.debug("Peeping string init @" + address + " " + mbgraph.getOp(address));
             }
@@ -145,10 +145,10 @@ public class PeepholeStrategy implements OptimizationStrategy {
         InvokeOp op = (InvokeOp) mbgraph.getOp(address);
         int[] parameterRegisters = op.getParameterRegisters();
         int register = parameterRegisters[0];
-        String javaClassName = (String) mbgraph.getRegisterConsensus(address, register);
+        String javaClassName = (String) mbgraph.getRegisterConsensusValue(address, register);
         String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
-        Object classValue = mbgraph.getRegisterConsensus(address, MethodState.ResultRegister);
-        if (classValue instanceof UnknownValue) {
+        HeapItem klazz = mbgraph.getRegisterConsensus(address, MethodState.ResultRegister);
+        if (klazz.isUnknown()) {
             log.warn("Optimizing Class.forName of potentially non-existant class: " + smaliClassName);
         }
         BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
@@ -172,8 +172,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int registerA = parameterRegisters[0];
-        Object classNameValue = mbgraph.getRegisterConsensus(address, registerA);
-        if (classNameValue instanceof UnknownValue) {
+        HeapItem className = mbgraph.getRegisterConsensus(address, registerA);
+        if (className.isUnknown()) {
             return false;
         }
 

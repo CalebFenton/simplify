@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.junit.Test;
@@ -13,16 +14,16 @@ public class TestAGetOp {
 
     @Test
     public void testArrayGet() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x42);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x42, "I");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
     public void testArrayGetWithIndexOutOfBoundsReturnsUnknownValue() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, 1);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 1, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
@@ -30,89 +31,91 @@ public class TestAGetOp {
     @Test
     public void testArrayGetWithShortIndex() {
         Short index = 0;
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, index);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(index.intValue(), 0x42);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, index, "S");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(index.intValue(), 0x42, "S");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
     public void testArrayGetBoolean() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new boolean[] { true }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, true);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new boolean[] { true }, "[Z", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, true, "Z");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetBoolean()V", initial, expected);
     }
 
     @Test
     public void testArrayGetByte() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new byte[] { 0xe }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (byte) 0xe);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new byte[] { 0xe }, "[B", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (byte) 0xe, "B");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetByte()V", initial, expected);
     }
 
     @Test
     public void testArrayGetChar() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new char[] { 'a' }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 'a');
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new char[] { 'a' }, "[C", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 'a', "C");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetChar()V", initial, expected);
     }
 
     @Test
     public void testArrayGetObject() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
-                        CLASS_NAME) }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME));
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
+                        CLASS_NAME) }, CLASS_NAME, 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new LocalInstance(CLASS_NAME), CLASS_NAME);
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetObject()V", initial, expected);
     }
 
     @Test
     public void testArrayGetShort() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new short[] { 0x42 }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (short) 0x42);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new short[] { 0x42 }, "[S", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (short) 0x42, "S");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetShort()V", initial, expected);
     }
 
     @Test
     public void testArrayGetUninitializedPrimitive() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[1], 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, (new int[1])[0]);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (new int[1])[0], "I");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetUninitializedInt()V", initial, expected);
     }
 
     @Test
     public void testArrayGetUnknownArray() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new UnknownValue("[I"), 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
     public void testArrayGetUnknownElement() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new Object[] { new UnknownValue("I"), 5 }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new Object[] { new UnknownValue(), 5 }, "[I",
+                        1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
     public void testArrayGetUnknownIndex() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, 1, new UnknownValue("I"));
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, new UnknownValue("I"));
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1,
+                        new UnknownValue(), "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGet()V", initial, expected);
     }
 
     @Test
     public void testArrayGetWide() {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(0, new long[] { 0x10000000000L }, 1, 0);
-        TIntObjectMap<Object> expected = VMTester.buildRegisterState(0, 0x10000000000L);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new long[] { 0x10000000000L }, "J", 1, 0, "I");
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000000000L, "J");
 
         VMTester.testMethodState(CLASS_NAME, "TestArrayGetWide()V", initial, expected);
     }

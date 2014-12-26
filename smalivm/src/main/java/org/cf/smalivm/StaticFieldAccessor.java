@@ -5,9 +5,8 @@ import java.lang.reflect.Field;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
-import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.util.SmaliClassUtils;
-import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +14,7 @@ public class StaticFieldAccessor {
 
     private static Logger log = LoggerFactory.getLogger(StaticFieldAccessor.class.getSimpleName());
 
-    public static Object getField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor) {
+    public static HeapItem getField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor) {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
@@ -23,19 +22,20 @@ public class StaticFieldAccessor {
         String fieldName = parts[0];
         String fieldType = parts[1];
 
-        Object result;
+        HeapItem fieldItem;
         if (vm.isLocalClass(className)) {
             ClassState cState = ectx.readClassState(className);
-            result = cState.peekField(fieldNameAndType);
+            fieldItem = cState.peekField(fieldNameAndType);
         } else if (MethodReflector.isSafe(className)) {
             // Use reflection
             try {
                 String javaClassName = SmaliClassUtils.smaliClassToJava(className);
                 Class<?> klazz = Class.forName(javaClassName);
                 Field field = FieldUtils.getField(klazz, fieldName);
-                result = field.get(null);
+                Object fieldValue = field.get(null);
+                fieldItem = new HeapItem(fieldValue, fieldType);
             } catch (ClassNotFoundException | IllegalArgumentException | IllegalAccessException e) {
-                result = new UnknownValue(fieldType);
+                fieldItem = HeapItem.newUnknown(fieldType);
                 if (log.isWarnEnabled()) {
                     log.warn("Couldn't access field: " + fieldDescriptor);
                 }
@@ -45,26 +45,22 @@ public class StaticFieldAccessor {
             }
         } else {
             // Access denied!
-            result = new UnknownValue(fieldType);
+            fieldItem = HeapItem.newUnknown(fieldType);
         }
 
-        return result;
+        return fieldItem;
     }
 
-    public static void putField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor, Object value) {
+    public static void putField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor, HeapItem putItem) {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
-        String type = fieldNameAndType.split(":")[1];
-        if (SmaliClassUtils.isPrimitiveType(type)) {
-            value = Utils.castToPrimitiveWrapper(value, type);
-        }
         if (vm.isLocalClass(className)) {
             ClassState cState = ectx.readClassState(className);
-            cState.assignField(fieldNameAndType, value);
+            cState.assignField(fieldNameAndType, putItem);
         } else {
             if (log.isWarnEnabled()) {
-                log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + value);
+                log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + putItem);
             }
         }
     }

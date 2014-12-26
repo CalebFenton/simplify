@@ -3,9 +3,9 @@ package org.cf.simplify;
 import static org.junit.Assert.assertEquals;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.type.LocalClass;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
-import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21ih;
@@ -25,7 +25,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
-import org.mockito.runners.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,53 +67,6 @@ public class TestConstantBuilder {
             assertEquals(expected.getReferenceType(), actual.getReferenceType());
             assertEquals(expected.getReference(), actual.getReference());
         }
-    }
-
-    @RunWith(MockitoJUnitRunner.class)
-    public static class buildConstantUnitTest {
-        ConstantBuilder underTest;
-
-        @Before
-        public void setUp() {
-            underTest = new ConstantBuilder();
-        }
-
-        @Test
-        public void testIntLowValueLowRegister() {
-            BuilderInstruction bi = underTest.buildConstant(1, 2);
-            assertEquals(BuilderInstruction11n.FORMAT, bi.getFormat());
-        }
-
-        @Test
-        public void testIntLowValueHighRegister() {
-            BuilderInstruction bi = underTest.buildConstant(1, 16);
-            assertEquals(BuilderInstruction21s.FORMAT, bi.getFormat());
-        }
-
-        @Test
-        public void testIntHighValueNormalRegister() {
-            BuilderInstruction bi = underTest.buildConstant(255555, 16);
-            assertEquals(BuilderInstruction31i.FORMAT, bi.getFormat());
-        }
-
-        @Test
-        public void testLongLowValueLowRegister() {
-            BuilderInstruction bi = underTest.buildConstant(1L, 2);
-            assertEquals(BuilderInstruction21s.FORMAT, bi.getFormat());
-        }
-
-        @Test
-        public void testLongLowValueHighRegister() {
-            BuilderInstruction bi = underTest.buildConstant(255555L, 16);
-            assertEquals(BuilderInstruction31i.FORMAT, bi.getFormat());
-        }
-
-        @Test
-        public void testLongHighValueNormalRegister() {
-            BuilderInstruction bi = underTest.buildConstant(2555555555L, 32);
-            assertEquals(BuilderInstruction51l.FORMAT, bi.getFormat());
-        }
-
     }
 
     public static class TestBuildBoolean {
@@ -292,7 +244,7 @@ public class TestConstantBuilder {
             String value = "Ever sift sand through a screen?";
             StringReference stringRef = dexBuilder.internStringReference(value);
             Instruction expected = new BuilderInstruction21c(Opcode.CONST_STRING, REGISTER, stringRef);
-            Instruction actual = ConstantBuilder.buildConstant(value, REGISTER, dexBuilder);
+            Instruction actual = ConstantBuilder.buildConstant(value, "Ljava/lang/String;", REGISTER, dexBuilder);
 
             testEquals(expected, actual);
         }
@@ -303,7 +255,18 @@ public class TestConstantBuilder {
             String className = SmaliClassUtils.javaClassToSmali(value);
             TypeReference typeRef = dexBuilder.internTypeReference(className);
             Instruction expected = new BuilderInstruction21c(Opcode.CONST_CLASS, REGISTER, typeRef);
-            Instruction actual = ConstantBuilder.buildConstant(value, REGISTER, dexBuilder);
+            Instruction actual = ConstantBuilder.buildConstant(value, "Ljava/lang/Class;", REGISTER, dexBuilder);
+
+            testEquals(expected, actual);
+        }
+
+        @Test
+        public void testWithLocalClass() {
+            String className = "Lconstant_propigation_strategy_test;";
+            LocalClass value = new LocalClass(className);
+            TypeReference typeRef = dexBuilder.internTypeReference(className);
+            Instruction expected = new BuilderInstruction21c(Opcode.CONST_CLASS, REGISTER, typeRef);
+            Instruction actual = ConstantBuilder.buildConstant(value, "Ljava/lang/Class;", REGISTER, dexBuilder);
 
             testEquals(expected, actual);
         }

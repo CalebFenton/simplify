@@ -161,9 +161,9 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         // As long as Method;->invoke is not emulated (it will never be white-listed!) current address will have all
         // unknown values. Get details from parents.
         TIntList parentAddresses = mbgraph.getParentAddresses(address);
-        Object methodValue = mbgraph.getRegisterConsensus(parentAddresses, methodRegister);
-        // Object targetValue = mbgraph.getRegisterConsensus(parentAddresses, targetRegister);
-        Object parametersValue = mbgraph.getRegisterConsensus(parentAddresses, parametersRegister);
+        Object methodValue = mbgraph.getRegisterConsensusValue(parentAddresses, methodRegister);
+        // Object targetValue = mbgraph.getRegisterConsensusValue(parentAddresses, targetRegister);
+        Object parametersValue = mbgraph.getRegisterConsensusValue(parentAddresses, parametersRegister);
         assert (methodValue instanceof LocalMethod) || (methodValue instanceof Method);
         // assert !(targetValue instanceof UnknownValue);
         assert !(parametersValue instanceof UnknownValue);
@@ -316,20 +316,20 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
         TIntList parentAddresses = mbgraph.getParentAddresses(address);
-        Object methodValue = mbgraph.getRegisterConsensus(parentAddresses, methodRegister);
+        Object methodValue = mbgraph.getRegisterConsensusValue(parentAddresses, methodRegister);
         if (methodValue instanceof UnknownValue) {
             return false;
         }
 
         // Invoke can (probably) always be reconstructed without knowing the target.
         // int targetRegister = parameterRegisters[1];
-        // Object targetValue = mbgraph.getRegisterConsensus(parentAddresses, targetRegister);
+        // Object targetValue = mbgraph.getRegisterConsensusValue(parentAddresses, targetRegister);
         // if (targetValue instanceof UnknownValue) {
         // return false;
         // }
 
         int parametersRegister = parameterRegisters[2];
-        Object parametersValue = mbgraph.getRegisterConsensus(parentAddresses, parametersRegister);
+        Object parametersValue = mbgraph.getRegisterConsensusValue(parentAddresses, parametersRegister);
         if (parametersValue instanceof UnknownValue) {
             return false;
         }

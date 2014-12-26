@@ -6,9 +6,8 @@ import java.util.Map;
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.Dependancy;
 import org.cf.simplify.MethodBackedGraph;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.type.TypeUtil;
-import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.slf4j.Logger;
@@ -16,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class ConstantPropigationStrategy implements OptimizationStrategy {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategy.class.getSimpleName());
 
     private final MethodBackedGraph mbgraph;
@@ -47,7 +47,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             if (canConstantizeAddress(address)) {
                 madeChanges = true;
 
-                BuilderInstruction constInstruction = constantBuilder.buildConstant(address, mbgraph);
+                BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, mbgraph);
                 if (original.getOpcode().name().startsWith("RETURN")) {
                     mbgraph.insertInstruction(address, constInstruction);
                 } else {
@@ -72,13 +72,13 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
         OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
         int register = instruction.getRegisterA();
-        Object consensus = mbgraph.getRegisterConsensus(address, register);
+        HeapItem consensus = mbgraph.getRegisterConsensus(address, register);
         // Consensus may be null if we have correct syntax without legitimate values (fake code)
-        if ((consensus instanceof UnknownValue) || (consensus == null)) {
+        if ((consensus == null) || consensus.isUnknown()) {
             return false;
         }
 
-        String unboxedValueType = TypeUtil.getUnboxedType(consensus);
+        String unboxedValueType = consensus.getUnboxedValueType();
         if (!constantBuilder.canConstantizeType(unboxedValueType)) {
             return false;
         }

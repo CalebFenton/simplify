@@ -2,10 +2,9 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
-import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.slf4j.Logger;
@@ -13,13 +12,12 @@ import org.slf4j.LoggerFactory;
 
 public class AGetOp extends MethodStateOp {
 
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(AGetOp.class.getSimpleName());
 
-    private static String getUnknownArrayInnerType(UnknownValue array) {
-        String outerType = array.getName();
+    private static String getUnknownArrayInnerType(HeapItem array) {
+        String outerType = array.getType();
         String result = null;
-        if (outerType.equals("?")) {
+        if ("?".equals(outerType)) {
             result = "?";
         } else {
             result = outerType.replaceFirst("\\[", "");
@@ -54,32 +52,34 @@ public class AGetOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object array = mState.readRegister(arrayRegister);
-        Object indexValue = mState.readRegister(indexRegister);
+        HeapItem arrayItem = mState.readRegister(arrayRegister);
+        HeapItem indexItem = mState.readRegister(indexRegister);
 
-        Object value = null;
-        if (array instanceof UnknownValue) {
-            String innerType = getUnknownArrayInnerType((UnknownValue) array);
-            value = new UnknownValue(innerType);
+        HeapItem getItem;
+        if (arrayItem.isUnknown()) {
+            String innerType = getUnknownArrayInnerType(arrayItem);
+            getItem = new HeapItem(new UnknownValue(), innerType);
         } else {
-            if (indexValue instanceof UnknownValue) {
-                String innerType = array.getClass().getName().replaceFirst("\\[", "");
-                value = new UnknownValue(innerType);
+            Object array = arrayItem.getValue();
+            if (indexItem.isUnknown()) {
+                String innerType = arrayItem.getType().replaceFirst("\\[", "");
+                getItem = HeapItem.newUnknown(innerType);
             } else {
-                int index = Utils.getIntegerValue(indexValue);
-                String innerType = SmaliClassUtils.javaClassToSmali(array.getClass().getComponentType());
+                int index = indexItem.getIntegerValue();
+                String innerType = arrayItem.getType().replaceFirst("\\[", "");
                 if (index >= Array.getLength(array)) {
-                    value = new UnknownValue(innerType);
+                    getItem = HeapItem.newUnknown(innerType);
+                    // TODO: throw an exception and return nothing
                     if (log.isWarnEnabled()) {
                         log.warn("Array index out of bounds @" + getAddress() + " for " + toString());
                     }
                 } else {
-                    value = Array.get(array, index);
+                    Object value = Array.get(array, index);
+                    getItem = new HeapItem(value, innerType);
                 }
             }
         }
-
-        mState.assignRegister(valueRegister, value);
+        mState.assignRegister(valueRegister, getItem);
 
         return getPossibleChildren();
     }

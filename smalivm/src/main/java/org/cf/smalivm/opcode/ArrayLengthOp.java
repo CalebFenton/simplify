@@ -1,17 +1,17 @@
 package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ArrayLengthOp extends MethodStateOp {
 
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ArrayLengthOp.class.getSimpleName());
 
     static ArrayLengthOp create(Instruction instruction, int address) {
@@ -37,20 +37,23 @@ public class ArrayLengthOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object array = mState.readRegister(arrayRegister);
-        Object value = null;
-        if (array instanceof UnknownValue) {
-            value = new UnknownValue("I");
-        } else if (array.getClass().isArray()) {
-            value = Array.getLength(array);
+        HeapItem arrayItem = mState.readRegister(arrayRegister);
+        Object array = arrayItem.getValue();
+        Object lengthValue = null;
+        if (arrayItem.isUnknown()) {
+            lengthValue = new UnknownValue();
+        } else if ((array != null) && array.getClass().isArray()) {
+            lengthValue = Array.getLength(array);
         } else {
-            if (array == null) {
-                log.warn("Unexpected null array for array-length");
-            } else {
-                log.warn("Unexpected non-array class: " + array.getClass() + ", " + array);
+            if (log.isWarnEnabled()) {
+                if (array == null) {
+                    log.warn("Unexpected null array for array-length");
+                } else {
+                    log.warn("Unexpected non-array class: " + array.getClass() + ", " + array);
+                }
             }
         }
-        mState.assignRegister(destRegister, value);
+        mState.assignRegister(destRegister, lengthValue, "I");
 
         return getPossibleChildren();
     }

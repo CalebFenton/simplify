@@ -6,6 +6,7 @@ import gnu.trove.map.TIntObjectMap;
 import org.cf.simplify.MethodBackedGraph;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -29,7 +30,7 @@ public class TestPeepholeStrategy {
     private static final Logger log = LoggerFactory.getLogger(TestPeepholeStrategy.class.getSimpleName());
 
     private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
-        TIntObjectMap<Object> initial = VMTester.buildRegisterState(args);
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
         PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
         strategy.perform();
@@ -41,8 +42,8 @@ public class TestPeepholeStrategy {
         private static final int ADDRESS = 0;
         private static final String METHOD_NAME = "ClassForName()V";
 
-        private void testForExpectedInstruction(Object register0, String expectedClassName) {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, register0);
+        private void testForExpectedInstruction(String register0, String expectedClassName) {
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, register0, "Ljava/lang/String;");
 
             BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
             assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
@@ -69,7 +70,7 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testInvokeClassForNameForUnknownValueIsNotReplaced() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue("Ljava/lang/String;"));
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue(), "Ljava/lang/String;");
             Instruction35c instruction = (Instruction35c) mbgraph.getInstruction(ADDRESS);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
 
@@ -84,7 +85,7 @@ public class TestPeepholeStrategy {
 
         private void testForExpectedInstruction(Object register1, String expectedConstant) {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
-                            "Ljava/lang/String;"), 1, register1);
+                            "Ljava/lang/String;"), "Ljava/lang/String;", 1, register1, "[B");
 
             BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
             assertEquals(Opcode.CONST_STRING, instruction.getOpcode());
@@ -101,7 +102,7 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testStringInitWithUnknownValueIsNotReplaced() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue("[B"));
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue(), "[B");
             Instruction35c instruction = (Instruction35c) mbgraph.getInstruction(ADDRESS);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
 

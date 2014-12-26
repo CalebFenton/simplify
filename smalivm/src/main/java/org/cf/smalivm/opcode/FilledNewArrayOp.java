@@ -1,9 +1,8 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
@@ -52,22 +51,19 @@ public class FilledNewArrayOp extends MethodStateOp {
         }
 
         String baseClassName = typeReference.replace("[", "");
-        boolean isLocalClass = vm.isLocalClass(baseClassName);
 
-        return new FilledNewArrayOp(address, opName, childAddress, dimensionRegisters, typeReference, isLocalClass);
+        return new FilledNewArrayOp(address, opName, childAddress, dimensionRegisters, typeReference);
     }
 
     private final int dimensionRegisters[];
-    private final boolean isLocalClass;
     private final String typeReference;
 
     private FilledNewArrayOp(int address, String opName, int childAddress, int[] dimensionRegisters,
-                    String typeReference, boolean isLocalClass) {
+                    String typeReference) {
         super(address, opName, childAddress);
 
         this.dimensionRegisters = dimensionRegisters;
         this.typeReference = typeReference;
-        this.isLocalClass = isLocalClass;
     }
 
     @Override
@@ -80,21 +76,25 @@ public class FilledNewArrayOp extends MethodStateOp {
         int[] dimensions = new int[dimensionRegisters.length];
         for (int i = 0; i < dimensionRegisters.length; i++) {
             int register = dimensionRegisters[i];
-            Object value = mState.readRegister(register);
-            if (!(value instanceof Number)) {
-                mState.assignResultRegister(new UnknownValue("[I"));
-                if (!(value instanceof UnknownValue)) {
+            HeapItem item = mState.readRegister(register);
+            if (item.getValue() instanceof Number) {
+                dimensions[i] = item.getIntegerValue();
+            } else {
+                if (!(item.isUnknown())) {
                     if (log.isWarnEnabled()) {
-                        log.warn("Unexpected value type for " + toString() + ": " + value.getClass());
+                        log.warn("Unexpected value type for " + toString() + ": " + item);
                     }
                 }
+
+                // At least one value is unknown. Give up.
+                mState.assignResultRegister(HeapItem.newUnknown("[I"));
+
                 return getPossibleChildren();
-            } else {
-                dimensions[i] = Utils.getIntegerValue(value);
             }
         }
 
-        mState.assignResultRegister(dimensions);
+        HeapItem arrayItem = new HeapItem(dimensions, "[I");
+        mState.assignResultRegister(arrayItem);
 
         return getPossibleChildren();
     }

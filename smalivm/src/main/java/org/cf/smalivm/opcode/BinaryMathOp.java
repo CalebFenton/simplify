@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
@@ -14,10 +15,20 @@ import org.slf4j.LoggerFactory;
 public class BinaryMathOp extends MethodStateOp {
 
     private static enum MathOperandType {
-        DOUBLE,
-        FLOAT,
-        INT,
-        LONG,
+        DOUBLE("D"),
+        FLOAT("F"),
+        INT("I"),
+        LONG("J"), ;
+
+        private final String type;
+
+        MathOperandType(String type) {
+            this.type = type;
+        }
+
+        public String getType() {
+            return type;
+        }
     }
 
     private static enum MathOperator {
@@ -280,24 +291,29 @@ public class BinaryMathOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object lhs = mState.readRegister(arg1Register);
-        Object rhs = null;
+        HeapItem lhsItem = mState.readRegister(arg1Register);
+        HeapItem rhsItem = null;
         if (hasLiteral) {
-            rhs = narrowLiteral;
+            rhsItem = new HeapItem(narrowLiteral, "I");
         } else {
-            rhs = mState.readRegister(arg2Register);
+            rhsItem = mState.readRegister(arg2Register);
         }
 
-        Object result;
-        if ((lhs instanceof UnknownValue) || (rhs instanceof UnknownValue)) {
-            result = new UnknownValue("I");
-        } else {
-            result = getResult(lhs, rhs);
-            if (result == null) {
-                log.warn("Null result in binary math. Not possibruuu!");
+        Object resultValue = null;
+        if (!(lhsItem.isUnknown()) && !(rhsItem.isUnknown())) {
+            resultValue = getResult(lhsItem.getValue(), rhsItem.getValue());
+            if (null == resultValue) {
+                if (log.isWarnEnabled()) {
+                    log.warn("Null result in binary math. Not possibruuu!");
+                }
             }
         }
-        mState.assignRegister(destRegister, result);
+
+        if (null == resultValue) {
+            resultValue = new UnknownValue();
+        }
+
+        mState.assignRegister(destRegister, resultValue, mathOperandType.getType());
 
         return getPossibleChildren();
     }
@@ -305,7 +321,7 @@ public class BinaryMathOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", ").append("r").append(arg1Register);
+        sb.append(" r").append(destRegister).append(", r").append(arg1Register);
         if (hasLiteral) {
             sb.append(", 0x").append(Integer.toHexString(narrowLiteral));
         } else if (!getName().endsWith("/2addr")) {

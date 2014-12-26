@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction11x;
@@ -14,11 +15,8 @@ public class ReturnOp extends MethodStateOp {
     static ReturnOp create(Instruction instruction, int address) {
         String opName = instruction.getOpcode().name;
 
-        int register = Integer.MIN_VALUE;
-        if (!opName.endsWith("-void")) {
-            Instruction11x instr = (Instruction11x) instruction;
-            register = instr.getRegisterA();
-        }
+        Instruction11x instr = (Instruction11x) instruction;
+        int register = instr.getRegisterA();
 
         return new ReturnOp(address, opName, register);
     }
@@ -33,10 +31,8 @@ public class ReturnOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        if (!getName().endsWith("-void")) {
-            Object value = mState.readRegister(register);
-            mState.assignReturnRegister(value);
-        }
+        HeapItem item = mState.readRegister(register);
+        mState.assignReturnRegister(item);
 
         return getPossibleChildren();
     }
@@ -44,9 +40,7 @@ public class ReturnOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        if (register != Integer.MIN_VALUE) {
-            sb.append(" r").append(register);
-        }
+        sb.append(" r").append(register);
 
         return sb.toString();
     }

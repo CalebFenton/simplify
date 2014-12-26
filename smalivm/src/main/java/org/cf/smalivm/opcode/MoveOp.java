@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
@@ -16,18 +16,17 @@ public class MoveOp extends MethodStateOp {
 
     private static void moveException(MethodState mState, int toRegister) {
         String type = "Ljava/lang/Exception;";
-        Object value = new UnknownValue(type);
-        mState.assignRegister(toRegister, value);
+        mState.assignRegister(toRegister, HeapItem.newUnknown(type));
     }
 
     private static void moveRegister(MethodState mState, int toRegister, int fromRegister) {
-        Object value = mState.readRegister(fromRegister);
-        mState.assignRegister(toRegister, value);
+        HeapItem item = mState.readRegister(fromRegister);
+        mState.assignRegister(toRegister, item);
     }
 
     private static void moveResult(MethodState mState, int toRegister) {
-        Object value = mState.readResultRegister();
-        mState.assignRegister(toRegister, value);
+        HeapItem item = mState.readResultRegister();
+        mState.assignRegister(toRegister, item);
     }
 
     static MoveOp create(Instruction instruction, int address) {
@@ -84,7 +83,7 @@ public class MoveOp extends MethodStateOp {
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
         sb.append(" r").append(toRegister);
-        if (moveType == MoveType.REGISTER) {
+        if (MoveType.REGISTER == moveType) {
             sb.append(", r").append(targetRegister);
         }
 

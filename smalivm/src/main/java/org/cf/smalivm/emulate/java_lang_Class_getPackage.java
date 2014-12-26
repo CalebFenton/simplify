@@ -12,25 +12,28 @@ import org.slf4j.LoggerFactory;
 
 public class java_lang_Class_getPackage implements EmulatedMethod {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_getPackage.class.getSimpleName());
 
+    private static final String RETURN_TYPE = "Ljava/lang/Package;";
+
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
-        Object classValue = mState.peekParameter(0);
+        Object classValue = mState.peekParameter(0).getValue();
         Object packageValue;
         if (classValue instanceof LocalClass) {
             String smaliType = ((LocalClass) classValue).getName();
             String packageName = SmaliClassUtils.getPackageName(smaliType);
-            EmulatedType emulatedPackage = new EmulatedType("Ljava/lang/Package;");
+            EmulatedType emulatedPackage = new EmulatedType(RETURN_TYPE);
             emulatedPackage.setExtra(packageName);
             packageValue = emulatedPackage;
         } else if (classValue instanceof Class) {
             packageValue = ((Class<?>) classValue).getPackage();
         } else {
             assert classValue instanceof UnknownValue;
-            packageValue = new UnknownValue("Ljava/lang/Package;");
+            packageValue = new UnknownValue();
         }
 
-        mState.assignReturnRegister(packageValue);
+        mState.assignReturnRegister(packageValue, RETURN_TYPE);
     }
 
     public SideEffect.Level getSideEffectLevel() {

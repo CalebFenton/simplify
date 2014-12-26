@@ -10,13 +10,12 @@ import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.type.LocalInstance;
-import org.cf.smalivm.type.TypeUtil;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
@@ -31,26 +30,27 @@ public class VirtualMachine {
         return methodDescriptor.split("->", 2)[0];
     }
 
-    private static Object getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph, int parameterRegister) {
+    private static HeapItem getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph,
+                    int parameterRegister) {
         ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
-        Object value = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
+        HeapItem item = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
         int[] addresses = addressList.toArray();
         for (int address : addresses) {
             List<ExecutionNode> nodes = graph.getNodePile(address);
             for (ExecutionNode node : nodes) {
-                Object otherValue = node.getContext().getMethodState().peekParameter(parameterRegister);
-                if (value != otherValue) {
+                HeapItem otherItem = node.getContext().getMethodState().peekParameter(parameterRegister);
+                if (item.getValue() != otherItem.getValue()) {
                     if (log.isTraceEnabled()) {
                         log.trace("No conensus value for r" + parameterRegister + ". Returning unknown.");
                     }
 
-                    return new UnknownValue(TypeUtil.getValueType(value));
+                    return HeapItem.newUnknown(item.getType());
                 }
             }
 
         }
 
-        return value;
+        return item;
     }
 
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
@@ -180,13 +180,13 @@ public class VirtualMachine {
         int firstParameter = mState.getParameterStart();
         int parameterRegister = firstParameter;
         for (String type : parameterTypes) {
-            Object value;
+            HeapItem item;
             if (!isStatic && (parameterRegister == firstParameter)) {
-                value = new LocalInstance(type);
+                item = new HeapItem(new LocalInstance(type), type);
             } else {
-                value = new UnknownValue(type);
+                item = HeapItem.newUnknown(type);
             }
-            mState.assignParameter(parameterRegister, value);
+            mState.assignParameter(parameterRegister, item);
             parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
         rootContext.setMethodState(mState);
@@ -211,7 +211,7 @@ public class VirtualMachine {
         ectx.setClassState(className, cState, SideEffect.Level.NONE);
         for (String fieldNameAndType : fieldNameAndTypes) {
             String type = fieldNameAndType.split(":")[1];
-            cState.pokeField(fieldNameAndType, new UnknownValue(type));
+            cState.pokeField(fieldNameAndType, HeapItem.newUnknown(type));
         }
     }
 
@@ -231,9 +231,9 @@ public class VirtualMachine {
                     continue;
                 }
 
-                Object value = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
+                HeapItem item = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
                 int register = parameterRegisters[parameterIndex];
-                mState.assignRegister(register, value);
+                mState.assignRegister(register, item);
 
                 parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
             }
@@ -256,8 +256,8 @@ public class VirtualMachine {
             }
 
             for (String fieldNameAndType : fieldNameAndTypes) {
-                Object value = graph.getFieldConsensus(terminatingAddresses, currentClassName, fieldNameAndType);
-                currentClassState.pokeField(fieldNameAndType, value);
+                HeapItem item = graph.getFieldConsensus(terminatingAddresses, currentClassName, fieldNameAndType);
+                currentClassState.pokeField(fieldNameAndType, item);
             }
         }
     }
@@ -271,8 +271,8 @@ public class VirtualMachine {
             ClassState fromClassState = parent.peekClassState(className);
             ClassState toClassState = new ClassState(fromClassState, child);
             for (String fieldNameAndType : classManager.getFieldNameAndTypes(className)) {
-                Object value = fromClassState.peekField(fieldNameAndType);
-                toClassState.pokeField(fieldNameAndType, value);
+                HeapItem item = fromClassState.peekField(fieldNameAndType);
+                toClassState.pokeField(fieldNameAndType, item);
             }
             SideEffect.Level level = parent.getClassStateSideEffectLevel(className);
             child.initializeClass(className, toClassState, level);

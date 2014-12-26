@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.opcode.AGetOp;
 import org.cf.smalivm.opcode.BinaryMathOp;
 import org.cf.smalivm.opcode.MoveOp;
@@ -11,7 +12,7 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.smalivm.opcode.SGetOp;
 import org.cf.smalivm.opcode.UnaryMathOp;
-import org.cf.smalivm.type.TypeUtil;
+import org.cf.smalivm.type.LocalClass;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -26,8 +27,13 @@ import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.writer.builder.BuilderStringReference;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConstantBuilder implements Dependancy {
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(ConstantBuilder.class.getSimpleName());
 
     private static final String LAST_16_BITS_ZERO = "0000000000000000";
     private static final String LAST_48_BITS_ZERO = "000000000000000000000000000000000000000000000000";
@@ -123,8 +129,7 @@ public class ConstantBuilder implements Dependancy {
         return result;
     }
 
-    public static BuilderInstruction buildConstant(Object value, int register, DexBuilder dexBuilder) {
-        String type = TypeUtil.getUnboxedType(value);
+    public static BuilderInstruction buildConstant(Object value, String type, int register, DexBuilder dexBuilder) {
         BuilderInstruction result = null;
         if (type.equals("I")) {
             result = buildConstant((Integer) value, register);
@@ -146,10 +151,19 @@ public class ConstantBuilder implements Dependancy {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_STRING, register, stringRef);
         } else if (type.equals("Ljava/lang/Class;")) {
-            Class<?> klazz = (Class<?>) value;
-            String className = SmaliClassUtils.javaClassToSmali(klazz);
+            String className;
+            if (value instanceof LocalClass) {
+                className = ((LocalClass) value).getName();
+            } else {
+                Class<?> klazz = (Class<?>) value;
+                className = SmaliClassUtils.javaClassToSmali(klazz);
+            }
             BuilderTypeReference typeRef = dexBuilder.internTypeReference(className);
             result = new BuilderInstruction21c(Opcode.CONST_CLASS, register, typeRef);
+        } else {
+            if (log.isWarnEnabled()) {
+                log.warn("Unrecognized constant type: " + type + " for value: " + value + ". This will cause failures.");
+            }
         }
 
         return result;
@@ -159,8 +173,8 @@ public class ConstantBuilder implements Dependancy {
         DexBuilder dexBuilder = mbgraph.getDexBuilder();
         OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
         int register = instruction.getRegisterA();
-        Object value = mbgraph.getRegisterConsensus(address, register);
-        BuilderInstruction result = buildConstant(value, register, dexBuilder);
+        HeapItem item = mbgraph.getRegisterConsensus(address, register);
+        BuilderInstruction result = buildConstant(item.getValue(), item.getUnboxedValueType(), register, dexBuilder);
 
         return result;
     }

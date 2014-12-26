@@ -4,6 +4,7 @@ import org.cf.util.SmaliClassUtils;
 
 public class TypeUtil {
 
+    @Deprecated
     public static String getValueType(Object value) {
         String javaTypeName;
         if (value == null) {
@@ -18,10 +19,12 @@ public class TypeUtil {
         return smaliTypeName;
     }
 
+    @Deprecated
     public static String getUnboxedType(Object value) {
         return getUnboxedType(getValueType(value));
     }
 
+    @Deprecated
     public static String getUnboxedType(String type) {
         String unboxedType = SmaliClassUtils.smaliWrapperToSmaliPrimitive(type);
         if (null == unboxedType) {

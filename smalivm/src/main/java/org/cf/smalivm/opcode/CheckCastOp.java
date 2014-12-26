@@ -1,10 +1,9 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.smalivm.type.LocalType;
-import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
@@ -41,13 +40,8 @@ public class CheckCastOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        Object value = mState.readRegister(targetRegister);
-        String type;
-        if (value instanceof LocalType) {
-            type = ((LocalType) value).getName();
-        } else {
-            type = SmaliClassUtils.javaClassToSmali(value.getClass());
-        }
+        HeapItem item = mState.readRegister(targetRegister);
+        String type = item.getType();
 
         try {
             if (!vm.getClassManager().isInstance(type, className)) {
@@ -55,8 +49,9 @@ public class CheckCastOp extends MethodStateOp {
                 // throw new ClassCastException("Class - " + className);
             }
         } catch (UnknownAncestors e) {
-            log.warn("Unable to determine ancestory for class", e);
-            // Could be framework class that's just not part of the VM (yet)
+            if (log.isWarnEnabled()) {
+                log.warn("Unable to determine ancestory for class " + className, e);
+            }
         }
 
         return getPossibleChildren();

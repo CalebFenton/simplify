@@ -13,18 +13,18 @@ public class TestSmaliClassUtils {
 
     private static final String SMALI_CLASS = "Lsome/package/Class;";
     private static final String PACKAGE_NAME = "some.package";
-    private static final Map<String, String> smaliClassToJavaClass;
+    private static final Map<String, String> smaliClassToJavaClassName;
     private static final Map<String, Boolean> stringToIsPrimitive;
     private static final Map<String, Class<?>> primitiveTypeToWrapperClass;
 
     static {
-        smaliClassToJavaClass = new HashMap<String, String>();
-        smaliClassToJavaClass.put("Lthis/is/Test;", "this.is.Test");
-        smaliClassToJavaClass.put("[Lthis/is/Test;", "[Lthis.is.Test;");
-        smaliClassToJavaClass.put("I", "int");
-        smaliClassToJavaClass.put("B", "byte");
-        smaliClassToJavaClass.put("[I", "[I");
-        smaliClassToJavaClass.put("[[Z", "[[Z");
+        smaliClassToJavaClassName = new HashMap<String, String>();
+        smaliClassToJavaClassName.put("Lthis/is/Test;", "this.is.Test");
+        smaliClassToJavaClassName.put("[Lthis/is/Test;", "[Lthis.is.Test;");
+        smaliClassToJavaClassName.put("I", "int");
+        smaliClassToJavaClassName.put("B", "byte");
+        smaliClassToJavaClassName.put("[I", "[I");
+        smaliClassToJavaClassName.put("[[Z", "[[Z");
 
         stringToIsPrimitive = new HashMap<String, Boolean>();
         stringToIsPrimitive.put("Lsome/class;", false);
@@ -73,7 +73,7 @@ public class TestSmaliClassUtils {
 
     @Test
     public void testJavaClassToSmali() {
-        for (Entry<String, String> entry : smaliClassToJavaClass.entrySet()) {
+        for (Entry<String, String> entry : smaliClassToJavaClassName.entrySet()) {
             String javaClass = entry.getValue();
             String expected = entry.getKey();
             String actual = SmaliClassUtils.javaClassToSmali(javaClass);
@@ -84,7 +84,7 @@ public class TestSmaliClassUtils {
 
     @Test
     public void testSmaliClassToJava() {
-        for (Entry<String, String> entry : smaliClassToJavaClass.entrySet()) {
+        for (Entry<String, String> entry : smaliClassToJavaClassName.entrySet()) {
             String smaliClass = entry.getKey();
             String expected = entry.getValue();
             String actual = SmaliClassUtils.smaliClassToJava(smaliClass);

@@ -2,8 +2,8 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.reference.FieldReference;
@@ -50,7 +50,7 @@ public class IGetOp extends ExecutionContextOp {
         MethodState mState = ectx.getMethodState();
         mState.readRegister(instanceRegister);
         String type = fieldDescriptor.split(":")[1];
-        mState.assignRegister(destRegister, new UnknownValue(type));
+        mState.assignRegister(destRegister, HeapItem.newUnknown(type));
 
         return getPossibleChildren();
     }
