@@ -1,9 +1,11 @@
 buildscript {
     repositories {
+    	mavenCentral()
         jcenter()
     }
 
     dependencies {
+        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.0.1'
         classpath 'com.github.jengelman.gradle.plugins:shadow:1.0.3'
     }
 }
@@ -15,6 +17,7 @@ allprojects {
     }
 
     apply plugin: 'jacoco'
+    apply plugin: 'com.github.kt3k.coveralls'
     apply plugin: 'idea'
 }
 
@@ -24,6 +27,18 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'eclipse'
     apply plugin: 'com.github.johnrengelman.shadow'
+
+    jacocoTestReport {
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = false
+        }
+    }
+}
+
+coveralls {
+    sourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs).files.absolutePath
 }
 
 // Thanks https://csiebler.github.io/blog/2014/02/09/multi-project-code-coverage-using-gradle-and-jacoco/
@@ -38,10 +53,11 @@ task codeCoverageReport(type: JacocoReport) {
     }
 
     reports {
-        xml.enabled true
-        html.enabled true
-        html.destination "${buildDir}/reports/jacoco"
-        csv.enabled false
+        xml.enabled = true
+        xml.destination = "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
+        html.enabled = true
+        html.destination = "${buildDir}/reports/jacoco"
+        csv.enabled = false
     }
 }
 
