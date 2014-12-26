@@ -6,29 +6,25 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.cf.smalivm.opcode.SGetOp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ImmutableUtils {
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(SGetOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ImmutableUtils.class.getSimpleName());
 
-    private static Set<String> immutableClasses;
+    private static final Set<String> immutableClasses = getImmutableClasses();
 
-    static {
-        loadImmutableClasses();
-    }
-
-    private static void loadImmutableClasses() {
+    private static Set<String> getImmutableClasses() {
         List<String> lines = new ArrayList<String>();
         try {
             lines = ConfigLoader.loadConfig("immutable_classes.cfg");
         } catch (IOException e) {
             log.warn("Error loading immutable classes.", e);
         }
-        immutableClasses = new HashSet<String>(lines);
+
+        return new HashSet<String>(lines);
     }
 
     public static boolean isImmutableClass(String smaliClassName) {

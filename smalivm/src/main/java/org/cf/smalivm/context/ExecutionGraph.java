@@ -17,7 +17,6 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpFactory;
-import org.cf.smalivm.type.TypeUtil;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -123,34 +122,38 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    public Object getFieldConsensus(TIntList addressList, String fieldDescriptor) {
+    public HeapValue getFieldConsensus(TIntList addressList, String fieldDescriptor) {
         String[] parts = fieldDescriptor.split("->");
+        String className = parts[0];
+        String fieldNameAndType = parts[1];
 
-        return getFieldConsensus(addressList, parts[0], parts[1]);
+        return getFieldConsensus(addressList, className, fieldNameAndType);
     }
 
-    public Object getFieldConsensus(TIntList addressList, String className, String fieldNameAndType) {
-        Object value = null;
+    public HeapValue getFieldConsensus(TIntList addressList, String className, String fieldNameAndType) {
         String[] parts = fieldNameAndType.split(":");
         String type = parts[1];
-
+        Set<HeapValue> values = new HashSet<HeapValue>();
         for (int address : addressList.toArray()) {
             // If the class wasn't initialized in one path, it's unknown
             for (ExecutionNode node : getNodePile(address)) {
                 if (!node.getContext().isClassInitialized(className)) {
-                    return new UnknownValue(type);
+                    return new HeapValue(new UnknownValue(), type);
                 }
             }
 
-            Set<Object> values = getFieldValues(address, className, fieldNameAndType);
-            value = values.toArray()[0]; // since set, size == 1 -> consensus
+            values.addAll(getFieldValues(address, className, fieldNameAndType));
             if (1 != values.size()) {
-                log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
-                return new UnknownValue(type);
+                // since set, size == 1 -> consensus
+                if (log.isTraceEnabled()) {
+                    log.trace("No conensus for " + className + "->" + fieldNameAndType + ", returning unknown");
+                }
+
+                return new HeapValue(new UnknownValue(), type);
             }
         }
 
-        return value;
+        return values.toArray(new HeapValue[values.size()])[0];
     }
 
     public Set<String> getAllPossiblyInitializedClasses(TIntList addressList) {
@@ -165,12 +168,12 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return allClasses;
     }
 
-    public Set<Object> getFieldValues(int address, String className, String fieldNameAndType) {
+    public Set<HeapValue> getFieldValues(int address, String className, String fieldNameAndType) {
         List<ExecutionNode> nodePile = getNodePile(address);
-        Set<Object> result = new HashSet<Object>(nodePile.size());
+        Set<HeapValue> result = new HashSet<HeapValue>(nodePile.size());
         for (ExecutionNode node : nodePile) {
             ClassState cState = node.getContext().peekClassState(className);
-            Object value = cState.peekField(fieldNameAndType);
+            HeapValue value = cState.peekField(fieldNameAndType);
             result.add(value);
         }
 
@@ -235,29 +238,29 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    public Object getRegisterConsensus(TIntList addressList, int register) {
-        Object value = null;
+    public HeapValue getRegisterConsensus(TIntList addressList, int register) {
+        Set<HeapValue> values = new HashSet<HeapValue>();
         for (int address : addressList.toArray()) {
-            Set<Object> values = getRegisterValues(address, register);
-            value = values.toArray()[0];
+            values.addAll(getRegisterValues(address, register));
             if (values.size() != 1) {
                 if (log.isTraceEnabled()) {
                     log.trace("No conensus for register #" + register + ", returning unknown");
                 }
 
-                return new UnknownValue(TypeUtil.getValueType(value));
+                HeapValue value = values.toArray(new HeapValue[values.size()])[0];
+                return new HeapValue(new UnknownValue(), value.getType());
             }
         }
 
-        return value;
+        return values.toArray(new HeapValue[values.size()])[0];
     }
 
-    public Set<Object> getRegisterValues(int address, int register) {
+    public Set<HeapValue> getRegisterValues(int address, int register) {
         List<ExecutionNode> nodePile = getNodePile(address);
-        Set<Object> result = new HashSet<Object>(nodePile.size());
+        Set<HeapValue> result = new HashSet<HeapValue>(nodePile.size());
         for (ExecutionNode node : nodePile) {
             MethodState mState = node.getContext().getMethodState();
-            Object value = mState.peekRegister(register);
+            HeapValue value = mState.peekRegister(register);
             result.add(value);
         }
 

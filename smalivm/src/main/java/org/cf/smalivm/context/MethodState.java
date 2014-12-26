@@ -3,9 +3,7 @@ package org.cf.smalivm.context;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import org.cf.smalivm.type.TypeUtil;
 import org.cf.util.ImmutableUtils;
-import org.cf.util.SmaliClassUtils;
 
 public class MethodState extends BaseState {
 
@@ -48,40 +46,38 @@ public class MethodState extends BaseState {
         this.mutableParameters = parent.mutableParameters;
     }
 
-    public void assignParameter(int parameterRegister, Object value) {
-        assignRegister(parameterRegister, value, METHOD_HEAP);
+    public void assignParameter(int parameterRegister, Object value, String type) {
+        assignRegister(parameterRegister, value, type, METHOD_HEAP);
 
-        String type = TypeUtil.getValueType(value);
-        type = SmaliClassUtils.javaClassToSmali(type);
         boolean mutable = !ImmutableUtils.isImmutableClass(type);
         if (mutable) {
-            pokeRegister(parameterRegister, value, MUTABLE_PARAMETER_HEAP);
+            pokeRegister(parameterRegister, value, type, MUTABLE_PARAMETER_HEAP);
             mutableParameters.add(parameterRegister);
         }
     }
 
-    public void assignRegister(int register, Object value) {
-        super.assignRegister(register, value, METHOD_HEAP);
+    public void assignRegister(int register, Object value, String type) {
+        super.assignRegister(register, value, type, METHOD_HEAP);
     }
 
-    public void assignResultRegister(Object value) {
-        assignRegister(ResultRegister, value, METHOD_HEAP);
+    public void assignResultRegister(Object value, String type) {
+        assignRegister(ResultRegister, value, type, METHOD_HEAP);
     }
 
-    public void assignReturnRegister(Object value) {
-        pokeRegister(ReturnRegister, value, METHOD_HEAP);
+    public void assignReturnRegister(Object value, String type) {
+        pokeRegister(ReturnRegister, value, type, METHOD_HEAP);
     }
 
-    public void pokeRegister(int register, Object value) {
-        super.pokeRegister(register, value, METHOD_HEAP);
+    public void pokeRegister(int register, Object value, String type) {
+        super.pokeRegister(register, value, type, METHOD_HEAP);
     }
 
-    public Object readRegister(int register) {
+    public HeapValue readRegister(int register) {
         return readRegister(register, METHOD_HEAP);
     }
 
-    public Object peekParameter(int parameterRegister) {
-        Object value;
+    public HeapValue peekParameter(int parameterRegister) {
+        HeapValue value;
         if (mutableParameters.contains(parameterRegister)) {
             value = peekRegister(parameterRegister, MUTABLE_PARAMETER_HEAP);
         } else {
@@ -105,21 +101,21 @@ public class MethodState extends BaseState {
     }
 
     public int getPseudoInstructionReturnAddress() {
-        return (int) peekRegister(ReturnAddress);
+        return (int) peekRegister(ReturnAddress).getValue();
     }
 
-    public Object peekRegister(int register) {
+    public HeapValue peekRegister(int register) {
         return super.peekRegister(register, METHOD_HEAP);
     }
 
-    public Object readResultRegister() {
-        Object result = readRegister(ResultRegister, METHOD_HEAP);
+    public HeapValue readResultRegister() {
+        HeapValue result = readRegister(ResultRegister, METHOD_HEAP);
         ectx.getHeap().remove(METHOD_HEAP, ResultRegister);
 
         return result;
     }
 
-    public Object readReturnRegister() {
+    public HeapValue readReturnRegister() {
         return peekRegister(ReturnRegister);
     }
 
@@ -135,24 +131,24 @@ public class MethodState extends BaseState {
             sb.append("parameters: ").append(parameterCount).append("\n[");
             boolean printingAtLeastOneParameter = false;
             for (int parameterRegister = getParameterStart(); parameterRegister < getRegisterCount();) {
-                sb.append("p").append(parameterRegister).append(": ");
+                sb.append('p').append(parameterRegister).append(": ");
                 if (super.hasRegister(parameterRegister, METHOD_HEAP)) {
                     printingAtLeastOneParameter = true;
-                    sb.append(registerToString(parameterRegister, METHOD_HEAP));
-                    String type = TypeUtil.getValueType(peekRegisterType(parameterRegister, METHOD_HEAP));
-                    if ("J".equals(type) || "D".equals(type)) {
+                    HeapValue value = peekRegister(parameterRegister);
+                    sb.append(value);
+                    if ("J".equals(value.getType()) || "D".equals(value.getType())) {
                         parameterRegister += 1;
                     }
                     sb.append(",\n");
                 } else {
-                    sb.append("*in ancestor*");
+                    sb.append("*in ancestor*\n");
                 }
                 parameterRegister++;
             }
             if (printingAtLeastOneParameter) {
                 sb.setLength(sb.length() - 2);
             }
-            sb.append("]");
+            sb.append(']');
         }
 
         int localsCount = getRegisterCount() - getParameterCount();
@@ -164,13 +160,13 @@ public class MethodState extends BaseState {
                     continue;
                 }
                 hadAtLeastOneLocal = true;
-                sb.append("v").append(register).append(": ").append(registerToString(register, METHOD_HEAP))
+                sb.append('v').append(register).append(": ").append(registerToString(register, METHOD_HEAP))
                 .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);
             }
-            sb.append("]");
+            sb.append(']');
         }
 
         if (hasRegister(ResultRegister, METHOD_HEAP)) {
@@ -188,8 +184,8 @@ public class MethodState extends BaseState {
         return wasRegisterRead(register, METHOD_HEAP);
     }
 
-    public void assignRegisterAndUpdateIdentities(int register, Object value) {
-        assignRegisterAndUpdateIdentities(register, value, METHOD_HEAP);
+    public void assignRegisterAndUpdateIdentities(int register, Object value, String type) {
+        assignRegisterAndUpdateIdentities(register, new HeapValue(value, type), METHOD_HEAP);
     }
 
     MethodState getChild(ExecutionContext childContext) {
