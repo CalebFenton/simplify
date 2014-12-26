@@ -1,7 +1,7 @@
 Simplify
 ========
 
-[![Build Status](https://travis-ci.org/calebfenton/simplify.svg?branch=master)](https://travis-ci.org/calebfenton/simplify) [![Coverage Status](https://img.shields.io/coveralls/calebfenton/simplify.svg)](https://coveralls.io/r/calebfenton/simplify)
+[![Build Status](https://travis-ci.org/CalebFenton/simplify.svg?branch=master)](https://travis-ci.org/CalebFenton/simplify) [![Coverage Status](https://img.shields.io/coveralls/CalebFenton/simplify.svg)](https://coveralls.io/r/CalebFenton/simplify)
 
 Generic Android Deobfuscator
 ----------------------------
@@ -32,7 +32,10 @@ Building
 **There is a bug with dexlib 2.0.3 which can cause Simplify to fail often.**
 To work around, you must:
 * Clone and build [Smali](https://github.com/JesusFreke/smali)
-* Modify this line in [smalivm/build.gradle](smalivm/build.gradle) to point to the built jar, if different:
+* Comment this line in [smalivm/build.gradle](smalivm/build.gradle):
+
+`compile 'org.smali:dexlib2:2.0.3'`
+* Uncomment and modify this line in [smalivm/build.gradle](smalivm/build.gradle) to point to the built jar, if different:
 
 `compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')`
 
