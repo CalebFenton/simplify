@@ -21,8 +21,10 @@ dependencies {
     compile 'org.slf4j:slf4j-api:1.7.7'
 
     // Parsing and writing dex files
-    //compile 'org.smali:dexlib2:2.0.4'
-    compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')
+    compile 'org.smali:dexlib2:2.0.3'
+    // Until dexlib2 2.0.4 is released you must clone/build the dev branch od dexlib2
+    // for smalivm to function properly
+    //compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')
     compile 'org.smali:smali:2.0.3'
     compile 'org.smali:baksmali:2.0.3'
 
