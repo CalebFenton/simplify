@@ -1,12 +1,14 @@
 Simplify
 ========
 
+[![Build Status](https://travis-ci.org/calebfenton/simplify.svg?branch=master)](https://travis-ci.org/calebfenton/simplify) [![Coverage Status](https://img.shields.io/coveralls/calebfenton/simplify.svg)](https://coveralls.io/r/calebfenton/simplify)
+
 Generic Android Deobfuscator
 ----------------------------
 
 Simplify uses a virtual machine to understand what an app does. Then, it applies optimizations to create code that behaves identically, but is easier for a human to understand. Specifically, it takes Smali files as input and outputs a Dex file with (hopefully) identical semantics but less complicated structure.
 
-For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine semantics. Then, it uses the apps own code to decrypt the strings and replaces the encrypted strings and the decryption method calls with the decrypted versions. It's a generic deobfuscator becuase Simplify doesn't need to know how the decryption works ahead of time. This technique also works well for eliminating different types of white noise, such as no-ops and useless arithmetic.
+For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine semantics. Then, it uses the apps own code to decrypt the strings and replaces the encrypted strings and the decryption method calls with the decrypted versions. It's a generic deobfuscator because Simplify doesn't need to know how the decryption works ahead of time. This technique also works well for eliminating different types of white noise, such as no-ops and useless arithmetic.
 
 **Before / After**
 
