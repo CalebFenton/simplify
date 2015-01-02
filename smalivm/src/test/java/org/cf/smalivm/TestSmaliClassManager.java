@@ -29,7 +29,7 @@ public class TestSmaliClassManager {
 
     @Test
     public void testCanUnderstandNativeMethods() throws UnknownAncestors {
-        boolean isNative = manager.methodIsNative("Lnative_method_class;->nativeMethod()V");
+        boolean isNative = manager.isMethodNative("Lnative_method_class;->nativeMethod()V");
 
         assertTrue(isNative);
     }

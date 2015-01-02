@@ -262,7 +262,7 @@ public class SmaliClassManager {
      * @param methodDescriptor
      * @return true if method is native, false otherwise
      */
-    public boolean methodIsNative(String methodDescriptor) {
+    public boolean isMethodNative(String methodDescriptor) {
         BuilderMethod method = getMethod(methodDescriptor);
 
         return (method.getAccessFlags() & AccessFlags.NATIVE.getValue()) == AccessFlags.NATIVE.getValue();
