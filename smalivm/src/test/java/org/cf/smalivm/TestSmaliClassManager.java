@@ -6,17 +6,17 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestSmaliClassManager {
 
     private static final String TEST_DIRECTORY = "resources/test";
 
-    private SmaliClassManager manager;
+    private static SmaliClassManager manager;
 
-    @Before
-    public void getClassManager() throws IOException {
+    @BeforeClass
+    public static void getClassManager() throws IOException {
         manager = new SmaliClassManager(TEST_DIRECTORY);
     }
 
@@ -25,6 +25,13 @@ public class TestSmaliClassManager {
         boolean isInstance = manager.isInstance("Lchild_class;", "Lparent_class;");
 
         assertTrue(isInstance);
+    }
+
+    @Test
+    public void testCanUnderstandNativeMethods() throws UnknownAncestors {
+        boolean isNative = manager.methodIsNative("Lnative_method_class;->nativeMethod()V");
+
+        assertTrue(isNative);
     }
 
     @Test
