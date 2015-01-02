@@ -17,7 +17,7 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -30,13 +30,13 @@ public class TestBinaryMathOp {
     public static class UnitTest {
 
         // Mocks
-        static BuilderInstruction mockBi;
-        static OpFactory opFactory;
+        BuilderInstruction mockBi;
+        OpFactory opFactory;
 
         BinaryMathOp underTest;
 
-        @BeforeClass
-        public static void setUp() {
+        @Before
+        public void setUp() {
             VirtualMachine mockVm = mock(VirtualMachine.class);
             mockBi = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));

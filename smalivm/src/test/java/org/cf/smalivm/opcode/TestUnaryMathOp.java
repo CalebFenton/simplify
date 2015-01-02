@@ -16,7 +16,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -29,13 +29,13 @@ public class TestUnaryMathOp {
     public static class UnitTest {
 
         // Mocks
-        static BuilderInstruction mockBi;
-        static OpFactory opFactory;
+        BuilderInstruction mockBi;
+        OpFactory opFactory;
 
         UnaryMathOp underTest;
 
-        @BeforeClass
-        public static void setUp() {
+        @Before
+        public void setUp() {
             VirtualMachine mockVm = mock(VirtualMachine.class);
             mockBi = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
 

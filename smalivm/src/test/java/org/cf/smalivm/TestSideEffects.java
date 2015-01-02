@@ -6,7 +6,7 @@ import java.util.Map;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 
 public class TestSideEffects {
@@ -20,10 +20,10 @@ public class TestSideEffects {
     private static final String CLASS_NAME = "Lside_effects_test;";
     private static Map<String, BuilderClassDef> classNameToDef;
 
-    private static VirtualMachine vm;
+    private VirtualMachine vm;
 
-    @BeforeClass
-    public static void setupVM() throws Exception {
+    @Before
+    public void setupVM() throws Exception {
         vm = VMTester.getTestVM();
     }
 
