@@ -166,8 +166,13 @@ public class InvokeOp extends ExecutionContextOp {
 
                 if (!classManager.methodHasImplementation(targetMethod)) {
                     if (log.isWarnEnabled()) {
-                        log.warn("Attempting to execute local method without implementation: " + targetMethod
-                                        + ". Assuming maxiumum ambiguity.");
+                        if (!classManager.methodIsNative(targetMethod)) {
+                            log.warn("Attempting to execute local method without implementation: " + targetMethod
+                                            + ". Assuming maxiumum ambiguity.");
+                        } else {
+                            log.warn("Cannot execute local native method: " + targetMethod
+                                            + ". Assuming maxiumum ambiguity.");
+                        }
                     }
                     assumeMaximumUnknown(callerContext);
 
@@ -206,7 +211,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
