@@ -4,7 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -15,10 +15,10 @@ public class TestMethodInheritence {
     public static class ChildClass {
         private static final String CLASS_NAME = "Lchild_class;";
         private static final String EXPECTED_VALUE = "abstract?";
-        private static VirtualMachine vm;
+        private VirtualMachine vm;
 
-        @BeforeClass
-        public static void setupVM() {
+        @Before
+        public void setupVM() {
             vm = VMTester.getTestVM();
         }
 
@@ -53,10 +53,10 @@ public class TestMethodInheritence {
     public static class ParentClass {
         private static final String CLASS_NAME = "Lparent_class;";
 
-        private static VirtualMachine vm;
+        private VirtualMachine vm;
 
-        @BeforeClass
-        public static void setupVM() {
+        @Before
+        public void setupVM() {
             vm = VMTester.getTestVM();
         }
 
