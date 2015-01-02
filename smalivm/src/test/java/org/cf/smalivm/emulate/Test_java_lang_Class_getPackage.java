@@ -9,17 +9,17 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.EmulatedType;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.UnknownValue;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class Test_java_lang_Class_getPackage {
 
     private static EmulatedMethod emulatedMethod = new java_lang_Class_getPackage();
 
-    private VirtualMachine vm;
+    private static VirtualMachine vm;
 
-    @Before
-    public void getVM() {
+    @BeforeClass
+    public static void getVM() {
         vm = VMTester.getTestVM();
     }
 

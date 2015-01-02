@@ -16,7 +16,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -29,13 +29,13 @@ public class TestCmpOp {
     public static class UnitTest {
 
         // Mocks
-        BuilderInstruction mockBi;
-        OpFactory opFactory;
+        static BuilderInstruction mockBi;
+        static OpFactory opFactory;
 
         CmpOp underTest;
 
-        @Before
-        public void setUp() {
+        @BeforeClass
+        public static void setUp() {
             VirtualMachine mockVm = mock(VirtualMachine.class);
             mockBi = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
 

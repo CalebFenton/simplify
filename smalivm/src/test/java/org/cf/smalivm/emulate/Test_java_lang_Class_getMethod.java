@@ -9,7 +9,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -35,10 +35,10 @@ public class Test_java_lang_Class_getMethod {
         private static final String CLASS_NAME = "Lchild_class;";
         private static final LocalClass CLASS = new LocalClass(CLASS_NAME);
 
-        private VirtualMachine vm;
+        private static VirtualMachine vm;
 
-        @Before
-        public void getVM() {
+        @BeforeClass
+        public static void getVM() {
             vm = VMTester.getTestVM();
         }
 
@@ -83,10 +83,10 @@ public class Test_java_lang_Class_getMethod {
     public static class TestNonLocalClass {
         private static final Class<?> CLASS = System.class;
 
-        private VirtualMachine vm;
+        private static VirtualMachine vm;
 
-        @Before
-        public void getVM() {
+        @BeforeClass
+        public static void getVM() {
             vm = VMTester.getTestVM();
         }
 
