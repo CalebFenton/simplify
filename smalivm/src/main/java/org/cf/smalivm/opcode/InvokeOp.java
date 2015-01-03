@@ -164,7 +164,7 @@ public class InvokeOp extends ExecutionContextOp {
 
                 if (!classManager.methodHasImplementation(targetMethod)) {
                     if (log.isWarnEnabled()) {
-                        if (!classManager.isMethodNative(targetMethod)) {
+                        if (!classManager.isNativeMethod(targetMethod)) {
                             log.warn("Attempting to execute local method without implementation: " + targetMethod
                                             + ". Assuming maxiumum ambiguity.");
                         } else {
