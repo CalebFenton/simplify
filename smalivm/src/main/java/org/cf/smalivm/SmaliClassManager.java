@@ -29,10 +29,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The class manager is responsible for loading Smali files into dexlib2 objects and making them available.
- * 
+ * The class manager is responsible for loading Smali files into Dexlib2 objects and making them available.
+ *
  * @author cfenton
- * 
+ *
  */
 public class SmaliClassManager {
 
@@ -51,7 +51,7 @@ public class SmaliClassManager {
     private final SmaliFileFactory smaliFileFactory;
 
     /**
-     * 
+     *
      * @param smaliPath
      *            Path to Smali file or folder
      * @param dexBuilder
@@ -73,7 +73,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param smaliPath
      *            Path to Smali file or folder
      * @throws IOException
@@ -83,7 +83,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param smaliPath
      *            Path to Smali file or folder
      * @param dexBuilder
@@ -95,7 +95,7 @@ public class SmaliClassManager {
 
     /**
      * Loads the class if it has not been loaded.
-     * 
+     *
      * @param className
      *            Fully qualified Smali class descriptor
      * @return class definition for the given class name
@@ -108,7 +108,7 @@ public class SmaliClassManager {
 
     /**
      * Does not load any Smali files.
-     * 
+     *
      * @return all local class names, including framework
      */
     public Set<String> getClassNames() {
@@ -117,7 +117,7 @@ public class SmaliClassManager {
 
     /**
      * Does not load any Smali files.
-     * 
+     *
      * @return all local class names, excluding framework
      */
     public Set<String> getNonFrameworkClassNames() {
@@ -148,7 +148,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param className
      * @return
      */
@@ -159,7 +159,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param className
      * @param methodSignature
      * @return BuilderMethod for className and methodSignature, or null if not found
@@ -172,7 +172,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param methodDescriptor
      * @return BuilderMethod for methodDescriptor, or null if not found
      */
@@ -183,9 +183,9 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param className
-     * @return
+     * @return set of all method descriptors for given className
      */
     public Set<String> getMethodDescriptors(String className) {
         loadClassIfNecessary(className);
@@ -201,9 +201,9 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param methodDescriptor
-     * @return
+     * @return list of Smali style parameter types
      */
     public List<String> getParameterTypes(String methodDescriptor) {
         loadClassIfNecessary(methodDescriptor);
@@ -212,9 +212,9 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param methodDescriptor
-     * @return
+     * @return try / catch blocks of given method
      */
     public List<? extends TryBlock<? extends ExceptionHandler>> getTryBlocks(String methodDescriptor) {
         loadClassIfNecessary(methodDescriptor);
@@ -223,7 +223,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param className
      * @return true if the Smali file for the className was available at runtime
      */
@@ -232,7 +232,7 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param methodDescriptor
      * @return true if {@link=isLocalClass} is true, and method is defined for class
      */
@@ -247,9 +247,9 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param methodDescriptor
-     * @return
+     * @return true if method has implementation (not abstract or native), false otherwise
      */
     public boolean methodHasImplementation(String methodDescriptor) {
         BuilderMethod method = getMethod(methodDescriptor);
@@ -258,11 +258,11 @@ public class SmaliClassManager {
     }
 
     /**
-     * 
+     *
      * @param methodDescriptor
      * @return true if method is native, false otherwise
      */
-    public boolean isMethodNative(String methodDescriptor) {
+    public boolean isNativeMethod(String methodDescriptor) {
         BuilderMethod method = getMethod(methodDescriptor);
 
         return (method.getAccessFlags() & AccessFlags.NATIVE.getValue()) == AccessFlags.NATIVE.getValue();
@@ -326,13 +326,11 @@ public class SmaliClassManager {
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
         BuilderClassDef classDef;
         try {
-            if (smaliFileFactory.isFrameworkClass(className)) {
-                InputStream is = smaliFile.open();
-                classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, frameworkDexBuilder);
-                is.close();
-            } else {
-                classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), smaliFile.open(), dexBuilder);
-            }
+            boolean isFramework = smaliFileFactory.isFrameworkClass(className);
+            InputStream is = smaliFile.open();
+            classDef = Dexifier
+                            .dexifySmaliFile(smaliFile.getPath(), is, isFramework ? frameworkDexBuilder : dexBuilder);
+            is.close();
         } catch (Exception e) {
             if (log.isErrorEnabled()) {
                 log.error("Error while loading class necessary for " + typeDescriptor, e);
