@@ -132,20 +132,20 @@ public class InvokeOp extends ExecutionContextOp {
             targetMethod = getLocalTargetForVirtualMethod(item.getValue());
         }
 
-        MethodState callerContext = ectx.getMethodState();
+        MethodState callerMethodState = ectx.getMethodState();
         // Try to reflect or emulate before using local class.
         if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
-            MethodState calleeContext = buildNonLocalCalleeContext(callerContext);
-            boolean allArgumentsKnown = allArgumentsKnown(calleeContext);
+            ExecutionContext calleeContext = buildNonLocalCalleeContext(callerMethodState);
+            boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
-                executeNonLocalMethod(targetMethod, callerContext, calleeContext);
+                executeNonLocalMethod(targetMethod, callerMethodState, calleeContext);
 
                 return getPossibleChildren();
             } else {
                 if (log.isTraceEnabled()) {
                     log.trace("Not emulating / reflecting " + targetMethod + " because all args not known.");
                 }
-                assumeMaximumUnknown(callerContext);
+                assumeMaximumUnknown(callerMethodState);
             }
         } else {
             // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
@@ -157,7 +157,7 @@ public class InvokeOp extends ExecutionContextOp {
                         log.debug("Not executing unsafe local method: " + targetMethod
                                         + ". Assuming maxiumum ambiguity.");
                     }
-                    assumeMaximumUnknown(callerContext);
+                    assumeMaximumUnknown(callerMethodState);
 
                     return getPossibleChildren();
                 }
@@ -172,7 +172,7 @@ public class InvokeOp extends ExecutionContextOp {
                                             + ". Assuming maxiumum ambiguity.");
                         }
                     }
-                    assumeMaximumUnknown(callerContext);
+                    assumeMaximumUnknown(callerMethodState);
 
                     return getPossibleChildren();
                 }
@@ -183,7 +183,7 @@ public class InvokeOp extends ExecutionContextOp {
                 if (log.isDebugEnabled()) {
                     log.debug("Unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
                 }
-                assumeMaximumUnknown(callerContext);
+                assumeMaximumUnknown(callerMethodState);
             }
         }
 
@@ -209,7 +209,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -308,14 +308,15 @@ public class InvokeOp extends ExecutionContextOp {
         return calleeContext;
     }
 
-    private MethodState buildNonLocalCalleeContext(MethodState callerMethodState) {
+    private ExecutionContext buildNonLocalCalleeContext(MethodState callerMethodState) {
         ExecutionContext ectx = new ExecutionContext(vm);
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         int registerCount = parameterSize;
         MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
         assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
+        ectx.setMethodState(calleeMethodState);
 
-        return calleeMethodState;
+        return ectx;
     }
 
     private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext,
@@ -337,14 +338,15 @@ public class InvokeOp extends ExecutionContextOp {
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
-    private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext, MethodState calleeContext) {
+    private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext,
+                    ExecutionContext calleeContext) {
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             sideEffectLevel = MethodEmulator.emulate(vm, calleeContext, methodDescriptor, getParameterRegisters());
         } else if (MethodReflector.canReflect(methodDescriptor)) {
-            assert allArgumentsKnown(calleeContext);
+            assert allArgumentsKnown(calleeContext.getMethodState());
 
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
-            reflector.reflect(calleeContext); // playa play
+            reflector.reflect(calleeContext.getMethodState()); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.
             sideEffectLevel = SideEffect.Level.NONE;
@@ -353,7 +355,7 @@ public class InvokeOp extends ExecutionContextOp {
         if (!isStatic) {
             // Handle updating the instance reference
             HeapItem originalInstanceItem = callerContext.peekRegister(parameterRegisters[0]);
-            HeapItem newInstanceItem = calleeContext.peekParameter(0);
+            HeapItem newInstanceItem = calleeContext.getMethodState().peekParameter(0);
             if (originalInstanceItem.getValue() != newInstanceItem.getValue()) {
                 // Instance went from UninitializedInstance class to something else.
                 // TODO: add test for this!
@@ -365,7 +367,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         if (!"V".equals(returnType)) {
-            HeapItem returnItem = calleeContext.readReturnRegister();
+            HeapItem returnItem = calleeContext.getMethodState().readReturnRegister();
             callerContext.assignResultRegister(returnItem);
         }
     }

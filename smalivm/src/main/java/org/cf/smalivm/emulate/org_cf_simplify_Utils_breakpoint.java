@@ -6,7 +6,7 @@ import org.cf.smalivm.context.MethodState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class org_cf_simplify_Utils_breakpoint implements EmulatedMethod {
+public class org_cf_simplify_Utils_breakpoint implements MethodStateMethod {
 
     private static final Logger log = LoggerFactory.getLogger(org_cf_simplify_Utils_breakpoint.class.getSimpleName());
 

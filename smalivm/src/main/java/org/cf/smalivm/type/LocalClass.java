@@ -1,6 +1,7 @@
 package org.cf.smalivm.type;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 public class LocalClass implements LocalType {
 
@@ -23,6 +24,11 @@ public class LocalClass implements LocalType {
         LocalClass rhs = (LocalClass) other;
 
         return new EqualsBuilder().append(className, rhs.className).isEquals();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder().append(className).toHashCode();
     }
 
     public String getName() {
