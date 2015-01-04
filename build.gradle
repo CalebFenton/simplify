@@ -6,7 +6,7 @@ buildscript {
 
     dependencies {
         classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.0.1'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:1.0.3'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.0'
     }
 }
 
@@ -27,6 +27,14 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'eclipse'
     apply plugin: 'com.github.johnrengelman.shadow'
+
+    jacocoTestReport {
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = false
+        }
+    }
 }
 
 coveralls {
@@ -34,11 +42,13 @@ coveralls {
 }
 
 task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    dependsOn = subprojects.test
-    additionalSourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs)
-    sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
-    classDirectories = files(subprojects.sourceSets.main.output)
-    executionData = files(subprojects.jacocoTestReport.executionData)
+    // Exclude some projects
+    ext.targetProjects = subprojects - project(':demoapp')
+
+    dependsOn = ext.targetProjects.test
+    sourceDirectories = files(ext.targetProjects.sourceSets.main.allSource.srcDirs)
+    classDirectories = files(ext.targetProjects.sourceSets.main.output)
+    executionData = files(ext.targetProjects.jacocoTestReport.executionData)
 
     reports {
         html.enabled = true

@@ -1,11 +1,5 @@
 project.version = '0.1.0'
 
-test {
-    jacoco {
-        excludes = ['android/util/**']
-    }
-}
-
 dependencies {
     // Object cloning
     compile 'uk.com.robust-it:cloning:1.9.1'
