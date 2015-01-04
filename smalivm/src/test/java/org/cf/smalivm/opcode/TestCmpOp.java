@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.any;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -21,6 +21,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(Enclosed.class)
@@ -28,68 +29,146 @@ public class TestCmpOp {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
-        BuilderInstruction instruction;
-        OpFactory opFactory;
-        MethodState mState;
-        CmpOp opUnderTest;
+        private static final int ADDRESS = 0;
+        private static final int REGISTER_A = 0;
+        private static final int REGISTER_B = 2;
+        private static final int REGISTER_C = 4;
+        private static final String CMP_TYPE = "I";
+
+        private BuilderInstruction instruction;
+        private OpFactory opFactory;
+        private MethodState mState;
+        private HeapItem itemB;
+        private HeapItem itemC;
+        private CmpOp op;
+        private ArgumentCaptor<HeapItem> setItem;
 
         @Before
         public void setUp() {
-            VirtualMachine mockVm = mock(VirtualMachine.class);
+            VirtualMachine vm = mock(VirtualMachine.class);
             instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
-            opFactory = new OpFactory(mockVm);
+            when(((Instruction23x) instruction).getRegisterA()).thenReturn(REGISTER_A);
+            when(((Instruction23x) instruction).getRegisterB()).thenReturn(REGISTER_B);
+            when(((Instruction23x) instruction).getRegisterC()).thenReturn(REGISTER_C);
+            opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
+            itemB = mock(HeapItem.class);
+            when(mState.readRegister(REGISTER_B)).thenReturn(itemB);
+            itemC = mock(HeapItem.class);
+            when(mState.readRegister(REGISTER_C)).thenReturn(itemC);
+
+            when(itemB.isUnknown()).thenReturn(false);
+            when(itemC.isUnknown()).thenReturn(false);
+
+            setItem = ArgumentCaptor.forClass(HeapItem.class);
+        }
+
+        private void doTest(Object value1, Object value2, Opcode opcode, String inputType, int cmpValue) {
+            when(itemB.getValue()).thenReturn(value1);
+            when(itemC.getValue()).thenReturn(value2);
+            when(itemB.getType()).thenReturn(inputType);
+            when(itemC.getType()).thenReturn(inputType);
+            when(instruction.getOpcode()).thenReturn(opcode);
+
+            op = (CmpOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
+            assertEquals(cmpValue, setItem.getValue().getValue());
+            assertEquals(CMP_TYPE, setItem.getValue().getType());
+        }
+
+        @Test
+        public void testArg1IsUnknownReturnsUnknown() {
+            Object value1 = new UnknownValue();
+            when(itemB.isUnknown()).thenReturn(true);
+            long value2 = 1149239296L;
+            when(itemB.getValue()).thenReturn(value1);
+            when(itemC.getValue()).thenReturn(value2);
+            when(itemB.getType()).thenReturn("J");
+            when(itemC.getType()).thenReturn("J");
+            when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
+
+            op = (CmpOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
+
+            Object cmpValue = new UnknownValue();
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
+            assertEquals(cmpValue.getClass(), setItem.getValue().getValue().getClass());
+            assertEquals(CMP_TYPE, setItem.getValue().getType());
+            assertEquals("cmp-long r0, r2, r4", op.toString());
+        }
+
+        @Test
+        public void testArg2IsUnknownReturnsUnknown() {
+            long value1 = 1149239296L;
+            Object value2 = new UnknownValue();
+            when(itemC.isUnknown()).thenReturn(true);
+            when(itemB.getValue()).thenReturn(value1);
+            when(itemC.getValue()).thenReturn(value2);
+            when(itemB.getType()).thenReturn("J");
+            when(itemC.getType()).thenReturn("J");
+            when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
+
+            op = (CmpOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
+
+            Object cmpValue = new UnknownValue();
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
+            assertEquals(cmpValue.getClass(), setItem.getValue().getValue().getClass());
+            assertEquals(CMP_TYPE, setItem.getValue().getType());
         }
 
         @Test
         public void canCompareLong() {
             long value1 = 1120403456L;
             long value2 = 1149239296L;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("J");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
-            when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
-
-            opUnderTest = (CmpOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
-
             int cmpValue = Long.compare(value1, value2);
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(cmpValue, "I")));
+            doTest(value1, value2, Opcode.CMP_LONG, "J", cmpValue);
         }
 
         @Test
         public void canCompareFloat() {
             float value1 = 11204.03456F;
             float value2 = 11492.39296F;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("F");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
-            when(instruction.getOpcode()).thenReturn(Opcode.CMPL_FLOAT);
-
-            opUnderTest = (CmpOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
-
             int cmpValue = Float.compare(value1, value2);
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(cmpValue, "I")));
+            doTest(value1, value2, Opcode.CMPL_FLOAT, "F", cmpValue);
+        }
+
+        @Test
+        public void canCompareFloatLessWithArg1NaN() {
+            float value1 = Float.NaN;
+            float value2 = 11492.39296F;
+            doTest(value1, value2, Opcode.CMPL_FLOAT, "F", -1);
+        }
+
+        @Test
+        public void canCompareFloatGreaterWithArg1NaN() {
+            float value1 = Float.NaN;
+            float value2 = 11492.39296F;
+            doTest(value1, value2, Opcode.CMPG_FLOAT, "F", 1);
         }
 
         @Test
         public void canCompareDouble() {
             double value1 = 11204.0345612345D;
             double value2 = 11492.3929612345D;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("D");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
-            when(instruction.getOpcode()).thenReturn(Opcode.CMPL_DOUBLE);
-
-            opUnderTest = (CmpOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
-
             int cmpValue = Double.compare(value1, value2);
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(cmpValue, "I")));
+            doTest(value1, value2, Opcode.CMPL_DOUBLE, "D", cmpValue);
+        }
+
+        @Test
+        public void canCompareDoubleLessWithArg1NaN() {
+            double value1 = Double.NaN;
+            double value2 = 11492.3929612345D;
+            doTest(value1, value2, Opcode.CMPL_DOUBLE, "D", -1);
+        }
+
+        @Test
+        public void canCompareDoubleGreaterWithArg1NaN() {
+            double value1 = Double.NaN;
+            double value2 = 11492.3929612345D;
+            doTest(value1, value2, Opcode.CMPG_DOUBLE, "D", 1);
         }
     }
 
