@@ -15,7 +15,7 @@ import org.junit.Test;
 
 public class Test_java_lang_Class_getPackage {
 
-    private static EmulatedMethod emulatedMethod = new java_lang_Class_getPackage();
+    private static MethodStateMethod emulatedMethod = new java_lang_Class_getPackage();
 
     private VirtualMachine vm;
 

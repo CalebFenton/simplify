@@ -17,7 +17,7 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class Test_java_lang_Class_getMethod {
 
-    private static final EmulatedMethod emulatedMethod = new java_lang_Class_getMethod();
+    private static final MethodStateMethod emulatedMethod = new java_lang_Class_getMethod();
     private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
 
     private static MethodState getMethodState(VirtualMachine vm, Object klazz, String methodName,
