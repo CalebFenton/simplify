@@ -17,7 +17,7 @@ import org.cf.util.SmaliClassUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class java_lang_Class_getMethod implements EmulatedMethod {
+public class java_lang_Class_getMethod implements MethodStateMethod {
 
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_getMethod.class.getSimpleName());
 

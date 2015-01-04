@@ -19,28 +19,28 @@ public class APutOp extends MethodStateOp {
         int childAddress = address + instruction.getCodeUnits();
 
         Instruction23x instr = (Instruction23x) instruction;
-        int valueRegister = instr.getRegisterA();
+        int putRegister = instr.getRegisterA();
         int arrayRegister = instr.getRegisterB();
         int indexRegister = instr.getRegisterC();
 
-        return new APutOp(address, opName, childAddress, valueRegister, arrayRegister, indexRegister);
+        return new APutOp(address, opName, childAddress, putRegister, arrayRegister, indexRegister);
     }
 
     private final int arrayRegister;
     private final int indexRegister;
-    private final int valueRegister;
+    private final int putRegister;
 
-    public APutOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {
+    public APutOp(int address, String opName, int childAddress, int putRegister, int arrayRegister, int indexRegister) {
         super(address, opName, childAddress);
 
-        this.valueRegister = valueRegister;
+        this.putRegister = putRegister;
         this.arrayRegister = arrayRegister;
         this.indexRegister = indexRegister;
     }
 
     @Override
     public int[] execute(MethodState mState) {
-        HeapItem putItem = mState.readRegister(valueRegister);
+        HeapItem putItem = mState.readRegister(putRegister);
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
 
@@ -96,7 +96,7 @@ public class APutOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
+        sb.append(" r").append(putRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
 
         return sb.toString();
     }

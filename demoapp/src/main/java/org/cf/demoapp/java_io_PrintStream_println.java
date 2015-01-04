@@ -4,9 +4,9 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.emulate.EmulatedMethod;
+import org.cf.smalivm.emulate.MethodStateMethod;
 
-public class java_io_PrintStream_println implements EmulatedMethod {
+public class java_io_PrintStream_println implements MethodStateMethod {
 
     @Override
     public void execute(VirtualMachine vm, MethodState mState) {

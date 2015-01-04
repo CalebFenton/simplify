@@ -10,7 +10,7 @@ import org.cf.util.SmaliClassUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class java_lang_Class_getPackage implements EmulatedMethod {
+public class java_lang_Class_getPackage implements MethodStateMethod {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_getPackage.class.getSimpleName());

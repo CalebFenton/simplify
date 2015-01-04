@@ -9,7 +9,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class java_lang_Package_getName implements EmulatedMethod {
+public class java_lang_Package_getName implements MethodStateMethod {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(java_lang_Package_getName.class.getSimpleName());

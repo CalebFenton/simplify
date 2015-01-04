@@ -61,7 +61,7 @@ public class NewArrayOp extends MethodStateOp {
         } else {
             int dimension = dimensionItem.getIntegerValue();
             try {
-                // TODO: easy, determine if dalvik clinit's classes on new-array
+                // Dalvik does not statically initialize classes because of new-array
                 Object instance = Utils.getArrayInstanceFromSmaliTypeReference(arrayType, dimension, useLocalClass);
                 instanceItem = new HeapItem(instance, arrayType);
             } catch (ClassNotFoundException e) {
