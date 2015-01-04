@@ -46,15 +46,13 @@ public class CmpOp extends MethodStateOp {
         if ((lhsItem.isUnknown()) || (rhsItem.isUnknown())) {
             item = HeapItem.newUnknown("I");
         } else {
-            Object lhs = lhsItem.getValue();
-            Object rhs = rhsItem.getValue();
+            Number lhs = (Number) lhsItem.getValue();
+            Number rhs = (Number) rhsItem.getValue();
 
-            assert lhs instanceof Number;
-            assert rhs instanceof Number;
             assert lhs.getClass() == rhs.getClass();
             assert lhsItem.getType().equals(rhsItem.getType());
 
-            int cmp = cmp((Number) lhs, (Number) rhs);
+            int cmp = cmp(lhs, rhs);
             item = new HeapItem(cmp, "I");
         }
 

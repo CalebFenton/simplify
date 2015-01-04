@@ -28,11 +28,13 @@ subprojects {
     apply plugin: 'eclipse'
     apply plugin: 'com.github.johnrengelman.shadow'
 
-    jacocoTestReport {
-        reports {
-            html.enabled = true
-            xml.enabled = true
-            csv.enabled = false
+    if (!project.name.equals("demoapp")) {
+        jacocoTestReport {
+            reports {
+                html.enabled = true
+                xml.enabled = true
+                csv.enabled = false
+            }
         }
     }
 }
@@ -42,7 +44,6 @@ coveralls {
 }
 
 task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    // Exclude some projects
     ext.targetProjects = subprojects - project(':demoapp')
 
     dependsOn = ext.targetProjects.test

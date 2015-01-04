@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.any;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -28,167 +28,156 @@ public class TestUnaryMathOp {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
+        private static final int ADDRESS = 0;
+        private static final int REGISTER_A = 0;
+        private static final int REGISTER_B = 0;
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
-        private UnaryMathOp underTest;
+        private HeapItem item;
+        private UnaryMathOp op;
 
         @Before
         public void setUp() {
             VirtualMachine vm = mock(VirtualMachine.class);
             instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
+            when(((Instruction12x) instruction).getRegisterA()).thenReturn(REGISTER_A);
+            when(((Instruction12x) instruction).getRegisterB()).thenReturn(REGISTER_B);
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
+            item = mock(HeapItem.class);
+            when(mState.readRegister(REGISTER_B)).thenReturn(item);
         }
 
         @Test
         public void canDoubleToFloat() {
             Double value = 11204.0345612345D;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("D");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("D");
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.floatValue(), "F")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
+            assertEquals("double-to-float r" + REGISTER_A + ", r" + REGISTER_B, op.toString());
         }
 
         @Test
         public void canDoubleToInt() {
             Double value = 11204.0345612345D;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("D");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("D");
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.intValue(), "I")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
         }
 
         @Test
         public void canDoubleToLong() {
             Double value = 11204.0345612345D;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("D");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("D");
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.longValue(), "J")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
         }
 
         @Test
         public void canFloatToDouble() {
             Float value = 11204.0345F;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("F");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("F");
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.doubleValue(), "D")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
         }
 
         @Test
         public void canFloatToInt() {
             Float value = 11204.0345F;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("F");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("F");
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.intValue(), "I")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
         }
 
         @Test
         public void canFloatToLong() {
             Float value = 11204.0345F;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("F");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("F");
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.longValue(), "J")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
         }
 
         @Test
         public void canLongToFloat() {
             Long value = 112040345L;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("J");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.floatValue(), "F")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
         }
 
         @Test
         public void canLongToInt() {
             Long value = 112040345L;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("J");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.intValue(), "I")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
         }
 
         @Test
         public void canLongToDouble() {
             Long value = 112040345L;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("J");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.doubleValue(), "D")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
         }
 
         @Test
         public void canIntToByte() {
             Integer value = 10;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value);
-            when(mockItem.getType()).thenReturn("I");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("I");
             when(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
 
-            underTest = (UnaryMathOp) opFactory.create(instruction, 0);
-            underTest.execute(mState);
+            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(new HeapItem(value.byteValue(), "B")));
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.byteValue(), "B")));
         }
 
     }

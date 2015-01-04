@@ -11,24 +11,24 @@ public class UnaryMathOp extends MethodStateOp {
     private static String getResultTypeName(String opName) {
         String[] parts = opName.split("-");
         String type = parts[parts.length - 1];
-        switch (type) {
-        case "int":
-            return "I";
-        case "long":
-            return "J";
-        case "float":
-            return "F";
-        case "byte":
-            return "B";
-        case "char":
-            return "C";
-        case "double":
-            return "D";
-        case "short":
-            return "S";
+        String resultType = null;
+        if ("int".equals(type)) {
+            resultType = "I";
+        } else if ("long".equals(type)) {
+            resultType = "J";
+        } else if ("float".equals(type)) {
+            resultType = "F";
+        } else if ("byte".equals(type)) {
+            resultType = "B";
+        } else if ("char".equals(type)) {
+            resultType = "C";
+        } else if ("double".equals(type)) {
+            resultType = "D";
+        } else if ("short".equals(type)) {
+            resultType = "S";
         }
 
-        return null;
+        return resultType;
     }
 
     static UnaryMathOp create(Instruction instruction, int address) {
