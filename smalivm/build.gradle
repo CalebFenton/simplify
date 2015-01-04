@@ -1,5 +1,11 @@
 project.version = '0.1.0'
 
+test {
+    jacoco {
+        excludes = ['android/util/**']
+    }
+}
+
 dependencies {
     // Object cloning
     compile 'uk.com.robust-it:cloning:1.9.1'
@@ -22,11 +28,14 @@ dependencies {
 
     // Parsing and writing dex files
     compile 'org.smali:dexlib2:2.0.3'
-    // Until dexlib2 2.0.4 is released you must clone/build the dev branch od dexlib2
-    // for smalivm to function properly
+    // Until dexlib2 2.0.4 is released, you must build against latest smali
+    // repo or you'll get errors when optimizing most of the time.
     //compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')
     compile 'org.smali:smali:2.0.3'
     compile 'org.smali:baksmali:2.0.3'
+
+    // Contains Android framework classes that should be reflected instead of virtually executed
+    compile files('libs/android-local.jar')
 
     testCompile 'junit:junit:4.12-beta-3'
     testCompile 'org.mockito:mockito-core:1.10.17'
