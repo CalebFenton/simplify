@@ -1,6 +1,6 @@
 buildscript {
     repositories {
-    	mavenCentral()
+        mavenCentral()
         jcenter()
     }
 
@@ -27,43 +27,34 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'eclipse'
     apply plugin: 'com.github.johnrengelman.shadow'
-
-    jacocoTestReport {
-        reports {
-            html.enabled = true
-            xml.enabled = true
-            csv.enabled = false
-        }
-    }
 }
 
 coveralls {
     sourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs).files.absolutePath
 }
 
-// Thanks https://csiebler.github.io/blog/2014/02/09/multi-project-code-coverage-using-gradle-and-jacoco/
-task codeCoverageReport(type: JacocoReport) {
-    // Gather execution data from all subprojects
-    // (change this if you e.g. want to calculate unit test/integration test coverage separately)
-    executionData fileTree(project.rootDir.absolutePath).include("**/build/jacoco/*.exec")
-
-    // Add all relevant sourcesets from the subprojects
-    subprojects.each {
-       sourceSets it.sourceSets.main
-    }
+task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    dependsOn = subprojects.test
+    additionalSourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs)
+    sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
+    classDirectories = files(subprojects.sourceSets.main.output)
+    executionData = files(subprojects.jacocoTestReport.executionData)
 
     reports {
-        xml.enabled = true
-        xml.destination = "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
         html.enabled = true
-        html.destination = "${buildDir}/reports/jacoco"
+        xml.enabled = true
         csv.enabled = false
     }
-}
 
-// always run the tests before generating the report
-codeCoverageReport.dependsOn {
-    subprojects*.test
+    onlyIf = {
+        true
+    }
+
+    doFirst {
+        executionData = files(executionData.findAll {
+            it.exists()
+        })
+    }
 }
 
 task wrapper(type: Wrapper) {
