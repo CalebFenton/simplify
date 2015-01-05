@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
@@ -47,9 +48,10 @@ public class IPutOp extends ExecutionContextOp {
     @Override
     public int[] execute(ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
-        // Commented out, because unused, for now
-        // HeapItem valueItem = mState.readRegister(valueRegister);
-        // HeapItem instanceItem = mState.readRegister(instanceRegister);
+        HeapItem valueItem = mState.readRegister(valueRegister);
+        HeapItem instanceItem = mState.readRegister(instanceRegister);
+
+        mState.assignRegister(instanceRegister, instanceItem);
 
         return getPossibleChildren();
     }
@@ -62,7 +64,8 @@ public class IPutOp extends ExecutionContextOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(valueRegister).append(", ").append(fieldDescriptor);
+        sb.append(" r").append(valueRegister).append(", r").append(instanceRegister).append(", ")
+                        .append(fieldDescriptor);
 
         return sb.toString();
     }
