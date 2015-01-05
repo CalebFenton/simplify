@@ -4,8 +4,11 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
+import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
+import org.jf.dexlib2.iface.instruction.VariableRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
+import org.jf.dexlib2.iface.reference.Reference;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,21 +21,18 @@ public class FilledNewArrayOp extends MethodStateOp {
         String opName = instruction.getOpcode().name;
         int childAddress = address + instruction.getCodeUnits();
 
-        String typeReference = null;
-        int[] dimensionRegisters = null;
+        Reference reference = ((ReferenceInstruction) instruction).getReference();
+        String typeReference = ReferenceUtil.getReferenceString(reference);
+        int registerCount = ((VariableRegisterInstruction) instruction).getRegisterCount();
+        int[] dimensionRegisters = new int[registerCount];
         if (opName.endsWith("/range")) {
             Instruction3rc instr = (Instruction3rc) instruction;
-            typeReference = ReferenceUtil.getReferenceString(instr.getReference());
-            dimensionRegisters = new int[instr.getRegisterCount()];
             int startRegister = instr.getStartRegister();
             for (int i = 0; i < dimensionRegisters.length; i++) {
                 dimensionRegisters[i] = startRegister + i;
             }
         } else {
             Instruction35c instr = (Instruction35c) instruction;
-            typeReference = ReferenceUtil.getReferenceString(instr.getReference());
-
-            dimensionRegisters = new int[instr.getRegisterCount()];
             switch (dimensionRegisters.length) {
             case 5:
                 dimensionRegisters[4] = instr.getRegisterG();
@@ -49,8 +49,6 @@ public class FilledNewArrayOp extends MethodStateOp {
                 // Shouldn't pass parser if op has >5 registers
             }
         }
-
-        String baseClassName = typeReference.replace("[", "");
 
         return new FilledNewArrayOp(address, opName, childAddress, dimensionRegisters, typeReference);
     }
@@ -74,11 +72,18 @@ public class FilledNewArrayOp extends MethodStateOp {
          * [I the code fails verification and a few decompilers (not disassemblers) choke.
          */
         int[] dimensions = new int[dimensionRegisters.length];
+        boolean foundUnknown = false;
         for (int i = 0; i < dimensionRegisters.length; i++) {
             int register = dimensionRegisters[i];
             HeapItem item = mState.readRegister(register);
-            if (item.getValue() instanceof Number) {
-                dimensions[i] = item.getIntegerValue();
+
+            if (foundUnknown) {
+                continue;
+            }
+
+            Object value = item.getValue();
+            if (value instanceof Number) {
+                dimensions[i] = ((Number) value).intValue();
             } else {
                 if (!(item.isUnknown())) {
                     if (log.isWarnEnabled()) {
@@ -87,14 +92,15 @@ public class FilledNewArrayOp extends MethodStateOp {
                 }
 
                 // At least one value is unknown. Give up.
-                mState.assignResultRegister(HeapItem.newUnknown("[I"));
-
-                return getPossibleChildren();
+                foundUnknown = true;
             }
         }
 
-        HeapItem arrayItem = new HeapItem(dimensions, "[I");
-        mState.assignResultRegister(arrayItem);
+        if (foundUnknown) {
+            mState.assignResultRegister(HeapItem.newUnknown("[I"));
+        } else {
+            mState.assignResultRegister(dimensions, "[I");
+        }
 
         return getPossibleChildren();
     }
@@ -102,10 +108,10 @@ public class FilledNewArrayOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append('{');
+        sb.append(" {");
         if (dimensionRegisters.length > 5) {
             sb.append('r').append(dimensionRegisters[0]).append(" .. r")
-            .append(dimensionRegisters[dimensionRegisters.length - 1]).append("}, ");
+            .append(dimensionRegisters[dimensionRegisters.length - 1]);
         } else {
             for (int dimensionRegister : dimensionRegisters) {
                 sb.append('r').append(dimensionRegister).append(", ");

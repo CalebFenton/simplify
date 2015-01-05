@@ -48,7 +48,8 @@ public class IGetOp extends ExecutionContextOp {
     public int[] execute(ExecutionContext ectx) {
         // TODO: https://github.com/CalebFenton/simplify/issues/22
         MethodState mState = ectx.getMethodState();
-        mState.readRegister(instanceRegister);
+        HeapItem instanceItem = mState.readRegister(instanceRegister);
+
         String type = fieldDescriptor.split(":")[1];
         mState.assignRegister(destRegister, HeapItem.newUnknown(type));
 
@@ -58,7 +59,8 @@ public class IGetOp extends ExecutionContextOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", ").append(fieldDescriptor);
+        sb.append(" r").append(destRegister).append(", r").append(instanceRegister).append(", ")
+        .append(fieldDescriptor);
 
         return sb.toString();
     }

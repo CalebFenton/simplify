@@ -6,8 +6,8 @@ import gnu.trove.set.hash.TIntHashSet;
 public class MethodState extends BaseState {
 
     public static final int ResultRegister = -1;
-    public static final int ReturnAddress = -3;
     public static final int ReturnRegister = -2;
+    public static final int ReturnAddress = -3;
 
     public static final String MUTABLE_PARAMETER_HEAP = "mutable";
     public static final String METHOD_HEAP = "method";
@@ -179,7 +179,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append('v').append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                .append(",\n");
+                                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);
