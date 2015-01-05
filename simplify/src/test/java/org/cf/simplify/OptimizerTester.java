@@ -30,7 +30,8 @@ public class OptimizerTester {
 
     public static MethodBackedGraph getMethodBackedGraph(String className, String methodSignature,
                     TIntObjectMap<HeapItem> initial, Map<String, Map<String, HeapItem>> classNameToFieldValue) {
-        VirtualMachine vm = VMTester.getTestVM();
+        // Force class reloading because implementations will have changed
+        VirtualMachine vm = VMTester.getTestVM(true);
         String methodDescriptor = className + "->" + methodSignature;
         ExecutionGraph graph = VMTester.execute(vm, className, methodSignature, initial, classNameToFieldValue);
 

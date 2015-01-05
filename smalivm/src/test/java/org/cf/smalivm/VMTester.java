@@ -105,16 +105,21 @@ public class VMTester {
         return DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
     }
 
-    public static VirtualMachine getTestVM() {
-        SmaliClassManager classManager = null;
-        try {
-            classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(-1);
+    public static VirtualMachine getTestVM(boolean reloadClasses) {
+        if ((null == classManager) || reloadClasses) {
+            try {
+                classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
         }
 
         return new VirtualMachine(classManager);
+    }
+
+    public static VirtualMachine getTestVM() {
+        return getTestVM(false);
     }
 
     public static void testClassState(String className, String methodSignature,
