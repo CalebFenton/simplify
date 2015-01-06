@@ -24,10 +24,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class Test_java_lang_Class_forName {
-    // with local class
-    // with reflected class
-    // with unknown string
-    // with made up class (not safe, not framework, not local)
+
     private VirtualMachine vm;
     private SmaliClassManager classManager;
     private ExecutionContextMethod method;

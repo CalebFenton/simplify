@@ -59,7 +59,7 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         mState.assignReturnRegister(methodValue, RETURN_TYPE);
     }
 
-    private Object getLocalMethod(VirtualMachine vm, LocalClass localClass, String methodName,
+    private static Object getLocalMethod(VirtualMachine vm, LocalClass localClass, String methodName,
                     Object[] parameterTypesValue) {
         SmaliClassManager classManager = vm.getClassManager();
         String className = localClass.getName();
@@ -67,6 +67,8 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
             return new UnknownValue();
         }
 
+        // Only have the method signature, because the return type is unknown. Local methods are
+        // indexed by method descriptor since it's usually available.
         String targetMethodSignature = buildMethodSignature(className, methodName, parameterTypesValue);
         Set<String> methodDescriptors = vm.getClassManager().getMethodDescriptors(className);
         for (String methodDescriptor : methodDescriptors) {
@@ -78,7 +80,7 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         return new UnknownValue();
     }
 
-    private String buildMethodSignature(String className, String methodName, Object[] parameterTypes) {
+    private static String buildMethodSignature(String className, String methodName, Object[] parameterTypes) {
         StringBuilder sb = new StringBuilder(className);
         sb.append("->").append(methodName).append('(');
         if (null != parameterTypes) {
@@ -97,7 +99,7 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         return sb.toString();
     }
 
-    private Method getNonLocalMethod(Class<?> klazz, String methodName, Class<?>[] parameterTypes)
+    private static Method getNonLocalMethod(Class<?> klazz, String methodName, Class<?>[] parameterTypes)
                     throws NoSuchMethodException, SecurityException {
         return klazz.getMethod(methodName, parameterTypes);
     }
