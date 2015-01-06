@@ -8,7 +8,7 @@ Generic Android Deobfuscator
 
 Simplify uses a virtual machine to understand what an app does. Then, it applies optimizations to create code that behaves identically, but is easier for a human to understand. Specifically, it takes Smali files as input and outputs a Dex file with (hopefully) identical semantics but less complicated structure.
 
-For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine semantics. Then, it uses the apps own code to decrypt the strings and replaces the encrypted strings and the decryption method calls with the decrypted versions. It's a generic deobfuscator because Simplify doesn't need to know how the decryption works ahead of time. This technique also works well for eliminating different types of white noise, such as no-ops and useless arithmetic.
+For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine semantics. Then, it uses the apps own code to decrypt the strings and replaces the encrypted strings and the decryption method calls with the decrypted versions. It's a **generic** deobfuscator because Simplify doesn't need to know how the decryption works ahead of time. This technique also works well for eliminating different types of white noise, such as no-ops and useless arithmetic.
 
 **Before / After**
 
@@ -21,7 +21,7 @@ For example, if an app's strings are encrypted, Simplify will interpret the app 
 
 There are three parts to the project:
 
-1. **Smali Virtual Machine (SmaliVM)** - A VM designed to handle ambiguous values and multiple possible execution paths. For example, if there is an `if`, and the predicate includes unknown values (user input, current time, read from a file, etc.), the VM will assume either one could happen, and takes the `true` and `false` paths. This increases uncertainty, but maintains fidelity. SmaliVM's output is a graph that represents what the app could do. It contains every possible execution path and the register and class member values at each possible execution of every instruction.
+1. **Smali Virtual Machine (SmaliVM)** - A VM designed to handle ambiguous values and multiple possible execution paths. For example, if there is an `if`, and the predicate includes unknown values (user input, current time, read from a file, etc.), the VM will assume either one could happen, and takes both the `true` and `false` paths. This increases uncertainty, but ensures fidelity. SmaliVM's output is a graph that represents what the app could do. It contains every possible execution path and the register and class member values at each possible execution of every instruction.
 2. **Simplify** - The optimizer. It takes the graphs from SmaliVM and applies optimizations like constant propagation, dead code removal, and  specific peephole optimizations.
 3. **Demoapp** - A short and heavily commented project that shows how to get started using SmaliVM.
 
@@ -115,7 +115,7 @@ The above code is an obtuse way to say `v0 = 1`. This is sometimes used as an ob
 ```
 
 Some single assignment instructions can be replaced with constant instructions when there is consensus of the value being assigned of all the possible executions of that instruction. If the instruction is outside of a loop, there will only be one node in the graph for that instruction.
-In this example `move-result` is constantized, as well as `return` because there is only one possible value (consensus) and it is not unkown.
+In the above example, `move-result` is constantized, so is `return`, because there is only one possible value (consensus) and it is not unknown.
 
 
 ###After Dead Code Removal
