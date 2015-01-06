@@ -6,9 +6,9 @@ Simplify
 Generic Android Deobfuscator
 ----------------------------
 
-**Simplify** is a framework that utilizes a virtual machine to understand what an app does and then applies optimizations to create code that is easier for a human to understand while maintaining the identical behaviors of the application. It takes Smali files as the input and outputs a Dex file with (hopefully) identical semantics but a less complicated/obfuscated structure.
+**Simplify** is a framework that utilizes a virtual machine to understand what an app does and then applies optimizations to create code that is easier for a human to understand while maintaining the identical behavior of the application. It takes Smali files as the input and outputs a Dex file with (hopefully) identical semantics but a less complicated/obfuscated structure.
 
-For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine the semantics. Then, it will use the app's own decryption code to decrypt the strings and replace them with their decrypted equivalents along with their decryption method invocations. Simplify is a generic deobfuscator because it doesn't need to know how the decryption works ahead of time. The underlying technique also works well for eliminating different types of white noise such as no-ops and useless arithmetics.
+For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine the semantics. Then, it will use the app's own decryption code to decrypt the strings and replace them along with their decryption method invocations with the decrypted equivalents. Simplify is a **generic** deobfuscator because it doesn't need to know how the decryption works ahead of time. The underlying technique also works well for eliminating different types of white noise such as no-ops and useless arithmetics.
 
 **Before / After**
 
@@ -20,7 +20,7 @@ For example, if an app's strings are encrypted, Simplify will interpret the app 
 </section>
 
 There are three parts to the project:
-
+
 1. **Smali Virtual Machine (SmaliVM)** - A VM designed to handle ambiguous values and multiple possible execution paths. For example, if there is an `if`, and the predicate includes unknown values (user input, current time, read from a file, etc.), the VM will assume either one could happen, and takes both the `true` and `false` paths. This increases uncertainty, but ensures fidelity. SmaliVM's output is a graph that represents what the app could do. It contains every possible execution path and the register and class member values at each possible execution of every instruction.
 2. **Simplify** - The optimizer. It takes the graphs from SmaliVM and applies optimizations like constant propagation, dead code removal, and  specific peephole optimizations.
 3. **Demoapp** - A short and heavily commented project that shows how to get started using SmaliVM.
