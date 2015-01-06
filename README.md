@@ -6,7 +6,7 @@ Simplify
 Generic Android Deobfuscator
 ----------------------------
 
-**Simplify** is framework that utilizes a virtual machine to understand what an app does and then applies optimizations to create code that is easier for a human to understand while maintaining the identical behaviors of the application. It takes Smali files as the input and outputs a Dex file with (hopefully) identical semantics but a less complicated/obfuscated structure.
+**Simplify** is a framework that utilizes a virtual machine to understand what an app does and then applies optimizations to create code that is easier for a human to understand while maintaining the identical behaviors of the application. It takes Smali files as the input and outputs a Dex file with (hopefully) identical semantics but a less complicated/obfuscated structure.
 
 For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine the semantics. Then, it will use the app's own decryption code to decrypt the strings and replace them with their decrypted equivalents along with their decryption method invocations. Simplify is a generic deobfuscator because it doesn't need to know how the decryption works ahead of time. The underlying technique also works well for eliminating different types of white noise such as no-ops and useless arithmetics.
 
