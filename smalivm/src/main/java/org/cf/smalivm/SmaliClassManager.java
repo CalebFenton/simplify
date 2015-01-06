@@ -101,7 +101,7 @@ public class SmaliClassManager {
      * @return class definition for the given class name
      */
     public BuilderClassDef getClass(String className) {
-        loadClassIfNecessary(className);
+        dexifyClassIfNecessary(className);
 
         return classNameToClassDef.get(className);
     }
@@ -153,7 +153,7 @@ public class SmaliClassManager {
      * @return
      */
     public List<String> getFieldNameAndTypes(String className) {
-        loadClassIfNecessary(className);
+        dexifyClassIfNecessary(className);
 
         return classNameToFieldNameAndType.get(className);
     }
@@ -177,7 +177,7 @@ public class SmaliClassManager {
      * @return BuilderMethod for methodDescriptor, or null if not found
      */
     public BuilderMethod getMethod(String methodDescriptor) {
-        loadClassIfNecessary(methodDescriptor);
+        dexifyClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToMethod.get(methodDescriptor);
     }
@@ -188,7 +188,7 @@ public class SmaliClassManager {
      * @return set of all method descriptors for given className
      */
     public Set<String> getMethodDescriptors(String className) {
-        loadClassIfNecessary(className);
+        dexifyClassIfNecessary(className);
 
         BuilderClassDef classDef = getClass(className);
         Set<String> methodNames = new HashSet<String>();
@@ -206,7 +206,7 @@ public class SmaliClassManager {
      * @return list of Smali style parameter types
      */
     public List<String> getParameterTypes(String methodDescriptor) {
-        loadClassIfNecessary(methodDescriptor);
+        dexifyClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToParameterTypes.get(methodDescriptor);
     }
@@ -217,7 +217,7 @@ public class SmaliClassManager {
      * @return try / catch blocks of given method
      */
     public List<? extends TryBlock<? extends ExceptionHandler>> getTryBlocks(String methodDescriptor) {
-        loadClassIfNecessary(methodDescriptor);
+        dexifyClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToTryBlocks.get(methodDescriptor);
     }
@@ -316,7 +316,7 @@ public class SmaliClassManager {
         methodDescriptorToTryBlocks.put(methodDescriptor, implementation.getTryBlocks());
     }
 
-    private void loadClassIfNecessary(String typeDescriptor) {
+    private void dexifyClassIfNecessary(String typeDescriptor) {
         String[] parts = typeDescriptor.split("->");
         String className = parts[0];
         if (getLoadedClassNames().contains(className)) {

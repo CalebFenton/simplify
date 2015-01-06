@@ -61,6 +61,18 @@
   return-object v3
 .end method
 
+.method public FieldLookup()V
+  .locals 3
+
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  move-result-object v0
+
+  invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
+
+  return-void
+.end method
+
 .method public SixParameterMethod(IIIIII)V
   .locals 0
 
