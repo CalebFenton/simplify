@@ -14,7 +14,13 @@ public class StaticFieldAccessor {
 
     private static Logger log = LoggerFactory.getLogger(StaticFieldAccessor.class.getSimpleName());
 
-    public static HeapItem getField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor) {
+    private final VirtualMachine vm;
+
+    StaticFieldAccessor(VirtualMachine vm) {
+        this.vm = vm;
+    }
+
+    public HeapItem getField(ExecutionContext ectx, String fieldDescriptor) {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
@@ -51,7 +57,7 @@ public class StaticFieldAccessor {
         return fieldItem;
     }
 
-    public static void putField(VirtualMachine vm, ExecutionContext ectx, String fieldDescriptor, HeapItem putItem) {
+    public void putField(ExecutionContext ectx, String fieldDescriptor, HeapItem putItem) {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];

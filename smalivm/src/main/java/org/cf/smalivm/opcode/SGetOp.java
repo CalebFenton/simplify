@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -44,7 +43,7 @@ public class SGetOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
-        HeapItem item = StaticFieldAccessor.getField(vm, ectx, fieldDescriptor);
+        HeapItem item = vm.getStaticFieldAccessor().getField(ectx, fieldDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignRegister(destRegister, item);
 
