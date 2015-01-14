@@ -150,12 +150,23 @@ public class SmaliClassManager {
     /**
      *
      * @param className
-     * @return
+     * @return field and type (e.g. myBool:Z) for given class
      */
     public List<String> getFieldNameAndTypes(String className) {
         dexifyClassIfNecessary(className);
 
         return classNameToFieldNameAndType.get(className);
+    }
+
+    /**
+     *
+     * @param className
+     * @return fields for given class
+     */
+    public Collection<BuilderField> getFields(String className) {
+        BuilderClassDef classDef = getClass(className);
+
+        return classDef.getFields();
     }
 
     /**

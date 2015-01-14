@@ -1,7 +1,6 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -48,7 +47,7 @@ public class SPutOp extends ExecutionContextOp {
         MethodState mState = ectx.getMethodState();
         HeapItem item = mState.readRegister(valueRegister);
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
-        StaticFieldAccessor.putField(vm, ectx, fieldDescriptor, item);
+        vm.getStaticFieldAccessor().putField(ectx, fieldDescriptor, item);
 
         return getPossibleChildren();
     }

@@ -65,6 +65,7 @@ public class VirtualMachine {
     private final MethodExecutor methodExecutor;
     private final SmaliClassManager classManager;
     private final Map<BuilderMethod, ExecutionGraph> methodToTemplateContextGraph;
+    private final StaticFieldAccessor staticFieldAccessor;
 
     public VirtualMachine(SmaliClassManager manager) {
         this(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
@@ -77,6 +78,7 @@ public class VirtualMachine {
         this.maxCallDepth = maxCallDepth;
         methodExecutor = new MethodExecutor(this);
         methodToTemplateContextGraph = new HashMap<BuilderMethod, ExecutionGraph>();
+        staticFieldAccessor = new StaticFieldAccessor(this);
     }
 
     public ExecutionGraph execute(String methodDescriptor) {
@@ -132,6 +134,10 @@ public class VirtualMachine {
 
     public SmaliClassManager getClassManager() {
         return classManager;
+    }
+
+    public StaticFieldAccessor getStaticFieldAccessor() {
+        return staticFieldAccessor;
     }
 
     public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
