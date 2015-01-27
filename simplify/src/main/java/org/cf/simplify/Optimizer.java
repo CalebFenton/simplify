@@ -35,7 +35,7 @@ public class Optimizer {
     private final List<OptimizationStrategy> methodReexecuteStrategies;
 
     private boolean madeChanges;
-    private boolean reExecute;
+    private boolean shouldExecuteAgain;
     private Map<String, Integer> optimizationCounts;
 
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
@@ -66,9 +66,9 @@ public class Optimizer {
             strategy.perform();
         }
 
-        reExecute = false;
+        shouldExecuteAgain = false;
         for (OptimizationStrategy strategy : methodReexecuteStrategies) {
-            reExecute |= strategy.perform();
+            shouldExecuteAgain |= strategy.perform();
         }
 
         int sweep = 0;
@@ -87,8 +87,8 @@ public class Optimizer {
         return madeChanges;
     }
 
-    public boolean reExecute() {
-        return reExecute;
+    public boolean getShouldExecuteAgain() {
+        return shouldExecuteAgain;
     }
 
     private int updateOptimizationCounts() {
