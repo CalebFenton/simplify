@@ -4,6 +4,8 @@ import gnu.trove.map.TMap;
 import gnu.trove.map.hash.THashMap;
 import gnu.trove.set.hash.THashSet;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
@@ -16,56 +18,37 @@ public class ExecutionContext {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
-    private int callDepth;
-    private final TMap<String, SideEffect.Level> classNameToSideEffectLevel;
+    private final VirtualMachine vm;
     private final TMap<String, ClassState> classNameToState;
-    private final Heap heap;
+    private final TMap<String, SideEffect.Level> classNameToSideEffectLevel;
     private final Set<String> initializedClasses;
+    private final Heap heap;
 
     private MethodState mState;
     private ExecutionContext parent;
-    private final VirtualMachine vm;
+    private List<String> callStack;
 
-    public ExecutionContext(ExecutionContext other) {
-        vm = other.vm;
-        if (other.mState != null) {
-            mState = new MethodState(other.mState, this);
-        }
-        classNameToState = new THashMap<String, ClassState>(other.classNameToState.size());
-        classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(classNameToState.size());
-        for (String className : other.classNameToState.keySet()) {
-            ClassState otherClassState = other.peekClassState(className);
-            ClassState cState = new ClassState(otherClassState, this);
-            SideEffect.Level otherLevel = other.getClassStateSideEffectLevel(className);
-            setClassState(className, cState, otherLevel);
-        }
-        initializedClasses = new THashSet<String>(other.initializedClasses);
-        heap = new Heap(other.getHeap());
-        callDepth = other.getCallDepth();
-    }
-
-    public ExecutionContext(VirtualMachine vm) {
+    public ExecutionContext(VirtualMachine vm, String methodDescriptor) {
         this.vm = vm;
         classNameToState = new THashMap<String, ClassState>(0);
         classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(0);
         initializedClasses = new THashSet<String>(0);
         heap = new Heap();
-        callDepth = 0;
+        callStack = new LinkedList<String>();
+        callStack.add(methodDescriptor);
     }
 
     public int getCallDepth() {
-        return callDepth;
+        return callStack.size();
+    }
+
+    public List<String> getCallStack() {
+        return callStack;
     }
 
     public ExecutionContext getChild() {
-        ExecutionContext child = new ExecutionContext(this.vm);
-        child.setCallDepth(callDepth);
+        ExecutionContext child = new ExecutionContext(vm, callStack.get(callStack.size() - 1));
         child.setParent(this);
-        child.getHeap().setParent(this.getHeap());
-
-        // Almost every op access the method state
-        MethodState childMethodState = getMethodState().getChild(child);
-        child.setMethodState(childMethodState);
 
         return child;
     }
@@ -111,8 +94,10 @@ public class ExecutionContext {
         initializedClasses.add(className);
     }
 
-    public void setCallDepth(int callDepth) {
-        this.callDepth = callDepth;
+    public void prependToCallStack(List<String> otherCallStack) {
+        List<String> newCallStack = new LinkedList<String>(otherCallStack);
+        newCallStack.addAll(callStack);
+        callStack = newCallStack;
     }
 
     public void setClassState(String className, ClassState cState, SideEffect.Level level) {
@@ -138,7 +123,7 @@ public class ExecutionContext {
         String clinitDescriptor = className + "-><clinit>()V";
         if (vm.getClassManager().isLocalMethod(clinitDescriptor)) {
             ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
-            initContext.setCallDepth(getCallDepth() + 1);
+            initContext.prependToCallStack(getCallStack());
 
             ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
@@ -173,7 +158,14 @@ public class ExecutionContext {
     }
 
     private void setParent(ExecutionContext parent) {
+        assert parent.getMethodState() != null;
+
         this.parent = parent;
+        prependToCallStack(parent.getCallStack());
+        getHeap().setParent(parent.getHeap());
+
+        MethodState childMethodState = parent.getMethodState().getChild(this);
+        setMethodState(childMethodState);
     }
 
     ExecutionContext getParent() {
@@ -219,13 +211,13 @@ public class ExecutionContext {
             sb.append("Method: ").append(mState.toString());
         }
         if (sb.length() > 0) {
-            sb.append("\n");
+            sb.append('\n');
         }
         if (getInitializedClasses().size() < 4) {
-            // Too many and can blow up heap
+            // Too many will trash the heap
             for (String className : getInitializedClasses()) {
                 ClassState cState = peekClassState(className);
-                sb.append("Class: ").append(className).append(" ").append(cState);
+                sb.append("Class: ").append(className).append(' ').append(cState);
             }
         }
 

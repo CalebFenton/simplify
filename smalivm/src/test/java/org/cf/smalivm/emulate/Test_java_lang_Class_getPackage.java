@@ -25,7 +25,7 @@ public class Test_java_lang_Class_getPackage {
     }
 
     private static MethodState getMethodState(VirtualMachine vm, Object register0, String type) {
-        ExecutionContext ectx = new ExecutionContext(vm);
+        ExecutionContext ectx = new ExecutionContext(vm, "Ljava/lang/Class;->getPackage()Ljava/lang/Package;");
         int registerCount = 1;
         MethodState mState = new MethodState(ectx, registerCount);
         mState.assignRegister(0, register0, type);
