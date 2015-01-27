@@ -22,7 +22,7 @@ public class Test_java_lang_Class_getMethod {
 
     private static MethodState getMethodState(VirtualMachine vm, Object klazz, String methodName,
                     Class<?>[] parameterTypes) {
-        ExecutionContext ectx = new ExecutionContext(vm);
+        ExecutionContext ectx = new ExecutionContext(vm, "Ljava/lang/Class;->getMethod()Ljava/lang/reflect/Method;");
         int registerCount = 3;
         MethodState mState = new MethodState(ectx, registerCount);
         mState.assignRegister(0, klazz, "Ljava/lang/Class;");

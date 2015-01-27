@@ -164,6 +164,10 @@ public class VirtualMachine {
     }
 
     public ExecutionContext getRootExecutionContext(String methodDescriptor) {
+        if (!classManager.isLocalMethod(methodDescriptor)) {
+            throw new IllegalArgumentException("Method does not exist: " + methodDescriptor);
+        }
+
         if (!classManager.methodHasImplementation(methodDescriptor)) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
             throw new IllegalArgumentException("No implementation for " + methodDescriptor);
@@ -177,7 +181,7 @@ public class VirtualMachine {
         int accessFlags = method.getAccessFlags();
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
 
-        ExecutionContext rootContext = new ExecutionContext(this);
+        ExecutionContext rootContext = new ExecutionContext(this, methodDescriptor);
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
         addTemplateClassState(rootContext, className);
 

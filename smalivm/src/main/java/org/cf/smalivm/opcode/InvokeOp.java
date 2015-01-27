@@ -209,7 +209,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -298,7 +298,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     private ExecutionContext buildLocalCalleeContext(String methodDescriptor, ExecutionContext callerContext) {
         ExecutionContext calleeContext = vm.getRootExecutionContext(methodDescriptor);
-        calleeContext.setCallDepth(callerContext.getCallDepth() + 1);
+        calleeContext.prependToCallStack(callerContext.getCallStack());
         MethodState callerMethodState = callerContext.getMethodState();
         MethodState calleeMethodState = calleeContext.getMethodState();
         assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
@@ -309,7 +309,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private ExecutionContext buildNonLocalCalleeContext(MethodState callerMethodState) {
-        ExecutionContext ectx = new ExecutionContext(vm);
+        ExecutionContext ectx = new ExecutionContext(vm, methodDescriptor);
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         int registerCount = parameterSize;
         MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
