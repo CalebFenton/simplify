@@ -25,36 +25,36 @@ public class Main {
     private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
 
     public static void main(String[] args) throws Exception {
-        OptionBean bean = new OptionBean();
-        CmdLineParser parser = new CmdLineParser(bean);
+        OptionBean opts = new OptionBean();
+        CmdLineParser parser = new CmdLineParser(opts);
         parser.parseArgument(args);
-        if (bean.isHelp()) {
+        if (opts.isHelp()) {
             parser.printUsage(System.out);
             System.exit(0);
         }
 
-        setLogLevel(bean);
+        setLogLevel(opts);
         if (log.isInfoEnabled()) {
-            log.info("Options:\n" + bean.toString());
+            log.info("Options:\n" + opts.toString());
         }
 
         long startTime = System.currentTimeMillis();
 
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(bean.getOutputAPILevel());
-        SmaliClassManager classManager = new SmaliClassManager(bean.getInFile(), dexBuilder);
-        VirtualMachine vm = new VirtualMachine(classManager, bean.getMaxAddressVisits(), bean.getMaxCallDepth(),
-                        bean.getMaxMethodVisits());
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(opts.getOutputAPILevel());
+        SmaliClassManager classManager = new SmaliClassManager(opts.getInFile(), dexBuilder);
+        VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
+                        opts.getMaxMethodVisits());
 
         Set<String> classNames = classManager.getNonFrameworkClassNames();
         for (String className : classNames) {
             Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
-            filterMethods(methodDescriptors, bean.getIncludeFilter(), bean.getExcludeFilter());
-            if (!bean.includeSupportLibrary()) {
+            filterMethods(methodDescriptors, opts.getIncludeFilter(), opts.getExcludeFilter());
+            if (!opts.includeSupportLibrary()) {
                 filterSupportLibrary(methodDescriptors);
             }
 
             for (String methodDescriptor : methodDescriptors) {
-                boolean reExecute = false;
+                boolean shouldExecuteAgain = false;
                 do {
                     System.out.println("Executing: " + methodDescriptor);
                     ExecutionGraph graph = vm.execute(methodDescriptor);
@@ -64,16 +64,16 @@ public class Main {
                     }
 
                     BuilderMethod method = classManager.getMethod(methodDescriptor);
-                    Optimizer opt = new Optimizer(graph, method, vm, dexBuilder);
-                    opt.simplify(bean.getMaxOptimizationPasses());
-                    if (opt.madeChanges()) {
+                    Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder);
+                    optimizer.simplify(opts.getMaxOptimizationPasses());
+                    if (optimizer.madeChanges()) {
                         // Optimizer changed the implementation. Re-build graph to include changes.
                         vm.updateInstructionGraph(methodDescriptor);
                     }
-                    System.out.println(opt.getOptimizationCounts());
+                    System.out.println(optimizer.getOptimizationCounts());
 
-                    reExecute = opt.reExecute();
-                } while (reExecute);
+                    shouldExecuteAgain = optimizer.getShouldExecuteAgain();
+                } while (shouldExecuteAgain);
             }
         }
 
@@ -81,7 +81,7 @@ public class Main {
         System.out.println("Simplified " + classNames.size() + " classes in " + totalTime + " ms.");
         System.out.println(Optimizer.getTotalOptimizationCounts());
 
-        File outFile = bean.getOutFile();
+        File outFile = opts.getOutFile();
         System.out.println("Writing result to " + outFile);
         dexBuilder.writeTo(new FileDataStore(outFile));
     }
