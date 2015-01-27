@@ -14,7 +14,7 @@ class BaseState {
     private final TIntSet registersAssigned;
     private final TIntSet registersRead;
 
-    final ExecutionContext ectx;
+    private final ExecutionContext ectx;
 
     BaseState(BaseState parent, ExecutionContext ectx) {
         registerCount = parent.registerCount;
@@ -38,27 +38,6 @@ class BaseState {
         this.ectx = ectx;
     }
 
-    public void assignRegister(int register, HeapItem item, String heapId) {
-        getRegistersAssigned().add(register);
-
-        pokeRegister(register, item, heapId);
-    }
-
-    public void assignRegisterAndUpdateIdentities(int register, HeapItem item, String heapId) {
-        getRegistersAssigned().add(register);
-        ectx.getHeap().update(heapId, register, item);
-    }
-
-    public BaseState getParent() {
-        ExecutionContext parentContext = ectx.getParent();
-        MethodState parent = null;
-        if (parentContext != null) {
-            parent = parentContext.getMethodState();
-        }
-
-        return parent;
-    }
-
     public int getRegisterCount() {
         return registerCount;
     }
@@ -71,15 +50,44 @@ class BaseState {
         return registersRead;
     }
 
+    public boolean wasRegisterAssigned(int register) {
+        return getRegistersAssigned().contains(register);
+    }
+
+    void assignRegister(int register, HeapItem item, String heapId) {
+        getRegistersAssigned().add(register);
+
+        pokeRegister(register, item, heapId);
+    }
+
+    void assignRegisterAndUpdateIdentities(int register, HeapItem item, String heapId) {
+        getRegistersAssigned().add(register);
+        ectx.getHeap().update(heapId, register, item);
+    }
+
+    ExecutionContext getExecutionContext() {
+        return ectx;
+    }
+
+    BaseState getParent() {
+        ExecutionContext parentContext = ectx.getParent();
+        MethodState parent = null;
+        if (parentContext != null) {
+            parent = parentContext.getMethodState();
+        }
+
+        return parent;
+    }
+
     boolean hasRegister(int register, String heapId) {
         return ectx.getHeap().hasRegister(heapId, register);
     }
 
-    public HeapItem peekRegister(int register, String heapId) {
+    HeapItem peekRegister(int register, String heapId) {
         return ectx.getHeap().get(heapId, register);
     }
 
-    public void pokeRegister(int register, HeapItem item, String heapId) {
+    void pokeRegister(int register, HeapItem item, String heapId) {
         if (log.isTraceEnabled()) {
             StringBuilder sb = new StringBuilder();
             sb.append("Setting ").append(heapId).append(':').append(register).append(" = ").append(item);
@@ -94,21 +102,23 @@ class BaseState {
         ectx.getHeap().set(heapId, register, item);
     }
 
-    public HeapItem readRegister(int register, String heapId) {
+    HeapItem readRegister(int register, String heapId) {
         getRegistersRead().add(register);
 
         return peekRegister(register, heapId);
     }
 
-    public void removeRegister(int register, String heapId) {
+    String registerToString(int register, String heapId) {
+        HeapItem item = peekRegister(register, heapId);
+
+        return item.toString();
+    }
+
+    void removeRegister(int register, String heapId) {
         ectx.getHeap().remove(heapId, register);
     }
 
-    public boolean wasRegisterAssigned(int register) {
-        return getRegistersAssigned().contains(register);
-    }
-
-    public boolean wasRegisterRead(int register, String heapId) {
+    boolean wasRegisterRead(int register, String heapId) {
         HeapItem item = peekRegister(register, heapId);
         if (getRegistersRead().contains(register)) {
             return true;
@@ -118,7 +128,7 @@ class BaseState {
             return false;
         }
 
-        // Don't just examine registersRead, v0 and v1 may contain the same object reference, but v0 is never read.
+        // Don't just examine registersRead. v0 and v1 may contain the same object reference, but v0 is never read.
         for (int currentRegister : getRegistersRead().toArray()) {
             HeapItem currentItem = peekRegister(currentRegister, heapId);
             if (item.getValue() == currentItem.getValue()) {
@@ -127,12 +137,6 @@ class BaseState {
         }
 
         return false;
-    }
-
-    protected String registerToString(int register, String heapId) {
-        HeapItem item = peekRegister(register, heapId);
-
-        return item.toString();
     }
 
 }

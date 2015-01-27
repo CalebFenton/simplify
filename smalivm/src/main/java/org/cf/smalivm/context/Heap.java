@@ -161,9 +161,9 @@ class Heap {
 
     void update(String key, HeapItem item) {
         /*
-         * When replacing an uninitialized instance object, need to update all registers that also point to that object.
-         * This would be a lot easier if Dalvik's "new-instance" or Java's "new" instruction were available at compile
-         * time.
+         * When replacing an uninitialized instance with a new instance (e.g. when executing new-instance), need to
+         * update all registers that reference the uninitialized instance. This would be a lot easier if Dalvik's
+         * "new-instance" or Java's "new" instruction were available at compile time.
          */
 
         HeapItem oldItem = get(key);
@@ -174,4 +174,5 @@ class Heap {
             }
         }
     }
+
 }

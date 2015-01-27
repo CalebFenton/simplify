@@ -128,7 +128,7 @@ public class MethodState extends BaseState {
 
     public HeapItem readResultRegister() {
         HeapItem item = readRegister(ResultRegister, METHOD_HEAP);
-        ectx.getHeap().remove(METHOD_HEAP, ResultRegister);
+        getExecutionContext().getHeap().remove(METHOD_HEAP, ResultRegister);
 
         return item;
     }
@@ -179,7 +179,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append('v').append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                                .append(",\n");
+                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);
@@ -202,11 +202,13 @@ public class MethodState extends BaseState {
         return wasRegisterRead(register, METHOD_HEAP);
     }
 
-    // TODO: this is a confusing name, and how it's used is confusing, at least add comments
-    public void assignRegisterAndUpdateIdentities(int register, Object value, String type) {
-        assignRegisterAndUpdateIdentities(register, new HeapItem(value, type));
-    }
-
+    /**
+     * Identical to {@link #assignRegister(int, HeapItem)} but also updates any register with an identical value to that
+     * stored in the target register with the new value.
+     *
+     * @param register
+     * @param item
+     */
     public void assignRegisterAndUpdateIdentities(int register, HeapItem item) {
         super.assignRegisterAndUpdateIdentities(register, item, METHOD_HEAP);
     }
