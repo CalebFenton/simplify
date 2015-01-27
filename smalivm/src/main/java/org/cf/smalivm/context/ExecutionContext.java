@@ -4,6 +4,7 @@ import gnu.trove.map.TMap;
 import gnu.trove.map.hash.THashMap;
 import gnu.trove.set.hash.THashSet;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -29,25 +30,32 @@ public class ExecutionContext {
     private List<String> callStack;
 
     public ExecutionContext(VirtualMachine vm, String methodDescriptor) {
+        this(vm, Arrays.asList(new String[] { methodDescriptor }));
+    }
+
+    public ExecutionContext(VirtualMachine vm, List<String> callStack) {
         this.vm = vm;
         classNameToState = new THashMap<String, ClassState>(0);
         classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(0);
         initializedClasses = new THashSet<String>(0);
         heap = new Heap();
-        callStack = new LinkedList<String>();
-        callStack.add(methodDescriptor);
+        this.callStack = callStack;
     }
 
     public int getCallDepth() {
-        return callStack.size();
+        return getCallStack().size();
     }
 
     public List<String> getCallStack() {
         return callStack;
     }
 
+    public String getMethodDescriptor() {
+        return callStack.get(callStack.size() - 1);
+    }
+
     public ExecutionContext getChild() {
-        ExecutionContext child = new ExecutionContext(vm, callStack.get(callStack.size() - 1));
+        ExecutionContext child = new ExecutionContext(vm, getCallStack());
         child.setParent(this);
 
         return child;
@@ -161,7 +169,6 @@ public class ExecutionContext {
         assert parent.getMethodState() != null;
 
         this.parent = parent;
-        prependToCallStack(parent.getCallStack());
         getHeap().setParent(parent.getHeap());
 
         MethodState childMethodState = parent.getMethodState().getChild(this);
