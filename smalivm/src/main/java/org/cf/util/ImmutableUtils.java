@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 public class ImmutableUtils {
 
-    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ImmutableUtils.class.getSimpleName());
 
     private static final Set<String> immutableClasses = getImmutableClasses();

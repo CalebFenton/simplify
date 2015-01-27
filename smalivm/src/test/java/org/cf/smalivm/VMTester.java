@@ -226,15 +226,6 @@ public class VMTester {
         assertEquals(expectedVisits, actualVisits);
     }
 
-    private static String getClassName(Object obj) {
-        String result = "null";
-        if (obj != null) {
-            result = obj.getClass().getName();
-        }
-
-        return result;
-    }
-
     private static ExecutionContext getInitializedContext(VirtualMachine vm, String methodDescriptor,
                     TIntObjectMap<HeapItem> registerToItem,
                     Map<String, Map<String, HeapItem>> classNameToInitialFieldItem) {
