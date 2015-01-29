@@ -134,3 +134,8 @@ Dead code includes:
 * unreferenced assignments - assigning something and never using it
 * method calls with no side-effects - `Ljava/lang/Integer;->intValue()I` has no side-effects
 * unreached / unreachable instructions - code inside of an `if (false)` block, none in this example
+
+Related Works
+-------------
+
+* [Guillot, Yoann, and Alexandre Gazet. "Automatic Binary Deobfuscation." Journal in Computer Virology 6.3 (2010): 261-76](http://metasm.cr0.org/docs/sstic09-metasm-jcv.pdf)
