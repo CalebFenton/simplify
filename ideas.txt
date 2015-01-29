@@ -1,24 +1,29 @@
-6494727's phone/b;->a([Ljava/lang/String;) is not working and looks like it should
+This is a scratch pad for ideas.
+Many of them are too undercooked or broad to be articulated as issues on github.
 
-whitelist methods
-many Class.is*, other stuff
 
-emulate
-Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
-  return methods from any whitelisted class
+During execution, the context has no awareness of the current method or the call stack. Knowing these things allows for:
+  1.) illegal access checks on fields, right now, no way to tell if the field is in the same class as the current method
+  2.) contextualized exception throwing with stack trace
 
-getField() - emulated methods should support many Class.* methods, either as part of the interface, or inherited
-if they're inherited, base class can implement all of them and return unknown values of the correct type
 
-Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+Beef up whitelist:
+  many Class.is*
+
+Emulate:
+  Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
   invoke ourselves or run emulated method
 
-Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
-  easy: return any whitelisted class
-  hard: easy + do something with emulated classes
 
-Emulate / spoof stack traces
+Android class lifecycle initialization
+  sometimes it can be assumed onCreate has been called
+  or just give a list of methods to be called before whatever else
 
+  java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
+  ArrayLists are initialized in onCreate, but since that's not known, everything fails
+
+
+Emulate / spoof stack traces - requires call stack in context or similar
   new-instance v1, Ljava/lang/Exception;
   invoke-direct {v1}, Ljava/lang/Exception;-><init>()V
   invoke-virtual {v1}, Ljava/lang/Exception;->getStackTrace()[Ljava/lang/StackTraceElement;
@@ -33,27 +38,12 @@ Emulate / spoof stack traces
   invoke-virtual {v2}, Ljava/lang/Thread;->getStackTrace()[Ljava/lang/StackTraceElement;
 
 
-Hashcode? / Equals?
-  ExecutionNode, Op, *State, etc.
+Fail stories:
+  * 6494727's phone/b;->a([Ljava/lang/String;)
+    doesn't work and looks like it should
+  * inner classes are not always resolved properly, should add tests for this, look at base64$coder
+  * methods with arrays, like anything in 8748278, don't optimize correctly
 
-
-Success stories
-java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
-java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
-
-
-Android class lifecycle initialization
-  sometimes it can be assumed onCreate has been called
-  or just give a list of methods to be called before whatever else
-
-  java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
-  ArrayLists are initialized in onCreate, but since that's not known, everything fails
-
-
-allow emulated methods to handle unknown values
-
-two issues:
-inner classes are not always resolved properly, should add tests for this, look at base64$coder
-methods with arrays, like anything in 8748278, don't optimize correctly
-
-
+Success stories:
+  * java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
+  * java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
