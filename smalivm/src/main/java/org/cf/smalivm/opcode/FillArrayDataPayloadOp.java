@@ -6,7 +6,6 @@ import java.util.List;
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
 import org.slf4j.Logger;
@@ -83,8 +82,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
                 Array.set(array, i, value);
             }
             // Poke rather than assign for the optimizer.
-            String type = SmaliClassUtils.javaClassToSmali(expectedClass);
-            mState.pokeRegister(targetRegister, arrayItem, type);
+            mState.pokeRegister(targetRegister, arrayItem);
         }
 
         int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
