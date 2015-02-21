@@ -14,6 +14,7 @@ import org.cf.smalivm.opcode.SGetOp;
 import org.cf.smalivm.opcode.UnaryMathOp;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.util.SmaliClassUtils;
+import org.cf.util.Utils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
@@ -52,15 +53,6 @@ public class ConstantBuilder implements Dependancy {
         return ConstantizableTypes.contains(type);
     }
 
-    private static int getBitSize(long x) {
-        int result = 1;
-        while ((result < 64) && (x >= (1L << result))) {
-            result++;
-        }
-
-        return result;
-    }
-
     public static BuilderInstruction buildConstant(boolean value, int register) {
         int literal = value ? 1 : 0;
 
@@ -81,9 +73,16 @@ public class ConstantBuilder implements Dependancy {
     }
 
     public static BuilderInstruction buildConstant(float value, int register) {
+        if ((value % 1) == 0) {
+            // No decimal portion
+            if (value <= Integer.MAX_VALUE) {
+                return buildConstant(((Float) value).intValue(), register);
+            }
+        }
         int intBits = Float.floatToIntBits(value);
         String binaryValue = Integer.toBinaryString(intBits);
         BuilderInstruction result;
+
         if (binaryValue.endsWith(LAST_16_BITS_ZERO)) {
             result = new BuilderInstruction21ih(Opcode.CONST_HIGH16, register, intBits);
         } else {
@@ -103,10 +102,10 @@ public class ConstantBuilder implements Dependancy {
 
     public static BuilderInstruction buildConstant(int value, int register) {
         BuilderInstruction result;
-        int bitSize = getBitSize(value);
-        if ((bitSize < 4) && ((register & 0xFFFFFFF0) == 0)) {
+        int bitCount = value == 0 ? 1 : 1 + Integer.numberOfTrailingZeros(Integer.highestOneBit(value));
+        if ((bitCount < 4) && ((register & 0xFFFFFFF0) == 0)) {
             result = new BuilderInstruction11n(Opcode.CONST_4, register, value);
-        } else if ((bitSize < 16) && ((register & 0xFFFFFF00) == 0)) {
+        } else if ((bitCount < 16) && ((register & 0xFFFFFF00) == 0)) {
             result = new BuilderInstruction21s(Opcode.CONST_16, register, value);
         } else {
             result = new BuilderInstruction31i(Opcode.CONST, register, value);
@@ -117,10 +116,10 @@ public class ConstantBuilder implements Dependancy {
 
     public static BuilderInstruction buildConstant(long value, int register) {
         BuilderInstruction result;
-        int bitSize = getBitSize(value);
-        if ((bitSize < 16) && ((register & 0xFFFFFF00) == 0)) {
+        int bitCount = Long.numberOfTrailingZeros(Long.highestOneBit(value));
+        if ((bitCount < 16) && ((register & 0xFFFFFF00) == 0)) {
             result = new BuilderInstruction21s(Opcode.CONST_WIDE_16, register, (int) value);
-        } else if ((bitSize < 32) && ((register & 0xFFFFFF00) == 0)) {
+        } else if ((bitCount < 32) && ((register & 0xFFFFFF00) == 0)) {
             result = new BuilderInstruction31i(Opcode.CONST_WIDE_32, register, (int) value);
         } else {
             result = new BuilderInstruction51l(Opcode.CONST_WIDE, register, value);
@@ -132,21 +131,43 @@ public class ConstantBuilder implements Dependancy {
     public static BuilderInstruction buildConstant(Object value, String type, int register, DexBuilder dexBuilder) {
         BuilderInstruction result = null;
         if (type.equals("I")) {
-            result = buildConstant((Integer) value, register);
+            if (value instanceof Integer) {
+                result = buildConstant(((Integer) value), register);
+            } else {
+                result = buildConstant(Utils.getIntegerValue(value), register);
+            }
         } else if (type.equals("B")) {
-            result = buildConstant((Byte) value, register);
+            if (value instanceof Byte) {
+                result = buildConstant(((Byte) value), register);
+            } else {
+                result = buildConstant(Utils.getIntegerValue(value), register);
+            }
         } else if (type.equals("S")) {
-            result = buildConstant((Short) value, register);
+            if (value instanceof Short) {
+                result = buildConstant(((Short) value), register);
+            } else {
+                result = buildConstant(Utils.getIntegerValue(value), register);
+            }
         } else if (type.equals("C")) {
-            result = buildConstant((Character) value, register);
+            if (value instanceof Character) {
+                result = buildConstant(((Character) value), register);
+            } else {
+                result = buildConstant(Utils.getIntegerValue(value), register);
+            }
         } else if (type.equals("Z")) {
-            result = buildConstant(((Boolean) value), register);
+            if (value instanceof Boolean) {
+                result = buildConstant(((Boolean) value), register);
+            } else {
+                result = buildConstant(Utils.getIntegerValue(value), register);
+            }
         } else if (type.equals("J")) {
-            result = buildConstant((Long) value, register);
+            result = buildConstant(Utils.getLongValue(value), register);
         } else if (type.equals("F")) {
-            result = buildConstant((Float) value, register);
+            result = buildConstant(Utils.getFloatValue(value), register);
         } else if (type.equals("D")) {
-            result = buildConstant((Double) value, register);
+            // const op has no notion of actual type, just wide/narrow and bits
+            // must coax correct value when needed
+            result = buildConstant(Utils.getDoubleValue(value), register);
         } else if (type.equals("Ljava/lang/String;")) {
             BuilderStringReference stringRef = dexBuilder.internStringReference(value.toString());
             result = new BuilderInstruction21c(Opcode.CONST_STRING, register, stringRef);
