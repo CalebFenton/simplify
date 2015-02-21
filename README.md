@@ -29,18 +29,6 @@ There are three parts to the project:
 Building
 --------
 
-**There is a bug with dexlib 2.0.3 which can cause Simplify to fail often.**
-To work around, you must:
-* Clone and build [Smali](https://github.com/JesusFreke/smali)
-* Comment this line in [smalivm/build.gradle](smalivm/build.gradle):
-
-`compile 'org.smali:dexlib2:2.0.3'`
-* Uncomment and modify this line in [smalivm/build.gradle](smalivm/build.gradle) to point to the built jar, if different:
-
-`compile files('../../smali/dexlib2/build/libs/dexlib2-2.0.3-dev.jar')`
-
-Sorry for this step. It won't be necessary once updated dexlib is released.
-
 To build the jar, use `./gradlew shadowJar`
 
 
