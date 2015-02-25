@@ -1,6 +1,7 @@
 .class Lparent_class;
 .super Lgrandparent_class;
 
+.field public static parentField:I
 
 # direct methods
 .method public constructor <init>()V

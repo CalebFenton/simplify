@@ -2,6 +2,8 @@
 .super Ljava/lang/Object;
 .implements Lgrandparent_interface;
 
+.field public static grandparentField:I
+
 # direct methods
 .method public constructor <init>()V
     .locals 0

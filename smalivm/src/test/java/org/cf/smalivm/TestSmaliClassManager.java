@@ -1,9 +1,12 @@
 package org.cf.smalivm;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.junit.BeforeClass;
@@ -91,6 +94,17 @@ public class TestSmaliClassManager {
     @Test
     public void testUnknownParentDoesNotThrowUnknownAncestors() throws UnknownAncestors {
         manager.isInstance("Lchild_class;", "Lthis_certainly_wont_exists;");
+    }
+
+    @Test
+    public void testGetFieldsAndTypesReturnsFieldsFromSuperClasses() {
+        List<String> fieldNameAndTypes = manager.getFieldNameAndTypes("Lchild_class;");
+        String[] actual = fieldNameAndTypes.toArray(new String[fieldNameAndTypes.size()]);
+        String[] expected = new String[] { "childField:I", "parentField:I", "grandparentField:I" };
+        Arrays.sort(actual);
+        Arrays.sort(expected);
+
+        assertArrayEquals(expected, actual);
     }
 
 }

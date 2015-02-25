@@ -116,46 +116,21 @@ public class SmaliClassManager {
     }
 
     /**
-     * Does not load any Smali files.
-     *
-     * @return all local class names, excluding framework
-     */
-    public Set<String> getNonFrameworkClassNames() {
-        Set<String> classNames = new HashSet<String>();
-        for (String className : classNameToSmaliFile.keySet()) {
-            if (!smaliFileFactory.isFrameworkClass(className)) {
-                classNames.add(className);
-            }
-        }
-
-        return classNames;
-    }
-
-    public boolean isFramework(String typeName) {
-        String className = typeName.split("->")[0];
-
-        return smaliFileFactory.isFrameworkClass(className);
-    }
-
-    public boolean isSafeFramework(String typeName) {
-        String className = typeName.split("->")[0];
-
-        return smaliFileFactory.isSafeFrameworkClass(className);
-    }
-
-    public Set<String> getLoadedClassNames() {
-        return classNameToClassDef.keySet();
-    }
-
-    /**
      *
      * @param className
-     * @return field and type (e.g. myBool:Z) for given class
+     * @return field and type (e.g. myBool:Z) for given class, including inherited fields
      */
     public List<String> getFieldNameAndTypes(String className) {
         dexifyClassIfNecessary(className);
 
-        return classNameToFieldNameAndType.get(className);
+        Set<String> ancestors = getClassAncestors(className);
+
+        List<String> fieldNameAndTypes = new LinkedList<String>();
+        for (String ancestor : ancestors) {
+            fieldNameAndTypes.addAll(classNameToFieldNameAndType.get(ancestor));
+        }
+
+        return fieldNameAndTypes;
     }
 
     /**
@@ -169,17 +144,8 @@ public class SmaliClassManager {
         return classDef.getFields();
     }
 
-    /**
-     *
-     * @param className
-     * @param methodSignature
-     * @return BuilderMethod for className and methodSignature, or null if not found
-     */
-    public BuilderMethod getMethod(String className, String methodSignature) {
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(methodSignature);
-
-        return getMethod(sb.toString());
+    public Set<String> getLoadedClassNames() {
+        return classNameToClassDef.keySet();
     }
 
     /**
@@ -191,6 +157,19 @@ public class SmaliClassManager {
         dexifyClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToMethod.get(methodDescriptor);
+    }
+
+    /**
+     *
+     * @param className
+     * @param methodSignature
+     * @return BuilderMethod for className and methodSignature, or null if not found
+     */
+    public BuilderMethod getMethod(String className, String methodSignature) {
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(methodSignature);
+
+        return getMethod(sb.toString());
     }
 
     /**
@@ -209,6 +188,22 @@ public class SmaliClassManager {
         }
 
         return methodNames;
+    }
+
+    /**
+     * Does not load any Smali files.
+     *
+     * @return all local class names, excluding framework
+     */
+    public Set<String> getNonFrameworkClassNames() {
+        Set<String> classNames = new HashSet<String>();
+        for (String className : classNameToSmaliFile.keySet()) {
+            if (!smaliFileFactory.isFrameworkClass(className)) {
+                classNames.add(className);
+            }
+        }
+
+        return classNames;
     }
 
     /**
@@ -231,6 +226,40 @@ public class SmaliClassManager {
         dexifyClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToTryBlocks.get(methodDescriptor);
+    }
+
+    public boolean isFramework(String typeName) {
+        String className = typeName.split("->")[0];
+
+        return smaliFileFactory.isFrameworkClass(className);
+    }
+
+    public boolean isInstance(Class<?> childClass, Class<?> targetClass) throws UnknownAncestors {
+        if ((childClass == null) || (targetClass == null)) {
+            return false;
+        }
+
+        String childType = SmaliClassUtils.javaClassToSmali(childClass);
+        String targetType = SmaliClassUtils.javaClassToSmali(targetClass);
+
+        return isInstance(childType, targetType);
+    }
+
+    public boolean isInstance(String childType, String targetType) throws UnknownAncestors {
+        /*
+         * Note: not 100% sure how java's instanceof works with arrays, but some poking shows it compares the base
+         * classes, and will not compile if types are incompatible, e.g. Integer[][] vs Object[].
+         */
+        String baseChild = SmaliClassUtils.getBaseClass(childType);
+        if (SmaliClassUtils.isPrimitiveType(baseChild)) {
+            baseChild = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseChild));
+        }
+        String baseTarget = SmaliClassUtils.getBaseClass(targetType);
+        if (SmaliClassUtils.isPrimitiveType(baseTarget)) {
+            baseTarget = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseTarget));
+        }
+
+        return isInstance(baseChild, baseTarget, new HashSet<String>());
     }
 
     /**
@@ -260,23 +289,29 @@ public class SmaliClassManager {
     /**
      *
      * @param methodDescriptor
-     * @return true if method has implementation (not abstract or native), false otherwise
-     */
-    public boolean methodHasImplementation(String methodDescriptor) {
-        BuilderMethod method = getMethod(methodDescriptor);
-
-        return null != method.getImplementation();
-    }
-
-    /**
-     *
-     * @param methodDescriptor
      * @return true if method is native, false otherwise
      */
     public boolean isNativeMethod(String methodDescriptor) {
         BuilderMethod method = getMethod(methodDescriptor);
 
         return (method.getAccessFlags() & AccessFlags.NATIVE.getValue()) == AccessFlags.NATIVE.getValue();
+    }
+
+    public boolean isSafeFramework(String typeName) {
+        String className = typeName.split("->")[0];
+
+        return smaliFileFactory.isSafeFrameworkClass(className);
+    }
+
+    /**
+     *
+     * @param methodDescriptor
+     * @return true if method has implementation (not abstract or native), false otherwise
+     */
+    public boolean methodHasImplementation(String methodDescriptor) {
+        BuilderMethod method = getMethod(methodDescriptor);
+
+        return null != method.getImplementation();
     }
 
     private void addFieldNameAndTypes(BuilderClassDef classDef) {
@@ -355,56 +390,6 @@ public class SmaliClassManager {
         addFieldNameAndTypes(classDef);
     }
 
-    public boolean isInstance(Class<?> childClass, Class<?> targetClass) throws UnknownAncestors {
-        if ((childClass == null) || (targetClass == null)) {
-            return false;
-        }
-
-        String childType = SmaliClassUtils.javaClassToSmali(childClass);
-        String targetType = SmaliClassUtils.javaClassToSmali(targetClass);
-
-        return isInstance(childType, targetType);
-    }
-
-    public boolean isInstance(String childType, String targetType) throws UnknownAncestors {
-        /*
-         * Note: not 100% sure how java's instanceof works with arrays, but some poking shows it compares the base
-         * classes, and will not compile if types are incompatible, e.g. Integer[][] vs Object[].
-         */
-        String baseChild = SmaliClassUtils.getBaseClass(childType);
-        if (SmaliClassUtils.isPrimitiveType(baseChild)) {
-            baseChild = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseChild));
-        }
-        String baseTarget = SmaliClassUtils.getBaseClass(targetType);
-        if (SmaliClassUtils.isPrimitiveType(baseTarget)) {
-            baseTarget = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseTarget));
-        }
-
-        return isInstance(baseChild, baseTarget, new HashSet<String>());
-    }
-
-    private boolean isInstance(String childType, String targetType, Set<String> visited) throws UnknownAncestors {
-        if (childType.equals(targetType)) {
-            return true;
-        }
-
-        Set<String> parents = getAncestors(childType);
-        for (String parent : parents) {
-            if (visited.contains(parent)) {
-                continue;
-            }
-            visited.add(parent);
-
-            if (parent.equals(targetType)) {
-                return true;
-            } else if (isInstance(parent, targetType, visited)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private Set<String> getAncestors(String className) throws UnknownAncestors {
         Set<String> parents = new HashSet<String>();
         if (isLocalClass(className)) {
@@ -431,6 +416,43 @@ public class SmaliClassManager {
         }
 
         return parents;
+    }
+
+    private Set<String> getClassAncestors(String className) {
+        Set<String> ancestors = new HashSet<String>();
+        ancestors.add(className);
+        String superClass = className;
+        do {
+            BuilderClassDef classDef = getClass(superClass);
+            superClass = classDef.getSuperclass();
+            if (superClass != null) {
+                ancestors.add(superClass);
+            }
+        } while (superClass != null);
+
+        return ancestors;
+    }
+
+    private boolean isInstance(String childType, String targetType, Set<String> visited) throws UnknownAncestors {
+        if (childType.equals(targetType)) {
+            return true;
+        }
+
+        Set<String> parents = getAncestors(childType);
+        for (String parent : parents) {
+            if (visited.contains(parent)) {
+                continue;
+            }
+            visited.add(parent);
+
+            if (parent.equals(targetType)) {
+                return true;
+            } else if (isInstance(parent, targetType, visited)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }
