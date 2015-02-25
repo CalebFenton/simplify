@@ -25,7 +25,8 @@ public class HeapItem {
     }
 
     HeapItem(HeapItem other) {
-        this(cloner.deepClone(other.getValue()), other.getType());
+        value = cloner.deepClone(other.getValue());
+        type = other.getType();
     }
 
     public Object getValue() {
