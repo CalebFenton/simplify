@@ -2,7 +2,12 @@ package org.cf.smalivm.context;
 
 import gnu.trove.set.hash.THashSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ClassState extends BaseState {
+
+    private static Logger log = LoggerFactory.getLogger(ClassState.class.getSimpleName());
 
     private final String className;
     private final THashSet<String> fieldNameAndTypes;
@@ -49,7 +54,13 @@ public class ClassState extends BaseState {
         int register = 0;
         String heapKey = getKey(fieldNameAndType);
 
-        return peekRegister(register, heapKey);
+        HeapItem fieldItem = peekRegister(register, heapKey);
+        if (fieldItem == null) {
+            log.error("Undefined field: " + className + ";->" + fieldNameAndType + ". Returning unknown.");
+            fieldItem = HeapItem.newUnknown(fieldNameAndType.split(":")[1]);
+        }
+
+        return fieldItem;
     }
 
     public void pokeField(String fieldNameAndType, Object value) {
