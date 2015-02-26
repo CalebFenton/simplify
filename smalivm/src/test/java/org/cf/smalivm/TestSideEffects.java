@@ -3,6 +3,9 @@ package org.cf.smalivm;
 import static org.junit.Assert.assertEquals;
 
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -24,7 +27,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testConstOpsHaveNoSideEffects() {
+    public void testConstOpsHaveNoSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "ConstOps()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -32,7 +36,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testEmptyMethodHasNoSideEffects() {
+    public void testEmptyMethodHasNoSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "EmptyMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -40,7 +45,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testInvokeMethodThatInvokesUnknownMethodHasStrongSideEffects() {
+    public void testInvokeMethodThatInvokesUnknownMethodHasStrongSideEffects() throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "InvokeMethodThatInvokesUnknownMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -48,7 +54,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testInvokeMethodWithNoSideEffectsHasNoSideEffects() {
+    public void testInvokeMethodWithNoSideEffectsHasNoSideEffects() throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "InvokeMethodWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -56,7 +63,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testInvokeOfNonAnalyzableMethodHasStrongSideEffects() {
+    public void testInvokeOfNonAnalyzableMethodHasStrongSideEffects() throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "InvokeOfNonAnalyzableMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -64,7 +72,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testInvokeSideEffectMethodHasStrongSideEffects() {
+    public void testInvokeSideEffectMethodHasStrongSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "InvokeSideEffectMethod(Ljava/lang/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -72,7 +81,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testInvokeUnknownMethodHasStrongSideEffects() {
+    public void testInvokeUnknownMethodHasStrongSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "InvokeUnknownMethod()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -80,7 +90,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testInvokeWhitelistedMethodsHasNoSideEffects() {
+    public void testInvokeWhitelistedMethodsHasNoSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "InvokeWhitelistedMethods()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -88,7 +99,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testModifyInstanceMemberHasStrongSideEffects() {
+    public void testModifyInstanceMemberHasStrongSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "ModifyInstanceMember()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -96,7 +108,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testNewInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() {
+    public void testNewInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "NewInstanceNonLocalNonWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -104,7 +117,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testNewInstanceNonLocalWhitelistedClassHasNoSideEffects() {
+    public void testNewInstanceNonLocalWhitelistedClassHasNoSideEffects() throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "NewInstanceNonLocalWhitelistedClass()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -112,7 +126,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testNewInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects() {
+    public void testNewInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects()
+                    throws MaxAddressVisitsExceeded, MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "NewInstanceOfClassWithStaticInitializerWithStrongSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -120,7 +135,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testNewInstanceOfClassWithStaticInitializerWithWeakSideEffectsHasWeakSideEffects() {
+    public void testNewInstanceOfClassWithStaticInitializerWithWeakSideEffectsHasWeakSideEffects()
+                    throws MaxAddressVisitsExceeded, MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "NewInstanceOfClassWithStaticInitializerWithWeakSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -128,7 +144,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() {
+    public void testNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodName = "NewInstanceOfMethodWithNoStaticInitializer()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -136,7 +153,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects() {
+    public void testNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects()
+                    throws MaxAddressVisitsExceeded, MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         // Method names? Pssh, we have method PARAGRAPHS.
         String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
@@ -145,7 +163,8 @@ public class TestSideEffects {
     }
 
     @Test
-    public void testWriteOutputStreamHasStrongSideEffects() {
+    public void testWriteOutputStreamHasStrongSideEffects() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded {
         String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 

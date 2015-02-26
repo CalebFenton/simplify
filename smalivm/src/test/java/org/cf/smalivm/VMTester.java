@@ -19,6 +19,9 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.util.Dexifier;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.junit.Assert;
@@ -92,7 +95,12 @@ public class VMTester {
                     TIntObjectMap<HeapItem> registerToItem, Map<String, Map<String, HeapItem>> classNameToFieldItem) {
         String methodDescriptor = className + "->" + methodSignature;
         ExecutionContext ectx = getInitializedContext(vm, methodDescriptor, registerToItem, classNameToFieldItem);
-        ExecutionGraph graph = vm.execute(methodDescriptor, ectx);
+        ExecutionGraph graph = null;
+        try {
+            graph = vm.execute(methodDescriptor, ectx);
+        } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+            e.printStackTrace();
+        }
 
         return graph;
     }

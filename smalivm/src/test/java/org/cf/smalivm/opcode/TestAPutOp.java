@@ -140,8 +140,7 @@ public class TestAPutOp {
 
     @Test
     public void testPutUnknownValue() {
-        // TODO: Ideally, setting an element unknown shouldn't set the entire array unknown. See APutOp for more
-        // details.
+        // TODO: Ideally, setting an element unknown shouldn't set entire array unknown. See APutOp for more details.
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I", 2,
                         new UnknownValue(), "I");
         TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");

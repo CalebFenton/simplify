@@ -6,6 +6,9 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 
 public class Main {
 
@@ -29,7 +32,8 @@ public class Main {
         executeParameterLogic(10);
     }
 
-    private static void executeParameterLogic(int parameterValue) {
+    private static void executeParameterLogic(int parameterValue) throws MaxAddressVisitsExceeded,
+    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
 
         // Execute with ambiguous / unknown parameters.
@@ -53,7 +57,8 @@ public class Main {
         System.out.println("With context, returns: " + value);
     }
 
-    private static void executePrintParameter(int parameterValue) {
+    private static void executePrintParameter(int parameterValue) throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
         ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();

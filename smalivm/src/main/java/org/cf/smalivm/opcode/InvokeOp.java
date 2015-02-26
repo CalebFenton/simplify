@@ -16,6 +16,9 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.type.LocalType;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
@@ -209,7 +212,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -321,7 +324,15 @@ public class InvokeOp extends ExecutionContextOp {
 
     private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext,
                     ExecutionContext calleeContext) {
-        ExecutionGraph graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
+        ExecutionGraph graph = null;
+        try {
+            graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
+        } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+            if (log.isWarnEnabled()) {
+                log.warn(e.toString());
+            }
+        }
+
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
             log.info("Problem executing " + methodDescriptor + ", propagating ambiguity.");
