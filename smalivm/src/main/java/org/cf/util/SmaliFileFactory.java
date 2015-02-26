@@ -18,6 +18,8 @@ public class SmaliFileFactory {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliFileFactory.class.getSimpleName());
 
+    private static Map<String, SmaliFile> frameworkCache;
+
     private Map<String, SmaliFile> frameworkClassNameToSmaliFile;
 
     public Set<SmaliFile> getSmaliFiles(String path) throws IOException {
@@ -51,9 +53,13 @@ public class SmaliFileFactory {
     }
 
     private void cacheFramework() throws IOException {
-        long startTime = System.currentTimeMillis();
+        if (frameworkCache != null) {
+            return;
+        }
 
-        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>();
+        frameworkCache = new HashMap<String, SmaliFile>();
+
+        long startTime = System.currentTimeMillis();
         List<String> frameworkClassesCfg = ConfigLoader.loadConfig("framework_classes.cfg");
         Set<String> safeFrameworkClasses = new HashSet<String>(ConfigLoader.loadConfig("safe_framework_classes.cfg"));
         for (String line : frameworkClassesCfg) {
@@ -63,14 +69,14 @@ public class SmaliFileFactory {
             SmaliFile smaliFile = new SmaliFile(path, className);
             smaliFile.setIsResource(true);
             smaliFile.setIsSafeFramework(safeFrameworkClasses.contains(className));
-            frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
+            frameworkCache.put(smaliFile.getClassName(), smaliFile);
         }
 
         if (log.isDebugEnabled()) {
             long endTime = System.currentTimeMillis();
             long totalTime = endTime - startTime; // assuming time has not gone backwards
             StringBuilder sb = new StringBuilder();
-            sb.append("Cached ").append(frameworkClassNameToSmaliFile.size()).append(" framework classes in ")
+            sb.append("Cached ").append(frameworkCache.size()).append(" framework classes in ")
             .append(totalTime).append(" ms.");
             log.debug(sb.toString());
         }
@@ -88,14 +94,17 @@ public class SmaliFileFactory {
             }
         }
 
-        if (null == frameworkClassNameToSmaliFile) {
-            cacheFramework();
+        cacheFramework();
+
+        // Override framework classes with input classes of the same name
+        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>(frameworkCache);
+        for (Map.Entry<String, SmaliFile> entry : frameworkClassNameToSmaliFile.entrySet()) {
+            if (inputClasses.contains(entry.getKey())) {
+                frameworkClassNameToSmaliFile.entrySet().remove(entry);
+            } else {
+                smaliFiles.add(entry.getValue());
+            }
         }
-
-        // Do not override input class with framework class
-        frameworkClassNameToSmaliFile.entrySet().removeAll(inputClasses);
-
-        smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
 
         return smaliFiles;
     }
