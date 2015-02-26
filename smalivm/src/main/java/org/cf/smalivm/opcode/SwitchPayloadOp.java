@@ -69,7 +69,7 @@ public class SwitchPayloadOp extends MethodStateOp {
         // Pseudo points to instruction *after* switch op.
         int switchOpAddress = mState.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
         if (targetItem.isUnknown()) {
-            int[] children = getTargetAddresses(switchOpAddress, getPossibleChildren());
+            int[] children = getTargetAddresses(switchOpAddress, getChildren());
 
             return children;
         }

@@ -55,7 +55,7 @@ public class ArrayLengthOp extends MethodStateOp {
         }
         mState.assignRegister(destRegister, lengthValue, "I");
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

@@ -64,7 +64,7 @@ public class UnaryMathOp extends MethodStateOp {
         }
         mState.assignRegister(destRegister, resultItem);
 
-        return this.getPossibleChildren();
+        return this.getChildren();
     }
 
     @Override

@@ -315,7 +315,7 @@ public class BinaryMathOp extends MethodStateOp {
 
         mState.assignRegister(destRegister, resultValue, mathOperandType.getType());
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

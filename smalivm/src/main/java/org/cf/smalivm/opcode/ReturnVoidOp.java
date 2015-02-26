@@ -22,7 +22,7 @@ public class ReturnVoidOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

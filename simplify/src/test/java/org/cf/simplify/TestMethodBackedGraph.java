@@ -71,7 +71,7 @@ public class TestMethodBackedGraph {
                 Op op = node.getOp();
                 assertEquals(address, op.getAddress());
 
-                int[] children = op.getPossibleChildren();
+                int[] children = op.getChildren();
                 if (children.length > 0) {
                     int nextAddress = address + addressToInstruction.get(address).getCodeUnits();
                     assertArrayEquals(new int[] { nextAddress }, children);
@@ -100,7 +100,7 @@ public class TestMethodBackedGraph {
                 Op op = node.getOp();
                 assertEquals(address, op.getAddress());
 
-                int[] children = op.getPossibleChildren();
+                int[] children = op.getChildren();
                 if (children.length > 0) {
                     int nextAddress = address + addressToInstruction.get(address).getCodeUnits();
                     assertArrayEquals(new int[] { nextAddress }, children);
@@ -129,7 +129,7 @@ public class TestMethodBackedGraph {
                 Op op = node.getOp();
                 assertEquals(address, op.getAddress());
 
-                int[] children = op.getPossibleChildren();
+                int[] children = op.getChildren();
                 if (children.length > 0) {
                     int nextAddress = address + addressToInstruction.get(address).getCodeUnits();
                     assertArrayEquals(new int[] { nextAddress, }, children);

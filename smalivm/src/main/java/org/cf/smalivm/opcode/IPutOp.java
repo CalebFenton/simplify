@@ -53,7 +53,7 @@ public class IPutOp extends ExecutionContextOp {
 
         mState.assignRegister(instanceRegister, instanceItem);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

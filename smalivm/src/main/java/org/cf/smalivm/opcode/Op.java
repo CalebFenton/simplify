@@ -26,7 +26,7 @@ public abstract class Op {
         return opName;
     }
 
-    public final int[] getPossibleChildren() {
+    public final int[] getChildren() {
         return childAddresses;
     }
 
@@ -38,7 +38,7 @@ public abstract class Op {
         this.address = address;
     }
 
-    public void setPossibleChildren(int[] childAddresses) {
+    public void setChildren(int[] childAddresses) {
         this.childAddresses = childAddresses;
     }
 

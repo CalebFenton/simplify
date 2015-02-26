@@ -102,7 +102,7 @@ public class FilledNewArrayOp extends MethodStateOp {
             mState.assignResultRegister(dimensions, "[I");
         }
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

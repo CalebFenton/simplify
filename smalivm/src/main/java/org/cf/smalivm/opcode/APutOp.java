@@ -90,7 +90,7 @@ public class APutOp extends MethodStateOp {
         // this op specially.
         mState.assignRegister(arrayRegister, arrayItem);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

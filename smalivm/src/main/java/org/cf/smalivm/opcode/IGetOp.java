@@ -53,7 +53,7 @@ public class IGetOp extends ExecutionContextOp {
         String type = fieldDescriptor.split(":")[1];
         mState.assignRegister(destRegister, HeapItem.newUnknown(type));
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

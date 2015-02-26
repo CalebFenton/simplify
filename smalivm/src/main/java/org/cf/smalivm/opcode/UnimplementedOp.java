@@ -66,7 +66,7 @@ class UnimplementedOp extends MethodStateOp {
             }
         }
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

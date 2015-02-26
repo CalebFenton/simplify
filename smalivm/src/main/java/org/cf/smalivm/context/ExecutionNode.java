@@ -22,7 +22,7 @@ public class ExecutionNode {
 
     public ExecutionNode(Op op) {
         this.op = op;
-        children = new ArrayList<ExecutionNode>(op.getPossibleChildren().length);
+        children = new ArrayList<ExecutionNode>(op.getChildren().length);
     }
 
     public ExecutionNode(ExecutionNode other) {

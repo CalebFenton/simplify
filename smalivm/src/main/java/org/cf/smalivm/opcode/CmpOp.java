@@ -58,7 +58,7 @@ public class CmpOp extends MethodStateOp {
 
         mState.assignRegister(destRegister, item);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     private int cmp(Number val1, Number val2) {

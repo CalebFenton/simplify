@@ -28,7 +28,7 @@ public class NopOp extends MethodStateOp {
         // It wasn't there again today
         // Oh, how I wish it'd go away...
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

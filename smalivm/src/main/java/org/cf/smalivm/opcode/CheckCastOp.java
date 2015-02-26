@@ -54,7 +54,7 @@ public class CheckCastOp extends MethodStateOp {
             }
         }
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

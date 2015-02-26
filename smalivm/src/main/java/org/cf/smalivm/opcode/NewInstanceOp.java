@@ -59,7 +59,7 @@ public class NewInstanceOp extends ExecutionContextOp {
         HeapItem instanceItem = new HeapItem(instance, className);
         mState.assignRegister(destRegister, instanceItem);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

@@ -47,7 +47,7 @@ public class SGetOp extends ExecutionContextOp {
         MethodState mState = ectx.getMethodState();
         mState.assignRegister(destRegister, item);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

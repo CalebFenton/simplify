@@ -38,11 +38,10 @@ public class Utils {
             return "";
         }
 
-        StringBuilder sb = new StringBuilder("");
-
+        StringBuilder sb = new StringBuilder();
         Object current = array;
         int len = Array.getLength(current);
-        sb.append("[").append(len).append("]");
+        sb.append('[').append(len).append(']');
 
         while (len > 0) {
             current = Array.get(current, 0);
@@ -50,7 +49,7 @@ public class Utils {
                 break;
             }
             len = Array.getLength(current);
-            sb.append("[").append(len).append("]");
+            sb.append('[').append(len).append(']');
         }
 
         return sb.toString();
@@ -113,29 +112,29 @@ public class Utils {
         return list;
     }
 
-    public static <T> void shiftIntegerMapKeys(int startAddress, int shift, TIntObjectMap<T> intToObject) {
+    public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
         if (shift == 0) {
             return;
         }
 
-        TIntList addressesToShift = new TIntArrayList(intToObject.keys());
-        // Exclude anything before and including startAddress
-        for (int currentAddress : addressesToShift.toArray()) {
-            if (currentAddress <= startAddress) {
-                addressesToShift.remove(currentAddress);
+        TIntList keysToShift = new TIntArrayList(intToObject.keys());
+        // Exclude anything before and including startKey
+        for (int currentKey : keysToShift.toArray()) {
+            if (currentKey <= startKey) {
+                keysToShift.remove(currentKey);
             }
         }
 
-        addressesToShift.sort();
+        keysToShift.sort();
         if (shift > 0) {
             // Shifting keys up, so start at the end to avoid overwriting keys.
-            addressesToShift.reverse();
+            keysToShift.reverse();
         }
 
-        for (int currentAddress : addressesToShift.toArray()) {
-            T obj = intToObject.get(currentAddress);
-            intToObject.remove(currentAddress);
-            intToObject.put(currentAddress + shift, obj);
+        for (int currentKey : keysToShift.toArray()) {
+            T obj = intToObject.get(currentKey);
+            intToObject.remove(currentKey);
+            intToObject.put(currentKey + shift, obj);
         }
     }
 
@@ -220,8 +219,8 @@ public class Utils {
     public static Object castToPrimitiveWrapper(Object value, String targetType) {
         // TODO: add tests for this + confirm dalvik works this way
 
-        // Dalvik handles multiple types like integers normally, but since we have type information from the field
-        // descriptor, try and cast it appropriately now.
+        // Type information is not always available beyond "const" because Dalvik handles multiple types like integers.
+        // This is to make easier the casting of that number to the correct type.
         if (value instanceof Number) {
             Number castValue = (Number) value;
             if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {

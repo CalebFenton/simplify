@@ -64,12 +64,12 @@ public class MethodBackedGraph extends ExecutionGraph {
             Op op = node.getOp();
             op.setAddress(op.getAddress() + shift);
 
-            int[] childAddresses = op.getPossibleChildren();
+            int[] childAddresses = op.getChildren();
             if (childAddresses.length > 0) {
                 for (int i = 0; i < childAddresses.length; i++) {
                     childAddresses[i] += shift;
                 }
-                op.setPossibleChildren(childAddresses);
+                op.setChildren(childAddresses);
             }
         }
     }

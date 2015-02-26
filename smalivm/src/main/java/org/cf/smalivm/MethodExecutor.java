@@ -38,7 +38,7 @@ public class MethodExecutor {
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded {
+    MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
         List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks = vm.getClassManager().getTryBlocks(
@@ -71,7 +71,7 @@ public class MethodExecutor {
                 if (log.isWarnEnabled()) {
                     log.warn(currentNode + " generated an exception:", ex);
                 }
-                childAddresses = currentNode.getOp().getPossibleChildren();
+                childAddresses = currentNode.getOp().getChildren();
                 int[] catchAddresses = getCatchAddresses(ex, currentNode.getAddress(), tryBlocks);
                 addChildrenToGraph(graph, catchAddresses, currentNode);
             }
@@ -95,6 +95,8 @@ public class MethodExecutor {
 
     private int[] getCatchAddresses(Exception exception, int address,
                     List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks) {
+        // TODO: why does this return an array? methinks it should return a single int. test dalvik allows multiple
+        // exception paths.
         String exceptionType = exception.getClass().getName();
         exceptionType = SmaliClassUtils.javaClassToSmali(exceptionType);
         TIntList addresses = new TIntLinkedList();
