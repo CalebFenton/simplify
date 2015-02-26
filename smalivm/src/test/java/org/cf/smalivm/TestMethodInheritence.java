@@ -5,6 +5,9 @@ import static org.junit.Assert.assertEquals;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -24,7 +27,8 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testInvokingAbstractMethodThroughParentReferenceWorks() {
+        public void testInvokingAbstractMethodThroughParentReferenceWorks() throws MaxAddressVisitsExceeded,
+                        MaxCallDepthExceeded, MaxMethodVisitsExceeded {
             String methodName = "callsAbstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -34,7 +38,8 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testInvokingImplemenetedAbstractMethodWorks() {
+        public void testInvokingImplemenetedAbstractMethodWorks() throws MaxAddressVisitsExceeded,
+                        MaxCallDepthExceeded, MaxMethodVisitsExceeded {
             String methodName = "abstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -44,7 +49,8 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testInvokingParentMethodWorks() {
+        public void testInvokingParentMethodWorks() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                        MaxMethodVisitsExceeded {
             String methodName = "callsParentMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -65,7 +71,8 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testExecutingAbstractMethodReturnsNull() {
+        public void testExecutingAbstractMethodReturnsNull() throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                        MaxMethodVisitsExceeded {
             String methodName = "abstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 

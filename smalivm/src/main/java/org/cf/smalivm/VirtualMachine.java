@@ -57,7 +57,7 @@ public class VirtualMachine {
 
     private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
     private static final int DEFAULT_MAX_CALL_DEPTH = 20;
-    private static final int DEFAULT_MAX_METHOD_VISITS = DEFAULT_MAX_ADDRESS_VISITS * 500;
+    private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
 
     private final int maxCallDepth;
     private final int maxAddressVisits;
@@ -81,7 +81,8 @@ public class VirtualMachine {
         staticFieldAccessor = new StaticFieldAccessor(this);
     }
 
-    public ExecutionGraph execute(String methodDescriptor) {
+    public ExecutionGraph execute(String methodDescriptor) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+    MaxMethodVisitsExceeded {
         if (!classManager.methodHasImplementation(methodDescriptor)) {
             return null;
         }
@@ -90,12 +91,14 @@ public class VirtualMachine {
         return execute(methodDescriptor, ectx);
     }
 
-    public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) {
+    public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
+    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         return execute(methodDescriptor, ectx, null, null);
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
-                    ExecutionContext callerContext, int[] parameterRegisters) {
+                    ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         if (callerContext != null) {
             inheritClassStates(callerContext, calleeContext);
         }
@@ -108,22 +111,7 @@ public class VirtualMachine {
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 
-        ExecutionGraph result = null;
-        try {
-            result = methodExecutor.execute(graph);
-        } catch (MaxCallDepthExceeded | MaxAddressVisitsExceeded | MaxMethodVisitsExceeded e) {
-            if (log.isWarnEnabled()) {
-                log.warn(e.toString());
-            }
-        }
-        // catch (Exception e) {
-        // if (log.isWarnEnabled()) {
-        // log.warn("Unhandled exception in " + methodDescriptor + ". Giving up on this method.");
-        // }
-        // if (log.isDebugEnabled()) {
-        // log.debug("Stack trace: ", e);
-        // }
-        // }
+        ExecutionGraph result = methodExecutor.execute(graph);
 
         if ((result != null) && (callerContext != null)) {
             collapseMultiverse(methodDescriptor, graph, calleeContext, callerContext, parameterRegisters);

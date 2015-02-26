@@ -11,6 +11,9 @@ import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,7 +139,13 @@ public class ExecutionContext {
             ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
 
-            ExecutionGraph graph = vm.execute(clinitDescriptor, initContext, this, null);
+            ExecutionGraph graph = null;
+            try {
+                graph = vm.execute(clinitDescriptor, initContext, this, null);
+            } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+                log.warn(e.toString());
+            }
+
             if (graph == null) {
                 // Error executing. Assume the worst.
                 sideEffectLevel = SideEffect.Level.STRONG;
