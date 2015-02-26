@@ -73,7 +73,7 @@ public class NewArrayOp extends MethodStateOp {
         }
         mState.assignRegister(destRegister, instanceItem);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

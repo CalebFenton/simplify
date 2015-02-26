@@ -143,7 +143,7 @@ public class InvokeOp extends ExecutionContextOp {
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
                 executeNonLocalMethod(targetMethod, callerMethodState, calleeContext);
 
-                return getPossibleChildren();
+                return getChildren();
             } else {
                 if (log.isTraceEnabled()) {
                     log.trace("Not emulating / reflecting " + targetMethod + " because all args not known.");
@@ -162,7 +162,7 @@ public class InvokeOp extends ExecutionContextOp {
                     }
                     assumeMaximumUnknown(callerMethodState);
 
-                    return getPossibleChildren();
+                    return getChildren();
                 }
 
                 if (!classManager.methodHasImplementation(targetMethod)) {
@@ -177,7 +177,7 @@ public class InvokeOp extends ExecutionContextOp {
                     }
                     assumeMaximumUnknown(callerMethodState);
 
-                    return getPossibleChildren();
+                    return getChildren();
                 }
 
                 ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
@@ -190,7 +190,7 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     public int[] getParameterRegisters() {

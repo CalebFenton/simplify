@@ -20,13 +20,13 @@ public class GotoOp extends MethodStateOp {
 
     @Override
     public int[] execute(MethodState mState) {
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" #").append(getPossibleChildren()[0]);
+        sb.append(" #").append(getChildren()[0]);
 
         return sb.toString();
     }

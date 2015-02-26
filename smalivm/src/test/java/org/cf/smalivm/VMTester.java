@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
@@ -24,7 +25,6 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.util.Dexifier;
 import org.jf.dexlib2.writer.builder.DexBuilder;
-import org.junit.Assert;
 
 import com.google.common.collect.Sets;
 
@@ -292,19 +292,19 @@ public class VMTester {
         }
 
         if (expectedValue == null) {
-            Assert.assertEquals(msg, expected, consensus);
+            assertEquals(msg, expected, consensus);
         } else if (expected.isUnknown()) {
             // Normally, unknown doesn't equal anything, including itself, but tests are more relaxed.
-            Assert.assertEquals(msg, expected.toString(), consensus.toString());
+            assertEquals(msg, expected.toString(), consensus.toString());
         } else if (expectedValue.getClass().isArray()) {
             // If array, type is "Object", so need to use isArray() instead of instanceof
             boolean result = Objects.deepEquals(expectedValue, consensusValue);
-            Assert.assertEquals(expected.getType(), consensus.getType());
-            Assert.assertTrue(msg, result);
+            assertEquals(expected.getType(), consensus.getType());
+            assertTrue(msg, result);
         } else if (expectedValue instanceof StringBuilder) {
             assertEquals(msg, expectedValue.toString(), consensusValue.toString());
         } else {
-            Assert.assertEquals(msg, expectedValue, consensusValue);
+            assertEquals(msg, expectedValue, consensusValue);
         }
     }
 

@@ -49,7 +49,7 @@ public class SPutOp extends ExecutionContextOp {
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
         vm.getStaticFieldAccessor().putField(ectx, fieldDescriptor, item);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

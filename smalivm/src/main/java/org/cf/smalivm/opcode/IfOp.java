@@ -119,7 +119,7 @@ public class IfOp extends MethodStateOp {
 
         // Ambiguous predicate. Follow both branches.
         if ((lhsItem.isUnknown()) || (rhsItem.isUnknown())) {
-            return getPossibleChildren();
+            return getChildren();
         }
 
         Object lhs = lhsItem.getValue();
@@ -149,7 +149,7 @@ public class IfOp extends MethodStateOp {
             log.trace("IF compare: " + lhs + " vs " + rhs + " = " + cmp);
         }
 
-        int result = getPossibleChildren()[0];
+        int result = getChildren()[0];
         if (isTrue(ifType, cmp)) {
             result = targetAddress;
         }

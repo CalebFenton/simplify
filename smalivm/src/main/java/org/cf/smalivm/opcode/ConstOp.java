@@ -96,7 +96,7 @@ public class ConstOp extends MethodStateOp {
         HeapItem constantItem = new HeapItem(constant, getConstantTypeString());
         mState.assignRegister(destRegister, constantItem);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

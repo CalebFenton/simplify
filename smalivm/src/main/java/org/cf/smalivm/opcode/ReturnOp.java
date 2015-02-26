@@ -34,7 +34,7 @@ public class ReturnOp extends MethodStateOp {
         HeapItem item = mState.readRegister(register);
         mState.assignReturnRegister(item);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

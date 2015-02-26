@@ -41,13 +41,13 @@ public class FillArrayDataOp extends MethodStateOp {
         // It needs to know return address when finished since payload ops do not continue to next address.
         mState.setPseudoInstructionReturnAddress(returnAddress);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getPossibleChildren()[0]);
+        sb.append(" r").append(register).append(", #").append(getChildren()[0]);
 
         return sb.toString();
     }

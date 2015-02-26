@@ -76,7 +76,7 @@ public class MoveOp extends MethodStateOp {
             break;
         }
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

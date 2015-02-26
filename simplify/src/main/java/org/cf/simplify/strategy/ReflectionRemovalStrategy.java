@@ -152,6 +152,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
     }
 
     List<BuilderInstruction> buildMethodInvokeReplacement(int address) throws Exception {
+        // The good news is: all other types of smali generation are easier.
         Op op = mbgraph.getOp(address);
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
@@ -320,13 +321,6 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         if (methodValue instanceof UnknownValue) {
             return false;
         }
-
-        // Invoke can (probably) always be reconstructed without knowing the target.
-        // int targetRegister = parameterRegisters[1];
-        // Object targetValue = mbgraph.getRegisterConsensusValue(parentAddresses, targetRegister);
-        // if (targetValue instanceof UnknownValue) {
-        // return false;
-        // }
 
         int parametersRegister = parameterRegisters[2];
         Object parametersValue = mbgraph.getRegisterConsensusValue(parentAddresses, parametersRegister);

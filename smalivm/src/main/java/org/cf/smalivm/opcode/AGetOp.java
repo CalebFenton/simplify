@@ -81,7 +81,7 @@ public class AGetOp extends MethodStateOp {
         }
         mState.assignRegister(valueRegister, getItem);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override

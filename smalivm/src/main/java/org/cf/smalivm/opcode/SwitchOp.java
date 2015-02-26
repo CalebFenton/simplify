@@ -39,13 +39,13 @@ public class SwitchOp extends MethodStateOp {
         // If switch "falls through", will need the immediate op after this.
         mState.setPseudoInstructionReturnAddress(childAddress);
 
-        return getPossibleChildren();
+        return getChildren();
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getPossibleChildren()[0]);
+        sb.append(" r").append(register).append(", #").append(getChildren()[0]);
 
         return sb.toString();
     }
