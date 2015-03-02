@@ -77,7 +77,7 @@ public class SmaliFileFactory {
             long totalTime = endTime - startTime; // assuming time has not gone backwards
             StringBuilder sb = new StringBuilder();
             sb.append("Cached ").append(frameworkCache.size()).append(" framework classes in ")
-            .append(totalTime).append(" ms.");
+                            .append(totalTime).append(" ms.");
             log.debug(sb.toString());
         }
     }
@@ -98,13 +98,15 @@ public class SmaliFileFactory {
 
         // Override framework classes with input classes of the same name
         frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>(frameworkCache);
+        List<Map.Entry<String, SmaliFile>> entriesToRemove = new LinkedList<Map.Entry<String, SmaliFile>>();
         for (Map.Entry<String, SmaliFile> entry : frameworkClassNameToSmaliFile.entrySet()) {
             if (inputClasses.contains(entry.getKey())) {
-                frameworkClassNameToSmaliFile.entrySet().remove(entry);
+                entriesToRemove.add(entry);
             } else {
                 smaliFiles.add(entry.getValue());
             }
         }
+        frameworkClassNameToSmaliFile.entrySet().removeAll(entriesToRemove);
 
         return smaliFiles;
     }
