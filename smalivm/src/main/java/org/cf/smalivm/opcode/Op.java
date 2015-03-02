@@ -1,12 +1,14 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualException;
 
 public abstract class Op {
 
     private int address;
     private int[] childAddresses;
     private final String opName;
+    private VirtualException thrownException;
 
     Op(int address, String opName, int childAddress) {
         this(address, opName, new int[] { childAddress });
@@ -16,6 +18,7 @@ public abstract class Op {
         this.address = address;
         this.opName = opName;
         this.childAddresses = childAddresses;
+        thrownException = null;
     }
 
     public final int getAddress() {
@@ -40,6 +43,14 @@ public abstract class Op {
 
     public void setChildren(int[] childAddresses) {
         this.childAddresses = childAddresses;
+    }
+
+    public VirtualException thrownException() {
+        return thrownException;
+    }
+
+    protected void setException(VirtualException thrownException) {
+        this.thrownException = thrownException;
     }
 
     @Override
