@@ -237,7 +237,7 @@ public class VMTester {
     private static ExecutionContext getInitializedContext(VirtualMachine vm, String methodDescriptor,
                     TIntObjectMap<HeapItem> registerToItem,
                     Map<String, Map<String, HeapItem>> classNameToInitialFieldItem) {
-        ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnExecutionContext(methodDescriptor);
         int registerCount = ectx.getMethodState().getRegisterCount();
         setupMethodState(ectx, registerToItem, registerCount);
         setupClassStates(ectx, classNameToInitialFieldItem);

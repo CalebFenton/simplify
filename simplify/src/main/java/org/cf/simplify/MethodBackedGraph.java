@@ -270,10 +270,10 @@ public class MethodBackedGraph extends ExecutionGraph {
             ExecutionContext newContext;
             if (parentNode != null) {
                 parentNode.replaceChild(shiftedNode, newNode);
-                newContext = parentNode.getContext().getChild();
+                newContext = parentNode.getContext().spawnChild();
             } else {
                 assert METHOD_ROOT_ADDRESS == address;
-                newContext = vm.getRootExecutionContext(methodDescriptor);
+                newContext = vm.spawnExecutionContext(methodDescriptor);
             }
             shiftedNode.setParent(newNode);
 
@@ -322,10 +322,10 @@ public class MethodBackedGraph extends ExecutionGraph {
             ExecutionContext newContext;
             if (parentNode != null) {
                 parentNode.replaceChild(replacedNode, newNode);
-                newContext = parentNode.getContext().getChild();
+                newContext = parentNode.getContext().spawnChild();
             } else {
                 assert METHOD_ROOT_ADDRESS == address;
-                newContext = vm.getRootExecutionContext(methodDescriptor);
+                newContext = vm.spawnExecutionContext(methodDescriptor);
             }
             newNode.setContext(newContext);
             newNode.execute();

@@ -4,9 +4,6 @@ import gnu.trove.map.TMap;
 import gnu.trove.map.hash.THashMap;
 import gnu.trove.set.hash.THashSet;
 
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
@@ -23,6 +20,8 @@ public class ExecutionContext {
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
     private final VirtualMachine vm;
+    // TODO: see if these can be reduced to one or two.
+    // esp. try to get rid of initializedClasses by using classNameToState (?)
     private final TMap<String, ClassState> classNameToState;
     private final TMap<String, SideEffect.Level> classNameToSideEffectLevel;
     private final Set<String> initializedClasses;
@@ -30,35 +29,39 @@ public class ExecutionContext {
 
     private MethodState mState;
     private ExecutionContext parent;
-    private List<String> callStack;
+    private String methodDescriptor;
+
+    private ExecutionContext callerContext;
+    private int callerAddress;
+    private int callDepth;
 
     public ExecutionContext(VirtualMachine vm, String methodDescriptor) {
-        this(vm, Arrays.asList(new String[] { methodDescriptor }));
-    }
-
-    public ExecutionContext(VirtualMachine vm, List<String> callStack) {
         this.vm = vm;
+        // There is a context per execution of each address, so be frugal with sizes.
         classNameToState = new THashMap<String, ClassState>(0);
         classNameToSideEffectLevel = new THashMap<String, SideEffect.Level>(0);
         initializedClasses = new THashSet<String>(0);
         heap = new Heap();
-        this.callStack = callStack;
+        this.methodDescriptor = methodDescriptor;
+        callDepth = 0;
+    }
+
+    public void registerCaller(ExecutionContext callerContext, int callerAddress) {
+        this.callDepth = callerContext.getCallDepth() + 1;
+        this.callerContext = callerContext;
+        this.callerAddress = callerAddress;
     }
 
     public int getCallDepth() {
-        return getCallStack().size();
-    }
-
-    public List<String> getCallStack() {
-        return callStack;
+        return callDepth;
     }
 
     public String getMethodDescriptor() {
-        return callStack.get(callStack.size() - 1);
+        return methodDescriptor;
     }
 
-    public ExecutionContext getChild() {
-        ExecutionContext child = new ExecutionContext(vm, getCallStack());
+    public ExecutionContext spawnChild() {
+        ExecutionContext child = new ExecutionContext(vm, getMethodDescriptor());
         child.setParent(this);
 
         return child;
@@ -105,12 +108,6 @@ public class ExecutionContext {
         initializedClasses.add(className);
     }
 
-    public void prependToCallStack(List<String> otherCallStack) {
-        List<String> newCallStack = new LinkedList<String>(otherCallStack);
-        newCallStack.addAll(callStack);
-        callStack = newCallStack;
-    }
-
     public void setClassState(String className, ClassState cState, SideEffect.Level level) {
         classNameToState.put(className, cState);
         classNameToSideEffectLevel.put(className, level);
@@ -133,8 +130,9 @@ public class ExecutionContext {
         SideEffect.Level sideEffectLevel = SideEffect.Level.NONE;
         String clinitDescriptor = className + "-><clinit>()V";
         if (vm.getClassManager().isLocalMethod(clinitDescriptor)) {
-            ExecutionContext initContext = vm.getRootExecutionContext(clinitDescriptor);
-            initContext.prependToCallStack(getCallStack());
+            // TODO: determine what the call stack actually is when the vm clinit's a class
+            // this assumes the call stack is empty
+            ExecutionContext initContext = vm.spawnExecutionContext(clinitDescriptor);
 
             ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
@@ -178,6 +176,7 @@ public class ExecutionContext {
         assert parent.getMethodState() != null;
 
         this.parent = parent;
+        callDepth = parent.getCallDepth();
         getHeap().setParent(parent.getHeap());
 
         MethodState childMethodState = parent.getMethodState().getChild(this);
