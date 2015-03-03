@@ -9,6 +9,9 @@ import java.util.regex.Pattern;
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
+import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
@@ -57,7 +60,13 @@ public class Main {
                 boolean shouldExecuteAgain = false;
                 do {
                     System.out.println("Executing: " + methodDescriptor);
-                    ExecutionGraph graph = vm.execute(methodDescriptor);
+                    ExecutionGraph graph = null;
+                    try {
+                        graph = vm.execute(methodDescriptor);
+                    } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+                        System.err.println("Max visitation exception: " + e);
+                    }
+
                     if (null == graph) {
                         System.out.println("Skipping " + methodDescriptor);
                         break;

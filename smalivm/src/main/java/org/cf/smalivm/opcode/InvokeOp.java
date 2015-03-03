@@ -126,6 +126,11 @@ public class InvokeOp extends ExecutionContextOp {
 
     @Override
     public int[] execute(ExecutionContext ectx) {
+        // TODO: In order to get working call stacks, refactor this to delegate most of the work to MethodExecutor.
+        // This will remove InvokeOp as a weirdly complex op, and probably allow some methods to be made protected.
+        // It also keeps things clear with method execution delegated to the class with the same name.
+        // MethodExecutor can maintain a mapping such that calleeContext -> (callerContext, caller address)
+        // With this mapping, stack traces can be reconstructed.
         String targetMethod = methodDescriptor;
         if (getName().contains("-virtual")) { // -virtual/range
             // Method call might be to interface or abstract class.
@@ -212,7 +217,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-                            .append(parameterRegisters[parameterRegisters.length - 1]);
+            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -300,8 +305,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private ExecutionContext buildLocalCalleeContext(String methodDescriptor, ExecutionContext callerContext) {
-        ExecutionContext calleeContext = vm.getRootExecutionContext(methodDescriptor);
-        calleeContext.prependToCallStack(callerContext.getCallStack());
+        ExecutionContext calleeContext = vm.spawnExecutionContext(methodDescriptor, callerContext, getAddress());
         MethodState callerMethodState = callerContext.getMethodState();
         MethodState calleeMethodState = calleeContext.getMethodState();
         assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);

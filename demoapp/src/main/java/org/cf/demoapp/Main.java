@@ -45,7 +45,7 @@ public class Main {
         System.out.println("With no context, returns: " + value);
 
         // Now execute with parameter
-        ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
 
         // Since this method is not static, the first parameter is a reference to 'this'.
@@ -60,7 +60,7 @@ public class Main {
     private static void executePrintParameter(int parameterValue) throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
-        ExecutionContext ectx = vm.getRootExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignParameter(0, parameterValue, "I");
 

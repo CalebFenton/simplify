@@ -38,7 +38,7 @@ public class MethodExecutor {
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-    MaxMethodVisitsExceeded {
+                    MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
         List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks = vm.getClassManager().getTryBlocks(
@@ -54,7 +54,7 @@ public class MethodExecutor {
         }
 
         if (callDepth == 0) {
-            // This is a start or root entry point.
+            // This is a new root method.
             resetTotalVisits();
         }
 

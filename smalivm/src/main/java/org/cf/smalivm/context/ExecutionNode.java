@@ -64,7 +64,7 @@ public class ExecutionNode {
 
     public ExecutionNode getChild(Op childOp) {
         ExecutionNode child = new ExecutionNode(childOp);
-        child.setContext(ectx.getChild());
+        child.setContext(ectx.spawnChild());
         child.setParent(this);
 
         return child;

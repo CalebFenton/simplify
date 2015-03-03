@@ -59,12 +59,13 @@ public class VirtualMachine {
     private static final int DEFAULT_MAX_CALL_DEPTH = 20;
     private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
 
+    // TODO: Refactor these max values into method executor's constructor
     private final int maxCallDepth;
     private final int maxAddressVisits;
     private final int maxMethodVisits;
     private final MethodExecutor methodExecutor;
     private final SmaliClassManager classManager;
-    private final Map<BuilderMethod, ExecutionGraph> methodToTemplateContextGraph;
+    private final Map<BuilderMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
 
     public VirtualMachine(SmaliClassManager manager) {
@@ -77,22 +78,22 @@ public class VirtualMachine {
         this.maxMethodVisits = maxMethodVisits;
         this.maxCallDepth = maxCallDepth;
         methodExecutor = new MethodExecutor(this);
-        methodToTemplateContextGraph = new HashMap<BuilderMethod, ExecutionGraph>();
+        methodToTemplateExecutionGraph = new HashMap<BuilderMethod, ExecutionGraph>();
         staticFieldAccessor = new StaticFieldAccessor(this);
     }
 
     public ExecutionGraph execute(String methodDescriptor) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-    MaxMethodVisitsExceeded {
+                    MaxMethodVisitsExceeded {
         if (!classManager.methodHasImplementation(methodDescriptor)) {
             return null;
         }
-        ExecutionContext ectx = getRootExecutionContext(methodDescriptor);
+        ExecutionContext ectx = spawnExecutionContext(methodDescriptor);
 
         return execute(methodDescriptor, ectx);
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
-    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
         return execute(methodDescriptor, ectx, null, null);
     }
 
@@ -106,7 +107,7 @@ public class VirtualMachine {
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
         calleeContext.staticallyInitializeClassIfNecessary(className);
 
-        ExecutionGraph graph = getInstructionGraphClone(methodDescriptor);
+        ExecutionGraph graph = spawnInstructionGraph(methodDescriptor);
         ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
@@ -128,15 +129,15 @@ public class VirtualMachine {
         return staticFieldAccessor;
     }
 
-    public ExecutionGraph getInstructionGraphClone(String methodDescriptor) {
+    public ExecutionGraph spawnInstructionGraph(String methodDescriptor) {
         BuilderMethod method = classManager.getMethod(methodDescriptor);
-        if (!methodToTemplateContextGraph.containsKey(method)) {
+        if (!methodToTemplateExecutionGraph.containsKey(method)) {
             updateInstructionGraph(methodDescriptor);
         }
-        ExecutionGraph graph = methodToTemplateContextGraph.get(method);
-        ExecutionGraph clone = new ExecutionGraph(graph);
+        ExecutionGraph graph = methodToTemplateExecutionGraph.get(method);
+        ExecutionGraph spawn = new ExecutionGraph(graph);
 
-        return clone;
+        return spawn;
     }
 
     public int getMaxAddressVisits() {
@@ -151,7 +152,12 @@ public class VirtualMachine {
         return maxMethodVisits;
     }
 
-    public ExecutionContext getRootExecutionContext(String methodDescriptor) {
+    public ExecutionContext spawnExecutionContext(String methodDescriptor) {
+        return spawnExecutionContext(methodDescriptor, null, 0);
+    }
+
+    public ExecutionContext spawnExecutionContext(String methodDescriptor, ExecutionContext callerContext,
+                    int callerAddress) {
         if (!classManager.isLocalMethod(methodDescriptor)) {
             throw new IllegalArgumentException("Method does not exist: " + methodDescriptor);
         }
@@ -169,12 +175,13 @@ public class VirtualMachine {
         int accessFlags = method.getAccessFlags();
         boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
 
-        ExecutionContext rootContext = new ExecutionContext(this, methodDescriptor);
+        ExecutionContext spawnedContext = new ExecutionContext(this, methodDescriptor);
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        addTemplateClassState(rootContext, className);
+        addTemplateClassState(spawnedContext, className);
 
         // Assume all input values are unknown.
-        MethodState mState = new MethodState(rootContext, registerCount, parameterTypes.size(), parameterSize);
+        // TODO: refactor this to a method, lots of noise
+        MethodState mState = new MethodState(spawnedContext, registerCount, parameterTypes.size(), parameterSize);
         int firstParameter = mState.getParameterStart();
         int parameterRegister = firstParameter;
         for (String type : parameterTypes) {
@@ -187,20 +194,24 @@ public class VirtualMachine {
             mState.assignParameter(parameterRegister, item);
             parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
-        rootContext.setMethodState(mState);
+        spawnedContext.setMethodState(mState);
 
-        return rootContext;
+        if (callerContext != null) {
+            spawnedContext.registerCaller(callerContext, callerAddress);
+        }
+
+        return spawnedContext;
     }
 
     public boolean isLocalClass(String classDescriptor) {
-        // If it's local but reflected, should be treated as non-local.
+        // Prefer to reflect methods, even if local. It's faster and less prone to error than emulating ourselves.
         return classManager.isLocalClass(classDescriptor) && !MethodReflector.isSafe(classDescriptor);
     }
 
     public void updateInstructionGraph(String methodDescriptor) {
         BuilderMethod method = classManager.getMethod(methodDescriptor);
         ExecutionGraph graph = new ExecutionGraph(this, method);
-        methodToTemplateContextGraph.put(method, graph);
+        methodToTemplateExecutionGraph.put(method, graph);
     }
 
     public void addTemplateClassState(ExecutionContext ectx, String className) {
