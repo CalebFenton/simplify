@@ -51,7 +51,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     private static TIntList buildTerminatingAddresses(List<BuilderInstruction> instructions) {
-        TIntList result = new TIntArrayList(1);
+        TIntList result = new TIntArrayList();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
             /*

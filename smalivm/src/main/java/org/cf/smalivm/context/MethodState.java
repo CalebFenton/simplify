@@ -10,6 +10,7 @@ public class MethodState extends BaseState {
     public static final int ReturnAddress = -3;
 
     public static final String MUTABLE_PARAMETER_HEAP = "mutable";
+    // TODO: refactor ExecutionContext's method descriptor here, it saves having an extra string * n ops
     public static final String METHOD_HEAP = "method";
 
     private final int parameterCount;
