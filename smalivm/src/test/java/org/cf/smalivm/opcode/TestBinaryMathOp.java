@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -16,7 +15,10 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,85 +33,133 @@ public class TestBinaryMathOp {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
+        private static final int ADDRESS = 0;
+        private static final int DEST_REGISTER = 0;
+        private static final int ARG1_REGISTER = 2;
+        private static final int ARG2_REGISTER = 4;
+
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
-        private BinaryMathOp opUnderTest;
+        private BinaryMathOp op;
 
         @Before
         public void setUp() {
             VirtualMachine vm = mock(VirtualMachine.class);
-            instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
         }
 
         @Test
-        public void canDoLongDivision() {
+        public void longDivisionWithThreeArgumentsAndResultLessThanOneEqualsZero() {
             long value1 = 1120403456L;
             long value2 = 1149239296L;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("J");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
-            when(instruction.getOpcode()).thenReturn(Opcode.DIV_LONG);
-
-            opUnderTest = (BinaryMathOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
-
             // Division result is zero since long division drops decimal value
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("J"));
+            long expected = value1 / value2;
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.DIV_LONG);
+            when(((Instruction23x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+            when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
+
+            HeapItem arg1Item = mock(HeapItem.class);
+            when(arg1Item.getValue()).thenReturn(value1);
+            when(arg1Item.getType()).thenReturn("J");
+            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
+
+            HeapItem arg2Item = mock(HeapItem.class);
+            when(arg2Item.getValue()).thenReturn(value2);
+            when(arg2Item.getType()).thenReturn("J");
+            when(mState.readRegister(ARG2_REGISTER)).thenReturn(arg2Item);
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
+
+            verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("J"));
         }
 
         @Test
-        public void canDoFloatDivision() {
+        public void floatDivisionWithTwoRegistersEqualsExpected() {
             float value1 = 1120403456.43F;
             float value2 = 1149239296.32F;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("F");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
+            float expected = value1 / value2;
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
             when(instruction.getOpcode()).thenReturn(Opcode.DIV_FLOAT);
+            when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
+            when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
 
-            opUnderTest = (BinaryMathOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
+            HeapItem arg1Item = mock(HeapItem.class);
+            when(arg1Item.getValue()).thenReturn(value1);
+            when(arg1Item.getType()).thenReturn("F");
+            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
 
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("F"));
+            HeapItem arg2Item = mock(HeapItem.class);
+            when(arg2Item.getValue()).thenReturn(value2);
+            when(arg2Item.getType()).thenReturn("F");
+            when(mState.readRegister(ARG2_REGISTER)).thenReturn(arg2Item);
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
+
+            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("F"));
         }
 
         @Test
-        public void canDoIntDivision() {
+        public void intDivisionWithLiteralEqualsExpected() {
             int value1 = 10;
             int value2 = 4;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("I");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
-            when(instruction.getOpcode()).thenReturn(Opcode.DIV_INT);
+            int expected = value1 / value2;
 
-            opUnderTest = (BinaryMathOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(NarrowLiteralInstruction.class, Instruction22s.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.DIV_INT);
+            when(((Instruction22s) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+            when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
+
+            HeapItem arg1Item = mock(HeapItem.class);
+            when(arg1Item.getValue()).thenReturn(value1);
+            when(arg1Item.getType()).thenReturn("I");
+            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
             // If we're casting properly we drop everything and only retain the two
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("I"));
+            verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("I"));
         }
 
         @Test
-        public void canDoDoubleDivision() {
+        public void doubleDivisionWithTwoRegistersEqualsExpected() {
             double value1 = 1586.2D;
             double value2 = 2536.9D;
-            HeapItem mockItem = mock(HeapItem.class);
-            when(mockItem.getValue()).thenReturn(value1).thenReturn(value2);
-            when(mockItem.getType()).thenReturn("D");
-            when(mState.readRegister(any(Integer.class))).thenReturn(mockItem);
-            when(instruction.getOpcode()).thenReturn(Opcode.DIV_DOUBLE);
+            double expected = value1 / value2;
 
-            opUnderTest = (BinaryMathOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.DIV_DOUBLE);
+            when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
+            when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
+
+            HeapItem arg1Item = mock(HeapItem.class);
+            when(arg1Item.getValue()).thenReturn(value1);
+            when(arg1Item.getType()).thenReturn("D");
+            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
+
+            HeapItem arg2Item = mock(HeapItem.class);
+            when(arg2Item.getValue()).thenReturn(value2);
+            when(arg2Item.getType()).thenReturn("D");
+            when(mState.readRegister(ARG2_REGISTER)).thenReturn(arg2Item);
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(mState);
 
             // If we're casting properly we drop everything and only retain the two
-            verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("D"));
+            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("D"));
         }
     }
 
