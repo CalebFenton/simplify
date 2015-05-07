@@ -70,7 +70,7 @@ public class SmaliClassUtils {
         return javaClassToSmali(klazz.getName());
     }
 
-    public static List<String> javaClassToSmali(Class<?>[] classes) {
+    public static List<String> javaClassToSmali(Class<?>... classes) {
         List<String> smaliNames = new LinkedList<String>();
         for (Class<?> klazz : classes) {
             smaliNames.add(javaClassToSmali(klazz));

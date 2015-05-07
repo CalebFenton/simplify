@@ -1,10 +1,13 @@
 package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
+import java.util.LinkedList;
+import java.util.List;
 
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.slf4j.Logger;
@@ -48,6 +51,14 @@ public class AGetOp extends MethodStateOp {
         this.valueRegister = valueRegister;
         this.arrayRegister = arrayRegister;
         this.indexRegister = indexRegister;
+
+        List<String> exceptionNames = SmaliClassUtils.javaClassToSmali(NullPointerException.class,
+                        ArrayIndexOutOfBoundsException.class);
+        List<VirtualException> exceptions = new LinkedList<VirtualException>();
+        for (String exceptionName : exceptionNames) {
+            exceptions.add(new VirtualException(exceptionName));
+        }
+        setExceptions(exceptions);
     }
 
     @Override
@@ -58,21 +69,34 @@ public class AGetOp extends MethodStateOp {
         HeapItem getItem;
         if (arrayItem.isUnknown()) {
             String innerType = getUnknownArrayInnerType(arrayItem);
-            getItem = new HeapItem(new UnknownValue(), innerType);
+            getItem = HeapItem.newUnknown(innerType);
         } else {
             Object array = arrayItem.getValue();
             if (indexItem.isUnknown()) {
                 String innerType = arrayItem.getType().replaceFirst("\\[", "");
                 getItem = HeapItem.newUnknown(innerType);
             } else {
+                // All values known, so exceptions are deterministic.
+                setNoExceptions();
+
+                if (null == array) {
+                    VirtualException vex = new VirtualException(
+                                    SmaliClassUtils.javaClassToSmali(NullPointerException.class));
+                    setException(vex);
+                    setNoChildren();
+
+                    return getChildren();
+                }
+
                 int index = indexItem.getIntegerValue();
                 String innerType = arrayItem.getType().replaceFirst("\\[", "");
                 if (index >= Array.getLength(array)) {
-                    getItem = HeapItem.newUnknown(innerType);
-                    // TODO: throw an exception and return nothing
-                    if (log.isWarnEnabled()) {
-                        log.warn("Array index out of bounds @" + getAddress() + " for " + toString());
-                    }
+                    VirtualException vex = new VirtualException(
+                                    SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class));
+                    setException(vex);
+                    setNoChildren();
+
+                    return getChildren();
                 } else {
                     Object value = Array.get(array, index);
                     getItem = new HeapItem(value, innerType);

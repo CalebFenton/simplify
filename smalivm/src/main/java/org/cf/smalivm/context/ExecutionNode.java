@@ -62,7 +62,7 @@ public class ExecutionNode {
         return ectx.getCallDepth();
     }
 
-    public ExecutionNode getChild(Op childOp) {
+    public ExecutionNode spawnChild(Op childOp) {
         ExecutionNode child = new ExecutionNode(childOp);
         child.setContext(ectx.spawnChild());
         child.setParent(this);

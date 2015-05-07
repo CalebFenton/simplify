@@ -16,9 +16,8 @@ import org.cf.util.Dexifier;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.SmaliFileFactory;
 import org.jf.dexlib2.AccessFlags;
-import org.jf.dexlib2.iface.ExceptionHandler;
-import org.jf.dexlib2.iface.MethodImplementation;
-import org.jf.dexlib2.iface.TryBlock;
+import org.jf.dexlib2.builder.BuilderTryBlock;
+import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.BuilderField;
@@ -46,7 +45,7 @@ public class SmaliClassManager {
     private final Map<String, BuilderClassDef> classNameToClassDef;
     private final Map<String, BuilderMethod> methodDescriptorToMethod;
     private final Map<String, List<String>> methodDescriptorToParameterTypes;
-    private final Map<String, List<? extends TryBlock<? extends ExceptionHandler>>> methodDescriptorToTryBlocks;
+    private final Map<String, List<BuilderTryBlock>> methodDescriptorToTryBlocks;
     private final Map<String, List<String>> classNameToFieldNameAndType;
     private final SmaliFileFactory smaliFileFactory;
 
@@ -68,7 +67,7 @@ public class SmaliClassManager {
         classNameToClassDef = new HashMap<String, BuilderClassDef>();
         methodDescriptorToMethod = new HashMap<String, BuilderMethod>();
         methodDescriptorToParameterTypes = new HashMap<String, List<String>>();
-        methodDescriptorToTryBlocks = new HashMap<String, List<? extends TryBlock<? extends ExceptionHandler>>>();
+        methodDescriptorToTryBlocks = new HashMap<String, List<BuilderTryBlock>>();
         classNameToFieldNameAndType = new HashMap<String, List<String>>();
     }
 
@@ -222,7 +221,7 @@ public class SmaliClassManager {
      * @param methodDescriptor
      * @return try / catch blocks of given method
      */
-    public List<? extends TryBlock<? extends ExceptionHandler>> getTryBlocks(String methodDescriptor) {
+    public List<BuilderTryBlock> getTryBlocks(String methodDescriptor) {
         dexifyClassIfNecessary(methodDescriptor);
 
         return methodDescriptorToTryBlocks.get(methodDescriptor);
@@ -355,7 +354,7 @@ public class SmaliClassManager {
 
     private void addTryBlocks(BuilderMethod method) {
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        MethodImplementation implementation = method.getImplementation();
+        MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         if (implementation == null) {
             return;
         }
@@ -374,8 +373,7 @@ public class SmaliClassManager {
         try {
             boolean isFramework = smaliFileFactory.isFrameworkClass(className);
             InputStream is = smaliFile.open();
-            classDef = Dexifier
-                            .dexifySmaliFile(smaliFile.getPath(), is, isFramework ? frameworkDexBuilder : dexBuilder);
+            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, isFramework ? frameworkDexBuilder : dexBuilder);
             is.close();
         } catch (Exception e) {
             if (log.isErrorEnabled()) {
@@ -390,7 +388,7 @@ public class SmaliClassManager {
         addFieldNameAndTypes(classDef);
     }
 
-    private Set<String> getAncestors(String className) throws UnknownAncestors {
+    Set<String> getAncestors(String className) throws UnknownAncestors {
         Set<String> parents = new HashSet<String>();
         if (isLocalClass(className)) {
             BuilderClassDef classDef = getClass(className);
@@ -418,7 +416,7 @@ public class SmaliClassManager {
         return parents;
     }
 
-    private Set<String> getClassAncestors(String className) {
+    Set<String> getClassAncestors(String className) {
         Set<String> ancestors = new HashSet<String>();
         ancestors.add(className);
         String superClass = className;
