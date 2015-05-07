@@ -1,5 +1,7 @@
 package org.cf.smalivm.opcode;
 
+import java.util.List;
+
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
 
@@ -8,7 +10,7 @@ public abstract class Op {
     private int address;
     private int[] childAddresses;
     private final String opName;
-    private VirtualException thrownException;
+    private VirtualException[] exceptions;
 
     Op(int address, String opName, int childAddress) {
         this(address, opName, new int[] { childAddress });
@@ -18,7 +20,6 @@ public abstract class Op {
         this.address = address;
         this.opName = opName;
         this.childAddresses = childAddresses;
-        thrownException = null;
     }
 
     public final int getAddress() {
@@ -41,16 +42,36 @@ public abstract class Op {
         this.address = address;
     }
 
-    public void setChildren(int[] childAddresses) {
+    public void setChildren(int... childAddresses) {
         this.childAddresses = childAddresses;
     }
 
-    public VirtualException thrownException() {
-        return thrownException;
+    public void setNoChildren() {
+        setChildren();
     }
 
-    protected void setException(VirtualException thrownException) {
-        this.thrownException = thrownException;
+    public void setNoExceptions() {
+        setExceptions();
+    }
+
+    public boolean mayThrowException() {
+        return exceptions != null && exceptions.length > 0;
+    }
+
+    public void setExceptions(VirtualException... exceptions) {
+        this.exceptions = exceptions;
+    }
+
+    public void setExceptions(List<VirtualException> exceptions) {
+        this.exceptions = exceptions.toArray(new VirtualException[exceptions.size()]);
+    }
+
+    public void setException(VirtualException exception) {
+        exceptions = new VirtualException[] { exception };
+    }
+
+    public VirtualException[] getExceptions() {
+        return exceptions;
     }
 
     @Override

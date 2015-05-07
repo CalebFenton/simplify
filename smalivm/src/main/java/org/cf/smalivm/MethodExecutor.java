@@ -1,13 +1,10 @@
 package org.cf.smalivm;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.List;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
@@ -15,9 +12,6 @@ import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.opcode.Op;
-import org.cf.util.SmaliClassUtils;
-import org.jf.dexlib2.iface.ExceptionHandler;
-import org.jf.dexlib2.iface.TryBlock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +35,7 @@ public class MethodExecutor {
                     MaxMethodVisitsExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
-        List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks = vm.getClassManager().getTryBlocks(
+        ExceptionHandlerAddressResolver exceptionResolver = new ExceptionHandlerAddressResolver(vm.getClassManager(),
                         methodDescriptor);
 
         ExecutionNode currentNode = graph.getRoot();
@@ -64,18 +58,48 @@ public class MethodExecutor {
             totalVisits += 1;
             checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount);
 
-            int[] childAddresses = new int[0];
             try {
-                childAddresses = currentNode.execute();
+                currentNode.execute();
             } catch (Exception ex) {
+                // TODO: this exception handler should be REMOVED when ops set exceptions properly
+                // These exceptions could be from bugs in simplify, not real exceptions
                 if (log.isWarnEnabled()) {
-                    log.warn(currentNode + " generated an exception:", ex);
+                    log.warn(currentNode + " generated a real exception:", ex);
                 }
-                childAddresses = currentNode.getOp().getChildren();
-                int[] catchAddresses = getCatchAddresses(ex, currentNode.getAddress(), tryBlocks);
-                addChildrenToGraph(graph, catchAddresses, currentNode);
+                int childAddress = exceptionResolver.resolve(ex, currentNode.getAddress());
+                spawnChild(graph, currentNode, childAddress);
             }
-            addChildrenToGraph(graph, childAddresses, currentNode);
+
+            spawnChildren(graph, currentNode, currentNode.getOp().getChildren());
+
+            // TODO: this is "proper" virtual exception handling, compared to above
+            Op op = currentNode.getOp();
+            if (op.mayThrowException()) {
+                for (VirtualException exception : op.getExceptions()) {
+                    if (log.isWarnEnabled()) {
+                        log.warn("{} may throw virtual exception: {}", currentNode, exception);
+                    }
+
+                    int childAddress = exceptionResolver.resolve(exception, currentNode.getAddress());
+                    if (childAddress == -1) {
+                        if (op.getChildren().length == 0) {
+                            if (log.isErrorEnabled()) {
+                                log.error("{} unhandled virtual exception: {}", currentNode, exception);
+                            }
+
+                            // TODO: should set in the graph that this method threw an exception
+                            // and that should get bubbled up to the calling graph
+                            return null;
+                        } else {
+                            if (log.isTraceEnabled()) {
+                                log.trace("{} possible unhandled virtual exception: {}", currentNode, exception);
+                            }
+                        }
+                    } else {
+                        spawnChild(graph, currentNode, childAddress);
+                    }
+                }
+            }
 
             executeStack.addAll(currentNode.getChildren());
         }
@@ -83,42 +107,18 @@ public class MethodExecutor {
         return graph;
     }
 
-    private static void addChildrenToGraph(ExecutionGraph graph, int[] childAddresses, ExecutionNode parentNode) {
+    private static void spawnChild(ExecutionGraph graph, ExecutionNode parentNode, int childAddress) {
+        spawnChildren(graph, parentNode, new int[] { childAddress });
+    }
+
+    private static void spawnChildren(ExecutionGraph graph, ExecutionNode parentNode, int[] childAddresses) {
         // Each visit adds a new ExecutionNode to the pile. These piles can be inspected for register or field
         // consensus, or other optimizations.
         for (int address : childAddresses) {
             Op childOp = graph.getTemplateNode(address).getOp();
-            ExecutionNode childNode = parentNode.getChild(childOp);
+            ExecutionNode childNode = parentNode.spawnChild(childOp);
             graph.addNode(childNode);
         }
-    }
-
-    private int[] getCatchAddresses(Exception exception, int address,
-                    List<? extends TryBlock<? extends ExceptionHandler>> tryBlocks) {
-        // TODO: why does this return an array? methinks it should return a single int. test dalvik allows multiple
-        // exception paths.
-        String exceptionType = exception.getClass().getName();
-        exceptionType = SmaliClassUtils.javaClassToSmali(exceptionType);
-        TIntList addresses = new TIntLinkedList();
-        for (TryBlock<? extends ExceptionHandler> tryBlock : tryBlocks) {
-            if ((address < tryBlock.getStartCodeAddress())
-                            || (address > (tryBlock.getStartCodeAddress() + tryBlock.getCodeUnitCount()))) {
-                // address is not inside of this try/catch
-                continue;
-            }
-
-            for (ExceptionHandler handler : tryBlock.getExceptionHandlers()) {
-                String handlerType = handler.getExceptionType();
-                if (!exceptionType.equals(handlerType)) {
-                    continue;
-                }
-
-                int handlerAddress = handler.getHandlerCodeAddress();
-                addresses.add(handlerAddress);
-            }
-        }
-
-        return addresses.toArray();
     }
 
     private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)

@@ -228,7 +228,6 @@ public class VMTester {
             }
             actualVisits.add(address);
         }
-        // Note: order IS important! Don't sort.
         actualVisits.reverse();
 
         assertEquals(expectedVisits, actualVisits);
