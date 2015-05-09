@@ -35,6 +35,7 @@ public class TestReflectionRemovalStrategy {
     private static final String METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE = "MethodInvokeWith10LocalsAnd7ContiguousAvailable()V";
 
     public static class TestNonLocalInterfaceMethod {
+
         private static final Method METHOD = getMethod(List.class, "isEmpty", new Class<?>[0]);
 
         @Test
@@ -53,22 +54,23 @@ public class TestReflectionRemovalStrategy {
     }
 
     public static class TestNonOptimizableScenarios {
+
         private static final UnknownValue UNKNOWN_METHOD = new UnknownValue();
         private static final Method PRIVATE_NON_LOCAL_METHOD = getMethod(System.class, "checkKey",
                         new Class<?>[] { String.class });
-        private static final LocalMethod LOCAL_STATIC_METHOD = new LocalMethod(CLASS_NAME
-                        + "->FourParameterMethod(IIII)V");
+        private static final LocalMethod LOCAL_STATIC_METHOD = new LocalMethod(
+                        CLASS_NAME + "->FourParameterMethod(IIII)V");
 
         private static final String[] EXPECTED_LINES = new String[] {
-            "nop",
-            "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
-            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
-            "return-void", };
+                        "nop",
+                        "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+                        "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                        "return-void", };
 
         @Test
         public void testPrivateNonLocalMethodIsNotOptimized() {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
-                            PRIVATE_NON_LOCAL_METHOD, METHOD_TYPE, 1, 0, "I");
+                            PRIVATE_NON_LOCAL_METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
 
             testSmali(mbgraph, EXPECTED_LINES);
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
@@ -77,7 +79,7 @@ public class TestReflectionRemovalStrategy {
         @Test
         public void testUnknownMethodIsNotOptimized() {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, UNKNOWN_METHOD,
-                            METHOD_TYPE, 1, 0, "I");
+                            METHOD_TYPE, 1, 0, "I", 2, null, "null");
 
             testSmali(mbgraph, EXPECTED_LINES);
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
@@ -94,6 +96,7 @@ public class TestReflectionRemovalStrategy {
     }
 
     public static class TestStaticNonLocalMethodWithNoParameters {
+
         private static final Method METHOD = getMethod(System.class, "gc", new Class<?>[0]);
 
         @Test
@@ -113,9 +116,10 @@ public class TestReflectionRemovalStrategy {
         @Test
         public void testOptimizesToExpectedLinesWith7ContiguousAvailable() {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
-                            METHOD_TYPE, 1, 0, "I");
-            String[] expectedLines = new String[] { "nop", "invoke-static {}, Ljava/lang/System;->gc()V",
-                            "move-result-object r0", "return-void", };
+                            METHOD_TYPE, 1, 0, "I", 2, null, "null");
+            String[] expectedLines = new String[] {
+                            "nop", "invoke-static {}, Ljava/lang/System;->gc()V", "move-result-object r0",
+                            "return-void", };
 
             testSmali(mbgraph, expectedLines);
             testRegisterCount(mbgraph, METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 10);
@@ -123,6 +127,7 @@ public class TestReflectionRemovalStrategy {
     }
 
     public static class TestStaticPrivateLocalMethod {
+
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->FourParameterMethod(IIII)V");
 
         @Test
@@ -178,6 +183,7 @@ public class TestReflectionRemovalStrategy {
     }
 
     public static class TestVirtualLocalMethodWithSixParameters {
+
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");
         private static final String[] EXPECTED_SHARED = new String[] {
                         "nop",
@@ -229,6 +235,7 @@ public class TestReflectionRemovalStrategy {
     }
 
     public static class TestVirtualPrivateLocalMethod {
+
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->PrivateVirtualMethod()V");
         private static final String[] expectedLines = new String[] {
                         "nop",
@@ -239,7 +246,7 @@ public class TestReflectionRemovalStrategy {
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
-                            1, 0, "I");
+                            1, 0, "I", 2, null, "null");
 
             testSmali(mbgraph, expectedLines);
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
@@ -248,7 +255,7 @@ public class TestReflectionRemovalStrategy {
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0AvailableAndUnknownTarget() {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
-                            1, new UnknownValue(), CLASS_NAME);
+                            1, new UnknownValue(), CLASS_NAME, 2, null, "null");
 
             testSmali(mbgraph, expectedLines);
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);

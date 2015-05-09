@@ -36,6 +36,11 @@ public class TestConstantPropigationStrategy {
 
     private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
+
+        return getOptimizedGraph(methodName, initial);
+    }
+
+    private static MethodBackedGraph getOptimizedGraph(String methodName, TIntObjectMap<HeapItem> initial) {
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
         ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
         strategy.perform();
@@ -79,6 +84,7 @@ public class TestConstantPropigationStrategy {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTests {
+
         @Test
         public void testConstantizablesHandlesNull() {
             // Mocks
@@ -106,6 +112,7 @@ public class TestConstantPropigationStrategy {
     }
 
     public static class WithKnownValues {
+
         @Test
         public void testAddInt2AddrConstantizesToExpectedInstruction() {
             String methodName = "AddInt2Addr()V";
@@ -154,11 +161,13 @@ public class TestConstantPropigationStrategy {
     }
 
     public static class WithUnknownValues {
+
         @Test
         public void testAddInt2AddrDoesNotConstantize() {
             String methodName = "AddInt2Addr()V";
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
-            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -166,8 +175,9 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testMoveOpDoesNotConstantize() {
             String methodName = "MoveV0IntoV1()V";
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
-            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new UnknownValue(), "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -175,9 +185,10 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testAGetWithUnknownIndexDoesNotConstantize() {
             String methodName = "ArrayGetFromV0AtV1ToV0()V";
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
-            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, "[I", 1, new UnknownValue(),
-                            "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0, 7 }, "[I", 1,
+                            new UnknownValue(), "I");
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -185,8 +196,9 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testAGetWithUnknownArrayDoesNotConstantize() {
             String methodName = "ArrayGetFromV0AtV1ToV0()V";
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
-            MethodBackedGraph after = getOptimizedGraph(methodName, 0, new UnknownValue(), "[I", 1, 0, "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I", 1, 0, "I");
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }

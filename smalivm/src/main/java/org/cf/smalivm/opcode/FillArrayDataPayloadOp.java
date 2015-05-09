@@ -87,6 +87,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
 
         int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
 
+        setChildren(returnAddress);
         return new int[] { returnAddress };
     }
 

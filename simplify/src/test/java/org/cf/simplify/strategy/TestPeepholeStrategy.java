@@ -39,6 +39,7 @@ public class TestPeepholeStrategy {
     }
 
     public static class TestPeepClassForName {
+
         private static final int ADDRESS = 0;
         private static final String METHOD_NAME = "ClassForName()V";
 
@@ -79,6 +80,7 @@ public class TestPeepholeStrategy {
     }
 
     public static class TestStringInit {
+
         private static final String ZENSUNNI_POEM = "Sand keeps the skin clean, and the mind.";
         private static final String METHOD_NAME = "StringInit()V";
         private static final int ADDRESS = 0;
@@ -102,7 +104,8 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testStringInitWithUnknownValueIsNotReplaced() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue(), "[B");
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
+                            "Ljava/lang/String;"), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
             Instruction35c instruction = (Instruction35c) mbgraph.getInstruction(ADDRESS);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
 

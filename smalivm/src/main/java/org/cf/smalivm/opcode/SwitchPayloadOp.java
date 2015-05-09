@@ -17,8 +17,7 @@ import org.slf4j.LoggerFactory;
 public class SwitchPayloadOp extends MethodStateOp {
 
     private static enum SwitchType {
-        PACKED,
-        SPARSE
+        PACKED, SPARSE
     }
 
     @SuppressWarnings("unused")
@@ -71,6 +70,7 @@ public class SwitchPayloadOp extends MethodStateOp {
         if (targetItem.isUnknown()) {
             int[] children = getTargetAddresses(switchOpAddress, getChildren());
 
+            setChildren(children);
             return children;
         }
 
@@ -79,11 +79,13 @@ public class SwitchPayloadOp extends MethodStateOp {
             if (element.getKey() == targetKey) {
                 int targetAddress = getTargetAddress(switchOpAddress, element.getOffset());
 
+                setChildren(targetAddress);
                 return new int[] { targetAddress };
             }
         }
 
         // Branch target is unspecified. Continue to next op.
+        setChildren(mState.getPseudoInstructionReturnAddress());
         return new int[] { mState.getPseudoInstructionReturnAddress() };
     }
 

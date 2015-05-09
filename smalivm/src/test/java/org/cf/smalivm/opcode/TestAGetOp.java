@@ -108,7 +108,7 @@ public class TestAGetOp {
             int[] children = op.execute(mState);
 
             VirtualException[] expectedExceptions = new VirtualException[] { new VirtualException(
-                            SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class)) };
+                            SmaliClassUtils.javaClassToSmali(NullPointerException.class)) };
             assertArrayEquals(expectedExceptions, op.getExceptions());
 
             assertArrayEquals(new int[0], children);

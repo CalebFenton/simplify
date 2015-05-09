@@ -13,12 +13,7 @@ import org.slf4j.LoggerFactory;
 public class IfOp extends MethodStateOp {
 
     private static enum IfType {
-        EQUAL,
-        GREATER,
-        GREATOR_OR_EQUAL,
-        LESS,
-        LESS_OR_EQUAL,
-        NOT_EQUAL
+        EQUAL, GREATER, GREATOR_OR_EQUAL, LESS, LESS_OR_EQUAL, NOT_EQUAL
     }
 
     private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
@@ -129,15 +124,13 @@ public class IfOp extends MethodStateOp {
             if (lhs == null) {
                 // if-*z ops are used to check for null refs
                 cmp = lhs == null ? 0 : 1;
-            } else if (((lhs instanceof Number) || (lhs instanceof Boolean) || (lhs instanceof Character))
-                            && ((rhs instanceof Number) || (rhs instanceof Boolean) || (rhs instanceof Character))) {
+            } else if (((lhs instanceof Number) || (lhs instanceof Boolean) || (lhs instanceof Character)) && ((rhs instanceof Number) || (rhs instanceof Boolean) || (rhs instanceof Character))) {
                 Integer aIntValue = Utils.getIntegerValue(lhs);
                 cmp = aIntValue.compareTo((Integer) rhs);
             } else {
                 cmp = lhs == rhs ? 0 : 1;
             }
-        } else if (((lhs instanceof Number) || (lhs instanceof Boolean) || (lhs instanceof Character))
-                        && ((rhs instanceof Number) || (rhs instanceof Boolean) || (rhs instanceof Character))) {
+        } else if (((lhs instanceof Number) || (lhs instanceof Boolean) || (lhs instanceof Character)) && ((rhs instanceof Number) || (rhs instanceof Boolean) || (rhs instanceof Character))) {
             Integer aIntValue = Utils.getIntegerValue(lhs);
             Integer bIntValue = Utils.getIntegerValue(rhs);
             cmp = aIntValue.compareTo(bIntValue);
@@ -154,6 +147,7 @@ public class IfOp extends MethodStateOp {
             result = targetAddress;
         }
 
+        setChildren(result);
         return new int[] { result };
     }
 
