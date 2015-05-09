@@ -9,7 +9,7 @@ dependencies {
 
     // Lazy
     compile 'commons-io:commons-io:2.4'
-    compile 'org.apache.commons:commons-lang3:3.3.2'
+    compile 'org.apache.commons:commons-lang3:3.4'
 
     // Primitive collections
     compile 'net.sf.trove4j:trove4j:3.0.3'
@@ -18,16 +18,16 @@ dependencies {
     compile 'org.perfidix:perfidix:3.6.9'
 
     // Logging facade
-    compile 'org.slf4j:slf4j-api:1.7.7'
+    compile 'org.slf4j:slf4j-api:1.7.12'
 
     // Parsing and writing dex files
-    compile 'org.smali:dexlib2:2.0.5'
-    compile 'org.smali:smali:2.0.5'
-    compile 'org.smali:baksmali:2.0.5'
+    compile 'org.smali:dexlib2:2.0.6'
+    compile 'org.smali:smali:2.0.6'
+    compile 'org.smali:baksmali:2.0.6'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
     compile files('libs/android-local.jar')
 
-    testCompile 'junit:junit:4.12-beta-3'
-    testCompile 'org.mockito:mockito-core:1.10.17'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.mockito:mockito-core:1.10.19'
 }
