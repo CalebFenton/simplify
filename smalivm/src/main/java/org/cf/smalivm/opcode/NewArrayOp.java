@@ -53,7 +53,7 @@ public class NewArrayOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem dimensionItem = mState.readRegister(dimensionRegister);
         HeapItem instanceItem;
         if (dimensionItem.isUnknown()) {
@@ -72,8 +72,6 @@ public class NewArrayOp extends MethodStateOp {
             }
         }
         mState.assignRegister(destRegister, instanceItem);
-
-        return getChildren();
     }
 
     @Override
@@ -83,4 +81,5 @@ public class NewArrayOp extends MethodStateOp {
 
         return sb.toString();
     }
+
 }

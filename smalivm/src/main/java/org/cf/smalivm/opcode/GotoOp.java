@@ -19,8 +19,8 @@ public class GotoOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
-        return getChildren();
+    public void execute(MethodState mState) {
+        // https://xkcd.com/292/
     }
 
     @Override

@@ -63,7 +63,7 @@ public class SwitchPayloadOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem targetItem = mState.readResultRegister();
         // Pseudo points to instruction *after* switch op.
         int switchOpAddress = mState.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
@@ -71,7 +71,7 @@ public class SwitchPayloadOp extends MethodStateOp {
             int[] children = getTargetAddresses(switchOpAddress, getChildren());
 
             setChildren(children);
-            return children;
+            return;
         }
 
         int targetKey = Utils.getIntegerValue(targetItem.getValue());
@@ -80,13 +80,13 @@ public class SwitchPayloadOp extends MethodStateOp {
                 int targetAddress = getTargetAddress(switchOpAddress, element.getOffset());
 
                 setChildren(targetAddress);
-                return new int[] { targetAddress };
+                return;
             }
         }
 
         // Branch target is unspecified. Continue to next op.
         setChildren(mState.getPseudoInstructionReturnAddress());
-        return new int[] { mState.getPseudoInstructionReturnAddress() };
+        return;
     }
 
     @Override

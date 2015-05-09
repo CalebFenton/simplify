@@ -108,13 +108,13 @@ public class IfOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem lhsItem = mState.readRegister(register1);
         HeapItem rhsItem = compareToZero ? new HeapItem(0, "I") : mState.readRegister(register2);
 
         // Ambiguous predicate. Follow both branches.
         if ((lhsItem.isUnknown()) || (rhsItem.isUnknown())) {
-            return getChildren();
+            return;
         }
 
         Object lhs = lhsItem.getValue();
@@ -148,7 +148,6 @@ public class IfOp extends MethodStateOp {
         }
 
         setChildren(result);
-        return new int[] { result };
     }
 
     @Override

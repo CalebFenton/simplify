@@ -39,7 +39,7 @@ public class APutOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem putItem = mState.readRegister(putRegister);
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
@@ -86,11 +86,9 @@ public class APutOp extends MethodStateOp {
             }
         }
 
-        // In most cases, register assignment means the old value was blown away. The optimizer handles assignments for
-        // this op specially.
+        // In most cases, register assignment means the old value was blown away.
+        // The optimizer handles assignments for this op specially.
         mState.assignRegister(arrayRegister, arrayItem);
-
-        return getChildren();
     }
 
     @Override

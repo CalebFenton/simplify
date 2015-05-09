@@ -36,7 +36,7 @@ public class ArrayLengthOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         Object array = arrayItem.getValue();
         Object lengthValue = null;
@@ -54,8 +54,6 @@ public class ArrayLengthOp extends MethodStateOp {
             }
         }
         mState.assignRegister(destRegister, lengthValue, "I");
-
-        return getChildren();
     }
 
     @Override

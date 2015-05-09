@@ -38,6 +38,7 @@ public class UnaryMathOp extends MethodStateOp {
         Instruction12x instr = (Instruction12x) instruction;
         int destRegister = instr.getRegisterA();
         int srcRegister = instr.getRegisterB();
+
         return new UnaryMathOp(address, opName, childAddress, destRegister, srcRegister);
     }
 
@@ -52,7 +53,7 @@ public class UnaryMathOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem item = mState.readRegister(srcRegister);
         HeapItem resultItem;
         String type = getResultTypeName(getName());
@@ -63,8 +64,6 @@ public class UnaryMathOp extends MethodStateOp {
             resultItem = new HeapItem(resultValue, type);
         }
         mState.assignRegister(destRegister, resultItem);
-
-        return this.getChildren();
     }
 
     @Override

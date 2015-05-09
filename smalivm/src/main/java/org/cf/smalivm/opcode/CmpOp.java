@@ -38,7 +38,7 @@ public class CmpOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem lhsItem = mState.readRegister(lhsRegister);
         HeapItem rhsItem = mState.readRegister(rhsRegister);
 
@@ -57,15 +57,13 @@ public class CmpOp extends MethodStateOp {
         }
 
         mState.assignRegister(destRegister, item);
-
-        return getChildren();
     }
 
     private int cmp(Number val1, Number val2) {
-        boolean arg1IsNan = ((val1 instanceof Float) && ((Float) val1).isNaN())
-                        || ((val1 instanceof Double) && ((Double) val1).isNaN());
-        boolean arg2IsNan = ((val2 instanceof Float) && ((Float) val2).isNaN())
-                        || ((val2 instanceof Double) && ((Double) val2).isNaN());
+        boolean arg1IsNan = ((val1 instanceof Float) && ((Float) val1).isNaN()) || ((val1 instanceof Double) && ((Double) val1)
+                        .isNaN());
+        boolean arg2IsNan = ((val2 instanceof Float) && ((Float) val2).isNaN()) || ((val2 instanceof Double) && ((Double) val2)
+                        .isNaN());
 
         int value = 0;
         if (arg1IsNan || arg2IsNan) {

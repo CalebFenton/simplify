@@ -17,8 +17,8 @@ public class NopOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
-        // Yesterday, upon the stack,
+    public void execute(MethodState mState) {
+        // Yesterday, upon the stair,
         // I met an op who wasn't there.
         // It wasn't there again today,
         // I wish, I wish it'd go away...
@@ -27,8 +27,6 @@ public class NopOp extends MethodStateOp {
         // A little op who wasn't there,
         // It wasn't there again today
         // Oh, how I wish it'd go away...
-
-        return getChildren();
     }
 
     @Override

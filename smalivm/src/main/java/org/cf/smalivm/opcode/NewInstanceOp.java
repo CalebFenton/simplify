@@ -41,7 +41,7 @@ public class NewInstanceOp extends ExecutionContextOp {
     }
 
     @Override
-    public int[] execute(ExecutionContext ectx) {
+    public void execute(ExecutionContext ectx) {
         Object instance = null;
         if (vm.isLocalClass(className)) {
             // New-instance causes static initialization (but not new-array!)
@@ -58,8 +58,6 @@ public class NewInstanceOp extends ExecutionContextOp {
         MethodState mState = ectx.getMethodState();
         HeapItem instanceItem = new HeapItem(instance, className);
         mState.assignRegister(destRegister, instanceItem);
-
-        return getChildren();
     }
 
     @Override

@@ -20,11 +20,7 @@ import org.slf4j.LoggerFactory;
 public class ConstOp extends MethodStateOp {
 
     private static enum ConstantType {
-        CLASS,
-        LOCAL_CLASS,
-        NARROW,
-        STRING,
-        WIDE
+        CLASS, LOCAL_CLASS, NARROW, STRING, WIDE
     }
 
     private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
@@ -91,12 +87,10 @@ public class ConstOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         Object constant = buildConstant();
         HeapItem constantItem = new HeapItem(constant, getConstantTypeString());
         mState.assignRegister(destRegister, constantItem);
-
-        return getChildren();
     }
 
     @Override

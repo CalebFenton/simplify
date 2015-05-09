@@ -65,7 +65,7 @@ public class FilledNewArrayOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         /*
          * This populates a 1-dimensional integer array with values from the parameters. It does NOT create
          * n-dimensional arrays. It's usually used to create parameter for Arrays.newInstance(). If you use anything but
@@ -101,8 +101,6 @@ public class FilledNewArrayOp extends MethodStateOp {
         } else {
             mState.assignResultRegister(dimensions, "[I");
         }
-
-        return getChildren();
     }
 
     @Override
@@ -111,7 +109,7 @@ public class FilledNewArrayOp extends MethodStateOp {
         sb.append(" {");
         if (dimensionRegisters.length > 5) {
             sb.append('r').append(dimensionRegisters[0]).append(" .. r")
-            .append(dimensionRegisters[dimensionRegisters.length - 1]);
+                            .append(dimensionRegisters[dimensionRegisters.length - 1]);
         } else {
             for (int dimensionRegister : dimensionRegisters) {
                 sb.append('r').append(dimensionRegister).append(", ");
@@ -122,4 +120,5 @@ public class FilledNewArrayOp extends MethodStateOp {
 
         return sb.toString();
     }
+
 }

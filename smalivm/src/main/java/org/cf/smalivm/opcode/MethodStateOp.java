@@ -12,7 +12,6 @@ public abstract class MethodStateOp extends Op {
         super(address, opName, childAddresses);
     }
 
-    // TODO: don't return children, set children and look them up
-    public abstract int[] execute(MethodState mState);
+    public abstract void execute(MethodState mState);
 
 }

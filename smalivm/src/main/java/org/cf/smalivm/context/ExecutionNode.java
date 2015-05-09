@@ -30,7 +30,7 @@ public class ExecutionNode {
         children = new ArrayList<ExecutionNode>(other.getChildren());
     }
 
-    public int[] execute() {
+    public void execute() {
         ExecutionContext ectx = getContext();
         if (log.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
@@ -42,16 +42,14 @@ public class ExecutionNode {
         int[] result = null;
         if (op instanceof MethodStateOp) {
             MethodState mState = ectx.getMethodState();
-            result = ((MethodStateOp) op).execute(mState);
+            ((MethodStateOp) op).execute(mState);
         } else if (op instanceof ExecutionContextOp) {
-            result = ((ExecutionContextOp) op).execute(ectx);
+            ((ExecutionContextOp) op).execute(ectx);
         }
 
         if (log.isDebugEnabled()) {
             log.debug("Context after:\n" + ectx);
         }
-
-        return result;
     }
 
     public int getAddress() {

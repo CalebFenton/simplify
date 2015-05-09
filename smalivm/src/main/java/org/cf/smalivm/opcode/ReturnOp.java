@@ -30,11 +30,9 @@ public class ReturnOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem item = mState.readRegister(register);
         mState.assignReturnRegister(item);
-
-        return getChildren();
     }
 
     @Override

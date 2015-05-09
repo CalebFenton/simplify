@@ -42,12 +42,10 @@ public class SGetOp extends ExecutionContextOp {
     }
 
     @Override
-    public int[] execute(ExecutionContext ectx) {
+    public void execute(ExecutionContext ectx) {
         HeapItem item = vm.getStaticFieldAccessor().getField(ectx, fieldDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignRegister(destRegister, item);
-
-        return getChildren();
     }
 
     @Override

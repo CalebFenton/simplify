@@ -43,13 +43,11 @@ public class SPutOp extends ExecutionContextOp {
     }
 
     @Override
-    public int[] execute(ExecutionContext ectx) {
+    public void execute(ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
         HeapItem item = mState.readRegister(valueRegister);
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
         vm.getStaticFieldAccessor().putField(ectx, fieldDescriptor, item);
-
-        return getChildren();
     }
 
     @Override
