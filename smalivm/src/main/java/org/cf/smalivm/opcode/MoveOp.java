@@ -9,9 +9,7 @@ import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 public class MoveOp extends MethodStateOp {
 
     private static enum MoveType {
-        EXCEPTION,
-        REGISTER,
-        RESULT
+        EXCEPTION, REGISTER, RESULT
     };
 
     private static void moveException(MethodState mState, int toRegister) {
@@ -63,7 +61,7 @@ public class MoveOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         switch (moveType) {
         case EXCEPTION:
             moveException(mState, toRegister);
@@ -75,8 +73,6 @@ public class MoveOp extends MethodStateOp {
             moveRegister(mState, toRegister, targetRegister);
             break;
         }
-
-        return getChildren();
     }
 
     @Override

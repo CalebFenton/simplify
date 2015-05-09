@@ -15,10 +15,7 @@ import org.slf4j.LoggerFactory;
 public class BinaryMathOp extends MethodStateOp {
 
     private static enum MathOperandType {
-        DOUBLE("D"),
-        FLOAT("F"),
-        INT("I"),
-        LONG("J"), ;
+        DOUBLE("D"), FLOAT("F"), INT("I"), LONG("J"), ;
 
         private final String type;
 
@@ -32,18 +29,7 @@ public class BinaryMathOp extends MethodStateOp {
     }
 
     private static enum MathOperator {
-        ADD,
-        AND,
-        DIV,
-        MUL,
-        OR,
-        REM,
-        RSUB,
-        SHL,
-        SHR,
-        SUB,
-        USHR,
-        XOR,
+        ADD, AND, DIV, MUL, OR, REM, RSUB, SHL, SHR, SUB, USHR, XOR,
     };
 
     private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());;
@@ -290,7 +276,7 @@ public class BinaryMathOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem lhsItem = mState.readRegister(arg1Register);
         HeapItem rhsItem = null;
         if (hasLiteral) {
@@ -314,8 +300,6 @@ public class BinaryMathOp extends MethodStateOp {
         }
 
         mState.assignRegister(destRegister, resultValue, mathOperandType.getType());
-
-        return getChildren();
     }
 
     @Override

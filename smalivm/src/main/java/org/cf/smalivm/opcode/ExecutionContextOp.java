@@ -12,6 +12,6 @@ public abstract class ExecutionContextOp extends Op {
         super(address, opName, childAddresses);
     }
 
-    public abstract int[] execute(ExecutionContext ectx);
+    public abstract void execute(ExecutionContext ectx);
 
 }

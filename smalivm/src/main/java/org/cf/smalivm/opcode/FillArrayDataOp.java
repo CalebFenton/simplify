@@ -31,7 +31,7 @@ public class FillArrayDataOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem item = mState.readRegister(register);
 
         // Mark register as assigned because next op will be payload, and it uses assigned register in this op to
@@ -40,8 +40,6 @@ public class FillArrayDataOp extends MethodStateOp {
 
         // It needs to know return address when finished since payload ops do not continue to next address.
         mState.setPseudoInstructionReturnAddress(returnAddress);
-
-        return getChildren();
     }
 
     @Override

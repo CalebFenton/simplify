@@ -68,7 +68,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         MethodState parent = mState.getParent();
         int targetRegister = parent.getRegistersAssigned().toArray()[0];
         // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
@@ -86,9 +86,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         }
 
         int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
-
         setChildren(returnAddress);
-        return new int[] { returnAddress };
     }
 
     @Override
@@ -102,4 +100,5 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
 
         return sb.toString();
     }
+
 }

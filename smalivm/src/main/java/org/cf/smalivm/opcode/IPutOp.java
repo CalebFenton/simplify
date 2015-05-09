@@ -46,14 +46,12 @@ public class IPutOp extends ExecutionContextOp {
     }
 
     @Override
-    public int[] execute(ExecutionContext ectx) {
+    public void execute(ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
         HeapItem valueItem = mState.readRegister(valueRegister);
         HeapItem instanceItem = mState.readRegister(instanceRegister);
 
         mState.assignRegister(instanceRegister, instanceItem);
-
-        return getChildren();
     }
 
     @Override

@@ -62,7 +62,7 @@ public class AGetOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
 
@@ -84,8 +84,7 @@ public class AGetOp extends MethodStateOp {
                                     SmaliClassUtils.javaClassToSmali(NullPointerException.class));
                     setException(vex);
                     setNoChildren();
-
-                    return getChildren();
+                    return;
                 }
 
                 int index = indexItem.getIntegerValue();
@@ -95,8 +94,7 @@ public class AGetOp extends MethodStateOp {
                                     SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class));
                     setException(vex);
                     setNoChildren();
-
-                    return getChildren();
+                    return;
                 } else {
                     Object value = Array.get(array, index);
                     getItem = new HeapItem(value, innerType);
@@ -104,8 +102,6 @@ public class AGetOp extends MethodStateOp {
             }
         }
         mState.assignRegister(valueRegister, getItem);
-
-        return getChildren();
     }
 
     @Override

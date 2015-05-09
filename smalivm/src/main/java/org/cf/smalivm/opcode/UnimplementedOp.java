@@ -53,7 +53,7 @@ class UnimplementedOp extends MethodStateOp {
     private static final String UNKNOWN_TYPE = "?";
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         if (setsResult) {
             mState.assignResultRegister(HeapItem.newUnknown(UNKNOWN_TYPE));
         }
@@ -65,8 +65,6 @@ class UnimplementedOp extends MethodStateOp {
                 mState.readRegister(registerA);
             }
         }
-
-        return getChildren();
     }
 
     @Override

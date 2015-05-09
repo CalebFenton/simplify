@@ -76,7 +76,8 @@ public class TestAGetOp {
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
-            int[] children = op.execute(mState);
+            op.execute(mState);
+            int[] children = op.getChildren();
 
             VirtualException[] expectedExceptions = new VirtualException[] { new VirtualException(
                             SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class)) };
@@ -105,7 +106,8 @@ public class TestAGetOp {
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
-            int[] children = op.execute(mState);
+            op.execute(mState);
+            int[] children = op.getChildren();
 
             VirtualException[] expectedExceptions = new VirtualException[] { new VirtualException(
                             SmaliClassUtils.javaClassToSmali(NullPointerException.class)) };

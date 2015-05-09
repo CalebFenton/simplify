@@ -76,9 +76,8 @@ public class InvokeOp extends ExecutionContextOp {
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
         SmaliClassManager classManager = vm.getClassManager();
-        if (classManager.isLocalMethod(methodDescriptor)
-                        && !(classManager.isFramework(methodDescriptor) && !classManager
-                                        .isSafeFramework(methodDescriptor))) {
+        if (classManager.isLocalMethod(methodDescriptor) && !(classManager.isFramework(methodDescriptor) && !classManager
+                        .isSafeFramework(methodDescriptor))) {
             parameterTypes = classManager.getParameterTypes(methodDescriptor);
         } else {
             parameterTypes = Utils.getParameterTypes(methodDescriptor);
@@ -125,7 +124,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     @Override
-    public int[] execute(ExecutionContext ectx) {
+    public void execute(ExecutionContext ectx) {
         // TODO: In order to get working call stacks, refactor this to delegate most of the work to MethodExecutor.
         // This will remove InvokeOp as a weirdly complex op, and probably allow some methods to be made protected.
         // It also keeps things clear with method execution delegated to the class with the same name.
@@ -147,8 +146,7 @@ public class InvokeOp extends ExecutionContextOp {
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
                 executeNonLocalMethod(targetMethod, callerMethodState, calleeContext);
-
-                return getChildren();
+                return;
             } else {
                 if (log.isTraceEnabled()) {
                     log.trace("Not emulating / reflecting " + targetMethod + " because all args not known.");
@@ -162,27 +160,22 @@ public class InvokeOp extends ExecutionContextOp {
             if (classManager.isLocalMethod(targetMethod)) {
                 if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Not executing unsafe local method: " + targetMethod
-                                        + ". Assuming maxiumum ambiguity.");
+                        log.debug("Not executing unsafe local method: " + targetMethod + ". Assuming maxiumum ambiguity.");
                     }
                     assumeMaximumUnknown(callerMethodState);
-
-                    return getChildren();
+                    return;
                 }
 
                 if (!classManager.methodHasImplementation(targetMethod)) {
                     if (log.isWarnEnabled()) {
                         if (!classManager.isNativeMethod(targetMethod)) {
-                            log.warn("Attempting to execute local method without implementation: " + targetMethod
-                                            + ". Assuming maxiumum ambiguity.");
+                            log.warn("Attempting to execute local method without implementation: " + targetMethod + ". Assuming maxiumum ambiguity.");
                         } else {
-                            log.warn("Cannot execute local native method: " + targetMethod
-                                            + ". Assuming maxiumum ambiguity.");
+                            log.warn("Cannot execute local native method: " + targetMethod + ". Assuming maxiumum ambiguity.");
                         }
                     }
                     assumeMaximumUnknown(callerMethodState);
-
-                    return getChildren();
+                    return;
                 }
 
                 ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
@@ -195,7 +188,7 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        return getChildren();
+        return;
     }
 
     public int[] getParameterRegisters() {
@@ -217,7 +210,7 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append(" {");
         if (getName().contains("/range")) {
             sb.append("r").append(parameterRegisters[0]).append(" .. r")
-            .append(parameterRegisters[parameterRegisters.length - 1]);
+                            .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
                 for (int register : parameterRegisters) {
@@ -484,4 +477,5 @@ public class InvokeOp extends ExecutionContextOp {
 
         return null;
     }
+
 }

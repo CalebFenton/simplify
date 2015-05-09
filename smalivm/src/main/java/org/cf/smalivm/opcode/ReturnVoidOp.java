@@ -21,8 +21,8 @@ public class ReturnVoidOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
-        return getChildren();
+    public void execute(MethodState mState) {
+        //
     }
 
     @Override

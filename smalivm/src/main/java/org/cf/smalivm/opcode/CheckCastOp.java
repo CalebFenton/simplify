@@ -39,7 +39,7 @@ public class CheckCastOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         HeapItem item = mState.readRegister(targetRegister);
         String type = item.getType();
 
@@ -53,8 +53,6 @@ public class CheckCastOp extends MethodStateOp {
                 log.warn("Unable to determine ancestory for class " + className, e);
             }
         }
-
-        return getChildren();
     }
 
     @Override

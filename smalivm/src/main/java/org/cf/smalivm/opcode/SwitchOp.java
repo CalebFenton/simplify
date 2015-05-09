@@ -31,15 +31,13 @@ public class SwitchOp extends MethodStateOp {
     }
 
     @Override
-    public int[] execute(MethodState mState) {
+    public void execute(MethodState mState) {
         // Use result register to store value to compare. Comparison is handled by payload op.
         HeapItem item = mState.readRegister(register);
         mState.assignResultRegister(item);
 
         // If switch "falls through", will need the immediate op after this.
         mState.setPseudoInstructionReturnAddress(childAddress);
-
-        return getChildren();
     }
 
     @Override
