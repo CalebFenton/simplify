@@ -44,7 +44,7 @@ public class Dexifier {
         CommonTokenStream tokens = new CommonTokenStream((TokenSource) lexer);
 
         smaliParser parser = new smaliParser(tokens);
-        parser.setApiLevel(DEFAULT_API_LEVEL);
+        parser.setApiLevel(DEFAULT_API_LEVEL, false);
 
         smaliParser.smali_file_return result = parser.smali_file();
         if ((parser.getNumberOfSyntaxErrors() > 0) || (lexer.getNumberOfSyntaxErrors() > 0)) {
