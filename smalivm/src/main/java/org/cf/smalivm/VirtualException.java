@@ -46,4 +46,9 @@ public class VirtualException {
         return new HashCodeBuilder(327, 53).append(getExceptionClass()).append(getStackTrace()).hashCode();
     }
 
+    @Override
+    public String toString() {
+        return exceptionClass;
+    }
+
 }

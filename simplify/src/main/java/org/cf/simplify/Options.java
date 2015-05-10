@@ -9,32 +9,36 @@ import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.spi.FileOptionHandler;
 import org.kohsuke.args4j.spi.PatternOptionHandler;
 
-public class OptionBean implements Serializable {
+public class Options implements Serializable {
 
     private static final long serialVersionUID = -8592147369856820020L;
 
     @Option(name = "-h", aliases = { "--help" }, usage = "Be helpful", help = true)
     private boolean help;
 
-    @Option(name = "-et", aliases = { "--exclude-types" }, metaVar = "regex", handler = PatternOptionHandler.class, usage = "Don't simplify matching types. Aapplied after include.")
+    @Option(name = "-et", aliases = { "--exclude-types" }, metaVar = "regex", handler = PatternOptionHandler.class,
+                    usage = "Don't simplify matching types. Aapplied after include.")
     private Pattern excludeFilter;
 
-    @Option(name = "-it", aliases = { "--include-types" }, metaVar = "regex", handler = PatternOptionHandler.class, usage = "Only simplify type signatures matching regex.")
+    @Option(name = "-it", aliases = { "--include-types" }, metaVar = "regex", handler = PatternOptionHandler.class,
+                    usage = "Only simplify type signatures matching regex.")
     private Pattern includeFilter;
 
     @Option(name = "--max-call-depth", usage = "Limit method call depth. Lower is faster, but misses things.")
     private int maxCallDepth = 50;
 
     @Option(name = "--max-address-visits", usage = "Maximum visits of particular address. Raise for long loops.")
-    private int maxAddressVisits = 500;
+    private int maxAddressVisits = 10000;
 
-    @Option(name = "--max-method-visits", usage = "Maximum visits over all addresses in method. Higher for longer methods + loops.")
+    @Option(name = "--max-method-visits",
+                    usage = "Maximum visits over all addresses in method. Higher for longer methods + loops.")
     private int maxMethodVisits = 1_000_000;
 
     @Option(name = "--max-passes", usage = "Limit optimization passes.")
     private int maxOptimizationPasses = 100;
 
-    @Option(name = "-o", aliases = { "--output" }, metaVar = "output", handler = FileOptionHandler.class, usage = "Output DEX file, default is <infile>_simple.dex")
+    @Option(name = "-o", aliases = { "--output" }, metaVar = "output", handler = FileOptionHandler.class,
+                    usage = "Output DEX file, default is <infile>_simple.dex")
     private File outFile;
 
     @Option(name = "--output-api-level", usage = "Output DEX API compatibility level.")
@@ -117,7 +121,8 @@ public class OptionBean implements Serializable {
         return vvverbose;
     }
 
-    @Option(name = "-i", aliases = { "--input" }, metaVar = "input", handler = FileOptionHandler.class, usage = "Input SMALI file or folder", required = true)
+    @Option(name = "-i", aliases = { "--input" }, metaVar = "input", handler = FileOptionHandler.class,
+                    usage = "Input SMALI file or folder", required = true)
     private void setInFile(File inFile) {
         this.inFile = inFile;
 

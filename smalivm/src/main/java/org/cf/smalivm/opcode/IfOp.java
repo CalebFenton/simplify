@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
@@ -108,7 +109,7 @@ public class IfOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         HeapItem lhsItem = mState.readRegister(register1);
         HeapItem rhsItem = compareToZero ? new HeapItem(0, "I") : mState.readRegister(register2);
 
@@ -147,7 +148,7 @@ public class IfOp extends MethodStateOp {
             result = targetAddress;
         }
 
-        setChildren(result);
+        node.setChildAddresses(result);
     }
 
     @Override

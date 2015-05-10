@@ -1,16 +1,17 @@
 package org.cf.smalivm.opcode;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.VirtualException;
 
 public abstract class Op {
 
+    // These should be final, but when graphs are modified, these values need to change.
     private int address;
     private int[] childAddresses;
-    private final String opName;
-    private VirtualException[] exceptions;
+    private String opName;
+    private List<String> exceptionNames;
 
     Op(int address, String opName, int childAddress) {
         this(address, opName, new int[] { childAddress });
@@ -20,6 +21,7 @@ public abstract class Op {
         this.address = address;
         this.opName = opName;
         this.childAddresses = childAddresses;
+        exceptionNames = new LinkedList<String>();
     }
 
     public final int getAddress() {
@@ -46,32 +48,12 @@ public abstract class Op {
         this.childAddresses = childAddresses;
     }
 
-    public void setNoChildren() {
-        setChildren();
+    public void setExceptionNames(List<String> exceptionNames) {
+        this.exceptionNames = exceptionNames;
     }
 
-    public void setNoExceptions() {
-        setExceptions();
-    }
-
-    public boolean mayThrowException() {
-        return exceptions != null && exceptions.length > 0;
-    }
-
-    public void setExceptions(VirtualException... exceptions) {
-        this.exceptions = exceptions;
-    }
-
-    public void setExceptions(List<VirtualException> exceptions) {
-        this.exceptions = exceptions.toArray(new VirtualException[exceptions.size()]);
-    }
-
-    public void setException(VirtualException exception) {
-        exceptions = new VirtualException[] { exception };
-    }
-
-    public VirtualException[] getExceptions() {
-        return exceptions;
+    public List<String> getExceptionNames() {
+        return exceptionNames;
     }
 
     @Override

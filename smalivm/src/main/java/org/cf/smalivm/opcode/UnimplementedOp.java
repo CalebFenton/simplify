@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.Opcode;
@@ -53,7 +54,7 @@ class UnimplementedOp extends MethodStateOp {
     private static final String UNKNOWN_TYPE = "?";
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         if (setsResult) {
             mState.assignResultRegister(HeapItem.newUnknown(UNKNOWN_TYPE));
         }

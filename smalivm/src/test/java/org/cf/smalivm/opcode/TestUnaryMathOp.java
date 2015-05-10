@@ -11,6 +11,7 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -28,12 +29,14 @@ public class TestUnaryMathOp {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
+
         private static final int ADDRESS = 0;
         private static final int REGISTER_A = 0;
         private static final int REGISTER_B = 0;
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
+        private ExecutionNode node;
         private HeapItem item;
         private UnaryMathOp op;
 
@@ -45,6 +48,7 @@ public class TestUnaryMathOp {
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(REGISTER_B);
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
             item = mock(HeapItem.class);
             when(mState.readRegister(REGISTER_B)).thenReturn(item);
         }
@@ -57,7 +61,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
             assertEquals("double-to-float r" + REGISTER_A + ", r" + REGISTER_B, op.toString());
@@ -71,7 +75,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
         }
@@ -84,7 +88,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
         }
@@ -97,7 +101,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
         }
@@ -110,7 +114,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
         }
@@ -123,7 +127,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
         }
@@ -136,7 +140,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
         }
@@ -149,7 +153,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
         }
@@ -162,7 +166,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
         }
@@ -175,7 +179,7 @@ public class TestUnaryMathOp {
             when(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
 
             op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.byteValue(), "B")));
         }
@@ -221,6 +225,7 @@ public class TestUnaryMathOp {
     }
 
     public static class TestStartFloat {
+
         @Test
         public void testFloatToDouble() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 120F, "F");
@@ -255,6 +260,7 @@ public class TestUnaryMathOp {
     }
 
     public static class TestStartInt {
+
         @Test
         public void testIntToByte() {
             Integer value = 128;

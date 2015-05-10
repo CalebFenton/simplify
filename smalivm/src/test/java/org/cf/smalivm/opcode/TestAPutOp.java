@@ -7,6 +7,7 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
@@ -176,6 +177,7 @@ public class TestAPutOp {
     }
 
     public static class UnfinishedUnitTest {
+
         private static final int REGISTER_PUT = 0;
         private static final int REGISTER_ARRAY = 1;
         private static final int REGISTER_ITEM = 2;
@@ -183,7 +185,8 @@ public class TestAPutOp {
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
-        private APutOp opUnderTest;
+        private ExecutionNode node;
+        private APutOp op;
 
         @Before
         public void setUp() {
@@ -195,6 +198,7 @@ public class TestAPutOp {
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(REGISTER_ITEM);
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
         }
 
         // @Test
@@ -208,8 +212,8 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT_OBJECT);
 
-            opUnderTest = (APutOp) opFactory.create(instruction, 0);
-            opUnderTest.execute(mState);
+            op = (APutOp) opFactory.create(instruction, 0);
+            op.execute(node, mState);
 
             // Division result is zero since long division drops decimal value
             // verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("J"));

@@ -28,7 +28,7 @@ public class Main {
     private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
 
     public static void main(String[] args) throws Exception {
-        OptionBean opts = new OptionBean();
+        Options opts = new Options();
         CmdLineParser parser = new CmdLineParser(opts);
         parser.parseArgument(args);
         if (opts.isHelp()) {
@@ -117,7 +117,7 @@ public class Main {
         }
     }
 
-    private static void setLogLevel(OptionBean bean) {
+    private static void setLogLevel(Options bean) {
         if (bean.isQuiet()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);

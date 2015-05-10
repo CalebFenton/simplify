@@ -5,6 +5,7 @@ import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.List;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
@@ -63,14 +64,14 @@ public class SwitchPayloadOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         HeapItem targetItem = mState.readResultRegister();
         // Pseudo points to instruction *after* switch op.
         int switchOpAddress = mState.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
         if (targetItem.isUnknown()) {
             int[] children = getTargetAddresses(switchOpAddress, getChildren());
 
-            setChildren(children);
+            node.setChildAddresses(children);
             return;
         }
 
@@ -79,13 +80,13 @@ public class SwitchPayloadOp extends MethodStateOp {
             if (element.getKey() == targetKey) {
                 int targetAddress = getTargetAddress(switchOpAddress, element.getOffset());
 
-                setChildren(targetAddress);
+                node.setChildAddresses(targetAddress);
                 return;
             }
         }
 
         // Branch target is unspecified. Continue to next op.
-        setChildren(mState.getPseudoInstructionReturnAddress());
+        node.setChildAddresses(mState.getPseudoInstructionReturnAddress());
         return;
     }
 
@@ -97,7 +98,7 @@ public class SwitchPayloadOp extends MethodStateOp {
             sb.append(element.getKey()).append(" -> #").append(element.getOffset()).append(", ");
         }
         sb.setLength(sb.length() - 2);
-        sb.append("]");
+        sb.append(']');
 
         return sb.toString();
     }

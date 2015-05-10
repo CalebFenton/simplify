@@ -1,6 +1,7 @@
 package org.cf.smalivm.context;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.smalivm.opcode.ExecutionContextOp;
@@ -19,15 +20,25 @@ public class ExecutionNode {
     private ExecutionContext ectx;
     private final Op op;
     private ExecutionNode parent;
+    private int[] childAddresses;
+    private List<String> exceptionNames;
+
+    public ExecutionNode(ExecutionNode other) {
+        op = other.op;
+        children = new ArrayList<ExecutionNode>(other.getChildren());
+    }
 
     public ExecutionNode(Op op) {
         this.op = op;
         children = new ArrayList<ExecutionNode>(op.getChildren().length);
     }
 
-    public ExecutionNode(ExecutionNode other) {
-        op = other.op;
-        children = new ArrayList<ExecutionNode>(other.getChildren());
+    public void clearChildAddresses() {
+        setChildAddresses();
+    }
+
+    public void clearExceptionNames() {
+        exceptionNames = new LinkedList<String>();
     }
 
     public void execute() {
@@ -39,16 +50,24 @@ public class ExecutionNode {
             log.debug(sb.toString());
         }
 
-        int[] result = null;
         if (op instanceof MethodStateOp) {
             MethodState mState = ectx.getMethodState();
-            ((MethodStateOp) op).execute(mState);
+            ((MethodStateOp) op).execute(this, mState);
         } else if (op instanceof ExecutionContextOp) {
-            ((ExecutionContextOp) op).execute(ectx);
+            ((ExecutionContextOp) op).execute(this, ectx);
         }
 
         if (log.isDebugEnabled()) {
             log.debug("Context after:\n" + ectx);
+        }
+
+        // If op didn't set children or exceptions specifically, pull in template values.
+        if (childAddresses == null) {
+            setChildAddresses(op.getChildren());
+        }
+
+        if (exceptionNames == null) {
+            setExceptionNames(op.getExceptionNames());
         }
     }
 
@@ -60,12 +79,8 @@ public class ExecutionNode {
         return ectx.getCallDepth();
     }
 
-    public ExecutionNode spawnChild(Op childOp) {
-        ExecutionNode child = new ExecutionNode(childOp);
-        child.setContext(ectx.spawnChild());
-        child.setParent(this);
-
-        return child;
+    public int[] getChildAddresses() {
+        return childAddresses;
     }
 
     public List<ExecutionNode> getChildren() {
@@ -76,12 +91,20 @@ public class ExecutionNode {
         return ectx;
     }
 
+    public List<String> getExceptionNames() {
+        return exceptionNames;
+    }
+
     public Op getOp() {
         return op;
     }
 
     public ExecutionNode getParent() {
         return parent;
+    }
+
+    public boolean mayThrowException() {
+        return exceptionNames != null && exceptionNames.size() > 0;
     }
 
     public void removeChild(ExecutionNode child) {
@@ -96,8 +119,21 @@ public class ExecutionNode {
         newChild.setParent(this);
     }
 
+    public void setChildAddresses(int... childAddresses) {
+        this.childAddresses = childAddresses;
+    }
+
     public void setContext(ExecutionContext ectx) {
         this.ectx = ectx;
+    }
+
+    public void setExceptionName(String exceptionName) {
+        exceptionNames = new LinkedList<String>();
+        exceptionNames.add(exceptionName);
+    }
+
+    public void setExceptionNames(List<String> exceptionNames) {
+        this.exceptionNames = exceptionNames;
     }
 
     public void setMethodState(MethodState mState) {
@@ -111,6 +147,14 @@ public class ExecutionNode {
         if (parent != null) {
             parent.addChild(this);
         }
+    }
+
+    public ExecutionNode spawnChild(Op childOp) {
+        ExecutionNode child = new ExecutionNode(childOp);
+        child.setContext(ectx.spawnChild());
+        child.setParent(this);
+
+        return child;
     }
 
     public String toGraph() {
@@ -142,7 +186,7 @@ public class ExecutionNode {
         for (ExecutionNode child : getChildren()) {
             String op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
             String ctx = parentMethodState.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
-            sb.append("\"").append(getAddress()).append("\n").append(op).append("\n").append(ctx).append("\"");
+            sb.append('"').append(getAddress()).append('\n').append(op).append('\n').append(ctx).append('"');
 
             sb.append(" -> ");
 
@@ -150,8 +194,8 @@ public class ExecutionNode {
             MethodState childMethodState = childExecutionContext.getMethodState();
             op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
             ctx = childMethodState.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
-            sb.append("\"").append(getAddress()).append("\n").append(op).append("\n").append(ctx).append("\"");
-            sb.append("\n");
+            sb.append('"').append(getAddress()).append('\n').append(op).append('\n').append(ctx).append('"');
+            sb.append('\n');
 
             child.getGraph(sb, visitedNodes);
         }

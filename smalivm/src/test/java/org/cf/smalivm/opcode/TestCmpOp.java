@@ -11,6 +11,7 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -29,6 +30,7 @@ public class TestCmpOp {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
+
         private static final int ADDRESS = 0;
         private static final int REGISTER_A = 0;
         private static final int REGISTER_B = 2;
@@ -38,6 +40,7 @@ public class TestCmpOp {
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
+        private ExecutionNode node;
         private HeapItem itemB;
         private HeapItem itemC;
         private CmpOp op;
@@ -52,6 +55,7 @@ public class TestCmpOp {
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(REGISTER_C);
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
             itemB = mock(HeapItem.class);
             when(mState.readRegister(REGISTER_B)).thenReturn(itemB);
             itemC = mock(HeapItem.class);
@@ -71,7 +75,7 @@ public class TestCmpOp {
             when(instruction.getOpcode()).thenReturn(opcode);
 
             op = (CmpOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
             assertEquals(cmpValue, setItem.getValue().getValue());
@@ -90,7 +94,7 @@ public class TestCmpOp {
             when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
 
             op = (CmpOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             Object cmpValue = new UnknownValue();
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
@@ -111,7 +115,7 @@ public class TestCmpOp {
             when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
 
             op = (CmpOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             Object cmpValue = new UnknownValue();
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
@@ -175,6 +179,7 @@ public class TestCmpOp {
     private static final String CLASS_NAME = "Lcmp_test;";
 
     public static class TestDouble {
+
         @Test
         public void testCmplDoubleWithLessThan() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
@@ -257,6 +262,7 @@ public class TestCmpOp {
     }
 
     public static class TestFloat {
+
         @Test
         public void testCmplFloatWithLessThan() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
@@ -339,6 +345,7 @@ public class TestCmpOp {
     }
 
     public static class TestLong {
+
         @Test
         public void testCmpLongWithLessThan() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10L, "J", 2, 0x100000L, "J");

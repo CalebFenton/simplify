@@ -10,6 +10,7 @@ import static org.mockito.Mockito.withSettings;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -35,6 +36,7 @@ public class TestIGetOp {
     private OpFactory opFactory;
     private ExecutionContext ectx;
     private MethodState mState;
+    private ExecutionNode node;
     private HeapItem itemB;
     private IGetOp op;
     private ArgumentCaptor<HeapItem> setItem;
@@ -50,6 +52,7 @@ public class TestIGetOp {
         when(((Instruction22c) instruction).getReference()).thenReturn(fieldRef);
         opFactory = new OpFactory(vm);
         mState = mock(MethodState.class);
+        node = mock(ExecutionNode.class);
 
         ectx = mock(ExecutionContext.class);
         when(ectx.getMethodState()).thenReturn(mState);
@@ -65,7 +68,7 @@ public class TestIGetOp {
         when(instruction.getOpcode()).thenReturn(Opcode.IGET);
 
         op = (IGetOp) opFactory.create(instruction, ADDRESS);
-        op.execute(ectx);
+        op.execute(node, ectx);
 
         verify(mState, times(1)).readRegister(eq(REGISTER_B));
         verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
