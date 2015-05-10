@@ -4,6 +4,7 @@ import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
@@ -41,7 +42,7 @@ public class NewInstanceOp extends ExecutionContextOp {
     }
 
     @Override
-    public void execute(ExecutionContext ectx) {
+    public void execute(ExecutionNode node, ExecutionContext ectx) {
         Object instance = null;
         if (vm.isLocalClass(className)) {
             // New-instance causes static initialization (but not new-array!)

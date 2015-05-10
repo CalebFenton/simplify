@@ -15,6 +15,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
+import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.Utils;
@@ -83,7 +84,7 @@ public class VirtualMachine {
     }
 
     public ExecutionGraph execute(String methodDescriptor) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded {
+                    MaxMethodVisitsExceeded, UnhandledVirtualException {
         if (!classManager.methodHasImplementation(methodDescriptor)) {
             return null;
         }
@@ -93,13 +94,13 @@ public class VirtualMachine {
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
-                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException {
         return execute(methodDescriptor, ectx, null, null);
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
-                    MaxCallDepthExceeded, MaxMethodVisitsExceeded {
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException {
         if (callerContext != null) {
             inheritClassStates(callerContext, calleeContext);
         }
@@ -249,8 +250,8 @@ public class VirtualMachine {
         }
 
         for (String currentClassName : classManager.getClassNames()) {
-            if (!callerContext.isClassInitialized(currentClassName)
-                            && !calleeContext.isClassInitialized(currentClassName)) {
+            if (!callerContext.isClassInitialized(currentClassName) && !calleeContext
+                            .isClassInitialized(currentClassName)) {
                 continue;
             }
 

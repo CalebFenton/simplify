@@ -11,6 +11,7 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -35,6 +36,7 @@ public class TestFilledNewArray {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTestFilledNewArray {
+
         private static final int ADDRESS = 0;
         private static final int REGISTER_C = 0;
         private static final int REGISTER_D = 1;
@@ -45,6 +47,7 @@ public class TestFilledNewArray {
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
+        private ExecutionNode node;
         private HeapItem itemC;
         private HeapItem itemD;
         private HeapItem itemE;
@@ -70,6 +73,7 @@ public class TestFilledNewArray {
             when(((ReferenceInstruction) instruction).getReference()).thenReturn(ref);
 
             mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
             itemC = mock(HeapItem.class);
             itemD = mock(HeapItem.class);
             itemE = mock(HeapItem.class);
@@ -105,7 +109,7 @@ public class TestFilledNewArray {
             }
 
             op = (FilledNewArrayOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             switch (values.length) {
             case 5:
@@ -170,7 +174,7 @@ public class TestFilledNewArray {
             when(itemC.getValue()).thenReturn(3);
 
             op = (FilledNewArrayOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             verify(mState, times(1)).readRegister(eq(REGISTER_D));
             verify(mState, times(1)).readRegister(eq(REGISTER_C));
@@ -185,11 +189,13 @@ public class TestFilledNewArray {
 
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTestFilledNewArrayRange {
+
         private static final int ADDRESS = 0;
 
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
+        private ExecutionNode node;
         private FilledNewArrayOp op;
 
         @Before
@@ -222,7 +228,7 @@ public class TestFilledNewArray {
             }
 
             op = (FilledNewArrayOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             for (int i = 0; i < expected.length; i++) {
                 verify(mState, times(1)).readRegister(eq(i));
@@ -249,7 +255,7 @@ public class TestFilledNewArray {
             }
 
             op = (FilledNewArrayOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
+            op.execute(node, mState);
 
             for (int i = 0; i < 6; i++) {
                 verify(mState, times(1)).readRegister(eq(i));
@@ -263,6 +269,7 @@ public class TestFilledNewArray {
     }
 
     public static class IntegrationTest {
+
         private static final String CLASS_NAME = "Lfilled_new_array_test;";
         private static final String METHOD_NAME = "TestFilledNewArray()V";
 

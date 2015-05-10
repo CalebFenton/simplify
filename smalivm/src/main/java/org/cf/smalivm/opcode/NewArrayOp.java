@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
@@ -53,7 +54,7 @@ public class NewArrayOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         HeapItem dimensionItem = mState.readRegister(dimensionRegister);
         HeapItem instanceItem;
         if (dimensionItem.isUnknown()) {

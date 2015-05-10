@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.slf4j.Logger;
@@ -21,7 +22,7 @@ public class ReturnVoidOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         //
     }
 

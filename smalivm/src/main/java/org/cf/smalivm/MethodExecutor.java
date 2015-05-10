@@ -11,6 +11,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
+import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.opcode.Op;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,7 @@ public class MethodExecutor {
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded {
+                    MaxMethodVisitsExceeded, UnhandledVirtualException {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
         ExceptionHandlerAddressResolver exceptionResolver = new ExceptionHandlerAddressResolver(vm.getClassManager(),
@@ -70,36 +71,8 @@ public class MethodExecutor {
                 spawnChild(graph, currentNode, childAddress);
             }
 
-            spawnChildren(graph, currentNode, currentNode.getOp().getChildren());
-
-            // TODO: this is "proper" virtual exception handling, compared to above
-            Op op = currentNode.getOp();
-            if (op.mayThrowException()) {
-                for (VirtualException exception : op.getExceptions()) {
-                    if (log.isWarnEnabled()) {
-                        log.warn("{} may throw virtual exception: {}", currentNode, exception);
-                    }
-
-                    int childAddress = exceptionResolver.resolve(exception, currentNode.getAddress());
-                    if (childAddress == -1) {
-                        if (op.getChildren().length == 0) {
-                            if (log.isErrorEnabled()) {
-                                log.error("{} unhandled virtual exception: {}", currentNode, exception);
-                            }
-
-                            // TODO: should set in the graph that this method threw an exception
-                            // and that should get bubbled up to the calling graph
-                            return null;
-                        } else {
-                            if (log.isTraceEnabled()) {
-                                log.trace("{} possible unhandled virtual exception: {}", currentNode, exception);
-                            }
-                        }
-                    } else {
-                        spawnChild(graph, currentNode, childAddress);
-                    }
-                }
-            }
+            spawnChildren(graph, currentNode);
+            spawnExceptionChildren(graph, currentNode, exceptionResolver);
 
             executeStack.addAll(currentNode.getChildren());
         }
@@ -108,16 +81,50 @@ public class MethodExecutor {
     }
 
     private static void spawnChild(ExecutionGraph graph, ExecutionNode parentNode, int childAddress) {
-        spawnChildren(graph, parentNode, new int[] { childAddress });
+        Op childOp = graph.getTemplateNode(childAddress).getOp();
+        ExecutionNode childNode = parentNode.spawnChild(childOp);
+        graph.addNode(childNode);
     }
 
-    private static void spawnChildren(ExecutionGraph graph, ExecutionNode parentNode, int[] childAddresses) {
+    private static void spawnChildren(ExecutionGraph graph, ExecutionNode parentNode) {
         // Each visit adds a new ExecutionNode to the pile. These piles can be inspected for register or field
         // consensus, or other optimizations.
-        for (int address : childAddresses) {
-            Op childOp = graph.getTemplateNode(address).getOp();
-            ExecutionNode childNode = parentNode.spawnChild(childOp);
-            graph.addNode(childNode);
+        for (int childAddress : parentNode.getChildAddresses()) {
+            spawnChild(graph, parentNode, childAddress);
+        }
+    }
+
+    private static void spawnExceptionChildren(ExecutionGraph graph, ExecutionNode node,
+                    ExceptionHandlerAddressResolver exceptionResolver) throws UnhandledVirtualException {
+        if (node.mayThrowException()) {
+            for (String exceptionName : node.getExceptionNames()) {
+                VirtualException exception = new VirtualException(exceptionName);
+                if (log.isTraceEnabled()) {
+                    log.trace("{} may throw virtual exception: {}", node, exception);
+                }
+
+                int childAddress = exceptionResolver.resolve(exception, node.getAddress());
+                if (childAddress == -1) {
+                    if (node.getChildAddresses().length == 0) {
+                        if (log.isErrorEnabled()) {
+                            log.error("{} unhandled virtual exception: {}", node, exception);
+                        }
+
+                        throw new UnhandledVirtualException(exception);
+                    } else {
+                        /*
+                         * It's impossible to be sure if it's an unhandled exception because there are probably unknown
+                         * values. Assume the code was checked by a compiler and there aren't any exceptional cases not
+                         * covered by try / catch.
+                         */
+                        if (log.isTraceEnabled()) {
+                            log.trace("{} possible unhandled virtual exception: {}", node, exception);
+                        }
+                    }
+                } else {
+                    spawnChild(graph, node, childAddress);
+                }
+            }
         }
     }
 

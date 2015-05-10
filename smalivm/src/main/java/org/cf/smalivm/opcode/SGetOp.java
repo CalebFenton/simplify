@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -42,7 +43,7 @@ public class SGetOp extends ExecutionContextOp {
     }
 
     @Override
-    public void execute(ExecutionContext ectx) {
+    public void execute(ExecutionNode node, ExecutionContext ectx) {
         HeapItem item = vm.getStaticFieldAccessor().getField(ectx, fieldDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignRegister(destRegister, item);

@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -276,7 +277,7 @@ public class BinaryMathOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         HeapItem lhsItem = mState.readRegister(arg1Register);
         HeapItem rhsItem = null;
         if (hasLiteral) {

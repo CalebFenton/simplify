@@ -13,12 +13,14 @@ import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
+import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.type.LocalType;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
@@ -124,7 +126,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     @Override
-    public void execute(ExecutionContext ectx) {
+    public void execute(ExecutionNode node, ExecutionContext ectx) {
         // TODO: In order to get working call stacks, refactor this to delegate most of the work to MethodExecutor.
         // This will remove InvokeOp as a weirdly complex op, and probably allow some methods to be made protected.
         // It also keeps things clear with method execution delegated to the class with the same name.
@@ -132,8 +134,7 @@ public class InvokeOp extends ExecutionContextOp {
         // With this mapping, stack traces can be reconstructed.
         String targetMethod = methodDescriptor;
         if (getName().contains("-virtual")) { // -virtual/range
-            // Method call might be to interface or abstract class.
-            // Try and resolve what the actual virtual target is.
+            // Resolve what the actual virtual target is because method call may be to interface or abstract class.
             int targetRegister = parameterRegisters[0];
             HeapItem item = ectx.getMethodState().peekRegister(targetRegister);
             targetMethod = getLocalTargetForVirtualMethod(item.getValue());
@@ -176,6 +177,10 @@ public class InvokeOp extends ExecutionContextOp {
                     }
                     assumeMaximumUnknown(callerMethodState);
                     return;
+                }
+
+                if (targetMethod.contains("XORCrypt;->decode")) {
+                    System.out.println("its happening");
                 }
 
                 ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
@@ -325,6 +330,12 @@ public class InvokeOp extends ExecutionContextOp {
         try {
             graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
         } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+            if (log.isWarnEnabled()) {
+                log.warn(e.toString());
+            }
+        } catch (UnhandledVirtualException e) {
+            // TODO: handle this properly
+            // should be fairly easy, just bubble up this exception to the node and stop executing here
             if (log.isWarnEnabled()) {
                 log.warn(e.toString());
             }

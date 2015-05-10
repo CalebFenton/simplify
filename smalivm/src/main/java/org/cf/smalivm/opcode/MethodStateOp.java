@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 
 public abstract class MethodStateOp extends Op {
@@ -12,6 +13,6 @@ public abstract class MethodStateOp extends Op {
         super(address, opName, childAddresses);
     }
 
-    public abstract void execute(MethodState mState);
+    public abstract void execute(ExecutionNode executionNode, MethodState mState);
 
 }

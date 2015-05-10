@@ -11,6 +11,7 @@ import static org.mockito.Mockito.withSettings;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.Opcode;
@@ -35,6 +36,7 @@ public class TestIPutOp {
     private OpFactory opFactory;
     private ExecutionContext ectx;
     private MethodState mState;
+    private ExecutionNode node;
     private HeapItem itemA;
     private HeapItem itemB;
     private IPutOp op;
@@ -51,6 +53,7 @@ public class TestIPutOp {
         when(((Instruction22c) instruction).getReference()).thenReturn(fieldRef);
         opFactory = new OpFactory(vm);
         mState = mock(MethodState.class);
+        node = mock(ExecutionNode.class);
 
         ectx = mock(ExecutionContext.class);
         when(ectx.getMethodState()).thenReturn(mState);
@@ -69,7 +72,7 @@ public class TestIPutOp {
         when(instruction.getOpcode()).thenReturn(Opcode.IPUT);
 
         op = (IPutOp) opFactory.create(instruction, ADDRESS);
-        op.execute(ectx);
+        op.execute(node, ectx);
 
         verify(mState, times(1)).readRegister(eq(REGISTER_A));
         verify(mState, times(1)).readRegister(eq(REGISTER_B));

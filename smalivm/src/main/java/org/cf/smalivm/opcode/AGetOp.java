@@ -1,10 +1,9 @@
 package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
-import java.util.LinkedList;
 import java.util.List;
 
-import org.cf.smalivm.VirtualException;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.SmaliClassUtils;
@@ -54,15 +53,11 @@ public class AGetOp extends MethodStateOp {
 
         List<String> exceptionNames = SmaliClassUtils.javaClassToSmali(NullPointerException.class,
                         ArrayIndexOutOfBoundsException.class);
-        List<VirtualException> exceptions = new LinkedList<VirtualException>();
-        for (String exceptionName : exceptionNames) {
-            exceptions.add(new VirtualException(exceptionName));
-        }
-        setExceptions(exceptions);
+        setExceptionNames(exceptionNames);
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
 
@@ -77,23 +72,21 @@ public class AGetOp extends MethodStateOp {
                 getItem = HeapItem.newUnknown(innerType);
             } else {
                 // All values known, so exceptions are deterministic.
-                setNoExceptions();
+                node.clearExceptionNames();
 
                 if (null == array) {
-                    VirtualException vex = new VirtualException(
-                                    SmaliClassUtils.javaClassToSmali(NullPointerException.class));
-                    setException(vex);
-                    setNoChildren();
+                    String exceptionName = SmaliClassUtils.javaClassToSmali(NullPointerException.class);
+                    node.setExceptionName(exceptionName);
+                    node.clearChildAddresses();
                     return;
                 }
 
                 int index = indexItem.getIntegerValue();
                 String innerType = arrayItem.getType().replaceFirst("\\[", "");
                 if (index >= Array.getLength(array)) {
-                    VirtualException vex = new VirtualException(
-                                    SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class));
-                    setException(vex);
-                    setNoChildren();
+                    String exceptionName = SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class);
+                    node.setExceptionName(exceptionName);
+                    node.clearChildAddresses();
                     return;
                 } else {
                     Object value = Array.get(array, index);

@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -31,7 +32,7 @@ public class SwitchOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         // Use result register to store value to compare. Comparison is handled by payload op.
         HeapItem item = mState.readRegister(register);
         mState.assignResultRegister(item);

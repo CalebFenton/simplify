@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -11,8 +10,8 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
@@ -43,6 +42,7 @@ public class TestAGetOp {
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
+        private ExecutionNode node;
         private AGetOp op;
 
         @Before
@@ -55,6 +55,7 @@ public class TestAGetOp {
 
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
         }
 
         @Test
@@ -76,14 +77,11 @@ public class TestAGetOp {
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
-            int[] children = op.getChildren();
+            op.execute(node, mState);
 
-            VirtualException[] expectedExceptions = new VirtualException[] { new VirtualException(
-                            SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class)) };
-            assertArrayEquals(expectedExceptions, op.getExceptions());
-
-            assertArrayEquals(new int[0], children);
+            String expectedException = SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class);
+            verify(node).setExceptionName(eq(expectedException));
+            verify(node).clearChildAddresses();
             verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
         }
 
@@ -106,14 +104,11 @@ public class TestAGetOp {
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
-            op.execute(mState);
-            int[] children = op.getChildren();
+            op.execute(node, mState);
 
-            VirtualException[] expectedExceptions = new VirtualException[] { new VirtualException(
-                            SmaliClassUtils.javaClassToSmali(NullPointerException.class)) };
-            assertArrayEquals(expectedExceptions, op.getExceptions());
-
-            assertArrayEquals(new int[0], children);
+            String expectedException = SmaliClassUtils.javaClassToSmali(NullPointerException.class);
+            verify(node).setExceptionName(eq(expectedException));
+            verify(node).clearChildAddresses();
             verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
         }
 

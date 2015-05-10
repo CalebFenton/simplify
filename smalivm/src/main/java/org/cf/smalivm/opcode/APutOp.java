@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
@@ -39,7 +40,7 @@ public class APutOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         HeapItem putItem = mState.readRegister(putRegister);
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);

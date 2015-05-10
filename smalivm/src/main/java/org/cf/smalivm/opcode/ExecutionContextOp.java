@@ -1,6 +1,7 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.ExecutionContext;
+import org.cf.smalivm.context.ExecutionNode;
 
 public abstract class ExecutionContextOp extends Op {
 
@@ -12,6 +13,6 @@ public abstract class ExecutionContextOp extends Op {
         super(address, opName, childAddresses);
     }
 
-    public abstract void execute(ExecutionContext ectx);
+    public abstract void execute(ExecutionNode executionNode, ExecutionContext ectx);
 
 }

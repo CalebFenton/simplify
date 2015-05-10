@@ -4,6 +4,7 @@ import java.lang.reflect.Array;
 import java.util.List;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -68,7 +69,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     }
 
     @Override
-    public void execute(MethodState mState) {
+    public void execute(ExecutionNode node, MethodState mState) {
         MethodState parent = mState.getParent();
         int targetRegister = parent.getRegistersAssigned().toArray()[0];
         // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
@@ -86,7 +87,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         }
 
         int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
-        setChildren(returnAddress);
+        node.setChildAddresses(returnAddress);
     }
 
     @Override
