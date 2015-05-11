@@ -1,5 +1,19 @@
 project.version = '0.1.0'
 
+task myTestsJar(type: Jar) {
+    // Simplify uses some classes from smalivm's tests.
+    classifier = 'tests'
+    from sourceSets.test.output
+}
+
+configurations {
+  testArtifacts
+}
+
+artifacts {
+   testArtifacts myTestsJar
+}
+
 dependencies {
     // Object cloning
     compile 'uk.com.robust-it:cloning:1.9.1'
