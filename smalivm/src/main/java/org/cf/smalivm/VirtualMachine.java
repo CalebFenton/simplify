@@ -217,6 +217,7 @@ public class VirtualMachine {
 
     public void addTemplateClassState(ExecutionContext ectx, String className) {
         List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
+        // https://github.com/CalebFenton/simplify/issues/36
         ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
         ectx.setClassState(className, cState, SideEffect.Level.NONE);
         for (String fieldNameAndType : fieldNameAndTypes) {
