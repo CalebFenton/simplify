@@ -15,6 +15,10 @@ import org.junit.Test;
 public class TestSmaliClassManager {
 
     private static final String TEST_DIRECTORY = "resources/test";
+    private static final String CHILD_CLASS = "Lchild_class;";
+    private static final String PARENT_CLASS = "Lparent_class;";
+    private static final String GRANDPARENT_CLASS = "Lgrandparent_class;";
+    private static final String NON_EXISTENT_CLASS = "Lthis_certainly_wont_exists;";
 
     private static SmaliClassManager manager;
 
@@ -25,7 +29,7 @@ public class TestSmaliClassManager {
 
     @Test
     public void testChildIsInstanceOfParent() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance("Lchild_class;", "Lparent_class;");
+        boolean isInstance = manager.isInstance(CHILD_CLASS, PARENT_CLASS);
 
         assertTrue(isInstance);
     }
@@ -39,14 +43,14 @@ public class TestSmaliClassManager {
 
     @Test
     public void testChildIsInstanceOfGrandParent() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance("Lchild_class;", "Lgrandparent_class;");
+        boolean isInstance = manager.isInstance(CHILD_CLASS, GRANDPARENT_CLASS);
 
         assertTrue(isInstance);
     }
 
     @Test
     public void testParentIsNotInstanceOfChild() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance("Lparent_class;", "Lchild_class;");
+        boolean isInstance = manager.isInstance(PARENT_CLASS, CHILD_CLASS);
 
         assertFalse(isInstance);
     }
@@ -66,6 +70,13 @@ public class TestSmaliClassManager {
     }
 
     @Test
+    public void testStringArrayIsInstanceOf2DObjectArray() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(String[].class, Object[][].class);
+
+        assertFalse(isInstance);
+    }
+
+    @Test
     public void testIntPrimitiveIsInstanceOfInteger() throws UnknownAncestors {
         boolean isInstance = manager.isInstance(int.class, Integer.class);
 
@@ -80,20 +91,34 @@ public class TestSmaliClassManager {
     }
 
     @Test
+    public void testIntPrimitiveIsInstanceIntPrimitive() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, int.class);
+
+        assertTrue(isInstance);
+    }
+
+    @Test
     public void testIntPrimitiveIsNotInstanceOfLong() throws UnknownAncestors {
         boolean isInstance = manager.isInstance(int.class, Long.class);
 
         assertFalse(isInstance);
     }
 
+    @Test
+    public void testIntPrimitiveIsNotInstanceOfIntArray() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, int[].class);
+
+        assertFalse(isInstance);
+    }
+
     @Test(expected = UnknownAncestors.class)
     public void testUnknownChildThrowsUnknownAncestors() throws UnknownAncestors {
-        manager.isInstance("Lthis_certainly_wont_exists;", "Lparent_class;");
+        manager.isInstance(NON_EXISTENT_CLASS, PARENT_CLASS);
     }
 
     @Test
     public void testUnknownParentDoesNotThrowUnknownAncestors() throws UnknownAncestors {
-        manager.isInstance("Lchild_class;", "Lthis_certainly_wont_exists;");
+        manager.isInstance(CHILD_CLASS, NON_EXISTENT_CLASS);
     }
 
     @Test
