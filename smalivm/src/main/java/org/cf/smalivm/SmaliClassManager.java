@@ -15,6 +15,7 @@ import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.Dexifier;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.SmaliFileFactory;
+import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
@@ -245,10 +246,12 @@ public class SmaliClassManager {
     }
 
     public boolean isInstance(String childType, String targetType) throws UnknownAncestors {
-        /*
-         * Note: not 100% sure how java's instanceof works with arrays, but some poking shows it compares the base
-         * classes, and will not compile if types are incompatible, e.g. Integer[][] vs Object[].
-         */
+        int childDimension = Utils.getDimensionCount(childType);
+        int targetDimension = Utils.getDimensionCount(targetType);
+        if (childDimension != targetDimension) {
+            return false;
+        }
+
         String baseChild = SmaliClassUtils.getBaseClass(childType);
         if (SmaliClassUtils.isPrimitiveType(baseChild)) {
             baseChild = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseChild));
@@ -373,7 +376,8 @@ public class SmaliClassManager {
         try {
             boolean isFramework = smaliFileFactory.isFrameworkClass(className);
             InputStream is = smaliFile.open();
-            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, isFramework ? frameworkDexBuilder : dexBuilder);
+            classDef = Dexifier
+                            .dexifySmaliFile(smaliFile.getPath(), is, isFramework ? frameworkDexBuilder : dexBuilder);
             is.close();
         } catch (Exception e) {
             if (log.isErrorEnabled()) {
