@@ -4,14 +4,16 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualException;
 
 public abstract class Op {
 
     // These should be final, but when graphs are modified, these values need to change.
     private int address;
     private int[] childAddresses;
-    private String opName;
-    private List<String> exceptionNames;
+
+    private final String opName;
+    private final List<VirtualException> exceptions;
 
     Op(int address, String opName, int childAddress) {
         this(address, opName, new int[] { childAddress });
@@ -21,7 +23,7 @@ public abstract class Op {
         this.address = address;
         this.opName = opName;
         this.childAddresses = childAddresses;
-        exceptionNames = new LinkedList<String>();
+        exceptions = new LinkedList<VirtualException>();
     }
 
     public final int getAddress() {
@@ -48,12 +50,13 @@ public abstract class Op {
         this.childAddresses = childAddresses;
     }
 
-    public void setExceptionNames(List<String> exceptionNames) {
-        this.exceptionNames = exceptionNames;
+    public void setExceptions(List<VirtualException> exceptions) {
+        this.exceptions.clear();
+        this.exceptions.addAll(exceptions);
     }
 
-    public List<String> getExceptionNames() {
-        return exceptionNames;
+    public List<VirtualException> getExceptions() {
+        return exceptions;
     }
 
     @Override

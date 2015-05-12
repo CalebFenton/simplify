@@ -10,6 +10,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -79,9 +80,11 @@ public class TestAGetOp {
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
 
-            String expectedException = SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class);
-            verify(node).setExceptionName(eq(expectedException));
+            VirtualException expectedException = new VirtualException(
+                            SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class));
+            verify(node).setException(eq(expectedException));
             verify(node).clearChildAddresses();
+            verify(node, times(0)).setChildAddresses(any(int[].class));
             verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
         }
 
@@ -106,9 +109,11 @@ public class TestAGetOp {
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
 
-            String expectedException = SmaliClassUtils.javaClassToSmali(NullPointerException.class);
-            verify(node).setExceptionName(eq(expectedException));
+            VirtualException expectedException = new VirtualException(
+                            SmaliClassUtils.javaClassToSmali(NullPointerException.class));
+            verify(node).setException(eq(expectedException));
             verify(node).clearChildAddresses();
+            verify(node, times(0)).setChildAddresses(any(int[].class));
             verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
         }
 
@@ -135,7 +140,16 @@ public class TestAGetOp {
         @Test
         public void testArrayGetWithIndexOutOfBoundsVisitsExceptionHandler() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 1, "I");
-            int[] expectedVisitations = new int[] { 0, 2, 3 };
+            int[] expectedVisitations = new int[] { 0, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
+        }
+
+        @Test
+        public void testArrayGetWithCatchAndUnknownIndexVisitsExceptionHandlerAndChild() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1,
+                            new UnknownValue(), "I");
+            int[] expectedVisitations = new int[] { 0, 2, 3, 4 };
 
             VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
         }
@@ -151,7 +165,15 @@ public class TestAGetOp {
         @Test
         public void testArrayGetWithNullArrayVisitsExceptionHandler() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "[I", 1, 1, "I");
-            int[] expectedVisitations = new int[] { 0, 2, 3 };
+            int[] expectedVisitations = new int[] { 0, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
+        }
+
+        @Test
+        public void testArrayGetWithCatchAndUnknownArrayVisitsExceptionHandlerAndChild() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I", 1, 1, "I");
+            int[] expectedVisitations = new int[] { 0, 2, 3, 4 };
 
             VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
         }

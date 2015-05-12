@@ -97,8 +97,7 @@ public class MethodExecutor {
     private static void spawnExceptionChildren(ExecutionGraph graph, ExecutionNode node,
                     ExceptionHandlerAddressResolver exceptionResolver) throws UnhandledVirtualException {
         if (node.mayThrowException()) {
-            for (String exceptionName : node.getExceptionNames()) {
-                VirtualException exception = new VirtualException(exceptionName);
+            for (VirtualException exception : node.getExceptions()) {
                 if (log.isTraceEnabled()) {
                     log.trace("{} may throw virtual exception: {}", node, exception);
                 }

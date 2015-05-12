@@ -25,6 +25,8 @@
     :try_end_0
     .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
+    nop
+
     :return
     return-void
 

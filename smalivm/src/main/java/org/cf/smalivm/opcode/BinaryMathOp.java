@@ -1,5 +1,9 @@
 package org.cf.smalivm.opcode;
 
+import java.util.LinkedList;
+import java.util.List;
+
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -37,24 +41,29 @@ public class BinaryMathOp extends MethodStateOp {
 
     private static Object doDoubleOperation(MathOperator mathOperator, Double lhs, Double rhs) {
         Object result = null;
-        switch (mathOperator) {
-        case ADD:
-            result = lhs + rhs;
-            break;
-        case DIV:
-            result = lhs / rhs;
-            break;
-        case MUL:
-            result = lhs * rhs;
-            break;
-        case REM:
-            result = lhs % rhs;
-            break;
-        case SUB:
-            result = lhs - rhs;
-            break;
-        default:
-            break;
+        try {
+            switch (mathOperator) {
+            case ADD:
+                result = lhs + rhs;
+                break;
+            case DIV:
+                result = lhs / rhs;
+                break;
+            case MUL:
+                result = lhs * rhs;
+                break;
+            case REM:
+                result = lhs % rhs;
+                break;
+            case SUB:
+                result = lhs - rhs;
+                break;
+            default:
+                break;
+            }
+        } catch (ArithmeticException e) {
+            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
+            return exception;
         }
 
         return result;
@@ -62,24 +71,29 @@ public class BinaryMathOp extends MethodStateOp {
 
     private static Object doFloatOperation(MathOperator mathOperator, Float lhs, Float rhs) {
         Object result = null;
-        switch (mathOperator) {
-        case ADD:
-            result = lhs + rhs;
-            break;
-        case DIV:
-            result = lhs / rhs;
-            break;
-        case MUL:
-            result = lhs * rhs;
-            break;
-        case REM:
-            result = lhs % rhs;
-            break;
-        case SUB:
-            result = lhs - rhs;
-            break;
-        default:
-            break;
+        try {
+            switch (mathOperator) {
+            case ADD:
+                result = lhs + rhs;
+                break;
+            case DIV:
+                result = lhs / rhs;
+                break;
+            case MUL:
+                result = lhs * rhs;
+                break;
+            case REM:
+                result = lhs % rhs;
+                break;
+            case SUB:
+                result = lhs - rhs;
+                break;
+            default:
+                break;
+            }
+        } catch (ArithmeticException e) {
+            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
+            return exception;
         }
 
         return result;
@@ -87,45 +101,50 @@ public class BinaryMathOp extends MethodStateOp {
 
     private static Object doIntegerOperation(MathOperator mathOperator, Integer lhs, Integer rhs) {
         Object result = null;
-        switch (mathOperator) {
-        case ADD:
-            result = lhs + rhs;
-            break;
-        case AND:
-            result = lhs & rhs;
-            break;
-        case DIV:
-            result = lhs / rhs;
-            break;
-        case MUL:
-            result = lhs * rhs;
-            break;
-        case OR:
-            result = lhs | rhs;
-            break;
-        case REM:
-            result = lhs % rhs;
-            break;
-        case RSUB:
-            result = rhs - lhs;
-            break;
-        case SHL:
-            result = lhs << (rhs & 0x1f);
-            break;
-        case SHR:
-            result = lhs >> (rhs & 0x1f);
-            break;
-        case SUB:
-            result = lhs - rhs;
-            break;
-        case USHR:
-            result = lhs >>> (rhs & 0x1f);
-            break;
-        case XOR:
-            result = lhs ^ rhs;
-            break;
-        default:
-            break;
+        try {
+            switch (mathOperator) {
+            case ADD:
+                result = lhs + rhs;
+                break;
+            case AND:
+                result = lhs & rhs;
+                break;
+            case DIV:
+                result = lhs / rhs;
+                break;
+            case MUL:
+                result = lhs * rhs;
+                break;
+            case OR:
+                result = lhs | rhs;
+                break;
+            case REM:
+                result = lhs % rhs;
+                break;
+            case RSUB:
+                result = rhs - lhs;
+                break;
+            case SHL:
+                result = lhs << (rhs & 0x1f);
+                break;
+            case SHR:
+                result = lhs >> (rhs & 0x1f);
+                break;
+            case SUB:
+                result = lhs - rhs;
+                break;
+            case USHR:
+                result = lhs >>> (rhs & 0x1f);
+                break;
+            case XOR:
+                result = lhs ^ rhs;
+                break;
+            default:
+                break;
+            }
+        } catch (ArithmeticException e) {
+            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
+            return exception;
         }
 
         return result;
@@ -133,42 +152,47 @@ public class BinaryMathOp extends MethodStateOp {
 
     private static Object doLongOperation(MathOperator mathOperator, Long lhs, Long rhs) {
         Object result = null;
-        switch (mathOperator) {
-        case ADD:
-            result = lhs + rhs;
-            break;
-        case AND:
-            result = lhs & rhs;
-            break;
-        case DIV:
-            result = lhs / rhs;
-            break;
-        case MUL:
-            result = lhs * rhs;
-            break;
-        case OR:
-            result = lhs | rhs;
-            break;
-        case REM:
-            result = lhs % rhs;
-            break;
-        case SHL:
-            result = lhs << rhs;
-            break;
-        case SHR:
-            result = lhs >> rhs;
-            break;
-        case SUB:
-            result = lhs - rhs;
-            break;
-        case USHR:
-            result = lhs >>> rhs;
-            break;
-        case XOR:
-            result = lhs ^ rhs;
-            break;
-        default:
-            break;
+        try {
+            switch (mathOperator) {
+            case ADD:
+                result = lhs + rhs;
+                break;
+            case AND:
+                result = lhs & rhs;
+                break;
+            case DIV:
+                result = lhs / rhs;
+                break;
+            case MUL:
+                result = lhs * rhs;
+                break;
+            case OR:
+                result = lhs | rhs;
+                break;
+            case REM:
+                result = lhs % rhs;
+                break;
+            case SHL:
+                result = lhs << rhs;
+                break;
+            case SHR:
+                result = lhs >> rhs;
+                break;
+            case SUB:
+                result = lhs - rhs;
+                break;
+            case USHR:
+                result = lhs >>> rhs;
+                break;
+            case XOR:
+                result = lhs ^ rhs;
+                break;
+            default:
+                break;
+            }
+        } catch (ArithmeticException e) {
+            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
+            return exception;
         }
 
         return result;
@@ -262,6 +286,10 @@ public class BinaryMathOp extends MethodStateOp {
         this.arg1Register = arg1Register;
         mathOperator = getMathOp(opName);
         mathOperandType = getMathOperandType(opName);
+
+        List<VirtualException> exceptions = new LinkedList<VirtualException>();
+        exceptions.add(new VirtualException(ArithmeticException.class, "/ by zero"));
+        setExceptions(exceptions);
     }
 
     private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register,
@@ -291,13 +319,23 @@ public class BinaryMathOp extends MethodStateOp {
             resultValue = getResult(lhsItem.getValue(), rhsItem.getValue());
             if (null == resultValue) {
                 if (log.isWarnEnabled()) {
-                    log.warn("Null result in binary math. Not possibruuu!");
+                    log.warn("Null result in binary math with known values. Not possibruuu!");
                 }
+            } else if (resultValue instanceof VirtualException) {
+                VirtualException exception = (VirtualException) resultValue;
+                node.setException(exception);
+                node.clearChildAddresses();
+                return;
             }
         }
 
         if (null == resultValue) {
             resultValue = new UnknownValue();
+        }
+
+        if (mathOperandType.equals(MathOperandType.FLOAT) || mathOperandType.equals(MathOperandType.DOUBLE)) {
+            // Only exception right now is "/ by zero", which isn't possible for F and D types
+            node.clearExceptions();
         }
 
         mState.assignRegister(destRegister, resultValue, mathOperandType.getType());
