@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -68,15 +70,8 @@ public class TestBinaryMathOp {
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
 
-            HeapItem arg1Item = mock(HeapItem.class);
-            when(arg1Item.getValue()).thenReturn(value1);
-            when(arg1Item.getType()).thenReturn("J");
-            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
-
-            HeapItem arg2Item = mock(HeapItem.class);
-            when(arg2Item.getValue()).thenReturn(value2);
-            when(arg2Item.getType()).thenReturn("J");
-            when(mState.readRegister(ARG2_REGISTER)).thenReturn(arg2Item);
+            addHeapItem(mState, ARG1_REGISTER, value1, "J");
+            addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -96,15 +91,8 @@ public class TestBinaryMathOp {
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
 
-            HeapItem arg1Item = mock(HeapItem.class);
-            when(arg1Item.getValue()).thenReturn(value1);
-            when(arg1Item.getType()).thenReturn("F");
-            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
-
-            HeapItem arg2Item = mock(HeapItem.class);
-            when(arg2Item.getValue()).thenReturn(value2);
-            when(arg2Item.getType()).thenReturn("F");
-            when(mState.readRegister(ARG2_REGISTER)).thenReturn(arg2Item);
+            addHeapItem(mState, ARG1_REGISTER, value1, "F");
+            addHeapItem(mState, ARG2_REGISTER, value2, "F");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -125,10 +113,7 @@ public class TestBinaryMathOp {
             when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
 
-            HeapItem arg1Item = mock(HeapItem.class);
-            when(arg1Item.getValue()).thenReturn(value1);
-            when(arg1Item.getType()).thenReturn("I");
-            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
+            addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -149,21 +134,115 @@ public class TestBinaryMathOp {
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
 
-            HeapItem arg1Item = mock(HeapItem.class);
-            when(arg1Item.getValue()).thenReturn(value1);
-            when(arg1Item.getType()).thenReturn("D");
-            when(mState.readRegister(ARG1_REGISTER)).thenReturn(arg1Item);
-
-            HeapItem arg2Item = mock(HeapItem.class);
-            when(arg2Item.getValue()).thenReturn(value2);
-            when(arg2Item.getType()).thenReturn("D");
-            when(mState.readRegister(ARG2_REGISTER)).thenReturn(arg2Item);
+            addHeapItem(mState, ARG1_REGISTER, value1, "D");
+            addHeapItem(mState, ARG2_REGISTER, value2, "D");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
 
             // If we're casting properly we drop everything and only retain the two
             verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("D"));
+        }
+
+        @Test
+        public void integerDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            int value1 = 10;
+            int value2 = 0;
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(NarrowLiteralInstruction.class, Instruction22s.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.DIV_INT_LIT16);
+            when(((Instruction22s) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+            when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
+
+            addHeapItem(mState, ARG1_REGISTER, value1, "I");
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
+            testCorrectlyHandledException(expectedException, node, mState);
+        }
+
+        @Test
+        public void integerModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            int value1 = 10;
+            int value2 = 0;
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(NarrowLiteralInstruction.class, Instruction22s.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.REM_INT_LIT16);
+            when(((Instruction22s) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+            when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
+
+            addHeapItem(mState, ARG1_REGISTER, value1, "I");
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
+            testCorrectlyHandledException(expectedException, node, mState);
+        }
+
+        @Test
+        public void longDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            long value1 = 1120403456L;
+            long value2 = 0L;
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.DIV_LONG);
+            when(((Instruction23x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+            when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
+
+            addHeapItem(mState, ARG1_REGISTER, value1, "J");
+            addHeapItem(mState, ARG2_REGISTER, value2, "J");
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
+            testCorrectlyHandledException(expectedException, node, mState);
+        }
+
+        @Test
+        public void longModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            long value1 = 1120403456L;
+            long value2 = 0L;
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
+            when(instruction.getOpcode()).thenReturn(Opcode.REM_LONG);
+            when(((Instruction23x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+            when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
+
+            addHeapItem(mState, ARG1_REGISTER, value1, "J");
+            addHeapItem(mState, ARG2_REGISTER, value2, "J");
+
+            op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
+            testCorrectlyHandledException(expectedException, node, mState);
+        }
+
+        private static void addHeapItem(MethodState mState, int register, Object value, String type) {
+            HeapItem item = mock(HeapItem.class);
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn(type);
+            when(mState.readRegister(register)).thenReturn(item);
+        }
+
+        private static void testCorrectlyHandledException(VirtualException expectedException, ExecutionNode node,
+                        MethodState mState) {
+            verify(node).setException(eq(expectedException));
+            verify(node).clearChildAddresses();
+            verify(node, times(0)).setChildAddresses(any(int[].class));
+            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
         }
     }
 
@@ -202,7 +281,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void testDivDoubleWithCatchWithDiv0Exception() {
+        public void testDivDoubleWithDivisionByZero() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5D, "D", 1, 0D, "D");
             // Floats and doubles do not throw exceptions for div0
             int[] expected = new int[] { 0, 2 };
@@ -294,7 +373,7 @@ public class TestBinaryMathOp {
         }
 
         @Test
-        public void testDivFloatWithCatchWithDiv0Exception() {
+        public void testDivFloatWithDivisionByZero() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5F, "F", 1, 0F, "F");
             // Floats and doubles do not throw exceptions for div0
             int[] expected = new int[] { 0, 2 };
@@ -501,18 +580,10 @@ public class TestBinaryMathOp {
             VMTester.testMethodState(CLASS_NAME, "DivInt2Addr()V", initial, expected);
         }
 
-        // TODO: convert to unit test
-        // public void testDivIntWithCatchWithDiv0Exception() {
-        // TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I", 1, 0, "I");
-        // int[] expected = new int[] { 0, 2, 3, 4 };
-        //
-        // VMTester.testVisitation(CLASS_NAME, "DivIntWithCatch()V", initial, expected);
-        // }
-
         @Test
-        public void testDivIntWithCatchWithNoException() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I", 1, 5, "I");
-            int[] expected = new int[] { 0, 2 };
+        public void testDivIntWithCatchWithUnkownValueVisitsExceptionHandler() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I", 1, 5, "I");
+            int[] expected = new int[] { 0, 2, 3, 4 };
 
             VMTester.testVisitation(CLASS_NAME, "DivIntWithCatch()V", initial, expected);
         }
@@ -817,18 +888,10 @@ public class TestBinaryMathOp {
             VMTester.testMethodState(CLASS_NAME, "DivLong2Addr()V", initial, expected);
         }
 
-        // TODO: convert to unit test
-        // public void testDivLongWithCatchWithDiv0Exception() {
-        // TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5L, "J", 1, 0L, "J");
-        // int[] expected = new int[] { 0, 2, 3, 4 };
-        //
-        // VMTester.testVisitation(CLASS_NAME, "DivLongWithCatch()V", initial, expected);
-        // }
-
         @Test
-        public void testDivLongWithCatchWithNoException() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5L, "J", 1, 5, "J");
-            int[] expected = new int[] { 0, 2 };
+        public void testDivLongWithCatchWithUnkownValueVisitsExceptionHandler() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5L, "J", 1, new UnknownValue(), "J");
+            int[] expected = new int[] { 0, 2, 3, 4 };
 
             VMTester.testVisitation(CLASS_NAME, "DivLongWithCatch()V", initial, expected);
         }

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.opcode.ExecutionContextOp;
 import org.cf.smalivm.opcode.MethodStateOp;
 import org.cf.smalivm.opcode.Op;
@@ -21,7 +22,7 @@ public class ExecutionNode {
     private final Op op;
     private ExecutionNode parent;
     private int[] childAddresses;
-    private List<String> exceptionNames;
+    private List<VirtualException> exceptions;
 
     public ExecutionNode(ExecutionNode other) {
         op = other.op;
@@ -37,8 +38,8 @@ public class ExecutionNode {
         setChildAddresses();
     }
 
-    public void clearExceptionNames() {
-        exceptionNames = new LinkedList<String>();
+    public void clearExceptions() {
+        exceptions = new LinkedList<VirtualException>();
     }
 
     public void execute() {
@@ -66,8 +67,8 @@ public class ExecutionNode {
             setChildAddresses(op.getChildren());
         }
 
-        if (exceptionNames == null) {
-            setExceptionNames(op.getExceptionNames());
+        if (exceptions == null) {
+            setExceptions(op.getExceptions());
         }
     }
 
@@ -91,8 +92,8 @@ public class ExecutionNode {
         return ectx;
     }
 
-    public List<String> getExceptionNames() {
-        return exceptionNames;
+    public List<VirtualException> getExceptions() {
+        return exceptions;
     }
 
     public Op getOp() {
@@ -104,7 +105,7 @@ public class ExecutionNode {
     }
 
     public boolean mayThrowException() {
-        return exceptionNames != null && exceptionNames.size() > 0;
+        return exceptions != null && exceptions.size() > 0;
     }
 
     public void removeChild(ExecutionNode child) {
@@ -127,13 +128,13 @@ public class ExecutionNode {
         this.ectx = ectx;
     }
 
-    public void setExceptionName(String exceptionName) {
-        exceptionNames = new LinkedList<String>();
-        exceptionNames.add(exceptionName);
+    public void setException(VirtualException exception) {
+        exceptions = new LinkedList<VirtualException>();
+        exceptions.add(exception);
     }
 
-    public void setExceptionNames(List<String> exceptionNames) {
-        this.exceptionNames = exceptionNames;
+    public void setExceptions(List<VirtualException> exceptions) {
+        this.exceptions = exceptions;
     }
 
     public void setMethodState(MethodState mState) {
