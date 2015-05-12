@@ -60,10 +60,6 @@ public class VirtualMachine {
     private static final int DEFAULT_MAX_CALL_DEPTH = 20;
     private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
 
-    // TODO: Refactor these max values into method executor's constructor
-    private final int maxCallDepth;
-    private final int maxAddressVisits;
-    private final int maxMethodVisits;
     private final MethodExecutor methodExecutor;
     private final SmaliClassManager classManager;
     private final Map<BuilderMethod, ExecutionGraph> methodToTemplateExecutionGraph;
@@ -75,10 +71,7 @@ public class VirtualMachine {
 
     public VirtualMachine(SmaliClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
         this.classManager = manager;
-        this.maxAddressVisits = maxAddressVisits;
-        this.maxMethodVisits = maxMethodVisits;
-        this.maxCallDepth = maxCallDepth;
-        methodExecutor = new MethodExecutor(this);
+        methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits);
         methodToTemplateExecutionGraph = new HashMap<BuilderMethod, ExecutionGraph>();
         staticFieldAccessor = new StaticFieldAccessor(this);
     }
@@ -141,18 +134,6 @@ public class VirtualMachine {
         return spawn;
     }
 
-    public int getMaxAddressVisits() {
-        return maxAddressVisits;
-    }
-
-    public int getMaxCallDepth() {
-        return maxCallDepth;
-    }
-
-    public int getMaxMethodVisits() {
-        return maxMethodVisits;
-    }
-
     public ExecutionContext spawnExecutionContext(String methodDescriptor) {
         return spawnExecutionContext(methodDescriptor, null, 0);
     }
@@ -168,23 +149,32 @@ public class VirtualMachine {
             throw new IllegalArgumentException("No implementation for " + methodDescriptor);
         }
 
-        BuilderMethod method = classManager.getMethod(methodDescriptor);
-        MethodImplementation impl = method.getImplementation();
-        int registerCount = impl.getRegisterCount();
-        List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        int parameterSize = Utils.getRegisterSize(parameterTypes);
-        int accessFlags = method.getAccessFlags();
-        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
-
         ExecutionContext spawnedContext = new ExecutionContext(this, methodDescriptor);
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
         addTemplateClassState(spawnedContext, className);
 
-        // Assume all input values are unknown.
-        // TODO: refactor this to a method, lots of noise
-        MethodState mState = new MethodState(spawnedContext, registerCount, parameterTypes.size(), parameterSize);
+        BuilderMethod method = classManager.getMethod(methodDescriptor);
+        MethodImplementation impl = method.getImplementation();
+        int registerCount = impl.getRegisterCount();
+        List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
+        boolean isStatic = ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0);
+        addTemplateMethodState(spawnedContext, isStatic, registerCount, parameterTypes);
+
+        if (callerContext != null) {
+            spawnedContext.registerCaller(callerContext, callerAddress);
+        }
+
+        return spawnedContext;
+    }
+
+    private static void addTemplateMethodState(ExecutionContext ectx, boolean isStatic, int registerCount,
+                    List<String> parameterTypes) {
+        int parameterSize = Utils.getRegisterSize(parameterTypes);
+        MethodState mState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
         int firstParameter = mState.getParameterStart();
         int parameterRegister = firstParameter;
+
+        // Assume all input values are unknown.
         for (String type : parameterTypes) {
             HeapItem item;
             if (!isStatic && (parameterRegister == firstParameter)) {
@@ -195,13 +185,7 @@ public class VirtualMachine {
             mState.assignParameter(parameterRegister, item);
             parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
         }
-        spawnedContext.setMethodState(mState);
-
-        if (callerContext != null) {
-            spawnedContext.registerCaller(callerContext, callerAddress);
-        }
-
-        return spawnedContext;
+        ectx.setMethodState(mState);
     }
 
     public boolean isLocalClass(String classDescriptor) {
