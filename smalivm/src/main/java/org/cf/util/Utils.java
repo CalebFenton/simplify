@@ -22,17 +22,6 @@ public class Utils {
     private static final Pattern ParameterIndividuator = Pattern.compile("(\\[*(?:[BCDFIJSZ]|L[^;]+;))");
     private static final Pattern ParameterIsolator = Pattern.compile("\\([^\\)]+\\)");
 
-    public static void deDuplicate(TIntList list) {
-        for (int i = 0; i < list.size(); i++) {
-            int item = list.get(i);
-            int firstIndex = list.indexOf(item);
-            while (firstIndex != list.lastIndexOf(item)) {
-                int lastIndex = list.lastIndexOf(item);
-                list.removeAt(lastIndex);
-            }
-        }
-    }
-
     public static String getArrayDimensionString(Object array) {
         if (!array.getClass().isArray()) {
             return "";
@@ -55,13 +44,8 @@ public class Utils {
         return sb.toString();
     }
 
-    public static Object getArrayInstanceFromSmaliTypeReference(String typeReference, int dimension,
-                    boolean useLocalClass) throws ClassNotFoundException {
-        return getArrayInstanceFromSmaliTypeReference(typeReference, new int[] { dimension }, useLocalClass);
-    }
-
-    public static Object getArrayInstanceFromSmaliTypeReference(String typeReference, int[] dimensions,
-                    boolean useLocalClass) throws ClassNotFoundException {
+    public static Object buildArray(String typeReference, int length, boolean useLocalClass)
+                    throws ClassNotFoundException {
         String baseClassName = SmaliClassUtils.getBaseClass(typeReference);
         String javaClassName;
         if (useLocalClass) {
@@ -73,16 +57,14 @@ public class Utils {
         int dimensionCount = getDimensionCount(typeReference) - 1;
         String classNameWithDimensions = addDimensionsToClassName(javaClassName, dimensionCount);
         Class<?> klazz = ClassUtils.getClass(classNameWithDimensions);
-        Object result = Array.newInstance(klazz, dimensions);
+        Object array = Array.newInstance(klazz, length);
 
-        if (useLocalClass) {
-            populateLocalInstanceArray(result, baseClassName);
-        }
-
-        return result;
+        return array;
     }
 
     public static int getDimensionCount(String typeReference) {
+        // A fancy word for "number of dimensions" is "rank".
+        // But getRank() only makes sense if you're a total nerd.
         String baseClassName = typeReference.replace("[", "");
 
         return typeReference.length() - baseClassName.length();
@@ -148,31 +130,17 @@ public class Utils {
         return sb.toString();
     }
 
-    private static void populateLocalInstanceArray(Object array, String className) {
-        for (int i = 0; i < Array.getLength(array); i++) {
-            Object element = Array.get(array, i);
-            if (element == null) {
-                if (array.getClass().getName().startsWith("[[")) {
-                    // Uninitialized inner array
-                    break;
-                } else {
-                    for (int j = 0; j < Array.getLength(array); j++) {
-                        Array.set(array, j, new LocalInstance(className));
-                    }
-                }
-            } else if (element.getClass().isArray()) {
-                populateLocalInstanceArray(element, className);
-            }
-        }
-    }
-
-    public static int getRegisterSize(List<String> parameterTypeNames) {
+    public static int getRegisterSize(List<String> typeNames) {
         int size = 0;
-        for (String name : parameterTypeNames) {
-            size += "J".equals(name) || "D".equals(name) ? 2 : 1;
+        for (String typeName : typeNames) {
+            size += getRegisterSize(typeName);
         }
 
         return size;
+    }
+
+    public static int getRegisterSize(String typeName) {
+        return "J".equals(typeName) || "D".equals(typeName) ? 2 : 1;
     }
 
     public static int getRegisterSize(Class<?>[] parameterTypes) {

@@ -94,7 +94,10 @@ public class SmaliClassUtils {
             return className;
         }
 
-        return "L" + className.replaceAll("\\.", "/") + ";";
+        StringBuilder sb = new StringBuilder("L");
+        sb.append(className.replaceAll("\\.", "/")).append(';');
+
+        return sb.toString();
     }
 
     public static String smaliClassToJava(String className) {
@@ -143,9 +146,16 @@ public class SmaliClassUtils {
         return packageName;
     }
 
+    // Remove any array qualifiers, e.g. [[B becomes B
     public static String getBaseClass(String className) {
-        // Remove any array qualifiers, e.g. [[B (2d byte array) becomes B
         return className.replace("[", "");
+    }
+
+    // Similar to Array.getComponentType
+    public static String getComponentType(String arrayType) {
+        assert arrayType.startsWith("[");
+
+        return arrayType.replaceFirst("\\[", "");
     }
 
     public static Class<?> getPrimitiveType(String javaClassName) {

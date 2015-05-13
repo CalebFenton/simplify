@@ -120,22 +120,20 @@ public class MethodReflector {
             } else {
                 if (isStatic) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args="
-                                        + Arrays.toString(args));
+                        log.debug("Reflecting " + methodDescriptor + ", clazz=" + clazz + " args=" + Arrays
+                                        .toString(args));
                     }
                     resultValue = MethodUtils.invokeStaticMethod(clazz, methodName, args);
                 } else {
                     HeapItem targetItem = calleeContext.peekRegister(0);
                     if (log.isDebugEnabled()) {
-                        log.debug("Reflecting " + methodDescriptor + ", target=" + targetItem + " args="
-                                        + Arrays.toString(args));
+                        log.debug("Reflecting " + methodDescriptor + ", target=" + targetItem + " args=" + Arrays
+                                        .toString(args));
                     }
                     resultValue = MethodUtils.invokeMethod(targetItem.getValue(), methodName, args);
                 }
             }
-        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException
-                        | InstantiationException | IllegalAccessException | IllegalArgumentException
-                        | InvocationTargetException e) {
+        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             resultValue = new UnknownValue();
             if (log.isWarnEnabled()) {
                 log.warn("Failed to reflect " + methodDescriptor);
@@ -174,7 +172,7 @@ public class MethodReflector {
             }
             args[i - offset] = arg;
 
-            if ("J".equals(parameterType) || "D".equals(parameterType)) {
+            if (Utils.getRegisterSize(parameterType) == 2) {
                 // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
                 i++;
             }

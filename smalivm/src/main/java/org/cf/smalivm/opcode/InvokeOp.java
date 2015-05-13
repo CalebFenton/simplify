@@ -93,7 +93,7 @@ public class InvokeOp extends ExecutionContextOp {
         for (String parameterType : parameterTypes) {
             parameterRegisters.add(registers[i]);
             i++;
-            if ("J".equals(parameterType) || "D".equals(parameterType)) {
+            if (Utils.getRegisterSize(parameterType) == 2) {
                 i++;
             }
         }
@@ -236,7 +236,7 @@ public class InvokeOp extends ExecutionContextOp {
                 return false;
             }
             String type = item.getType();
-            parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
+            parameterRegister += Utils.getRegisterSize(type);
         }
 
         return true;
@@ -251,7 +251,7 @@ public class InvokeOp extends ExecutionContextOp {
             // For example, might think it's an int when really it's a short or boolean.
             String type = parameterTypes.get(i);
             calleeState.assignParameter(parameterRegister, new HeapItem(item.getValue(), type));
-            parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
+            parameterRegister += Utils.getRegisterSize(type);
         }
     }
 

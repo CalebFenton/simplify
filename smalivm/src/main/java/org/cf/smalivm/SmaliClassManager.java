@@ -252,6 +252,7 @@ public class SmaliClassManager {
             return false;
         }
 
+        // Already ensured if array type, has the same dimensions. Compare base types now.
         String baseChild = SmaliClassUtils.getBaseClass(childType);
         if (SmaliClassUtils.isPrimitiveType(baseChild)) {
             baseChild = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(baseChild));
