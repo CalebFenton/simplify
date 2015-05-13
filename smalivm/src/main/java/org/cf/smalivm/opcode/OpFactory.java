@@ -439,7 +439,7 @@ public final class OpFactory {
             result = AGetOp.create(instruction, address);
             break;
         case APUT:
-            result = APutOp.create(instruction, address);
+            result = APutOp.create(instruction, address, vm);
             break;
         case SGET:
             result = SGetOp.create(instruction, address, vm);

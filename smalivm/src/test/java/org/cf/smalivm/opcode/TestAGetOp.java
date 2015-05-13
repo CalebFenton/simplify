@@ -17,7 +17,6 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
@@ -60,28 +59,19 @@ public class TestAGetOp {
         }
 
         @Test
-        public void arrayIndexOutOfBoundsExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+        public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
             int[] arrayValue = new int[] { 5 };
             int indexValue = 2;
 
-            HeapItem arrayItem = mock(HeapItem.class);
-            when(arrayItem.getValue()).thenReturn(arrayValue);
-            when(arrayItem.getType()).thenReturn("[I");
-            when(mState.readRegister(eq(ARRAY_REGISTER))).thenReturn(arrayItem);
-
-            HeapItem indexItem = mock(HeapItem.class);
-            when(indexItem.getValue()).thenReturn(indexValue);
-            when(indexItem.getIntegerValue()).thenReturn(indexValue);
-            when(indexItem.getType()).thenReturn("I");
-            when(mState.readRegister(eq(INDEX_REGISTER))).thenReturn(indexItem);
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(
-                            SmaliClassUtils.javaClassToSmali(ArrayIndexOutOfBoundsException.class));
+            VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
             verify(node).setException(eq(expectedException));
             verify(node).clearChildAddresses();
             verify(node, times(0)).setChildAddresses(any(int[].class));
@@ -89,34 +79,24 @@ public class TestAGetOp {
         }
 
         @Test
-        public void nullPointerExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+        public void nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
             int[] arrayValue = null;
             int indexValue = 2;
 
-            HeapItem arrayItem = mock(HeapItem.class);
-            when(arrayItem.getValue()).thenReturn(arrayValue);
-            when(arrayItem.getType()).thenReturn("[I");
-            when(mState.readRegister(eq(ARRAY_REGISTER))).thenReturn(arrayItem);
-
-            HeapItem indexItem = mock(HeapItem.class);
-            when(indexItem.getValue()).thenReturn(indexValue);
-            when(indexItem.getIntegerValue()).thenReturn(indexValue);
-            when(indexItem.getType()).thenReturn("I");
-            when(mState.readRegister(eq(INDEX_REGISTER))).thenReturn(indexItem);
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
             op = (AGetOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(
-                            SmaliClassUtils.javaClassToSmali(NullPointerException.class));
+            VirtualException expectedException = new VirtualException(NullPointerException.class);
             verify(node).setException(eq(expectedException));
             verify(node).clearChildAddresses();
             verify(node, times(0)).setChildAddresses(any(int[].class));
             verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
         }
-
     }
 
     public static class IntegrationTest {

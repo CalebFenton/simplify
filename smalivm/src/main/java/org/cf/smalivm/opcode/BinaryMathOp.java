@@ -1,8 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import java.util.LinkedList;
-import java.util.List;
-
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -287,9 +284,7 @@ public class BinaryMathOp extends MethodStateOp {
         mathOperator = getMathOp(opName);
         mathOperandType = getMathOperandType(opName);
 
-        List<VirtualException> exceptions = new LinkedList<VirtualException>();
-        exceptions.add(new VirtualException(ArithmeticException.class, "/ by zero"));
-        setExceptions(exceptions);
+        addException(new VirtualException(ArithmeticException.class, "/ by zero"));
     }
 
     private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register,

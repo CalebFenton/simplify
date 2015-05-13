@@ -70,8 +70,8 @@ public class TestBinaryMathOp {
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "J");
-            addHeapItem(mState, ARG2_REGISTER, value2, "J");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -91,8 +91,8 @@ public class TestBinaryMathOp {
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "F");
-            addHeapItem(mState, ARG2_REGISTER, value2, "F");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "F");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "F");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -113,7 +113,7 @@ public class TestBinaryMathOp {
             when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "I");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -134,8 +134,8 @@ public class TestBinaryMathOp {
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "D");
-            addHeapItem(mState, ARG2_REGISTER, value2, "D");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "D");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "D");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -156,7 +156,7 @@ public class TestBinaryMathOp {
             when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "I");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -177,7 +177,7 @@ public class TestBinaryMathOp {
             when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value2);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "I");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -198,8 +198,8 @@ public class TestBinaryMathOp {
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "J");
-            addHeapItem(mState, ARG2_REGISTER, value2, "J");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
@@ -220,21 +220,14 @@ public class TestBinaryMathOp {
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);
 
-            addHeapItem(mState, ARG1_REGISTER, value1, "J");
-            addHeapItem(mState, ARG2_REGISTER, value2, "J");
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
             op = (BinaryMathOp) opFactory.create(instruction, ADDRESS);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
             testCorrectlyHandledException(expectedException, node, mState);
-        }
-
-        private static void addHeapItem(MethodState mState, int register, Object value, String type) {
-            HeapItem item = mock(HeapItem.class);
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn(type);
-            when(mState.readRegister(register)).thenReturn(item);
         }
 
         private static void testCorrectlyHandledException(VirtualException expectedException, ExecutionNode node,

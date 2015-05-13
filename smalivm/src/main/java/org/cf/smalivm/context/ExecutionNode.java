@@ -1,8 +1,9 @@
 package org.cf.smalivm.context;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.opcode.ExecutionContextOp;
@@ -22,7 +23,7 @@ public class ExecutionNode {
     private final Op op;
     private ExecutionNode parent;
     private int[] childAddresses;
-    private List<VirtualException> exceptions;
+    private Set<VirtualException> exceptions;
 
     public ExecutionNode(ExecutionNode other) {
         op = other.op;
@@ -39,7 +40,7 @@ public class ExecutionNode {
     }
 
     public void clearExceptions() {
-        exceptions = new LinkedList<VirtualException>();
+        exceptions = new HashSet<VirtualException>();
     }
 
     public void execute() {
@@ -92,7 +93,7 @@ public class ExecutionNode {
         return ectx;
     }
 
-    public List<VirtualException> getExceptions() {
+    public Set<VirtualException> getExceptions() {
         return exceptions;
     }
 
@@ -129,11 +130,11 @@ public class ExecutionNode {
     }
 
     public void setException(VirtualException exception) {
-        exceptions = new LinkedList<VirtualException>();
+        exceptions = new HashSet<VirtualException>();
         exceptions.add(exception);
     }
 
-    public void setExceptions(List<VirtualException> exceptions) {
+    public void setExceptions(Set<VirtualException> exceptions) {
         this.exceptions = exceptions;
     }
 
