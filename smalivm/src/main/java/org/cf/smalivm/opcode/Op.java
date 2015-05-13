@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
@@ -13,7 +13,7 @@ public abstract class Op {
     private int[] childAddresses;
 
     private final String opName;
-    private final List<VirtualException> exceptions;
+    private final Set<VirtualException> exceptions;
 
     Op(int address, String opName, int childAddress) {
         this(address, opName, new int[] { childAddress });
@@ -23,7 +23,7 @@ public abstract class Op {
         this.address = address;
         this.opName = opName;
         this.childAddresses = childAddresses;
-        exceptions = new LinkedList<VirtualException>();
+        exceptions = new HashSet<VirtualException>();
     }
 
     public final int getAddress() {
@@ -50,12 +50,11 @@ public abstract class Op {
         this.childAddresses = childAddresses;
     }
 
-    public void setExceptions(List<VirtualException> exceptions) {
-        this.exceptions.clear();
-        this.exceptions.addAll(exceptions);
+    void addException(VirtualException exception) {
+        exceptions.add(exception);
     }
 
-    public List<VirtualException> getExceptions() {
+    public Set<VirtualException> getExceptions() {
         return exceptions;
     }
 

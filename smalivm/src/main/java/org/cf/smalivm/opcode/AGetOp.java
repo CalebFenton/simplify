@@ -1,8 +1,6 @@
 package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
-import java.util.LinkedList;
-import java.util.List;
 
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
@@ -52,10 +50,8 @@ public class AGetOp extends MethodStateOp {
         this.arrayRegister = arrayRegister;
         this.indexRegister = indexRegister;
 
-        List<VirtualException> exceptions = new LinkedList<VirtualException>();
-        exceptions.add(new VirtualException(NullPointerException.class));
-        exceptions.add(new VirtualException(ArrayIndexOutOfBoundsException.class));
-        setExceptions(exceptions);
+        addException(new VirtualException(NullPointerException.class));
+        addException(new VirtualException(ArrayIndexOutOfBoundsException.class));
     }
 
     @Override

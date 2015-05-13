@@ -3,6 +3,9 @@ package org.cf.smalivm;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
@@ -24,6 +27,7 @@ import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
@@ -306,6 +310,18 @@ public class VMTester {
         } else {
             assertEquals(msg, expectedValue, consensusValue);
         }
+    }
+
+    public static void addHeapItem(MethodState mState, int register, Object value, String type) {
+        HeapItem item = mock(HeapItem.class);
+        when(item.getValue()).thenReturn(value);
+        if ("I".equals(type)) {
+            when(item.getIntegerValue()).thenReturn((Integer) value);
+        } else if (value instanceof UnknownValue) {
+            when(item.isUnknown()).thenReturn(true);
+        }
+        when(item.getType()).thenReturn(type);
+        when(mState.readRegister(eq(register))).thenReturn(item);
     }
 
 }

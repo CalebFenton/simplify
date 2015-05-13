@@ -3,6 +3,8 @@ package org.cf.smalivm.context;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
+import org.cf.util.Utils;
+
 public class MethodState extends BaseState {
 
     public static final int ResultRegister = -1;
@@ -155,7 +157,7 @@ public class MethodState extends BaseState {
                     printingAtLeastOneParameter = true;
                     HeapItem item = peekRegister(parameterRegister);
                     sb.append(item);
-                    if ("J".equals(item.getType()) || "D".equals(item.getType())) {
+                    if (Utils.getRegisterSize(item.getType()) == 2) {
                         parameterRegister += 1;
                     }
                     sb.append(",\n");
@@ -180,7 +182,7 @@ public class MethodState extends BaseState {
                 }
                 hadAtLeastOneLocal = true;
                 sb.append('v').append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                .append(",\n");
+                                .append(",\n");
             }
             if (hadAtLeastOneLocal) {
                 sb.setLength(sb.length() - 2);

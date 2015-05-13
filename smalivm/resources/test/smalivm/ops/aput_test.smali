@@ -9,6 +9,25 @@
     return-void
 .end method
 
+.method public static putWithCatch()V
+    .locals 3
+
+    :try_start_0
+    aput v2, v0, v1 # v0[v1] = v2
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    nop
+
+    :return
+    return-void
+
+    :catch_0
+    goto :return
+
+    return-void
+.end method
+
 .method public static putWide()V
     .locals 3
 
