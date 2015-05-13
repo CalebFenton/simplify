@@ -15,6 +15,9 @@ artifacts {
 }
 
 dependencies {
+    // Need this or you get strange, silent failures.
+    runtime 'org.codehaus.groovy:groovy-all:2.4.3'
+
     // Object cloning
     compile 'uk.com.robust-it:cloning:1.9.1'
 
