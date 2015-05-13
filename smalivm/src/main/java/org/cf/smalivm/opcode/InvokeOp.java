@@ -179,10 +179,6 @@ public class InvokeOp extends ExecutionContextOp {
                     return;
                 }
 
-                if (targetMethod.contains("XORCrypt;->decode")) {
-                    System.out.println("its happening");
-                }
-
                 ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
                 executeLocalMethod(targetMethod, ectx, calleeContext);
             } else {
