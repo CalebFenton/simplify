@@ -52,7 +52,7 @@ public class MethodExecutor {
         ExecutionNode currentNode = graph.getRoot();
         int callDepth = currentNode.getCallDepth();
         if (log.isInfoEnabled()) {
-            log.info("Executing " + methodDescriptor + ", depth=" + callDepth);
+            log.info("Executing {}, depth={}", methodDescriptor, callDepth);
         }
         if (currentNode.getCallDepth() > getMaxCallDepth()) {
             throw new MaxCallDepthExceeded(methodDescriptor);
@@ -75,7 +75,7 @@ public class MethodExecutor {
                 // TODO: this exception handler should be REMOVED when ops set exceptions properly
                 // These exceptions could be from bugs in simplify, not real exceptions
                 if (log.isWarnEnabled()) {
-                    log.warn(currentNode + " generated a real exception:", ex);
+                    log.warn("{} generated a real exception: {}", currentNode, ex);
                 }
                 int childAddress = exceptionResolver.resolve(ex, currentNode.getAddress());
                 spawnChild(graph, currentNode, childAddress);
