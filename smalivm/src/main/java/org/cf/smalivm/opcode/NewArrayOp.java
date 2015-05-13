@@ -5,6 +5,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
@@ -22,11 +23,11 @@ public class NewArrayOp extends MethodStateOp {
 
         Instruction22c instr = (Instruction22c) instruction;
         int destRegister = instr.getRegisterA();
-        int dimensionRegister = instr.getRegisterB();
+        int sizeRegister = instr.getRegisterB();
 
         // [[Lsome_class;
         String arrayType = ReferenceUtil.getReferenceString(instr.getReference());
-        String baseClassName = arrayType.replace("[", "");
+        String baseClassName = SmaliClassUtils.getBaseClass(arrayType);
         SmaliClassManager classManager = vm.getClassManager();
         boolean useLocalClass;
         if (classManager.isFramework(baseClassName)) {
@@ -35,35 +36,35 @@ public class NewArrayOp extends MethodStateOp {
             useLocalClass = classManager.isLocalClass(baseClassName);
         }
 
-        return new NewArrayOp(address, opName, childAddress, destRegister, dimensionRegister, arrayType, useLocalClass);
+        return new NewArrayOp(address, opName, childAddress, destRegister, sizeRegister, arrayType, useLocalClass);
     }
 
     private final int destRegister;
-    private final int dimensionRegister;
+    private final int lengthRegister;
     private final boolean useLocalClass;
     private final String arrayType;
 
-    private NewArrayOp(int address, String opName, int childAddress, int destRegister, int dimensionRegister,
+    private NewArrayOp(int address, String opName, int childAddress, int destRegister, int lengthRegister,
                     String arrayType, boolean useLocalClass) {
         super(address, opName, childAddress);
 
         this.destRegister = destRegister;
-        this.dimensionRegister = dimensionRegister;
+        this.lengthRegister = lengthRegister;
         this.arrayType = arrayType;
         this.useLocalClass = useLocalClass;
     }
 
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
-        HeapItem dimensionItem = mState.readRegister(dimensionRegister);
+        HeapItem lengthItem = mState.readRegister(lengthRegister);
         HeapItem instanceItem;
-        if (dimensionItem.isUnknown()) {
+        if (lengthItem.isUnknown()) {
             instanceItem = HeapItem.newUnknown(arrayType);
         } else {
-            int dimension = dimensionItem.getIntegerValue();
+            int length = lengthItem.getIntegerValue();
             try {
-                // Dalvik does not statically initialize classes because of new-array
-                Object instance = Utils.getArrayInstanceFromSmaliTypeReference(arrayType, dimension, useLocalClass);
+                // Dalvik does not statically initialize classes with new-array
+                Object instance = Utils.buildArray(arrayType, length, useLocalClass);
                 instanceItem = new HeapItem(instance, arrayType);
             } catch (ClassNotFoundException e) {
                 if (log.isErrorEnabled()) {
@@ -78,7 +79,7 @@ public class NewArrayOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(dimensionRegister).append(", ").append(arrayType);
+        sb.append(" r").append(destRegister).append(", r").append(lengthRegister).append(", ").append(arrayType);
 
         return sb.toString();
     }

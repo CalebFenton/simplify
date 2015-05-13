@@ -183,7 +183,7 @@ public class VirtualMachine {
                 item = HeapItem.newUnknown(type);
             }
             mState.assignParameter(parameterRegister, item);
-            parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
+            parameterRegister += Utils.getRegisterSize(type);
         }
         ectx.setMethodState(mState);
     }
@@ -201,17 +201,16 @@ public class VirtualMachine {
 
     public void addTemplateClassState(ExecutionContext ectx, String className) {
         List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
-        // https://github.com/CalebFenton/simplify/issues/36
         ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
-        ectx.setClassState(className, cState, SideEffect.Level.NONE);
         for (String fieldNameAndType : fieldNameAndTypes) {
             String type = fieldNameAndType.split(":")[1];
             cState.pokeField(fieldNameAndType, HeapItem.newUnknown(type));
         }
+        ectx.setClassState(className, cState, SideEffect.Level.NONE);
     }
 
     /*
-     * Get consensus for method and class states for all execution paths and merge them into callerContext.
+     * Get consensus for method and class states and merge them into callerContext.
      */
     private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) {
@@ -230,7 +229,7 @@ public class VirtualMachine {
                 int register = parameterRegisters[parameterIndex];
                 mState.assignRegister(register, item);
 
-                parameterRegister += "J".equals(type) || "D".equals(type) ? 2 : 1;
+                parameterRegister += Utils.getRegisterSize(type);
             }
         }
 
