@@ -13,21 +13,24 @@ public class MethodEmulator {
 
     private static final Logger log = LoggerFactory.getLogger(MethodEmulator.class.getSimpleName());
 
-    private static Map<String, EmulatedMethod> emulatedMethods = new HashMap<String, EmulatedMethod>();
+    private static Map<String, Class<? extends EmulatedMethod>> emulatedMethods = new HashMap<String, Class<? extends EmulatedMethod>>();
     static {
-        addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", new org_cf_simplify_Utils_breakpoint());
-        addMethod("Ljava/lang/Class;->getPackage()Ljava/lang/Package;", new java_lang_Class_getPackage());
-        addMethod("Ljava/lang/Package;->getName()Ljava/lang/String;", new java_lang_Package_getName());
-        addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", new java_lang_Class_forName());
+        addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", org_cf_simplify_Utils_breakpoint.class);
+        addMethod("Ljava/lang/Class;->getPackage()Ljava/lang/Package;", java_lang_Class_getPackage.class);
+        addMethod("Ljava/lang/Package;->getName()Ljava/lang/String;", java_lang_Package_getName.class);
+        addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", java_lang_Class_forName.class);
         addMethod("Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;",
-                        new java_lang_Class_getMethod());
-        // For now, they work identically.
+                        java_lang_Class_getMethod.class);
         addMethod("Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;",
-                        new java_lang_Class_getMethod());
+                        java_lang_Class_getMethod.class);
+        addMethod("Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
+                        java_lang_Class_getField.class);
+        addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
+                        java_lang_reflect_Field_get.class);
     }
 
-    public static void addMethod(String methodDescriptor, EmulatedMethod method) {
-        emulatedMethods.put(methodDescriptor, method);
+    public static void addMethod(String methodDescriptor, Class<? extends EmulatedMethod> methodClass) {
+        emulatedMethods.put(methodDescriptor, methodClass);
     }
 
     public static boolean canEmulate(String methodDescriptor) {
@@ -35,9 +38,9 @@ public class MethodEmulator {
     }
 
     public static boolean canHandleUnknownValues(String methodDescriptor) {
-        EmulatedMethod method = emulatedMethods.get(methodDescriptor);
+        Class<? extends EmulatedMethod> methodClass = emulatedMethods.get(methodDescriptor);
 
-        return (method != null) && (method instanceof UnknownValuesMethod);
+        return (methodClass != null) && (methodClass.isAssignableFrom(UnknownValuesMethod.class));
     }
 
     public static void clearMethods() {
@@ -46,7 +49,14 @@ public class MethodEmulator {
 
     public static SideEffect.Level emulate(VirtualMachine vm, ExecutionContext ectx, String methodDescriptor,
                     int[] parameterRegisters) {
-        EmulatedMethod em = emulatedMethods.get(methodDescriptor);
+        Class<? extends EmulatedMethod> methodClass = emulatedMethods.get(methodDescriptor);
+        EmulatedMethod em = null;
+        try {
+            em = methodClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
         try {
             if (em instanceof MethodStateMethod) {
                 ((MethodStateMethod) em).execute(vm, ectx.getMethodState());
@@ -56,7 +66,7 @@ public class MethodEmulator {
         } catch (Exception e) {
             // TODO: exception handling
             if (log.isWarnEnabled()) {
-                log.warn("Exception emulating method " + methodDescriptor, e);
+                log.warn("Unexpected real excetion emulating " + methodDescriptor, e);
             }
         }
 

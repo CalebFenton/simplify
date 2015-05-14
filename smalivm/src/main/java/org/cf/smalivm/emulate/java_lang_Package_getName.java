@@ -1,6 +1,10 @@
 package org.cf.smalivm.emulate;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -16,6 +20,18 @@ public class java_lang_Package_getName implements MethodStateMethod {
 
     private static final String RETURN_TYPE = "Ljava/lang/String;";
 
+    private final Set<VirtualException> exceptions;
+
+    java_lang_Package_getName() {
+        exceptions = new HashSet<VirtualException>();
+    }
+
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return exceptions;
+    }
+
+    @Override
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
         // No checks because emulated methods require all known args.
         HeapItem instanceItem = mState.peekParameter(0);
@@ -31,6 +47,7 @@ public class java_lang_Package_getName implements MethodStateMethod {
         mState.assignReturnRegister(name, RETURN_TYPE);
     }
 
+    @Override
     public SideEffect.Level getSideEffectLevel() {
         return SideEffect.Level.NONE;
     }

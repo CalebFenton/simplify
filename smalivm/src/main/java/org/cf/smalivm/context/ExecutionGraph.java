@@ -226,7 +226,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         for (int address : addressList.toArray()) {
             List<ExecutionNode> pile = getNodePile(address);
             for (ExecutionNode node : pile) {
-                SideEffect.Level level = node.getContext().getClassStateSideEffectLevel(className);
+                SideEffect.Level level = node.getContext().getClassSideEffectLevel(className);
                 if (level == null) {
                     // Maybe the class wasn't initialized.
                     continue;

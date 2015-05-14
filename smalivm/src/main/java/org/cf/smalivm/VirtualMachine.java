@@ -268,7 +268,7 @@ public class VirtualMachine {
                 HeapItem item = fromClassState.peekField(fieldNameAndType);
                 toClassState.pokeField(fieldNameAndType, item);
             }
-            SideEffect.Level level = parent.getClassStateSideEffectLevel(className);
+            SideEffect.Level level = parent.getClassSideEffectLevel(className);
             child.initializeClass(className, toClassState, level);
         }
     }

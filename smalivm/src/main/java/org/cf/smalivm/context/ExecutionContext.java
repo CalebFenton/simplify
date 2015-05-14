@@ -51,7 +51,7 @@ public class ExecutionContext {
         return callDepth;
     }
 
-    public SideEffect.Level getClassStateSideEffectLevel(String className) {
+    public SideEffect.Level getClassSideEffectLevel(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
         if (ancestor == null) {
             return null;
@@ -108,7 +108,7 @@ public class ExecutionContext {
         } else if (ancestor != this) {
             ClassState ancestorClassState = ancestor.peekClassState(className);
             ClassState cState = ancestorClassState.getChild(this);
-            SideEffect.Level level = ancestor.getClassStateSideEffectLevel(className);
+            SideEffect.Level level = ancestor.getClassSideEffectLevel(className);
             // Must initialize, because the ancestor probably just has the template class state.
             initializeClass(className, cState, level);
         }
@@ -186,7 +186,7 @@ public class ExecutionContext {
             // No clinit for this class.
             setClassInitialized(className);
         }
-        setClassSideEffectType(className, sideEffectLevel);
+        setClassSideEffectLevel(className, sideEffectLevel);
     }
 
     @Override
@@ -241,7 +241,7 @@ public class ExecutionContext {
         return parent;
     }
 
-    void setClassSideEffectType(String className, SideEffect.Level sideEffectLevel) {
+    void setClassSideEffectLevel(String className, SideEffect.Level sideEffectLevel) {
         classNameToSideEffectLevel.put(className, sideEffectLevel);
     }
 

@@ -2,9 +2,12 @@ package org.cf.smalivm.emulate;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -23,6 +26,18 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
 
     private static final String RETURN_TYPE = "Ljava/lang/Object;";
 
+    private final Set<VirtualException> exceptions;
+
+    java_lang_reflect_Field_get() {
+        exceptions = new HashSet<VirtualException>();
+    }
+
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return exceptions;
+    }
+
+    @Override
     public void execute(VirtualMachine vm, ExecutionContext ectx) throws Exception {
         MethodState mState = ectx.getMethodState();
         HeapItem fieldItem = mState.peekParameter(0);
@@ -89,6 +104,7 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
         return null;
     }
 
+    @Override
     public SideEffect.Level getSideEffectLevel() {
         // Accessing a field causes class static initialization
         return SideEffect.Level.WEAK;

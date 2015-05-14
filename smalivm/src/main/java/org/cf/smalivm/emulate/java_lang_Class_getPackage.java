@@ -1,6 +1,10 @@
 package org.cf.smalivm.emulate;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.EmulatedType;
@@ -17,6 +21,18 @@ public class java_lang_Class_getPackage implements MethodStateMethod {
 
     private static final String RETURN_TYPE = "Ljava/lang/Package;";
 
+    private final Set<VirtualException> exceptions;
+
+    java_lang_Class_getPackage() {
+        exceptions = new HashSet<VirtualException>();
+    }
+
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return exceptions;
+    }
+
+    @Override
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
         Object classValue = mState.peekParameter(0).getValue();
         Object packageValue;
@@ -36,6 +52,7 @@ public class java_lang_Class_getPackage implements MethodStateMethod {
         mState.assignReturnRegister(packageValue, RETURN_TYPE);
     }
 
+    @Override
     public SideEffect.Level getSideEffectLevel() {
         return SideEffect.Level.NONE;
     }
