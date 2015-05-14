@@ -1,10 +1,13 @@
 package org.cf.smalivm.emulate;
 
 import java.lang.reflect.Field;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -20,6 +23,18 @@ public class java_lang_Class_getField implements MethodStateMethod {
 
     private static final String RETURN_TYPE = "Ljava/lang/reflect/Field;";
 
+    private final Set<VirtualException> exceptions;
+
+    java_lang_Class_getField() {
+        exceptions = new HashSet<VirtualException>();
+    }
+
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return exceptions;
+    }
+
+    @Override
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
         HeapItem classItem = mState.peekParameter(0);
         Object classValue = classItem.getValue();
@@ -74,10 +89,11 @@ public class java_lang_Class_getField implements MethodStateMethod {
     }
 
     private static Field getNonLocalField(Class<?> klazz, String fieldName) throws NoSuchFieldException,
-    SecurityException {
+                    SecurityException {
         return klazz.getField(fieldName);
     }
 
+    @Override
     public SideEffect.Level getSideEffectLevel() {
         return SideEffect.Level.NONE;
     }

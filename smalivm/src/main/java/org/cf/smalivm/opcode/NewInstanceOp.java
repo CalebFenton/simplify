@@ -47,7 +47,7 @@ public class NewInstanceOp extends ExecutionContextOp {
         if (vm.isLocalClass(className)) {
             // New-instance causes static initialization (but not new-array!)
             ectx.readClassState(className); // access will initialize if necessary
-            sideEffectLevel = ectx.getClassStateSideEffectLevel(className);
+            sideEffectLevel = ectx.getClassSideEffectLevel(className);
             instance = new LocalInstance(className);
         } else {
             if (MethodReflector.isSafe(className)) {

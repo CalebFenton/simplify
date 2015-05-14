@@ -49,7 +49,7 @@ public class Test_java_lang_Class_getField {
     }
 
     @Test
-    public void testNonLocalClassForExistantFieldNameGivesExpectedField() throws Exception {
+    public void testNonLocalClassAndExistantFieldNameGivesExpectedField() throws Exception {
         Class<?> klazz = Integer.class;
         String fieldName = "MAX_VALUE";
         Field field = klazz.getField(fieldName);
@@ -64,7 +64,7 @@ public class Test_java_lang_Class_getField {
     }
 
     @Test
-    public void testNonLocalClassForNonExistantFieldNameThrowsExceptionAndReturnsUnknown() throws Exception {
+    public void testNonLocalClassAndNonExistantFieldNameThrowsExceptionAndReturnsUnknown() throws Exception {
         Class<?> klazz = Integer.class;
         String fieldName = "DOES_NOT_EXIST";
         when(classItem.getValue()).thenReturn(klazz);

@@ -1,7 +1,6 @@
 package org.cf.smalivm.emulate;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,10 +18,7 @@ import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.UnknownValue;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.runners.MockitoJUnitRunner;
 
-@RunWith(MockitoJUnitRunner.class)
 public class Test_java_lang_Class_forName {
 
     private VirtualMachine vm;
@@ -35,6 +31,19 @@ public class Test_java_lang_Class_forName {
     private static final String CLASS_TYPE = "Ljava/lang/Class;";
     private static final String PARAMETER_TYPE = "Ljava/lang/String;";
 
+    private static final String SAFE_CLASS_NAME = "java.lang.String";
+    private static final Class<?> SAFE_CLASS = String.class;
+    private static final String LOCAL_CLASS_NAME_SMALI = "Landroid/app/Activity;";
+    private static final String LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI = "Landroid/app/YUP;";
+    private static final String LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_JAVA = "android.app.YUP";
+    private static final String LOCAL_CLASS_NAME_JAVA = "android.app.Activity";
+    private static final LocalClass LOCAL_CLASS = new LocalClass(LOCAL_CLASS_NAME_SMALI);
+    private static final LocalClass LOCAL_STRONG_SIDE_EFFECTS_CLASS = new LocalClass(
+                    LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI);
+
+    private static final String UNKNOWN_CLASS_NAME_SMALI = "Lsome/random123/class;";
+    private static final String UNKNOWN_CLASS_NAME_JAVA = "some.random123.class";
+
     @Before
     public void setUp() {
         vm = mock(VirtualMachine.class);
@@ -44,54 +53,58 @@ public class Test_java_lang_Class_forName {
         mState = mock(MethodState.class);
         when(ectx.getMethodState()).thenReturn(mState);
 
+        when(classManager.isLocalClass(LOCAL_CLASS_NAME_SMALI)).thenReturn(true);
+        when(classManager.isLocalClass(UNKNOWN_CLASS_NAME_SMALI)).thenReturn(false);
+        when(classManager.isLocalClass(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI)).thenReturn(true);
+
+        when(ectx.getClassSideEffectLevel(LOCAL_CLASS_NAME_SMALI)).thenReturn(SideEffect.Level.NONE);
+        when(ectx.getClassSideEffectLevel(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI)).thenReturn(
+                        SideEffect.Level.STRONG);
+
         method = new java_lang_Class_forName();
     }
 
     @Test
-    public void testSafeClassNameThatExistsReturnsActualClass() throws Exception {
-        String className = "java.lang.String";
-        HeapItem item = new HeapItem(className, PARAMETER_TYPE);
+    public void testSafeClassNameThatExistsReturnsActualClassAndInitializesLocalClassAndHasNoSideEffects()
+                    throws Exception {
+        HeapItem item = new HeapItem(SAFE_CLASS_NAME, PARAMETER_TYPE);
         when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
         method.execute(vm, ectx);
 
-        verify(mState, times(1)).assignReturnRegister(eq(String.class), eq(CLASS_TYPE));
+        verify(mState, times(1)).assignReturnRegister(eq(SAFE_CLASS), eq(CLASS_TYPE));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
     }
 
     @Test
-    public void testLocalClassNameReturnsLocalClass() throws Exception {
-        String smaliClassName = "Landroid/app/Activity;";
-        when(classManager.isLocalClass(smaliClassName)).thenReturn(true);
-
-        String className = "android.app.Activity";
-        HeapItem item = new HeapItem(className, PARAMETER_TYPE);
+    public void testLocalClassNameReturnsLocalClassAndHasNoSideEffects() throws Exception {
+        HeapItem item = new HeapItem(LOCAL_CLASS_NAME_JAVA, PARAMETER_TYPE);
         when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
         method.execute(vm, ectx);
 
-        verify(mState, times(1)).assignReturnRegister(eq(new LocalClass(smaliClassName)), eq(CLASS_TYPE));
-        verify(ectx, times(1)).staticallyInitializeClassIfNecessary(smaliClassName);
+        verify(mState, times(1)).assignReturnRegister(eq(LOCAL_CLASS), eq(CLASS_TYPE));
+        verify(ectx, times(1)).staticallyInitializeClassIfNecessary(LOCAL_CLASS_NAME_SMALI);
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
     }
 
     @Test
-    public void testUnknownClassNameThrowsExceptionAndReturnsUnknown() throws Exception {
-        String smaliClassName = "Lsome/madeup/Class;";
-        when(classManager.isLocalClass(smaliClassName)).thenReturn(false);
+    public void testLocalHighSideEffectsClassNameReturnsLocalClassAndHasHighSideEffects() throws Exception {
+        HeapItem item = new HeapItem(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_JAVA, PARAMETER_TYPE);
+        when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
+        method.execute(vm, ectx);
 
-        String className = "some.madeup.Class";
-        HeapItem item = new HeapItem(className, PARAMETER_TYPE);
+        verify(mState, times(1)).assignReturnRegister(eq(LOCAL_STRONG_SIDE_EFFECTS_CLASS), eq(CLASS_TYPE));
+        verify(ectx, times(1)).staticallyInitializeClassIfNecessary(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI);
+        assertEquals(SideEffect.Level.STRONG, method.getSideEffectLevel());
+    }
+
+    @Test
+    public void testUnknownClassNameThrowsExceptionAndAssignsNothing() throws Exception {
+        HeapItem item = new HeapItem(UNKNOWN_CLASS_NAME_JAVA, PARAMETER_TYPE);
         when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
 
-        Exception exception = null;
-        try {
-            method.execute(vm, ectx);
-        } catch (Exception ex) {
-            exception = ex;
-        }
-        assertNotNull(exception);
-        assertEquals(ClassNotFoundException.class, exception.getClass());
+        method.execute(vm, ectx);
 
-        verify(mState, times(1)).assignReturnRegister(any(UnknownValue.class), eq(CLASS_TYPE));
+        verify(mState, times(0)).assignReturnRegister(any(UnknownValue.class), eq(CLASS_TYPE));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
     }
 

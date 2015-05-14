@@ -2,10 +2,12 @@ package org.cf.smalivm.emulate;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -23,6 +25,18 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
 
     private static final String RETURN_TYPE = "Ljava/lang/reflect/Method;";
 
+    private final Set<VirtualException> exceptions;
+
+    java_lang_Class_getMethod() {
+        exceptions = new HashSet<VirtualException>();
+    }
+
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return exceptions;
+    }
+
+    @Override
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
         HeapItem classItem = mState.peekParameter(0);
         Object classValue = classItem.getValue();
@@ -114,6 +128,7 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         return classArray;
     }
 
+    @Override
     public SideEffect.Level getSideEffectLevel() {
         return SideEffect.Level.NONE;
     }
