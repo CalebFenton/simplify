@@ -27,6 +27,10 @@ public class VirtualException {
         this.message = message;
     }
 
+    public <T extends Exception> VirtualException(T exception) {
+        this(exception.getClass(), exception.getMessage());
+    }
+
     String getExceptionClass() {
         return exceptionClass;
     }
