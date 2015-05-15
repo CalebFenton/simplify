@@ -8,8 +8,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -34,12 +38,12 @@ public class Test_java_lang_Class_forName {
     private static final String SAFE_CLASS_NAME = "java.lang.String";
     private static final Class<?> SAFE_CLASS = String.class;
     private static final String LOCAL_CLASS_NAME_SMALI = "Landroid/app/Activity;";
-    private static final String LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI = "Landroid/app/YUP;";
-    private static final String LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_JAVA = "android.app.YUP";
+    private static final String LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI = "Landroid/app/YUP;";
+    private static final String LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_JAVA = "android.app.YUP";
     private static final String LOCAL_CLASS_NAME_JAVA = "android.app.Activity";
     private static final LocalClass LOCAL_CLASS = new LocalClass(LOCAL_CLASS_NAME_SMALI);
-    private static final LocalClass LOCAL_STRONG_SIDE_EFFECTS_CLASS = new LocalClass(
-                    LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI);
+    private static final LocalClass LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS = new LocalClass(
+                    LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI);
 
     private static final String UNKNOWN_CLASS_NAME_SMALI = "Lsome/random123/class;";
     private static final String UNKNOWN_CLASS_NAME_JAVA = "some.random123.class";
@@ -55,18 +59,17 @@ public class Test_java_lang_Class_forName {
 
         when(classManager.isLocalClass(LOCAL_CLASS_NAME_SMALI)).thenReturn(true);
         when(classManager.isLocalClass(UNKNOWN_CLASS_NAME_SMALI)).thenReturn(false);
-        when(classManager.isLocalClass(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI)).thenReturn(true);
+        when(classManager.isLocalClass(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI)).thenReturn(true);
 
         when(ectx.getClassSideEffectLevel(LOCAL_CLASS_NAME_SMALI)).thenReturn(SideEffect.Level.NONE);
-        when(ectx.getClassSideEffectLevel(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI)).thenReturn(
+        when(ectx.getClassSideEffectLevel(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI)).thenReturn(
                         SideEffect.Level.STRONG);
 
         method = new java_lang_Class_forName();
     }
 
     @Test
-    public void testSafeClassNameThatExistsReturnsActualClassAndInitializesLocalClassAndHasNoSideEffects()
-                    throws Exception {
+    public void testSafeClassNameThatExistsReturnsActualClassAndHasNoSideEffects() throws Exception {
         HeapItem item = new HeapItem(SAFE_CLASS_NAME, PARAMETER_TYPE);
         when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
         method.execute(vm, ectx);
@@ -76,7 +79,7 @@ public class Test_java_lang_Class_forName {
     }
 
     @Test
-    public void testLocalClassNameReturnsLocalClassAndHasNoSideEffects() throws Exception {
+    public void testLocalClassNameReturnsLocalClassAndStaticallyInitializesClassAndHasNoSideEffects() throws Exception {
         HeapItem item = new HeapItem(LOCAL_CLASS_NAME_JAVA, PARAMETER_TYPE);
         when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
         method.execute(vm, ectx);
@@ -87,13 +90,13 @@ public class Test_java_lang_Class_forName {
     }
 
     @Test
-    public void testLocalHighSideEffectsClassNameReturnsLocalClassAndHasHighSideEffects() throws Exception {
-        HeapItem item = new HeapItem(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_JAVA, PARAMETER_TYPE);
+    public void testLocalStrongSideEffectsClassNameReturnsLocalClassAndHasStrongSideEffects() throws Exception {
+        HeapItem item = new HeapItem(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_JAVA, PARAMETER_TYPE);
         when(mState.peekParameter(CLASS_NAME_REGISTER)).thenReturn(item);
         method.execute(vm, ectx);
 
-        verify(mState, times(1)).assignReturnRegister(eq(LOCAL_STRONG_SIDE_EFFECTS_CLASS), eq(CLASS_TYPE));
-        verify(ectx, times(1)).staticallyInitializeClassIfNecessary(LOCAL_STRONG_SIDE_EFFECTS_CLASS_NAME_SMALI);
+        verify(mState, times(1)).assignReturnRegister(eq(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS), eq(CLASS_TYPE));
+        verify(ectx, times(1)).staticallyInitializeClassIfNecessary(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI);
         assertEquals(SideEffect.Level.STRONG, method.getSideEffectLevel());
     }
 
@@ -104,8 +107,10 @@ public class Test_java_lang_Class_forName {
 
         method.execute(vm, ectx);
 
+        Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
+        expectedExceptions.add(new VirtualException(ClassNotFoundException.class, CLASS_TYPE));
+        assertEquals(expectedExceptions, method.getExceptions());
         verify(mState, times(0)).assignReturnRegister(any(UnknownValue.class), eq(CLASS_TYPE));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
     }
-
 }
