@@ -2,7 +2,12 @@ package org.cf.smalivm.emulate;
 
 import static org.junit.Assert.assertEquals;
 
+import java.lang.reflect.Method;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -17,7 +22,6 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class Test_java_lang_Class_getMethod {
 
-    private static final MethodStateMethod emulatedMethod = new java_lang_Class_getMethod();
     private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
 
     private static MethodState getMethodState(VirtualMachine vm, Object klazz, String methodName,
@@ -33,100 +37,105 @@ public class Test_java_lang_Class_getMethod {
     }
 
     public static class TestLocalClass {
+
         private static final String CLASS_NAME = "Lchild_class;";
+        private static final String CLASS_NAME_JAVA = "child_class";
         private static final LocalClass CLASS = new LocalClass(CLASS_NAME);
 
         private VirtualMachine vm;
+        private MethodStateMethod emulatedMethod;
 
         @Before
-        public void getVM() {
+        public void setUp() {
             vm = VMTester.getTestVM();
+            emulatedMethod = new java_lang_Class_getMethod();
         }
 
         @Test
-        public void testGetExistantMethodWithNoParameterTypesReturnsExpectedLocalMethod() throws Exception {
+        public void testGetExistentMethodWithNoParameterTypesReturnsExpectedLocalMethod() throws Exception {
             MethodState mState = getMethodState(vm, CLASS, "someString", null);
             emulatedMethod.execute(vm, mState);
-            HeapItem expected = new HeapItem(new LocalMethod(CLASS_NAME + "->someString()Ljava/lang/String;"),
-                            METHOD_TYPE);
+
+            LocalMethod expectedValue = new LocalMethod(CLASS_NAME + "->someString()Ljava/lang/String;");
+            HeapItem expected = new HeapItem(expectedValue, METHOD_TYPE);
             HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
-
-            assertEquals(expected.toString(), actual.toString());
-        }
-
-        @Test
-        public void testGetExistantMethodWithOneParameterTypesReturnsExpectedLocalMethod() throws Exception {
-            MethodState mState = getMethodState(vm, CLASS, "takesParameter", new Class<?>[] { int.class });
-            emulatedMethod.execute(vm, mState);
-            HeapItem expected = new HeapItem(new LocalMethod(CLASS_NAME + "->takesParameter(I)V"), METHOD_TYPE);
-            HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
-
             assertEquals(expected, actual);
         }
 
         @Test
-        public void testGetNonExistantMethodReturnsUnknownValue() throws Exception {
-            // TODO: https://github.com/CalebFenton/simplify/issues/5
-            String methodName = "yoDawgThisMethodWillNeverExist";
-            MethodState mState = getMethodState(vm, CLASS, methodName, null);
-            try {
-                emulatedMethod.execute(vm, mState);
-            } catch (NoSuchMethodException e) {
-                assertEquals(methodName, e.getMessage());
-            }
+        public void testGetExistentMethodWithOneParameterTypesReturnsExpectedLocalMethod() throws Exception {
+            MethodState mState = getMethodState(vm, CLASS, "takesParameter", new Class<?>[] { int.class });
+            emulatedMethod.execute(vm, mState);
 
-            HeapItem expected = HeapItem.newUnknown(METHOD_TYPE);
+            LocalMethod expectedValue = new LocalMethod(CLASS_NAME + "->takesParameter(I)V");
+            HeapItem expected = new HeapItem(expectedValue, METHOD_TYPE);
             HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
+            assertEquals(expected, actual);
+        }
 
-            assertEquals(expected.toString(), actual.toString());
+        @Test
+        public void testGetNonExistentMethodReturnsUnknownValue() throws Exception {
+            String methodName = "yoDawgThisMethodWillNeverExist";
+            String fullMethodName = CLASS_NAME_JAVA + "." + methodName + "()";
+            MethodState mState = getMethodState(vm, CLASS, methodName, null);
+            emulatedMethod.execute(vm, mState);
+
+            Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
+            expectedExceptions.add(new VirtualException(NoSuchMethodException.class, fullMethodName));
+            assertEquals(expectedExceptions, emulatedMethod.getExceptions());
+
+            HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
+            assertEquals(null, actual);
         }
     }
 
     public static class TestNonLocalClass {
+
         private static final Class<?> CLASS = System.class;
 
         private VirtualMachine vm;
+        private MethodStateMethod emulatedMethod;
 
         @Before
-        public void getVM() {
+        public void setUp() {
             vm = VMTester.getTestVM();
+            emulatedMethod = new java_lang_Class_getMethod();
         }
 
         @Test
-        public void testGetExistantMethodWithNoParameterTypesReturnsExpectedMethod() throws Exception {
+        public void testGetExistentMethodWithNoParameterTypesReturnsExpectedMethod() throws Exception {
             MethodState mState = getMethodState(vm, CLASS, "gc", null);
             emulatedMethod.execute(vm, mState);
+
             HeapItem expected = new HeapItem(System.class.getMethod("gc"), METHOD_TYPE);
             HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
-
             assertEquals(expected, actual);
         }
 
         @Test
-        public void testGetExistantMethodWithOneParameterTypesReturnsExpectedLocalMethod() throws Exception {
+        public void testGetExistentMethodWithOneParameterTypesReturnsExpectedLocalMethod() throws Exception {
             MethodState mState = getMethodState(vm, CLASS, "getProperty", new Class<?>[] { String.class });
             emulatedMethod.execute(vm, mState);
-            HeapItem expected = new HeapItem(System.class.getMethod("getProperty", new Class<?>[] { String.class }),
-                            METHOD_TYPE);
-            HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
 
+            Method expectedValue = System.class.getMethod("getProperty", new Class<?>[] { String.class });
+            HeapItem expected = new HeapItem(expectedValue, METHOD_TYPE);
+            HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
             assertEquals(expected, actual);
         }
 
         @Test
-        public void testGetNonExistantMethodThrowsExceptionAndReturnsUnknownValue() throws Exception {
+        public void testGetNonExistentMethodThrowsExceptionAndHasNoReturnValue() throws Exception {
             String methodName = "yoDawgThisMethodWillNeverExist";
+            String fullMethodName = CLASS.getName() + "." + methodName + "()";
             MethodState mState = getMethodState(vm, CLASS, methodName, null);
-            try {
-                emulatedMethod.execute(vm, mState);
-            } catch (NoSuchMethodException e) {
-                assertEquals(CLASS.getName() + "." + methodName + "()", e.getMessage());
-            }
+            emulatedMethod.execute(vm, mState);
 
-            HeapItem expected = HeapItem.newUnknown(METHOD_TYPE);
+            Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
+            expectedExceptions.add(new VirtualException(NoSuchMethodException.class, fullMethodName));
+            assertEquals(expectedExceptions, emulatedMethod.getExceptions());
+
             HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
-
-            assertEquals(expected.toString(), actual.toString());
+            assertEquals(null, actual);
         }
     }
 

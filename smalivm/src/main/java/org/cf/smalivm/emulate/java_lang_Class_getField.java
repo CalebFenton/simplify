@@ -9,7 +9,6 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
@@ -18,7 +17,7 @@ import org.cf.smalivm.type.UnknownValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class java_lang_Class_getField implements ExecutionContextMethod {
+public class java_lang_Class_getField implements MethodStateMethod {
 
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_getField.class.getSimpleName());
 
@@ -42,8 +41,7 @@ public class java_lang_Class_getField implements ExecutionContextMethod {
     }
 
     @Override
-    public void execute(VirtualMachine vm, ExecutionContext ectx) throws Exception {
-        MethodState mState = ectx.getMethodState();
+    public void execute(VirtualMachine vm, MethodState mState) throws Exception {
         HeapItem classItem = mState.peekParameter(0);
         Object classValue = classItem.getValue();
         String fieldName = (String) mState.peekParameter(1).getValue();
@@ -59,7 +57,7 @@ public class java_lang_Class_getField implements ExecutionContextMethod {
             }
         } else if (classValue instanceof LocalClass) {
             LocalClass localClass = (LocalClass) classValue;
-            fieldValue = getLocalField(ectx, vm.getClassManager(), localClass, fieldName);
+            fieldValue = getLocalField(vm.getClassManager(), localClass, fieldName);
             if (fieldValue == null) {
                 setException(new VirtualException(NoSuchFieldException.class, fieldName));
                 return;
@@ -74,17 +72,10 @@ public class java_lang_Class_getField implements ExecutionContextMethod {
         mState.assignReturnRegister(fieldValue, RETURN_TYPE);
     }
 
-    private Object getLocalField(ExecutionContext ectx, SmaliClassManager classManager, LocalClass localClass,
-                    String fieldName) {
+    private Object getLocalField(SmaliClassManager classManager, LocalClass localClass, String fieldName) {
         String className = localClass.getName();
         if (!classManager.isLocalClass(className)) {
             return null;
-        }
-
-        // Getting a field through reflection statically initializes the class
-        if (!ectx.isClassInitialized(className)) {
-            ectx.staticallyInitializeClassIfNecessary(className);
-            level = ectx.getClassSideEffectLevel(className);
         }
 
         List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);

@@ -43,7 +43,7 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         String methodName = (String) mState.peekParameter(1).getValue();
         Object[] parameterTypesValue = (Object[]) mState.peekParameter(2).getValue();
 
-        Object methodValue;
+        Object methodValue = null;
         if (classValue instanceof Class<?>) {
             // It's a real class. Try and return a real method.
             Class<?>[] parameterTypes = castToClassArray(parameterTypesValue);
@@ -51,21 +51,22 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
                 methodValue = getNonLocalMethod((Class<?>) classValue, methodName, parameterTypes);
             } catch (NoSuchMethodException | SecurityException e) {
                 // Assuming Android doesn't have this method since our JVM doesn't.
-                mState.assignReturnRegister(HeapItem.newUnknown(RETURN_TYPE));
-                // TODO: fill with convincing stacktrace
-                throw e;
+                setException(new VirtualException(e));
+                return;
             }
         } else if (classValue instanceof LocalClass) {
             LocalClass localClass = (LocalClass) classValue;
-            methodValue = getLocalMethod(vm, localClass, methodName, parameterTypesValue);
-            if ((methodValue instanceof UnknownValue) || "<init>".equals(methodName) || "<clinit>".equals(methodName)) {
-                mState.assignReturnRegister(HeapItem.newUnknown(RETURN_TYPE));
-                // TODO: fill with convincing lies
-                throw new NoSuchMethodException(methodName);
+            methodValue = getLocalMethod(vm.getClassManager(), localClass, methodName, parameterTypesValue);
+            if (methodValue == null || "<init>".equals(methodName) || "<clinit>".equals(methodName)) {
+                StringBuilder sb = new StringBuilder();
+                sb.append(SmaliClassUtils.smaliClassToJava(localClass.getName()));
+                sb.append('.').append(methodName).append("()");
+                setException(new VirtualException(NoSuchMethodException.class, sb.toString()));
+                return;
             }
         } else {
             if (log.isErrorEnabled()) {
-                log.error("Class.getMethod with " + classItem + " has unexpected type and confuses me.");
+                log.error("Class.getMethod with {} has unexpected type and confuses me.", classItem);
             }
             methodValue = new UnknownValue();
         }
@@ -73,25 +74,28 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         mState.assignReturnRegister(methodValue, RETURN_TYPE);
     }
 
-    private static Object getLocalMethod(VirtualMachine vm, LocalClass localClass, String methodName,
+    private void setException(VirtualException exception) {
+        exceptions.add(exception);
+    }
+
+    private static LocalMethod getLocalMethod(SmaliClassManager classManager, LocalClass localClass, String methodName,
                     Object[] parameterTypesValue) {
-        SmaliClassManager classManager = vm.getClassManager();
         String className = localClass.getName();
         if (!classManager.isLocalClass(className)) {
-            return new UnknownValue();
+            return null;
         }
 
         // Only have the method signature, because the return type is unknown. Local methods are
         // indexed by method descriptor since it's usually available.
         String targetMethodSignature = buildMethodSignature(className, methodName, parameterTypesValue);
-        Set<String> methodDescriptors = vm.getClassManager().getMethodDescriptors(className);
+        Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
         for (String methodDescriptor : methodDescriptors) {
             if (methodDescriptor.startsWith(targetMethodSignature)) {
                 return new LocalMethod(methodDescriptor);
             }
         }
 
-        return new UnknownValue();
+        return null;
     }
 
     private static String buildMethodSignature(String className, String methodName, Object[] parameterTypes) {

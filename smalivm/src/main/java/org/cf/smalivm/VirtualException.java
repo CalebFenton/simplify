@@ -76,7 +76,10 @@ public class VirtualException {
 
     @Override
     public String toString() {
-        return exceptionClass;
+        StringBuilder sb = new StringBuilder();
+        sb.append(getExceptionClass()).append(' ').append(getMessage());
+
+        return sb.toString();
     }
 
 }
