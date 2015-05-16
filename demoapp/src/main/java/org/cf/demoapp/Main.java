@@ -24,7 +24,7 @@ public class Main {
 
         // Hook println with our own implementation
         MethodEmulator.addMethod("Ljava/io/PrintStream;->println(Ljava/lang/String;)V",
-                        new java_io_PrintStream_println());
+                        java_io_PrintStream_println.class);
 
         // Execute particular method
         vm.execute("Lorg/cf/demosmali/Main;->main([Ljava/lang/String;)V");

@@ -1,6 +1,10 @@
 package org.cf.demoapp;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -22,6 +26,11 @@ public class java_io_PrintStream_println implements MethodStateMethod {
     public SideEffect.Level getSideEffectLevel() {
         // Do not optimize this away.
         return SideEffect.Level.STRONG;
+    }
+
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return new HashSet<VirtualException>();
     }
 
 }
