@@ -14,11 +14,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
@@ -45,9 +43,8 @@ public class Test_java_lang_Class_getField {
                     LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI + "->" + EXISTENT_FIELD_NAME_AND_TYPE);
 
     private VirtualMachine vm;
-    private ExecutionContextMethod method;
+    private MethodStateMethod method;
     private SmaliClassManager classManager;
-    private ExecutionContext ectx;
     private MethodState mState;
     private HeapItem classItem;
     private HeapItem fieldNameItem;
@@ -72,12 +69,6 @@ public class Test_java_lang_Class_getField {
         when(mState.peekParameter(CLASS_INSTANCE_REGISTER)).thenReturn(classItem);
         when(mState.peekParameter(FIELD_NAME_REGISTER)).thenReturn(fieldNameItem);
 
-        ectx = mock(ExecutionContext.class);
-        when(ectx.getMethodState()).thenReturn(mState);
-        when(ectx.getClassSideEffectLevel(LOCAL_CLASS_NAME_SMALI)).thenReturn(SideEffect.Level.NONE);
-        when(ectx.getClassSideEffectLevel(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI)).thenReturn(
-                        SideEffect.Level.STRONG);
-
         method = new java_lang_Class_getField();
     }
 
@@ -89,7 +80,7 @@ public class Test_java_lang_Class_getField {
         when(classItem.getValue()).thenReturn(klazz);
         when(fieldNameItem.getValue()).thenReturn(fieldName);
 
-        method.execute(vm, ectx);
+        method.execute(vm, mState);
 
         verify(mState, times(1)).peekParameter(eq(CLASS_INSTANCE_REGISTER));
         verify(mState, times(1)).peekParameter(eq(FIELD_NAME_REGISTER));
@@ -102,7 +93,7 @@ public class Test_java_lang_Class_getField {
         when(classItem.getValue()).thenReturn(klazz);
         when(fieldNameItem.getValue()).thenReturn(NON_EXISTENT_FIELD_NAME);
 
-        method.execute(vm, ectx);
+        method.execute(vm, mState);
 
         Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
         expectedExceptions.add(new VirtualException(NoSuchFieldException.class, NON_EXISTENT_FIELD_NAME));
@@ -118,7 +109,7 @@ public class Test_java_lang_Class_getField {
         when(classItem.getValue()).thenReturn(LOCAL_CLASS);
         when(fieldNameItem.getValue()).thenReturn(EXISTENT_FIELD_NAME);
 
-        method.execute(vm, ectx);
+        method.execute(vm, mState);
 
         verify(mState, times(1)).peekParameter(eq(CLASS_INSTANCE_REGISTER));
         verify(mState, times(1)).peekParameter(eq(FIELD_NAME_REGISTER));
@@ -130,7 +121,7 @@ public class Test_java_lang_Class_getField {
         when(classItem.getValue()).thenReturn(LOCAL_CLASS);
         when(fieldNameItem.getValue()).thenReturn(NON_EXISTENT_FIELD_NAME);
 
-        method.execute(vm, ectx);
+        method.execute(vm, mState);
 
         Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
         expectedExceptions.add(new VirtualException(NoSuchFieldException.class, NON_EXISTENT_FIELD_NAME));
@@ -143,15 +134,12 @@ public class Test_java_lang_Class_getField {
     }
 
     @Test
-    public void testLocalClassWithStrongSideEffectsForExistantFieldNameInitializesClassAndHasStrongSideEffectLevel()
-                    throws Exception {
+    public void testLocalClassWithStrongSideEffectsForExistantFieldNameHasStrongSideEffectLevel() throws Exception {
         when(classItem.getValue()).thenReturn(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS);
         when(fieldNameItem.getValue()).thenReturn(EXISTENT_FIELD_NAME);
 
-        method.execute(vm, ectx);
+        method.execute(vm, mState);
 
-        verify(ectx, times(1))
-                        .staticallyInitializeClassIfNecessary(eq(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI));
         verify(mState, times(1)).peekParameter(eq(CLASS_INSTANCE_REGISTER));
         verify(mState, times(1)).peekParameter(eq(FIELD_NAME_REGISTER));
         verify(mState, times(1)).assignReturnRegister(eq(LOCAL_FIELD_FROM_STRONG_SIDE_EFFECTS_CLASS), eq(FIELD_TYPE));

@@ -64,7 +64,6 @@ public class java_lang_Class_forName implements ExecutionContextMethod {
             SmaliClassManager classManager = vm.getClassManager();
             if (classManager.isLocalClass(className)) {
                 // Class.forName will statically initialize a class
-                // TODO: test this!
                 if (!ectx.isClassInitialized(className)) {
                     ectx.staticallyInitializeClassIfNecessary(className);
                     level = ectx.getClassSideEffectLevel(className);
