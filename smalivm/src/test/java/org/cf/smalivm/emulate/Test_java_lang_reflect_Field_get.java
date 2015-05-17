@@ -1,7 +1,7 @@
 package org.cf.smalivm.emulate;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -10,11 +10,14 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import java.lang.reflect.Field;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.StaticFieldAccessor;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -42,31 +45,34 @@ public class Test_java_lang_reflect_Field_get {
     private static final int FIELD_REGISTER = 0;
     private static final int INSTANCE_REGISTER = 1;
 
-    private static final String RETURN_TYPE = "Ljava/lang/Object;";
-    private static final String LOCAL_CLASS = "Lside_effects_test;";
+    private static final String LOCAL_CLASS = "Llocal/Klazz;";
+    private static final String LOCAL_CLASS_JAVA = "local.Klazz";
+    private static final String NO_ACCESS_LOCAL_CLASS = "Ljava/lang/Whatever;";
+    private static final String NO_ACCESS_LOCAL_CLASS_JAVA = "java.lang.Whatever";
     private static final String LOCAL_PUBLIC_STATIC_FIELD_NAME = "publicStaticField";
     private static final String LOCAL_PUBLIC_STATIC_FIELD_TYPE = "I";
     private static final int LOCAL_PUBLIC_STATIC_FIELD_VALUE = 1;
-    private static final String LOCAL_PUBLIC_STATIC_FIELD = LOCAL_CLASS + "->" + LOCAL_PUBLIC_STATIC_FIELD_NAME + ":"
-                    + LOCAL_PUBLIC_STATIC_FIELD_TYPE;
+    private static final String LOCAL_PUBLIC_STATIC_FIELD = LOCAL_CLASS + "->" + LOCAL_PUBLIC_STATIC_FIELD_NAME + ":" + LOCAL_PUBLIC_STATIC_FIELD_TYPE;
 
     private static final String LOCAL_PRIVATE_STATIC_FIELD_NAME = "privateStaticField";
     private static final String LOCAL_PRIVATE_STATIC_FIELD_TYPE = "I";
     private static final int LOCAL_PRIVATE_STATIC_FIELD_VALUE = 2;
-    private static final String LOCAL_PRIVATE_STATIC_FIELD = LOCAL_CLASS + "->" + LOCAL_PRIVATE_STATIC_FIELD_NAME + ":"
-                    + LOCAL_PRIVATE_STATIC_FIELD_TYPE;
+    private static final String LOCAL_PRIVATE_STATIC_FIELD = LOCAL_CLASS + "->" + LOCAL_PRIVATE_STATIC_FIELD_NAME + ":" + LOCAL_PRIVATE_STATIC_FIELD_TYPE;
 
     private static final String LOCAL_PUBLIC_INSTANCE_FIELD_NAME = "publicInstanceField";
     private static final String LOCAL_PUBLIC_INSTANCE_FIELD_TYPE = "I";
     private static final int LOCAL_PUBLIC_INSTANCE_FIELD_VALUE = 3;
-    private static final String LOCAL_PUBLIC_INSTANCE_FIELD = LOCAL_CLASS + "->" + LOCAL_PUBLIC_INSTANCE_FIELD_NAME
-                    + ":" + LOCAL_PUBLIC_INSTANCE_FIELD_TYPE;
+    private static final String LOCAL_PUBLIC_INSTANCE_FIELD = LOCAL_CLASS + "->" + LOCAL_PUBLIC_INSTANCE_FIELD_NAME + ":" + LOCAL_PUBLIC_INSTANCE_FIELD_TYPE;
 
     private static final String LOCAL_PRIVATE_INSTANCE_FIELD_NAME = "privateInstanceField";
     private static final String LOCAL_PRIVATE_INSTANCE_FIELD_TYPE = "I";
     private static final int LOCAL_PRIVATE_INSTANCE_FIELD_VALUE = 4;
-    private static final String LOCAL_PRIVATE_INSTANCE_FIELD = LOCAL_CLASS + "->" + LOCAL_PRIVATE_INSTANCE_FIELD_NAME
-                    + ":" + LOCAL_PRIVATE_INSTANCE_FIELD_TYPE;
+    private static final String LOCAL_PRIVATE_INSTANCE_FIELD = LOCAL_CLASS + "->" + LOCAL_PRIVATE_INSTANCE_FIELD_NAME + ":" + LOCAL_PRIVATE_INSTANCE_FIELD_TYPE;
+
+    private static final String MOCKED_CLASS = "Lmy/mocked/Class;";
+    private static final String MOCKED_CLASS_JAVA = "my.mocked.Class";
+    private static final String MOCKED_METHOD = "mockedMethod()V";
+    private static final String MOCKED_METHOD_DESCRIPTOR = MOCKED_CLASS + "->" + MOCKED_METHOD;
 
     @Before
     public void setUp() {
@@ -81,12 +87,12 @@ public class Test_java_lang_reflect_Field_get {
         when(mState.peekParameter(INSTANCE_REGISTER)).thenReturn(instanceItem);
 
         when(ectx.getMethodState()).thenReturn(mState);
-
+        when(ectx.getMethodDescriptor()).thenReturn(MOCKED_METHOD_DESCRIPTOR);
         method = new java_lang_reflect_Field_get();
     }
 
-    private static void setupFields(VirtualMachine vm, ExecutionContext ectx) {
-        SmaliClassManager classManager = mock(SmaliClassManager.class);
+    private void setupFields(VirtualMachine vm, ExecutionContext ectx) {
+        classManager = mock(SmaliClassManager.class);
         when(vm.getClassManager()).thenReturn(classManager);
         when(classManager.isLocalClass(LOCAL_CLASS)).thenReturn(true);
 
@@ -113,17 +119,17 @@ public class Test_java_lang_reflect_Field_get {
 
         BuilderField publicInstanceField = mock(BuilderField.class, withSettings()
                         .extraInterfaces(FieldReference.class));
-        when(privateStaticField.getDefiningClass()).thenReturn(LOCAL_CLASS);
-        when(privateStaticField.getName()).thenReturn(LOCAL_PUBLIC_INSTANCE_FIELD_NAME);
-        when(privateStaticField.getType()).thenReturn(LOCAL_PUBLIC_INSTANCE_FIELD_TYPE);
+        when(publicInstanceField.getDefiningClass()).thenReturn(LOCAL_CLASS);
+        when(publicInstanceField.getName()).thenReturn(LOCAL_PUBLIC_INSTANCE_FIELD_NAME);
+        when(publicInstanceField.getType()).thenReturn(LOCAL_PUBLIC_INSTANCE_FIELD_TYPE);
         when(publicInstanceField.getAccessFlags()).thenReturn(AccessFlags.PUBLIC.getValue());
 
         BuilderField privateInstanceField = mock(BuilderField.class,
                         withSettings().extraInterfaces(FieldReference.class));
-        when(privateStaticField.getDefiningClass()).thenReturn(LOCAL_CLASS);
-        when(privateStaticField.getName()).thenReturn(LOCAL_PRIVATE_INSTANCE_FIELD_NAME);
-        when(privateStaticField.getType()).thenReturn(LOCAL_PRIVATE_INSTANCE_FIELD_TYPE);
-        when(privateInstanceField.getAccessFlags()).thenReturn(AccessFlags.PUBLIC.getValue());
+        when(privateInstanceField.getDefiningClass()).thenReturn(LOCAL_CLASS);
+        when(privateInstanceField.getName()).thenReturn(LOCAL_PRIVATE_INSTANCE_FIELD_NAME);
+        when(privateInstanceField.getType()).thenReturn(LOCAL_PRIVATE_INSTANCE_FIELD_TYPE);
+        when(privateInstanceField.getAccessFlags()).thenReturn(AccessFlags.PRIVATE.getValue());
 
         List<BuilderField> fields = new LinkedList<BuilderField>();
         fields.add(publicStaticField);
@@ -147,7 +153,8 @@ public class Test_java_lang_reflect_Field_get {
         Object instance = null;
         Field field = Integer.class.getDeclaredField("digits");
 
-        testExceptionalCase(field, instance, IllegalAccessException.class);
+        String expectedMessage = "Class " + MOCKED_CLASS_JAVA + " can not access a member of class java.lang.Integer with modifiers \"static final\"";
+        testExceptionalCase(field, instance, IllegalAccessException.class, expectedMessage);
     }
 
     @Test
@@ -164,7 +171,8 @@ public class Test_java_lang_reflect_Field_get {
         NonLocalClass instance = new NonLocalClass(0);
         Field field = NonLocalClass.class.getDeclaredField("PrivateField");
 
-        testExceptionalCase(field, instance, IllegalAccessException.class);
+        String expectedMessage = "Class " + MOCKED_CLASS_JAVA + " can not access a member of class org.cf.smalivm.emulate.NonLocalClass with modifiers \"private\"";
+        testExceptionalCase(field, instance, IllegalAccessException.class, expectedMessage);
     }
 
     @Test
@@ -176,12 +184,32 @@ public class Test_java_lang_reflect_Field_get {
     }
 
     @Test
-    public void localExistentStaticPrivateFieldThrowsException() throws Exception {
+    public void localExistentStaticPrivateFieldFromExternalClassThrowsException() throws Exception {
         Object instance = null;
         LocalField field = new LocalField(LOCAL_PRIVATE_STATIC_FIELD);
+        when(ectx.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS);
 
-        // TODO: Disable until field lookup respects illegal access exceptions
-        // testLocalExceptionalCase(field, instance, IllegalAccessException.class);
+        String expectedMessage = "Class " + NO_ACCESS_LOCAL_CLASS_JAVA + " can not access a member of class " + LOCAL_CLASS_JAVA + " with modifiers \"private static\"";
+        testLocalExceptionalCase(field, instance, IllegalAccessException.class, expectedMessage);
+    }
+
+    @Test
+    public void localExistentStaticPrivateFieldSetAccessibleFromExternalClassWorks() throws Exception {
+        Object instance = null;
+        LocalField field = new LocalField(LOCAL_PRIVATE_STATIC_FIELD);
+        field.setAccessible(true);
+        when(ectx.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS);
+
+        testLocalCase(field, instance, LOCAL_PRIVATE_STATIC_FIELD_VALUE, LOCAL_PRIVATE_STATIC_FIELD_TYPE);
+    }
+
+    @Test
+    public void localExistentStaticPrivateFieldFromInternalClassWorks() throws Exception {
+        Object instance = null;
+        LocalField field = new LocalField(LOCAL_PRIVATE_STATIC_FIELD);
+        when(ectx.getMethodDescriptor()).thenReturn(LOCAL_CLASS);
+
+        testLocalCase(field, instance, LOCAL_PRIVATE_STATIC_FIELD_VALUE, LOCAL_PRIVATE_STATIC_FIELD_TYPE);
     }
 
     @Test
@@ -190,16 +218,37 @@ public class Test_java_lang_reflect_Field_get {
         Object instance = new LocalClass(LOCAL_CLASS);
         LocalField field = new LocalField(LOCAL_PUBLIC_INSTANCE_FIELD);
 
-        testLocalCase(field, instance, value, RETURN_TYPE);
+        testLocalCase(field, instance, value, LOCAL_PUBLIC_INSTANCE_FIELD_TYPE);
     }
 
     @Test
-    public void localExistentInstancePrivateFieldThrowsException() throws Exception {
+    public void localExistentInstancePrivateFieldFromExternalClassThrowsException() throws Exception {
         Object instance = new LocalClass(LOCAL_CLASS);
         LocalField field = new LocalField(LOCAL_PRIVATE_INSTANCE_FIELD);
+        when(ectx.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS + "->someMethod()V");
 
-        // TODO: Disable until field lookup respects illegal access exceptions
-        // testLocalExceptionalCase(field, instance, IllegalAccessException.class);
+        String expectedMessage = "Class " + NO_ACCESS_LOCAL_CLASS_JAVA + " can not access a member of class " + LOCAL_CLASS_JAVA + " with modifiers \"private\"";
+        testLocalExceptionalCase(field, instance, IllegalAccessException.class, expectedMessage);
+    }
+
+    @Test
+    public void localExistentInstancePrivateFieldSetAccessibleFromExternalClassGivesUnknownValue() throws Exception {
+        Object value = new UnknownValue();
+        Object instance = new LocalClass(LOCAL_CLASS);
+        LocalField field = new LocalField(LOCAL_PRIVATE_INSTANCE_FIELD);
+        field.setAccessible(true);
+
+        testLocalCase(field, instance, value, LOCAL_PRIVATE_INSTANCE_FIELD_TYPE);
+    }
+
+    @Test
+    public void localExistentInstancePrivateFieldFromInternalClassGivesUnknownValue() throws Exception {
+        Object value = new UnknownValue();
+        Object instance = new LocalClass(LOCAL_CLASS);
+        LocalField field = new LocalField(LOCAL_PRIVATE_INSTANCE_FIELD);
+        when(ectx.getMethodDescriptor()).thenReturn(LOCAL_CLASS + "->someMethodV");
+
+        testLocalCase(field, instance, value, LOCAL_PRIVATE_INSTANCE_FIELD_TYPE);
     }
 
     private void testLocalCase(LocalField field, Object instance, Object value, String type) throws Exception {
@@ -209,8 +258,9 @@ public class Test_java_lang_reflect_Field_get {
         verify(ectx, times(1)).staticallyInitializeClassIfNecessary(eq(className));
     }
 
-    private void testLocalExceptionalCase(LocalField field, Object instance, Class<?> exceptionClass) throws Exception {
-        testExceptionalCase(field, instance, exceptionClass);
+    private void testLocalExceptionalCase(LocalField field, Object instance, Class<? extends Exception> exceptionClass,
+                    String expectedMessage) throws Exception {
+        testExceptionalCase(field, instance, exceptionClass, expectedMessage);
 
         String className = field.getName().split("->")[0];
         verify(ectx, times(1)).staticallyInitializeClassIfNecessary(eq(className));
@@ -234,25 +284,21 @@ public class Test_java_lang_reflect_Field_get {
         }
     }
 
-    private void testExceptionalCase(Object field, Object instance, Class<?> exceptionClass) throws Exception {
+    private void testExceptionalCase(Object field, Object instance, Class<? extends Exception> exceptionClass,
+                    String message) throws Exception {
         when(fieldItem.getValue()).thenReturn(field);
         when(instanceItem.getValue()).thenReturn(instance);
 
-        Exception exception = null;
-        try {
-            method.execute(vm, ectx);
-        } catch (IllegalArgumentException | IllegalAccessException e) {
-            exception = e;
-        }
-        assertNotNull(exception);
-        assertEquals(exceptionClass, exception.getClass());
+        method.execute(vm, ectx);
+
+        Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
+        expectedExceptions.add(new VirtualException(exceptionClass, message));
+        assertEquals(expectedExceptions, method.getExceptions());
 
         verify(mState, times(1)).peekParameter(eq(FIELD_REGISTER));
         verify(mState, times(1)).peekParameter(eq(INSTANCE_REGISTER));
-        ArgumentCaptor<HeapItem> returnItem = ArgumentCaptor.forClass(HeapItem.class);
-        verify(mState, times(1)).assignReturnRegister(returnItem.capture());
-        assertEquals(UnknownValue.class, returnItem.getValue().getValue().getClass());
-        assertEquals(RETURN_TYPE, returnItem.getValue().getType());
+        verify(mState, times(0)).assignReturnRegister(any(HeapItem.class));
+        verify(mState, times(0)).assignReturnRegister(any(Object.class), any(String.class));
     }
 
 }

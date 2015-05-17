@@ -33,7 +33,6 @@ public class java_lang_Package_getName implements MethodStateMethod {
 
     @Override
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
-        // No checks because emulated methods require all known args.
         HeapItem instanceItem = mState.peekParameter(0);
         Object instance = instanceItem.getValue();
         Object name;

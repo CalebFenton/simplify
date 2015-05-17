@@ -1,6 +1,7 @@
 package org.cf.smalivm.emulate;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -12,6 +13,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.smalivm.type.LocalField;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.AccessFlags;
@@ -27,9 +29,11 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
     private static final String RETURN_TYPE = "Ljava/lang/Object;";
 
     private final Set<VirtualException> exceptions;
+    private SideEffect.Level level;
 
     java_lang_reflect_Field_get() {
         exceptions = new HashSet<VirtualException>();
+        level = SideEffect.Level.NONE;
     }
 
     @Override
@@ -46,42 +50,112 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
 
         HeapItem getItem;
         if (fieldValue instanceof Field) {
-            Field field = (Field) fieldValue;
-            try {
-                Object getObject = field.get(instanceItem.getValue());
-                String type = SmaliClassUtils.javaClassToSmali(field.getType());
-                getItem = new HeapItem(getObject, type);
-            } catch (IllegalArgumentException | IllegalAccessException e) {
-                mState.assignReturnRegister(HeapItem.newUnknown(RETURN_TYPE));
-                throw e;
-            }
+            Object instance = instanceItem.getValue();
+            getItem = getNonLocalField((Field) fieldValue, instance, ectx);
         } else if (fieldValue instanceof LocalField) {
-            BuilderField field = getBuilderField(vm, ectx, (LocalField) fieldValue);
-            if (null == field) {
-                getItem = HeapItem.newUnknown(RETURN_TYPE);
-            } else {
-                // TODO: This doesn't check for private access, but it should.
-                int accessFlags = field.getAccessFlags();
-                boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
-                if (!isStatic) {
-                    // Instance field lookup isn't supported yet.
-                    getItem = HeapItem.newUnknown(field.getType());
-                } else {
-                    String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
-                    getItem = vm.getStaticFieldAccessor().getField(ectx, fieldDescriptor);
-                }
-            }
+            getItem = getLocalField((LocalField) fieldValue, vm, ectx);
         } else {
             if (log.isErrorEnabled()) {
-                log.error("Field.get with " + fieldItem + " has unexpected type and confuses me.");
+                log.error("Field.get with {} has unexpected type and confuses me.", fieldItem);
             }
             getItem = HeapItem.newUnknown(RETURN_TYPE);
+        }
+
+        if (getItem == null) {
+            return;
         }
 
         mState.assignReturnRegister(getItem);
     }
 
-    private static BuilderField getBuilderField(VirtualMachine vm, ExecutionContext ectx, LocalField localField) {
+    private void setException(VirtualException exception) {
+        exceptions.add(exception);
+    }
+
+    private boolean checkAccess(String callingClassSmali, String definingClassSmali, int accessFlags,
+                    SmaliClassManager classManager) {
+        boolean isPrivate = ((accessFlags & AccessFlags.PRIVATE.getValue()) != 0);
+        boolean isProtected = ((accessFlags & AccessFlags.PROTECTED.getValue()) != 0);
+
+        if (isPrivate || isProtected) {
+            String callingClassJava = SmaliClassUtils.smaliClassToJava(callingClassSmali);
+            String definingClassJava = SmaliClassUtils.smaliClassToJava(definingClassSmali);
+            if (!callingClassSmali.equals(definingClassSmali)) {
+                if (isPrivate) {
+                    StringBuilder sb = new StringBuilder();
+                    String modifiers = Modifier.toString(accessFlags);
+                    sb.append("Class ").append(callingClassJava).append(" can not access a member of class ")
+                                    .append(definingClassJava).append(" with modifiers \"").append(modifiers)
+                                    .append("\"");
+                    setException(new VirtualException(IllegalAccessException.class, sb.toString()));
+                    return false;
+                } else { // isProtected
+                    boolean isInstance = false;
+                    try {
+                        isInstance = classManager.isInstance(callingClassSmali, definingClassSmali);
+                    } catch (UnknownAncestors e) {
+                        e.printStackTrace();
+                    }
+
+                    if (!isInstance) {
+                        StringBuilder sb = new StringBuilder();
+                        String modifiers = Modifier.toString(accessFlags);
+                        sb.append("Class ").append(callingClassJava).append(" can not access a member of class ")
+                                        .append(definingClassJava).append(" with modifiers \"").append(modifiers)
+                                        .append("\"");
+                        setException(new VirtualException(IllegalAccessException.class, sb.toString()));
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private HeapItem getLocalField(LocalField localField, VirtualMachine vm, ExecutionContext ectx) {
+        BuilderField field = getBuilderField(vm, ectx, localField);
+        int accessFlags = field.getAccessFlags();
+        HeapItem item = null;
+
+        if (!localField.getAccessible()) {
+            String callingClassSmali = ectx.getMethodDescriptor().split("->")[0];
+            String definingClassSmali = field.getDefiningClass();
+            boolean hasAccess = checkAccess(callingClassSmali, definingClassSmali, accessFlags, vm.getClassManager());
+            if (!hasAccess) {
+                return null;
+            }
+        }
+        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+        if (!isStatic) {
+            // Instance field lookup isn't supported yet.
+            item = HeapItem.newUnknown(field.getType());
+        } else {
+            String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
+            item = vm.getStaticFieldAccessor().getField(ectx, fieldDescriptor);
+        }
+
+        return item;
+    }
+
+    private HeapItem getNonLocalField(Field field, Object instance, ExecutionContext ectx) {
+        HeapItem item = null;
+        try {
+            Object getObject = field.get(instance);
+            String type = SmaliClassUtils.javaClassToSmali(field.getType());
+            item = new HeapItem(getObject, type);
+        } catch (IllegalArgumentException | IllegalAccessException e) {
+            String message = e.getMessage();
+            String callingClass = ectx.getMethodDescriptor().split("->")[0];
+            String callingClassJava = SmaliClassUtils.smaliClassToJava(callingClass);
+            message = message.replace(java_lang_reflect_Field_get.class.getName(), callingClassJava);
+            setException(new VirtualException(e.getClass(), message));
+        }
+
+        return item;
+    }
+
+    private BuilderField getBuilderField(VirtualMachine vm, ExecutionContext ectx, LocalField localField) {
         SmaliClassManager classManager = vm.getClassManager();
         String[] parts = localField.getName().split("->");
         String className = parts[0];
@@ -91,7 +165,11 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
             return null;
         }
 
-        ectx.staticallyInitializeClassIfNecessary(className);
+        // Accessing a field causes class static initialization
+        if (!ectx.isClassInitialized(className)) {
+            ectx.staticallyInitializeClassIfNecessary(className);
+            level = ectx.getClassSideEffectLevel(className);
+        }
 
         Collection<BuilderField> fields = classManager.getFields(className);
         for (BuilderField field : fields) {
@@ -106,8 +184,7 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
 
     @Override
     public SideEffect.Level getSideEffectLevel() {
-        // Accessing a field causes class static initialization
-        return SideEffect.Level.WEAK;
+        return level;
     }
 
 }
