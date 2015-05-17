@@ -15,13 +15,13 @@ import org.junit.Test;
 
 public class Test_java_lang_Class_getPackage {
 
-    private static MethodStateMethod emulatedMethod = new java_lang_Class_getPackage();
-
     private VirtualMachine vm;
+    private MethodStateMethod emulatedMethod;
 
     @Before
-    public void getVM() {
+    public void setUp() {
         vm = VMTester.getTestVM();
+        emulatedMethod = new java_lang_Class_getPackage();
     }
 
     private static MethodState getMethodState(VirtualMachine vm, Object register0, String type) {
@@ -37,7 +37,9 @@ public class Test_java_lang_Class_getPackage {
     public void testLocalClassReturnsExpectedEmulatedTypeType() throws Exception {
         String type = "Lsome/local/package/TestClass;";
         MethodState mState = getMethodState(vm, new LocalClass(type), type);
+
         emulatedMethod.execute(vm, mState);
+
         EmulatedType emulatedPackage = new EmulatedType("Ljava/lang/Package;");
         emulatedPackage.setExtra("some.local.package");
         HeapItem expected = new HeapItem(emulatedPackage, "Ljava/lang/Package;");
@@ -49,7 +51,9 @@ public class Test_java_lang_Class_getPackage {
     @Test
     public void testNonLocalClassReturnsPackage() throws Exception {
         MethodState mState = getMethodState(vm, String.class, "Ljava/lang/String;");
+
         emulatedMethod.execute(vm, mState);
+
         HeapItem expected = new HeapItem(String.class.getPackage(), "Ljava/lang/Package;");
         HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
 
@@ -59,7 +63,9 @@ public class Test_java_lang_Class_getPackage {
     @Test
     public void testUnknownValueReturnsUnknownValueOfExpectedType() throws Exception {
         MethodState mState = getMethodState(vm, new UnknownValue(), "Ljava/lang/Class;");
+
         emulatedMethod.execute(vm, mState);
+
         HeapItem expected = HeapItem.newUnknown("Ljava/lang/Package;");
         HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
 

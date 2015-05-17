@@ -6,9 +6,11 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 public class LocalField implements LocalType {
 
     private final String fieldDescriptor;
+    private boolean accessible;
 
     public LocalField(String fieldDescriptor) {
         this.fieldDescriptor = fieldDescriptor;
+        accessible = false;
     }
 
     @Override
@@ -31,6 +33,7 @@ public class LocalField implements LocalType {
         return new HashCodeBuilder(325, 29).append(fieldDescriptor).toHashCode();
     }
 
+    @Override
     public String getName() {
         return fieldDescriptor;
     }
@@ -38,6 +41,14 @@ public class LocalField implements LocalType {
     @Override
     public String toString() {
         return fieldDescriptor;
+    }
+
+    public boolean getAccessible() {
+        return accessible;
+    }
+
+    public void setAccessible(boolean accessible) {
+        this.accessible = accessible;
     }
 
 }
