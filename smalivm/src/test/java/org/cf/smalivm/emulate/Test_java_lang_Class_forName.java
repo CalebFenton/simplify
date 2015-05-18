@@ -108,7 +108,7 @@ public class Test_java_lang_Class_forName {
         method.execute(vm, ectx);
 
         Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
-        expectedExceptions.add(new VirtualException(ClassNotFoundException.class, CLASS_TYPE));
+        expectedExceptions.add(new VirtualException(ClassNotFoundException.class, UNKNOWN_CLASS_NAME_SMALI));
         assertEquals(expectedExceptions, method.getExceptions());
         verify(mState, times(0)).assignReturnRegister(any(UnknownValue.class), eq(CLASS_TYPE));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());

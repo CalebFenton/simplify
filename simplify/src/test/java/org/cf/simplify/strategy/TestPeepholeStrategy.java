@@ -56,7 +56,7 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testInvokeClassForNameForImaginaryClassIsReplaced() {
-            testForExpectedInstruction("com.funky.unknown.class", "Lcom/funky/unknown/class;");
+            testForExpectedInstruction("com.funky.imaginary.class", "Lcom/funky/imaginary/class;");
         }
 
         @Test

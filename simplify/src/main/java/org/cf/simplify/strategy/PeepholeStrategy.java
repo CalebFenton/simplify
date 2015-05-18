@@ -148,7 +148,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         String javaClassName = (String) mbgraph.getRegisterConsensusValue(address, register);
         String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
         HeapItem klazz = mbgraph.getRegisterConsensus(address, MethodState.ResultRegister);
-        if (klazz.isUnknown()) {
+        if (klazz == null) {
             log.warn("Optimizing Class.forName of potentially non-existant class: " + smaliClassName);
         }
         BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
