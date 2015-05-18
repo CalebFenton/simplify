@@ -182,6 +182,23 @@ public class TestReflectionRemovalStrategy {
         }
     }
 
+    public static class TestFieldLookups {
+
+        private static final String METHOD = "FieldLookup()V";
+
+        @Test
+        public void test() {
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD, 0, Integer.class, "Ljava/lang/Class;", 1,
+                            "MAX_VALUE", "Ljava/lang/String;", 2, null, "Ljava/lang/Object;");
+            System.out.println(mbgraph.toSmali());
+            // String[] endLines = new String[] { "asdf", "asdfd", };
+            // String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+
+            // testSmali(mbgraph, expectedLines);
+            // testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 10);
+        }
+    }
+
     public static class TestVirtualLocalMethodWithSixParameters {
 
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");

@@ -146,7 +146,7 @@ public class InvokeOp extends ExecutionContextOp {
             ExecutionContext calleeContext = buildNonLocalCalleeContext(callerMethodState);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
-                executeNonLocalMethod(targetMethod, callerMethodState, calleeContext);
+                executeNonLocalMethod(targetMethod, callerMethodState, calleeContext, node);
                 return;
             } else {
                 if (log.isTraceEnabled()) {
@@ -354,9 +354,16 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext,
-                    ExecutionContext calleeContext) {
+                    ExecutionContext calleeContext, ExecutionNode node) {
         if (MethodEmulator.canEmulate(methodDescriptor)) {
-            sideEffectLevel = MethodEmulator.emulate(vm, calleeContext, methodDescriptor, getParameterRegisters());
+            MethodEmulator emulator = new MethodEmulator(vm, calleeContext, methodDescriptor);
+            emulator.emulate();
+            sideEffectLevel = emulator.getSideEffectLevel();
+            if (emulator.getExceptions().size() > 0) {
+                node.clearChildAddresses();
+                node.setExceptions(emulator.getExceptions());
+                return;
+            }
         } else if (MethodReflector.canReflect(methodDescriptor)) {
             assert allArgumentsKnown(calleeContext.getMethodState());
 

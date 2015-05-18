@@ -2,8 +2,10 @@ package org.cf.smalivm.emulate;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.slf4j.Logger;
@@ -12,6 +14,30 @@ import org.slf4j.LoggerFactory;
 public class MethodEmulator {
 
     private static final Logger log = LoggerFactory.getLogger(MethodEmulator.class.getSimpleName());
+
+    private final VirtualMachine vm;
+    private final ExecutionContext ectx;
+    private final String methodDescriptor;
+    private final EmulatedMethod method;
+
+    public MethodEmulator(VirtualMachine vm, ExecutionContext ectx, String methodDescriptor) {
+        this.vm = vm;
+        this.ectx = ectx;
+        this.methodDescriptor = methodDescriptor;
+        method = getMethod(methodDescriptor);
+    }
+
+    private static EmulatedMethod getMethod(String methodDescriptor) {
+        Class<? extends EmulatedMethod> methodClass = emulatedMethods.get(methodDescriptor);
+        EmulatedMethod em = null;
+        try {
+            em = methodClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
+        return em;
+    }
 
     private static Map<String, Class<? extends EmulatedMethod>> emulatedMethods = new HashMap<String, Class<? extends EmulatedMethod>>();
     static {
@@ -47,29 +73,26 @@ public class MethodEmulator {
         emulatedMethods.clear();
     }
 
-    public static SideEffect.Level emulate(VirtualMachine vm, ExecutionContext ectx, String methodDescriptor,
-                    int[] parameterRegisters) {
-        Class<? extends EmulatedMethod> methodClass = emulatedMethods.get(methodDescriptor);
-        EmulatedMethod em = null;
+    public void emulate() {
         try {
-            em = methodClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-
-        try {
-            if (em instanceof MethodStateMethod) {
-                ((MethodStateMethod) em).execute(vm, ectx.getMethodState());
+            if (method instanceof MethodStateMethod) {
+                ((MethodStateMethod) method).execute(vm, ectx.getMethodState());
             } else {
-                ((ExecutionContextMethod) em).execute(vm, ectx);
+                ((ExecutionContextMethod) method).execute(vm, ectx);
             }
         } catch (Exception e) {
-            // TODO: exception handling
             if (log.isWarnEnabled()) {
                 log.warn("Unexpected real excetion emulating " + methodDescriptor, e);
             }
         }
-
-        return em.getSideEffectLevel();
     }
+
+    public SideEffect.Level getSideEffectLevel() {
+        return method.getSideEffectLevel();
+    }
+
+    public Set<VirtualException> getExceptions() {
+        return method.getExceptions();
+    }
+
 }
