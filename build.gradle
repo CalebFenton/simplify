@@ -25,6 +25,7 @@ subprojects {
     group = 'org.cf'
 
     apply plugin: 'java'
+    sourceCompatibility = 1.7
     apply plugin: 'eclipse'
     apply plugin: 'com.github.johnrengelman.shadow'
 
@@ -69,5 +70,5 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.0'
+    gradleVersion = '2.4'
 }
