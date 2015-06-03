@@ -118,8 +118,9 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
         int accessFlags = field.getAccessFlags();
         HeapItem item = null;
 
-        if (!localField.getAccessible()) {
-            String callingClassSmali = ectx.getMethodDescriptor().split("->")[0];
+        if (!localField.isAccessible()) {
+            String callingMethodDescriptor = ectx.getCallerContext().getMethodDescriptor();
+            String callingClassSmali = callingMethodDescriptor.split("->")[0];
             String definingClassSmali = field.getDefiningClass();
             boolean hasAccess = checkAccess(callingClassSmali, definingClassSmali, accessFlags, vm.getClassManager());
             if (!hasAccess) {
@@ -146,7 +147,8 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
             item = new HeapItem(getObject, type);
         } catch (IllegalArgumentException | IllegalAccessException e) {
             String message = e.getMessage();
-            String callingClass = ectx.getMethodDescriptor().split("->")[0];
+            String callingMethodDescriptor = ectx.getCallerContext().getMethodDescriptor();
+            String callingClass = callingMethodDescriptor.split("->")[0];
             String callingClassJava = SmaliClassUtils.smaliClassToJava(callingClass);
             message = message.replace(java_lang_reflect_Field_get.class.getName(), callingClassJava);
             setException(new VirtualException(e.getClass(), message));

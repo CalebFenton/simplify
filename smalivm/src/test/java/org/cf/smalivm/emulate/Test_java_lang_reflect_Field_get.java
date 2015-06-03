@@ -38,6 +38,7 @@ public class Test_java_lang_reflect_Field_get {
     private ExecutionContextMethod method;
     private SmaliClassManager classManager;
     private ExecutionContext ectx;
+    private ExecutionContext callerContext;
     private MethodState mState;
     private HeapItem fieldItem;
     private HeapItem instanceItem;
@@ -87,7 +88,9 @@ public class Test_java_lang_reflect_Field_get {
         when(mState.peekParameter(INSTANCE_REGISTER)).thenReturn(instanceItem);
 
         when(ectx.getMethodState()).thenReturn(mState);
-        when(ectx.getMethodDescriptor()).thenReturn(MOCKED_METHOD_DESCRIPTOR);
+        callerContext = mock(ExecutionContext.class);
+        when(callerContext.getMethodDescriptor()).thenReturn(MOCKED_METHOD_DESCRIPTOR);
+        when(ectx.getCallerContext()).thenReturn(callerContext);
         method = new java_lang_reflect_Field_get();
     }
 
@@ -187,7 +190,7 @@ public class Test_java_lang_reflect_Field_get {
     public void localExistentStaticPrivateFieldFromExternalClassThrowsException() throws Exception {
         Object instance = null;
         LocalField field = new LocalField(LOCAL_PRIVATE_STATIC_FIELD);
-        when(ectx.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS);
+        when(callerContext.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS);
 
         String expectedMessage = "Class " + NO_ACCESS_LOCAL_CLASS_JAVA + " can not access a member of class " + LOCAL_CLASS_JAVA + " with modifiers \"private static\"";
         testLocalExceptionalCase(field, instance, IllegalAccessException.class, expectedMessage);
@@ -198,7 +201,7 @@ public class Test_java_lang_reflect_Field_get {
         Object instance = null;
         LocalField field = new LocalField(LOCAL_PRIVATE_STATIC_FIELD);
         field.setAccessible(true);
-        when(ectx.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS);
+        when(callerContext.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS);
 
         testLocalCase(field, instance, LOCAL_PRIVATE_STATIC_FIELD_VALUE, LOCAL_PRIVATE_STATIC_FIELD_TYPE);
     }
@@ -207,7 +210,7 @@ public class Test_java_lang_reflect_Field_get {
     public void localExistentStaticPrivateFieldFromInternalClassWorks() throws Exception {
         Object instance = null;
         LocalField field = new LocalField(LOCAL_PRIVATE_STATIC_FIELD);
-        when(ectx.getMethodDescriptor()).thenReturn(LOCAL_CLASS);
+        when(callerContext.getMethodDescriptor()).thenReturn(LOCAL_CLASS);
 
         testLocalCase(field, instance, LOCAL_PRIVATE_STATIC_FIELD_VALUE, LOCAL_PRIVATE_STATIC_FIELD_TYPE);
     }
@@ -225,7 +228,7 @@ public class Test_java_lang_reflect_Field_get {
     public void localExistentInstancePrivateFieldFromExternalClassThrowsException() throws Exception {
         Object instance = new LocalClass(LOCAL_CLASS);
         LocalField field = new LocalField(LOCAL_PRIVATE_INSTANCE_FIELD);
-        when(ectx.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS + "->someMethod()V");
+        when(callerContext.getMethodDescriptor()).thenReturn(NO_ACCESS_LOCAL_CLASS + "->someMethod()V");
 
         String expectedMessage = "Class " + NO_ACCESS_LOCAL_CLASS_JAVA + " can not access a member of class " + LOCAL_CLASS_JAVA + " with modifiers \"private\"";
         testLocalExceptionalCase(field, instance, IllegalAccessException.class, expectedMessage);
@@ -246,7 +249,7 @@ public class Test_java_lang_reflect_Field_get {
         Object value = new UnknownValue();
         Object instance = new LocalClass(LOCAL_CLASS);
         LocalField field = new LocalField(LOCAL_PRIVATE_INSTANCE_FIELD);
-        when(ectx.getMethodDescriptor()).thenReturn(LOCAL_CLASS + "->someMethodV");
+        when(callerContext.getMethodDescriptor()).thenReturn(LOCAL_CLASS + "->someMethodV");
 
         testLocalCase(field, instance, value, LOCAL_PRIVATE_INSTANCE_FIELD_TYPE);
     }

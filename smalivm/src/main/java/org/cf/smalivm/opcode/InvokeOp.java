@@ -143,7 +143,7 @@ public class InvokeOp extends ExecutionContextOp {
         MethodState callerMethodState = ectx.getMethodState();
         // Try to reflect or emulate before using local class.
         if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
-            ExecutionContext calleeContext = buildNonLocalCalleeContext(callerMethodState);
+            ExecutionContext calleeContext = buildNonLocalCalleeContext(ectx);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
                 executeNonLocalMethod(targetMethod, callerMethodState, calleeContext, node);
@@ -309,13 +309,14 @@ public class InvokeOp extends ExecutionContextOp {
         return calleeContext;
     }
 
-    private ExecutionContext buildNonLocalCalleeContext(MethodState callerMethodState) {
+    private ExecutionContext buildNonLocalCalleeContext(ExecutionContext callerContext) {
         ExecutionContext ectx = new ExecutionContext(vm, methodDescriptor);
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         int registerCount = parameterSize;
         MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
-        assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
+        assignCalleeMethodStateParameters(callerContext.getMethodState(), calleeMethodState);
         ectx.setMethodState(calleeMethodState);
+        ectx.registerCaller(callerContext, getAddress());
 
         return ectx;
     }
