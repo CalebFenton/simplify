@@ -119,6 +119,7 @@ public class VMTester {
     }
 
     public static VirtualMachine getTestVM(boolean reloadClasses) {
+        // Not reloading classes is an optimization to speed up tests
         if ((null == classManager) || reloadClasses) {
             try {
                 classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());

@@ -1,6 +1,10 @@
 .class Lreflection_removal_strategy_test;
 .super Ljava/lang/Object;
 
+.field private someInt:I
+.field private someInt:I
+.field private static someStaticObject:Ljava/lang/Object;
+
 .method public static MethodInvokeWith3LocalsAnd0Available()V
   .locals 3
 
@@ -61,7 +65,7 @@
   return-object v3
 .end method
 
-.method public FieldLookup()V
+.method public static FieldLookupWithMoveResult()V
   .locals 3
 
   invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
@@ -69,6 +73,32 @@
 
   invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
   move-result-object v0
+
+  return-void
+.end method
+
+.method public static FieldLookupWithoutMoveResultWithOneAvailableRegister()V
+  .locals 3
+
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  move-result-object v0
+
+  invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+
+  invoke-static {v0, v1}, Llolmoney/moneylol;->lol(II)V
+
+  return-void
+.end method
+
+.method public static FieldLookupWithoutMoveResultWithNoAvailableRegisters()V
+  .locals 3
+
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  move-result-object v0
+
+  invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+
+  invoke-static {v0, v1, v2}, Llolmoney/moneylol;->lol(III)V
 
   return-void
 .end method

@@ -51,6 +51,14 @@ public class ExecutionContext {
         return callDepth;
     }
 
+    public int getCallerAddress() {
+        return callerAddress;
+    }
+
+    public ExecutionContext getCallerContext() {
+        return callerContext;
+    }
+
     public SideEffect.Level getClassSideEffectLevel(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
         if (ancestor == null) {
