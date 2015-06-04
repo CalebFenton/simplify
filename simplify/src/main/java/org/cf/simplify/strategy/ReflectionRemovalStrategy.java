@@ -414,8 +414,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         int fieldRegister = parameterRegisters[0];
         int targetRegister = parameterRegisters[1];
         Object fieldValue = mbgraph.getRegisterConsensusValue(address, fieldRegister);
-        Object targetValue = mbgraph.getRegisterConsensusValue(address, targetRegister);
-        // if fieldValue is null, it's a static lookup
+        // Object targetValue = mbgraph.getRegisterConsensusValue(address, targetRegister);
 
         String fieldDescriptor = null;
         if (fieldValue instanceof LocalField) {
@@ -475,7 +474,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         return replacement;
     }
 
-    private static Opcode getGetOpcode(String type, boolean isStatic) {
+    static Opcode getGetOpcode(String type, boolean isStatic) {
         Opcode op;
         if (isStatic) {
             if (SmaliClassUtils.isPrimitiveType(type)) {
@@ -550,20 +549,14 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             SmaliClassManager classManager = mbgraph.getVM().getClassManager();
             BuilderField builderField = classManager.getField(className, fieldName);
             if (Modifier.isPublic(builderField.getAccessFlags()) && field.isAccessible()) {
-                // Field.setAccessible(true) set on this, reflection is necessary
                 return false;
             }
         } else if (fieldValue instanceof Field) {
             Field field = (Field) fieldValue;
-            try {
-                boolean isPublic = Modifier.isPublic(field.getModifiers());
-                if (!isPublic && field.isAccessible()) {
-                    // Field.setAccessible(true) set on this, reflection is necessary
-                    return false;
-                }
-            } catch (SecurityException | IllegalArgumentException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+            boolean isPublic = Modifier.isPublic(field.getModifiers());
+            if (!isPublic && field.isAccessible()) {
+                // TODO: need to also check if mbgraph method has access to this field
+                // same for localfields
                 return false;
             }
         }
