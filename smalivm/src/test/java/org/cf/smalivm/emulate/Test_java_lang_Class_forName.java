@@ -113,4 +113,5 @@ public class Test_java_lang_Class_forName {
         verify(mState, times(0)).assignReturnRegister(any(UnknownValue.class), eq(CLASS_TYPE));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
     }
+
 }

@@ -231,6 +231,18 @@ public class MethodBackedGraph extends ExecutionGraph {
         replaceInstruction(address, shift, op, codeUnits);
     }
 
+    public void replaceWithMultipleInstructions(int address, List<BuilderInstruction> replacements) {
+        int insertAddress = address;
+        for (BuilderInstruction replacement : replacements) {
+            if (insertAddress == address) {
+                replaceInstruction(insertAddress, replacement);
+            } else {
+                insertInstruction(insertAddress, replacement);
+            }
+            insertAddress += replacement.getCodeUnits();
+        }
+    }
+
     private void shiftNodePileAddresses(int startAddress, int shift) {
         shiftOpAddresses(startAddress, shift);
         Utils.shiftIntegerMapKeys(startAddress, shift, addressToNodePile);
@@ -387,8 +399,7 @@ public class MethodBackedGraph extends ExecutionGraph {
         ExecutionNode node = stack.peek();
         if (null == node) {
             // Edge case.
-            assert (getTemplateNode(address).getOp() instanceof ReturnOp)
-                            || (getTemplateNode(address).getOp() instanceof ReturnVoidOp);
+            assert (getTemplateNode(address).getOp() instanceof ReturnOp) || (getTemplateNode(address).getOp() instanceof ReturnVoidOp);
             MethodState mState = getNodePile(address).get(0).getContext().getMethodState();
             TIntList available = new TIntLinkedList();
             // They're all available!
@@ -406,6 +417,7 @@ public class MethodBackedGraph extends ExecutionGraph {
         TIntSet registersRead = new TIntHashSet();
         TIntSet registersAssigned = new TIntHashSet();
         while ((node = stack.poll()) != null) {
+            // TODO: easy - determine if dalvik allows you to overwrite the "this" register for instance methods
             MethodState mState = node.getContext().getMethodState();
             for (int register : registers) {
                 if (registersRead.contains(register) || registersAssigned.contains(register)) {

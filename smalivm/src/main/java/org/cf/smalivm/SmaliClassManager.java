@@ -144,6 +144,16 @@ public class SmaliClassManager {
         return classDef.getFields();
     }
 
+    public BuilderField getField(String className, String fieldName) {
+        for (BuilderField field : getFields(className)) {
+            if (fieldName.equals(field.getName())) {
+                return field;
+            }
+        }
+
+        return null;
+    }
+
     public Set<String> getLoadedClassNames() {
         return classNameToClassDef.keySet();
     }

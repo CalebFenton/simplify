@@ -43,7 +43,7 @@ public class LocalField implements LocalType {
         return fieldDescriptor;
     }
 
-    public boolean getAccessible() {
+    public boolean isAccessible() {
         return accessible;
     }
 

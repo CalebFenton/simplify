@@ -5,6 +5,7 @@ import gnu.trove.list.array.TIntArrayList;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.cf.simplify.MethodBackedGraph;
 import org.cf.smalivm.SmaliClassManager;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.type.LocalField;
 import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.SmaliClassUtils;
@@ -22,16 +24,20 @@ import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction11x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction22c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction23x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction32x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction35c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction3rc;
 import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
+import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.immutable.reference.ImmutableMethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
@@ -62,6 +68,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
     private static final Logger log = LoggerFactory.getLogger(ReflectionRemovalStrategy.class.getSimpleName());
 
     private static final String MethodInvokeSignature = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String FieldGetSignature = "Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;";
     private final MethodBackedGraph mbgraph;
 
     private int unreflectCount;
@@ -85,7 +92,10 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         madeChanges = false;
 
         addresses = getValidAddresses(mbgraph);
-        removeMethodInvoke();
+        replaceMethodInvoke();
+
+        addresses = getValidAddresses(mbgraph);
+        replaceFieldGet();
 
         return madeChanges;
     }
@@ -152,7 +162,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
     }
 
     List<BuilderInstruction> buildMethodInvokeReplacement(int address) throws Exception {
-        // The good news is: all other types of smali generation are easier.
+        // The good news is: this is as complicated as it gets
         Op op = mbgraph.getOp(address);
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
@@ -193,6 +203,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
             methodRef = mbgraph.getDexBuilder().internMethodReference(methodDef);
         }
+        // TODO: easy - replace bitwise logic with Modifier.isStatic(int mod)
         boolean isStatic = (methodAccessFlags & AccessFlags.STATIC.getValue()) != 0;
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
 
@@ -301,7 +312,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         return instructions;
     }
 
-    boolean canRemoveMethodInvoke(int address) {
+    boolean canReplaceMethodInvoke(int address) {
         Op op = mbgraph.getOp(address);
         if (!(op instanceof InvokeOp)) {
             return false;
@@ -363,10 +374,219 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    private void removeMethodInvoke() {
+    private void replaceFieldGet() {
+        TIntList getAddresses = new TIntArrayList();
+        for (int address : addresses.toArray()) {
+            if (canReplaceFieldGet(address)) {
+                getAddresses.add(address);
+            }
+        }
+
+        if (0 == getAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
+        unreflectCount += getAddresses.size();
+        getAddresses.sort();
+        getAddresses.reverse();
+        for (int address : getAddresses.toArray()) {
+            BuilderInstruction replacement = buildFieldGetReplacement(address);
+            removeMoveResultIfNecessary(address);
+            mbgraph.replaceInstruction(address, replacement);
+        }
+    }
+
+    private void removeMoveResultIfNecessary(int address) {
+        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        int nextAddress = address + instruction.getCodeUnits();
+        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+
+        String opName = nextInstr.getOpcode().name;
+        if (opName.startsWith("move-result")) {
+            mbgraph.removeInstruction(nextAddress);
+        }
+    }
+
+    private BuilderInstruction buildFieldGetReplacement(int address) {
+        Op op = mbgraph.getOp(address);
+        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
+        int fieldRegister = parameterRegisters[0];
+        int targetRegister = parameterRegisters[1];
+        Object fieldValue = mbgraph.getRegisterConsensusValue(address, fieldRegister);
+        Object targetValue = mbgraph.getRegisterConsensusValue(address, targetRegister);
+        // if fieldValue is null, it's a static lookup
+
+        String fieldDescriptor = null;
+        if (fieldValue instanceof LocalField) {
+            LocalField field = (LocalField) fieldValue;
+            fieldDescriptor = field.getName();
+        } else if (fieldValue instanceof Field) {
+            Field field = (Field) fieldValue;
+            StringBuilder sb = new StringBuilder();
+            sb.append(SmaliClassUtils.javaClassToSmali(field.getDeclaringClass()));
+            sb.append("->").append(field.getName()).append(':');
+            sb.append(SmaliClassUtils.javaClassToSmali(field.getType()));
+            fieldDescriptor = sb.toString();
+        }
+
+        String[] parts;
+        parts = fieldDescriptor.split("->");
+        String className = parts[0];
+        String fieldNameAndType = parts[1];
+        parts = fieldNameAndType.split(":");
+        String fieldName = parts[0];
+        String type = parts[1];
+
+        FieldReference fieldRef = null;
+        boolean isStatic = false;
+        if (fieldValue instanceof LocalField) {
+            SmaliClassManager classManager = mbgraph.getVM().getClassManager();
+            BuilderField builderField = classManager.getField(className, fieldName);
+            fieldRef = (FieldReference) builderField;
+            isStatic = Modifier.isStatic(builderField.getAccessFlags());
+        } else {
+            Field field = (Field) fieldValue;
+            fieldRef = mbgraph.getDexBuilder()
+                            .internField(className, fieldName, type, field.getModifiers(), null, null);
+            isStatic = Modifier.isStatic(field.getModifiers());
+        }
+        Opcode newOp = getGetOpcode(type, isStatic);
+
+        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        int nextAddress = address + instruction.getCodeUnits();
+        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        String opName = nextInstr.getOpcode().name;
+        int destRegister;
+        if (opName.startsWith("move-result")) {
+            BuilderInstruction11x moveInstr = (BuilderInstruction11x) nextInstr;
+            destRegister = moveInstr.getRegisterA();
+        } else {
+            destRegister = mbgraph.getAvailableRegisters(address).get(0);
+        }
+
+        BuilderInstruction replacement = null;
+        if (isStatic) {
+            replacement = new BuilderInstruction21c(newOp, destRegister, fieldRef);
+        } else {
+            replacement = new BuilderInstruction22c(newOp, destRegister, targetRegister, fieldRef);
+        }
+
+        return replacement;
+    }
+
+    private static Opcode getGetOpcode(String type, boolean isStatic) {
+        Opcode op;
+        if (isStatic) {
+            if (SmaliClassUtils.isPrimitiveType(type)) {
+                // wide, boolean, byte, char, short, get
+                if ("J".equals(type) || "D".equals(type)) {
+                    op = Opcode.SGET_WIDE;
+                } else if ("Z".equals(type)) {
+                    op = Opcode.SGET_BOOLEAN;
+                } else if ("B".equals(type)) {
+                    op = Opcode.SGET_BYTE;
+                } else if ("C".equals(type)) {
+                    op = Opcode.SGET_CHAR;
+                } else if ("S".equals(type)) {
+                    op = Opcode.SGET_SHORT;
+                } else {
+                    op = Opcode.SGET;
+                }
+            } else {
+                op = Opcode.SGET_OBJECT;
+            }
+        } else {
+            if (SmaliClassUtils.isPrimitiveType(type)) {
+                // wide, boolean, byte, char, short, get
+                if ("J".equals(type) || "D".equals(type)) {
+                    op = Opcode.IGET_WIDE;
+                } else if ("Z".equals(type)) {
+                    op = Opcode.IGET_BOOLEAN;
+                } else if ("B".equals(type)) {
+                    op = Opcode.IGET_BYTE;
+                } else if ("C".equals(type)) {
+                    op = Opcode.IGET_CHAR;
+                } else if ("S".equals(type)) {
+                    op = Opcode.IGET_SHORT;
+                } else {
+                    op = Opcode.IGET;
+                }
+            } else {
+                op = Opcode.IGET_OBJECT;
+            }
+        }
+
+        return op;
+    }
+
+    boolean canReplaceFieldGet(int address) {
+        Op op = mbgraph.getOp(address);
+        if (!(op instanceof InvokeOp)) {
+            return false;
+        }
+
+        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        ReferenceInstruction instr = (ReferenceInstruction) instruction;
+        String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
+        if (!methodSignature.equals(FieldGetSignature)) {
+            return false;
+        }
+
+        int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
+        int fieldRegister = parameterRegisters[0];
+        // TIntList parentAddresses = mbgraph.getParentAddresses(address);
+        Object fieldValue = mbgraph.getRegisterConsensusValue(address, fieldRegister);
+        if (fieldValue instanceof UnknownValue) {
+            return false;
+        }
+
+        if (fieldValue instanceof LocalField) {
+            LocalField field = (LocalField) fieldValue;
+            String[] parts = field.getName().split("->");
+            String className = parts[0];
+            String fieldNameAndType = parts[1];
+            String fieldName = fieldNameAndType.split(":")[0];
+            SmaliClassManager classManager = mbgraph.getVM().getClassManager();
+            BuilderField builderField = classManager.getField(className, fieldName);
+            if (Modifier.isPublic(builderField.getAccessFlags()) && field.isAccessible()) {
+                // Field.setAccessible(true) set on this, reflection is necessary
+                return false;
+            }
+        } else if (fieldValue instanceof Field) {
+            Field field = (Field) fieldValue;
+            try {
+                boolean isPublic = Modifier.isPublic(field.getModifiers());
+                if (!isPublic && field.isAccessible()) {
+                    // Field.setAccessible(true) set on this, reflection is necessary
+                    return false;
+                }
+            } catch (SecurityException | IllegalArgumentException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+                return false;
+            }
+        }
+
+        int nextAddress = address + instruction.getCodeUnits();
+        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        String opName = nextInstr.getOpcode().name;
+        if (!opName.startsWith("move-result")) {
+            TIntList available = mbgraph.getAvailableRegisters(address);
+            if (available.size() == 0) {
+                // How often do you see field lookup where the result isn't used
+                // and there are no available registers?
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void replaceMethodInvoke() {
         TIntList invokeAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            if (canRemoveMethodInvoke(address)) {
+            if (canReplaceMethodInvoke(address)) {
                 invokeAddresses.add(address);
             }
         }
@@ -385,21 +605,10 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             try {
                 replacements = buildMethodInvokeReplacement(address);
             } catch (Exception e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
 
-            if (replacements.size() > 0) {
-                int insertAddress = address;
-                for (BuilderInstruction replacement : replacements) {
-                    if (insertAddress == address) {
-                        mbgraph.replaceInstruction(insertAddress, replacement);
-                    } else {
-                        mbgraph.insertInstruction(insertAddress, replacement);
-                    }
-                    insertAddress += replacement.getCodeUnits();
-                }
-            }
+            mbgraph.replaceWithMultipleInstructions(address, replacements);
         }
     }
 
