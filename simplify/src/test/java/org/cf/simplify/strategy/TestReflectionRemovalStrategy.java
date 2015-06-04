@@ -17,6 +17,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
+import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -205,7 +206,6 @@ public class TestReflectionRemovalStrategy {
             String fieldName = "MAX_VALUE";
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
                             1, fieldName, "Ljava/lang/String;", 2, null, null);
-            System.out.println(mbgraph.toSmali());
             String[] endLines = new String[] { "sget r0, Ljava/lang/Integer;->MAX_VALUE:I", "return-void", };
             String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
 
@@ -217,7 +217,6 @@ public class TestReflectionRemovalStrategy {
             LocalClass fieldClass = new LocalClass(CLASS_NAME);
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
                             1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
-            // System.out.println(mbgraph.toSmali());
             String[] endLines = new String[] {
                             "sget-object r0, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
                             "return-void", };
@@ -315,6 +314,36 @@ public class TestReflectionRemovalStrategy {
 
             testSmali(mbgraph, expectedLines);
             testRegisterCount(mbgraph, METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 10);
+        }
+
+    }
+
+    public static class TestProtectedMethods {
+
+        @Test
+        public void testStaticGetOpcodes() {
+            boolean isStatic = true;
+            assertEquals(Opcode.SGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
+            assertEquals(Opcode.SGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
+            assertEquals(Opcode.SGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
+            assertEquals(Opcode.SGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
+            assertEquals(Opcode.SGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
+            assertEquals(Opcode.SGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
+            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
+            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
+        }
+
+        @Test
+        public void testInstanceGetOpcodes() {
+            boolean isStatic = false;
+            assertEquals(Opcode.IGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
+            assertEquals(Opcode.IGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
+            assertEquals(Opcode.IGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
+            assertEquals(Opcode.IGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
+            assertEquals(Opcode.IGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
+            assertEquals(Opcode.IGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
+            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
+            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
         }
 
     }
