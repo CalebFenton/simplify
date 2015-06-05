@@ -22,7 +22,6 @@ import org.jf.dexlib2.iface.reference.Reference;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
-import org.mockito.runners.MockitoJUnitRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,32 +81,28 @@ public class TestConstantPropigationStrategy {
         }
     }
 
-    @RunWith(MockitoJUnitRunner.class)
     public static class UnitTests {
 
         @Test
         public void testConstantizablesHandlesNull() {
-            // Mocks
             MethodBackedGraph graph = mock(MethodBackedGraph.class);
-            ConstantBuilder constantBuilder = mock(ConstantBuilder.class);
+            ConstantBuilder builder = mock(ConstantBuilder.class);
             BuilderInstruction instruction = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(OneRegisterInstruction.class));
 
-            // Object opUnderTest
-            ConstantPropigationStrategy strategyUnderTest = new ConstantPropigationStrategy(graph);
-            strategyUnderTest.setDependancies(constantBuilder);
+            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(graph);
+            strategy.setDependancies(builder);
 
-            // Actions to mock to create previous bug
             when(graph.getAddresses()).thenReturn(new int[] { 1 });
             when(graph.getInstruction(1)).thenReturn(null).thenReturn(instruction);
             when(graph.wasAddressReached(1)).thenReturn(true);
             when(graph.getOp(1)).thenReturn(null);
             when(((OneRegisterInstruction) instruction).getRegisterA()).thenReturn(2);
             when(graph.getRegisterConsensus(1, 2)).thenReturn(null);
-            when(constantBuilder.canConstantizeOp(null)).thenReturn(true);
+            when(builder.canConstantizeOp(null)).thenReturn(true);
 
-            // Should now return that no changes have been made opposed to crash
-            assertFalse(strategyUnderTest.perform());
+            boolean changesMade = strategy.perform();
+            assertFalse(changesMade);
         }
     }
 
