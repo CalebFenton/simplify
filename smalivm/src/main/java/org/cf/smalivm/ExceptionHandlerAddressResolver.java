@@ -13,10 +13,10 @@ import org.jf.dexlib2.iface.TryBlock;
 
 public class ExceptionHandlerAddressResolver {
 
-    private final SmaliClassManager classManager;
+    private final ClassManager classManager;
     private final List<BuilderTryBlock> tryBlocks;
 
-    ExceptionHandlerAddressResolver(SmaliClassManager classManager, String methodDescriptor) {
+    ExceptionHandlerAddressResolver(ClassManager classManager, String methodDescriptor) {
         this.classManager = classManager;
         tryBlocks = classManager.getTryBlocks(methodDescriptor);
     }

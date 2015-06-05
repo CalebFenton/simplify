@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
@@ -78,7 +78,7 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         exceptions.add(exception);
     }
 
-    private static LocalMethod getLocalMethod(SmaliClassManager classManager, LocalClass localClass, String methodName,
+    private static LocalMethod getLocalMethod(ClassManager classManager, LocalClass localClass, String methodName,
                     Object[] parameterTypesValue) {
         String className = localClass.getName();
         if (!classManager.isLocalClass(className)) {

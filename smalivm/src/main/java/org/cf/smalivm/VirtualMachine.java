@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import gnu.trove.list.TIntList;
 
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +20,6 @@ import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
@@ -61,15 +61,15 @@ public class VirtualMachine {
     private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
 
     private final MethodExecutor methodExecutor;
-    private final SmaliClassManager classManager;
+    private final ClassManager classManager;
     private final Map<BuilderMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
 
-    public VirtualMachine(SmaliClassManager manager) {
+    public VirtualMachine(ClassManager manager) {
         this(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
     }
 
-    public VirtualMachine(SmaliClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
+    public VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
         this.classManager = manager;
         methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits);
         methodToTemplateExecutionGraph = new HashMap<BuilderMethod, ExecutionGraph>();
@@ -115,7 +115,7 @@ public class VirtualMachine {
         return result;
     }
 
-    public SmaliClassManager getClassManager() {
+    public ClassManager getClassManager() {
         return classManager;
     }
 
@@ -157,7 +157,7 @@ public class VirtualMachine {
         MethodImplementation impl = method.getImplementation();
         int registerCount = impl.getRegisterCount();
         List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        boolean isStatic = ((method.getAccessFlags() & AccessFlags.STATIC.getValue()) != 0);
+        boolean isStatic = Modifier.isStatic(method.getAccessFlags());
         addTemplateMethodState(spawnedContext, isStatic, registerCount, parameterTypes);
 
         if (callerContext != null) {

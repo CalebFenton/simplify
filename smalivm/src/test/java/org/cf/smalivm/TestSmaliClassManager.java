@@ -20,11 +20,11 @@ public class TestSmaliClassManager {
     private static final String GRANDPARENT_CLASS = "Lgrandparent_class;";
     private static final String NON_EXISTENT_CLASS = "Lthis_certainly_wont_exists;";
 
-    private static SmaliClassManager manager;
+    private static ClassManager manager;
 
     @BeforeClass
     public static void getClassManager() throws IOException {
-        manager = new SmaliClassManager(TEST_DIRECTORY);
+        manager = new ClassManager(TEST_DIRECTORY);
     }
 
     @Test

@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
@@ -199,7 +199,7 @@ public class TestAPutOp {
         private static final int INDEX_REGISTER = 2;
 
         private VirtualMachine vm;
-        private SmaliClassManager classManager;
+        private ClassManager classManager;
         private BuilderInstruction instruction;
         private OpFactory opFactory;
         private MethodState mState;
@@ -208,7 +208,7 @@ public class TestAPutOp {
 
         @Before
         public void setUp() throws UnknownAncestors {
-            classManager = mock(SmaliClassManager.class);
+            classManager = mock(ClassManager.class);
             when(classManager.isInstance("I", "[I")).thenReturn(true);
             when(classManager.isInstance("Ljava/lang/String;", "[I")).thenReturn(false);
 

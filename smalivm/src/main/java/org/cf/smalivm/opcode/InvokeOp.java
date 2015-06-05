@@ -9,7 +9,7 @@ import java.util.Set;
 
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -77,7 +77,7 @@ public class InvokeOp extends ExecutionContextOp {
         String returnType = methodReference.getReturnType();
         List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
-        SmaliClassManager classManager = vm.getClassManager();
+        ClassManager classManager = vm.getClassManager();
         if (classManager.isLocalMethod(methodDescriptor) && !(classManager.isFramework(methodDescriptor) && !classManager
                         .isSafeFramework(methodDescriptor))) {
             parameterTypes = classManager.getParameterTypes(methodDescriptor);
@@ -157,7 +157,7 @@ public class InvokeOp extends ExecutionContextOp {
         } else {
             // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
 
-            SmaliClassManager classManager = vm.getClassManager();
+            ClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
                 if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {
                     if (log.isDebugEnabled()) {
@@ -407,7 +407,7 @@ public class InvokeOp extends ExecutionContextOp {
             actualType = SmaliClassUtils.smaliPrimitiveToJavaWrapper(actualType);
         }
         String methodSignature = methodDescriptor.split("->")[1];
-        SmaliClassManager classManager = vm.getClassManager();
+        ClassManager classManager = vm.getClassManager();
         String targetMethod = getLocalTargetForVirtualMethod(actualType, methodSignature, classManager,
                         new HashSet<String>());
 
@@ -452,7 +452,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private String getLocalTargetForVirtualMethod(String className, String methodSignature,
-                    SmaliClassManager classManager, Set<String> visited) {
+                    ClassManager classManager, Set<String> visited) {
         visited.add(className);
         StringBuilder sb = new StringBuilder(className);
         sb.append("->").append(methodSignature);

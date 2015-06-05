@@ -2,7 +2,7 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
@@ -36,10 +36,10 @@ public class APutOp extends MethodStateOp {
     private final int arrayRegister;
     private final int indexRegister;
     private final int valueRegister;
-    private final SmaliClassManager classManager;
+    private final ClassManager classManager;
 
     public APutOp(int address, String opName, int childAddress, int putRegister, int arrayRegister, int indexRegister,
-                    SmaliClassManager classManager) {
+                    ClassManager classManager) {
         super(address, opName, childAddress);
 
         this.valueRegister = putRegister;
@@ -97,7 +97,7 @@ public class APutOp extends MethodStateOp {
         mState.assignRegister(arrayRegister, arrayItem);
     }
 
-    private static boolean throwsArrayStoreException(SmaliClassManager classManager, String arrayType, String valueType) {
+    private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, String valueType) {
         String arrayComponentType = SmaliClassUtils.getComponentType(arrayType);
         // These types are all represented identically in bytecode: Z B C S I
         if (isOverloadedPrimitiveType(valueType) && isOverloadedPrimitiveType(arrayComponentType)) {

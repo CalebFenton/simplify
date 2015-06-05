@@ -37,7 +37,7 @@ public class VMTester {
 
     private static final String TEST_DIRECTORY = "resources/test";
 
-    private static SmaliClassManager classManager;
+    private static ClassManager classManager;
 
     public static Map<String, Map<String, HeapItem>> buildClassNameToFieldItem(String className, Object... params) {
         Map<String, Map<String, HeapItem>> result = new HashMap<String, Map<String, HeapItem>>(1);
@@ -110,7 +110,7 @@ public class VMTester {
         return graph;
     }
 
-    public static SmaliClassManager getClassManager() {
+    public static ClassManager getClassManager() {
         return classManager;
     }
 
@@ -122,7 +122,7 @@ public class VMTester {
         // Not reloading classes is an optimization to speed up tests
         if ((null == classManager) || reloadClasses) {
             try {
-                classManager = new SmaliClassManager(TEST_DIRECTORY, getDexBuilder());
+                classManager = new ClassManager(TEST_DIRECTORY, getDexBuilder());
             } catch (IOException e) {
                 e.printStackTrace();
                 System.exit(-1);
