@@ -1,6 +1,7 @@
 package org.cf.simplify;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.regex.Pattern;
 
@@ -60,6 +61,9 @@ public class Options implements Serializable {
     private boolean includeSupportLibrary;
 
     private File inFile;
+    private File outDexFile;
+    private boolean isApk;
+    private boolean isDex;
 
     public Pattern getExcludeFilter() {
         return excludeFilter;
@@ -93,8 +97,20 @@ public class Options implements Serializable {
         return outFile;
     }
 
+    public File getOutDexFile() {
+        return outDexFile;
+    }
+
     public int getOutputAPILevel() {
         return outputAPILevel;
+    }
+
+    public boolean isApk() {
+        return isApk;
+    }
+
+    public boolean isDex() {
+        return isDex;
     }
 
     public boolean includeSupportLibrary() {
@@ -125,10 +141,34 @@ public class Options implements Serializable {
                     usage = "Input SMALI file or folder", required = true)
     private void setInFile(File inFile) {
         this.inFile = inFile;
+        determineInputType();
 
-        // Output will be in current directory
         String baseName = FilenameUtils.getBaseName(inFile.toString());
-        outFile = new File(baseName + "_simple.dex");
+        if (isApk) {
+            String ext = FilenameUtils.getExtension(inFile.toString());
+            if (!ext.startsWith(".")) {
+                ext = "." + ext;
+            }
+            outFile = new File(baseName + "_simple.apk");
+            try {
+                outDexFile = File.createTempFile("simplify", "dex");
+            } catch (IOException e) {
+                System.err.println("Could not create temp file.\n" + e);
+                System.exit(-1);
+            }
+        } else {
+            outDexFile = new File(baseName + "_simple.dex");
+            outFile = outDexFile;
+        }
+    }
+
+    private void determineInputType() {
+        String type = FilenameUtils.getExtension(inFile.getAbsolutePath()).toLowerCase();
+        if ("apk".equals(type)) {
+            isApk = true;
+        } else if ("dex".equals(type)) {
+            isDex = true;
+        }
     }
 
     @Override
