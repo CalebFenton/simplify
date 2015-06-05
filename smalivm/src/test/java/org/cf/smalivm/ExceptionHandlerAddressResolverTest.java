@@ -22,14 +22,14 @@ public class ExceptionHandlerAddressResolverTest {
     private static final String METHOD = "someMethod";
 
     private List<BuilderTryBlock> tryBlocks;
-    private SmaliClassManager classManager;
+    private ClassManager classManager;
     private VirtualException vex;
 
     @Before
     public void setUp() {
         vex = mock(VirtualException.class);
         tryBlocks = new LinkedList<BuilderTryBlock>();
-        classManager = mock(SmaliClassManager.class);
+        classManager = mock(ClassManager.class);
         when(classManager.getClassAncestors(EXCEPTION3)).thenReturn(new HashSet<String>(Arrays.asList(EXCEPTION2)));
         when(classManager.getClassAncestors(EXCEPTION2)).thenReturn(new HashSet<String>(Arrays.asList(EXCEPTION1)));
         when(classManager.getClassAncestors(EXCEPTION1)).thenReturn(new HashSet<String>());

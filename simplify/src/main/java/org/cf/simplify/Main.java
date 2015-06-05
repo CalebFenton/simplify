@@ -6,7 +6,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
@@ -44,7 +44,7 @@ public class Main {
         long startTime = System.currentTimeMillis();
 
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(opts.getOutputAPILevel());
-        SmaliClassManager classManager = new SmaliClassManager(opts.getInFile(), dexBuilder);
+        ClassManager classManager = new ClassManager(opts.getInFile(), dexBuilder);
         VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
                         opts.getMaxMethodVisits());
 

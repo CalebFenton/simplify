@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
@@ -72,7 +72,7 @@ public class java_lang_Class_getField implements MethodStateMethod {
         mState.assignReturnRegister(fieldValue, RETURN_TYPE);
     }
 
-    private Object getLocalField(SmaliClassManager classManager, LocalClass localClass, String fieldName) {
+    private Object getLocalField(ClassManager classManager, LocalClass localClass, String fieldName) {
         String className = localClass.getName();
         if (!classManager.isLocalClass(className)) {
             return null;

@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -16,7 +16,6 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.smalivm.type.LocalField;
 import org.cf.util.SmaliClassUtils;
-import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderField;
 import org.slf4j.Logger;
@@ -73,9 +72,9 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
     }
 
     private boolean checkAccess(String callingClassSmali, String definingClassSmali, int accessFlags,
-                    SmaliClassManager classManager) {
-        boolean isPrivate = ((accessFlags & AccessFlags.PRIVATE.getValue()) != 0);
-        boolean isProtected = ((accessFlags & AccessFlags.PROTECTED.getValue()) != 0);
+                    ClassManager classManager) {
+        boolean isPrivate = Modifier.isPrivate(accessFlags);
+        boolean isProtected = Modifier.isProtected(accessFlags);
 
         if (isPrivate || isProtected) {
             String callingClassJava = SmaliClassUtils.smaliClassToJava(callingClassSmali);
@@ -127,7 +126,7 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
                 return null;
             }
         }
-        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+        boolean isStatic = Modifier.isStatic(accessFlags);
         if (!isStatic) {
             // Instance field lookup isn't supported yet.
             item = HeapItem.newUnknown(field.getType());
@@ -158,7 +157,7 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
     }
 
     private BuilderField getBuilderField(VirtualMachine vm, ExecutionContext ectx, LocalField localField) {
-        SmaliClassManager classManager = vm.getClassManager();
+        ClassManager classManager = vm.getClassManager();
         String[] parts = localField.getName().split("->");
         String className = parts[0];
         String fieldName = parts[1].split(":")[0];

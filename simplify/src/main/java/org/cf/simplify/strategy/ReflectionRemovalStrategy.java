@@ -13,7 +13,7 @@ import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.LocalField;
@@ -140,15 +140,15 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
     private Opcode getInvokeOp(int classAccessFlags, int methodAccessFlags, boolean isRange) {
         Opcode invokeOp;
 
-        boolean isInterface = (classAccessFlags & AccessFlags.INTERFACE.getValue()) != 0;
+        boolean isInterface = Modifier.isInterface(classAccessFlags);
         if (isInterface) {
             invokeOp = isRange ? Opcode.INVOKE_INTERFACE_RANGE : Opcode.INVOKE_INTERFACE;
 
             return invokeOp;
         }
 
-        boolean isStatic = (methodAccessFlags & AccessFlags.STATIC.getValue()) != 0;
-        boolean isPrivate = (methodAccessFlags & AccessFlags.PRIVATE.getValue()) != 0;
+        boolean isStatic = Modifier.isStatic(methodAccessFlags);
+        boolean isPrivate = Modifier.isPrivate(methodAccessFlags);
         boolean isConstructor = (methodAccessFlags & AccessFlags.CONSTRUCTOR.getValue()) != 0;
         if (isStatic) {
             invokeOp = isRange ? Opcode.INVOKE_STATIC_RANGE : Opcode.INVOKE_STATIC;
@@ -197,14 +197,14 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             BuilderMethod methodDef = mbgraph.getVM().getClassManager().getMethod(method.getName());
             methodAccessFlags = methodDef.getAccessFlags();
             declaringClass = method.getName().split("->")[0];
-            SmaliClassManager manager = mbgraph.getVM().getClassManager();
+            ClassManager manager = mbgraph.getVM().getClassManager();
             classAccessFlags = manager.getClass(declaringClass).getAccessFlags();
             parameterTypes = Utils.builderTypeListToStringList(methodDef.getParameterTypes());
             parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
             methodRef = mbgraph.getDexBuilder().internMethodReference(methodDef);
         }
         // TODO: easy - replace bitwise logic with Modifier.isStatic(int mod)
-        boolean isStatic = (methodAccessFlags & AccessFlags.STATIC.getValue()) != 0;
+        boolean isStatic = Modifier.isStatic(methodAccessFlags);
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
 
         boolean isRange = false;
@@ -348,13 +348,13 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             declaringClass = SmaliClassUtils.javaClassToSmali(method.getDeclaringClass());
         } else if (methodValue instanceof LocalMethod) {
             LocalMethod method = (LocalMethod) methodValue;
-            SmaliClassManager manager = mbgraph.getVM().getClassManager();
+            ClassManager manager = mbgraph.getVM().getClassManager();
             BuilderMethod methodDef = manager.getMethod(method.getName());
             methodAccessFlags = methodDef.getAccessFlags();
             declaringClass = method.getName().split("->")[0];
         }
 
-        boolean isPrivate = (methodAccessFlags & AccessFlags.PRIVATE.getValue()) != 0;
+        boolean isPrivate = Modifier.isPrivate(methodAccessFlags);
         if (isPrivate && !declaringClass.equals(className)) {
             // Can't access this method without method.setAccessible(true)
             return false;
@@ -440,7 +440,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
         FieldReference fieldRef = null;
         boolean isStatic = false;
         if (fieldValue instanceof LocalField) {
-            SmaliClassManager classManager = mbgraph.getVM().getClassManager();
+            ClassManager classManager = mbgraph.getVM().getClassManager();
             BuilderField builderField = classManager.getField(className, fieldName);
             fieldRef = (FieldReference) builderField;
             isStatic = Modifier.isStatic(builderField.getAccessFlags());
@@ -546,7 +546,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             String className = parts[0];
             String fieldNameAndType = parts[1];
             String fieldName = fieldNameAndType.split(":")[0];
-            SmaliClassManager classManager = mbgraph.getVM().getClassManager();
+            ClassManager classManager = mbgraph.getVM().getClassManager();
             BuilderField builderField = classManager.getField(className, fieldName);
             if (Modifier.isPublic(builderField.getAccessFlags()) && field.isAccessible()) {
                 return false;

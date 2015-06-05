@@ -15,7 +15,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.StaticFieldAccessor;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
@@ -36,7 +36,7 @@ public class Test_java_lang_reflect_Field_get {
 
     private VirtualMachine vm;
     private ExecutionContextMethod method;
-    private SmaliClassManager classManager;
+    private ClassManager classManager;
     private ExecutionContext ectx;
     private ExecutionContext callerContext;
     private MethodState mState;
@@ -95,7 +95,7 @@ public class Test_java_lang_reflect_Field_get {
     }
 
     private void setupFields(VirtualMachine vm, ExecutionContext ectx) {
-        classManager = mock(SmaliClassManager.class);
+        classManager = mock(ClassManager.class);
         when(vm.getClassManager()).thenReturn(classManager);
         when(classManager.isLocalClass(LOCAL_CLASS)).thenReturn(true);
 

@@ -14,7 +14,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
@@ -44,7 +44,7 @@ public class Test_java_lang_Class_getField {
 
     private VirtualMachine vm;
     private MethodStateMethod method;
-    private SmaliClassManager classManager;
+    private ClassManager classManager;
     private MethodState mState;
     private HeapItem classItem;
     private HeapItem fieldNameItem;
@@ -52,7 +52,7 @@ public class Test_java_lang_Class_getField {
     @Before
     public void setUp() {
         vm = mock(VirtualMachine.class);
-        classManager = mock(SmaliClassManager.class);
+        classManager = mock(ClassManager.class);
         when(vm.getClassManager()).thenReturn(classManager);
         when(classManager.isLocalClass(LOCAL_CLASS_NAME_SMALI)).thenReturn(true);
         when(classManager.isLocalClass(LOCAL_CLASS_WITH_STRONG_SIDE_EFFECTS_NAME_SMALI)).thenReturn(true);

@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -26,7 +26,7 @@ import org.junit.Test;
 public class Test_java_lang_Class_forName {
 
     private VirtualMachine vm;
-    private SmaliClassManager classManager;
+    private ClassManager classManager;
     private ExecutionContextMethod method;
     private MethodState mState;
     private ExecutionContext ectx;
@@ -51,7 +51,7 @@ public class Test_java_lang_Class_forName {
     @Before
     public void setUp() {
         vm = mock(VirtualMachine.class);
-        classManager = mock(SmaliClassManager.class);
+        classManager = mock(ClassManager.class);
         when(vm.getClassManager()).thenReturn(classManager);
         ectx = mock(ExecutionContext.class);
         mState = mock(MethodState.class);

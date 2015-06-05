@@ -5,7 +5,7 @@ import java.util.Set;
 
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -61,7 +61,7 @@ public class java_lang_Class_forName implements ExecutionContextMethod {
         if (MethodReflector.isSafe(className)) {
             reflectRealMethod(mState, javaClassName);
         } else {
-            SmaliClassManager classManager = vm.getClassManager();
+            ClassManager classManager = vm.getClassManager();
             if (classManager.isLocalClass(className)) {
                 // Class.forName will statically initialize a class
                 if (!ectx.isClassInitialized(className)) {

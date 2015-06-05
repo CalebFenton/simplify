@@ -20,13 +20,13 @@ public class MethodExecutor {
 
     private static Logger log = LoggerFactory.getLogger(MethodExecutor.class.getSimpleName());
 
-    private final SmaliClassManager classManager;
+    private final ClassManager classManager;
     private final int maxCallDepth;
     private final int maxAddressVisits;
     private final int maxMethodVisits;
     private int totalVisits;
 
-    MethodExecutor(SmaliClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits) {
+    MethodExecutor(ClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits) {
         this.classManager = classManager;
         this.maxCallDepth = maxCallDepth;
         this.maxAddressVisits = maxAddressVisits;

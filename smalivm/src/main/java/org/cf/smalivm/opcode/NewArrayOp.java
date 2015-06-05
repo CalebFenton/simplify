@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -28,7 +28,7 @@ public class NewArrayOp extends MethodStateOp {
         // [[Lsome_class;
         String arrayType = ReferenceUtil.getReferenceString(instr.getReference());
         String baseClassName = SmaliClassUtils.getBaseClass(arrayType);
-        SmaliClassManager classManager = vm.getClassManager();
+        ClassManager classManager = vm.getClassManager();
         boolean useLocalClass;
         if (classManager.isFramework(baseClassName)) {
             useLocalClass = classManager.isSafeFramework(baseClassName);

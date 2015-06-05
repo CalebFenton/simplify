@@ -1,6 +1,6 @@
 package org.cf.demoapp;
 
-import org.cf.smalivm.SmaliClassManager;
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -19,7 +19,7 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         // The class manager is responsible for loading Smali files.
-        SmaliClassManager classManager = new SmaliClassManager(SmaliPath);
+        ClassManager classManager = new ClassManager(SmaliPath);
         vm = new VirtualMachine(classManager);
 
         // Hook println with our own implementation

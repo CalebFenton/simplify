@@ -3,6 +3,7 @@ package org.cf.smalivm;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,7 +17,6 @@ import org.cf.util.Dexifier;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.SmaliFileFactory;
 import org.cf.util.Utils;
-import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
  * @author cfenton
  *
  */
-public class SmaliClassManager {
+public class ClassManager {
 
-    private static final Logger log = LoggerFactory.getLogger(SmaliClassManager.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ClassManager.class.getSimpleName());
 
     // Use separate dex builder to intern framework classes so they're not included in output dex
     private final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
@@ -57,7 +57,7 @@ public class SmaliClassManager {
      * @param dexBuilder
      * @throws IOException
      */
-    public SmaliClassManager(File smaliPath, DexBuilder dexBuilder) throws IOException {
+    public ClassManager(File smaliPath, DexBuilder dexBuilder) throws IOException {
         smaliFileFactory = new SmaliFileFactory();
         Set<SmaliFile> smaliFiles = smaliFileFactory.getSmaliFiles(smaliPath);
         classNameToSmaliFile = new HashMap<String, SmaliFile>();
@@ -78,7 +78,7 @@ public class SmaliClassManager {
      *            Path to Smali file or folder
      * @throws IOException
      */
-    public SmaliClassManager(String smaliPath) throws IOException {
+    public ClassManager(String smaliPath) throws IOException {
         this(smaliPath, DexBuilder.makeDexBuilder());
     }
 
@@ -89,7 +89,7 @@ public class SmaliClassManager {
      * @param dexBuilder
      * @throws IOException
      */
-    public SmaliClassManager(String smaliPath, DexBuilder dexBuilder) throws IOException {
+    public ClassManager(String smaliPath, DexBuilder dexBuilder) throws IOException {
         this(new File(smaliPath), dexBuilder);
     }
 
@@ -307,7 +307,7 @@ public class SmaliClassManager {
     public boolean isNativeMethod(String methodDescriptor) {
         BuilderMethod method = getMethod(methodDescriptor);
 
-        return (method.getAccessFlags() & AccessFlags.NATIVE.getValue()) == AccessFlags.NATIVE.getValue();
+        return Modifier.isNative(method.getAccessFlags());
     }
 
     public boolean isSafeFramework(String typeName) {
@@ -356,7 +356,7 @@ public class SmaliClassManager {
         }
 
         int accessFlags = method.getAccessFlags();
-        boolean isStatic = ((accessFlags & AccessFlags.STATIC.getValue()) != 0);
+        boolean isStatic = Modifier.isStatic(accessFlags);
         if (!isStatic) {
             // First "parameter" for non-static methods is instance ref
             parameterTypes.add(0, method.getDefiningClass());
