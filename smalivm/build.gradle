@@ -19,7 +19,7 @@ dependencies {
     runtime 'org.codehaus.groovy:groovy-all:2.4.3'
 
     // Object cloning
-    compile 'uk.com.robust-it:cloning:1.9.1'
+    compile 'uk.com.robust-it:cloning:1.9.2'
 
     // Easy method reflection
     compile 'commons-beanutils:commons-beanutils:1.9.2'
