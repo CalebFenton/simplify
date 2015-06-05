@@ -203,7 +203,6 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
             parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
             methodRef = mbgraph.getDexBuilder().internMethodReference(methodDef);
         }
-        // TODO: easy - replace bitwise logic with Modifier.isStatic(int mod)
         boolean isStatic = Modifier.isStatic(methodAccessFlags);
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
 

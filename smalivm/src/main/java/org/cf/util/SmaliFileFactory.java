@@ -52,7 +52,7 @@ public class SmaliFileFactory {
         return smaliFile.isSafeFrameworkClass();
     }
 
-    private void cacheFramework() throws IOException {
+    private synchronized void cacheFramework() throws IOException {
         if (frameworkCache != null) {
             return;
         }
@@ -76,8 +76,8 @@ public class SmaliFileFactory {
             long endTime = System.currentTimeMillis();
             long totalTime = endTime - startTime; // assuming time has not gone backwards
             StringBuilder sb = new StringBuilder();
-            sb.append("Cached ").append(frameworkCache.size()).append(" framework classes in ")
-                            .append(totalTime).append(" ms.");
+            sb.append("Cached ").append(frameworkCache.size()).append(" framework classes in ").append(totalTime)
+                            .append(" ms.");
             log.debug(sb.toString());
         }
     }

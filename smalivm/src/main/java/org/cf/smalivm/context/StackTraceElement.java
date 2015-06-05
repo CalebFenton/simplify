@@ -12,7 +12,7 @@ public class StackTraceElement {
     public StackTraceElement(String methodDescriptor, String fileName, int lineNumber) {
         String[] parts = methodDescriptor.split("->");
         definingClass = SmaliClassUtils.smaliClassToJava(parts[0]);
-        methodName = parts[1].split("(")[0];
+        methodName = parts[1].split("\\(")[0];
         this.fileName = fileName;
         this.lineNumber = lineNumber;
     }
