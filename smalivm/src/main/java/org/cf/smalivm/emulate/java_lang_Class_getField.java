@@ -5,8 +5,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.ClassManager;
+import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
@@ -42,6 +42,8 @@ public class java_lang_Class_getField implements MethodStateMethod {
 
     @Override
     public void execute(VirtualMachine vm, MethodState mState) throws Exception {
+        // TODO: getDeclared for fields and methods should be handled differently
+        // can look at method descriptor to figure out which one we are
         HeapItem classItem = mState.peekParameter(0);
         Object classValue = classItem.getValue();
         String fieldName = (String) mState.peekParameter(1).getValue();
