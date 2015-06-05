@@ -51,6 +51,8 @@ public class MethodEmulator {
                         java_lang_Class_getMethod.class);
         addMethod("Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
                         java_lang_Class_getField.class);
+        addMethod("Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
+                        java_lang_Class_getField.class);
         addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
                         java_lang_reflect_Field_get.class);
     }
