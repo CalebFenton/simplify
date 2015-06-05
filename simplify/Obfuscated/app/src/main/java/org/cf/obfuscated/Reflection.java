@@ -1,9 +1,12 @@
 package org.cf.obfuscated;
 
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class Reflection {
+
+  private static String someField = "this is some field, eh?";
 
   private static void reflectSecretMethod() {
     try {
@@ -40,11 +43,19 @@ public class Reflection {
     System.gc();
   }
 
-  public static void main(String[] argv) {
+  private static void reflectedFieldLookup() throws Exception {
+    String fieldName = new String(new byte[] {115,111,109,101,70,105,101,108,100}); // "someField"
+    Field f = Reflection.class.getDeclaredField(fieldName);
+    String xorKey = (String) f.get(null);
+    System.out.println(xorKey);
+  }
+
+  public static void main(String[] argv) throws Exception {
 //    System.out.println("7 = " + StringHolder.get(7));
 //    System.out.println("8 = " + StringHolder.get(8));
 //    System.out.println("9 = " + StringHolder.get(9));
 //    reflectSecretMethod();
+//    reflectedFieldLookup();
   }
 
 }
