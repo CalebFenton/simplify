@@ -46,7 +46,17 @@ public class ClassState extends BaseState {
         assignRegister(register, item, heapKey);
     }
 
-    public boolean equals(ClassState other) {
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        } else if (obj == this) {
+            return true;
+        } else if (obj.getClass() != getClass()) {
+            return false;
+        }
+        ClassState other = (ClassState) obj;
+
         return this.toString().equals(other.toString());
     }
 

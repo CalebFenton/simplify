@@ -209,7 +209,7 @@ public class TestFilledNewArray {
 
             Reference ref = new ImmutableTypeReference("[I");
             when(((ReferenceInstruction) instruction).getReference()).thenReturn(ref);
-
+            node = mock(ExecutionNode.class);
             mState = mock(MethodState.class);
         }
 

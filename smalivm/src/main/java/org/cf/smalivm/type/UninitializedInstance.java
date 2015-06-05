@@ -16,15 +16,15 @@ public class UninitializedInstance implements LocalType {
             return false;
         } else if (other == this) {
             return true;
-        } else if (!(other instanceof UninitializedInstance)) {
+        } else if (other.getClass() != getClass()) {
             return false;
         }
-
         UninitializedInstance rhs = (UninitializedInstance) other;
 
         return new EqualsBuilder().append(smaliType, rhs.getName()).isEquals();
     }
 
+    @Override
     public String getName() {
         return smaliType;
     }
@@ -33,4 +33,5 @@ public class UninitializedInstance implements LocalType {
     public String toString() {
         return "Uninitialized " + smaliType;
     }
+    
 }
