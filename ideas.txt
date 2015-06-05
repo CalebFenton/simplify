@@ -1,11 +1,13 @@
 This is a scratch pad for ideas.
-Many of them are too undercooked or broad to be articulated as issues on github.
+Many of them are too undercooked or too broad to be articulated as issues on github.
 
+
+Emulate System.exit() to halt the thread
 
 During execution, the context has no awareness of the current method or the call stack. Knowing these things allows for:
   1.) illegal access checks on fields, right now, no way to tell if the field is in the same class as the current method
   2.) contextualized exception throwing with stack trace
-
+* update - execution context of first op in method has callerContext and callerAddress, which can be traced back up to rebuild call stack
 
 Beef up whitelist:
   many Class.is*
