@@ -12,7 +12,7 @@ import org.cf.smalivm.exception.UnknownAncestors;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TestSmaliClassManager {
+public class TestClassManager {
 
     private static final String TEST_DIRECTORY = "resources/test";
     private static final String CHILD_CLASS = "Lchild_class;";
