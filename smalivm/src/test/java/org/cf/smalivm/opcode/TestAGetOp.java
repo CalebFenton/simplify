@@ -1,10 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
@@ -72,10 +68,7 @@ public class TestAGetOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -92,10 +85,7 @@ public class TestAGetOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class);
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
     }
 

@@ -89,6 +89,7 @@ public class AGetOp extends MethodStateOp {
                 } else {
                     Object value = Array.get(array, index);
                     getItem = new HeapItem(value, innerType);
+                    // node.clearExceptions();
                 }
             }
         }

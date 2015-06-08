@@ -3,8 +3,11 @@ package org.cf.smalivm;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
@@ -21,6 +24,7 @@ import java.util.Set;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
@@ -316,13 +320,29 @@ public class VMTester {
     public static void addHeapItem(MethodState mState, int register, Object value, String type) {
         HeapItem item = mock(HeapItem.class);
         when(item.getValue()).thenReturn(value);
-        if ("I".equals(type)) {
+        if ("I".equals(type) && value instanceof Number) {
             when(item.getIntegerValue()).thenReturn((Integer) value);
         } else if (value instanceof UnknownValue) {
             when(item.isUnknown()).thenReturn(true);
         }
         when(item.getType()).thenReturn(type);
         when(mState.readRegister(eq(register))).thenReturn(item);
+    }
+
+    public static void verifyExceptionHandling(VirtualException expectedException, ExecutionNode node,
+                    MethodState mState) {
+        verify(node).setException(eq(expectedException));
+        verify(node).clearChildAddresses();
+        verify(node, times(0)).setChildAddresses(any(int[].class));
+        verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+    }
+
+    public static void verifyExceptionHandling(Set<VirtualException> expectedExceptions, ExecutionNode node,
+                    MethodState mState) {
+        verify(node).setExceptions(eq(expectedExceptions));
+        verify(node).clearChildAddresses();
+        verify(node, times(0)).setChildAddresses(any(int[].class));
+        verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 
 }

@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.any;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -28,6 +28,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 @RunWith(Enclosed.class)
 public class TestAPutOp {
@@ -205,6 +206,7 @@ public class TestAPutOp {
         private MethodState mState;
         private ExecutionNode node;
         private APutOp op;
+        private ArgumentCaptor<HeapItem> setItem;
 
         @Before
         public void setUp() throws UnknownAncestors {
@@ -222,6 +224,27 @@ public class TestAPutOp {
             opFactory = new OpFactory(vm);
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
+            setItem = ArgumentCaptor.forClass(HeapItem.class);
+        }
+
+        @Test
+        public void unknownValueItemMakesArrayUnknownAndDoesNotClearExceptions() {
+            int[] arrayValue = new int[] { 5 };
+            int indexValue = 2;
+            Object value = new UnknownValue();
+
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
+
+            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
+
+            op = (APutOp) opFactory.create(instruction, ADDRESS);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(ARRAY_REGISTER), setItem.capture());
+            assertEquals(UnknownValue.class, setItem.getValue().getValue().getClass());
+            verify(node, times(0)).clearExceptions();
         }
 
         @Test
@@ -240,10 +263,7 @@ public class TestAPutOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -262,10 +282,7 @@ public class TestAPutOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -284,10 +301,7 @@ public class TestAPutOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -306,10 +320,7 @@ public class TestAPutOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class);
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -328,11 +339,7 @@ public class TestAPutOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         // @Test
