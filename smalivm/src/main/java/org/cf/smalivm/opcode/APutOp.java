@@ -66,6 +66,8 @@ public class APutOp extends MethodStateOp {
         }
 
         // TODO: https://github.com/CalebFenton/simplify/issues/21
+        // TODO: exceptions should probably have string context
+        // TODO: for all exception handling ops, if ambiguous, need to throw all possible exceptions
         if (arrayItem.isUnknown()) {
             // Do nothing.
         } else {
@@ -88,6 +90,7 @@ public class APutOp extends MethodStateOp {
                 } else {
                     Object value = castValue(getName(), valueItem.getValue());
                     Array.set(array, index, value);
+                    node.clearExceptions();
                 }
             }
         }

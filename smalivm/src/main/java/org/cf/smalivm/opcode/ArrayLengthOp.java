@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -34,6 +35,8 @@ public class ArrayLengthOp extends MethodStateOp {
 
         this.destRegister = valueRegister;
         this.arrayRegister = arrayRegister;
+
+        addException(new VirtualException(NullPointerException.class, "Attempt to get length of null array"));
     }
 
     @Override
@@ -45,12 +48,16 @@ public class ArrayLengthOp extends MethodStateOp {
             lengthValue = new UnknownValue();
         } else if ((array != null) && array.getClass().isArray()) {
             lengthValue = Array.getLength(array);
+            node.clearExceptions();
         } else {
-            if (log.isWarnEnabled()) {
-                if (array == null) {
-                    log.warn("Unexpected null array for array-length");
-                } else {
-                    log.warn("Unexpected non-array class: " + array.getClass() + ", " + array);
+            if (array == null) {
+                node.setExceptions(getExceptions());
+                node.clearChildAddresses();
+                return;
+            } else {
+                // Won't pass verifier if it's not an array type. Probably our fault, so error.
+                if (log.isErrorEnabled()) {
+                    log.error("Unexpected non-array class: {}, {}", array.getClass(), array);
                 }
             }
         }

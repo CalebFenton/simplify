@@ -310,7 +310,7 @@ public class BinaryMathOp extends MethodStateOp {
         }
 
         Object resultValue = null;
-        if (!(lhsItem.isUnknown()) && !(rhsItem.isUnknown())) {
+        if (!(lhsItem.isUnknown() || rhsItem.isUnknown())) {
             resultValue = getResult(lhsItem.getValue(), rhsItem.getValue());
             if (null == resultValue) {
                 if (log.isWarnEnabled()) {
@@ -321,16 +321,13 @@ public class BinaryMathOp extends MethodStateOp {
                 node.setException(exception);
                 node.clearChildAddresses();
                 return;
+            } else {
+                node.clearExceptions();
             }
         }
 
         if (null == resultValue) {
             resultValue = new UnknownValue();
-        }
-
-        if (mathOperandType.equals(MathOperandType.FLOAT) || mathOperandType.equals(MathOperandType.DOUBLE)) {
-            // Only exception right now is "/ by zero", which isn't possible for F and D types
-            node.clearExceptions();
         }
 
         mState.assignRegister(destRegister, resultValue, mathOperandType.getType());

@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -27,14 +26,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
-import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(Enclosed.class)
 public class TestBinaryMathOp {
 
     private static final String CLASS_NAME = "Lbinary_math_test;";
 
-    @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
@@ -162,7 +159,7 @@ public class TestBinaryMathOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            testCorrectlyHandledException(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -183,7 +180,7 @@ public class TestBinaryMathOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            testCorrectlyHandledException(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -205,7 +202,7 @@ public class TestBinaryMathOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            testCorrectlyHandledException(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
         @Test
@@ -227,16 +224,9 @@ public class TestBinaryMathOp {
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            testCorrectlyHandledException(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
-        private static void testCorrectlyHandledException(VirtualException expectedException, ExecutionNode node,
-                        MethodState mState) {
-            verify(node).setException(eq(expectedException));
-            verify(node).clearChildAddresses();
-            verify(node, times(0)).setChildAddresses(any(int[].class));
-            verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
-        }
     }
 
     public static class TestDouble {

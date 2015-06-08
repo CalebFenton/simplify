@@ -7,9 +7,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -332,7 +332,7 @@ public class InvokeOp extends ExecutionContextOp {
             }
         } catch (UnhandledVirtualException e) {
             // TODO: handle this properly
-            // should be fairly easy, just bubble up this exception to the node and stop executing here
+            // bubble up this exception to the node and stop executing here
             if (log.isWarnEnabled()) {
                 log.warn(e.toString());
             }
@@ -451,8 +451,8 @@ public class InvokeOp extends ExecutionContextOp {
         return true;
     }
 
-    private String getLocalTargetForVirtualMethod(String className, String methodSignature,
-                    ClassManager classManager, Set<String> visited) {
+    private String getLocalTargetForVirtualMethod(String className, String methodSignature, ClassManager classManager,
+                    Set<String> visited) {
         visited.add(className);
         StringBuilder sb = new StringBuilder(className);
         sb.append("->").append(methodSignature);

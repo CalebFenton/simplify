@@ -1,10 +1,12 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
+import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
@@ -44,15 +46,28 @@ public class CheckCastOp extends MethodStateOp {
         HeapItem item = mState.readRegister(targetRegister);
         String type = item.getType();
 
+        boolean isInstance = false;
         try {
-            if (!vm.getClassManager().isInstance(type, className)) {
-                // TODO: https://github.com/CalebFenton/simplify/issues/12
-                // throw new ClassCastException("Class - " + className);
-            }
+            isInstance = vm.getClassManager().isInstance(type, className);
         } catch (UnknownAncestors e) {
-            if (log.isWarnEnabled()) {
-                log.warn("Unable to determine ancestory for class " + className, e);
+            if (log.isErrorEnabled()) {
+                log.error("Unable to determine ancestory for {}\n{}", className, e);
             }
+        }
+
+        if (isInstance) {
+            node.clearExceptions();
+        } else {
+            // java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
+            StringBuilder sb = new StringBuilder();
+            sb.append(SmaliClassUtils.smaliClassToJava(type));
+            sb.append(" cannot be cast to ");
+            sb.append(SmaliClassUtils.smaliClassToJava(className));
+
+            VirtualException exception = new VirtualException(ClassCastException.class, sb.toString());
+            node.setException(exception);
+            node.clearChildAddresses();
+            return;
         }
     }
 
