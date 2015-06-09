@@ -49,3 +49,89 @@ Fail stories:
 Success stories:
   * java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
   * java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
+
+
+
+NOTES TO MYSELF (good luck understanding)
+
+remove array data payloads that are unreferenced :D
+  Obfuscated example does this in reflected field lookups
+
+what if?
+  get stack trace, first element
+  from inside a method that's being optimized from main
+  the call stack *should* be ambiguous
+  but if it's not, could give away it's being virtually executed
+  *get first element would be a string, that would get constantized during optimization
+
+
+wasRegisterRead unit test possibility!
+# make sure v0 is not removed
+const/4 v2, 0x5
+invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+move-result v0
+move-object v1, v0
+invoke-static {v1}, Ldoes/not/exist;->howdy(Ljava/lang/Integer;)V
+
+# make sure v0 IS REMOVED
+const/4 v2, 0x5
+invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+move-result v0
+invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+move-result v1
+invoke-static {v1}, Ldoes/not/exist;->howdy(Ljava/lang/Integer;)V
+
+
+
+look for all instanceof unknownvalue, replace with isUnknown if possible
+
+tests for binary math op
+2 * different types (int, long, etc) tests - lhs or rhs unknown makes unknown int for int ops
+
+
+test fill array data payload by making sure it creates bytes, ints or longs or whatever is needed
+
+fillednewarrayop should handle partial unknown
+
+test switch works for integer, short, byte, etc. types
+
+
+assumeMaxUnknown for invokeop wont work for LocalInstance.isInitialized == false, add tests
+boolean isInitializing = methodDescriptor.contains(";-><init>(") && ((value instanceof UninitializedInstance));
+
+new-array op looks buggy when determing if it's local. input smali should override framework.
+
+LocalTypes should not need to contain what kind of type they are?
+
+test aput for non-Number values, e.g. boolean and character into an int array, but see if dalvik handles it properly first
+
+
+simple test
+  throw an exception and catch it
+
+inheritence test
+  throw a child exception and see if caught by exception parent
+
+complex inheritence
+  throw a child exception, catch parent and grandparent and make sure parent handles
+
+finally test
+  simple value set + test
+
+unhandled exception + finally test
+  throw exception but make sure finally value set
+
+handled exception + finally test
+  throw exception, handle it, make sure finally value set
+
+
+consider unit testing
+  exceptionhandlerresolver - build unit with public method to resolve addresses given an
+    exception
+    current address
+    try catch blocks
+
+
+catch unhandled virtual exceptions in invokeop
+set THOSE as the exceptions, clear children, return
+make notes saying that just because eomething is unhandled doesn't mean if there's an actual context for a method instead of just starting it at the root then it might be a handled exception
