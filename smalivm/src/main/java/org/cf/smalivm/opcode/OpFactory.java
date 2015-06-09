@@ -263,7 +263,7 @@ public final class OpFactory {
             break;
 
         case INSTANCE_OF:
-            // TODO: https://github.com/CalebFenton/simplify/issues/2
+            result = OpType.INSTANCE_OF;
             break;
 
         case INVOKE_DIRECT:
@@ -416,7 +416,7 @@ public final class OpFactory {
             result = FillArrayDataOp.create(instruction, address);
             break;
         case INSTANCE_OF:
-            // TODO: https://github.com/CalebFenton/simplify/issues/2
+            result = InstanceOfOp.create(instruction, address, vm);
             break;
         case INVOKE:
             result = InvokeOp.create(instruction, address, vm);
