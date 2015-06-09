@@ -1,10 +1,12 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.reference.TypeReference;
@@ -46,18 +48,29 @@ public class InstanceOfOp extends MethodStateOp {
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem item = mState.readRegister(arg1Register);
-        String type = item.getType();
-
         boolean isInstance = false;
         try {
-            isInstance = vm.getClassManager().isInstance(type, className);
+            ClassManager classManager = vm.getClassManager();
+            for (String type : Utils.getTypes(item)) {
+                isInstance = classManager.isInstance(type, className);
+                if (isInstance) {
+                    break;
+                }
+            }
         } catch (UnknownAncestors e) {
             if (log.isErrorEnabled()) {
                 log.error("Unable to determine ancestory for {}\n{}", className, e);
             }
         }
 
-        mState.assignRegister(destRegister, isInstance, "Z");
+        if (!isInstance && item.isUnknown()) {
+            // Don't have all of the type information, only declared type.
+            // Object obj = method.reflect() for example may return a String
+            // but the declared type is Object.
+            mState.assignRegister(destRegister, HeapItem.newUnknown("Z"));
+        } else {
+            mState.assignRegister(destRegister, new HeapItem(isInstance, "Z"));
+        }
     }
 
     @Override

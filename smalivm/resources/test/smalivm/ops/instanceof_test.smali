@@ -16,3 +16,11 @@
 
     return-void
 .end method
+
+.method public static InstanceOfIntArray()V
+    .locals 2
+
+    instance-of v0, v1, [I
+
+    return-void
+.end method
