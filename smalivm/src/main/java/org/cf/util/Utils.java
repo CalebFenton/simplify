@@ -5,15 +5,24 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.type.LocalClass;
+import org.cf.smalivm.type.LocalField;
 import org.cf.smalivm.type.LocalInstance;
+import org.cf.smalivm.type.LocalMethod;
+import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.writer.builder.BuilderTypeList;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
@@ -234,6 +243,29 @@ public class Utils {
         }
 
         return value;
+    }
+
+    public static Set<String> getTypes(HeapItem item) {
+        Set<String> types = new HashSet<String>();
+
+        String declaredType = item.getType();
+        types.add(declaredType);
+
+        Object value = item.getValue();
+        if (value instanceof UnknownValue) {
+            // Can't imply type from value
+        } else if (value instanceof LocalClass) {
+            types.add(SmaliClassUtils.javaClassToSmali(Class.class));
+        } else if (value instanceof LocalField) {
+            types.add(SmaliClassUtils.javaClassToSmali(Field.class));
+        } else if (value instanceof LocalMethod) {
+            types.add(SmaliClassUtils.javaClassToSmali(Method.class));
+        } else if (value != null) {
+            // All other value classes should be the actual classes
+            types.add(SmaliClassUtils.javaClassToSmali(value.getClass()));
+        }
+
+        return types;
     }
 
 }

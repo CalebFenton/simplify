@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
@@ -7,6 +8,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.SmaliClassUtils;
+import org.cf.util.Utils;
 import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.TypeReference;
@@ -44,11 +46,15 @@ public class CheckCastOp extends MethodStateOp {
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem item = mState.readRegister(targetRegister);
-        String type = item.getType();
-
         boolean isInstance = false;
         try {
-            isInstance = vm.getClassManager().isInstance(type, className);
+            ClassManager classManager = vm.getClassManager();
+            for (String type : Utils.getTypes(item)) {
+                isInstance = classManager.isInstance(type, className);
+                if (isInstance) {
+                    break;
+                }
+            }
         } catch (UnknownAncestors e) {
             if (log.isErrorEnabled()) {
                 log.error("Unable to determine ancestory for {}\n{}", className, e);
@@ -60,13 +66,17 @@ public class CheckCastOp extends MethodStateOp {
         } else {
             // java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             StringBuilder sb = new StringBuilder();
-            sb.append(SmaliClassUtils.smaliClassToJava(type));
+            sb.append(SmaliClassUtils.smaliClassToJava(item.getType()));
             sb.append(" cannot be cast to ");
             sb.append(SmaliClassUtils.smaliClassToJava(className));
 
             VirtualException exception = new VirtualException(ClassCastException.class, sb.toString());
             node.setException(exception);
-            node.clearChildAddresses();
+
+            if (!item.isUnknown()) {
+                // Had all type information, so exception is certain.
+                node.clearChildAddresses();
+            }
             return;
         }
     }

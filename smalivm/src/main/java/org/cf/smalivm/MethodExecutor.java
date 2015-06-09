@@ -122,9 +122,8 @@ public class MethodExecutor {
                         throw new UnhandledVirtualException(exception);
                     } else {
                         /*
-                         * It's impossible to be sure if it's an unhandled exception because there are probably unknown
-                         * values. Assume the code was checked by a compiler and there aren't any exceptional cases not
-                         * covered by try / catch.
+                         * Since there are children, it means the op *may* have an exception. If it's unhandled, assume
+                         * there is no exception. In many cases, the verifier catches this stuff.
                          */
                         if (log.isTraceEnabled()) {
                             log.trace("{} possible unhandled virtual exception: {}", node, exception);

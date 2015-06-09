@@ -34,11 +34,19 @@ public class TestCheckCastOp {
     public static class IntegrationTest {
 
         @Test
-        public void testCheckCastIsObjectWithStringThrowsNoException() {
+        public void testStringWithStringTypeCastsToObject() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/String;");
             TIntObjectMap<HeapItem> expected = initial;
 
             VMTester.testMethodState(CLASS_NAME, "CheckCastIsObject()V", initial, expected);
+        }
+
+        @Test
+        public void testStringWithObjectTypeCastsToString() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/Object;");
+            TIntObjectMap<HeapItem> expected = initial;
+
+            VMTester.testMethodState(CLASS_NAME, "CheckCastIsString()V", initial, expected);
         }
     }
 
