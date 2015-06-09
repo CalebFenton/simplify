@@ -31,7 +31,7 @@ public class TestCheckCastOp {
 
     private static final String CLASS_NAME = "Lcheck_cast_test;";
 
-    public static class TestObjectArrays {
+    public static class IntegrationTest {
 
         @Test
         public void testCheckCastIsObjectWithStringThrowsNoException() {

@@ -8,11 +8,3 @@
 
     return-void
 .end method
-
-.method public static CheckCastIsPrimitiveArray()V
-    .locals 1
-
-    check-cast v0, [I
-
-    return-void
-.end method
