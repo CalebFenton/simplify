@@ -31,7 +31,8 @@ public class NewArrayOp extends MethodStateOp {
         ClassManager classManager = vm.getClassManager();
         boolean useLocalClass;
         if (classManager.isFramework(baseClassName)) {
-            useLocalClass = classManager.isSafeFramework(baseClassName);
+            // useLocalClass = classManager.isSafeFramework(baseClassName);
+            useLocalClass = true;
         } else {
             useLocalClass = classManager.isLocalClass(baseClassName);
         }
@@ -67,8 +68,8 @@ public class NewArrayOp extends MethodStateOp {
                 Object instance = Utils.buildArray(arrayType, length, useLocalClass);
                 instanceItem = new HeapItem(instance, arrayType);
             } catch (ClassNotFoundException e) {
-                if (log.isErrorEnabled()) {
-                    log.error("Couldn't find class: " + arrayType + " @" + toString(), e);
+                if (log.isWarnEnabled()) {
+                    log.warn("Couldn't find class: {}, using unknown @{}", arrayType, toString());
                 }
                 instanceItem = HeapItem.newUnknown(arrayType);
             }

@@ -65,6 +65,7 @@ public class Utils {
 
         int dimensionCount = getDimensionCount(typeReference) - 1;
         String classNameWithDimensions = addDimensionsToClassName(javaClassName, dimensionCount);
+        classNameWithDimensions = addDimensionsToClassName("java.lang.Object", dimensionCount);
         Class<?> klazz = ClassUtils.getClass(classNameWithDimensions);
         Object array = Array.newInstance(klazz, length);
 
