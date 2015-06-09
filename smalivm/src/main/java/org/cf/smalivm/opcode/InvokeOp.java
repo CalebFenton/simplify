@@ -156,7 +156,6 @@ public class InvokeOp extends ExecutionContextOp {
             }
         } else {
             // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
-
             ClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
                 if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {

@@ -277,43 +277,36 @@ public class VMTester {
     }
 
     private static void testFieldEquals(String fieldDescriptor, HeapItem item, HeapItem consensus) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(fieldDescriptor).append(" expected ").append(item).append(", consensus ").append(consensus);
-        String msg = sb.toString();
-
-        testValueEquals(item, consensus, msg);
+        testValueEquals(item, consensus);
     }
 
     private static void testRegisterEquals(int register, HeapItem item, HeapItem consensus) {
-        StringBuilder sb = new StringBuilder();
-        sb.append('r').append(register).append(" expected ").append(item).append(", consensus ").append(consensus);
-        String msg = sb.toString();
-
-        testValueEquals(item, consensus, msg);
+        testValueEquals(item, consensus);
     }
 
-    private static void testValueEquals(HeapItem expected, HeapItem consensus, String msg) {
+    private static void testValueEquals(HeapItem expected, HeapItem consensus) {
         Object expectedValue = expected.getValue();
         Object consensusValue = consensus.getValue();
 
         if (expectedValue != null) {
-            assertNotNull(msg, consensusValue);
+            assertNotNull(consensusValue);
         }
 
         if (expectedValue == null) {
-            assertEquals(msg, expected, consensus);
+            assertEquals(expected, consensus);
         } else if (expected.isUnknown()) {
             // Normally, unknown doesn't equal anything, including itself, but tests are more relaxed.
-            assertEquals(msg, expected.toString(), consensus.toString());
+            assertEquals(expected.toString(), consensus.toString());
         } else if (expectedValue.getClass().isArray()) {
             // If array, type is "Object", so need to use isArray() instead of instanceof
             boolean result = Objects.deepEquals(expectedValue, consensusValue);
             assertEquals(expected.getType(), consensus.getType());
-            assertTrue(msg, result);
+            // TODO: can use arrayEquals maybe? cast to Object[] first?
+            assertTrue(result);
         } else if (expectedValue instanceof StringBuilder) {
-            assertEquals(msg, expectedValue.toString(), consensusValue.toString());
+            assertEquals(expectedValue.toString(), consensusValue.toString());
         } else {
-            assertEquals(msg, expectedValue, consensusValue);
+            assertEquals(expectedValue, consensusValue);
         }
     }
 
