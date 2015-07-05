@@ -109,7 +109,7 @@ public class VirtualMachine {
         ExecutionGraph result = methodExecutor.execute(graph);
 
         if ((result != null) && (callerContext != null)) {
-            collapseMultiverse(methodDescriptor, graph, calleeContext, callerContext, parameterRegisters);
+            collapseMultiverse(methodDescriptor, graph, callerContext, parameterRegisters);
         }
 
         return result;
@@ -151,7 +151,8 @@ public class VirtualMachine {
 
         ExecutionContext spawnedContext = new ExecutionContext(this, methodDescriptor);
         String className = getClassNameFromMethodDescriptor(methodDescriptor);
-        addTemplateClassState(spawnedContext, className);
+        ClassState templateClassState = getTemplateClassState(spawnedContext, className);
+        spawnedContext.setClassState(className, templateClassState);
 
         BuilderMethod method = classManager.getMethod(methodDescriptor);
         MethodImplementation impl = method.getImplementation();
@@ -199,26 +200,27 @@ public class VirtualMachine {
         methodToTemplateExecutionGraph.put(method, graph);
     }
 
-    public void addTemplateClassState(ExecutionContext ectx, String className) {
+    public ClassState getTemplateClassState(ExecutionContext ectx, String className) {
         List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
         ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
         for (String fieldNameAndType : fieldNameAndTypes) {
             String type = fieldNameAndType.split(":")[1];
             cState.pokeField(fieldNameAndType, HeapItem.newUnknown(type));
         }
-        ectx.setClassState(className, cState, SideEffect.Level.NONE);
+
+        return cState;
     }
 
     /*
      * Get consensus for method and class states and merge them into callerContext.
      */
-    private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext calleeContext,
-                    ExecutionContext callerContext, int[] parameterRegisters) {
+    private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext callerContext,
+                    int[] parameterRegisters) {
         TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
             List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
-            int parameterRegister = calleeContext.getMethodState().getParameterStart();
+            int parameterRegister = graph.getNodePile(0).get(0).getContext().getMethodState().getParameterStart();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
                 String type = parameterTypes.get(parameterIndex);
                 if (ImmutableUtils.isImmutableClass(type)) {
@@ -233,25 +235,33 @@ public class VirtualMachine {
             }
         }
 
-        for (String currentClassName : classManager.getClassNames()) {
-            if (!callerContext.isClassInitialized(currentClassName) && !calleeContext
-                            .isClassInitialized(currentClassName)) {
+        for (String className : classManager.getClassNames()) {
+            List<ExecutionContext> terminatingContexts = graph.getTerminatingContexts();
+            hasOneInitialization: if (!callerContext.isClassInitialized(className)) {
+                // Was initialized in caller. Maybe was initialized in callee multiverse.
+                for (ExecutionContext ectx : terminatingContexts) {
+                    if (ectx.isClassInitialized(className)) {
+                        break hasOneInitialization;
+                    }
+                }
+
+                // Class was never initialized. Nothing to merge.
                 continue;
             }
 
-            List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(currentClassName);
-            ClassState currentClassState;
-            if (callerContext.isClassInitialized(currentClassName)) {
-                currentClassState = callerContext.peekClassState(currentClassName);
+            List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
+            ClassState cState;
+            if (callerContext.isClassInitialized(className)) {
+                cState = callerContext.peekClassState(className);
             } else {
-                currentClassState = new ClassState(callerContext, currentClassName, fieldNameAndTypes.size());
-                SideEffect.Level level = graph.getHighestClassSideEffectLevel(currentClassName);
-                callerContext.initializeClass(currentClassName, currentClassState, level);
+                cState = new ClassState(callerContext, className, fieldNameAndTypes.size());
+                SideEffect.Level level = graph.getHighestClassSideEffectLevel(className);
+                callerContext.initializeClass(className, cState, level);
             }
 
             for (String fieldNameAndType : fieldNameAndTypes) {
-                HeapItem item = graph.getFieldConsensus(terminatingAddresses, currentClassName, fieldNameAndType);
-                currentClassState.pokeField(fieldNameAndType, item);
+                HeapItem item = graph.getFieldConsensus(terminatingAddresses, className, fieldNameAndType);
+                cState.pokeField(fieldNameAndType, item);
             }
         }
     }

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -171,7 +172,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<HeapItem> items = new HashSet<HeapItem>(nodePile.size());
         for (ExecutionNode node : nodePile) {
-            ClassState cState = node.getContext().peekClassState(className);
+            ExecutionContext ectx = node.getContext();
+            ClassState cState = ectx.peekClassState(className);
             HeapItem item = cState.peekField(fieldNameAndType);
             items.add(item);
         }
@@ -339,6 +341,9 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionNode getTemplateNode(int address) {
+        if (address < 0) {
+            System.out.println("addy: " + address);
+        }
         return addressToNodePile.get(address).get(TEMPLATE_NODE_INDEX);
     }
 
@@ -357,6 +362,18 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         return result;
+    }
+
+    public List<ExecutionContext> getTerminatingContexts() {
+        List<ExecutionContext> contexts = new LinkedList<ExecutionContext>();
+        TIntList addresses = getConnectedTerminatingAddresses();
+        for (int address : addresses.toArray()) {
+            for (ExecutionNode node : getNodePile(address)) {
+                contexts.add(node.getContext());
+            }
+        }
+
+        return contexts;
     }
 
     public HeapItem getTerminatingRegisterConsensus(int register) {
