@@ -1,8 +1,8 @@
 package org.cf.smalivm;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import org.cf.smalivm.context.ClassState;
@@ -298,11 +297,29 @@ public class VMTester {
             // Normally, unknown doesn't equal anything, including itself, but tests are more relaxed.
             assertEquals(expected.toString(), consensus.toString());
         } else if (expectedValue.getClass().isArray()) {
-            // If array, type is "Object", so need to use isArray() instead of instanceof
-            boolean result = Objects.deepEquals(expectedValue, consensusValue);
             assertEquals(expected.getType(), consensus.getType());
-            // TODO: can use arrayEquals maybe? cast to Object[] first?
-            assertTrue(result);
+
+            if (expectedValue instanceof Object[] && consensusValue instanceof Object[])
+                assertArrayEquals((Object[]) expectedValue, (Object[]) consensusValue);
+            else if (expectedValue instanceof byte[] && consensusValue instanceof byte[])
+                assertArrayEquals((byte[]) expectedValue, (byte[]) consensusValue);
+            else if (expectedValue instanceof short[] && consensusValue instanceof short[])
+                assertArrayEquals((short[]) expectedValue, (short[]) consensusValue);
+            else if (expectedValue instanceof int[] && consensusValue instanceof int[])
+                assertArrayEquals((int[]) expectedValue, (int[]) consensusValue);
+            else if (expectedValue instanceof long[] && consensusValue instanceof long[])
+                assertArrayEquals((long[]) expectedValue, (long[]) consensusValue);
+            else if (expectedValue instanceof char[] && consensusValue instanceof char[])
+                assertArrayEquals((char[]) expectedValue, (char[]) consensusValue);
+            else if (expectedValue instanceof float[] && consensusValue instanceof float[])
+                assertArrayEquals((float[]) expectedValue, (float[]) consensusValue, 0.001F);
+            else if (expectedValue instanceof double[] && consensusValue instanceof double[])
+                assertArrayEquals((double[]) expectedValue, (double[]) consensusValue, 0.001);
+            else if (expectedValue instanceof boolean[] && consensusValue instanceof boolean[])
+                assertArrayEquals((boolean[]) expectedValue, (boolean[]) consensusValue);
+            else {
+                assertEquals(expectedValue, consensusValue);
+            }
         } else if (expectedValue instanceof StringBuilder) {
             assertEquals(expectedValue.toString(), consensusValue.toString());
         } else {
