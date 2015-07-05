@@ -27,12 +27,13 @@ public class NewArrayOp extends MethodStateOp {
 
         // [[Lsome_class;
         String arrayType = ReferenceUtil.getReferenceString(instr.getReference());
+        // Lsome_class;
         String baseClassName = SmaliClassUtils.getBaseClass(arrayType);
         ClassManager classManager = vm.getClassManager();
-        boolean useLocalClass;
+        boolean useLocalClass = false;
         if (classManager.isFramework(baseClassName)) {
-            // useLocalClass = classManager.isSafeFramework(baseClassName);
-            useLocalClass = true;
+            // Create arrays of LocalInstance
+            useLocalClass = classManager.isSafeFramework(baseClassName);
         } else {
             useLocalClass = classManager.isLocalClass(baseClassName);
         }
