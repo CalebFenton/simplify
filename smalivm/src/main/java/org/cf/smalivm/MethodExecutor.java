@@ -71,13 +71,13 @@ public class MethodExecutor {
 
             try {
                 currentNode.execute();
-            } catch (Exception ex) {
+            } catch (Exception e) {
                 // TODO: this exception handler should be REMOVED when ops set exceptions properly
                 // These exceptions could be from bugs in simplify, not real exceptions
                 if (log.isWarnEnabled()) {
-                    log.warn("{} generated a real exception: {}", currentNode, ex);
+                    log.warn("{} generated a real exception:", currentNode, e);
                 }
-                int childAddress = exceptionResolver.resolve(ex, currentNode.getAddress());
+                int childAddress = exceptionResolver.resolve(e, currentNode.getAddress());
                 spawnChild(graph, currentNode, childAddress);
             }
 
