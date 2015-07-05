@@ -84,7 +84,7 @@ public class MethodEmulator {
             }
         } catch (Exception e) {
             if (log.isWarnEnabled()) {
-                log.warn("Unexpected real excetion emulating " + methodDescriptor, e);
+                log.warn("Unexpected real exception emulating " + methodDescriptor, e);
             }
         }
     }
