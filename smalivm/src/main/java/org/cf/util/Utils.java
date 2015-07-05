@@ -65,7 +65,10 @@ public class Utils {
 
         int dimensionCount = getDimensionCount(typeReference) - 1;
         String classNameWithDimensions = addDimensionsToClassName(javaClassName, dimensionCount);
-        classNameWithDimensions = addDimensionsToClassName("java.lang.Object", dimensionCount);
+        // Building generic arrays at this point allows us to add stuff like LocalInstances
+        // But it creates other problems like how are you going to ensure you're passing
+        // arrays a reflected method knows how to handle? I.e. it doesn't include our own types
+        // classNameWithDimensions = addDimensionsToClassName("java.lang.Object", dimensionCount);
         Class<?> klazz = ClassUtils.getClass(classNameWithDimensions);
         Object array = Array.newInstance(klazz, length);
 
