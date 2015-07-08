@@ -62,7 +62,7 @@ Did Simplify just save you a few hours of suffering? Send an e-mail to calebjfen
 
 
 ### Optimization Example
-```
+```smali
 .method public static test1()I
     .locals 2
 
@@ -82,7 +82,7 @@ The above code is an obtuse way to say `v0 = 1`. This is sometimes used as an ob
 
 
 ###After Constant Propagation
-```
+```smali
 .method public static test1()I
     .locals 2
 
@@ -107,7 +107,7 @@ In the above example, `move-result` is constantized, so is `return`, because the
 
 
 ###After Dead Code Removal
-```
+```smali
 .method public static test1()I
     .locals 2
 
