@@ -38,7 +38,7 @@ public class Optimizer {
     private boolean shouldExecuteAgain;
     private Map<String, Integer> optimizationCounts;
 
-    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
+    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, Options opts) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
         performOnceStrategies = new LinkedList<OptimizationStrategy>();
@@ -46,7 +46,10 @@ public class Optimizer {
         performOnceStrategies.add(new PeepholeStrategy(mbgraph));
 
         performRepeatedlyStrategies = new LinkedList<OptimizationStrategy>();
-        performRepeatedlyStrategies.add(new DeadRemovalStrategy(mbgraph));
+        // Strategies should be able to define their own configuration and options.
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        strategy.setRemoveWeak(opts.isRemoveWeak());
+        performRepeatedlyStrategies.add(strategy);
 
         methodReexecuteStrategies = new LinkedList<OptimizationStrategy>();
         methodReexecuteStrategies.add(new ReflectionRemovalStrategy(mbgraph));

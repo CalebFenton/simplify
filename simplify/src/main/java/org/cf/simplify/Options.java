@@ -60,6 +60,9 @@ public class Options implements Serializable {
     @Option(name = "--include-support", usage = "Include support library package path")
     private boolean includeSupportLibrary;
 
+    @Option(name = "--remove-weak", usage = "Remove dead code if it may have weak side effects, default true")
+    private boolean removeWeak = true;
+
     private File inFile;
     private File outDexFile;
     private boolean isApk;
@@ -93,16 +96,20 @@ public class Options implements Serializable {
         return maxOptimizationPasses;
     }
 
-    public File getOutFile() {
-        return outFile;
-    }
-
     public File getOutDexFile() {
         return outDexFile;
     }
 
+    public File getOutFile() {
+        return outFile;
+    }
+
     public int getOutputAPILevel() {
         return outputAPILevel;
+    }
+
+    public boolean includeSupportLibrary() {
+        return includeSupportLibrary;
     }
 
     public boolean isApk() {
@@ -113,16 +120,16 @@ public class Options implements Serializable {
         return isDex;
     }
 
-    public boolean includeSupportLibrary() {
-        return includeSupportLibrary;
-    }
-
     public boolean isHelp() {
         return help;
     }
 
     public boolean isQuiet() {
         return quiet;
+    }
+
+    public boolean isRemoveWeak() {
+        return removeWeak;
     }
 
     public boolean isVerbose() {
@@ -135,6 +142,32 @@ public class Options implements Serializable {
 
     public boolean isVvverbose() {
         return vvverbose;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Include support library: ").append(includeSupportLibrary).append('\n');
+        sb.append("Max address visits: ").append(getMaxAddressVisits()).append('\n');
+        sb.append("Max call depth: ").append(getMaxCallDepth()).append('\n');
+        sb.append("Max method visits: ").append(getMaxMethodVisits()).append('\n');
+        sb.append("Max optimization passes: ").append(getMaxOptimizationPasses()).append('\n');
+        sb.append("Output API level: ").append(getOutputAPILevel()).append('\n');
+        sb.append("Exclude filter: ").append(getExcludeFilter()).append('\n');
+        sb.append("Include filter: ").append(getIncludeFilter()).append('\n');
+        sb.append("Input file: ").append(getInFile()).append('\n');
+        sb.append("Output file: ").append(getOutFile());
+
+        return sb.toString();
+    }
+
+    private void determineInputType() {
+        String type = FilenameUtils.getExtension(inFile.getAbsolutePath()).toLowerCase();
+        if ("apk".equals(type)) {
+            isApk = true;
+        } else if ("dex".equals(type)) {
+            isDex = true;
+        }
     }
 
     @Option(name = "-i", aliases = { "--input" }, metaVar = "input", handler = FileOptionHandler.class,
@@ -160,32 +193,6 @@ public class Options implements Serializable {
             outDexFile = new File(baseName + "_simple.dex");
             outFile = outDexFile;
         }
-    }
-
-    private void determineInputType() {
-        String type = FilenameUtils.getExtension(inFile.getAbsolutePath()).toLowerCase();
-        if ("apk".equals(type)) {
-            isApk = true;
-        } else if ("dex".equals(type)) {
-            isDex = true;
-        }
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Include support library: ").append(includeSupportLibrary).append('\n');
-        sb.append("Max address visits: ").append(getMaxAddressVisits()).append('\n');
-        sb.append("Max call depth: ").append(getMaxCallDepth()).append('\n');
-        sb.append("Max method visits: ").append(getMaxMethodVisits()).append('\n');
-        sb.append("Max optimization passes: ").append(getMaxOptimizationPasses()).append('\n');
-        sb.append("Output API level: ").append(getOutputAPILevel()).append('\n');
-        sb.append("Exclude filter: ").append(getExcludeFilter()).append('\n');
-        sb.append("Include filter: ").append(getIncludeFilter()).append('\n');
-        sb.append("Input file: ").append(getInFile()).append('\n');
-        sb.append("Output file: ").append(getOutFile());
-
-        return sb.toString();
     }
 
 }
