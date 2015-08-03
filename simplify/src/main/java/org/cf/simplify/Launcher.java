@@ -122,7 +122,7 @@ public class Launcher {
                     }
 
                     BuilderMethod method = classManager.getMethod(methodDescriptor);
-                    Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder);
+                    Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
                     optimizer.simplify(opts.getMaxOptimizationPasses());
                     if (optimizer.madeChanges()) {
                         // Optimizer changed the implementation. Re-build graph to include changes.
