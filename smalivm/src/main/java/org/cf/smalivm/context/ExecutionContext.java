@@ -288,6 +288,7 @@ public class ExecutionContext {
     }
 
     void setClassSideEffectLevel(String className, SideEffect.Level level) {
+        peekClassState(className);
         classNameToStatus.get(className).setSideEffectLevel(level);
     }
 

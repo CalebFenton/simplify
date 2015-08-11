@@ -341,9 +341,6 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionNode getTemplateNode(int address) {
-        if (address < 0) {
-            System.out.println("addy: " + address);
-        }
         return addressToNodePile.get(address).get(TEMPLATE_NODE_INDEX);
     }
 
