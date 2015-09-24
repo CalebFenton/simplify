@@ -9,9 +9,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
-import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,24 +17,13 @@ public class CheckCastOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(CheckCastOp.class.getSimpleName());
 
-    static CheckCastOp create(Instruction instruction, int address, VirtualMachine vm) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction21c instr = (Instruction21c) instruction;
-        int targetRegister = instr.getRegisterA();
-        TypeReference typeRef = (TypeReference) instr.getReference();
-        String className = typeRef.getType();
-
-        return new CheckCastOp(address, opName, childAddress, targetRegister, className, vm);
-    }
-
     private final String className;
     private final int targetRegister;
     private final VirtualMachine vm;
 
-    CheckCastOp(int address, String opName, int childAddress, int targetRegister, String className, VirtualMachine vm) {
-        super(address, opName, childAddress);
+    CheckCastOp(BuilderInstruction instruction, BuilderInstruction child, int targetRegister, String className,
+                    VirtualMachine vm) {
+        super(instruction, child);
 
         this.targetRegister = targetRegister;
         this.className = className;
@@ -75,7 +62,7 @@ public class CheckCastOp extends MethodStateOp {
 
             if (!item.isUnknown()) {
                 // Had all type information, so exception is certain.
-                node.clearChildAddresses();
+                node.clearChildren();
             }
             return;
         }

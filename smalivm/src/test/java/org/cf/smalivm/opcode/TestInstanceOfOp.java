@@ -12,9 +12,28 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestInstanceOfOp {
 
-    private static final String CLASS_NAME = "Linstanceof_test;";
-
     public static class IntegrationTest {
+
+        @Test
+        public void testIntArrayWithObjectAsDeclaredTypeIsInstanceOfIntArray() {
+            // Starting true just to see that it changes.
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, false, "Z", 1, new int[0],
+                            "Ljava/lang/Object;");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, true, "Z", 1, new int[0],
+                            "Ljava/lang/Object;");
+
+            VMTester.testMethodState(CLASS_NAME, "InstanceOfIntArray()V", initial, expected);
+        }
+
+        @Test
+        public void testObjectIsNotInstanceOfString() {
+            // Starting true just to see that it changes.
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, true, "Z", 1, null, "Ljava/lang/Object;");
+            TIntObjectMap<HeapItem> expected = VMTester
+                            .buildRegisterState(0, false, "Z", 1, null, "Ljava/lang/Object;");
+
+            VMTester.testMethodState(CLASS_NAME, "InstanceOfString()V", initial, expected);
+        }
 
         @Test
         public void testStringIsInstanceOfObject() {
@@ -46,27 +65,8 @@ public class TestInstanceOfOp {
             VMTester.testMethodState(CLASS_NAME, "InstanceOfObject()V", initial, expected);
         }
 
-        @Test
-        public void testObjectIsNotInstanceOfString() {
-            // Starting true just to see that it changes.
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, true, "Z", 1, null, "Ljava/lang/Object;");
-            TIntObjectMap<HeapItem> expected = VMTester
-                            .buildRegisterState(0, false, "Z", 1, null, "Ljava/lang/Object;");
-
-            VMTester.testMethodState(CLASS_NAME, "InstanceOfString()V", initial, expected);
-        }
-
-        @Test
-        public void testIntArrayWithObjectAsDeclaredTypeIsInstanceOfIntArray() {
-            // Starting true just to see that it changes.
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, false, "Z", 1, new int[0],
-                            "Ljava/lang/Object;");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, true, "Z", 1, new int[0],
-                            "Ljava/lang/Object;");
-
-            VMTester.testMethodState(CLASS_NAME, "InstanceOfIntArray()V", initial, expected);
-        }
-
     }
+
+    private static final String CLASS_NAME = "Linstanceof_test;";
 
 }

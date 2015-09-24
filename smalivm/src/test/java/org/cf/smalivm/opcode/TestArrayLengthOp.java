@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -17,6 +18,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.junit.Before;
@@ -26,8 +28,6 @@ import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
 public class TestArrayLengthOp {
-
-    private static final String CLASS_NAME = "Larray_length_test;";
 
     public static class TestObjectArrays {
 
@@ -115,30 +115,19 @@ public class TestArrayLengthOp {
         private static final int DEST_REGISTER = 0;
         private static final int ARG1_REGISTER = 2;
 
-        private BuilderInstruction instruction;
-        private OpFactory opFactory;
+        private VirtualMachine vm;
         private MethodState mState;
         private ExecutionNode node;
+        private BuilderInstruction instruction;
+        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+        private ArrayLengthOpFactory opFactory;
         private ArrayLengthOp op;
-
-        @Before
-        public void setUp() {
-            VirtualMachine vm = mock(VirtualMachine.class);
-            opFactory = new OpFactory(vm);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
-            when(instruction.getOpcode()).thenReturn(Opcode.ARRAY_LENGTH);
-            when(((Instruction12x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
-            when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
-        }
 
         @Test
         public void nullArrayThrowsExpectedException() {
             VMTester.addHeapItem(mState, ARG1_REGISTER, null, "[I");
 
-            op = (ArrayLengthOp) opFactory.create(instruction, ADDRESS);
+            op = (ArrayLengthOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class,
@@ -147,6 +136,30 @@ public class TestArrayLengthOp {
             expectedExceptions.add(expectedException);
             VMTester.verifyExceptionHandling(expectedExceptions, node, mState);
         }
+
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
+            MethodLocation location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(instruction.getOpcode()).thenReturn(Opcode.ARRAY_LENGTH);
+            when(((Instruction12x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
+
+            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
+            addressToInstruction.put(ADDRESS, instruction);
+
+            opFactory = new ArrayLengthOpFactory();
+        }
     }
+
+    private static final String CLASS_NAME = "Larray_length_test;";
 
 }

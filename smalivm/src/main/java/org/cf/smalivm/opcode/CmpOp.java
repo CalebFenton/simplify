@@ -4,8 +4,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,24 +13,12 @@ public class CmpOp extends MethodStateOp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(CmpOp.class.getSimpleName());
 
-    static CmpOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction23x instr = (Instruction23x) instruction;
-        int destRegister = instr.getRegisterA();
-        int lhsRegister = instr.getRegisterB();
-        int rhsRegister = instr.getRegisterC();
-
-        return new CmpOp(address, opName, childAddress, destRegister, lhsRegister, rhsRegister);
-    }
-
     private final int destRegister;
     private final int lhsRegister;
     private final int rhsRegister;
 
-    public CmpOp(int address, String opName, int childAddress, int destRegister, int lhsRegister, int rhsRegister) {
-        super(address, opName, childAddress);
+    CmpOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int lhsRegister, int rhsRegister) {
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.lhsRegister = lhsRegister;
@@ -58,6 +45,14 @@ public class CmpOp extends MethodStateOp {
         }
 
         mState.assignRegister(destRegister, item);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(getName());
+        sb.append(" r").append(destRegister).append(", r").append(lhsRegister).append(", r").append(rhsRegister);
+
+        return sb.toString();
     }
 
     private int cmp(Number val1, Number val2) {
@@ -92,14 +87,6 @@ public class CmpOp extends MethodStateOp {
         }
 
         return value;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(lhsRegister).append(", r").append(rhsRegister);
-
-        return sb.toString();
     }
 
 }

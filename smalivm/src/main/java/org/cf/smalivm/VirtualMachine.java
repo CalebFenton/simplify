@@ -155,8 +155,8 @@ public class VirtualMachine {
         spawnedContext.setClassState(className, templateClassState);
 
         BuilderMethod method = classManager.getMethod(methodDescriptor);
-        MethodImplementation impl = method.getImplementation();
-        int registerCount = impl.getRegisterCount();
+        MethodImplementation implementation = method.getImplementation();
+        int registerCount = implementation.getRegisterCount();
         List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
         boolean isStatic = Modifier.isStatic(method.getAccessFlags());
         addTemplateMethodState(spawnedContext, isStatic, registerCount, parameterTypes);

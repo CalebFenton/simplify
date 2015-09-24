@@ -1,15 +1,10 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.ClassManager;
-import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
-import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,38 +12,14 @@ public class NewArrayOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(NewArrayOp.class.getSimpleName());
 
-    static NewArrayOp create(Instruction instruction, int address, VirtualMachine vm) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction22c instr = (Instruction22c) instruction;
-        int destRegister = instr.getRegisterA();
-        int sizeRegister = instr.getRegisterB();
-
-        // [[Lsome_class;
-        String arrayType = ReferenceUtil.getReferenceString(instr.getReference());
-        // Lsome_class;
-        String baseClassName = SmaliClassUtils.getBaseClass(arrayType);
-        ClassManager classManager = vm.getClassManager();
-        boolean useLocalClass = false;
-        if (classManager.isFramework(baseClassName)) {
-            // Create arrays of LocalInstance
-            useLocalClass = classManager.isSafeFramework(baseClassName);
-        } else {
-            useLocalClass = classManager.isLocalClass(baseClassName);
-        }
-
-        return new NewArrayOp(address, opName, childAddress, destRegister, sizeRegister, arrayType, useLocalClass);
-    }
-
     private final int destRegister;
     private final int lengthRegister;
     private final boolean useLocalClass;
     private final String arrayType;
 
-    private NewArrayOp(int address, String opName, int childAddress, int destRegister, int lengthRegister,
+    NewArrayOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int lengthRegister,
                     String arrayType, boolean useLocalClass) {
-        super(address, opName, childAddress);
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.lengthRegister = lengthRegister;

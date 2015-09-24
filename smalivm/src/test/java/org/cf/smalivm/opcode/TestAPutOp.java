@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VMTester;
@@ -22,6 +23,7 @@ import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.ThreeRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.junit.Before;
@@ -33,27 +35,7 @@ import org.mockito.ArgumentCaptor;
 @RunWith(Enclosed.class)
 public class TestAPutOp {
 
-    private static final String CLASS_NAME = "Laput_test;";
-
     public static class IntegrationTest {
-
-        @Test
-        public void testPutWithInteger() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I", 2, 4, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[] { 4 }, "[I");
-
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
-        }
-
-        @Test
-        public void testPutIntegerWithShortIndex() {
-            Short index = 0;
-            TIntObjectMap<HeapItem> initial = VMTester
-                            .buildRegisterState(0, new int[1], "[I", 1, index, "S", 2, 4, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[] { 4 }, "[I");
-
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
-        }
 
         @Test
         public void testPutBoolean() {
@@ -112,6 +94,16 @@ public class TestAPutOp {
         }
 
         @Test
+        public void testPutIntegerWithShortIndex() {
+            Short index = 0;
+            TIntObjectMap<HeapItem> initial = VMTester
+                            .buildRegisterState(0, new int[1], "[I", 1, index, "S", 2, 4, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[] { 4 }, "[I");
+
+            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+        }
+
+        @Test
         public void testPutObject() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new LocalInstance[1], "[" + CLASS_NAME, 1,
                             0, "I", 2, new LocalInstance(CLASS_NAME), CLASS_NAME);
@@ -142,15 +134,6 @@ public class TestAPutOp {
         }
 
         @Test
-        public void testPutWithUnknownIndex() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, new UnknownValue(),
-                            "I", 2, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
-
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
-        }
-
-        @Test
         public void testPutUnknownValue() {
             // TODO: Ideally, setting an element unknown shouldn't set entire array unknown. See APutOp for more
             // details.
@@ -159,16 +142,6 @@ public class TestAPutOp {
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
 
             VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
-        }
-
-        @Test
-        public void testPutWideWithLong() {
-            Long value = 10000000000L;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new long[1], "[J", 1, 0, "I", 2, value,
-                            "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new long[] { value }, "[J");
-
-            VMTester.testMethodState(CLASS_NAME, "putWide()V", initial, expected);
         }
 
         @Test
@@ -190,6 +163,33 @@ public class TestAPutOp {
 
             VMTester.testMethodState(CLASS_NAME, "putWide()V", initial, expected);
         }
+
+        @Test
+        public void testPutWideWithLong() {
+            Long value = 10000000000L;
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new long[1], "[J", 1, 0, "I", 2, value,
+                            "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new long[] { value }, "[J");
+
+            VMTester.testMethodState(CLASS_NAME, "putWide()V", initial, expected);
+        }
+
+        @Test
+        public void testPutWithInteger() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I", 2, 4, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[] { 4 }, "[I");
+
+            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+        }
+
+        @Test
+        public void testPutWithUnknownIndex() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, new UnknownValue(),
+                            "I", 2, 5, "I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
+
+            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+        }
     }
 
     public static class UnitTest {
@@ -200,89 +200,32 @@ public class TestAPutOp {
         private static final int INDEX_REGISTER = 2;
 
         private VirtualMachine vm;
-        private ClassManager classManager;
-        private BuilderInstruction instruction;
-        private OpFactory opFactory;
         private MethodState mState;
         private ExecutionNode node;
-        private APutOp op;
+        private ClassManager classManager;
         private ArgumentCaptor<HeapItem> setItem;
+        private BuilderInstruction instruction;
+        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+        private APutOpFactory opFactory;
+        private APutOp op;
 
-        @Before
-        public void setUp() throws UnknownAncestors {
-            classManager = mock(ClassManager.class);
-            when(classManager.isInstance("I", "[I")).thenReturn(true);
-            when(classManager.isInstance("Ljava/lang/String;", "[I")).thenReturn(false);
+        // @Test
+        public void canInsertLocalClassAndClass() {
+            // TODO: https://github.com/CalebFenton/simplify/issues/25
+            // Need to change new-array to return [HeapItem and make everything aware of that
+            // First part easy, second part hard
+            when(mState.readRegister(VALUE_REGISTER)).thenReturn(
+                            new HeapItem(new LocalClass("Landroid/app/Activity;"), "Ljava/lang/Class;"));
+            when(mState.readRegister(ARRAY_REGISTER)).thenReturn(
+                            new HeapItem(new LocalClass("Landroid/app/Activity;"), "Ljava/lang/Class;"));
 
-            vm = mock(VirtualMachine.class);
-            when(vm.getClassManager()).thenReturn(classManager);
-            instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(ThreeRegisterInstruction.class, Instruction23x.class));
-            when(((Instruction23x) instruction).getRegisterA()).thenReturn(VALUE_REGISTER);
-            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARRAY_REGISTER);
-            when(((Instruction23x) instruction).getRegisterC()).thenReturn(INDEX_REGISTER);
-            opFactory = new OpFactory(vm);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            setItem = ArgumentCaptor.forClass(HeapItem.class);
-        }
+            when(instruction.getOpcode()).thenReturn(Opcode.APUT_OBJECT);
 
-        @Test
-        public void unknownValueItemMakesArrayUnknownAndDoesNotClearExceptions() {
-            int[] arrayValue = new int[] { 5 };
-            int indexValue = 2;
-            Object value = new UnknownValue();
-
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
-
-            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
-
-            op = (APutOp) opFactory.create(instruction, ADDRESS);
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
-            verify(mState, times(1)).assignRegister(eq(ARRAY_REGISTER), setItem.capture());
-            assertEquals(UnknownValue.class, setItem.getValue().getValue().getClass());
-            verify(node, times(0)).clearExceptions();
-        }
-
-        @Test
-        public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
-            int[] arrayValue = new int[] { 5 };
-            int indexValue = 2;
-            int value = 0;
-
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
-
-            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
-
-            op = (APutOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
-        }
-
-        @Test
-        public void outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters() {
-            int[] arrayValue = new int[] { 5 };
-            int indexValue = 2;
-            String value = "wont work";
-
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
-
-            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
-
-            op = (APutOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            // Division result is zero since long division drops decimal value
+            // verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("J"));
         }
 
         @Test
@@ -297,7 +240,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, ADDRESS);
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
@@ -316,11 +259,76 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, ADDRESS);
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class);
             VMTester.verifyExceptionHandling(expectedException, node, mState);
+        }
+
+        @Test
+        public void outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            int[] arrayValue = new int[] { 5 };
+            int indexValue = 2;
+            String value = "wont work";
+
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
+
+            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
+
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
+        }
+
+        @Test
+        public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            int[] arrayValue = new int[] { 5 };
+            int indexValue = 2;
+            int value = 0;
+
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
+
+            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
+
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
+        }
+
+        @Before
+        public void setUp() throws UnknownAncestors {
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+            classManager = mock(ClassManager.class);
+            when(vm.getClassManager()).thenReturn(classManager);
+            when(classManager.isInstance("I", "[I")).thenReturn(true);
+            when(classManager.isInstance("Ljava/lang/String;", "[I")).thenReturn(false);
+            setItem = ArgumentCaptor.forClass(HeapItem.class);
+
+            MethodLocation location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+            instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(ThreeRegisterInstruction.class, Instruction23x.class));
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(((Instruction23x) instruction).getRegisterA()).thenReturn(VALUE_REGISTER);
+            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARRAY_REGISTER);
+            when(((Instruction23x) instruction).getRegisterC()).thenReturn(INDEX_REGISTER);
+
+            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
+            addressToInstruction.put(ADDRESS, instruction);
+
+            opFactory = new APutOpFactory();
         }
 
         @Test
@@ -335,31 +343,34 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, ADDRESS);
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
             VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
-        // @Test
-        public void canInsertLocalClassAndClass() {
-            // TODO: https://github.com/CalebFenton/simplify/issues/25
-            // Need to change new-array to return [HeapItem and make everything aware of that
-            // First part easy, second part hard
-            when(mState.readRegister(VALUE_REGISTER)).thenReturn(
-                            new HeapItem(new LocalClass("Landroid/app/Activity;"), "Ljava/lang/Class;"));
-            when(mState.readRegister(ARRAY_REGISTER)).thenReturn(
-                            new HeapItem(new LocalClass("Landroid/app/Activity;"), "Ljava/lang/Class;"));
+        @Test
+        public void unknownValueItemMakesArrayUnknownAndDoesNotClearExceptions() {
+            int[] arrayValue = new int[] { 5 };
+            int indexValue = 2;
+            Object value = new UnknownValue();
 
-            when(instruction.getOpcode()).thenReturn(Opcode.APUT_OBJECT);
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
 
-            op = (APutOp) opFactory.create(instruction, 0);
+            when(instruction.getOpcode()).thenReturn(Opcode.APUT);
+
+            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
-            // Division result is zero since long division drops decimal value
-            // verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("J"));
+            verify(mState, times(1)).assignRegister(eq(ARRAY_REGISTER), setItem.capture());
+            assertEquals(UnknownValue.class, setItem.getValue().getValue().getClass());
+            verify(node, times(0)).clearExceptions();
         }
     }
+
+    private static final String CLASS_NAME = "Laput_test;";
 
 }

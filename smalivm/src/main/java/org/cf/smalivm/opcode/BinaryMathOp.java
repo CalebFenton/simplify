@@ -6,11 +6,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
-import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
-import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -241,33 +237,6 @@ public class BinaryMathOp extends MethodStateOp {
         return result;
     }
 
-    static BinaryMathOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-        TwoRegisterInstruction instr = (TwoRegisterInstruction) instruction;
-        int destRegister = instr.getRegisterA();
-        int arg1Register = instr.getRegisterB();
-
-        BinaryMathOp result = null;
-        if (instruction instanceof Instruction23x) {
-            // add-int vAA, vBB, vCC
-            int arg2Register = ((Instruction23x) instruction).getRegisterC();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register, false);
-        } else if (instruction instanceof Instruction12x) {
-            // add-int/2addr vAA, vBB
-            arg1Register = instr.getRegisterA();
-            int arg2Register = ((Instruction12x) instruction).getRegisterB();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Register, false);
-        } else if (instruction instanceof NarrowLiteralInstruction) {
-            // Instruction22b - add-int/lit8 vAA, vBB, #CC
-            // Instruction22s - add-int/lit16 vAA, vBB, #CCCC
-            int arg2Literal = ((NarrowLiteralInstruction) instruction).getNarrowLiteral();
-            result = new BinaryMathOp(address, opName, childAddress, destRegister, arg1Register, arg2Literal, true);
-        }
-
-        return result;
-    }
-
     private final int arg1Register;
     private int arg2Register;
     private final int destRegister;
@@ -276,20 +245,20 @@ public class BinaryMathOp extends MethodStateOp {
     private final MathOperator mathOperator;
     private int narrowLiteral;
 
-    private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register) {
-        super(address, opName, childAddress);
+    private BinaryMathOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int arg1Register) {
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
-        mathOperator = getMathOp(opName);
-        mathOperandType = getMathOperandType(opName);
+        mathOperator = getMathOp(getName());
+        mathOperandType = getMathOperandType(getName());
 
         addException(new VirtualException(ArithmeticException.class, "/ by zero"));
     }
 
-    private BinaryMathOp(int address, String opName, int childAddress, int destRegister, int arg1Register,
+    BinaryMathOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int arg1Register,
                     int otherValue, boolean hasLiteral) {
-        this(address, opName, childAddress, destRegister, arg1Register);
+        this(instruction, child, destRegister, arg1Register);
 
         this.hasLiteral = hasLiteral;
         if (hasLiteral) {
@@ -319,7 +288,7 @@ public class BinaryMathOp extends MethodStateOp {
             } else if (resultValue instanceof VirtualException) {
                 VirtualException exception = (VirtualException) resultValue;
                 node.setException(exception);
-                node.clearChildAddresses();
+                node.clearChildren();
                 return;
             } else {
                 node.clearExceptions();

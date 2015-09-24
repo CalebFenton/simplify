@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -17,6 +18,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +30,207 @@ import org.mockito.runners.MockitoJUnitRunner;
 @RunWith(Enclosed.class)
 public class TestCmpOp {
 
+    public static class TestDouble {
+
+        @Test
+        public void testCmpgDoubleWithEqual() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5D, "D", 2, 4.5D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgDoubleWithGreaterThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5D, "D", 2, 0.5D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgDoubleWithLessThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgDoubleWithNaN() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, Double.NaN, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgDoubleWithUnknownArgment() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "D", 2, new UnknownValue(), "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplDoubleWithEqual() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5D, "D", 2, 4.5D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplDoubleWithGreaterThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5D, "D", 2, 0.5D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplDoubleWithLessThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplDoubleWithNaN() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, Double.NaN, "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplDoubleWithUnknownArgment() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "D", 2, new UnknownValue(), "D");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
+        }
+    }
+
+    public static class TestFloat {
+
+        @Test
+        public void testCmpgFloatWithEqual() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5F, "F", 1, 4.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgFloatWithGreaterThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5F, "F", 1, 0.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgFloatWithLessThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgFloatWithNaN() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, Float.NaN, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpgFloatWithUnknownArgment() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, new UnknownValue(), "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplFloatWithEqual() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5F, "F", 1, 4.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplFloatWithGreaterThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5F, "F", 1, 0.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplFloatWithLessThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplFloatWithNaN() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, Float.NaN, "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplFloatWithUnknownArgment() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, new UnknownValue(), "F");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
+        }
+    }
+
+    public static class TestLong {
+
+        @Test
+        public void testCmplLongWithEqual() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100L, "J", 2, 0x100L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplLongWithGreaterThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100000L, "J", 2, 0x10L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
+        }
+
+        @Test
+        public void testCmplLongWithUnknownArgument() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100L, "J", 2, new UnknownValue(), "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
+        }
+
+        @Test
+        public void testCmpLongWithLessThan() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10L, "J", 2, 0x100000L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
+
+            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
+        }
+    }
+
     @RunWith(MockitoJUnitRunner.class)
     public static class UnitTest {
 
@@ -37,49 +240,95 @@ public class TestCmpOp {
         private static final int REGISTER_C = 4;
         private static final String CMP_TYPE = "I";
 
-        private BuilderInstruction instruction;
-        private OpFactory opFactory;
+        private VirtualMachine vm;
         private MethodState mState;
         private ExecutionNode node;
+        private ArgumentCaptor<HeapItem> setItem;
         private HeapItem itemB;
         private HeapItem itemC;
+        private BuilderInstruction instruction;
+        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+        private CmpOpFactory opFactory;
         private CmpOp op;
-        private ArgumentCaptor<HeapItem> setItem;
+
+        @Test
+        public void canCompareDouble() {
+            double value1 = 11204.0345612345D;
+            double value2 = 11492.3929612345D;
+            int cmpValue = Double.compare(value1, value2);
+            doTest(value1, value2, Opcode.CMPL_DOUBLE, "D", cmpValue);
+        }
+
+        @Test
+        public void canCompareDoubleGreaterWithArg1NaN() {
+            double value1 = Double.NaN;
+            double value2 = 11492.3929612345D;
+            doTest(value1, value2, Opcode.CMPG_DOUBLE, "D", 1);
+        }
+
+        @Test
+        public void canCompareDoubleLessWithArg1NaN() {
+            double value1 = Double.NaN;
+            double value2 = 11492.3929612345D;
+            doTest(value1, value2, Opcode.CMPL_DOUBLE, "D", -1);
+        }
+
+        @Test
+        public void canCompareFloat() {
+            float value1 = 11204.03456F;
+            float value2 = 11492.39296F;
+            int cmpValue = Float.compare(value1, value2);
+            doTest(value1, value2, Opcode.CMPL_FLOAT, "F", cmpValue);
+        }
+
+        @Test
+        public void canCompareFloatGreaterWithArg1NaN() {
+            float value1 = Float.NaN;
+            float value2 = 11492.39296F;
+            doTest(value1, value2, Opcode.CMPG_FLOAT, "F", 1);
+        }
+
+        @Test
+        public void canCompareFloatLessWithArg1NaN() {
+            float value1 = Float.NaN;
+            float value2 = 11492.39296F;
+            doTest(value1, value2, Opcode.CMPL_FLOAT, "F", -1);
+        }
+
+        @Test
+        public void canCompareLong() {
+            long value1 = 1120403456L;
+            long value2 = 1149239296L;
+            int cmpValue = Long.compare(value1, value2);
+            doTest(value1, value2, Opcode.CMP_LONG, "J", cmpValue);
+        }
 
         @Before
         public void setUp() {
-            VirtualMachine vm = mock(VirtualMachine.class);
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+            setItem = ArgumentCaptor.forClass(HeapItem.class);
+            itemB = mock(HeapItem.class);
+            when(itemB.isUnknown()).thenReturn(false);
+            when(mState.readRegister(REGISTER_B)).thenReturn(itemB);
+            itemC = mock(HeapItem.class);
+            when(itemC.isUnknown()).thenReturn(false);
+            when(mState.readRegister(REGISTER_C)).thenReturn(itemC);
+
             instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
+            MethodLocation location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
             when(((Instruction23x) instruction).getRegisterA()).thenReturn(REGISTER_A);
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(REGISTER_B);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(REGISTER_C);
-            opFactory = new OpFactory(vm);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            itemB = mock(HeapItem.class);
-            when(mState.readRegister(REGISTER_B)).thenReturn(itemB);
-            itemC = mock(HeapItem.class);
-            when(mState.readRegister(REGISTER_C)).thenReturn(itemC);
 
-            when(itemB.isUnknown()).thenReturn(false);
-            when(itemC.isUnknown()).thenReturn(false);
+            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
+            addressToInstruction.put(ADDRESS, instruction);
 
-            setItem = ArgumentCaptor.forClass(HeapItem.class);
-        }
-
-        private void doTest(Object value1, Object value2, Opcode opcode, String inputType, int cmpValue) {
-            when(itemB.getValue()).thenReturn(value1);
-            when(itemC.getValue()).thenReturn(value2);
-            when(itemB.getType()).thenReturn(inputType);
-            when(itemC.getType()).thenReturn(inputType);
-            when(instruction.getOpcode()).thenReturn(opcode);
-
-            op = (CmpOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
-            assertEquals(cmpValue, setItem.getValue().getValue());
-            assertEquals(CMP_TYPE, setItem.getValue().getType());
+            opFactory = new CmpOpFactory();
         }
 
         @Test
@@ -93,7 +342,7 @@ public class TestCmpOp {
             when(itemC.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
 
-            op = (CmpOp) opFactory.create(instruction, ADDRESS);
+            op = (CmpOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
             Object cmpValue = new UnknownValue();
@@ -114,7 +363,7 @@ public class TestCmpOp {
             when(itemC.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
 
-            op = (CmpOp) opFactory.create(instruction, ADDRESS);
+            op = (CmpOp) opFactory.create(instruction, addressToInstruction, vm);
             op.execute(node, mState);
 
             Object cmpValue = new UnknownValue();
@@ -123,260 +372,22 @@ public class TestCmpOp {
             assertEquals(CMP_TYPE, setItem.getValue().getType());
         }
 
-        @Test
-        public void canCompareLong() {
-            long value1 = 1120403456L;
-            long value2 = 1149239296L;
-            int cmpValue = Long.compare(value1, value2);
-            doTest(value1, value2, Opcode.CMP_LONG, "J", cmpValue);
-        }
+        private void doTest(Object value1, Object value2, Opcode opcode, String inputType, int cmpValue) {
+            when(itemB.getValue()).thenReturn(value1);
+            when(itemC.getValue()).thenReturn(value2);
+            when(itemB.getType()).thenReturn(inputType);
+            when(itemC.getType()).thenReturn(inputType);
+            when(instruction.getOpcode()).thenReturn(opcode);
 
-        @Test
-        public void canCompareFloat() {
-            float value1 = 11204.03456F;
-            float value2 = 11492.39296F;
-            int cmpValue = Float.compare(value1, value2);
-            doTest(value1, value2, Opcode.CMPL_FLOAT, "F", cmpValue);
-        }
+            op = (CmpOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
 
-        @Test
-        public void canCompareFloatLessWithArg1NaN() {
-            float value1 = Float.NaN;
-            float value2 = 11492.39296F;
-            doTest(value1, value2, Opcode.CMPL_FLOAT, "F", -1);
-        }
-
-        @Test
-        public void canCompareFloatGreaterWithArg1NaN() {
-            float value1 = Float.NaN;
-            float value2 = 11492.39296F;
-            doTest(value1, value2, Opcode.CMPG_FLOAT, "F", 1);
-        }
-
-        @Test
-        public void canCompareDouble() {
-            double value1 = 11204.0345612345D;
-            double value2 = 11492.3929612345D;
-            int cmpValue = Double.compare(value1, value2);
-            doTest(value1, value2, Opcode.CMPL_DOUBLE, "D", cmpValue);
-        }
-
-        @Test
-        public void canCompareDoubleLessWithArg1NaN() {
-            double value1 = Double.NaN;
-            double value2 = 11492.3929612345D;
-            doTest(value1, value2, Opcode.CMPL_DOUBLE, "D", -1);
-        }
-
-        @Test
-        public void canCompareDoubleGreaterWithArg1NaN() {
-            double value1 = Double.NaN;
-            double value2 = 11492.3929612345D;
-            doTest(value1, value2, Opcode.CMPG_DOUBLE, "D", 1);
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());
+            assertEquals(cmpValue, setItem.getValue().getValue());
+            assertEquals(CMP_TYPE, setItem.getValue().getType());
         }
     }
 
     private static final String CLASS_NAME = "Lcmp_test;";
-
-    public static class TestDouble {
-
-        @Test
-        public void testCmplDoubleWithLessThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplDoubleWithGreaterThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5D, "D", 2, 0.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplDoubleWithEqual() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5D, "D", 2, 4.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplDoubleWithNaN() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, Double.NaN, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplDoubleWithUnknownArgment() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "D", 2, new UnknownValue(), "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgDoubleWithLessThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgDoubleWithGreaterThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5D, "D", 2, 0.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgDoubleWithEqual() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5D, "D", 2, 4.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgDoubleWithNaN() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, Double.NaN, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgDoubleWithUnknownArgment() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "D", 2, new UnknownValue(), "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgDouble()V", initial, expected);
-        }
-    }
-
-    public static class TestFloat {
-
-        @Test
-        public void testCmplFloatWithLessThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplFloatWithGreaterThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5F, "F", 1, 0.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplFloatWithEqual() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5F, "F", 1, 4.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplFloatWithNaN() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, Float.NaN, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplFloatWithUnknownArgment() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, new UnknownValue(), "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmplFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgFloatWithLessThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgFloatWithGreaterThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 20.5F, "F", 1, 0.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgFloatWithEqual() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 4.5F, "F", 1, 4.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgFloatWithNaN() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, Float.NaN, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
-        }
-
-        @Test
-        public void testCmpgFloatWithUnknownArgment() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, new UnknownValue(), "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpgFloat()V", initial, expected);
-        }
-    }
-
-    public static class TestLong {
-
-        @Test
-        public void testCmpLongWithLessThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10L, "J", 2, 0x100000L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplLongWithGreaterThan() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100000L, "J", 2, 0x10L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplLongWithEqual() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100L, "J", 2, 0x100L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
-        }
-
-        @Test
-        public void testCmplLongWithUnknownArgument() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100L, "J", 2, new UnknownValue(), "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-
-            VMTester.testMethodState(CLASS_NAME, "CmpLong()V", initial, expected);
-        }
-    }
 
 }

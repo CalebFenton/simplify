@@ -5,10 +5,7 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
-import org.jf.dexlib2.iface.reference.FieldReference;
-import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,27 +14,14 @@ public class IGetOp extends ExecutionContextOp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(IGetOp.class.getSimpleName());
 
-    static IGetOp create(Instruction instruction, int address, VirtualMachine vm) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction22c instr = (Instruction22c) instruction;
-        int destRegister = instr.getRegisterA();
-        int instanceRegister = instr.getRegisterB();
-        FieldReference reference = (FieldReference) instr.getReference();
-        String fieldDescriptor = ReferenceUtil.getFieldDescriptor(reference);
-
-        return new IGetOp(address, opName, childAddress, destRegister, instanceRegister, fieldDescriptor, vm);
-    }
-
     private final int destRegister;
     private final int instanceRegister;
     private final String fieldDescriptor;
     private final VirtualMachine vm;
 
-    public IGetOp(int address, String opName, int childAddress, int destRegister, int instanceRegister,
+    public IGetOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int instanceRegister,
                     String fieldDescriptor, VirtualMachine vm) {
-        super(address, opName, childAddress);
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.instanceRegister = instanceRegister;

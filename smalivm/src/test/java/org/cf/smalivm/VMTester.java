@@ -32,6 +32,7 @@ import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 import com.google.common.collect.Sets;
@@ -342,16 +343,16 @@ public class VMTester {
     public static void verifyExceptionHandling(VirtualException expectedException, ExecutionNode node,
                     MethodState mState) {
         verify(node).setException(eq(expectedException));
-        verify(node).clearChildAddresses();
-        verify(node, times(0)).setChildAddresses(any(int[].class));
+        verify(node).clearChildren();
+        verify(node, times(0)).setChildren(any(BuilderInstruction[].class));
         verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 
     public static void verifyExceptionHandling(Set<VirtualException> expectedExceptions, ExecutionNode node,
                     MethodState mState) {
         verify(node).setExceptions(eq(expectedExceptions));
-        verify(node).clearChildAddresses();
-        verify(node, times(0)).setChildAddresses(any(int[].class));
+        verify(node).clearChildren();
+        verify(node, times(0)).setChildren(any(BuilderInstruction[].class));
         verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 

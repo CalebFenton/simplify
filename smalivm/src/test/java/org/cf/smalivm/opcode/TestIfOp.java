@@ -11,33 +11,7 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestIfOp {
 
-    private static final String CLASS_NAME = "Lif_test;";
-    private static final int ADDRESS_IF = 0;
-    private static final int ADDRESS_NOP = 2;
-    private static final int ADDRESS_RETURN = 3;
-    private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
-    private static final int[] IF_FALSE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
-
     public static class TestCompareObjectReferences {
-        @Test
-        public void testIfNotEqualWithTwoDifferentStringReferencesIsTrue() {
-            String methodSignature = "IfNotEqual()V";
-            String obj1 = "object string";
-            // Need to get crafty or javac will be smart enough to use same literal for both objects
-            String obj2 = new StringBuilder(obj1).toString();
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, obj1, "Ljava/lang/String;", 1, obj2,
-                            "Ljava/lang/String;");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
-        }
-
-        @Test
-        public void testIfNotEqualWithStringAndArrayReferenceIsTrue() {
-            String methodSignature = "IfNotEqual()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "object string", "Ljava/lang/String;", 1,
-                            new int[0], "[I");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
-        }
-
         @Test
         public void testIdenticalObjectReferencesAreEqual() {
             String methodSignature = "IfEqual()V";
@@ -55,9 +29,21 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfZeroIntegerEqualZero() {
-            String methodSignature = "IfEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, Integer.valueOf(0), "I");
+        public void testIfNotEqualWithStringAndArrayReferenceIsTrue() {
+            String methodSignature = "IfNotEqual()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "object string", "Ljava/lang/String;", 1,
+                            new int[0], "[I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
+        }
+
+        @Test
+        public void testIfNotEqualWithTwoDifferentStringReferencesIsTrue() {
+            String methodSignature = "IfNotEqual()V";
+            String obj1 = "object string";
+            // Need to get crafty or javac will be smart enough to use same literal for both objects
+            String obj2 = new StringBuilder(obj1).toString();
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, obj1, "Ljava/lang/String;", 1, obj2,
+                            "Ljava/lang/String;");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
 
@@ -88,13 +74,19 @@ public class TestIfOp {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, Boolean.TRUE, "Z");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
-    }
 
+        @Test
+        public void testIfZeroIntegerEqualZero() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, Integer.valueOf(0), "I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
+        }
+    }
     public static class TestIdenticalPrimitiveValueTypes {
         @Test
-        public void testIfEqualWithTwoUnequalIntegersIsFalse() {
-            String methodSignature = "IfEqual()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I", 1, 1, "I");
+        public void testIfEqualWithOneAndZeroIsFalse() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
         }
 
@@ -106,9 +98,9 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfEqualWithOneAndZeroIsFalse() {
-            String methodSignature = "IfEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+        public void testIfEqualWithTwoUnequalIntegersIsFalse() {
+            String methodSignature = "IfEqual()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I", 1, 1, "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
         }
 
@@ -120,10 +112,10 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfGreaterOrEqualWith0And1IsFalse() {
-            String methodSignature = "IfGreaterOrEqual()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I", 1, 1, "I");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
+        public void testIfEqualZeroWith0ByteIsTrue() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, (byte) 0x0, "B");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
 
         @Test
@@ -131,6 +123,13 @@ public class TestIfOp {
             String methodSignature = "IfGreaterOrEqual()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I", 1, 0, "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
+        }
+
+        @Test
+        public void testIfGreaterOrEqualWith0And1IsFalse() {
+            String methodSignature = "IfGreaterOrEqual()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I", 1, 1, "I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
         }
 
         @Test
@@ -155,16 +154,16 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfGreaterOrEqualZeroWithZeroIsTrue() {
+        public void testIfGreaterOrEqualZeroWithOneIsTrue() {
             String methodSignature = "IfGreaterOrEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
 
         @Test
-        public void testIfGreaterOrEqualZeroWithOneIsTrue() {
+        public void testIfGreaterOrEqualZeroWithZeroIsTrue() {
             String methodSignature = "IfGreaterOrEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
 
@@ -197,13 +196,6 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfLessOrEqualWith1And0IsFalse() {
-            String methodSignature = "IfLessOrEqual()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I", 1, 0, "I");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
-        }
-
-        @Test
         public void testIfLessOrEqualWith0And0IsTrue() {
             String methodSignature = "IfLessOrEqual()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I", 1, 0, "I");
@@ -218,10 +210,17 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfLessOrEqualZeroWithOneIsFalse() {
-            String methodSignature = "IfLessOrEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+        public void testIfLessOrEqualWith1And0IsFalse() {
+            String methodSignature = "IfLessOrEqual()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I", 1, 0, "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
+        }
+
+        @Test
+        public void testIfLessOrEqualZeroWith0IsTrue() {
+            String methodSignature = "IfLessOrEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
 
         @Test
@@ -232,10 +231,10 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfLessOrEqualZeroWith0IsTrue() {
+        public void testIfLessOrEqualZeroWithOneIsFalse() {
             String methodSignature = "IfLessOrEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0, "I");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_FALSE_VISITATIONS);
         }
 
         @Test
@@ -288,27 +287,19 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfNotEqualZeroWithOneIsTrue() {
-            String methodSignature = "IfNotEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
-        }
-
-        @Test
-        public void testIfEqualZeroWith0ByteIsTrue() {
-            String methodSignature = "IfEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, (byte) 0x0, "B");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
-        }
-
-        @Test
         public void testIfNotEqualZeroWith7ByteIsTrue() {
             String methodSignature = "IfNotEqualZero()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, (byte) 0x7, "B");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
-    }
 
+        @Test
+        public void testIfNotEqualZeroWithOneIsTrue() {
+            String methodSignature = "IfNotEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
+        }
+    }
     public static class TestValueTypeCombinations {
         @Test
         public void testIfEqualWithBooleanAndChar() {
@@ -521,5 +512,14 @@ public class TestIfOp {
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
     }
+    private static final String CLASS_NAME = "Lif_test;";
+    private static final int ADDRESS_IF = 0;
+    private static final int ADDRESS_NOP = 2;
+
+    private static final int ADDRESS_RETURN = 3;
+
+    private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
+
+    private static final int[] IF_FALSE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
 
 }

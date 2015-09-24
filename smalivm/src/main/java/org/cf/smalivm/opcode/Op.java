@@ -5,64 +5,67 @@ import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public abstract class Op {
 
-    // These should be final, but when graphs are modified, these values need to change.
-    private int address;
-    private int[] childAddresses;
-    private String opName;
-
     private final Set<VirtualException> exceptions;
 
-    Op(int address, String opName, int childAddress) {
-        this(address, opName, new int[] { childAddress });
+    private BuilderInstruction instruction;
+    private BuilderInstruction[] children;
+
+    Op(BuilderInstruction instruction, BuilderInstruction child) {
+        this(instruction, new BuilderInstruction[] { child });
     }
 
-    Op(int address, String opName, int[] childAddresses) {
-        this.address = address;
-        this.opName = opName;
-        this.childAddresses = childAddresses;
+    Op(BuilderInstruction instruction, BuilderInstruction[] children) {
+        this.instruction = instruction;
+        this.children = children;
         exceptions = new HashSet<VirtualException>();
     }
 
     public final int getAddress() {
-        return address;
+        return instruction.getLocation().getCodeAddress();
     }
 
-    public final String getName() {
-        return opName;
-    }
-
-    public final int[] getChildren() {
-        return childAddresses;
-    }
-
-    public SideEffect.Level sideEffectLevel() {
-        return SideEffect.Level.NONE;
-    }
-
-    public void setAddress(int address) {
-        this.address = address;
-    }
-
-    public void setChildren(int... childAddresses) {
-        this.childAddresses = childAddresses;
-    }
-
-    public void setOpName(String opName) {
-        this.opName = opName;
-    }
-
-    void addException(VirtualException exception) {
-        exceptions.add(exception);
+    public final BuilderInstruction[] getChildren() {
+        return children;
     }
 
     public Set<VirtualException> getExceptions() {
         return exceptions;
     }
 
+    public final BuilderInstruction getInstruction() {
+        return instruction;
+    }
+
+    public final MethodLocation getLocation() {
+        return instruction.getLocation();
+    }
+
+    public final String getName() {
+        return instruction.getOpcode().name;
+    }
+
+    public void setChildren(BuilderInstruction... children) {
+        this.children = children;
+    }
+
+    public void setInstruction(BuilderInstruction instruction) {
+        this.instruction = instruction;
+    }
+
+    public SideEffect.Level sideEffectLevel() {
+        return SideEffect.Level.NONE;
+    }
+
     @Override
     public abstract String toString();
+
+    void addException(VirtualException exception) {
+        exceptions.add(exception);
+    }
 
 }

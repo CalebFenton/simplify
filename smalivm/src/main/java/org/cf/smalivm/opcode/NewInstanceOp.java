@@ -9,31 +9,18 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
-import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class NewInstanceOp extends ExecutionContextOp {
-
-    static NewInstanceOp create(Instruction instruction, int address, VirtualMachine vm) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction21c instr = (Instruction21c) instruction;
-        int destRegister = instr.getRegisterA();
-        TypeReference typeRef = (TypeReference) instr.getReference();
-        String className = typeRef.getType();
-
-        return new NewInstanceOp(address, opName, childAddress, destRegister, className, vm);
-    }
 
     private final String className;
     private final int destRegister;
     private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
 
-    NewInstanceOp(int address, String opName, int childAddress, int destRegister, String className, VirtualMachine vm) {
-        super(address, opName, childAddress);
+    NewInstanceOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, String className,
+                    VirtualMachine vm) {
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.className = className;

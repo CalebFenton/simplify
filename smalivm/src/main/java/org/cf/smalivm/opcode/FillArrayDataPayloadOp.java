@@ -7,8 +7,7 @@ import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.ArrayPayload;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,19 +49,12 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         return value;
     }
 
-    static FillArrayDataPayloadOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-
-        ArrayPayload instr = (ArrayPayload) instruction;
-
-        return new FillArrayDataPayloadOp(address, opName, instr.getElementWidth(), instr.getArrayElements());
-    }
-
     private final List<Number> arrayElements;
     private final int elementWidth;
 
-    private FillArrayDataPayloadOp(int address, String opName, int elementWidth, List<Number> arrayElements) {
-        super(address, opName, 0); // childAddress / returnAddress not known until runtime
+    FillArrayDataPayloadOp(BuilderInstruction instruction, int elementWidth, List<Number> arrayElements) {
+        // childAddress / returnAddress not known until runtime
+        super(instruction);
 
         this.elementWidth = elementWidth;
         this.arrayElements = arrayElements;
@@ -86,8 +78,8 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
             mState.pokeRegister(targetRegister, arrayItem);
         }
 
-        int returnAddress = mState.getParent().getPseudoInstructionReturnAddress();
-        node.setChildAddresses(returnAddress);
+        BuilderInstruction returnInstruction = mState.getParent().getPseudoInstructionReturnInstruction();
+        node.setChildren(returnInstruction);
     }
 
     @Override

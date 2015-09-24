@@ -7,8 +7,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,22 +15,11 @@ public class ArrayLengthOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(ArrayLengthOp.class.getSimpleName());
 
-    static ArrayLengthOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction12x instr = (Instruction12x) instruction;
-        int destRegister = instr.getRegisterA();
-        int arrayRegister = instr.getRegisterB();
-
-        return new ArrayLengthOp(address, opName, childAddress, destRegister, arrayRegister);
-    }
-
     private final int arrayRegister;
     private final int destRegister;
 
-    public ArrayLengthOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister) {
-        super(address, opName, childAddress);
+    ArrayLengthOp(BuilderInstruction instruction, BuilderInstruction child, int valueRegister, int arrayRegister) {
+        super(instruction, child);
 
         this.destRegister = valueRegister;
         this.arrayRegister = arrayRegister;
@@ -52,7 +40,7 @@ public class ArrayLengthOp extends MethodStateOp {
         } else {
             if (array == null) {
                 node.setExceptions(getExceptions());
-                node.clearChildAddresses();
+                node.clearChildren();
                 return;
             } else {
                 // Won't pass verifier if it's not an array type. Probably our fault, so error.

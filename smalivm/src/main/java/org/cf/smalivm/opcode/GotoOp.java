@@ -2,21 +2,12 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.OffsetInstruction;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class GotoOp extends MethodStateOp {
 
-    static GotoOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = address + branchOffset;
-
-        return new GotoOp(address, opName, targetAddress);
-    }
-
-    private GotoOp(int address, String opName, int targetAddress) {
-        super(address, opName, targetAddress);
+    GotoOp(BuilderInstruction instruction, BuilderInstruction childInstruction) {
+        super(instruction, childInstruction);
     }
 
     @Override
@@ -27,7 +18,8 @@ public class GotoOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" #").append(getChildren()[0]);
+        int childAddress = getChildren()[0].getLocation().getCodeAddress();
+        sb.append(" #").append(childAddress);
 
         return sb.toString();
     }

@@ -6,8 +6,7 @@ import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,24 +26,13 @@ public class AGetOp extends MethodStateOp {
         return result;
     }
 
-    static AGetOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction23x instr = (Instruction23x) instruction;
-        int valueRegister = instr.getRegisterA();
-        int arrayRegister = instr.getRegisterB();
-        int indexRegister = instr.getRegisterC();
-
-        return new AGetOp(address, opName, childAddress, valueRegister, arrayRegister, indexRegister);
-    }
-
     private final int valueRegister;
     private final int arrayRegister;
     private final int indexRegister;
 
-    public AGetOp(int address, String opName, int childAddress, int valueRegister, int arrayRegister, int indexRegister) {
-        super(address, opName, childAddress);
+    AGetOp(BuilderInstruction instruction, BuilderInstruction child, int valueRegister, int arrayRegister,
+                    int indexRegister) {
+        super(instruction, child);
 
         this.valueRegister = valueRegister;
         this.arrayRegister = arrayRegister;
@@ -75,7 +63,7 @@ public class AGetOp extends MethodStateOp {
                 if (null == array) {
                     VirtualException exception = new VirtualException(NullPointerException.class);
                     node.setException(exception);
-                    node.clearChildAddresses();
+                    node.clearChildren();
                     return;
                 }
 
@@ -84,7 +72,7 @@ public class AGetOp extends MethodStateOp {
                 if (index >= Array.getLength(array)) {
                     VirtualException exception = new VirtualException(ArrayIndexOutOfBoundsException.class);
                     node.setException(exception);
-                    node.clearChildAddresses();
+                    node.clearChildren();
                     return;
                 } else {
                     Object value = Array.get(array, index);

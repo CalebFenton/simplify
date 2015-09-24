@@ -3,13 +3,11 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
-import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class MoveOp extends MethodStateOp {
 
-    private static enum MoveType {
+    static enum MoveType {
         EXCEPTION, REGISTER, RESULT
     };
 
@@ -28,35 +26,17 @@ public class MoveOp extends MethodStateOp {
         mState.assignRegister(toRegister, item);
     }
 
-    static MoveOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-        int toRegister = ((OneRegisterInstruction) instruction).getRegisterA();
-
-        MoveType moveType = null;
-        if (opName.contains("-result")) {
-            moveType = MoveType.RESULT;
-            return new MoveOp(address, opName, childAddress, toRegister, moveType);
-        } else if (opName.contains("-exception")) {
-            moveType = MoveType.EXCEPTION;
-            return new MoveOp(address, opName, childAddress, toRegister, moveType);
-        } else {
-            int targetRegister = ((TwoRegisterInstruction) instruction).getRegisterB();
-            return new MoveOp(address, opName, childAddress, toRegister, targetRegister);
-        }
-    }
-
     private final MoveType moveType;
     private int targetRegister;
     private final int toRegister;
 
-    private MoveOp(int address, String opName, int nextInstructionAddress, int toRegister, int targetRegister) {
-        this(address, opName, nextInstructionAddress, toRegister, MoveType.REGISTER);
+    MoveOp(BuilderInstruction instruction, BuilderInstruction child, int toRegister, int targetRegister) {
+        this(instruction, child, toRegister, MoveType.REGISTER);
         this.targetRegister = targetRegister;
     }
 
-    private MoveOp(int address, String opName, int childAddress, int toRegister, MoveType moveType) {
-        super(address, opName, childAddress);
+    MoveOp(BuilderInstruction instruction, BuilderInstruction child, int toRegister, MoveType moveType) {
+        super(instruction, child);
         this.toRegister = toRegister;
         this.moveType = moveType;
     }

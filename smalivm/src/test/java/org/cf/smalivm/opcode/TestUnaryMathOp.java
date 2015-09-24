@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -17,6 +18,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,167 +28,6 @@ import org.mockito.runners.MockitoJUnitRunner;
 
 @RunWith(Enclosed.class)
 public class TestUnaryMathOp {
-
-    @RunWith(MockitoJUnitRunner.class)
-    public static class UnitTest {
-
-        private static final int ADDRESS = 0;
-        private static final int REGISTER_A = 0;
-        private static final int REGISTER_B = 0;
-        private BuilderInstruction instruction;
-        private OpFactory opFactory;
-        private MethodState mState;
-        private ExecutionNode node;
-        private HeapItem item;
-        private UnaryMathOp op;
-
-        @Before
-        public void setUp() {
-            VirtualMachine vm = mock(VirtualMachine.class);
-            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
-            when(((Instruction12x) instruction).getRegisterA()).thenReturn(REGISTER_A);
-            when(((Instruction12x) instruction).getRegisterB()).thenReturn(REGISTER_B);
-            opFactory = new OpFactory(vm);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            item = mock(HeapItem.class);
-            when(mState.readRegister(REGISTER_B)).thenReturn(item);
-        }
-
-        @Test
-        public void canDoubleToFloat() {
-            Double value = 11204.0345612345D;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("D");
-            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
-            assertEquals("double-to-float r" + REGISTER_A + ", r" + REGISTER_B, op.toString());
-        }
-
-        @Test
-        public void canDoubleToInt() {
-            Double value = 11204.0345612345D;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("D");
-            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
-        }
-
-        @Test
-        public void canDoubleToLong() {
-            Double value = 11204.0345612345D;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("D");
-            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
-        }
-
-        @Test
-        public void canFloatToDouble() {
-            Float value = 11204.0345F;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("F");
-            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
-        }
-
-        @Test
-        public void canFloatToInt() {
-            Float value = 11204.0345F;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("F");
-            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
-        }
-
-        @Test
-        public void canFloatToLong() {
-            Float value = 11204.0345F;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("F");
-            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
-        }
-
-        @Test
-        public void canLongToFloat() {
-            Long value = 112040345L;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("J");
-            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
-        }
-
-        @Test
-        public void canLongToInt() {
-            Long value = 112040345L;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("J");
-            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
-        }
-
-        @Test
-        public void canLongToDouble() {
-            Long value = 112040345L;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("J");
-            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
-        }
-
-        @Test
-        public void canIntToByte() {
-            Integer value = 10;
-            when(item.getValue()).thenReturn(value);
-            when(item.getType()).thenReturn("I");
-            when(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
-
-            op = (UnaryMathOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.byteValue(), "B")));
-        }
-
-    }
-
-    private static final String CLASS_NAME = "Lunary_math_test;";
 
     public static class TestStartDouble {
 
@@ -470,5 +311,178 @@ public class TestUnaryMathOp {
             VMTester.testMethodState(CLASS_NAME, "NotLong()V", initial, expected);
         }
     }
+
+    @RunWith(MockitoJUnitRunner.class)
+    public static class UnitTest {
+
+        private static final int ADDRESS = 0;
+        private static final int REGISTER_A = 0;
+        private static final int REGISTER_B = 0;
+
+        private VirtualMachine vm;
+        private BuilderInstruction instruction;
+        private UnaryMathOpFactory opFactory;
+        private MethodState mState;
+        private ExecutionNode node;
+        private HeapItem item;
+        private UnaryMathOp op;
+        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+
+        @Test
+        public void canDoubleToFloat() {
+            Double value = 11204.0345612345D;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("D");
+            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
+            assertEquals("double-to-float r" + REGISTER_A + ", r" + REGISTER_B, op.toString());
+        }
+
+        @Test
+        public void canDoubleToInt() {
+            Double value = 11204.0345612345D;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("D");
+            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
+        }
+
+        @Test
+        public void canDoubleToLong() {
+            Double value = 11204.0345612345D;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("D");
+            when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
+        }
+
+        @Test
+        public void canFloatToDouble() {
+            Float value = 11204.0345F;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("F");
+            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
+        }
+
+        @Test
+        public void canFloatToInt() {
+            Float value = 11204.0345F;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("F");
+            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
+        }
+
+        @Test
+        public void canFloatToLong() {
+            Float value = 11204.0345F;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("F");
+            when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
+        }
+
+        @Test
+        public void canIntToByte() {
+            Integer value = 10;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("I");
+            when(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.byteValue(), "B")));
+        }
+
+        @Test
+        public void canLongToDouble() {
+            Long value = 112040345L;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("J");
+            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
+        }
+
+        @Test
+        public void canLongToFloat() {
+            Long value = 112040345L;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("J");
+            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
+        }
+
+        @Test
+        public void canLongToInt() {
+            Long value = 112040345L;
+            when(item.getValue()).thenReturn(value);
+            when(item.getType()).thenReturn("J");
+            when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
+
+            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
+        }
+
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+            item = mock(HeapItem.class);
+            when(mState.readRegister(REGISTER_B)).thenReturn(item);
+
+            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
+            MethodLocation location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(((Instruction12x) instruction).getRegisterA()).thenReturn(REGISTER_A);
+            when(((Instruction12x) instruction).getRegisterB()).thenReturn(REGISTER_B);
+
+            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
+            addressToInstruction.put(ADDRESS, instruction);
+
+            opFactory = new UnaryMathOpFactory();
+        }
+
+    }
+
+    private static final String CLASS_NAME = "Lunary_math_test;";
 
 }
