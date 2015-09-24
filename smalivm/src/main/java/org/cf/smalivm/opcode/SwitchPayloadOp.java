@@ -1,23 +1,22 @@
 package org.cf.smalivm.opcode;
 
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
+import gnu.trove.map.TIntIntMap;
+import gnu.trove.map.TIntObjectMap;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.SwitchElement;
-import org.jf.dexlib2.iface.instruction.SwitchPayload;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class SwitchPayloadOp extends MethodStateOp {
 
-    private static enum SwitchType {
+    static enum SwitchType {
         PACKED, SPARSE
     }
 
@@ -25,77 +24,52 @@ public class SwitchPayloadOp extends MethodStateOp {
     private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
 
     private static final int SWITCH_OP_CODE_UNITS = 3;
+    private final TIntObjectMap<BuilderInstruction> addressToInstruction;
+    private final TIntIntMap targetKeyToOffset;
 
-    private static int[] determineChildren(List<? extends SwitchElement> switchElements) {
-        TIntSet children = new TIntHashSet(switchElements.size() + 1);
-        // Switch ops are CAN_CONTINUE and may "fall through". Add immediate op.
-        children.add(SWITCH_OP_CODE_UNITS);
-        for (int i = 0; i < switchElements.size(); i++) {
-            int offset = switchElements.get(i).getOffset();
-            children.add(offset);
-        }
+    SwitchPayloadOp(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
+                    TIntIntMap targetKeyToOffset) {
+        // Don't know children until we know the pseudo return instruction, only branch offsets
+        super(instruction);
 
-        return children.toArray();
-    }
-
-    static SwitchPayloadOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        SwitchType switchType = null;
-        if (opName.startsWith("packed-")) {
-            switchType = SwitchType.PACKED;
-        } else {
-            switchType = SwitchType.SPARSE;
-        }
-        SwitchPayload instr = (SwitchPayload) instruction;
-        List<? extends SwitchElement> switchElements = instr.getSwitchElements();
-
-        return new SwitchPayloadOp(address, opName, switchType, switchElements);
-    }
-
-    private final List<? extends SwitchElement> switchElements;
-    private final SwitchType switchType;
-
-    private SwitchPayloadOp(int address, String opName, SwitchType switchType,
-                    List<? extends SwitchElement> switchElements) {
-        super(address, opName, determineChildren(switchElements));
-
-        this.switchType = switchType;
-        this.switchElements = switchElements;
+        this.targetKeyToOffset = targetKeyToOffset;
+        this.addressToInstruction = addressToInstruction;
     }
 
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
-        HeapItem targetItem = mState.readResultRegister();
         // Pseudo points to instruction *after* switch op.
-        int switchOpAddress = mState.getPseudoInstructionReturnAddress() - SWITCH_OP_CODE_UNITS;
-        if (targetItem.isUnknown()) {
-            int[] children = getTargetAddresses(switchOpAddress, getChildren());
+        BuilderInstruction returnInstruction = mState.getPseudoInstructionReturnInstruction();
+        int branchFromAddress = returnInstruction.getLocation().getCodeAddress() - SWITCH_OP_CODE_UNITS;
 
-            node.setChildAddresses(children);
+        HeapItem targetItem = mState.readResultRegister();
+        if (targetItem.isUnknown()) {
+            List<BuilderInstruction> childList = getTargets(branchFromAddress, targetKeyToOffset);
+            childList.add(returnInstruction);
+            BuilderInstruction[] children = childList.toArray(new BuilderInstruction[childList.size()]);
+            node.setChildren(children);
             return;
         }
 
         int targetKey = Utils.getIntegerValue(targetItem.getValue());
-        for (SwitchElement element : switchElements) {
-            if (element.getKey() == targetKey) {
-                int targetAddress = getTargetAddress(switchOpAddress, element.getOffset());
-
-                node.setChildAddresses(targetAddress);
-                return;
-            }
+        if (targetKeyToOffset.containsKey(targetKey)) {
+            int targetOffset = branchFromAddress + targetKeyToOffset.get(targetKey);
+            BuilderInstruction child = addressToInstruction.get(targetOffset);
+            node.setChildren(child);
+            return;
         }
 
         // Branch target is unspecified. Continue to next op.
-        node.setChildAddresses(mState.getPseudoInstructionReturnAddress());
-        return;
+        node.setChildren(returnInstruction);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
         sb.append(" [");
-        for (SwitchElement element : switchElements) {
-            sb.append(element.getKey()).append(" -> #").append(element.getOffset()).append(", ");
+        for (int key : targetKeyToOffset.keys()) {
+            int offset = targetKeyToOffset.get(key);
+            sb.append(key).append(" -> #").append(offset).append(", ");
         }
         sb.setLength(sb.length() - 2);
         sb.append(']');
@@ -103,18 +77,14 @@ public class SwitchPayloadOp extends MethodStateOp {
         return sb.toString();
     }
 
-    private int getTargetAddress(int switchOpAddress, int offset) {
-        // Offsets are from switch op's address.
-        return switchOpAddress + offset;
-    }
-
-    private int[] getTargetAddresses(int switchOpAddress, int[] offsets) {
-        int[] result = new int[offsets.length];
-        for (int i = 0; i < result.length; i++) {
-            result[i] = getTargetAddress(switchOpAddress, offsets[i]);
+    private List<BuilderInstruction> getTargets(int branchFromAddress, TIntIntMap targetKeyToOffset) {
+        int[] offsets = targetKeyToOffset.values();
+        List<BuilderInstruction> targets = new LinkedList<BuilderInstruction>();
+        for (int i = 0; i < offsets.length; i++) {
+            int targetOffset = branchFromAddress + offsets[i];
+            targets.add(addressToInstruction.get(targetOffset));
         }
 
-        return result;
+        return targets;
     }
-
 }

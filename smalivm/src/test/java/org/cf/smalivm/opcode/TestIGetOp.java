@@ -7,6 +7,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
+import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -16,6 +18,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.immutable.reference.ImmutableFieldReference;
@@ -32,42 +35,51 @@ public class TestIGetOp {
     private static final int REGISTER_A = 0;
     private static final int REGISTER_B = 2;
 
+    private VirtualMachine vm;
     private BuilderInstruction instruction;
-    private OpFactory opFactory;
+    private IGetOpFactory opFactory;
     private ExecutionContext ectx;
     private MethodState mState;
     private ExecutionNode node;
     private HeapItem itemB;
     private IGetOp op;
     private ArgumentCaptor<HeapItem> setItem;
+    private TIntObjectMap<BuilderInstruction> addressToInstruction;
 
     @Before
     public void setUp() {
-        VirtualMachine vm = mock(VirtualMachine.class);
-        instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction22c.class));
-        when(((Instruction22c) instruction).getRegisterA()).thenReturn(REGISTER_A);
-        when(((Instruction22c) instruction).getRegisterB()).thenReturn(REGISTER_B);
-
-        FieldReference fieldRef = new ImmutableFieldReference("Lsome/class;", "someMethod", "I");
-        when(((Instruction22c) instruction).getReference()).thenReturn(fieldRef);
-        opFactory = new OpFactory(vm);
-        mState = mock(MethodState.class);
-        node = mock(ExecutionNode.class);
-
+        vm = mock(VirtualMachine.class);
         ectx = mock(ExecutionContext.class);
+        mState = mock(MethodState.class);
         when(ectx.getMethodState()).thenReturn(mState);
+        node = mock(ExecutionNode.class);
 
         itemB = mock(HeapItem.class);
         when(mState.readRegister(REGISTER_B)).thenReturn(itemB);
 
         setItem = ArgumentCaptor.forClass(HeapItem.class);
+
+        instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction22c.class));
+        MethodLocation location = mock(MethodLocation.class);
+        when(location.getCodeAddress()).thenReturn(ADDRESS);
+        when(instruction.getLocation()).thenReturn(location);
+        when(instruction.getCodeUnits()).thenReturn(0);
+        when(((Instruction22c) instruction).getRegisterA()).thenReturn(REGISTER_A);
+        when(((Instruction22c) instruction).getRegisterB()).thenReturn(REGISTER_B);
+        FieldReference fieldRef = new ImmutableFieldReference("Lsome/class;", "someMethod", "I");
+        when(((Instruction22c) instruction).getReference()).thenReturn(fieldRef);
+
+        addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
+        addressToInstruction.put(ADDRESS, instruction);
+
+        opFactory = new IGetOpFactory();
     }
 
     @Test
     public void testIGetReturnsUnknownValueOfCorrectType() {
         when(instruction.getOpcode()).thenReturn(Opcode.IGET);
 
-        op = (IGetOp) opFactory.create(instruction, ADDRESS);
+        op = (IGetOp) opFactory.create(instruction, addressToInstruction, vm);
         op.execute(node, ectx);
 
         verify(mState, times(1)).readRegister(eq(REGISTER_B));

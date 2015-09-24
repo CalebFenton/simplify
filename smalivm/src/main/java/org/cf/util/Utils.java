@@ -23,6 +23,7 @@ import org.cf.smalivm.type.LocalField;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.writer.builder.BuilderTypeList;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
@@ -270,6 +271,14 @@ public class Utils {
         }
 
         return types;
+    }
+
+    public static BuilderInstruction getNextInstruction(BuilderInstruction instruction,
+                    TIntObjectMap<BuilderInstruction> addressToInstruction) {
+        int address = instruction.getLocation().getCodeAddress();
+        int nextAddress = address + instruction.getCodeUnits();
+
+        return addressToInstruction.get(nextAddress);
     }
 
 }

@@ -2,15 +2,16 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public abstract class ExecutionContextOp extends Op {
 
-    ExecutionContextOp(int address, String opName, int childAddress) {
-        super(address, opName, childAddress);
+    ExecutionContextOp(BuilderInstruction instruction, BuilderInstruction child) {
+        super(instruction, child);
     }
 
-    ExecutionContextOp(int address, String opName, int[] childAddresses) {
-        super(address, opName, childAddresses);
+    ExecutionContextOp(BuilderInstruction instruction, BuilderInstruction[] children) {
+        super(instruction, children);
     }
 
     public abstract void execute(ExecutionNode executionNode, ExecutionContext ectx);

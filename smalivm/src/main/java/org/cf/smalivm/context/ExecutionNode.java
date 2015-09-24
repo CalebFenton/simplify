@@ -9,6 +9,7 @@ import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.opcode.ExecutionContextOp;
 import org.cf.smalivm.opcode.MethodStateOp;
 import org.cf.smalivm.opcode.Op;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,25 +19,26 @@ public class ExecutionNode {
 
     private static Logger log = LoggerFactory.getLogger(ExecutionNode.class.getSimpleName());
 
-    private final List<ExecutionNode> children;
-    private ExecutionContext ectx;
+    private final List<ExecutionNode> childNodes;
     private final Op op;
+
+    private ExecutionContext ectx;
     private ExecutionNode parent;
-    private int[] childAddresses;
+    private BuilderInstruction[] children;
     private Set<VirtualException> exceptions;
 
     public ExecutionNode(ExecutionNode other) {
         op = other.op;
-        children = new ArrayList<ExecutionNode>(other.getChildren());
+        childNodes = new ArrayList<ExecutionNode>(other.getChildren());
     }
 
     public ExecutionNode(Op op) {
         this.op = op;
-        children = new ArrayList<ExecutionNode>(op.getChildren().length);
+        childNodes = new ArrayList<ExecutionNode>(op.getChildren().length);
     }
 
-    public void clearChildAddresses() {
-        setChildAddresses();
+    public void clearChildren() {
+        setChildren();
     }
 
     public void clearExceptions() {
@@ -63,11 +65,12 @@ public class ExecutionNode {
             log.debug("Context after:\n" + ectx);
         }
 
-        // If op didn't set children or exceptions specifically, pull in template values.
-        if (childAddresses == null) {
-            setChildAddresses(op.getChildren());
+        // Op didn't set children specifically. Pull in template values.
+        if (children == null) {
+            setChildren(op.getChildren());
         }
 
+        // Op didn't set exceptions specifically. Pull in template values.
         if (exceptions == null) {
             setExceptions(op.getExceptions());
         }
@@ -82,11 +85,16 @@ public class ExecutionNode {
     }
 
     public int[] getChildAddresses() {
+        int[] childAddresses = new int[children.length];
+        for (int i = 0; i < children.length; i++) {
+            childAddresses[i] = children[i].getLocation().getCodeAddress();
+        }
+
         return childAddresses;
     }
 
     public List<ExecutionNode> getChildren() {
-        return children;
+        return childNodes;
     }
 
     public ExecutionContext getContext() {
@@ -109,20 +117,18 @@ public class ExecutionNode {
         return exceptions != null && exceptions.size() > 0;
     }
 
-    public void removeChild(ExecutionNode child) {
-        children.remove(child);
-    }
-
-    public void replaceChild(ExecutionNode oldChild, ExecutionNode newChild) {
-        int index = children.indexOf(oldChild);
+    public void removeChildNode(ExecutionNode child) {
         // http://stream1.gifsoup.com/view/773318/not-the-father-dance-o.gif
-        assert index >= 0;
-        children.remove(index);
-        newChild.setParent(this);
+        childNodes.remove(child);
     }
 
-    public void setChildAddresses(int... childAddresses) {
-        this.childAddresses = childAddresses;
+    public void replaceChildNode(ExecutionNode oldChild, ExecutionNode newChild) {
+        removeChildNode(oldChild);
+        newChild.setParentNode(this);
+    }
+
+    public void setChildren(BuilderInstruction... children) {
+        this.children = children;
     }
 
     public void setContext(ExecutionContext ectx) {
@@ -142,19 +148,19 @@ public class ExecutionNode {
         ectx.setMethodState(mState);
     }
 
-    public void setParent(ExecutionNode parent) {
+    public void setParentNode(ExecutionNode parent) {
         // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
         // Each execution of an instruction will have a new state.
         this.parent = parent;
         if (parent != null) {
-            parent.addChild(this);
+            parent.addChildNode(this);
         }
     }
 
     public ExecutionNode spawnChild(Op childOp) {
         ExecutionNode child = new ExecutionNode(childOp);
         child.setContext(ectx.spawnChild());
-        child.setParent(this);
+        child.setParentNode(this);
 
         return child;
     }
@@ -173,8 +179,8 @@ public class ExecutionNode {
         return op.toString();
     }
 
-    private void addChild(ExecutionNode child) {
-        children.add(child);
+    private void addChildNode(ExecutionNode child) {
+        childNodes.add(child);
     }
 
     private void getGraph(StringBuilder sb, List<ExecutionNode> visitedNodes) {

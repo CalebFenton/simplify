@@ -7,9 +7,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
-import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.builder.BuilderInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,27 +15,14 @@ public class InstanceOfOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(InstanceOfOp.class.getSimpleName());
 
-    static InstanceOfOp create(Instruction instruction, int address, VirtualMachine vm) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction22c instr = (Instruction22c) instruction;
-        int destRegister = instr.getRegisterA();
-        int arg1Register = instr.getRegisterB();
-        TypeReference typeRef = (TypeReference) instr.getReference();
-        String className = typeRef.getType();
-
-        return new InstanceOfOp(address, opName, childAddress, destRegister, arg1Register, className, vm);
-    }
-
     private final String className;
     private final int destRegister;
     private final int arg1Register;
     private final VirtualMachine vm;
 
-    InstanceOfOp(int address, String opName, int childAddress, int destRegister, int arg1Register, String className,
-                    VirtualMachine vm) {
-        super(address, opName, childAddress);
+    InstanceOfOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int arg1Register,
+                    String className, VirtualMachine vm) {
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;

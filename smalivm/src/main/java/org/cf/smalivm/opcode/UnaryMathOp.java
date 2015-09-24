@@ -4,8 +4,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class UnaryMathOp extends MethodStateOp {
 
@@ -32,22 +31,11 @@ public class UnaryMathOp extends MethodStateOp {
         return resultType;
     }
 
-    static UnaryMathOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-
-        Instruction12x instr = (Instruction12x) instruction;
-        int destRegister = instr.getRegisterA();
-        int srcRegister = instr.getRegisterB();
-
-        return new UnaryMathOp(address, opName, childAddress, destRegister, srcRegister);
-    }
-
     private final int destRegister;
     private final int srcRegister;
 
-    private UnaryMathOp(int address, String opName, int childAddress, int destRegister, int srcRegister) {
-        super(address, opName, childAddress);
+    UnaryMathOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int srcRegister) {
+        super(instruction, child);
 
         this.destRegister = destRegister;
         this.srcRegister = srcRegister;

@@ -3,31 +3,18 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.OffsetInstruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction31t;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class FillArrayDataOp extends MethodStateOp {
 
-    static FillArrayDataOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int returnAddress = address + instruction.getCodeUnits();
-        int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int childAddress = address + branchOffset;
-
-        Instruction31t instr = (Instruction31t) instruction;
-        int register = instr.getRegisterA();
-
-        return new FillArrayDataOp(address, opName, childAddress, returnAddress, register);
-    }
-
     private final int register;
-    private final int returnAddress;
+    private final BuilderInstruction returnAddress;
 
-    private FillArrayDataOp(int address, String opName, int childAddress, int returnAddress, int register) {
-        super(address, opName, childAddress);
+    FillArrayDataOp(BuilderInstruction instruction, BuilderInstruction child, BuilderInstruction returnInstruction,
+                    int register) {
+        super(instruction, child);
 
-        this.returnAddress = returnAddress;
+        this.returnAddress = returnInstruction;
         this.register = register;
     }
 
@@ -40,13 +27,13 @@ public class FillArrayDataOp extends MethodStateOp {
         mState.assignRegister(register, item);
 
         // It needs to know return address when finished since payload ops do not continue to next address.
-        mState.setPseudoInstructionReturnAddress(returnAddress);
+        mState.setPseudoInstructionReturnInstruction(returnAddress);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getChildren()[0]);
+        sb.append(" r").append(register).append(", #").append(getChildren()[0].getLocation().getCodeAddress());
 
         return sb.toString();
     }

@@ -41,18 +41,18 @@ public class TestConstOp {
     }
 
     @Test
-    public void testConstClassRemote() {
-        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, Object.class, "Ljava/lang/Class;");
-
-        VMTester.testMethodState(CLASS_NAME, "TestConstClassRemote()V", expected);
-    }
-
-    @Test
     public void testConstClassOfUnknownClassReturnsLocalClass() {
         TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new LocalClass("Lunknown/class;"),
                         "Ljava/lang/Class;");
 
         VMTester.testMethodState(CLASS_NAME, "TestConstClassUnknown()V", expected);
+    }
+
+    @Test
+    public void testConstClassRemote() {
+        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, Object.class, "Ljava/lang/Class;");
+
+        VMTester.testMethodState(CLASS_NAME, "TestConstClassRemote()V", expected);
     }
 
     @Test

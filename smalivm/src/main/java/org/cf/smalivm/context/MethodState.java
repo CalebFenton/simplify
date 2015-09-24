@@ -4,6 +4,7 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import org.cf.util.Utils;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class MethodState extends BaseState {
 
@@ -31,14 +32,6 @@ public class MethodState extends BaseState {
         mutableParameters = new TIntHashSet(parameterCount);
     }
 
-    MethodState(MethodState other, ExecutionContext ectx) {
-        super(other, ectx);
-
-        this.parameterCount = other.parameterCount;
-        this.parameterSize = other.parameterSize;
-        mutableParameters = new TIntHashSet(other.mutableParameters);
-    }
-
     private MethodState(MethodState parent, ExecutionContext ectx, TIntSet mutableParameters) {
         super(parent, ectx);
 
@@ -47,8 +40,12 @@ public class MethodState extends BaseState {
         this.mutableParameters = parent.mutableParameters;
     }
 
-    public void assignParameter(int parameterRegister, Object value, String type) {
-        assignParameter(parameterRegister, new HeapItem(value, type));
+    MethodState(MethodState other, ExecutionContext ectx) {
+        super(other, ectx);
+
+        this.parameterCount = other.parameterCount;
+        this.parameterSize = other.parameterSize;
+        mutableParameters = new TIntHashSet(other.mutableParameters);
     }
 
     public void assignParameter(int parameterRegister, HeapItem item) {
@@ -61,6 +58,10 @@ public class MethodState extends BaseState {
         }
     }
 
+    public void assignParameter(int parameterRegister, Object value, String type) {
+        assignParameter(parameterRegister, new HeapItem(value, type));
+    }
+
     public void assignRegister(int register, HeapItem item) {
         super.assignRegister(register, item, METHOD_HEAP);
     }
@@ -69,43 +70,31 @@ public class MethodState extends BaseState {
         assignRegister(register, new HeapItem(value, type));
     }
 
-    public void assignResultRegister(Object value, String type) {
-        assignRegister(ResultRegister, new HeapItem(value, type));
+    /**
+     * Identical to {@link #assignRegister(int, HeapItem)} but also updates any register with an identical value to that
+     * stored in the target register with the new value.
+     *
+     * @param register
+     * @param item
+     */
+    public void assignRegisterAndUpdateIdentities(int register, HeapItem item) {
+        super.assignRegisterAndUpdateIdentities(register, item, METHOD_HEAP);
     }
 
     public void assignResultRegister(HeapItem item) {
         assignRegister(ResultRegister, item, METHOD_HEAP);
     }
 
-    public void assignReturnRegister(Object value, String type) {
-        pokeRegister(ReturnRegister, new HeapItem(value, type), METHOD_HEAP);
+    public void assignResultRegister(Object value, String type) {
+        assignRegister(ResultRegister, new HeapItem(value, type));
     }
 
     public void assignReturnRegister(HeapItem item) {
         pokeRegister(ReturnRegister, item, METHOD_HEAP);
     }
 
-    public void pokeRegister(int register, Object value, String type) {
-        pokeRegister(register, new HeapItem(value, type));
-    }
-
-    public void pokeRegister(int register, HeapItem item) {
-        super.pokeRegister(register, item, METHOD_HEAP);
-    }
-
-    public HeapItem readRegister(int register) {
-        return readRegister(register, METHOD_HEAP);
-    }
-
-    public HeapItem peekParameter(int parameterRegister) {
-        HeapItem item;
-        if (mutableParameters.contains(parameterRegister)) {
-            item = peekRegister(parameterRegister, MUTABLE_PARAMETER_HEAP);
-        } else {
-            item = peekRegister(parameterRegister);
-        }
-
-        return item;
+    public void assignReturnRegister(Object value, String type) {
+        pokeRegister(ReturnRegister, new HeapItem(value, type), METHOD_HEAP);
     }
 
     public int getParameterCount() {
@@ -121,12 +110,35 @@ public class MethodState extends BaseState {
         return (MethodState) super.getParent();
     }
 
-    public int getPseudoInstructionReturnAddress() {
-        return (int) peekRegister(ReturnAddress).getValue();
+    public BuilderInstruction getPseudoInstructionReturnInstruction() {
+        return (BuilderInstruction) peekRegister(ReturnAddress).getValue();
+    }
+
+    public HeapItem peekParameter(int parameterRegister) {
+        HeapItem item;
+        if (mutableParameters.contains(parameterRegister)) {
+            item = peekRegister(parameterRegister, MUTABLE_PARAMETER_HEAP);
+        } else {
+            item = peekRegister(parameterRegister);
+        }
+
+        return item;
     }
 
     public HeapItem peekRegister(int register) {
         return super.peekRegister(register, METHOD_HEAP);
+    }
+
+    public void pokeRegister(int register, HeapItem item) {
+        super.pokeRegister(register, item, METHOD_HEAP);
+    }
+
+    public void pokeRegister(int register, Object value, String type) {
+        pokeRegister(register, new HeapItem(value, type));
+    }
+
+    public HeapItem readRegister(int register) {
+        return readRegister(register, METHOD_HEAP);
     }
 
     public HeapItem readResultRegister() {
@@ -140,9 +152,9 @@ public class MethodState extends BaseState {
         return peekRegister(ReturnRegister);
     }
 
-    public void setPseudoInstructionReturnAddress(int address) {
+    public void setPseudoInstructionReturnInstruction(BuilderInstruction instruction) {
         // Pseudo instructions like array-data-payload need return addresses.
-        pokeRegister(ReturnAddress, address, METHOD_HEAP);
+        pokeRegister(ReturnAddress, instruction, METHOD_HEAP);
     }
 
     @Override
@@ -203,17 +215,6 @@ public class MethodState extends BaseState {
 
     public boolean wasRegisterRead(int register) {
         return wasRegisterRead(register, METHOD_HEAP);
-    }
-
-    /**
-     * Identical to {@link #assignRegister(int, HeapItem)} but also updates any register with an identical value to that
-     * stored in the target register with the new value.
-     *
-     * @param register
-     * @param item
-     */
-    public void assignRegisterAndUpdateIdentities(int register, HeapItem item) {
-        super.assignRegisterAndUpdateIdentities(register, item, METHOD_HEAP);
     }
 
     MethodState getChild(ExecutionContext childContext) {

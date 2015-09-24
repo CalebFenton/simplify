@@ -3,31 +3,17 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.iface.instruction.Instruction;
-import org.jf.dexlib2.iface.instruction.OffsetInstruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction31t;
+import org.jf.dexlib2.builder.BuilderInstruction;
 
 public class SwitchOp extends MethodStateOp {
 
-    static SwitchOp create(Instruction instruction, int address) {
-        String opName = instruction.getOpcode().name;
-        int childAddress = address + instruction.getCodeUnits();
-        int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = address + branchOffset;
-
-        Instruction31t instr = (Instruction31t) instruction;
-        int register = instr.getRegisterA();
-
-        return new SwitchOp(address, opName, childAddress, targetAddress, register);
-    }
-
-    private final int childAddress;
+    private final BuilderInstruction child;
     private final int register;
 
-    private SwitchOp(int address, String opName, int childAddress, int targetAddress, int register) {
-        super(address, opName, targetAddress);
+    SwitchOp(BuilderInstruction instruction, BuilderInstruction child, BuilderInstruction target, int register) {
+        super(instruction, target);
 
-        this.childAddress = childAddress;
+        this.child = child;
         this.register = register;
     }
 
@@ -38,13 +24,13 @@ public class SwitchOp extends MethodStateOp {
         mState.assignResultRegister(item);
 
         // If switch "falls through", will need the immediate op after this.
-        mState.setPseudoInstructionReturnAddress(childAddress);
+        mState.setPseudoInstructionReturnInstruction(child);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getChildren()[0]);
+        sb.append(" r").append(register).append(", #").append(getChildren()[0].getLocation().getCodeAddress());
 
         return sb.toString();
     }

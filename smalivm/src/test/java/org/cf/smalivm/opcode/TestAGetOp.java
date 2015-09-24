@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
@@ -15,6 +16,7 @@ import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 import org.junit.Before;
 import org.junit.Test;
@@ -25,134 +27,12 @@ import org.mockito.runners.MockitoJUnitRunner;
 @RunWith(Enclosed.class)
 public class TestAGetOp {
 
-    private static final String CLASS_NAME = "Laget_test;";
-
-    @RunWith(MockitoJUnitRunner.class)
-    public static class UnitTest {
-
-        private static final int ADDRESS = 0;
-        private static final int VALUE_REGISTER = 0;
-        private static final int ARRAY_REGISTER = 1;
-        private static final int INDEX_REGISTER = 2;
-
-        private BuilderInstruction instruction;
-        private OpFactory opFactory;
-        private MethodState mState;
-        private ExecutionNode node;
-        private AGetOp op;
-
-        @Before
-        public void setUp() {
-            VirtualMachine vm = mock(VirtualMachine.class);
-            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
-            when(((Instruction23x) instruction).getRegisterA()).thenReturn(VALUE_REGISTER);
-            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARRAY_REGISTER);
-            when(((Instruction23x) instruction).getRegisterC()).thenReturn(INDEX_REGISTER);
-
-            opFactory = new OpFactory(vm);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-        }
-
-        @Test
-        public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
-            int[] arrayValue = new int[] { 5 };
-            int indexValue = 2;
-
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-
-            when(instruction.getOpcode()).thenReturn(Opcode.AGET);
-
-            op = (AGetOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
-        }
-
-        @Test
-        public void nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
-            int[] arrayValue = null;
-            int indexValue = 2;
-
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-
-            when(instruction.getOpcode()).thenReturn(Opcode.AGET);
-
-            op = (AGetOp) opFactory.create(instruction, ADDRESS);
-            op.execute(node, mState);
-
-            VirtualException expectedException = new VirtualException(NullPointerException.class);
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
-        }
-    }
-
     public static class IntegrationTest {
 
         @Test
         public void testArrayGet() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 0, "I");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x42, "I");
-
-            VMTester.testMethodState(CLASS_NAME, "ArrayGet()V", initial, expected);
-        }
-
-        @Test
-        public void testArrayGetWithIndexOutOfBoundsDoesNotChangeRegisterState() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 1, "I");
-            TIntObjectMap<HeapItem> expected = initial;
-
-            VMTester.testMethodState(CLASS_NAME, "ArrayGetWithCatch()V", initial, expected);
-        }
-
-        @Test
-        public void testArrayGetWithIndexOutOfBoundsVisitsExceptionHandler() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 1, "I");
-            int[] expectedVisitations = new int[] { 0, 3, 4 };
-
-            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
-        }
-
-        @Test
-        public void testArrayGetWithCatchAndUnknownIndexVisitsExceptionHandlerAndChild() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1,
-                            new UnknownValue(), "I");
-            int[] expectedVisitations = new int[] { 0, 2, 3, 4 };
-
-            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
-        }
-
-        @Test
-        public void testArrayGetWithNullArrayDoesNotChangeRegisterState() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "[I", 1, 1, "I");
-            TIntObjectMap<HeapItem> expected = initial;
-
-            VMTester.testMethodState(CLASS_NAME, "ArrayGetWithCatch()V", initial, expected);
-        }
-
-        @Test
-        public void testArrayGetWithNullArrayVisitsExceptionHandler() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "[I", 1, 1, "I");
-            int[] expectedVisitations = new int[] { 0, 3, 4 };
-
-            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
-        }
-
-        @Test
-        public void testArrayGetWithCatchAndUnknownArrayVisitsExceptionHandlerAndChild() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I", 1, 1, "I");
-            int[] expectedVisitations = new int[] { 0, 2, 3, 4 };
-
-            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
-        }
-
-        @Test
-        public void testArrayGetWithShortIndex() {
-            Short index = 0;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, index, "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(index.intValue(), 0x42, "S");
 
             VMTester.testMethodState(CLASS_NAME, "ArrayGet()V", initial, expected);
         }
@@ -241,6 +121,138 @@ public class TestAGetOp {
 
             VMTester.testMethodState(CLASS_NAME, "ArrayGetWide()V", initial, expected);
         }
+
+        @Test
+        public void testArrayGetWithCatchAndUnknownArrayVisitsExceptionHandlerAndChild() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I", 1, 1, "I");
+            int[] expectedVisitations = new int[] { 0, 2, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
+        }
+
+        @Test
+        public void testArrayGetWithCatchAndUnknownIndexVisitsExceptionHandlerAndChild() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1,
+                            new UnknownValue(), "I");
+            int[] expectedVisitations = new int[] { 0, 2, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
+        }
+
+        @Test
+        public void testArrayGetWithIndexOutOfBoundsDoesNotChangeRegisterState() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 1, "I");
+            TIntObjectMap<HeapItem> expected = initial;
+
+            VMTester.testMethodState(CLASS_NAME, "ArrayGetWithCatch()V", initial, expected);
+        }
+
+        @Test
+        public void testArrayGetWithIndexOutOfBoundsVisitsExceptionHandler() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, 1, "I");
+            int[] expectedVisitations = new int[] { 0, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
+        }
+
+        @Test
+        public void testArrayGetWithNullArrayDoesNotChangeRegisterState() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "[I", 1, 1, "I");
+            TIntObjectMap<HeapItem> expected = initial;
+
+            VMTester.testMethodState(CLASS_NAME, "ArrayGetWithCatch()V", initial, expected);
+        }
+
+        @Test
+        public void testArrayGetWithNullArrayVisitsExceptionHandler() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "[I", 1, 1, "I");
+            int[] expectedVisitations = new int[] { 0, 3, 4 };
+
+            VMTester.testVisitation(CLASS_NAME, "ArrayGetWithCatch()V", initial, expectedVisitations);
+        }
+
+        @Test
+        public void testArrayGetWithShortIndex() {
+            Short index = 0;
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0x42 }, "[I", 1, index, "S");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(index.intValue(), 0x42, "S");
+
+            VMTester.testMethodState(CLASS_NAME, "ArrayGet()V", initial, expected);
+        }
     }
+
+    @RunWith(MockitoJUnitRunner.class)
+    public static class UnitTest {
+
+        private static final int ADDRESS = 0;
+        private static final int VALUE_REGISTER = 0;
+        private static final int ARRAY_REGISTER = 1;
+        private static final int INDEX_REGISTER = 2;
+
+        private VirtualMachine vm;
+        private MethodState mState;
+        private ExecutionNode node;
+        private BuilderInstruction instruction;
+        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+        private AGetOpFactory opFactory;
+        private AGetOp op;
+
+        @Test
+        public void nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            int[] arrayValue = null;
+            int indexValue = 2;
+
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+
+            when(instruction.getOpcode()).thenReturn(Opcode.AGET);
+
+            op = (AGetOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(NullPointerException.class);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
+        }
+
+        @Test
+        public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            int[] arrayValue = new int[] { 5 };
+            int indexValue = 2;
+
+            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+
+            when(instruction.getOpcode()).thenReturn(Opcode.AGET);
+
+            op = (AGetOp) opFactory.create(instruction, addressToInstruction, vm);
+            op.execute(node, mState);
+
+            VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
+            VMTester.verifyExceptionHandling(expectedException, node, mState);
+        }
+
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+
+            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
+            MethodLocation location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(((Instruction23x) instruction).getRegisterA()).thenReturn(VALUE_REGISTER);
+            when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARRAY_REGISTER);
+            when(((Instruction23x) instruction).getRegisterC()).thenReturn(INDEX_REGISTER);
+
+            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
+            addressToInstruction.put(ADDRESS, instruction);
+
+            opFactory = new AGetOpFactory();
+        }
+    }
+
+    private static final String CLASS_NAME = "Laget_test;";
 
 }

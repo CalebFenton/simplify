@@ -26,18 +26,8 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestInvokeOp {
 
-    private static final String CLASS_WITH_STATIC_INIT = "Lclass_with_static_init;";
-
     public static class TestInvokeReflectedMethod {
         private static final String CLASS_NAME = "Linvoke_reflected_test;";
-
-        @Test
-        public void testInvokeLongValueOfWithLongGetsCorrectParameters() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x1000L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new Long(0x1000L), "J");
-
-            VMTester.testMethodState(CLASS_NAME, "InvokeLongValueOf()V", initial, expected);
-        }
 
         @Test
         public void testInitStringWithByteArrayWithUnknownParameter() {
@@ -47,6 +37,14 @@ public class TestInvokeOp {
                             1, new UnknownValue(), "[B");
 
             VMTester.testMethodState(CLASS_NAME, "InitStringWithByteArray()V", initial, expected);
+        }
+
+        @Test
+        public void testInvokeLongValueOfWithLongGetsCorrectParameters() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x1000L, "J");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new Long(0x1000L), "J");
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeLongValueOf()V", initial, expected);
         }
 
         @Test
@@ -66,17 +64,6 @@ public class TestInvokeOp {
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
         @Test
-        public void testInvokeMutateStaticClassFieldNonDeterministicallyPropigatesUnknown() {
-            Map<String, Map<String, HeapItem>> initial = VMTester.buildClassNameToFieldItem(CLASS_NAME, "mutable:[I",
-                            new int[] { 3, 3, 3 });
-            Map<String, Map<String, HeapItem>> expected = VMTester.buildClassNameToFieldItem(CLASS_NAME, "mutable:[I",
-                            new UnknownValue());
-
-            VMTester.testClassState(CLASS_NAME, "InvokeMutateStaticClassFieldNonDeterministically()V", initial,
-                            expected);
-        }
-
-        @Test
         public void testInvokeMethodOutsideClassThatAccessesThisClassReturnsExpectedValue() {
             String value = "i have been initialized";
             TIntObjectMap<HeapItem> initialRegisterToValue = new TIntObjectHashMap<HeapItem>();
@@ -93,6 +80,17 @@ public class TestInvokeOp {
         }
 
         @Test
+        public void testInvokeMutateStaticClassFieldNonDeterministicallyPropigatesUnknown() {
+            Map<String, Map<String, HeapItem>> initial = VMTester.buildClassNameToFieldItem(CLASS_NAME, "mutable:[I",
+                            new int[] { 3, 3, 3 });
+            Map<String, Map<String, HeapItem>> expected = VMTester.buildClassNameToFieldItem(CLASS_NAME, "mutable:[I",
+                            new UnknownValue());
+
+            VMTester.testClassState(CLASS_NAME, "InvokeMutateStaticClassFieldNonDeterministically()V", initial,
+                            expected);
+        }
+
+        @Test
         public void testInvokeMutateStaticClassFieldPropigatesChanges() {
             Map<String, Map<String, HeapItem>> initial = VMTester.buildClassNameToFieldItem(CLASS_NAME, "mutable:[I",
                             new int[] { 3, 3, 3 });
@@ -100,6 +98,24 @@ public class TestInvokeOp {
                             new int[] { 0, 3, 3 });
 
             VMTester.testClassState(CLASS_NAME, "InvokeMutateStaticClassField()V", initial, expected);
+        }
+
+        @Test
+        public void testInvokeMutateStringBuilderDoesMutateParameter() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new StringBuilder("i have been"),
+                            "Ljava/lang/StringBuilder;");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new StringBuilder("i have been mutated"),
+                            "Ljava/lang/StringBuilder;");
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeMutateStringBuilder()V", initial, expected);
+        }
+
+        @Test
+        public void testInvokeMutateStringDoesNotMutateParameter() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "not mutated", "Ljava/lang/String;");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, "not mutated", "Ljava/lang/String;");
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeMutateString()V", initial, expected);
         }
 
         @Test
@@ -128,29 +144,20 @@ public class TestInvokeOp {
         }
 
         @Test
+        public void testInvokeReturnUninitializedFieldDoesNotReturnNull() {
+            TIntObjectMap<HeapItem> initial = new TIntObjectHashMap<HeapItem>();
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister,
+                            new UnknownValue(), "Ljava/lang/String;");
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeReturnUninitializedField()V", initial, expected);
+        }
+
+        @Test
         public void testInvokeReturnVoidReturnsVoid() {
             ExecutionGraph graph = VMTester.execute(CLASS_NAME, "InvokeReturnVoid()V");
 
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ResultRegister);
             assertNull(consensus);
-        }
-
-        @Test
-        public void testInvokeMutateStringBuilderDoesMutateParameter() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new StringBuilder("i have been"),
-                            "Ljava/lang/StringBuilder;");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new StringBuilder("i have been mutated"),
-                            "Ljava/lang/StringBuilder;");
-
-            VMTester.testMethodState(CLASS_NAME, "InvokeMutateStringBuilder()V", initial, expected);
-        }
-
-        @Test
-        public void testInvokeMutateStringDoesNotMutateParameter() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "not mutated", "Ljava/lang/String;");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, "not mutated", "Ljava/lang/String;");
-
-            VMTester.testMethodState(CLASS_NAME, "InvokeMutateString()V", initial, expected);
         }
 
         @Test
@@ -182,19 +189,19 @@ public class TestInvokeOp {
             VMTester.testClassState(CLASS_NAME, "NonDeterministicallyInitializeClassWithStaticInit()V", initial,
                             expected);
         }
-
-        @Test
-        public void testInvokeReturnUninitializedFieldDoesNotReturnNull() {
-            TIntObjectMap<HeapItem> initial = new TIntObjectHashMap<HeapItem>();
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister,
-                            new UnknownValue(), "Ljava/lang/String;");
-
-            VMTester.testMethodState(CLASS_NAME, "InvokeReturnUninitializedField()V", initial, expected);
-        }
     }
 
     public static class TestInvokeVirtual {
         private static final String CLASS_NAME = "Linvoke_virtual_test;";
+
+        @Test
+        public void testInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[0], "[I");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister, int.class,
+                            "Ljava/lang/Class;");
+
+            VMTester.testMethodState(CLASS_NAME, "InvokeGetComponentType()V", initial, expected);
+        }
 
         @Test
         public void testInvokeReturnIntReturnsInt() {
@@ -231,15 +238,6 @@ public class TestInvokeOp {
 
             VMTester.testMethodState(CLASS_NAME, "InvokeRangeManyParameters()V", initial, expected);
         }
-
-        @Test
-        public void testInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[0], "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister, int.class,
-                            "Ljava/lang/Class;");
-
-            VMTester.testMethodState(CLASS_NAME, "InvokeGetComponentType()V", initial, expected);
-        }
     }
 
     public static class TestMethodStateProperties {
@@ -261,5 +259,7 @@ public class TestInvokeOp {
             assertTrue(mState.wasRegisterAssigned(1));
         }
     }
+
+    private static final String CLASS_WITH_STATIC_INIT = "Lclass_with_static_init;";
 
 }

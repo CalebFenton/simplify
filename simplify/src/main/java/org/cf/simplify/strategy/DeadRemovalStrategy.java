@@ -55,6 +55,18 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
+    private static TIntSet getNormalRegistersAssigned(MethodState mState) {
+        TIntSet assigned = mState.getRegistersAssigned();
+
+        // The state of these registers can become invalid as we start to remove ops.
+        // Infer if the result is used, etc. by means other than looking if the register
+        // itself is read.
+        assigned.removeAll(new int[] {
+                        MethodState.ResultRegister, MethodState.ReturnAddress, MethodState.ReturnRegister });
+
+        return assigned;
+    }
+
     private static boolean isAnyRegisterUsed(int address, TIntSet registerSet, MethodBackedGraph graph) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildren(address));
         ExecutionNode node;
@@ -94,11 +106,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         return false;
     }
-
     private TIntList addresses;
     private int deadAssignmentCount;
     private int deadBranchCount;
     private int deadCount;
+
     private int deadResultCount;
 
     private SideEffect.Level sideEffectThreshold = SideEffect.Level.NONE;
@@ -159,18 +171,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         if (removeWeak) {
             sideEffectThreshold = SideEffect.Level.WEAK;
         }
-    }
-
-    private static TIntSet getNormalRegistersAssigned(MethodState mState) {
-        TIntSet assigned = mState.getRegistersAssigned();
-
-        // The state of these registers can become invalid as we start to remove ops.
-        // Infer if the result is used, etc. by means other than looking if the register
-        // itself is read.
-        assigned.removeAll(new int[] {
-                        MethodState.ResultRegister, MethodState.ReturnAddress, MethodState.ReturnRegister });
-
-        return assigned;
     }
 
     private boolean isDeadAssignment(int address) {
