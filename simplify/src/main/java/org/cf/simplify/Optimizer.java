@@ -10,8 +10,6 @@ import java.util.Set;
 import org.cf.simplify.strategy.ConstantPropigationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
 import org.cf.simplify.strategy.OptimizationStrategy;
-import org.cf.simplify.strategy.PeepholeStrategy;
-import org.cf.simplify.strategy.ReflectionRemovalStrategy;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -43,7 +41,7 @@ public class Optimizer {
         mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
         performOnceStrategies = new LinkedList<OptimizationStrategy>();
         performOnceStrategies.add(new ConstantPropigationStrategy(mbgraph));
-        performOnceStrategies.add(new PeepholeStrategy(mbgraph));
+        // performOnceStrategies.add(new PeepholeStrategy(mbgraph));
 
         performRepeatedlyStrategies = new LinkedList<OptimizationStrategy>();
         // Strategies should be able to define their own configuration and options.
@@ -52,7 +50,7 @@ public class Optimizer {
         performRepeatedlyStrategies.add(strategy);
 
         methodReexecuteStrategies = new LinkedList<OptimizationStrategy>();
-        methodReexecuteStrategies.add(new ReflectionRemovalStrategy(mbgraph));
+        // methodReexecuteStrategies.add(new ReflectionRemovalStrategy(mbgraph));
 
         allStrategies = new LinkedList<OptimizationStrategy>();
         allStrategies.addAll(performOnceStrategies);

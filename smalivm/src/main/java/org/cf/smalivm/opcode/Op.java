@@ -11,8 +11,8 @@ public abstract class Op {
     // These should be final, but when graphs are modified, these values need to change.
     private int address;
     private int[] childAddresses;
+    private String opName;
 
-    private final String opName;
     private final Set<VirtualException> exceptions;
 
     Op(int address, String opName, int childAddress) {
@@ -48,6 +48,10 @@ public abstract class Op {
 
     public void setChildren(int... childAddresses) {
         this.childAddresses = childAddresses;
+    }
+
+    public void setOpName(String opName) {
+        this.opName = opName;
     }
 
     void addException(VirtualException exception) {
