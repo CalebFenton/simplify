@@ -548,214 +548,305 @@
 
 # direct methods
 .method static constructor <clinit>()V
-    .registers 7
+    .locals 7
 
+    #@0
     .prologue
     const/4 v6, 0x6
 
+    #@1
     const/4 v5, 0x3
 
+    #@2
     const/4 v4, 0x2
 
+    #@3
     const/4 v3, 0x1
 
+    #@4
     const/4 v2, 0x0
 
+    #@5
     .line 1727
     const/16 v0, 0x1b
 
+    #@7
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_c2
+    #@9
+    fill-array-data v0, :array_0
 
+    #@c
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ActionBar:[I
 
+    #@e
     .line 2100
     new-array v0, v3, [I
 
+    #@10
     const v1, 0x10100b3
 
+    #@13
     aput v1, v0, v2
 
+    #@15
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ActionBarLayout:[I
 
+    #@17
     .line 2119
     new-array v0, v3, [I
 
+    #@19
     const v1, 0x101013f
 
+    #@1c
     aput v1, v0, v2
 
+    #@1e
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ActionMenuItemView:[I
 
+    #@20
     .line 2130
     new-array v0, v2, [I
 
+    #@22
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ActionMenuView:[I
 
+    #@24
     .line 2153
     new-array v0, v6, [I
 
-    fill-array-data v0, :array_fc
+    #@26
+    fill-array-data v0, :array_1
 
+    #@29
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ActionMode:[I
 
+    #@2b
     .line 2237
     new-array v0, v4, [I
 
-    fill-array-data v0, :array_10c
+    #@2d
+    fill-array-data v0, :array_2
 
+    #@30
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ActivityChooserView:[I
 
+    #@32
     .line 2274
     new-array v0, v3, [I
 
+    #@34
     const v1, 0x7f01001f
 
+    #@37
     aput v1, v0, v2
 
+    #@39
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->CompatTextView:[I
 
+    #@3b
     .line 2312
     const/16 v0, 0x8
 
+    #@3d
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_114
+    #@3f
+    fill-array-data v0, :array_3
 
+    #@42
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->DrawerArrowToggle:[I
 
+    #@44
     .line 2467
     const/16 v0, 0x9
 
+    #@46
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_128
+    #@48
+    fill-array-data v0, :array_4
 
+    #@4b
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->LinearLayoutCompat:[I
 
+    #@4d
     .line 2577
     const/4 v0, 0x4
 
+    #@4e
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_13e
+    #@50
+    fill-array-data v0, :array_5
 
+    #@53
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->LinearLayoutCompat_Layout:[I
 
+    #@55
     .line 2616
     new-array v0, v4, [I
 
-    fill-array-data v0, :array_14a
+    #@57
+    fill-array-data v0, :array_6
 
+    #@5a
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ListPopupWindow:[I
 
+    #@5c
     .line 2651
     new-array v0, v6, [I
 
-    fill-array-data v0, :array_152
+    #@5e
+    fill-array-data v0, :array_7
 
+    #@61
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->MenuGroup:[I
 
+    #@63
     .line 2733
     const/16 v0, 0x11
 
+    #@65
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_162
+    #@67
+    fill-array-data v0, :array_8
 
+    #@6a
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->MenuItem:[I
 
+    #@6c
     .line 2900
     const/16 v0, 0x8
 
+    #@6e
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_188
+    #@70
+    fill-array-data v0, :array_9
 
+    #@73
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->MenuView:[I
 
+    #@75
     .line 2972
     new-array v0, v4, [I
 
-    fill-array-data v0, :array_19c
+    #@77
+    fill-array-data v0, :array_a
 
+    #@7a
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->PopupWindow:[I
 
+    #@7c
     .line 3005
     new-array v0, v3, [I
 
+    #@7e
     const v1, 0x7f010031
 
+    #@81
     aput v1, v0, v2
 
+    #@83
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->PopupWindowBackgroundState:[I
 
+    #@85
     .line 3060
     const/16 v0, 0xf
 
+    #@87
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_1a4
+    #@89
+    fill-array-data v0, :array_b
 
+    #@8c
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->SearchView:[I
 
+    #@8e
     .line 3238
     const/16 v0, 0xb
 
+    #@90
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_1c6
+    #@92
+    fill-array-data v0, :array_c
 
+    #@95
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->Spinner:[I
 
+    #@97
     .line 3364
     const/16 v0, 0xa
 
+    #@99
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_1e0
+    #@9b
+    fill-array-data v0, :array_d
 
+    #@9e
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->SwitchCompat:[I
 
+    #@a0
     .line 3657
     const/16 v0, 0x53
 
+    #@a2
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_1f8
+    #@a4
+    fill-array-data v0, :array_e
 
+    #@a7
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->Theme:[I
 
+    #@a9
     .line 4708
     const/16 v0, 0x16
 
+    #@ab
     new-array v0, v0, [I
 
-    fill-array-data v0, :array_2a2
+    #@ad
+    fill-array-data v0, :array_f
 
+    #@b0
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->Toolbar:[I
 
+    #@b2
     .line 5018
     new-array v0, v5, [I
 
-    fill-array-data v0, :array_2d2
+    #@b4
+    fill-array-data v0, :array_10
 
+    #@b7
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->View:[I
 
+    #@b9
     .line 5073
     new-array v0, v5, [I
 
-    fill-array-data v0, :array_2dc
+    #@bb
+    fill-array-data v0, :array_11
 
+    #@be
     sput-object v0, Lorg/cf/obfuscated/R$styleable;->ViewStubCompat:[I
 
+    #@c0
     return-void
 
+    #@c1
     .line 1727
     nop
 
-    :array_c2
+    #@c2
+    :array_0
     .array-data 4
         0x7f010001
         0x7f010003
@@ -786,8 +877,9 @@
         0x7f010071
     .end array-data
 
+    #@fc
     .line 2153
-    :array_fc
+    :array_1
     .array-data 4
         0x7f010001
         0x7f010007
@@ -797,15 +889,17 @@
         0x7f01001c
     .end array-data
 
+    #@10c
     .line 2237
-    :array_10c
+    :array_2
     .array-data 4
         0x7f01001d
         0x7f01001e
     .end array-data
 
+    #@114
     .line 2312
-    :array_114
+    :array_3
     .array-data 4
         0x7f010020
         0x7f010021
@@ -817,8 +911,9 @@
         0x7f010027
     .end array-data
 
+    #@128
     .line 2467
-    :array_128
+    :array_4
     .array-data 4
         0x10100af
         0x10100c4
@@ -831,8 +926,9 @@
         0x7f01002a
     .end array-data
 
+    #@13e
     .line 2577
-    :array_13e
+    :array_5
     .array-data 4
         0x10100b3
         0x10100f4
@@ -840,15 +936,17 @@
         0x1010181
     .end array-data
 
+    #@14a
     .line 2616
-    :array_14a
+    :array_6
     .array-data 4
         0x10102ac
         0x10102ad
     .end array-data
 
+    #@152
     .line 2651
-    :array_152
+    :array_7
     .array-data 4
         0x101000e
         0x10100d0
@@ -858,8 +956,9 @@
         0x10101e0
     .end array-data
 
+    #@162
     .line 2733
-    :array_162
+    :array_8
     .array-data 4
         0x1010002
         0x101000e
@@ -880,8 +979,9 @@
         0x7f01002e
     .end array-data
 
+    #@188
     .line 2900
-    :array_188
+    :array_9
     .array-data 4
         0x10100ae
         0x101012c
@@ -893,15 +993,17 @@
         0x7f01002f
     .end array-data
 
+    #@19c
     .line 2972
-    :array_19c
+    :array_a
     .array-data 4
         0x1010176
         0x7f010030
     .end array-data
 
+    #@1a4
     .line 3060
-    :array_1a4
+    :array_b
     .array-data 4
         0x10100da
         0x101011f
@@ -920,8 +1022,9 @@
         0x7f01003c
     .end array-data
 
+    #@1c6
     .line 3238
-    :array_1c6
+    :array_c
     .array-data 4
         0x10100af
         0x10100d4
@@ -936,8 +1039,9 @@
         0x7f010040
     .end array-data
 
+    #@1e0
     .line 3364
-    :array_1e0
+    :array_d
     .array-data 4
         0x1010124
         0x1010125
@@ -951,8 +1055,9 @@
         0x7f010047
     .end array-data
 
+    #@1f8
     .line 3657
-    :array_1f8
+    :array_e
     .array-data 4
         0x1010057
         0x7f010048
@@ -1039,8 +1144,9 @@
         0x7f010099
     .end array-data
 
+    #@2a2
     .line 4708
-    :array_2a2
+    :array_f
     .array-data 4
         0x10100af
         0x1010140
@@ -1066,16 +1172,18 @@
         0x7f0100a6
     .end array-data
 
+    #@2d2
     .line 5018
-    :array_2d2
+    :array_10
     .array-data 4
         0x10100da
         0x7f0100a7
         0x7f0100a8
     .end array-data
 
+    #@2dc
     .line 5073
-    :array_2dc
+    :array_11
     .array-data 4
         0x10100d0
         0x10100f2
@@ -1084,11 +1192,13 @@
 .end method
 
 .method public constructor <init>()V
-    .registers 1
+    .locals 0
 
+    #@0
     .prologue
     .line 1664
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
+    #@3
     return-void
 .end method
