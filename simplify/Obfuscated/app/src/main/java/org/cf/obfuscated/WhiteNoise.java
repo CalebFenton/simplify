@@ -1,6 +1,5 @@
 package org.cf.obfuscated;
 
-
 public class WhiteNoise {
 
   private static final int five = 5;
