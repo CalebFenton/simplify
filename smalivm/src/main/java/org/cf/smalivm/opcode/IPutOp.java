@@ -6,7 +6,7 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,9 +20,9 @@ public class IPutOp extends ExecutionContextOp {
     private final int instanceRegister;
     private final VirtualMachine vm;
 
-    IPutOp(BuilderInstruction instruction, BuilderInstruction child, int valueRegister, int instanceRegister,
+    IPutOp(MethodLocation location, MethodLocation child, int valueRegister, int instanceRegister,
                     String fieldDescriptor, VirtualMachine vm) {
-        super(instruction, child);
+        super(location, child);
 
         this.valueRegister = valueRegister;
         this.instanceRegister = instanceRegister;

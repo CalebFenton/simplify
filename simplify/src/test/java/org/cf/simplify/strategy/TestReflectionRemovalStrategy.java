@@ -28,13 +28,86 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class TestReflectionRemovalStrategy {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestReflectionRemovalStrategy.class.getSimpleName());
+    public static class TestFieldLookups {
 
-    private static final String CLASS_NAME = "Lreflection_removal_strategy_test;";
-    private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
-    private static final String METHOD_WITH_3_LOCALS_AND_0_AVAILABLE = "MethodInvokeWith3LocalsAnd0Available()V";
-    private static final String METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE = "MethodInvokeWith10LocalsAnd7ContiguousAvailable()V";
+        private static final String[] EXPECTED_SHARED = {
+                        "invoke-virtual {r0, r1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
+                        "move-result-object r0", };
+        private static final String LOCAL_INSTANCE_FIELD = "someInt";
+        private static final String LOCAL_INSTANCE_FIELD_TYPE = "I";
+
+        private static final String LOCAL_STATIC_FIELD = "someStaticObject";
+        private static final String LOCAL_STATIC_FIELD_TYPE = "Ljava/lang/Object;";
+        private static final String METHOD_WITH_MOVE_RESULT = "FieldLookupWithMoveResult()V";
+        private static final String METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS = "FieldLookupWithoutMoveResultWithNoAvailableRegisters()V";
+
+        private static final String METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER = "FieldLookupWithoutMoveResultWithOneAvailableRegister()V";
+
+        @Test
+        public void testLocalInstanceFieldWithMoveResult() {
+            LocalClass fieldClass = new LocalClass(CLASS_NAME);
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
+                            1, LOCAL_INSTANCE_FIELD, "Ljava/lang/String;", 2, null, null);
+            String[] endLines = new String[] {
+                            "iget r0, r2, " + CLASS_NAME + "->" + LOCAL_INSTANCE_FIELD + ":" + LOCAL_INSTANCE_FIELD_TYPE,
+                            "return-void", };
+            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+
+            testSmali(mbgraph, expectedLines);
+        }
+
+        @Test
+        public void testLocalStaticFieldWithMoveResult() {
+            LocalClass fieldClass = new LocalClass(CLASS_NAME);
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
+                            1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
+            String[] endLines = new String[] {
+                            "sget-object r0, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
+                            "return-void", };
+            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+
+            testSmali(mbgraph, expectedLines);
+        }
+
+        @Test
+        public void testLocalStaticFieldWithMoveResultAndWithOneAvailableRegister() {
+            LocalClass fieldClass = new LocalClass(CLASS_NAME);
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0,
+                            fieldClass, "Ljava/lang/Class;", 1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
+            String[] endLines = new String[] {
+                            "sget-object r2, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
+                            "invoke-static {r0, r1}, Llolmoney/moneylol;->lol(II)V", "return-void", };
+            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+
+            testSmali(mbgraph, expectedLines);
+        }
+
+        @Test
+        public void testLocalStaticFieldWithMoveResultAndWithoutAvailableRegistersDoesNotOptimize() {
+            LocalClass fieldClass = new LocalClass(CLASS_NAME);
+            String fieldName = "someStaticObject";
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0,
+                            fieldClass, "Ljava/lang/Class;", 1, fieldName, "Ljava/lang/String;", 2, null, null);
+            String[] endLines = new String[] {
+                            "invoke-virtual {r0, r2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
+                            "invoke-static {r0, r1, r2}, Llolmoney/moneylol;->lol(III)V", "return-void", };
+            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+
+            testSmali(mbgraph, expectedLines);
+        }
+
+        @Test
+        public void testNonLocalStaticFieldWithMoveResult() {
+            Class<?> fieldClass = Integer.class;
+            String fieldName = "MAX_VALUE";
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
+                            1, fieldName, "Ljava/lang/String;", 2, null, null);
+            String[] endLines = new String[] { "sget r0, Ljava/lang/Integer;->MAX_VALUE:I", "return-void", };
+            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+
+            testSmali(mbgraph, expectedLines);
+        }
+    }
 
     public static class TestInvokeNonLocalInterfaceMethod {
 
@@ -54,20 +127,19 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
-
     public static class TestInvokeNonOptimizableScenarios {
-
-        private static final UnknownValue UNKNOWN_METHOD = new UnknownValue();
-        private static final Method PRIVATE_NON_LOCAL_METHOD = getMethod(System.class, "checkKey",
-                        new Class<?>[] { String.class });
-        private static final LocalMethod LOCAL_STATIC_METHOD = new LocalMethod(
-                        CLASS_NAME + "->FourParameterMethod(IIII)V");
 
         private static final String[] EXPECTED_LINES = new String[] {
                         "nop",
                         "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
                         "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
+        private static final LocalMethod LOCAL_STATIC_METHOD = new LocalMethod(
+                        CLASS_NAME + "->FourParameterMethod(IIII)V");
+        private static final Method PRIVATE_NON_LOCAL_METHOD = getMethod(System.class, "checkKey",
+                        new Class<?>[] { String.class });
+
+        private static final UnknownValue UNKNOWN_METHOD = new UnknownValue();
 
         @Test
         public void testPrivateNonLocalMethodIsNotOptimized() {
@@ -96,7 +168,6 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
-
     public static class TestInvokeStaticNonLocalMethodWithNoParameters {
 
         private static final Method METHOD = getMethod(System.class, "gc", new Class<?>[0]);
@@ -128,7 +199,6 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 10);
         }
     }
-
     public static class TestInvokeStaticPrivateLocalMethod {
 
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->FourParameterMethod(IIII)V");
@@ -185,90 +255,8 @@ public class TestReflectionRemovalStrategy {
         }
     }
 
-    public static class TestFieldLookups {
-
-        private static final String METHOD_WITH_MOVE_RESULT = "FieldLookupWithMoveResult()V";
-        private static final String METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER = "FieldLookupWithoutMoveResultWithOneAvailableRegister()V";
-        private static final String METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS = "FieldLookupWithoutMoveResultWithNoAvailableRegisters()V";
-
-        private static final String LOCAL_STATIC_FIELD = "someStaticObject";
-        private static final String LOCAL_STATIC_FIELD_TYPE = "Ljava/lang/Object;";
-        private static final String LOCAL_INSTANCE_FIELD = "someInt";
-        private static final String LOCAL_INSTANCE_FIELD_TYPE = "I";
-
-        private static final String[] EXPECTED_SHARED = {
-                        "invoke-virtual {r0, r1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
-                        "move-result-object r0", };
-
-        @Test
-        public void testNonLocalStaticFieldWithMoveResult() {
-            Class<?> fieldClass = Integer.class;
-            String fieldName = "MAX_VALUE";
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
-                            1, fieldName, "Ljava/lang/String;", 2, null, null);
-            String[] endLines = new String[] { "sget r0, Ljava/lang/Integer;->MAX_VALUE:I", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
-
-            testSmali(mbgraph, expectedLines);
-        }
-
-        @Test
-        public void testLocalStaticFieldWithMoveResult() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
-                            1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
-            String[] endLines = new String[] {
-                            "sget-object r0, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
-                            "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
-
-            testSmali(mbgraph, expectedLines);
-        }
-
-        @Test
-        public void testLocalStaticFieldWithMoveResultAndWithOneAvailableRegister() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0,
-                            fieldClass, "Ljava/lang/Class;", 1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
-            String[] endLines = new String[] {
-                            "sget-object r2, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
-                            "invoke-static {r0, r1}, Llolmoney/moneylol;->lol(II)V", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
-
-            testSmali(mbgraph, expectedLines);
-        }
-
-        @Test
-        public void testLocalStaticFieldWithMoveResultAndWithoutAvailableRegistersDoesNotOptimize() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            String fieldName = "someStaticObject";
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0,
-                            fieldClass, "Ljava/lang/Class;", 1, fieldName, "Ljava/lang/String;", 2, null, null);
-            String[] endLines = new String[] {
-                            "invoke-virtual {r0, r2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
-                            "invoke-static {r0, r1, r2}, Llolmoney/moneylol;->lol(III)V", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
-
-            testSmali(mbgraph, expectedLines);
-        }
-
-        @Test
-        public void testLocalInstanceFieldWithMoveResult() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
-                            1, LOCAL_INSTANCE_FIELD, "Ljava/lang/String;", 2, null, null);
-            String[] endLines = new String[] {
-                            "iget r0, r2, " + CLASS_NAME + "->" + LOCAL_INSTANCE_FIELD + ":" + LOCAL_INSTANCE_FIELD_TYPE,
-                            "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
-
-            testSmali(mbgraph, expectedLines);
-        }
-    }
-
     public static class TestInvokeVirtualLocalMethodWithSixParameters {
 
-        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");
         private static final String[] EXPECTED_SHARED = new String[] {
                         "nop",
                         "move-object/16 r3, r1",
@@ -291,6 +279,7 @@ public class TestReflectionRemovalStrategy {
                         "aget-object r9, r2, r9",
                         "check-cast r9, Ljava/lang/Integer;",
                         "invoke-virtual/range {r3 .. r9}, Lreflection_removal_strategy_test;->SixParameterMethod(IIIIII)V", };
+        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
@@ -318,44 +307,14 @@ public class TestReflectionRemovalStrategy {
 
     }
 
-    public static class TestProtectedMethods {
-
-        @Test
-        public void testStaticGetOpcodes() {
-            boolean isStatic = true;
-            assertEquals(Opcode.SGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
-            assertEquals(Opcode.SGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
-            assertEquals(Opcode.SGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
-            assertEquals(Opcode.SGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
-            assertEquals(Opcode.SGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
-            assertEquals(Opcode.SGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
-            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
-            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
-        }
-
-        @Test
-        public void testInstanceGetOpcodes() {
-            boolean isStatic = false;
-            assertEquals(Opcode.IGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
-            assertEquals(Opcode.IGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
-            assertEquals(Opcode.IGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
-            assertEquals(Opcode.IGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
-            assertEquals(Opcode.IGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
-            assertEquals(Opcode.IGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
-            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
-            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
-        }
-
-    }
-
     public static class TestInvokeVirtualPrivateLocalMethod {
 
-        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->PrivateVirtualMethod()V");
         private static final String[] expectedLines = new String[] {
                         "nop",
                         "invoke-direct {r1}, Lreflection_removal_strategy_test;->PrivateVirtualMethod()V",
                         "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
+        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->PrivateVirtualMethod()V");
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
@@ -375,6 +334,47 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
+
+    public static class TestProtectedMethods {
+
+        @Test
+        public void testInstanceGetOpcodes() {
+            boolean isStatic = false;
+            assertEquals(Opcode.IGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
+            assertEquals(Opcode.IGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
+            assertEquals(Opcode.IGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
+            assertEquals(Opcode.IGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
+            assertEquals(Opcode.IGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
+            assertEquals(Opcode.IGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
+            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
+            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
+        }
+
+        @Test
+        public void testStaticGetOpcodes() {
+            boolean isStatic = true;
+            assertEquals(Opcode.SGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
+            assertEquals(Opcode.SGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
+            assertEquals(Opcode.SGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
+            assertEquals(Opcode.SGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
+            assertEquals(Opcode.SGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
+            assertEquals(Opcode.SGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
+            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
+            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
+        }
+
+    }
+
+    private static final String CLASS_NAME = "Lreflection_removal_strategy_test;";
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(TestReflectionRemovalStrategy.class.getSimpleName());
+
+    private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
+
+    private static final String METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE = "MethodInvokeWith10LocalsAnd7ContiguousAvailable()V";
+
+    private static final String METHOD_WITH_3_LOCALS_AND_0_AVAILABLE = "MethodInvokeWith3LocalsAnd0Available()V";
 
     private static Method getMethod(Class<?> klazz, String methodName, Class<?>[] parameterTypes) {
         try {

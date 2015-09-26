@@ -331,7 +331,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
                 e.printStackTrace();
             }
 
-            mbgraph.replaceWithMultipleInstructions(address, replacements);
+            mbgraph.replaceInstruction(address, replacements);
         }
     }
 

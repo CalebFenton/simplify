@@ -4,23 +4,22 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
 public class InstanceOfOpFactory implements OpFactory {
 
     @Override
-    public Op create(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    VirtualMachine vm) {
-        BuilderInstruction child = Utils.getNextInstruction(instruction, addressToInstruction);
-        Instruction22c instr = (Instruction22c) instruction;
+    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+        MethodLocation child = Utils.getNextLocation(location, addressToLocation);
+        Instruction22c instr = (Instruction22c) location.getInstruction();
         int destRegister = instr.getRegisterA();
         int arg1Register = instr.getRegisterB();
         TypeReference typeRef = (TypeReference) instr.getReference();
         String className = typeRef.getType();
 
-        return new InstanceOfOp(instruction, child, destRegister, arg1Register, className, vm);
+        return new InstanceOfOp(location, child, destRegister, arg1Register, className, vm);
     }
 
 }

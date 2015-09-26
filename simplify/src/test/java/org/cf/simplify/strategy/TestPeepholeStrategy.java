@@ -24,35 +24,10 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class TestPeepholeStrategy {
 
-    private static final String CLASS_NAME = "Lpeephole_strategy_test;";
-
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestPeepholeStrategy.class.getSimpleName());
-
-    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-        PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
-        strategy.perform();
-
-        return mbgraph;
-    }
-
     public static class TestPeepClassForName {
 
         private static final int ADDRESS = 0;
         private static final String METHOD_NAME = "ClassForName()V";
-
-        private void testForExpectedInstruction(String register0, String expectedClassName) {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, register0, "Ljava/lang/String;");
-
-            BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
-            assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
-            assertEquals(0, instruction.getRegisterA());
-
-            String actualClassName = ReferenceUtil.getReferenceString(instruction.getReference());
-            assertEquals(expectedClassName, actualClassName);
-        }
 
         @Test
         public void testInvokeClassForNameForImaginaryClassIsReplaced() {
@@ -77,25 +52,24 @@ public class TestPeepholeStrategy {
 
             assertEquals("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", methodDescriptor);
         }
+
+        private void testForExpectedInstruction(String register0, String expectedClassName) {
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, register0, "Ljava/lang/String;");
+
+            BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
+            assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
+            assertEquals(0, instruction.getRegisterA());
+
+            String actualClassName = ReferenceUtil.getReferenceString(instruction.getReference());
+            assertEquals(expectedClassName, actualClassName);
+        }
     }
 
     public static class TestStringInit {
 
-        private static final String ZENSUNNI_POEM = "Sand keeps the skin clean, and the mind.";
-        private static final String METHOD_NAME = "StringInit()V";
         private static final int ADDRESS = 0;
-
-        private void testForExpectedInstruction(Object register1, String expectedConstant) {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
-                            "Ljava/lang/String;"), "Ljava/lang/String;", 1, register1, "[B");
-
-            BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
-            assertEquals(Opcode.CONST_STRING, instruction.getOpcode());
-            assertEquals(0, instruction.getRegisterA());
-
-            String actualConstant = ((StringReference) instruction.getReference()).getString();
-            assertEquals(expectedConstant, actualConstant);
-        }
+        private static final String METHOD_NAME = "StringInit()V";
+        private static final String ZENSUNNI_POEM = "Sand keeps the skin clean, and the mind.";
 
         @Test
         public void testStringInitWithKnownStringIsReplaced() {
@@ -111,6 +85,32 @@ public class TestPeepholeStrategy {
 
             assertEquals("Ljava/lang/String;-><init>([B)V", methodDescriptor);
         }
+
+        private void testForExpectedInstruction(Object register1, String expectedConstant) {
+            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
+                            "Ljava/lang/String;"), "Ljava/lang/String;", 1, register1, "[B");
+
+            BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
+            assertEquals(Opcode.CONST_STRING, instruction.getOpcode());
+            assertEquals(0, instruction.getRegisterA());
+
+            String actualConstant = ((StringReference) instruction.getReference()).getString();
+            assertEquals(expectedConstant, actualConstant);
+        }
+    }
+
+    private static final String CLASS_NAME = "Lpeephole_strategy_test;";
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(TestPeepholeStrategy.class.getSimpleName());
+
+    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+        PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
+        strategy.perform();
+
+        return mbgraph;
     }
 
 }

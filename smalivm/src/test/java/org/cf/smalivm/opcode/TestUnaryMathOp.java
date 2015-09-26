@@ -319,14 +319,15 @@ public class TestUnaryMathOp {
         private static final int REGISTER_A = 0;
         private static final int REGISTER_B = 0;
 
-        private VirtualMachine vm;
+        private TIntObjectMap<MethodLocation> addressToLocation;
         private BuilderInstruction instruction;
-        private UnaryMathOpFactory opFactory;
+        private HeapItem item;
+        private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
-        private HeapItem item;
         private UnaryMathOp op;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+        private UnaryMathOpFactory opFactory;
+        private VirtualMachine vm;
 
         @Test
         public void canDoubleToFloat() {
@@ -335,7 +336,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("D");
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
@@ -349,7 +350,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("D");
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
@@ -362,7 +363,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("D");
             when(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
@@ -375,7 +376,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("F");
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
@@ -388,7 +389,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("F");
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
@@ -401,7 +402,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("F");
             when(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.longValue(), "J")));
@@ -414,7 +415,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("I");
             when(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.byteValue(), "B")));
@@ -427,7 +428,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.doubleValue(), "D")));
@@ -440,7 +441,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.floatValue(), "F")));
@@ -453,7 +454,7 @@ public class TestUnaryMathOp {
             when(item.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT);
 
-            op = (UnaryMathOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (UnaryMathOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), eq(new HeapItem(value.intValue(), "I")));
@@ -467,16 +468,17 @@ public class TestUnaryMathOp {
             item = mock(HeapItem.class);
             when(mState.readRegister(REGISTER_B)).thenReturn(item);
 
+            location = mock(MethodLocation.class);
             instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction12x.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(REGISTER_A);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(REGISTER_B);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new UnaryMathOpFactory();
         }

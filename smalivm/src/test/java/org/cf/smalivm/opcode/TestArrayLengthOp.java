@@ -112,22 +112,23 @@ public class TestArrayLengthOp {
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
-        private static final int DEST_REGISTER = 0;
         private static final int ARG1_REGISTER = 2;
+        private static final int DEST_REGISTER = 0;
 
-        private VirtualMachine vm;
+        private TIntObjectMap<MethodLocation> addressToLocation;
+        private BuilderInstruction instruction;
+        private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
-        private BuilderInstruction instruction;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
-        private ArrayLengthOpFactory opFactory;
         private ArrayLengthOp op;
+        private ArrayLengthOpFactory opFactory;
+        private VirtualMachine vm;
 
         @Test
         public void nullArrayThrowsExpectedException() {
             VMTester.addHeapItem(mState, ARG1_REGISTER, null, "[I");
 
-            op = (ArrayLengthOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (ArrayLengthOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class,
@@ -143,9 +144,10 @@ public class TestArrayLengthOp {
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
 
+            location = mock(MethodLocation.class);
             instruction = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
@@ -153,8 +155,8 @@ public class TestArrayLengthOp {
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new ArrayLengthOpFactory();
         }

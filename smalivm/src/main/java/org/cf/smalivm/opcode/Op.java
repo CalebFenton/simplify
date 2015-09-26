@@ -10,26 +10,25 @@ import org.jf.dexlib2.builder.MethodLocation;
 
 public abstract class Op {
 
+    private final MethodLocation location;
+    private final MethodLocation[] children;
     private final Set<VirtualException> exceptions;
 
-    private BuilderInstruction instruction;
-    private BuilderInstruction[] children;
-
-    Op(BuilderInstruction instruction, BuilderInstruction child) {
-        this(instruction, new BuilderInstruction[] { child });
+    Op(MethodLocation location, MethodLocation child) {
+        this(location, new MethodLocation[] { child });
     }
 
-    Op(BuilderInstruction instruction, BuilderInstruction[] children) {
-        this.instruction = instruction;
+    Op(MethodLocation location, MethodLocation[] children) {
+        this.location = location;
         this.children = children;
         exceptions = new HashSet<VirtualException>();
     }
 
     public final int getAddress() {
-        return instruction.getLocation().getCodeAddress();
+        return location.getCodeAddress();
     }
 
-    public final BuilderInstruction[] getChildren() {
+    public final MethodLocation[] getChildren() {
         return children;
     }
 
@@ -38,23 +37,15 @@ public abstract class Op {
     }
 
     public final BuilderInstruction getInstruction() {
-        return instruction;
+        return (BuilderInstruction) location.getInstruction();
     }
 
     public final MethodLocation getLocation() {
-        return instruction.getLocation();
+        return location;
     }
 
     public final String getName() {
-        return instruction.getOpcode().name;
-    }
-
-    public void setChildren(BuilderInstruction... children) {
-        this.children = children;
-    }
-
-    public void setInstruction(BuilderInstruction instruction) {
-        this.instruction = instruction;
+        return getInstruction().getOpcode().name;
     }
 
     public SideEffect.Level sideEffectLevel() {

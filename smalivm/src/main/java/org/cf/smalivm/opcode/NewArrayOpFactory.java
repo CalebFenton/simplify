@@ -6,17 +6,16 @@ import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.util.ReferenceUtil;
 
 public class NewArrayOpFactory implements OpFactory {
 
     @Override
-    public Op create(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    VirtualMachine vm) {
-        BuilderInstruction child = Utils.getNextInstruction(instruction, addressToInstruction);
-        Instruction22c instr = (Instruction22c) instruction;
+    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+        MethodLocation child = Utils.getNextLocation(location, addressToLocation);
+        Instruction22c instr = (Instruction22c) location.getInstruction();
         int destRegister = instr.getRegisterA();
         int sizeRegister = instr.getRegisterB();
 
@@ -33,7 +32,7 @@ public class NewArrayOpFactory implements OpFactory {
             useLocalClass = classManager.isLocalClass(baseClassName);
         }
 
-        return new NewArrayOp(instruction, child, destRegister, sizeRegister, arrayType, useLocalClass);
+        return new NewArrayOp(location, child, destRegister, sizeRegister, arrayType, useLocalClass);
     }
 
 }

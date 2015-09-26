@@ -22,15 +22,6 @@ public class TestDeadRemovalStrategy {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(TestDeadRemovalStrategy.class.getSimpleName());
 
-    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        strategy.perform();
-
-        return mbgraph;
-    }
-
     @Test
     public void testDeadCodeIsRemoved() {
         String methodName = "DeadCode()V";
@@ -41,6 +32,38 @@ public class TestDeadRemovalStrategy {
         TIntList expected = new TIntArrayList(new int[] { 2 });
 
         assertEquals(expected, found);
+    }
+
+    @Test
+    public void testDeadTryCatchBlockIsRemoved() {
+        String methodName = "DeadTryCatchBlock()V";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getDeadAssignmentAddresses();
+        TIntList expected = new TIntArrayList(new int[] { 0 });
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void testInstanceInitializerIsNotRemoved() {
+        String methodName = "<init>()V";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        strategy.perform();
+
+        BuilderInstruction instruction = mbgraph.getInstruction(0);
+        assertEquals(Opcode.INVOKE_DIRECT, instruction.getOpcode());
+    }
+
+    @Test
+    public void testMoveOpWithOnlyOneRegisterReassignedIsNotRemoved() {
+        String methodName = "MoveP0IntoV0With30Locals(I)V";
+        MethodBackedGraph mbgraph = getOptimizedGraph(methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getDeadAssignmentAddresses();
+
+        assertEquals(0, found.size());
     }
 
     @Test
@@ -87,36 +110,13 @@ public class TestDeadRemovalStrategy {
         assertEquals(expected, found);
     }
 
-    @Test
-    public void testDeadTryCatchBlockIsRemoved() {
-        String methodName = "DeadTryCatchBlock()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 0 });
-
-        assertEquals(expected, found);
-    }
-
-    @Test
-    public void testInstanceInitializerIsNotRemoved() {
-        String methodName = "<init>()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
+        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         strategy.perform();
 
-        BuilderInstruction instruction = mbgraph.getInstruction(0);
-        assertEquals(Opcode.INVOKE_DIRECT, instruction.getOpcode());
-    }
-
-    @Test
-    public void testMoveOpWithOnlyOneRegisterReassignedIsNotRemoved() {
-        String methodName = "MoveP0IntoV0With30Locals(I)V";
-        MethodBackedGraph mbgraph = getOptimizedGraph(methodName);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
-
-        assertEquals(0, found.size());
+        return mbgraph;
     }
 
 }

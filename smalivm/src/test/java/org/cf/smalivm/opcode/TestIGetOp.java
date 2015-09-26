@@ -35,16 +35,17 @@ public class TestIGetOp {
     private static final int REGISTER_A = 0;
     private static final int REGISTER_B = 2;
 
-    private VirtualMachine vm;
-    private BuilderInstruction instruction;
-    private IGetOpFactory opFactory;
+    private TIntObjectMap<MethodLocation> addressToLocation;
     private ExecutionContext ectx;
+    private BuilderInstruction instruction;
+    private HeapItem itemB;
+    private MethodLocation location;
     private MethodState mState;
     private ExecutionNode node;
-    private HeapItem itemB;
     private IGetOp op;
+    private IGetOpFactory opFactory;
     private ArgumentCaptor<HeapItem> setItem;
-    private TIntObjectMap<BuilderInstruction> addressToInstruction;
+    private VirtualMachine vm;
 
     @Before
     public void setUp() {
@@ -59,8 +60,9 @@ public class TestIGetOp {
 
         setItem = ArgumentCaptor.forClass(HeapItem.class);
 
+        location = mock(MethodLocation.class);
         instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction22c.class));
-        MethodLocation location = mock(MethodLocation.class);
+        when(location.getInstruction()).thenReturn(instruction);
         when(location.getCodeAddress()).thenReturn(ADDRESS);
         when(instruction.getLocation()).thenReturn(location);
         when(instruction.getCodeUnits()).thenReturn(0);
@@ -69,8 +71,8 @@ public class TestIGetOp {
         FieldReference fieldRef = new ImmutableFieldReference("Lsome/class;", "someMethod", "I");
         when(((Instruction22c) instruction).getReference()).thenReturn(fieldRef);
 
-        addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-        addressToInstruction.put(ADDRESS, instruction);
+        addressToLocation = new TIntObjectHashMap<MethodLocation>();
+        addressToLocation.put(ADDRESS, location);
 
         opFactory = new IGetOpFactory();
     }
@@ -79,7 +81,7 @@ public class TestIGetOp {
     public void testIGetReturnsUnknownValueOfCorrectType() {
         when(instruction.getOpcode()).thenReturn(Opcode.IGET);
 
-        op = (IGetOp) opFactory.create(instruction, addressToInstruction, vm);
+        op = (IGetOp) opFactory.create(location, addressToLocation, vm);
         op.execute(node, ectx);
 
         verify(mState, times(1)).readRegister(eq(REGISTER_B));

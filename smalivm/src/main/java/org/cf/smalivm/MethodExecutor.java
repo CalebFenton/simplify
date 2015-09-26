@@ -13,6 +13,7 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.opcode.Op;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,12 +35,37 @@ public class MethodExecutor {
         totalVisits = 0;
     }
 
-    private void resetTotalVisits() {
-        totalVisits = 0;
+    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)
+                    throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
+        if (totalVisits > getMaxMethodVisits()) {
+            throw new MaxMethodVisitsExceeded(node, methodDescriptor);
+        }
+
+        int address = node.getAddress();
+        int visitCount = addressToVisitCount.get(address);
+        if (visitCount > getMaxAddressVisits()) {
+            throw new MaxAddressVisitsExceeded(node, methodDescriptor);
+        }
+        boolean adjusted = addressToVisitCount.adjustValue(address, 1);
+        if (!adjusted) {
+            addressToVisitCount.put(address, 1);
+        }
+    }
+
+    private int getMaxAddressVisits() {
+        return maxAddressVisits;
     }
 
     private int getMaxCallDepth() {
         return maxCallDepth;
+    }
+
+    private int getMaxMethodVisits() {
+        return maxMethodVisits;
+    }
+
+    private void resetTotalVisits() {
+        totalVisits = 0;
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
@@ -99,8 +125,8 @@ public class MethodExecutor {
     private static void spawnChildren(ExecutionGraph graph, ExecutionNode parentNode) {
         // Each visit adds a new ExecutionNode to the pile. These piles can be inspected for register or field
         // consensus, or other optimizations.
-        for (int childAddress : parentNode.getChildAddresses()) {
-            spawnChild(graph, parentNode, childAddress);
+        for (MethodLocation childLocation : parentNode.getChildLocations()) {
+            spawnChild(graph, parentNode, childLocation.getCodeAddress());
         }
     }
 
@@ -114,7 +140,7 @@ public class MethodExecutor {
 
                 int childAddress = exceptionResolver.resolve(exception, node.getAddress());
                 if (childAddress == -1) {
-                    if (node.getChildAddresses().length == 0) {
+                    if (node.getChildLocations().length == 0) {
                         if (log.isErrorEnabled()) {
                             log.error("{} unhandled virtual exception: {}", node, exception);
                         }
@@ -133,31 +159,6 @@ public class MethodExecutor {
                     spawnChild(graph, node, childAddress);
                 }
             }
-        }
-    }
-
-    private int getMaxMethodVisits() {
-        return maxMethodVisits;
-    }
-
-    private int getMaxAddressVisits() {
-        return maxAddressVisits;
-    }
-
-    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)
-                    throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
-        if (totalVisits > getMaxMethodVisits()) {
-            throw new MaxMethodVisitsExceeded(node, methodDescriptor);
-        }
-
-        int address = node.getAddress();
-        int visitCount = addressToVisitCount.get(address);
-        if (visitCount > getMaxAddressVisits()) {
-            throw new MaxAddressVisitsExceeded(node, methodDescriptor);
-        }
-        boolean adjusted = addressToVisitCount.adjustValue(address, 1);
-        if (!adjusted) {
-            addressToVisitCount.put(address, 1);
         }
     }
 

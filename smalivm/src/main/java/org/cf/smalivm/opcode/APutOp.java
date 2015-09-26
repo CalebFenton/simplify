@@ -10,7 +10,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +25,7 @@ public class APutOp extends MethodStateOp {
             } else if (opName.endsWith("-boolean")) {
                 // Booleans are represented by integer literals, so need to convert
                 Integer intValue = Utils.getIntegerValue(value);
-                value = (intValue == 1 ? true : false);
+                value = intValue == 1 ? true : false;
             } else {
                 Integer intValue = Utils.getIntegerValue(value);
                 if (opName.endsWith("-byte")) {
@@ -41,9 +41,11 @@ public class APutOp extends MethodStateOp {
 
         return value;
     }
+
     private static boolean isOverloadedPrimitiveType(String type) {
-        return (SmaliClassUtils.isPrimitiveType(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type)));
+        return SmaliClassUtils.isPrimitiveType(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
     }
+
     private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, String valueType) {
         String arrayComponentType = SmaliClassUtils.getComponentType(arrayType);
         // These types are all represented identically in bytecode: Z B C S I
@@ -62,6 +64,7 @@ public class APutOp extends MethodStateOp {
             return true;
         }
     }
+
     private final int arrayRegister;
 
     private final int indexRegister;
@@ -70,11 +73,11 @@ public class APutOp extends MethodStateOp {
 
     private final ClassManager classManager;
 
-    public APutOp(BuilderInstruction instruction, BuilderInstruction child, int putRegister, int arrayRegister,
-                    int indexRegister, ClassManager classManager) {
-        super(instruction, child);
+    public APutOp(MethodLocation location, MethodLocation child, int putRegister, int arrayRegister, int indexRegister,
+                    ClassManager classManager) {
+        super(location, child);
 
-        this.valueRegister = putRegister;
+        valueRegister = putRegister;
         this.arrayRegister = arrayRegister;
         this.indexRegister = indexRegister;
         this.classManager = classManager;
@@ -103,7 +106,7 @@ public class APutOp extends MethodStateOp {
         if (arrayItem.isUnknown()) {
             // Do nothing.
         } else {
-            if ((valueItem.isUnknown()) || (indexItem.isUnknown())) {
+            if (valueItem.isUnknown() || indexItem.isUnknown()) {
                 String type = arrayItem.getType();
                 arrayItem = HeapItem.newUnknown(type);
             } else {

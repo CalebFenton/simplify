@@ -4,7 +4,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +17,9 @@ public class NewArrayOp extends MethodStateOp {
     private final boolean useLocalClass;
     private final String arrayType;
 
-    NewArrayOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int lengthRegister,
-                    String arrayType, boolean useLocalClass) {
-        super(instruction, child);
+    NewArrayOp(MethodLocation location, MethodLocation child, int destRegister, int lengthRegister, String arrayType,
+                    boolean useLocalClass) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.lengthRegister = lengthRegister;

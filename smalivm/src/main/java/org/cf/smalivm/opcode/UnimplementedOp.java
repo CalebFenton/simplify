@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 class UnimplementedOp extends MethodStateOp {
 
@@ -15,14 +15,14 @@ class UnimplementedOp extends MethodStateOp {
 
     private final boolean setsResult;
 
-    UnimplementedOp(BuilderInstruction instruction, BuilderInstruction child, boolean canContinue, boolean canThrow,
+    UnimplementedOp(MethodLocation location, MethodLocation child, boolean canContinue, boolean canThrow,
                     boolean setsResult) {
-        this(instruction, child, canContinue, canThrow, setsResult, false, -1);
+        this(location, child, canContinue, canThrow, setsResult, false, -1);
     }
 
-    UnimplementedOp(BuilderInstruction instruction, BuilderInstruction child, boolean canContinue, boolean canThrow,
+    UnimplementedOp(MethodLocation location, MethodLocation child, boolean canContinue, boolean canThrow,
                     boolean setsResult, boolean setsRegister, int registerA) {
-        super(instruction, canContinue ? new BuilderInstruction[] { child } : new BuilderInstruction[0]);
+        super(location, canContinue ? new MethodLocation[] { child } : new MethodLocation[0]);
 
         this.canContinue = canContinue;
         this.canThrow = canThrow;

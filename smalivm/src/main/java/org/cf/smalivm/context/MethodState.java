@@ -4,7 +4,7 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class MethodState extends BaseState {
 
@@ -110,8 +110,8 @@ public class MethodState extends BaseState {
         return (MethodState) super.getParent();
     }
 
-    public BuilderInstruction getPseudoInstructionReturnInstruction() {
-        return (BuilderInstruction) peekRegister(ReturnAddress).getValue();
+    public MethodLocation getPseudoInstructionReturnInstruction() {
+        return (MethodLocation) peekRegister(ReturnAddress).getValue();
     }
 
     public HeapItem peekParameter(int parameterRegister) {
@@ -152,9 +152,9 @@ public class MethodState extends BaseState {
         return peekRegister(ReturnRegister);
     }
 
-    public void setPseudoInstructionReturnInstruction(BuilderInstruction instruction) {
+    public void setPseudoInstructionReturnLocation(MethodLocation location) {
         // Pseudo instructions like array-data-payload need return addresses.
-        pokeRegister(ReturnAddress, instruction, METHOD_HEAP);
+        pokeRegister(ReturnAddress, location, METHOD_HEAP);
     }
 
     @Override

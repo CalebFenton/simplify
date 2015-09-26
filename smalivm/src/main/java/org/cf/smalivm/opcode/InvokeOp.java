@@ -22,7 +22,7 @@ import org.cf.smalivm.type.LocalType;
 import org.cf.util.ImmutableUtils;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +67,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         return true;
     }
+
     private final boolean isStatic;
     private final String methodDescriptor;
     private final int[] parameterRegisters;
@@ -76,9 +77,9 @@ public class InvokeOp extends ExecutionContextOp {
 
     private final VirtualMachine vm;
 
-    InvokeOp(BuilderInstruction instruction, BuilderInstruction child, String methodDescriptor, String returnType,
+    InvokeOp(MethodLocation location, MethodLocation child, String methodDescriptor, String returnType,
                     int[] parameterRegisters, List<String> parameterTypes, VirtualMachine vm, boolean isStatic) {
-        super(instruction, child);
+        super(location, child);
 
         this.methodDescriptor = methodDescriptor;
         this.returnType = returnType;
@@ -385,7 +386,7 @@ public class InvokeOp extends ExecutionContextOp {
         String methodDescriptor = sb.toString();
 
         boolean isLocalMethod = classManager.isLocalMethod(methodDescriptor);
-        if ((isLocalMethod && classManager.methodHasImplementation(methodDescriptor))) {
+        if (isLocalMethod && classManager.methodHasImplementation(methodDescriptor)) {
             return methodDescriptor;
         }
 

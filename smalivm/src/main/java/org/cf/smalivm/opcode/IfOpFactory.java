@@ -6,6 +6,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.opcode.IfOp.IfType;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
@@ -32,13 +33,13 @@ public class IfOpFactory implements OpFactory {
     }
 
     @Override
-    public Op create(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    VirtualMachine vm) {
+    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+        BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         int address = instruction.getLocation().getCodeAddress();
         int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
         int targetAddress = address + branchOffset;
-        BuilderInstruction child = Utils.getNextInstruction(instruction, addressToInstruction);
-        BuilderInstruction target = addressToInstruction.get(targetAddress);
+        MethodLocation child = Utils.getNextLocation(location, addressToLocation);
+        MethodLocation target = addressToLocation.get(targetAddress);
 
         String opName = instruction.getOpcode().name;
         IfType ifType = getIfType(opName);
@@ -46,12 +47,12 @@ public class IfOpFactory implements OpFactory {
 
         if (instruction instanceof Instruction22t) {
             // if-* vA, vB, :label
-            Instruction22t instr = (Instruction22t) instruction;
+            Instruction22t instr = (Instruction22t) location.getInstruction();
 
-            return new IfOp(instruction, child, ifType, target, register1, instr.getRegisterB());
+            return new IfOp(location, child, ifType, target, register1, instr.getRegisterB());
         } else {
             // if-*z vA, vB, :label (Instruction 21t)
-            return new IfOp(instruction, child, ifType, target, register1);
+            return new IfOp(location, child, ifType, target, register1);
         }
     }
 

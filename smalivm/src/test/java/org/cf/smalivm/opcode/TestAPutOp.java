@@ -195,19 +195,20 @@ public class TestAPutOp {
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
-        private static final int VALUE_REGISTER = 0;
         private static final int ARRAY_REGISTER = 1;
         private static final int INDEX_REGISTER = 2;
+        private static final int VALUE_REGISTER = 0;
 
-        private VirtualMachine vm;
+        private TIntObjectMap<MethodLocation> addressToLocation;
+        private ClassManager classManager;
+        private BuilderInstruction instruction;
+        private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
-        private ClassManager classManager;
-        private ArgumentCaptor<HeapItem> setItem;
-        private BuilderInstruction instruction;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
-        private APutOpFactory opFactory;
         private APutOp op;
+        private APutOpFactory opFactory;
+        private ArgumentCaptor<HeapItem> setItem;
+        private VirtualMachine vm;
 
         // @Test
         public void canInsertLocalClassAndClass() {
@@ -221,7 +222,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT_OBJECT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             // Division result is zero since long division drops decimal value
@@ -240,7 +241,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
@@ -259,7 +260,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class);
@@ -278,7 +279,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
@@ -297,7 +298,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
@@ -315,18 +316,19 @@ public class TestAPutOp {
             when(classManager.isInstance("Ljava/lang/String;", "[I")).thenReturn(false);
             setItem = ArgumentCaptor.forClass(HeapItem.class);
 
-            MethodLocation location = mock(MethodLocation.class);
+            location = mock(MethodLocation.class);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             instruction = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(ThreeRegisterInstruction.class, Instruction23x.class));
+            when(location.getInstruction()).thenReturn(instruction);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
             when(((Instruction23x) instruction).getRegisterA()).thenReturn(VALUE_REGISTER);
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARRAY_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(INDEX_REGISTER);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new APutOpFactory();
         }
@@ -343,7 +345,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
@@ -362,7 +364,7 @@ public class TestAPutOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
-            op = (APutOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(ARRAY_REGISTER), setItem.capture());

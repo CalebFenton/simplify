@@ -9,7 +9,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,9 +21,8 @@ public class CheckCastOp extends MethodStateOp {
     private final int targetRegister;
     private final VirtualMachine vm;
 
-    CheckCastOp(BuilderInstruction instruction, BuilderInstruction child, int targetRegister, String className,
-                    VirtualMachine vm) {
-        super(instruction, child);
+    CheckCastOp(MethodLocation location, MethodLocation child, int targetRegister, String className, VirtualMachine vm) {
+        super(location, child);
 
         this.targetRegister = targetRegister;
         this.className = className;

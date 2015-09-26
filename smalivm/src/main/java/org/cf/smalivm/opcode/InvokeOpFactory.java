@@ -10,6 +10,7 @@ import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
@@ -19,9 +20,9 @@ import org.jf.dexlib2.util.ReferenceUtil;
 public class InvokeOpFactory implements OpFactory {
 
     @Override
-    public Op create(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    VirtualMachine vm) {
-        BuilderInstruction child = Utils.getNextInstruction(instruction, addressToInstruction);
+    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+        MethodLocation child = Utils.getNextLocation(location, addressToLocation);
+        BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         String opName = instruction.getOpcode().name;
 
         MethodReference methodReference = (MethodReference) ((ReferenceInstruction) instruction).getReference();
@@ -29,7 +30,7 @@ public class InvokeOpFactory implements OpFactory {
 
         int[] registers = null;
         if (opName.contains("/range")) {
-            Instruction3rc instr = (Instruction3rc) instruction;
+            Instruction3rc instr = (Instruction3rc) location.getInstruction();
             int registerCount = instr.getRegisterCount();
             int start = instr.getStartRegister();
             int end = start + registerCount;
@@ -39,7 +40,7 @@ public class InvokeOpFactory implements OpFactory {
                 registers[i - start] = i;
             }
         } else {
-            Instruction35c instr = (Instruction35c) instruction;
+            Instruction35c instr = (Instruction35c) location.getInstruction();
             int registerCount = instr.getRegisterCount();
             registers = new int[registerCount];
             switch (registerCount) {
@@ -81,7 +82,7 @@ public class InvokeOpFactory implements OpFactory {
             }
         }
 
-        return new InvokeOp(instruction, child, methodDescriptor, returnType, parameterRegisters.toArray(),
+        return new InvokeOp(location, child, methodDescriptor, returnType, parameterRegisters.toArray(),
                         parameterTypes, vm, isStatic);
     }
 

@@ -3,8 +3,7 @@ package org.cf.simplify;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.map.TIntObjectMap;
+import gnu.trove.list.linked.TIntLinkedList;
 
 import java.util.Arrays;
 import java.util.List;
@@ -21,36 +20,36 @@ public class TestMethodBackedGraph {
     // TODO: add tests for register and field consensus, + same after modifications
     private static final String CLASS_NAME = "Lmethod_backed_graph_test;";
 
-    private static void test(Object[][] expected, MethodBackedGraph mbgraph) {
-        TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
-        for (Object[] ex : expected) {
-            int address = (Integer) ex[0];
-            BuilderInstruction actualInstruction = addressToInstruction.get(address);
-            Opcode expectedOpcode = (Opcode) ex[1];
-            assertEquals(expectedOpcode, actualInstruction.getOpcode());
-
-            Object[][][] exChildren = (Object[][][]) ex[2];
-            List<ExecutionNode> actualNodePile = mbgraph.getNodePile(address);
-            assertEquals(exChildren.length, actualNodePile.size());
-            for (int i = 0; i < exChildren.length; i++) {
-                ExecutionNode actualNode = actualNodePile.get(i);
-                BuilderInstruction[] children = actualNode.getOp().getChildren();
-                assertEquals(exChildren[i].length, children.length);
-                for (int j = 0; j < exChildren[i].length; j++) {
-                    assertEquals((int) exChildren[i][j][0], children[j].getLocation().getCodeAddress());
-                    assertEquals((Opcode) exChildren[i][j][1], children[j].getOpcode());
-                }
-            }
-        }
-    }
-
     private MethodBackedGraph mbgraph;
+
+    @Test
+    public void testAddInstructionThatCausesNopPaddingToBeAddedModifiesStateCorrectly() {
+        //@formatter:off
+        Object[][] expected = new Object[][] {
+                        { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
+                        { 2, Opcode.NEW_ARRAY, new Object[][][] { { { 4, Opcode.NOP } } } },
+                        { 4, Opcode.NOP, new Object[][][] { { { 5, Opcode.FILL_ARRAY_DATA } } } },
+                        { 5, Opcode.FILL_ARRAY_DATA, new Object[][][] { { { 0xa, Opcode.ARRAY_PAYLOAD } } } },
+                        { 8, Opcode.RETURN_VOID, new Object[1][0][0] },
+                        { 9, Opcode.NOP, new Object[0][0][0] },
+                        { 0xa, Opcode.ARRAY_PAYLOAD, new Object[][][] {
+                                        { { 8, Opcode.RETURN_VOID } },
+                        } },
+        };
+        //@formatter:on
+
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNoNopPadding()V");
+        BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
+        mbgraph.addInstruction(4, addition);
+
+        test(expected, mbgraph);
+    }
 
     @Test
     public void testHasEveryRegisterAvailableAtEveryAddress() {
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
         int[] addresses = mbgraph.getAddresses();
-        int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, 5, };
+        int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, };
         for (int address : addresses) {
             int[] actualAvailable = mbgraph.getAvailableRegisters(address).toArray();
             Arrays.sort(actualAvailable);
@@ -61,8 +60,6 @@ public class TestMethodBackedGraph {
     @Test
     public void testHasExpectedBasicProperties() {
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        TIntObjectMap<BuilderInstruction> addressToInstruction = mbgraph.getAddressToInstruction();
-        assertEquals(6, addressToInstruction.size());
 
         int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
         int[] actualAddresses = mbgraph.getAddresses();
@@ -88,10 +85,10 @@ public class TestMethodBackedGraph {
 
         // Adding 126 bytes (nop) between goto and target offset causes dexlib to "fix" goto into goto/16
         for (int i = 0; i < nops_to_insert - 1; i++) {
-            mbgraph.insertInstruction(1, new BuilderInstruction10x(Opcode.NOP));
+            mbgraph.addInstruction(1, new BuilderInstruction10x(Opcode.NOP));
         }
         // Addresses 0 and 1 are now goto/16, need to insert at 2
-        mbgraph.insertInstruction(2, new BuilderInstruction10x(Opcode.NOP));
+        mbgraph.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
 
         test(expected, mbgraph);
     }
@@ -109,12 +106,12 @@ public class TestMethodBackedGraph {
 
         // Adding 126 bytes (nop) between goto and target offset causes dexlib to "fix" goto into goto/16
         for (int i = 0; i < nops_to_insert - 1; i++) {
-            mbgraph.insertInstruction(1, new BuilderInstruction10x(Opcode.NOP));
+            mbgraph.addInstruction(1, new BuilderInstruction10x(Opcode.NOP));
         }
         // Addresses 0 and 1 are now goto/16, need to insert at 2
-        mbgraph.insertInstruction(2, new BuilderInstruction10x(Opcode.NOP));
+        mbgraph.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
 
-        TIntList removeList = new TIntArrayList();
+        TIntList removeList = new TIntLinkedList();
         for (int i = 0; i < nops_to_insert; i++) {
             int removeAddress = i + 2;
             removeList.add(removeAddress);
@@ -139,7 +136,8 @@ public class TestMethodBackedGraph {
         //@formatter:on
 
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        mbgraph.insertInstruction(0, new BuilderInstruction10x(Opcode.NOP));
+        BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
+        mbgraph.addInstruction(0, addition);
 
         test(expected, mbgraph);
     }
@@ -163,6 +161,24 @@ public class TestMethodBackedGraph {
     }
 
     @Test
+    public void testRemoveInstructionThatCausesNopPaddingToBeRemovedModifiesStateCorrectly() {
+        //@formatter:off
+        Object[][] expected = new Object[][] {
+                        { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
+                        { 2, Opcode.NEW_ARRAY, new Object[][][] { { { 4, Opcode.FILL_ARRAY_DATA } } } },
+                        { 4, Opcode.FILL_ARRAY_DATA, new Object[][][] { { { 8, Opcode.ARRAY_PAYLOAD } } } },
+                        { 7, Opcode.RETURN_VOID, new Object[1][0][0] },
+                        { 8, Opcode.ARRAY_PAYLOAD, new Object[][][] { { { 7, Opcode.RETURN_VOID } } } },
+        };
+        //@formatter:on
+
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNopPadding()V");
+        mbgraph.removeInstruction(4);
+
+        test(expected, mbgraph);
+    }
+
+    @Test
     public void testReplaceInstructionModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
@@ -176,9 +192,40 @@ public class TestMethodBackedGraph {
         //@formatter:on
 
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        mbgraph.replaceInstruction(0, new BuilderInstruction21s(Opcode.CONST_16, 0, 0));
+        BuilderInstruction replacement = new BuilderInstruction21s(Opcode.CONST_16, 0, 0);
+        mbgraph.replaceInstruction(0, replacement);
 
         test(expected, mbgraph);
+    }
+
+    private static void test(Object[][] expected, MethodBackedGraph mbgraph) {
+        for (Object[] ex : expected) {
+            int address = (Integer) ex[0];
+            BuilderInstruction actualInstruction = mbgraph.getInstruction(address);
+            Opcode expectedOpcode = (Opcode) ex[1];
+            assertEquals(expectedOpcode, actualInstruction.getOpcode());
+
+            Object[][][] exChildren = (Object[][][]) ex[2];
+            List<ExecutionNode> actualNodePile = mbgraph.getNodePile(address);
+            assertEquals(expectedOpcode.name + " @" + address + " node pile size", exChildren.length,
+                            actualNodePile.size());
+            for (int i = 0; i < exChildren.length; i++) {
+                ExecutionNode actualNode = actualNodePile.get(i);
+                List<ExecutionNode> childNodes = actualNode.getChildren();
+                BuilderInstruction[] children = new BuilderInstruction[childNodes.size()];
+                for (int j = 0; j < children.length; j++) {
+                    children[j] = childNodes.get(j).getOp().getInstruction();
+                }
+                assertEquals(expectedOpcode.name + " @" + address + " children size", exChildren[i].length,
+                                children.length);
+                for (int j = 0; j < exChildren[i].length; j++) {
+                    assertEquals(expectedOpcode.name + " @" + address + " child address", (int) exChildren[i][j][0],
+                                    children[j].getLocation().getCodeAddress());
+                    assertEquals(expectedOpcode.name + " @" + address + " child opcode", (Opcode) exChildren[i][j][1],
+                                    children[j].getOpcode());
+                }
+            }
+        }
     }
 
 }

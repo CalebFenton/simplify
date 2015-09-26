@@ -94,18 +94,19 @@ public class TestFilledNewArray {
         private static final int REGISTER_F = 3;
         private static final int REGISTER_G = 4;
 
-        private VirtualMachine vm;
+        private TIntObjectMap<MethodLocation> addressToLocation;
         private BuilderInstruction instruction;
-        private FilledNewArrayOpFactory opFactory;
-        private MethodState mState;
-        private ExecutionNode node;
         private HeapItem itemC;
         private HeapItem itemD;
         private HeapItem itemE;
         private HeapItem itemF;
         private HeapItem itemG;
+        private MethodLocation location;
+        private MethodState mState;
+        private ExecutionNode node;
         private FilledNewArrayOp op;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
+        private FilledNewArrayOpFactory opFactory;
+        private VirtualMachine vm;
 
         @Before
         public void setUp() {
@@ -129,11 +130,12 @@ public class TestFilledNewArray {
             when(itemF.isUnknown()).thenReturn(false);
             when(itemG.isUnknown()).thenReturn(false);
 
+            location = mock(MethodLocation.class);
             instruction = mock(
                             BuilderInstruction.class,
                             withSettings().extraInterfaces(Instruction35c.class, VariableRegisterInstruction.class,
                                             ReferenceInstruction.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
@@ -145,8 +147,8 @@ public class TestFilledNewArray {
             Reference ref = new ImmutableTypeReference("[I");
             when(((ReferenceInstruction) instruction).getReference()).thenReturn(ref);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new FilledNewArrayOpFactory();
         }
@@ -192,7 +194,7 @@ public class TestFilledNewArray {
             when(itemD.isUnknown()).thenReturn(true);
             when(itemC.getValue()).thenReturn(3);
 
-            op = (FilledNewArrayOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (FilledNewArrayOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).readRegister(eq(REGISTER_D));
@@ -221,7 +223,7 @@ public class TestFilledNewArray {
                 when(itemC.getValue()).thenReturn(values[0]);
             }
 
-            op = (FilledNewArrayOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (FilledNewArrayOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             switch (values.length) {
@@ -251,13 +253,14 @@ public class TestFilledNewArray {
 
         private static final int ADDRESS = 0;
 
+        private TIntObjectMap<MethodLocation> addressToLocation;
         private BuilderInstruction instruction;
-        private FilledNewArrayOpFactory opFactory;
+        private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
         private FilledNewArrayOp op;
+        private FilledNewArrayOpFactory opFactory;
         private VirtualMachine vm;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
 
         @Before
         public void setUp() {
@@ -265,19 +268,20 @@ public class TestFilledNewArray {
             node = mock(ExecutionNode.class);
             mState = mock(MethodState.class);
 
+            location = mock(MethodLocation.class);
             instruction = mock(
                             BuilderInstruction.class,
                             withSettings().extraInterfaces(Instruction3rc.class, VariableRegisterInstruction.class,
                                             ReferenceInstruction.class, RegisterRangeInstruction.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
             Reference ref = new ImmutableTypeReference("[I");
             when(((ReferenceInstruction) instruction).getReference()).thenReturn(ref);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new FilledNewArrayOpFactory();
 
@@ -301,7 +305,7 @@ public class TestFilledNewArray {
                 when(mState.readRegister(i)).thenReturn(item);
             }
 
-            op = (FilledNewArrayOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (FilledNewArrayOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             for (int i = 0; i < 6; i++) {
@@ -328,7 +332,7 @@ public class TestFilledNewArray {
                 when(mState.readRegister(i)).thenReturn(item);
             }
 
-            op = (FilledNewArrayOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (FilledNewArrayOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             for (int i = 0; i < expected.length; i++) {

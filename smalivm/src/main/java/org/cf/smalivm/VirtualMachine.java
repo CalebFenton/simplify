@@ -106,13 +106,12 @@ public class VirtualMachine {
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 
-        ExecutionGraph result = methodExecutor.execute(graph);
-
-        if ((result != null) && (callerContext != null)) {
+        ExecutionGraph execution = methodExecutor.execute(graph);
+        if ((execution != null) && (callerContext != null)) {
             collapseMultiverse(methodDescriptor, graph, callerContext, parameterRegisters);
         }
 
-        return result;
+        return execution;
     }
 
     public ClassManager getClassManager() {

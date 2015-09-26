@@ -1,5 +1,8 @@
 package org.cf.simplify.strategy;
 
+import gnu.trove.list.TIntList;
+import gnu.trove.list.linked.TIntLinkedList;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,32 +35,44 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> result = new HashMap<String, Integer>();
-        result.put("constants", constantCount);
+        Map<String, Integer> counts = new HashMap<String, Integer>();
+        counts.put("constants", constantCount);
 
-        return result;
+        return counts;
     }
 
     @Override
     public boolean perform() {
         madeChanges = false;
 
-        for (int address : mbgraph.getAddresses()) {
+        TIntList addresses = getValidAddresses();
+        addresses.sort();
+        addresses.reverse();
+        for (int address : addresses.toArray()) {
+            madeChanges = true;
             BuilderInstruction original = mbgraph.getInstruction(address);
-            if (canConstantizeAddress(address)) {
-                madeChanges = true;
-
-                BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, mbgraph);
-                if (original.getOpcode().name().startsWith("RETURN")) {
-                    mbgraph.insertInstruction(address, constInstruction);
-                } else {
-                    mbgraph.replaceInstruction(address, constInstruction);
-                }
-                constantCount++;
+            BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, mbgraph);
+            boolean isReturn = original.getOpcode().name().startsWith("RETURN");
+            if (isReturn) {
+                mbgraph.addInstruction(address, constInstruction);
+            } else {
+                mbgraph.replaceInstruction(address, constInstruction);
             }
+            constantCount++;
         }
 
         return madeChanges;
+    }
+
+    private TIntList getValidAddresses() {
+        TIntList addresses = new TIntLinkedList();
+        for (int address : mbgraph.getAddresses()) {
+            if (canConstantizeAddress(address)) {
+                addresses.add(address);
+            }
+        }
+
+        return addresses;
     }
 
     private boolean canConstantizeAddress(int address) {
@@ -71,6 +86,9 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         }
 
         OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
+        if (instruction == null) {
+            return false;
+        }
         int register = instruction.getRegisterA();
         HeapItem consensus = mbgraph.getRegisterConsensus(address, register);
         // Consensus may be null if we have correct syntax without legitimate values (fake code)
