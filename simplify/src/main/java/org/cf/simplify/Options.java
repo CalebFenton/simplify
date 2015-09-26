@@ -18,7 +18,7 @@ public class Options implements Serializable {
     private boolean help;
 
     @Option(name = "-et", aliases = { "--exclude-types" }, metaVar = "regex", handler = PatternOptionHandler.class,
-                    usage = "Don't simplify matching types. Aapplied after include.")
+                    usage = "Don't simplify matching types. Applied after include.")
     private Pattern excludeFilter;
 
     @Option(name = "-it", aliases = { "--include-types" }, metaVar = "regex", handler = PatternOptionHandler.class,
