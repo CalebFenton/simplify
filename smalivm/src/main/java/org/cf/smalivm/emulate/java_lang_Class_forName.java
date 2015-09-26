@@ -3,9 +3,9 @@ package org.cf.smalivm.emulate;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
