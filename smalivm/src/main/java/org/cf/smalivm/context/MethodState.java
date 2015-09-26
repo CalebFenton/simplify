@@ -5,8 +5,12 @@ import gnu.trove.set.hash.TIntHashSet;
 
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MethodState extends BaseState {
+
+    private static final Logger log = LoggerFactory.getLogger(MethodState.class.getSimpleName());
 
     public static final int ResultRegister = -1;
     public static final int ReturnRegister = -2;
@@ -126,6 +130,18 @@ public class MethodState extends BaseState {
     }
 
     public HeapItem peekRegister(int register) {
+        if (register == MethodState.ResultRegister) {
+            if (!hasRegister(register, METHOD_HEAP)) {
+                if (getParent() != null && !getParent().hasRegister(register, METHOD_HEAP)) {
+                    // ResultRegister can only be read by the instruction immediately after it's set.
+                    // It's not in this instruction or its parent, so it effectively doesn't exist.
+                    log.warn("Attempting to read result register but it's not in current or parent context! Assuming unknown type!");
+
+                    return HeapItem.newUnknown("?");
+                }
+
+            }
+        }
         return super.peekRegister(register, METHOD_HEAP);
     }
 
@@ -143,7 +159,6 @@ public class MethodState extends BaseState {
 
     public HeapItem readResultRegister() {
         HeapItem item = readRegister(ResultRegister, METHOD_HEAP);
-        getExecutionContext().getHeap().remove(METHOD_HEAP, ResultRegister);
 
         return item;
     }

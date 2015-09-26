@@ -47,7 +47,7 @@ class Heap {
         this.parent = parent;
     }
 
-    private Heap getParent() {
+    protected Heap getParent() {
         return parent;
     }
 

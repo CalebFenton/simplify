@@ -332,6 +332,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
                 continue;
             }
 
+            // Size may be 0 if there was an exception
             if (items.size() != 1) {
                 if (log.isTraceEnabled()) {
                     log.trace("No conensus for register #" + register + ", returning unknown");
@@ -341,7 +342,6 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
                 return HeapItem.newUnknown(item.getType());
             }
         }
-        assert items.size() == 1;
 
         return items.toArray(new HeapItem[1])[0];
     }
@@ -373,7 +373,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             if (item == null) {
                 // If getting terminating register consensus, this may include THROW ops
                 // Since they're not implemented, the return value is NULL
-                assert node.getOp().getInstruction().getOpcode() == org.jf.dexlib2.Opcode.THROW;
+                // It's also possible there was an exception during invocation.
+                assert node.getExceptions().size() > 0 || node.getOp().getInstruction().getOpcode() == org.jf.dexlib2.Opcode.THROW;
                 // TODO: handle THROW properly
             } else {
                 items.add(item);
