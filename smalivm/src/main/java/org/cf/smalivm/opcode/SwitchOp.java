@@ -3,15 +3,15 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class SwitchOp extends MethodStateOp {
 
-    private final BuilderInstruction child;
+    private final MethodLocation child;
     private final int register;
 
-    SwitchOp(BuilderInstruction instruction, BuilderInstruction child, BuilderInstruction target, int register) {
-        super(instruction, target);
+    SwitchOp(MethodLocation location, MethodLocation child, MethodLocation target, int register) {
+        super(location, target);
 
         this.child = child;
         this.register = register;
@@ -24,13 +24,13 @@ public class SwitchOp extends MethodStateOp {
         mState.assignResultRegister(item);
 
         // If switch "falls through", will need the immediate op after this.
-        mState.setPseudoInstructionReturnInstruction(child);
+        mState.setPseudoInstructionReturnLocation(child);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getChildren()[0].getLocation().getCodeAddress());
+        sb.append(" r").append(register).append(", #").append(getChildren()[0].getCodeAddress());
 
         return sb.toString();
     }

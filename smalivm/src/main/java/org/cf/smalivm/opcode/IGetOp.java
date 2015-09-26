@@ -5,7 +5,7 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,9 +19,9 @@ public class IGetOp extends ExecutionContextOp {
     private final String fieldDescriptor;
     private final VirtualMachine vm;
 
-    public IGetOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int instanceRegister,
+    public IGetOp(MethodLocation location, MethodLocation child, int destRegister, int instanceRegister,
                     String fieldDescriptor, VirtualMachine vm) {
-        super(instruction, child);
+        super(location, child);
 
         this.destRegister = destRegister;
         this.instanceRegister = instanceRegister;

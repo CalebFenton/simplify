@@ -6,6 +6,7 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -32,27 +33,30 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
 
-    private static TIntSet getExceptionHandlerCodeAddresses(MethodBackedGraph mbgraph) {
-        TIntSet result = new TIntHashSet();
+    private static TIntSet getExceptionHandlerAddresses(MethodBackedGraph mbgraph) {
+        int[] allAddresses = mbgraph.getAddresses();
+        Arrays.sort(allAddresses);
+        int highestAddress = allAddresses[allAddresses.length - 1];
+        TIntSet handlerAddresses = new TIntHashSet();
         List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
         for (BuilderTryBlock tryBlock : tryBlocks) {
             List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
             for (BuilderExceptionHandler handler : handlers) {
                 int address = handler.getHandlerCodeAddress();
                 BuilderInstruction instruction = mbgraph.getInstruction(address);
-                do {
+                while (address < highestAddress) {
                     // Add all instructions until return, goto, etc.
-                    result.add(address);
+                    handlerAddresses.add(address);
                     address += instruction.getCodeUnits();
                     instruction = mbgraph.getInstruction(address);
-                    if (instruction != null) {
-                        result.add(address);
+                    if (!instruction.getOpcode().canContinue()) {
+                        break;
                     }
-                } while ((instruction != null) && instruction.getOpcode().canContinue());
+                }
             }
         }
 
-        return result;
+        return handlerAddresses;
     }
 
     private static TIntSet getNormalRegistersAssigned(MethodState mState) {
@@ -106,6 +110,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         return false;
     }
+
     private TIntList addresses;
     private int deadAssignmentCount;
     private int deadBranchCount;
@@ -145,24 +150,23 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         TIntSet removeSet = new TIntHashSet();
         TIntList removeAddresses;
         removeAddresses = getDeadAddresses();
-        deadCount += removeAddresses.size();
-        removeSet.addAll(removeAddresses);
+        // deadCount += removeAddresses.size();
+        // removeSet.addAll(removeAddresses);
 
         removeAddresses = getDeadAssignmentAddresses();
         deadAssignmentCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
         removeAddresses = getDeadResultAddresses();
-        deadResultCount += removeAddresses.size();
-        removeSet.addAll(removeAddresses);
+        // deadResultCount += removeAddresses.size();
+        // removeSet.addAll(removeAddresses);
 
         removeAddresses = getUselessBranchAddresses();
-        deadBranchCount += removeAddresses.size();
-        removeSet.addAll(removeAddresses);
+        // deadBranchCount += removeAddresses.size();
+        // removeSet.addAll(removeAddresses);
 
         removeAddresses = new TIntArrayList(removeSet.toArray());
         mbgraph.removeInstructions(removeAddresses);
-        addresses.removeAll(removeAddresses);
 
         return removeAddresses.size() > 0;
     }
@@ -174,7 +178,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private boolean isDeadAssignment(int address) {
-        // TODO: *easy* merge with isDeadResult
         if (!mbgraph.wasAddressReached(address)) {
             return false;
         }
@@ -197,12 +200,12 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         Op op = mbgraph.getOp(address);
-        if (isSideEffectAboveThreshold(op.sideEffectLevel())) {
+        if (op.getName().startsWith("invoke-")) {
+            // invokes are handled by isDeadResult
             return false;
         }
 
-        if (op.getName().startsWith("invoke-direct") && mbgraph.getMethodDescriptor().contains("-><init>(")) {
-            // Instance initializer is special and should never be removed.
+        if (isSideEffectAboveThreshold(op.sideEffectLevel())) {
             return false;
         }
 
@@ -349,7 +352,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         validAddresses.removeAt(validAddresses.size() - 1);
 
         // For now, don't remove any exception handler code until VM actually understands them.
-        validAddresses.removeAll(getExceptionHandlerCodeAddresses(mbgraph));
+        validAddresses.removeAll(getExceptionHandlerAddresses(mbgraph));
 
         for (int address : validAddresses.toArray()) {
             Op op = mbgraph.getOp(address);

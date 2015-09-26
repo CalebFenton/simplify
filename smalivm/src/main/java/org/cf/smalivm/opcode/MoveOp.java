@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class MoveOp extends MethodStateOp {
 
@@ -30,13 +30,13 @@ public class MoveOp extends MethodStateOp {
     private int targetRegister;
     private final int toRegister;
 
-    MoveOp(BuilderInstruction instruction, BuilderInstruction child, int toRegister, int targetRegister) {
-        this(instruction, child, toRegister, MoveType.REGISTER);
+    MoveOp(MethodLocation location, MethodLocation child, int toRegister, int targetRegister) {
+        this(location, child, toRegister, MoveType.REGISTER);
         this.targetRegister = targetRegister;
     }
 
-    MoveOp(BuilderInstruction instruction, BuilderInstruction child, int toRegister, MoveType moveType) {
-        super(instruction, child);
+    MoveOp(MethodLocation location, MethodLocation child, int toRegister, MoveType moveType) {
+        super(location, child);
         this.toRegister = toRegister;
         this.moveType = moveType;
     }

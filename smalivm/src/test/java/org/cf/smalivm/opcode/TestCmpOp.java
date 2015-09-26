@@ -235,21 +235,22 @@ public class TestCmpOp {
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
+        private static final String CMP_TYPE = "I";
         private static final int REGISTER_A = 0;
         private static final int REGISTER_B = 2;
         private static final int REGISTER_C = 4;
-        private static final String CMP_TYPE = "I";
 
-        private VirtualMachine vm;
-        private MethodState mState;
-        private ExecutionNode node;
-        private ArgumentCaptor<HeapItem> setItem;
+        private TIntObjectMap<MethodLocation> addressToLocation;
+        private BuilderInstruction instruction;
         private HeapItem itemB;
         private HeapItem itemC;
-        private BuilderInstruction instruction;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
-        private CmpOpFactory opFactory;
+        private MethodLocation location;
+        private MethodState mState;
+        private ExecutionNode node;
         private CmpOp op;
+        private CmpOpFactory opFactory;
+        private ArgumentCaptor<HeapItem> setItem;
+        private VirtualMachine vm;
 
         @Test
         public void canCompareDouble() {
@@ -316,8 +317,9 @@ public class TestCmpOp {
             when(itemC.isUnknown()).thenReturn(false);
             when(mState.readRegister(REGISTER_C)).thenReturn(itemC);
 
+            location = mock(MethodLocation.class);
             instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
@@ -325,8 +327,8 @@ public class TestCmpOp {
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(REGISTER_B);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(REGISTER_C);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new CmpOpFactory();
         }
@@ -342,7 +344,7 @@ public class TestCmpOp {
             when(itemC.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
 
-            op = (CmpOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (CmpOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             Object cmpValue = new UnknownValue();
@@ -363,7 +365,7 @@ public class TestCmpOp {
             when(itemC.getType()).thenReturn("J");
             when(instruction.getOpcode()).thenReturn(Opcode.CMP_LONG);
 
-            op = (CmpOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (CmpOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             Object cmpValue = new UnknownValue();
@@ -379,7 +381,7 @@ public class TestCmpOp {
             when(itemC.getType()).thenReturn(inputType);
             when(instruction.getOpcode()).thenReturn(opcode);
 
-            op = (CmpOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (CmpOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(REGISTER_A), setItem.capture());

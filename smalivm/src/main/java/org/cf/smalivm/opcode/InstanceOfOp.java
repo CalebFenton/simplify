@@ -7,7 +7,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,9 +20,9 @@ public class InstanceOfOp extends MethodStateOp {
     private final int arg1Register;
     private final VirtualMachine vm;
 
-    InstanceOfOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int arg1Register,
-                    String className, VirtualMachine vm) {
-        super(instruction, child);
+    InstanceOfOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, String className,
+                    VirtualMachine vm) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;

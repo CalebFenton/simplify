@@ -4,7 +4,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,8 +17,8 @@ public class CmpOp extends MethodStateOp {
     private final int lhsRegister;
     private final int rhsRegister;
 
-    CmpOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int lhsRegister, int rhsRegister) {
-        super(instruction, child);
+    CmpOp(MethodLocation location, MethodLocation child, int destRegister, int lhsRegister, int rhsRegister) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.lhsRegister = lhsRegister;
@@ -31,7 +31,7 @@ public class CmpOp extends MethodStateOp {
         HeapItem rhsItem = mState.readRegister(rhsRegister);
 
         HeapItem item;
-        if ((lhsItem.isUnknown()) || (rhsItem.isUnknown())) {
+        if (lhsItem.isUnknown() || rhsItem.isUnknown()) {
             item = HeapItem.newUnknown("I");
         } else {
             Number lhs = (Number) lhsItem.getValue();
@@ -56,10 +56,10 @@ public class CmpOp extends MethodStateOp {
     }
 
     private int cmp(Number val1, Number val2) {
-        boolean arg1IsNan = ((val1 instanceof Float) && ((Float) val1).isNaN()) || ((val1 instanceof Double) && ((Double) val1)
-                        .isNaN());
-        boolean arg2IsNan = ((val2 instanceof Float) && ((Float) val2).isNaN()) || ((val2 instanceof Double) && ((Double) val2)
-                        .isNaN());
+        boolean arg1IsNan = val1 instanceof Float && ((Float) val1).isNaN() || val1 instanceof Double && ((Double) val1)
+                        .isNaN();
+        boolean arg2IsNan = val2 instanceof Float && ((Float) val2).isNaN() || val2 instanceof Double && ((Double) val2)
+                        .isNaN();
 
         int value = 0;
         if (arg1IsNan || arg2IsNan) {

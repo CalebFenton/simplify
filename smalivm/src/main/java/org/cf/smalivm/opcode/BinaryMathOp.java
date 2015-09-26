@@ -6,7 +6,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -245,8 +245,8 @@ public class BinaryMathOp extends MethodStateOp {
     private final MathOperator mathOperator;
     private int narrowLiteral;
 
-    private BinaryMathOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int arg1Register) {
-        super(instruction, child);
+    private BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
@@ -256,9 +256,9 @@ public class BinaryMathOp extends MethodStateOp {
         addException(new VirtualException(ArithmeticException.class, "/ by zero"));
     }
 
-    BinaryMathOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int arg1Register,
-                    int otherValue, boolean hasLiteral) {
-        this(instruction, child, destRegister, arg1Register);
+    BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, int otherValue,
+                    boolean hasLiteral) {
+        this(location, child, destRegister, arg1Register);
 
         this.hasLiteral = hasLiteral;
         if (hasLiteral) {

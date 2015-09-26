@@ -55,15 +55,15 @@ public class TestCheckCastOp {
         private static final int ADDRESS = 0;
         private static final int ARG1_REGISTER = 0;
 
-        private VirtualMachine vm;
+        private TIntObjectMap<MethodLocation> addressToLocation;
+        private ClassManager classManager;
+        private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
-        private TypeReference typeRef;
-        private ClassManager classManager;
-        private BuilderInstruction instruction;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
-        private CheckCastOpFactory opFactory;
         private CheckCastOp op;
+        private CheckCastOpFactory opFactory;
+        private TypeReference typeRef;
+        private VirtualMachine vm;
 
         @Test
         public void nonObjectTypeCastToObjectTypeThrowsExpectedException() throws UnknownAncestors {
@@ -73,7 +73,7 @@ public class TestCheckCastOp {
             when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(false);
             VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
 
-            op = (CheckCastOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ClassCastException.class,
@@ -89,7 +89,7 @@ public class TestCheckCastOp {
             when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(true);
             VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
 
-            op = (CheckCastOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(node).clearExceptions();
@@ -104,11 +104,12 @@ public class TestCheckCastOp {
             classManager = mock(ClassManager.class);
             when(vm.getClassManager()).thenReturn(classManager);
 
-            instruction = mock(
+            location = mock(MethodLocation.class);
+            BuilderInstruction instruction = mock(
                             BuilderInstruction.class,
                             withSettings().extraInterfaces(OneRegisterInstruction.class, ReferenceInstruction.class,
                                             Instruction21c.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
@@ -116,8 +117,8 @@ public class TestCheckCastOp {
             when(instruction.getOpcode()).thenReturn(Opcode.CHECK_CAST);
             when(((Instruction21c) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new CheckCastOpFactory();
         }

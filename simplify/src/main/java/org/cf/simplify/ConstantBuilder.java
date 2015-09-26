@@ -81,15 +81,14 @@ public class ConstantBuilder implements Dependancy {
         }
         int intBits = Float.floatToIntBits(value);
         String binaryValue = Integer.toBinaryString(intBits);
-        BuilderInstruction result;
-
+        BuilderInstruction constant;
         if (binaryValue.endsWith(LAST_16_BITS_ZERO)) {
-            result = new BuilderInstruction21ih(Opcode.CONST_HIGH16, register, intBits);
+            constant = new BuilderInstruction21ih(Opcode.CONST_HIGH16, register, intBits);
         } else {
-            result = new BuilderInstruction31i(Opcode.CONST, register, intBits);
+            constant = new BuilderInstruction31i(Opcode.CONST, register, intBits);
         }
 
-        return result;
+        return constant;
     }
 
     public static BuilderInstruction buildConstant(Short value, int register) {

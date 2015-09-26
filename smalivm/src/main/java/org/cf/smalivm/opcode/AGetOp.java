@@ -6,7 +6,7 @@ import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,9 +30,8 @@ public class AGetOp extends MethodStateOp {
     private final int arrayRegister;
     private final int indexRegister;
 
-    AGetOp(BuilderInstruction instruction, BuilderInstruction child, int valueRegister, int arrayRegister,
-                    int indexRegister) {
-        super(instruction, child);
+    AGetOp(MethodLocation location, MethodLocation child, int valueRegister, int arrayRegister, int indexRegister) {
+        super(location, child);
 
         this.valueRegister = valueRegister;
         this.arrayRegister = arrayRegister;

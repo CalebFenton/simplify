@@ -24,6 +24,7 @@ public class ExceptionHandlerAddressResolver {
     @Deprecated
     int resolve(Exception ex, int address) {
         String exceptionClass = SmaliClassUtils.javaClassToSmali(ex.getClass().getName());
+
         return resolve(exceptionClass, address);
     }
 

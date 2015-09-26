@@ -185,17 +185,18 @@ public class TestAGetOp {
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
-        private static final int VALUE_REGISTER = 0;
         private static final int ARRAY_REGISTER = 1;
         private static final int INDEX_REGISTER = 2;
+        private static final int VALUE_REGISTER = 0;
 
-        private VirtualMachine vm;
+        private TIntObjectMap<MethodLocation> addressToLocation;
+        private BuilderInstruction instruction;
+        private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
-        private BuilderInstruction instruction;
-        private TIntObjectMap<BuilderInstruction> addressToInstruction;
-        private AGetOpFactory opFactory;
         private AGetOp op;
+        private AGetOpFactory opFactory;
+        private VirtualMachine vm;
 
         @Test
         public void nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
@@ -207,7 +208,7 @@ public class TestAGetOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
-            op = (AGetOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (AGetOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(NullPointerException.class);
@@ -224,7 +225,7 @@ public class TestAGetOp {
 
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
-            op = (AGetOp) opFactory.create(instruction, addressToInstruction, vm);
+            op = (AGetOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
@@ -237,8 +238,9 @@ public class TestAGetOp {
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
 
+            location = mock(MethodLocation.class);
             instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction23x.class));
-            MethodLocation location = mock(MethodLocation.class);
+            when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
@@ -246,8 +248,8 @@ public class TestAGetOp {
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARRAY_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(INDEX_REGISTER);
 
-            addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-            addressToInstruction.put(ADDRESS, instruction);
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             opFactory = new AGetOpFactory();
         }

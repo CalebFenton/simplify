@@ -24,6 +24,7 @@ import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.BuilderTypeList;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
@@ -273,12 +274,21 @@ public class Utils {
         return types;
     }
 
-    public static BuilderInstruction getNextInstruction(BuilderInstruction instruction,
-                    TIntObjectMap<BuilderInstruction> addressToInstruction) {
-        int address = instruction.getLocation().getCodeAddress();
-        int nextAddress = address + instruction.getCodeUnits();
+    public static MethodLocation getNextLocation(MethodLocation location,
+                    TIntObjectMap<MethodLocation> addressToLocation) {
+        int address = location.getCodeAddress();
+        int nextAddress = address + location.getInstruction().getCodeUnits();
 
-        return addressToInstruction.get(nextAddress);
+        return addressToLocation.get(nextAddress);
+    }
+
+    public static final MethodLocation[] getLocations(BuilderInstruction... instructions) {
+        MethodLocation[] locations = new MethodLocation[instructions.length];
+        for (int i = 0; i < locations.length; i++) {
+            locations[i] = instructions[i].getLocation();
+        }
+
+        return locations;
     }
 
 }

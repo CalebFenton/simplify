@@ -35,17 +35,18 @@ public class TestIPutOp {
     private static final int REGISTER_A = 0;
     private static final int REGISTER_B = 2;
 
-    private VirtualMachine vm;
+    private TIntObjectMap<MethodLocation> addressToLocation;
     private ExecutionContext ectx;
-    private MethodState mState;
-    private ExecutionNode node;
+    private BuilderInstruction instruction;
     private HeapItem itemA;
     private HeapItem itemB;
-    private ArgumentCaptor<HeapItem> setItem;
-    private BuilderInstruction instruction;
-    private TIntObjectMap<BuilderInstruction> addressToInstruction;
-    private IPutOpFactory opFactory;
+    private MethodLocation location;
+    private MethodState mState;
+    private ExecutionNode node;
     private IPutOp op;
+    private IPutOpFactory opFactory;
+    private ArgumentCaptor<HeapItem> setItem;
+    private VirtualMachine vm;
 
     @Before
     public void setUp() {
@@ -60,9 +61,10 @@ public class TestIPutOp {
         when(mState.readRegister(REGISTER_B)).thenReturn(itemB);
         setItem = ArgumentCaptor.forClass(HeapItem.class);
 
-        instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction22c.class));
-        MethodLocation location = mock(MethodLocation.class);
+        location = mock(MethodLocation.class);
         when(location.getCodeAddress()).thenReturn(ADDRESS);
+        instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction22c.class));
+        when(location.getInstruction()).thenReturn(instruction);
         when(instruction.getLocation()).thenReturn(location);
         when(instruction.getCodeUnits()).thenReturn(0);
         when(((Instruction22c) instruction).getRegisterA()).thenReturn(REGISTER_A);
@@ -70,8 +72,8 @@ public class TestIPutOp {
         FieldReference fieldRef = new ImmutableFieldReference("Lsome/class;", "someMethod", "I");
         when(((Instruction22c) instruction).getReference()).thenReturn(fieldRef);
 
-        addressToInstruction = new TIntObjectHashMap<BuilderInstruction>();
-        addressToInstruction.put(ADDRESS, instruction);
+        addressToLocation = new TIntObjectHashMap<MethodLocation>();
+        addressToLocation.put(ADDRESS, location);
 
         opFactory = new IPutOpFactory();
     }
@@ -80,7 +82,7 @@ public class TestIPutOp {
     public void testIGetReturnsUnknownValueOfCorrectType() {
         when(instruction.getOpcode()).thenReturn(Opcode.IPUT);
 
-        op = (IPutOp) opFactory.create(instruction, addressToInstruction, vm);
+        op = (IPutOp) opFactory.create(location, addressToLocation, vm);
         op.execute(node, ectx);
 
         verify(mState, times(1)).readRegister(eq(REGISTER_A));

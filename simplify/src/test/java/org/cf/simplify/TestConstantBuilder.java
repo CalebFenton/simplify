@@ -36,11 +36,6 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class TestConstantBuilder {
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestConstantBuilder.class.getSimpleName());
-
-    private static final int REGISTER = 0;
-
     public static class TestBuildBoolean {
         @Test
         public void testWithFalse() {
@@ -329,6 +324,11 @@ public class TestConstantBuilder {
         }
 
     }
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(TestConstantBuilder.class.getSimpleName());
+
+    private static final int REGISTER = 0;
 
     private static MethodBackedGraph getMockedGraph(int address, HeapItem value) {
         MethodBackedGraph mbgraph = mock(MethodBackedGraph.class);

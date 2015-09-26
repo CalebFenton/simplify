@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,8 +14,8 @@ public class ReturnOp extends MethodStateOp {
 
     private final int register;
 
-    ReturnOp(BuilderInstruction instruction, int register) {
-        super(instruction);
+    ReturnOp(MethodLocation location, int register) {
+        super(location);
 
         this.register = register;
     }

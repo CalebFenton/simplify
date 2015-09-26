@@ -512,14 +512,14 @@ public class TestIfOp {
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
     }
-    private static final String CLASS_NAME = "Lif_test;";
     private static final int ADDRESS_IF = 0;
     private static final int ADDRESS_NOP = 2;
-
     private static final int ADDRESS_RETURN = 3;
 
-    private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
+    private static final String CLASS_NAME = "Lif_test;";
 
     private static final int[] IF_FALSE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
+
+    private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
 
 }

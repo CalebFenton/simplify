@@ -4,7 +4,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class UnaryMathOp extends MethodStateOp {
 
@@ -34,8 +34,8 @@ public class UnaryMathOp extends MethodStateOp {
     private final int destRegister;
     private final int srcRegister;
 
-    UnaryMathOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, int srcRegister) {
-        super(instruction, child);
+    UnaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int srcRegister) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.srcRegister = srcRegister;

@@ -4,16 +4,15 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VirtualMachine;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class NopOpFactory implements OpFactory {
 
     @Override
-    public Op create(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    VirtualMachine vm) {
-        BuilderInstruction child = Utils.getNextInstruction(instruction, addressToInstruction);
+    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+        MethodLocation child = Utils.getNextLocation(location, addressToLocation);
 
-        return new NopOp(instruction, child);
+        return new NopOp(location, child);
     }
 
 }

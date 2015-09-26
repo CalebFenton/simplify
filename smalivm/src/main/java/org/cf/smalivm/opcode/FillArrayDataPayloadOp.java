@@ -7,7 +7,7 @@ import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,9 +52,9 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     private final List<Number> arrayElements;
     private final int elementWidth;
 
-    FillArrayDataPayloadOp(BuilderInstruction instruction, int elementWidth, List<Number> arrayElements) {
+    FillArrayDataPayloadOp(MethodLocation location, int elementWidth, List<Number> arrayElements) {
         // childAddress / returnAddress not known until runtime
-        super(instruction);
+        super(location);
 
         this.elementWidth = elementWidth;
         this.arrayElements = arrayElements;
@@ -66,7 +66,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         int targetRegister = parent.getRegistersAssigned().toArray()[0];
         // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
         HeapItem arrayItem = mState.peekRegister(targetRegister);
-        if (!(arrayItem.isUnknown())) {
+        if (!arrayItem.isUnknown()) {
             Object array = arrayItem.getValue();
             Class<?> expectedClass = array.getClass().getComponentType();
             for (int i = 0; i < arrayElements.size(); i++) {
@@ -78,8 +78,8 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
             mState.pokeRegister(targetRegister, arrayItem);
         }
 
-        BuilderInstruction returnInstruction = mState.getParent().getPseudoInstructionReturnInstruction();
-        node.setChildren(returnInstruction);
+        MethodLocation returnLocation = mState.getParent().getPseudoInstructionReturnInstruction();
+        node.setChildLocations(returnLocation);
     }
 
     @Override

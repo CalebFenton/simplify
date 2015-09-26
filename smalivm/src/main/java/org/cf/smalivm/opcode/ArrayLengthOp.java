@@ -7,7 +7,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,10 +18,10 @@ public class ArrayLengthOp extends MethodStateOp {
     private final int arrayRegister;
     private final int destRegister;
 
-    ArrayLengthOp(BuilderInstruction instruction, BuilderInstruction child, int valueRegister, int arrayRegister) {
-        super(instruction, child);
+    ArrayLengthOp(MethodLocation location, MethodLocation child, int valueRegister, int arrayRegister) {
+        super(location, child);
 
-        this.destRegister = valueRegister;
+        destRegister = valueRegister;
         this.arrayRegister = arrayRegister;
 
         addException(new VirtualException(NullPointerException.class, "Attempt to get length of null array"));
@@ -34,7 +34,7 @@ public class ArrayLengthOp extends MethodStateOp {
         Object lengthValue = null;
         if (arrayItem.isUnknown()) {
             lengthValue = new UnknownValue();
-        } else if ((array != null) && array.getClass().isArray()) {
+        } else if (array != null && array.getClass().isArray()) {
             lengthValue = Array.getLength(array);
             node.clearExceptions();
         } else {

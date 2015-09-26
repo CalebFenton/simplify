@@ -6,6 +6,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.opcode.ConstOp.ConstantType;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
@@ -17,19 +18,19 @@ import org.jf.dexlib2.util.ReferenceUtil;
 public class ConstOpFactory implements OpFactory {
 
     @Override
-    public Op create(BuilderInstruction instruction, TIntObjectMap<BuilderInstruction> addressToInstruction,
-                    VirtualMachine vm) {
-        BuilderInstruction child = Utils.getNextInstruction(instruction, addressToInstruction);
+    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+        MethodLocation child = Utils.getNextLocation(location, addressToLocation);
+        BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
         ConstantType constantType = null;
         Object literal = null;
         String opName = instruction.getOpcode().name;
         if (opName.matches("const-string(?:/jumbo)?")) {
-            ReferenceInstruction instr = (ReferenceInstruction) instruction;
+            ReferenceInstruction instr = (ReferenceInstruction) location.getInstruction();
             literal = ((StringReference) instr.getReference()).getString();
             constantType = ConstantType.STRING;
         } else if (opName.endsWith("-class")) {
-            ReferenceInstruction instr = (ReferenceInstruction) instruction;
+            ReferenceInstruction instr = (ReferenceInstruction) location.getInstruction();
             Reference classRef = instr.getReference();
             String className = ReferenceUtil.getReferenceString(classRef);
             literal = className;
@@ -41,16 +42,16 @@ public class ConstOpFactory implements OpFactory {
                 constantType = ConstantType.CLASS;
             }
         } else if (opName.contains("-wide")) {
-            WideLiteralInstruction instr = (WideLiteralInstruction) instruction;
+            WideLiteralInstruction instr = (WideLiteralInstruction) location.getInstruction();
             literal = instr.getWideLiteral();
             constantType = ConstantType.WIDE;
         } else {
-            NarrowLiteralInstruction instr = (NarrowLiteralInstruction) instruction;
+            NarrowLiteralInstruction instr = (NarrowLiteralInstruction) location.getInstruction();
             literal = instr.getNarrowLiteral();
             constantType = ConstantType.NARROW;
         }
 
-        return new ConstOp(instruction, child, destRegister, constantType, literal);
+        return new ConstOp(location, child, destRegister, constantType, literal);
     }
 
 }

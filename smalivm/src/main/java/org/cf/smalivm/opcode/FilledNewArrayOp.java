@@ -3,7 +3,7 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,9 +14,8 @@ public class FilledNewArrayOp extends MethodStateOp {
     private final int dimensionRegisters[];
     private final String typeReference;
 
-    FilledNewArrayOp(BuilderInstruction instruction, BuilderInstruction child, int[] dimensionRegisters,
-                    String typeReference) {
-        super(instruction, child);
+    FilledNewArrayOp(MethodLocation location, MethodLocation child, int[] dimensionRegisters, String typeReference) {
+        super(location, child);
 
         this.dimensionRegisters = dimensionRegisters;
         this.typeReference = typeReference;
@@ -43,7 +42,7 @@ public class FilledNewArrayOp extends MethodStateOp {
             if (value instanceof Number) {
                 dimensions[i] = ((Number) value).intValue();
             } else {
-                if (!(item.isUnknown())) {
+                if (!item.isUnknown()) {
                     if (log.isWarnEnabled()) {
                         log.warn("Unexpected value type for " + toString() + ": " + item);
                     }

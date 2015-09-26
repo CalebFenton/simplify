@@ -2,12 +2,12 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class GotoOp extends MethodStateOp {
 
-    GotoOp(BuilderInstruction instruction, BuilderInstruction childInstruction) {
-        super(instruction, childInstruction);
+    GotoOp(MethodLocation location, MethodLocation childInstruction) {
+        super(location, childInstruction);
     }
 
     @Override
@@ -18,7 +18,7 @@ public class GotoOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        int childAddress = getChildren()[0].getLocation().getCodeAddress();
+        int childAddress = getChildren()[0].getCodeAddress();
         sb.append(" #").append(childAddress);
 
         return sb.toString();

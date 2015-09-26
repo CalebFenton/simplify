@@ -2,12 +2,12 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class NopOp extends MethodStateOp {
 
-    NopOp(BuilderInstruction instruction, BuilderInstruction child) {
-        super(instruction, child);
+    NopOp(MethodLocation location, MethodLocation child) {
+        super(location, child);
     }
 
     @Override

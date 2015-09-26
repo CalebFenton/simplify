@@ -6,6 +6,7 @@ import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -14,12 +15,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
@@ -33,22 +37,25 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     protected static final int TEMPLATE_NODE_INDEX = 0;
     protected static final int METHOD_ROOT_ADDRESS = 0;
 
-    private static TIntObjectMap<List<ExecutionNode>> buildAddressToNodePile(VirtualMachine vm,
-                    MutableMethodImplementation implementation) {
-        OpCreator opFactory = new OpCreator(vm, buildAddressToInstruction(implementation.getInstructions()));
-        TIntObjectMap<List<ExecutionNode>> result = new TIntObjectHashMap<List<ExecutionNode>>();
-        for (BuilderInstruction instruction : implementation.getInstructions()) {
-            int address = instruction.getLocation().getCodeAddress();
-            Op op = opFactory.create(instruction);
+    protected static OpCreator getOpCreator(VirtualMachine vm, TIntObjectMap<MethodLocation> addressToLocation) {
+        return new OpCreator(vm, addressToLocation);
+    }
+
+    private static Map<MethodLocation, List<ExecutionNode>> buildLocationToNodePile(VirtualMachine vm,
+                    TIntObjectMap<MethodLocation> addressToLocation) {
+        OpCreator opCreator = getOpCreator(vm, addressToLocation);
+        Map<MethodLocation, List<ExecutionNode>> locationToNodePile = new HashMap<MethodLocation, List<ExecutionNode>>();
+        for (MethodLocation location : addressToLocation.values(new MethodLocation[addressToLocation.size()])) {
+            Op op = opCreator.create(location);
             ExecutionNode node = new ExecutionNode(op);
 
             // Most node piles will be a template node and one or more ContextNodes.
             List<ExecutionNode> nodePile = new ArrayList<ExecutionNode>(2);
             nodePile.add(node);
-            result.put(address, nodePile);
+            locationToNodePile.put(location, nodePile);
         }
 
-        return result;
+        return locationToNodePile;
     }
 
     private static TIntList buildTerminatingAddresses(List<BuilderInstruction> instructions) {
@@ -70,7 +77,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    protected static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
+    private static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
         TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
@@ -82,42 +89,63 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     private final String methodDescriptor;
     private final TIntList terminatingAddresses;
-    protected final TIntObjectMap<List<ExecutionNode>> addressToNodePile;
+    // protected final TIntObjectMap<List<ExecutionNode>> addressToNodePile;
+    protected final Map<MethodLocation, List<ExecutionNode>> locationToNodePile;
+    protected final TIntObjectMap<MethodLocation> addressToLocation;
 
     public ExecutionGraph(ExecutionGraph other) {
         methodDescriptor = other.methodDescriptor;
-        addressToNodePile = new TIntObjectHashMap<List<ExecutionNode>>();
-        for (int address : other.addressToNodePile.keys()) {
-            List<ExecutionNode> otherNodePile = other.addressToNodePile.get(address);
+        locationToNodePile = new HashMap<MethodLocation, List<ExecutionNode>>();
+        for (MethodLocation location : other.locationToNodePile.keySet()) {
+            List<ExecutionNode> otherNodePile = other.locationToNodePile.get(location);
             List<ExecutionNode> nodePile = new ArrayList<ExecutionNode>(otherNodePile.size());
             for (ExecutionNode otherNode : otherNodePile) {
                 nodePile.add(new ExecutionNode(otherNode));
             }
-            addressToNodePile.put(address, nodePile);
+            locationToNodePile.put(location, nodePile);
         }
         terminatingAddresses = other.terminatingAddresses;
+        addressToLocation = other.addressToLocation;
     }
 
     public ExecutionGraph(ExecutionGraph other, boolean wrap) {
-        this.addressToNodePile = other.addressToNodePile;
-        this.methodDescriptor = other.methodDescriptor;
-        this.terminatingAddresses = other.terminatingAddresses;
+        locationToNodePile = other.locationToNodePile;
+        methodDescriptor = other.methodDescriptor;
+        terminatingAddresses = other.terminatingAddresses;
+        addressToLocation = other.addressToLocation;
     }
 
     public ExecutionGraph(VirtualMachine vm, BuilderMethod method) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
-        addressToNodePile = buildAddressToNodePile(vm, implementation);
+        addressToLocation = buildAddressToLocation(implementation);
+        locationToNodePile = buildLocationToNodePile(vm, addressToLocation);
         List<BuilderInstruction> instructions = implementation.getInstructions();
         terminatingAddresses = buildTerminatingAddresses(instructions);
     }
 
+    protected static TIntObjectMap<MethodLocation> buildAddressToLocation(MutableMethodImplementation implementation) {
+        TIntObjectMap<MethodLocation> addressToLocation = new TIntObjectHashMap<MethodLocation>();
+        for (BuilderInstruction instruction : implementation.getInstructions()) {
+            MethodLocation location = instruction.getLocation();
+            int address = location.getCodeAddress();
+            addressToLocation.put(address, location);
+        }
+
+        return addressToLocation;
+    }
+
     public void addNode(ExecutionNode node) {
-        addressToNodePile.get(node.getAddress()).add(node);
+        MethodLocation location = node.getOp().getInstruction().getLocation();
+        locationToNodePile.get(location).add(node);
     }
 
     public int[] getAddresses() {
-        return addressToNodePile.keys();
+        return addressToLocation.keys();
+    }
+
+    public Collection<MethodLocation> getLocations() {
+        return addressToLocation.valueCollection();
     }
 
     public Set<String> getAllPossiblyInitializedClasses(TIntList addressList) {
@@ -265,25 +293,28 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public int getNodeCount() {
-        int totalSize = addressToNodePile.size();
-        int templateCount = addressToNodePile.keys().length;
+        int totalSize = locationToNodePile.size();
+        int templateCount = locationToNodePile.keySet().size();
 
         return totalSize - templateCount;
     }
 
-    public List<ExecutionNode> getNodePile(int address) {
-        List<ExecutionNode> result = addressToNodePile.get(address);
-        result = result.subList(1, result.size()); // exclude template
+    private @Nullable List<ExecutionNode> getNodePileByAddress(int address) {
+        MethodLocation location = addressToLocation.get(address);
 
-        return result;
+        return locationToNodePile.get(location);
+    }
+
+    public List<ExecutionNode> getNodePile(int address) {
+        List<ExecutionNode> nodePile = getNodePileByAddress(address);
+        nodePile = nodePile.subList(1, nodePile.size()); // exclude template
+
+        return nodePile;
     }
 
     public Op getOp(int address) {
-        List<ExecutionNode> pile = addressToNodePile.get(address);
-        // same pile implies same op
-        ExecutionNode bottomNode = pile.get(TEMPLATE_NODE_INDEX);
-
-        return bottomNode.getOp();
+        // Node piles share an Op reference
+        return getTemplateNode(address).getOp();
     }
 
     public HeapItem getRegisterConsensus(int address, int register) {
@@ -341,7 +372,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionNode getRoot() {
-        List<ExecutionNode> pile = addressToNodePile.get(METHOD_ROOT_ADDRESS);
+        List<ExecutionNode> pile = getNodePileByAddress(METHOD_ROOT_ADDRESS);
         // Return node with initialized context if available.
         if (pile.size() > 1) {
             return pile.get(1);
@@ -350,8 +381,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
     }
 
-    public ExecutionNode getTemplateNode(int address) {
-        return addressToNodePile.get(address).get(TEMPLATE_NODE_INDEX);
+    public @Nullable ExecutionNode getTemplateNode(int address) {
+        List<ExecutionNode> nodePile = getNodePileByAddress(address);
+
+        return nodePile.get(TEMPLATE_NODE_INDEX);
     }
 
     public List<ExecutionContext> getTerminatingContexts() {
@@ -416,7 +449,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         // If this address was reached during execution there will be clones in the pile.
-        List<ExecutionNode> nodePile = addressToNodePile.get(address);
+        List<ExecutionNode> nodePile = getNodePileByAddress(address);
         if ((nodePile == null) || (1 > nodePile.size())) {
             log.warn("Node pile @" + address + " has no template node.");
             return false;

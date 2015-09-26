@@ -9,7 +9,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class NewInstanceOp extends ExecutionContextOp {
 
@@ -18,9 +18,8 @@ public class NewInstanceOp extends ExecutionContextOp {
     private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
 
-    NewInstanceOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, String className,
-                    VirtualMachine vm) {
-        super(instruction, child);
+    NewInstanceOp(MethodLocation location, MethodLocation child, int destRegister, String className, VirtualMachine vm) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.className = className;

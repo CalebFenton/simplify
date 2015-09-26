@@ -3,18 +3,17 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 
 public class FillArrayDataOp extends MethodStateOp {
 
     private final int register;
-    private final BuilderInstruction returnAddress;
+    private final MethodLocation returnLocation;
 
-    FillArrayDataOp(BuilderInstruction instruction, BuilderInstruction child, BuilderInstruction returnInstruction,
-                    int register) {
-        super(instruction, child);
+    FillArrayDataOp(MethodLocation location, MethodLocation child, MethodLocation returnLocation, int register) {
+        super(location, child);
 
-        this.returnAddress = returnInstruction;
+        this.returnLocation = returnLocation;
         this.register = register;
     }
 
@@ -27,13 +26,13 @@ public class FillArrayDataOp extends MethodStateOp {
         mState.assignRegister(register, item);
 
         // It needs to know return address when finished since payload ops do not continue to next address.
-        mState.setPseudoInstructionReturnInstruction(returnAddress);
+        mState.setPseudoInstructionReturnLocation(returnLocation);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getChildren()[0].getLocation().getCodeAddress());
+        sb.append(" r").append(register).append(", #").append(getChildren()[0].getCodeAddress());
 
         return sb.toString();
     }

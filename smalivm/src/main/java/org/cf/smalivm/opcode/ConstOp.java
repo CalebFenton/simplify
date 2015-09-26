@@ -6,7 +6,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalClass;
 import org.cf.util.SmaliClassUtils;
-import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,9 +22,8 @@ public class ConstOp extends MethodStateOp {
     private final int destRegister;
     private final Object literal;
 
-    ConstOp(BuilderInstruction instruction, BuilderInstruction child, int destRegister, ConstantType constantType,
-                    Object literal) {
-        super(instruction, child);
+    ConstOp(MethodLocation location, MethodLocation child, int destRegister, ConstantType constantType, Object literal) {
+        super(location, child);
 
         this.destRegister = destRegister;
         this.constantType = constantType;
