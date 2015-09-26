@@ -327,6 +327,11 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         Set<HeapItem> items = new HashSet<HeapItem>();
         for (int address : addressList.toArray()) {
             items.addAll(getRegisterItems(address, register));
+            if (items.size() == 0) {
+                // TODO: hack for throw not implemented correctly
+                continue;
+            }
+
             if (items.size() != 1) {
                 if (log.isTraceEnabled()) {
                     log.trace("No conensus for register #" + register + ", returning unknown");
@@ -365,7 +370,14 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         for (ExecutionNode node : nodePile) {
             MethodState mState = node.getContext().getMethodState();
             HeapItem item = mState.peekRegister(register);
-            items.add(item);
+            if (item == null) {
+                // If getting terminating register consensus, this may include THROW ops
+                // Since they're not implemented, the return value is NULL
+                assert node.getOp().getInstruction().getOpcode() == org.jf.dexlib2.Opcode.THROW;
+                // TODO: handle THROW properly
+            } else {
+                items.add(item);
+            }
         }
 
         return items;
