@@ -41,20 +41,16 @@ Emulate / spoof stack traces - requires call stack in context or similar
 
 
 Fail stories:
-  * 6494727's phone/b;->a([Ljava/lang/String;)
-    doesn't work and looks like it should
   * inner classes are not always resolved properly, should add tests for this, look at base64$coder
-  * methods with arrays, like anything in 8748278, don't optimize correctly
 
 Success stories:
   * java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
   * java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
+  * java -jar build/libs/simplify-0.1.0-all.jar -i sandbox/8748278/ -it Acgt -v
 
 
 
-NOTES TO MYSELF (good luck understanding)
-
-remove array data payloads that are unreferenced :D
+remove array data payloads that are unreferenced
   Obfuscated example does this in reflected field lookups
 
 what if?

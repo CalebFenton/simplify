@@ -169,9 +169,7 @@ public class Launcher {
             String name = it.next();
             if ((positive != null) && !positive.matcher(name).find()) {
                 it.remove();
-            }
-
-            if ((negative != null) && negative.matcher(name).find()) {
+            } else if ((negative != null) && negative.matcher(name).find()) {
                 it.remove();
             }
         }
