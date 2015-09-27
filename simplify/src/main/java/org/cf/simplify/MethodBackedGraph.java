@@ -107,6 +107,12 @@ public class MethodBackedGraph extends ExecutionGraph {
                     continue;
                 }
 
+                if (node.getOp().getName().startsWith("move-result")) {
+                    // The target and result registers will always be identical. This makes it seem as if the register
+                    // has always been read since it was read when it was in the result register.
+                    continue;
+                }
+
                 if (mState.wasRegisterRead(register)) {
                     registersRead.add(register);
                 } else if (mState.wasRegisterAssigned(register)) {
