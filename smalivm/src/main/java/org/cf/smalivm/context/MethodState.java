@@ -135,9 +135,8 @@ public class MethodState extends BaseState {
                 if (getParent() != null && !getParent().hasRegister(register, METHOD_HEAP)) {
                     // ResultRegister can only be read by the instruction immediately after it's set.
                     // It's not in this instruction or its parent, so it effectively doesn't exist.
-                    log.warn("Attempting to read result register but it's not in current or parent context! Assuming unknown type!");
-
-                    return HeapItem.newUnknown("?");
+                    log.warn("Attempting to read result register but it's not in current or parent context! Returning null.");
+                    return null;
                 }
 
             }

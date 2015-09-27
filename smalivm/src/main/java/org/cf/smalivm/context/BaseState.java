@@ -119,11 +119,11 @@ class BaseState {
     }
 
     boolean wasRegisterRead(int register, String heapId) {
-        HeapItem item = peekRegister(register, heapId);
         if (getRegistersRead().contains(register)) {
             return true;
         }
 
+        HeapItem item = peekRegister(register, heapId);
         if (null == item) {
             return false;
         }

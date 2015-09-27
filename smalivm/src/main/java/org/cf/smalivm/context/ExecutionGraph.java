@@ -374,7 +374,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
                 // If getting terminating register consensus, this may include THROW ops
                 // Since they're not implemented, the return value is NULL
                 // It's also possible there was an exception during invocation.
-                assert node.getExceptions().size() > 0 || node.getOp().getInstruction().getOpcode() == org.jf.dexlib2.Opcode.THROW;
+                // It could also be return-void
+                // Or it could just be caller is getting register consensus of weird address
+                // assert node.getExceptions().size() > 0 || node.getOp().getInstruction().getOpcode() ==
+                // org.jf.dexlib2.Opcode.THROW;
                 // TODO: handle THROW properly
             } else {
                 items.add(item);

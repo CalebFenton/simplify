@@ -127,6 +127,7 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
+
     public static class TestInvokeNonOptimizableScenarios {
 
         private static final String[] EXPECTED_LINES = new String[] {
@@ -168,6 +169,7 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
+
     public static class TestInvokeStaticNonLocalMethodWithNoParameters {
 
         private static final Method METHOD = getMethod(System.class, "gc", new Class<?>[0]);
@@ -199,6 +201,7 @@ public class TestReflectionRemovalStrategy {
             testRegisterCount(mbgraph, METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 10);
         }
     }
+
     public static class TestInvokeStaticPrivateLocalMethod {
 
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->FourParameterMethod(IIII)V");
