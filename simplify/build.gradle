@@ -54,7 +54,6 @@ tasks.getByPath('build').dependsOn(fatJar)
 task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
     def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
 
-    print fatJar.archivePath
     injars fatJar.archivePath
     outjars outFile
 
