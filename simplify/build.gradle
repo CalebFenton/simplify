@@ -1,31 +1,79 @@
-project.version = '0.8.0'
-
-apply plugin: 'application'
-mainClassName = 'org.cf.simplify.Main'
+buildscript {
+    dependencies {
+        classpath depends.proguard_gradle
+    }
+    repositories {
+        mavenCentral()
+    }
+}
 
 dependencies {
     compile project(':smalivm')
 
     // Lazy
-    compile 'commons-io:commons-io:2.4'
-    compile 'org.apache.commons:commons-lang3:3.4'
+    compile depends.commons_io
+    compile depends.commons_lang
 
     // CLI parsing
-    compile 'args4j:args4j:2.32'
+    compile depends.args4j
 
     // Primitive collections
-    compile 'net.sf.trove4j:trove4j:3.0.3'
+    compile depends.trove4j
 
     // Perfromance benchmarking
-    compile 'org.perfidix:perfidix:3.6.9'
+    compile depends.perfidix
 
     // Logging
-    compile 'org.slf4j:slf4j-api:1.7.12'
+    compile depends.slf4j_api
     compile 'ch.qos.logback:logback-core:1.1.3'
     compile 'ch.qos.logback:logback-classic:1.1.3'
 
     // Testing
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.mockito:mockito-core:1.10.19'
+    testCompile depends.junit
+    testCompile depends.mockito
     testCompile project(path: ':smalivm', configuration: 'testArtifacts')
+}
+
+// Build a separate jar that contains all dependencies
+task fatJar(type: Jar) {
+    from sourceSets.main.output
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+
+    manifest {
+        attributes('Main-Class': 'org.cf.simplify.Main')
+    }
+
+    doLast {
+        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
+            ant.symlink(link: file("${destinationDir}/simplify.jar"), resource: archivePath, overwrite: true)
+        }
+    }
+}
+tasks.getByPath('build').dependsOn(fatJar)
+
+task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
+    def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
+
+    print fatJar.archivePath
+    injars fatJar.archivePath
+    outjars outFile
+
+    libraryjars "${System.properties['java.home']}/lib/rt.jar"
+
+    dontobfuscate
+    //dontoptimize
+
+    keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
+    keepattributes '*Annotation*,Signature,InnerClasses,EnclosingMethod'
+
+    keep 'public class org.cf.simplify.Main { public static void main(java.lang.String[]); }'
+    keep 'public class org.cf.simplify.Options  { *; }'
+    keep 'public class android.util.**  { *; }'
+
+    keep 'class org.apache.commons.logging.** { public protected *; }'
+    keep 'public class org.kohsuke.args4j.** { public protected *; }'
+    keep 'public class ch.qos.** { public protected *; }'
+
+    dontwarn
+    verbose
 }
