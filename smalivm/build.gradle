@@ -1,4 +1,34 @@
-project.version = '0.8.0'
+dependencies {
+    // Object cloning
+    compile 'uk.com.robust-it:cloning:1.9.2'
+
+    // Easy method reflection
+    compile 'commons-beanutils:commons-beanutils:1.9.2'
+
+    // Lazy
+    compile depends.commons_io
+    compile depends.commons_lang
+
+    // Primitive collections
+    compile depends.trove4j
+
+    // Perfromance benchmarking
+    compile depends.perfidix
+
+    // Logging facade
+    compile depends.slf4j_api
+
+    // Parsing and writing dex files
+    compile 'org.smali:dexlib2:2.0.6'
+    compile 'org.smali:smali:2.0.6'
+    compile 'org.smali:baksmali:2.0.6'
+
+    // Contains Android framework classes that should be reflected instead of virtually executed
+    compile files('libs/android-local.jar')
+
+    testCompile depends.junit
+    testCompile depends.mockito
+}
 
 task myTestsJar(type: Jar) {
     // Simplify uses some classes from smalivm's tests.
@@ -12,36 +42,4 @@ configurations {
 
 artifacts {
    testArtifacts myTestsJar
-}
-
-dependencies {
-    // Object cloning
-    compile 'uk.com.robust-it:cloning:1.9.2'
-
-    // Easy method reflection
-    compile 'commons-beanutils:commons-beanutils:1.9.2'
-
-    // Lazy
-    compile 'commons-io:commons-io:2.4'
-    compile 'org.apache.commons:commons-lang3:3.4'
-
-    // Primitive collections
-    compile 'net.sf.trove4j:trove4j:3.0.3'
-
-    // Perfromance benchmarking
-    compile 'org.perfidix:perfidix:3.6.9'
-
-    // Logging facade
-    compile 'org.slf4j:slf4j-api:1.7.12'
-
-    // Parsing and writing dex files
-    compile 'org.smali:dexlib2:2.0.6'
-    compile 'org.smali:smali:2.0.6'
-    compile 'org.smali:baksmali:2.0.6'
-
-    // Contains Android framework classes that should be reflected instead of virtually executed
-    compile files('libs/android-local.jar')
-
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.mockito:mockito-core:1.10.19'
 }
