@@ -1,4 +1,4 @@
-project.version = '0.1.0'
+project.version = '0.8.0'
 
 apply plugin: 'application'
 mainClassName = 'org.cf.simplify.Main'

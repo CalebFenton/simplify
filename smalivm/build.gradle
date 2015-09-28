@@ -1,4 +1,4 @@
-project.version = '0.1.0'
+project.version = '0.8.0'
 
 task myTestsJar(type: Jar) {
     // Simplify uses some classes from smalivm's tests.
