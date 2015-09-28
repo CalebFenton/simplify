@@ -29,7 +29,12 @@ There are three parts to the project:
 Building
 --------
 
-To build the jar, use `./gradlew shadowJar`
+To build, `./gradlew fatjar`
+
+The Simplify jar will be in `simplify/build/libs/simplify.jar`
+
+You can test it's working with: `java -jar simplify/build/libs/simplify.jar -i simplify/obfuscated-example`
+
 
 Troubleshooting
 ---------------
