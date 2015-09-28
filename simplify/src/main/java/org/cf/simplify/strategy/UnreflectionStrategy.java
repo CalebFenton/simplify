@@ -43,10 +43,10 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ReflectionRemovalStrategy implements OptimizationStrategy {
+public class UnreflectionStrategy implements OptimizationStrategy {
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ReflectionRemovalStrategy.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(UnreflectionStrategy.class.getSimpleName());
 
     private static final String MethodInvokeSignature = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
 
@@ -120,7 +120,7 @@ public class ReflectionRemovalStrategy implements OptimizationStrategy {
 
     private boolean madeChanges;
 
-    public ReflectionRemovalStrategy(MethodBackedGraph mbgraph) {
+    public UnreflectionStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
         unreflectCount = 0;
     }

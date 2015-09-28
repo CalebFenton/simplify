@@ -11,7 +11,7 @@ import org.cf.simplify.strategy.ConstantPropigationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
 import org.cf.simplify.strategy.OptimizationStrategy;
 import org.cf.simplify.strategy.PeepholeStrategy;
-import org.cf.simplify.strategy.ReflectionRemovalStrategy;
+import org.cf.simplify.strategy.UnreflectionStrategy;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -52,7 +52,7 @@ public class Optimizer {
         performRepeatedlyStrategies.add(strategy);
 
         methodReexecuteStrategies = new LinkedList<OptimizationStrategy>();
-        methodReexecuteStrategies.add(new ReflectionRemovalStrategy(mbgraph));
+        methodReexecuteStrategies.add(new UnreflectionStrategy(mbgraph));
 
         allStrategies = new LinkedList<OptimizationStrategy>();
         allStrategies.addAll(performOnceStrategies);

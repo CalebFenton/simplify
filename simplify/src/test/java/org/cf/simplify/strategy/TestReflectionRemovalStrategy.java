@@ -343,27 +343,27 @@ public class TestReflectionRemovalStrategy {
         @Test
         public void testInstanceGetOpcodes() {
             boolean isStatic = false;
-            assertEquals(Opcode.IGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
-            assertEquals(Opcode.IGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
-            assertEquals(Opcode.IGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
-            assertEquals(Opcode.IGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
-            assertEquals(Opcode.IGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
-            assertEquals(Opcode.IGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
-            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
-            assertEquals(Opcode.IGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
+            assertEquals(Opcode.IGET, UnreflectionStrategy.getGetOpcode("I", isStatic));
+            assertEquals(Opcode.IGET_BOOLEAN, UnreflectionStrategy.getGetOpcode("Z", isStatic));
+            assertEquals(Opcode.IGET_BYTE, UnreflectionStrategy.getGetOpcode("B", isStatic));
+            assertEquals(Opcode.IGET_CHAR, UnreflectionStrategy.getGetOpcode("C", isStatic));
+            assertEquals(Opcode.IGET_OBJECT, UnreflectionStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
+            assertEquals(Opcode.IGET_SHORT, UnreflectionStrategy.getGetOpcode("S", isStatic));
+            assertEquals(Opcode.IGET_WIDE, UnreflectionStrategy.getGetOpcode("J", isStatic));
+            assertEquals(Opcode.IGET_WIDE, UnreflectionStrategy.getGetOpcode("D", isStatic));
         }
 
         @Test
         public void testStaticGetOpcodes() {
             boolean isStatic = true;
-            assertEquals(Opcode.SGET, ReflectionRemovalStrategy.getGetOpcode("I", isStatic));
-            assertEquals(Opcode.SGET_BOOLEAN, ReflectionRemovalStrategy.getGetOpcode("Z", isStatic));
-            assertEquals(Opcode.SGET_BYTE, ReflectionRemovalStrategy.getGetOpcode("B", isStatic));
-            assertEquals(Opcode.SGET_CHAR, ReflectionRemovalStrategy.getGetOpcode("C", isStatic));
-            assertEquals(Opcode.SGET_OBJECT, ReflectionRemovalStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
-            assertEquals(Opcode.SGET_SHORT, ReflectionRemovalStrategy.getGetOpcode("S", isStatic));
-            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("J", isStatic));
-            assertEquals(Opcode.SGET_WIDE, ReflectionRemovalStrategy.getGetOpcode("D", isStatic));
+            assertEquals(Opcode.SGET, UnreflectionStrategy.getGetOpcode("I", isStatic));
+            assertEquals(Opcode.SGET_BOOLEAN, UnreflectionStrategy.getGetOpcode("Z", isStatic));
+            assertEquals(Opcode.SGET_BYTE, UnreflectionStrategy.getGetOpcode("B", isStatic));
+            assertEquals(Opcode.SGET_CHAR, UnreflectionStrategy.getGetOpcode("C", isStatic));
+            assertEquals(Opcode.SGET_OBJECT, UnreflectionStrategy.getGetOpcode("Ljava/lang/Object;", isStatic));
+            assertEquals(Opcode.SGET_SHORT, UnreflectionStrategy.getGetOpcode("S", isStatic));
+            assertEquals(Opcode.SGET_WIDE, UnreflectionStrategy.getGetOpcode("J", isStatic));
+            assertEquals(Opcode.SGET_WIDE, UnreflectionStrategy.getGetOpcode("D", isStatic));
         }
 
     }
@@ -391,7 +391,7 @@ public class TestReflectionRemovalStrategy {
     private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-        ReflectionRemovalStrategy strategy = new ReflectionRemovalStrategy(mbgraph);
+        UnreflectionStrategy strategy = new UnreflectionStrategy(mbgraph);
         strategy.perform();
 
         return mbgraph;
