@@ -82,3 +82,12 @@
 
   return p0
 .end method
+
+.method private static IntegerValueOf()Ljava/lang/Integer;
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+  move-result-object v0
+
+  return-object v0
+.end method

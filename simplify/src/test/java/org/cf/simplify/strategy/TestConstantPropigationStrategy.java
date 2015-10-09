@@ -144,6 +144,16 @@ public class TestConstantPropigationStrategy {
 
             testEquals(before.getInstruction(0), after, 0);
         }
+
+        @Test
+        public void testIntegerValueOfDoesNotConstantize() {
+            String methodName = "IntegerValueOf()Ljava/lang/Integer;";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
+
+            assertEquals(before.toSmali(), after.toSmali());
+        }
     }
 
     private static final String CLASS_NAME = "Lconstant_propigation_strategy_test;";

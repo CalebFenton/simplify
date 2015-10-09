@@ -96,8 +96,8 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             return false;
         }
 
-        String unboxedValueType = consensus.getUnboxedValueType();
-        if (!constantBuilder.canConstantizeType(unboxedValueType)) {
+        String valueType = consensus.getType();
+        if (!constantBuilder.canConstantizeType(valueType)) {
             return false;
         }
 
