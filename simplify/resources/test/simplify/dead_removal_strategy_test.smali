@@ -44,6 +44,7 @@
   :return
   return-void
 .end method
+
 .method public static DeadOpWithLabel()I
   .locals 2
 
@@ -55,6 +56,20 @@
   :return
   const/4 v1, 0x1
 
+  return v0
+.end method
+
+.method public static ReassignedInOnlyOneMultiverse(I)I
+  .locals 2
+
+  const/4 v0, 0x1
+
+  const/4 v1, 0x0
+  if-ge p0, v1, :return
+
+  const/4 v0, 0x0
+
+  :return
   return v0
 .end method
 

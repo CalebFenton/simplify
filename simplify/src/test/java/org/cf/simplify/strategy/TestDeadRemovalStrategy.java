@@ -47,6 +47,18 @@ public class TestDeadRemovalStrategy {
     }
 
     @Test
+    public void testAssignmentReassignedInOnlyOneMultiverseIsNotRemoved() {
+        String methodName = "ReassignedInOnlyOneMultiverse(I)I";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getDeadAssignmentAddresses();
+        found.sort();
+        TIntList expected = new TIntArrayList(new int[0]);
+
+        assertEquals(expected, found);
+    }
+
+    @Test
     public void testDeadTryCatchBlockIsRemoved() {
         String methodName = "DeadTryCatchBlock()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
