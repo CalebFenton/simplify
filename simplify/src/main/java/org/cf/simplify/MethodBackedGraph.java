@@ -191,6 +191,7 @@ public class MethodBackedGraph extends ExecutionGraph {
     public void removeInstructions(TIntList addresses) {
         addresses.sort();
         addresses.reverse();
+        log.debug("Removing instructions: " + addresses);
         for (int address : addresses.toArray()) {
             removeInstruction(address);
         }

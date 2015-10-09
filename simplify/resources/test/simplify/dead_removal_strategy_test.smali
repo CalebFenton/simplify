@@ -34,6 +34,16 @@
   return-void
 .end method
 
+.method public static DeadCodeWithStrongSideEffect()V
+  .locals 1
+
+  goto :return
+
+  invoke-static {}, Lsome/classy/Clazz;->important()V
+
+  :return
+  return-void
+.end method
 .method public static DeadOpWithLabel()I
   .locals 2
 

@@ -348,8 +348,10 @@ public class InvokeOp extends ExecutionContextOp {
                 // TODO: add test for this!
                 callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
             } else {
-                // The instance reference could have changed, so mark it as assigned here.
-                callerContext.assignRegister(parameterRegisters[0], newInstanceItem);
+                if (!ImmutableUtils.isImmutableClass(newInstanceItem.getType())) {
+                    // The instance type is mutable and could have changed. Mark it assigned here for optimizer.
+                    callerContext.assignRegister(parameterRegisters[0], newInstanceItem);
+                }
             }
         }
 
