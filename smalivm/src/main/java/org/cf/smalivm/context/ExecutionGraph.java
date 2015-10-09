@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.cf.smalivm.SideEffect;
@@ -77,19 +78,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    private static TIntObjectMap<BuilderInstruction> buildAddressToInstruction(List<BuilderInstruction> instructions) {
-        TIntObjectMap<BuilderInstruction> result = new TIntObjectHashMap<BuilderInstruction>();
-        for (BuilderInstruction instruction : instructions) {
-            int address = instruction.getLocation().getCodeAddress();
-            result.put(address, instruction);
-        }
-
-        return result;
-    }
-
     private final String methodDescriptor;
     private final TIntList terminatingAddresses;
-    // protected final TIntObjectMap<List<ExecutionNode>> addressToNodePile;
     protected final Map<MethodLocation, List<ExecutionNode>> locationToNodePile;
     protected final TIntObjectMap<MethodLocation> addressToLocation;
 
@@ -323,7 +313,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return getRegisterConsensus(addresses, register);
     }
 
-    public HeapItem getRegisterConsensus(TIntList addressList, int register) {
+    public @Nonnull HeapItem getRegisterConsensus(TIntList addressList, int register) {
         Set<HeapItem> items = new HashSet<HeapItem>();
         for (int address : addressList.toArray()) {
             items.addAll(getRegisterItems(address, register));
@@ -432,7 +422,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    public HeapItem getTerminatingRegisterConsensus(int register) {
+    public @Nonnull HeapItem getTerminatingRegisterConsensus(int register) {
         Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[] { register });
 
         return items.get(register);

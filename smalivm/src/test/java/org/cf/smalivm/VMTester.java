@@ -67,6 +67,13 @@ public class VMTester {
         return result;
     }
 
+    /**
+     * Construct a map from register to HeapItems.
+     * 
+     * @param params
+     *            register, value, type - for each HeapItem
+     * @return
+     */
     public static TIntObjectMap<HeapItem> buildRegisterState(Object... params) {
         TIntObjectMap<HeapItem> result = new TIntObjectHashMap<HeapItem>();
         for (int i = 0; i < params.length; i += 3) {
