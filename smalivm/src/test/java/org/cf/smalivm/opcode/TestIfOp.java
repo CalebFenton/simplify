@@ -1,9 +1,23 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.context.MethodState;
+import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -11,7 +25,68 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestIfOp {
 
+    public static class UnitTest {
+
+        private static final int ADDRESS = 0;
+        private static final int ARG1_REGISTER = 2;
+        private static final int ARG2_REGISTER = 4;
+
+        private TIntObjectMap<MethodLocation> addressToLocation;
+
+        private BuilderInstruction instruction;
+
+        private MethodLocation location;
+
+        private MethodState mState;
+        private ExecutionNode node;
+        private IfOp op;
+        private IfOpFactory opFactory;
+        private VirtualMachine vm;
+
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+            location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
+
+            opFactory = new IfOpFactory();
+        }
+
+        @Test
+        public void hasExpectedToStringValue() {
+            int value = 0;
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value, "D");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value, "D");
+
+            instruction = buildInstruction22t(Opcode.IF_GE, 0);
+            op = (IfOp) opFactory.create(location, addressToLocation, vm);
+            op.execute(node, mState);
+
+            assertEquals("if-ge r2, r4, #0", op.toString());
+        }
+
+        private BuilderInstruction buildInstruction22t(Opcode opcode, int offset) {
+            BuilderInstruction instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(NarrowLiteralInstruction.class, Instruction22t.class));
+            when(location.getInstruction()).thenReturn(instruction);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(instruction.getOpcode()).thenReturn(opcode);
+            when(((Instruction22t) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
+            when(((Instruction22t) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
+            when(((Instruction22t) instruction).getCodeOffset()).thenReturn(offset);
+
+            return instruction;
+        }
+    }
+
     public static class TestCompareObjectReferences {
+
         @Test
         public void testIdenticalObjectReferencesAreEqual() {
             String methodSignature = "IfEqual()V";
@@ -82,7 +157,9 @@ public class TestIfOp {
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
     }
+
     public static class TestIdenticalPrimitiveValueTypes {
+
         @Test
         public void testIfEqualWithOneAndZeroIsFalse() {
             String methodSignature = "IfEqualZero()V";
@@ -300,7 +377,9 @@ public class TestIfOp {
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
     }
+
     public static class TestValueTypeCombinations {
+
         @Test
         public void testIfEqualWithBooleanAndChar() {
             String methodSignature = "IfEqual()V";
@@ -512,6 +591,7 @@ public class TestIfOp {
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
     }
+
     private static final int ADDRESS_IF = 0;
     private static final int ADDRESS_NOP = 2;
     private static final int ADDRESS_RETURN = 3;

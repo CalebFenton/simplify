@@ -110,7 +110,7 @@ public class IfOp extends MethodStateOp {
         if (!compareToZero) {
             sb.append(", r").append(register2);
         }
-        sb.append(", #").append(target);
+        sb.append(", #").append(target.getCodeAddress());
 
         return sb.toString();
     }
