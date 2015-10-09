@@ -150,20 +150,20 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         TIntSet removeSet = new TIntHashSet();
         TIntList removeAddresses;
         removeAddresses = getDeadAddresses();
-        // deadCount += removeAddresses.size();
-        // removeSet.addAll(removeAddresses);
+        deadCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
         removeAddresses = getDeadAssignmentAddresses();
         deadAssignmentCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
         removeAddresses = getDeadResultAddresses();
-        // deadResultCount += removeAddresses.size();
-        // removeSet.addAll(removeAddresses);
+        deadResultCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
         removeAddresses = getUselessBranchAddresses();
-        // deadBranchCount += removeAddresses.size();
-        // removeSet.addAll(removeAddresses);
+        deadBranchCount += removeAddresses.size();
+        removeSet.addAll(removeAddresses);
 
         removeAddresses = new TIntArrayList(removeSet.toArray());
         mbgraph.removeInstructions(removeAddresses);
@@ -210,15 +210,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Read assignments test @" + address + " for: " + op);
+            log.debug("Dead assignments test @" + address + " for: " + op);
         }
 
         if (isAnyRegisterUsed(address, assigned, mbgraph)) {
             return false;
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("dead assignment: " + op + ", registers=" + assigned);
         }
 
         return true;
@@ -236,7 +232,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("Results usage test @" + address + " for: " + op);
+            log.debug("Dead result test @" + address + " for: " + op);
         }
 
         if (isSideEffectAboveThreshold(op.sideEffectLevel())) {
@@ -269,10 +265,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 // Result may not be used, but assignments *are* used
                 return false;
             }
-        }
-
-        if (log.isDebugEnabled()) {
-            log.info("dead result: " + mbgraph.getOp(address));
         }
 
         return true;
@@ -355,6 +347,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         validAddresses.removeAll(getExceptionHandlerAddresses(mbgraph));
 
         for (int address : validAddresses.toArray()) {
+            if (!mbgraph.wasAddressReached(address)) {
+                // DEAD
+                continue;
+            }
+
             Op op = mbgraph.getOp(address);
             if (isSideEffectAboveThreshold(op.sideEffectLevel())) {
                 validAddresses.remove(address);

@@ -29,7 +29,19 @@ public class TestDeadRemovalStrategy {
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getDeadAddresses();
         found.sort();
-        TIntList expected = new TIntArrayList(new int[] { 2 });
+        TIntList expected = new TIntArrayList(new int[] { 2, 3, 4, 5 });
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void testDeadCodeWithStrongSideEffectIsRemoved() {
+        String methodName = "DeadCodeWithStrongSideEffect()V";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getDeadAddresses();
+        found.sort();
+        TIntList expected = new TIntArrayList(new int[] { 1 });
 
         assertEquals(expected, found);
     }
