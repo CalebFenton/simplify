@@ -177,7 +177,6 @@ public class MethodBackedGraph extends ExecutionGraph {
 
     public void removeInstruction(MethodLocation location) {
         int index = location.getIndex();
-        tryMigrateLabels(index);
         implementation.removeInstruction(index);
         removeEmptyTryCatchBlocks();
 
@@ -366,25 +365,6 @@ public class MethodBackedGraph extends ExecutionGraph {
         for (Entry<MethodLocation, ExecutionNode> entry : locationToChildNodeToRemove.entrySet()) {
             List<ExecutionNode> pile = locationToNodePile.get(entry.getKey());
             pile.remove(entry.getValue());
-        }
-    }
-
-    private void tryMigrateLabels(int index) {
-        // If it has a label, and it's not the last instruction, move it to the next instruction.
-        List<BuilderInstruction> instructions = implementation.getInstructions();
-        int instructionCount = instructions.size();
-        if (index < (instructionCount - 1)) {
-            // Not last instruction
-            BuilderInstruction moveFrom = instructions.get(index);
-            Set<Label> labelSet = moveFrom.getLocation().getLabels();
-            if (0 < labelSet.size()) {
-                BuilderInstruction moveTo = instructions.get(index + 1);
-                List<Label> labels = new ArrayList<Label>(labelSet.size());
-                for (Label label : labels) {
-                    moveTo.getLocation().getLabels().add(label);
-                }
-                // moveFrom.getLocation().getLabels().removeAll(labelSet);
-            }
         }
     }
 
