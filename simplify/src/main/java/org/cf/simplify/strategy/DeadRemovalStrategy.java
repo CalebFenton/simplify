@@ -5,9 +5,7 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,40 +70,55 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private static boolean isAnyRegisterUsed(int address, TIntSet registerSet, MethodBackedGraph graph) {
-        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(graph.getChildren(address));
-        ExecutionNode node;
         int[] registers = registerSet.toArray();
-        TIntSet reassigned = new TIntHashSet();
-        while ((node = stack.poll()) != null) {
-            MethodState mState = node.getContext().getMethodState();
-            for (int register : registers) {
-                if (reassigned.contains(register)) {
-                    continue;
-                }
-
-                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
-                // Read check must come first because this still counts as a usage.
-                if (mState.wasRegisterRead(register)) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("r" + register + " is read after " + address + " @ " + node.getAddress() + ", " + node
-                                        .getOp());
-                    }
-
-                    return true;
-                }
-                // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
-                else if (mState.wasRegisterAssigned(register) && !(node.getOp() instanceof APutOp)) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("r" + register + " is reassigned after " + address + " @ " + node.getAddress() + ", " + node
-                                        .getOp());
-                    }
-
-                    // Go on to the next register. This one is for sure not used, but maybe others are.
-                    reassigned.add(register);
-                    continue;
-                }
+        List<ExecutionNode> children = graph.getChildren(address);
+        // Multiple execution paths (multiverse!), track reassigned independently
+        for (ExecutionNode child : children) {
+            TIntSet reassigned = new TIntHashSet();
+            boolean isUsed = isAnyRegisterUsed(address, registers, graph, child, reassigned);
+            if (isUsed) {
+                return true;
             }
-            stack.addAll(node.getChildren());
+        }
+
+        return false;
+    }
+
+    private static boolean isAnyRegisterUsed(int address, int[] registers, MethodBackedGraph graph, ExecutionNode node,
+                    TIntSet reassigned) {
+        MethodState mState = node.getContext().getMethodState();
+        for (int register : registers) {
+            if (reassigned.contains(register)) {
+                continue;
+            }
+
+            // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
+            // Read check must come first because this still counts as a usage.
+            if (mState.wasRegisterRead(register)) {
+                if (log.isTraceEnabled()) {
+                    log.trace("r{} is read after {} @ {}, {}", register, address, node.getAddress(), node.getOp());
+                }
+
+                return true;
+            }
+            // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
+            else if (mState.wasRegisterAssigned(register) && !(node.getOp() instanceof APutOp)) {
+                if (log.isTraceEnabled()) {
+                    log.trace("r{} is assigned after {} @ {}, {}", register, address, node.getAddress(), node.getOp());
+                }
+
+                // Go on to the next register. This one is for sure not used, but maybe others are.
+                reassigned.add(register);
+                continue;
+            }
+        }
+
+        for (ExecutionNode child : node.getChildren()) {
+            TIntSet newReassigned = new TIntHashSet(reassigned);
+            boolean isUsed = isAnyRegisterUsed(address, registers, graph, child, newReassigned);
+            if (isUsed) {
+                return true;
+            }
         }
 
         return false;
@@ -194,7 +207,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         MethodState mState = ectx.getMethodState();
         TIntSet assigned = getNormalRegistersAssigned(mState);
-        if (assigned.size() == 0) {
+        if (assigned.isEmpty()) {
             // Has no assignments at all
             return false;
         }
@@ -221,6 +234,10 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private boolean isDeadResult(int address) {
+        if (!mbgraph.wasAddressReached(address)) {
+            return false;
+        }
+
         Op op = mbgraph.getOp(address);
         if (!(op instanceof InvokeOp)) {
             return false;
