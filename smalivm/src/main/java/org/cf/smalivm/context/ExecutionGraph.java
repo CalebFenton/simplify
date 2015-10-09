@@ -312,7 +312,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return nodePile;
     }
 
-    public Op getOp(int address) {
+    public @Nullable Op getOp(int address) {
         // Node piles share an Op reference
         return getTemplateNode(address).getOp();
     }
