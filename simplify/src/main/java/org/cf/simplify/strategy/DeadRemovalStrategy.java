@@ -74,9 +74,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         List<ExecutionNode> children = graph.getChildren(address);
         // Multiple execution paths (multiverse!), track reassigned independently
         for (ExecutionNode child : children) {
-            TIntSet reassigned = new TIntHashSet();
-            boolean isUsed = isAnyRegisterUsed(address, registers, graph, child, reassigned);
-            if (isUsed) {
+            if (isAnyRegisterUsed(address, registers, graph, child, new TIntHashSet())) {
                 return true;
             }
         }
@@ -86,42 +84,57 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static boolean isAnyRegisterUsed(int address, int[] registers, MethodBackedGraph graph, ExecutionNode node,
                     TIntSet reassigned) {
-        MethodState mState = node.getContext().getMethodState();
-        for (int register : registers) {
-            if (reassigned.contains(register)) {
-                continue;
-            }
-
-            // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
-            // Read check must come first because this still counts as a usage.
-            if (mState.wasRegisterRead(register)) {
-                if (log.isTraceEnabled()) {
-                    log.trace("r{} is read after {} @ {}, {}", register, address, node.getAddress(), node.getOp());
+        ExecutionNode currentNode = node;
+        for (;;) {
+            MethodState mState = currentNode.getContext().getMethodState();
+            for (int register : registers) {
+                if (reassigned.contains(register)) {
+                    continue;
                 }
 
-                return true;
-            }
-            // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
-            else if (mState.wasRegisterAssigned(register) && !(node.getOp() instanceof APutOp)) {
-                if (log.isTraceEnabled()) {
-                    log.trace("r{} is assigned after {} @ {}, {}", register, address, node.getAddress(), node.getOp());
+                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
+                // Read check must come first because this still counts as a usage.
+                if (mState.wasRegisterRead(register)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r{} is read after {} @ {}, {}", register, address, currentNode.getAddress(),
+                                        currentNode.getOp());
+                    }
+
+                    return true;
                 }
+                // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
+                else if (mState.wasRegisterAssigned(register) && !(currentNode.getOp() instanceof APutOp)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r{} is assigned after {} @ {}, {}", register, address, currentNode.getAddress(),
+                                        currentNode.getOp());
+                    }
 
-                // Go on to the next register. This one is for sure not used, but maybe others are.
-                reassigned.add(register);
-                continue;
+                    // Go on to the next register. This one is for sure not used, but maybe others are.
+                    reassigned.add(register);
+                    if (reassigned.size() == registers.length) {
+                        // All registers are reassigned before used
+                        return false;
+                    }
+                    continue;
+                }
+            }
+
+            List<ExecutionNode> children = currentNode.getChildren();
+            if (children.size() > 1) {
+                for (ExecutionNode child : children) {
+                    TIntSet newReassigned = new TIntHashSet(reassigned);
+                    if (isAnyRegisterUsed(address, registers, graph, child, newReassigned)) {
+                        return true;
+                    }
+                }
+            } else if (children.size() == 1) {
+                // Avoiding recursion helps prevent stack overflows
+                // Execution lengths can be quite long
+                currentNode = children.get(0);
+            } else {
+                return false;
             }
         }
-
-        for (ExecutionNode child : node.getChildren()) {
-            TIntSet newReassigned = new TIntHashSet(reassigned);
-            boolean isUsed = isAnyRegisterUsed(address, registers, graph, child, newReassigned);
-            if (isUsed) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private TIntList addresses;
