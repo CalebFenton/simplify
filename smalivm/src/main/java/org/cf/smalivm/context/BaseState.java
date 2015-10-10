@@ -108,12 +108,6 @@ class BaseState {
         return peekRegister(register, heapId);
     }
 
-    String registerToString(int register, String heapId) {
-        HeapItem item = peekRegister(register, heapId);
-
-        return item.toString();
-    }
-
     void removeRegister(int register, String heapId) {
         ectx.getHeap().remove(heapId, register);
     }

@@ -444,10 +444,6 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return new ExecutionGraphIterator(this);
     }
 
-    public String toGraph() {
-        return getRoot().toGraph();
-    }
-
     public boolean wasAddressReached(int address) {
         if (METHOD_ROOT_ADDRESS == address) {
             // Root is always reachable

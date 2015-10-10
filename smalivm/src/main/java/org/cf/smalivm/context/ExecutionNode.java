@@ -15,8 +15,6 @@ import org.slf4j.LoggerFactory;
 
 public class ExecutionNode {
 
-    private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
-
     private static Logger log = LoggerFactory.getLogger(ExecutionNode.class.getSimpleName());
 
     private final List<ExecutionNode> children;
@@ -160,15 +158,6 @@ public class ExecutionNode {
         return child;
     }
 
-    public String toGraph() {
-        List<ExecutionNode> visitedNodes = new ArrayList<ExecutionNode>();
-        StringBuilder sb = new StringBuilder("digraph {\n");
-        getGraph(sb, visitedNodes);
-        sb.append("}");
-
-        return sb.toString();
-    }
-
     @Override
     public String toString() {
         return op.toString();
@@ -176,32 +165,6 @@ public class ExecutionNode {
 
     private void addChildNode(ExecutionNode child) {
         children.add(child);
-    }
-
-    private void getGraph(StringBuilder sb, List<ExecutionNode> visitedNodes) {
-        if (visitedNodes.contains(this)) {
-            return;
-        }
-        visitedNodes.add(this);
-
-        ExecutionContext parentExecutionContext = getContext();
-        MethodState parentMethodState = parentExecutionContext.getMethodState();
-        for (ExecutionNode child : getChildren()) {
-            String op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
-            String ctx = parentMethodState.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
-            sb.append('"').append(getAddress()).append('\n').append(op).append('\n').append(ctx).append('"');
-
-            sb.append(" -> ");
-
-            ExecutionContext childExecutionContext = child.getContext();
-            MethodState childMethodState = childExecutionContext.getMethodState();
-            op = toString().replaceAll(DOT, "?").replace("\"", "\\\"");
-            ctx = childMethodState.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
-            sb.append('"').append(getAddress()).append('\n').append(op).append('\n').append(ctx).append('"');
-            sb.append('\n');
-
-            child.getGraph(sb, visitedNodes);
-        }
     }
 
 }

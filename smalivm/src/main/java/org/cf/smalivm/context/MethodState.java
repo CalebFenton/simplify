@@ -135,7 +135,7 @@ public class MethodState extends BaseState {
                 if (getParent() != null && !getParent().hasRegister(register, METHOD_HEAP)) {
                     // ResultRegister can only be read by the instruction immediately after it's set.
                     // It's not in this instruction or its parent, so it effectively doesn't exist.
-                    log.warn("Attempting to read result register but it's not in current or parent context! Returning null.");
+                    // log.warn("Attempting to read result register but it's not in current or parent context! Returning null.");
                     return null;
                 }
 
@@ -171,59 +171,46 @@ public class MethodState extends BaseState {
         pokeRegister(ReturnAddress, location, METHOD_HEAP);
     }
 
+    boolean hasRegister(int register) {
+        return hasRegister(register, METHOD_HEAP);
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        if (getParameterCount() > 0) {
-            sb.append("parameters: ").append(parameterCount).append("\n[");
-            boolean printingAtLeastOneParameter = false;
-            for (int parameterRegister = getParameterStart(); parameterRegister < getRegisterCount();) {
-                sb.append('p').append(parameterRegister).append(": ");
-                if (super.hasRegister(parameterRegister, METHOD_HEAP)) {
-                    printingAtLeastOneParameter = true;
-                    HeapItem item = peekRegister(parameterRegister);
-                    sb.append(item);
-                    if (Utils.getRegisterSize(item.getType()) == 2) {
-                        parameterRegister += 1;
-                    }
-                    sb.append(",\n");
-                } else {
-                    sb.append("*in ancestor*\n");
-                }
-                parameterRegister++;
-            }
-            if (printingAtLeastOneParameter) {
-                sb.setLength(sb.length() - 2);
-            }
-            sb.append(']');
-        }
-
         int localsCount = getRegisterCount() - getParameterCount();
-        if (localsCount > 0) {
-            boolean hadAtLeastOneLocal = false;
-            sb.append("\nlocals: ").append(localsCount).append("\n[");
-            for (int register = 0; register < (getRegisterCount() - getParameterCount()); register++) {
-                if (!hasRegister(register, METHOD_HEAP)) {
-                    continue;
-                }
-                hadAtLeastOneLocal = true;
-                sb.append('v').append(register).append(": ").append(registerToString(register, METHOD_HEAP))
-                                .append(",\n");
+        sb.append("params: ").append(parameterCount).append(", ");
+        sb.append("locals: ").append(localsCount).append('\n');
+        StringBuilder ctx = new StringBuilder();
+        for (int register = 0; register < getRegisterCount(); register++) {
+            if (!hasRegister(register)) {
+                continue;
             }
-            if (hadAtLeastOneLocal) {
-                sb.setLength(sb.length() - 2);
+
+            boolean isLocal = register < getParameterStart();
+            ctx.append(isLocal ? 'v' : 'p');
+
+            HeapItem item = peekRegister(register);
+            ctx.append(register).append(": ").append(item).append('\n');
+
+            if (Utils.getRegisterSize(item.getType()) == 2) {
+                register += 1;
             }
-            sb.append(']');
         }
 
-        if (hasRegister(ResultRegister, METHOD_HEAP)) {
-            sb.append("\nresult: ").append(registerToString(ResultRegister, METHOD_HEAP));
+        if (hasRegister(ResultRegister)) {
+            ctx.append("result: ").append(peekRegister(ResultRegister)).append('\n');
         }
 
-        if (hasRegister(ReturnRegister, METHOD_HEAP)) {
-            sb.append("\nreturn: ").append(registerToString(ReturnRegister, METHOD_HEAP));
+        if (hasRegister(ReturnRegister)) {
+            ctx.append("return: ").append(peekRegister(ReturnRegister)).append('\n');
         }
 
+        if (ctx.length() > 0) {
+            ctx.setLength(ctx.length() - 1);
+        }
+
+        sb.append(ctx);
         return sb.toString();
     }
 
