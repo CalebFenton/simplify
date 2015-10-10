@@ -38,53 +38,13 @@ public class Launcher {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
+    private static Options opts;
+
     private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
-
-    private static Options getOptions(String[] args) {
-        Options opts = new Options();
-        CmdLineParser parser = new CmdLineParser(opts);
-        try {
-            parser.parseArgument(args);
-        } catch (CmdLineException e) {
-            System.err.println(e);
-            parser.printUsage(System.out);
-            System.exit(0);
-        }
-        if (opts.isHelp()) {
-            parser.printUsage(System.out);
-            System.exit(0);
-        }
-
-        return opts;
-    }
-
-    private static ClassManager getClassManager(File inFile, boolean disassemble, DexBuilder dexBuilder)
-                    throws IOException {
-        ClassManager classManager = null;
-        if (disassemble) {
-            String outPath = disassemble(inFile);
-            classManager = new ClassManager(outPath, dexBuilder);
-        } else {
-            classManager = new ClassManager(inFile, dexBuilder);
-        }
-
-        return classManager;
-    }
-
-    private static String disassemble(File file) throws IOException {
-        // No, no, I'll do it since you're too lazy to do this yourself.
-        // All these options are just for funsies. Could help with debugging.
-        Path tempDir = Files.createTempDirectory("simplify");
-        String[] args = new String[] {
-                        "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(), "--output",
-                        tempDir.toString(), };
-        org.jf.baksmali.main.main(args);
-
-        return tempDir.toString();
-    }
+    private static final String TEMP_DIR_NAME = "simplify";
 
     public void run(String[] args) throws IOException, UnhandledVirtualException {
-        Options opts = getOptions(args);
+        opts = getOptions(args);
 
         setLogLevel(opts);
         if (log.isInfoEnabled()) {
@@ -96,43 +56,9 @@ public class Launcher {
         ClassManager classManager = getClassManager(opts.getInFile(), opts.isApk() | opts.isDex(), dexBuilder);
         VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
                         opts.getMaxMethodVisits());
-
         Set<String> classNames = classManager.getNonFrameworkClassNames();
         for (String className : classNames) {
-            Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
-            filterMethods(methodDescriptors, opts.getIncludeFilter(), opts.getExcludeFilter());
-            if (!opts.includeSupportLibrary()) {
-                filterSupportLibrary(methodDescriptors);
-            }
-
-            for (String methodDescriptor : methodDescriptors) {
-                boolean shouldExecuteAgain = false;
-                do {
-                    System.out.println("Executing: " + methodDescriptor);
-                    ExecutionGraph graph = null;
-                    try {
-                        graph = vm.execute(methodDescriptor);
-                    } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
-                        System.err.println("Max visitation exception: " + e);
-                    }
-
-                    if (null == graph) {
-                        System.out.println("Skipping " + methodDescriptor);
-                        break;
-                    }
-
-                    BuilderMethod method = classManager.getMethod(methodDescriptor);
-                    Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
-                    optimizer.simplify(opts.getMaxOptimizationPasses());
-                    if (optimizer.madeChanges()) {
-                        // Optimizer changed the implementation. Re-build graph to include changes.
-                        vm.updateInstructionGraph(methodDescriptor);
-                    }
-                    System.out.println(optimizer.getOptimizationCounts());
-
-                    shouldExecuteAgain = optimizer.getShouldExecuteAgain();
-                } while (shouldExecuteAgain);
-            }
+            executeClass(vm, className);
         }
 
         long totalTime = System.currentTimeMillis() - startTime;
@@ -147,21 +73,51 @@ public class Launcher {
         }
     }
 
-    private static void updateZip(File zip, File entry, String entryName) throws IOException {
-        Map<String, String> env = new HashMap<String, String>();
-        String uriPath = "jar:file:" + zip.getAbsolutePath();
-        URI uri = URI.create(uriPath);
-        FileSystem fs = FileSystems.newFileSystem(uri, env);
-        try {
-            fs.provider().checkAccess(fs.getPath(entryName), AccessMode.READ);
-            Path target = fs.getPath(entryName);
-            Path source = entry.toPath();
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw e;
-        } finally {
-            fs.close();
+    private void executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
+        ClassManager classManager = vm.getClassManager();
+        DexBuilder dexBuilder = classManager.getDexBuilder();
+
+        Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
+        filterMethods(methodDescriptors, opts.getIncludeFilter(), opts.getExcludeFilter());
+        if (!opts.includeSupportLibrary()) {
+            filterSupportLibrary(methodDescriptors);
         }
+
+        for (String methodDescriptor : methodDescriptors) {
+            System.out.println("Executing: " + methodDescriptor);
+            ExecutionGraph graph = null;
+            try {
+                graph = vm.execute(methodDescriptor);
+            } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+                System.err.println("Max visitation exception: " + e);
+            }
+
+            if (null == graph) {
+                System.out.println("Skipping " + methodDescriptor);
+                break;
+            }
+
+            BuilderMethod method = classManager.getMethod(methodDescriptor);
+            Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
+            optimizer.simplify(opts.getMaxOptimizationPasses());
+            if (optimizer.madeChanges()) {
+                // Optimizer changed the implementation. Re-build graph to include changes.
+                vm.updateInstructionGraph(methodDescriptor);
+            }
+            System.out.println(optimizer.getOptimizationCounts());
+        }
+    }
+
+    private static String disassemble(File file) throws IOException {
+        // No, no, I'll do it since you're too lazy to do this yourself.
+        // All these options are just for funsies. Could help with debugging.
+        Path tempDir = Files.createTempDirectory(TEMP_DIR_NAME);
+        String[] args = new String[] {
+                        "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(), "--output",
+                        tempDir.toString(), };
+        org.jf.baksmali.main.main(args);
+
+        return tempDir.toString();
     }
 
     private static void filterMethods(Collection<String> methodDescriptors, Pattern positive, Pattern negative) {
@@ -184,6 +140,37 @@ public class Launcher {
         }
     }
 
+    private static ClassManager getClassManager(File inFile, boolean disassemble, DexBuilder dexBuilder)
+                    throws IOException {
+        ClassManager classManager = null;
+        if (disassemble) {
+            String outPath = disassemble(inFile);
+            classManager = new ClassManager(outPath, dexBuilder);
+        } else {
+            classManager = new ClassManager(inFile, dexBuilder);
+        }
+
+        return classManager;
+    }
+
+    private static Options getOptions(String[] args) {
+        Options opts = new Options();
+        CmdLineParser parser = new CmdLineParser(opts);
+        try {
+            parser.parseArgument(args);
+        } catch (CmdLineException e) {
+            System.err.println(e);
+            parser.printUsage(System.out);
+            System.exit(-1);
+        }
+        if (opts.isHelp()) {
+            parser.printUsage(System.out);
+            System.exit(0);
+        }
+
+        return opts;
+    }
+
     private static void setLogLevel(Options bean) {
         if (bean.isQuiet()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
@@ -201,9 +188,27 @@ public class Launcher {
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.DEBUG);
         } else if (bean.isVvverbose()) {
+            // Ok, you asked for it.
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.TRACE);
+        }
+    }
+
+    private static void updateZip(File zip, File entry, String entryName) throws IOException {
+        Map<String, String> env = new HashMap<String, String>();
+        String uriPath = "jar:file:" + zip.getAbsolutePath();
+        URI uri = URI.create(uriPath);
+        FileSystem fs = FileSystems.newFileSystem(uri, env);
+        try {
+            fs.provider().checkAccess(fs.getPath(entryName), AccessMode.READ);
+            Path target = fs.getPath(entryName);
+            Path source = entry.toPath();
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw e;
+        } finally {
+            fs.close();
         }
     }
 
