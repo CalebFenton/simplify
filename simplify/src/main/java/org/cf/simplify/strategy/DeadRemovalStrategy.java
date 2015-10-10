@@ -66,15 +66,19 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         assigned.removeAll(new int[] {
                         MethodState.ResultRegister, MethodState.ReturnAddress, MethodState.ReturnRegister });
 
+        for (int i = 0; i < mState.getParameterCount(); i++) {
+            int parameterRegister = mState.getParameterStart() + i;
+            assigned.remove(parameterRegister);
+        }
+
         return assigned;
     }
 
-    private static boolean isAnyRegisterUsed(int address, TIntSet registerSet, MethodBackedGraph graph) {
-        int[] registers = registerSet.toArray();
+    private static boolean isAnyRegisterUsed(int address, TIntSet registers, MethodBackedGraph graph) {
         List<ExecutionNode> children = graph.getChildren(address);
-        // Multiple execution paths (multiverse!), track reassigned independently
         for (ExecutionNode child : children) {
-            if (isAnyRegisterUsed(address, registers, graph, child, new TIntHashSet())) {
+            TIntSet newRegisters = new TIntHashSet(registers);
+            if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
                 return true;
             }
         }
@@ -82,56 +86,49 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private static boolean isAnyRegisterUsed(int address, int[] registers, MethodBackedGraph graph, ExecutionNode node,
-                    TIntSet reassigned) {
-        ExecutionNode currentNode = node;
+    private static boolean isAnyRegisterUsed(int address, TIntSet registers, MethodBackedGraph graph, ExecutionNode node) {
+        ExecutionNode current = node;
         for (;;) {
-            MethodState mState = currentNode.getContext().getMethodState();
-            for (int register : registers) {
-                if (reassigned.contains(register)) {
-                    continue;
-                }
-
+            MethodState mState = current.getContext().getMethodState();
+            for (int register : registers.toArray()) {
                 // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
                 // Read check must come first because this still counts as a usage.
                 if (mState.wasRegisterRead(register)) {
                     if (log.isTraceEnabled()) {
-                        log.trace("r{} is read after {} @ {}, {}", register, address, currentNode.getAddress(),
-                                        currentNode.getOp());
+                        log.trace("r{} read after {} @{}, {}", register, address, current.getAddress(), current.getOp());
                     }
 
                     return true;
                 }
                 // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
-                else if (mState.wasRegisterAssigned(register) && !(currentNode.getOp() instanceof APutOp)) {
+                else if (mState.wasRegisterAssigned(register) && !(current.getOp() instanceof APutOp)) {
                     if (log.isTraceEnabled()) {
-                        log.trace("r{} is assigned after {} @ {}, {}", register, address, currentNode.getAddress(),
-                                        currentNode.getOp());
+                        log.trace("r{} assigned after {} @{}, {}", register, address, current.getAddress(),
+                                        current.getOp());
                     }
 
-                    // Go on to the next register. This one is for sure not used, but maybe others are.
-                    reassigned.add(register);
-                    if (reassigned.size() == registers.length) {
-                        // All registers are reassigned before used
-                        return false;
-                    }
-                    continue;
+                    registers.remove(register);
                 }
             }
 
-            List<ExecutionNode> children = currentNode.getChildren();
-            if (children.size() > 1) {
+            if (registers.isEmpty()) {
+                return false;
+            }
+
+            List<ExecutionNode> children = current.getChildren();
+            if (children.isEmpty()) {
+                return false;
+            }
+
+            if (children.size() == 1) {
+                current = children.get(0);
+            } else {
                 for (ExecutionNode child : children) {
-                    TIntSet newReassigned = new TIntHashSet(reassigned);
-                    if (isAnyRegisterUsed(address, registers, graph, child, newReassigned)) {
+                    TIntSet newRegisters = new TIntHashSet(registers);
+                    if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
                         return true;
                     }
                 }
-            } else if (children.size() == 1) {
-                // Avoiding recursion helps prevent stack overflows
-                // Execution lengths can be quite long
-                currentNode = children.get(0);
-            } else {
                 return false;
             }
         }
@@ -208,8 +205,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        List<ExecutionNode> pile = mbgraph.getNodePile(address);
-        ExecutionContext ectx = pile.get(0).getContext();
+        ExecutionNode node = mbgraph.getNodePile(address).get(0);
+        ExecutionContext ectx = node.getContext();
         if (ectx == null) {
             if (log.isWarnEnabled()) {
                 log.warn("Null execution context @" + address + ". This shouldn't happen!");
@@ -226,13 +223,16 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         Op op = mbgraph.getOp(address);
-        if (op.getName().startsWith("invoke-")) {
-            // invokes are handled by isDeadResult
+        if (isSideEffectAboveThreshold(op.sideEffectLevel())) {
             return false;
         }
 
-        if (isSideEffectAboveThreshold(op.sideEffectLevel())) {
-            return false;
+        if (op instanceof InvokeOp) {
+            String returnType = ((InvokeOp) op).getReturnType();
+            if (!"V".equals(returnType)) {
+                // Handled by dead result
+                return false;
+            }
         }
 
         if (log.isDebugEnabled()) {
@@ -253,11 +253,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         Op op = mbgraph.getOp(address);
         if (!(op instanceof InvokeOp)) {
-            return false;
-        }
-
-        if (op.getName().startsWith("invoke-direct") && mbgraph.getMethodDescriptor().contains("-><init>(")) {
-            // Initializers shouldn't be removed because they setup instance state.
             return false;
         }
 
@@ -286,8 +281,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        List<ExecutionNode> pile = mbgraph.getNodePile(address);
-        ExecutionContext ectx = pile.get(0).getContext();
+        ExecutionNode node = mbgraph.getNodePile(address).get(0);
+        ExecutionContext ectx = node.getContext();
         MethodState mState = ectx.getMethodState();
         TIntSet assigned = getNormalRegistersAssigned(mState);
         if (0 < assigned.size()) {
@@ -378,7 +373,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         for (int address : validAddresses.toArray()) {
             if (!mbgraph.wasAddressReached(address)) {
-                // DEAD
+                // DEAD, totally valid
                 continue;
             }
 
@@ -392,6 +387,22 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 // Usually, the only reason a nop exists is because it was generated by the compiler.
                 // Most decompilers are smart enough to deal with them.
                 validAddresses.remove(address);
+                continue;
+            }
+
+            ExecutionNode node = mbgraph.getNodePile(address).get(0);
+            ExecutionContext ectx = node.getContext();
+            MethodState mState = ectx.getMethodState();
+            if (op.getName().startsWith("invoke-direct")) {
+                // Initializers shouldn't be removed because they setup instance state.
+                if (mbgraph.getMethodDescriptor().contains(";-><init>(")) {
+                    StringBuilder sb = new StringBuilder("invoke-direct {r");
+                    sb.append(mState.getParameterStart() - 1); // p0 for instance method
+                    if (op.toString().startsWith(sb.toString())) {
+                        validAddresses.remove(address);
+                        continue;
+                    }
+                }
             }
         }
 
