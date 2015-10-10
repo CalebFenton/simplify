@@ -49,6 +49,7 @@ public class CheckCastOp extends MethodStateOp {
 
         if (isInstance) {
             node.clearExceptions();
+            mState.assignRegister(targetRegister, item.getValue(), className);
         } else {
             // java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             StringBuilder sb = new StringBuilder();
@@ -63,6 +64,7 @@ public class CheckCastOp extends MethodStateOp {
                 // Had all type information, so exception is certain.
                 node.clearChildren();
             }
+
             return;
         }
     }

@@ -2,6 +2,7 @@ package org.cf.smalivm.opcode;
 
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -82,7 +83,7 @@ public class TestCheckCastOp {
         }
 
         @Test
-        public void nullValueWithCastableTypeThrowsNoException() throws UnknownAncestors {
+        public void nullValueWithCastableTypeThrowsNoExceptionAndIsConverted() throws UnknownAncestors {
             String castType = "Llolmoney;";
             String registerType = "Lmoneylol;";
             when(typeRef.getType()).thenReturn(castType);
@@ -93,6 +94,7 @@ public class TestCheckCastOp {
             op.execute(node, mState);
 
             verify(node).clearExceptions();
+            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(null), eq(castType));
         }
 
         @Before
