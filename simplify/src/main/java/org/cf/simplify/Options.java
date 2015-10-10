@@ -18,11 +18,11 @@ public class Options implements Serializable {
     private boolean help;
 
     @Option(name = "-et", aliases = { "--exclude-types" }, metaVar = "regex", handler = PatternOptionHandler.class,
-                    usage = "Don't simplify matching types. Applied after include.")
+                    usage = "Don't simplify matching types. Applied after include. E.g. \"com/android\"")
     private Pattern excludeFilter;
 
     @Option(name = "-it", aliases = { "--include-types" }, metaVar = "regex", handler = PatternOptionHandler.class,
-                    usage = "Only simplify type signatures matching regex.")
+                    usage = "Only simplify matching types. E.g. \"SomeClass;->someMethod\\(\"")
     private Pattern includeFilter;
 
     @Option(name = "--max-call-depth", usage = "Limit method call depth. Lower is faster, but misses things.")

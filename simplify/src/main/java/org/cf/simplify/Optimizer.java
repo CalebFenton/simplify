@@ -1,11 +1,10 @@
 package org.cf.simplify;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.cf.simplify.strategy.ConstantPropigationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
@@ -27,37 +26,25 @@ public class Optimizer {
 
     private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
-    private final List<OptimizationStrategy> allStrategies;
     private final MethodBackedGraph mbgraph;
     private final String methodDescriptor;
-    private final List<OptimizationStrategy> performOnceStrategies;
-    private final List<OptimizationStrategy> performRepeatedlyStrategies;
-    private final List<OptimizationStrategy> methodReexecuteStrategies;
+    private final List<OptimizationStrategy> strategies;
 
-    private boolean madeChanges;
-    private boolean shouldExecuteAgain;
+    private boolean madeAnyChanges;
     private Map<String, Integer> optimizationCounts;
 
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, Options opts) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
-        performOnceStrategies = new LinkedList<OptimizationStrategy>();
-        performOnceStrategies.add(new ConstantPropigationStrategy(mbgraph));
-        performOnceStrategies.add(new PeepholeStrategy(mbgraph));
 
-        performRepeatedlyStrategies = new LinkedList<OptimizationStrategy>();
+        strategies = new LinkedList<OptimizationStrategy>();
         // Strategies should be able to define their own configuration and options.
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         strategy.setRemoveWeak(opts.isRemoveWeak());
-        performRepeatedlyStrategies.add(strategy);
-
-        methodReexecuteStrategies = new LinkedList<OptimizationStrategy>();
-        methodReexecuteStrategies.add(new UnreflectionStrategy(mbgraph));
-
-        allStrategies = new LinkedList<OptimizationStrategy>();
-        allStrategies.addAll(performOnceStrategies);
-        allStrategies.addAll(performRepeatedlyStrategies);
-        allStrategies.addAll(methodReexecuteStrategies);
+        strategies.add(strategy);
+        strategies.add(new ConstantPropigationStrategy(mbgraph));
+        strategies.add(new PeepholeStrategy(mbgraph));
+        strategies.add(new UnreflectionStrategy(mbgraph));
 
         optimizationCounts = new HashMap<String, Integer>();
     }
@@ -65,38 +52,29 @@ public class Optimizer {
     public void simplify(int maxSweeps) {
         System.out.println("Simplifying: " + methodDescriptor);
 
-        for (OptimizationStrategy strategy : performOnceStrategies) {
-            strategy.perform();
-        }
-
-        shouldExecuteAgain = false;
-        for (OptimizationStrategy strategy : methodReexecuteStrategies) {
-            shouldExecuteAgain |= strategy.perform();
-        }
-
         int sweep = 0;
+        madeAnyChanges = false;
         do {
-            madeChanges = false;
-            for (OptimizationStrategy strategy : performRepeatedlyStrategies) {
-                madeChanges |= strategy.perform();
+            boolean sweepChange = false;
+            for (OptimizationStrategy strategy : strategies) {
+                sweepChange |= strategy.perform();
             }
+            if (!sweepChange) {
+                break;
+            }
+            madeAnyChanges = true;
             sweep++;
-        } while ((sweep < maxSweeps) && madeChanges);
+        } while (sweep < maxSweeps);
 
-        madeChanges = updateOptimizationCounts() > 0;
+        updateOptimizationCounts();
     }
 
     public boolean madeChanges() {
-        return madeChanges;
+        return madeAnyChanges;
     }
 
-    public boolean getShouldExecuteAgain() {
-        return shouldExecuteAgain;
-    }
-
-    private int updateOptimizationCounts() {
-        int sweepCount = 0;
-        for (OptimizationStrategy strategy : allStrategies) {
+    private void updateOptimizationCounts() {
+        for (OptimizationStrategy strategy : strategies) {
             Map<String, Integer> optimizations = strategy.getOptimizationCounts();
             for (String key : optimizations.keySet()) {
                 Integer currentCount = optimizationCounts.get(key);
@@ -113,42 +91,37 @@ public class Optimizer {
                 optimizationCounts.put(key, currentCount);
                 totalCount += count;
                 totalOptimizationCounts.put(key, totalCount);
-
-                sweepCount += count;
             }
         }
-
-        return sweepCount;
     }
 
     public String getOptimizationCounts() {
         StringBuilder sb = new StringBuilder("Optimizations: ");
-        Set<String> keySet = optimizationCounts.keySet();
-        String[] keys = keySet.toArray(new String[keySet.size()]);
-        Arrays.sort(keys);
-        for (String key : keys) {
-            sb.append(key).append('=').append(optimizationCounts.get(key)).append(", ");
-        }
-        if (sb.length() > "Optimizations: ".length()) {
-            sb.setLength(sb.length() - 2);
-        }
+        sb.append(buildOptimizationCounts(optimizationCounts));
 
         return sb.toString();
     }
 
     public static String getTotalOptimizationCounts() {
         StringBuilder sb = new StringBuilder("Total optimizations: ");
-        Set<String> keySet = totalOptimizationCounts.keySet();
-        String[] keys = keySet.toArray(new String[keySet.size()]);
-        Arrays.sort(keys);
+        sb.append(buildOptimizationCounts(totalOptimizationCounts));
+
+        return sb.toString();
+    }
+
+    private static StringBuilder buildOptimizationCounts(Map<String, Integer> counts) {
+        List<String> keys = new LinkedList<String>(counts.keySet());
+        Collections.sort(keys);
+
+        StringBuilder sb = new StringBuilder();
         for (String key : keys) {
-            sb.append(key).append('=').append(totalOptimizationCounts.get(key)).append(", ");
+            sb.append(key).append('=').append(counts.get(key)).append(", ");
         }
-        if (sb.length() > "Total optimizations: ".length()) {
+        if (sb.length() > 1) {
             sb.setLength(sb.length() - 2);
         }
 
-        return sb.toString();
+        return sb;
     }
 
 }

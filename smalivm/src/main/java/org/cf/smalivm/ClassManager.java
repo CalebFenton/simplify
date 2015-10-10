@@ -116,6 +116,14 @@ public class ClassManager {
     }
 
     /**
+     * 
+     * @return DexBuilder
+     */
+    public DexBuilder getDexBuilder() {
+        return dexBuilder;
+    }
+
+    /**
      *
      * @param className
      * @return field and type (e.g. myBool:Z) for given class, including inherited fields
