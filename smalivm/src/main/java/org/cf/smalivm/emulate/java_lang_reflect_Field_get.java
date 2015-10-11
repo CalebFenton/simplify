@@ -6,8 +6,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.ClassManager;
+import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -73,40 +73,40 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
 
     private boolean checkAccess(String callingClassSmali, String definingClassSmali, int accessFlags,
                     ClassManager classManager) {
-        boolean isPrivate = Modifier.isPrivate(accessFlags);
-        boolean isProtected = Modifier.isProtected(accessFlags);
+        if (Modifier.isPublic(accessFlags)) {
+            return true;
+        }
 
-        if (isPrivate || isProtected) {
-            String callingClassJava = SmaliClassUtils.smaliClassToJava(callingClassSmali);
-            String definingClassJava = SmaliClassUtils.smaliClassToJava(definingClassSmali);
-            if (!callingClassSmali.equals(definingClassSmali)) {
-                if (isPrivate) {
-                    StringBuilder sb = new StringBuilder();
-                    String modifiers = Modifier.toString(accessFlags);
-                    sb.append("Class ").append(callingClassJava).append(" can not access a member of class ")
-                                    .append(definingClassJava).append(" with modifiers \"").append(modifiers)
-                                    .append("\"");
-                    setException(new VirtualException(IllegalAccessException.class, sb.toString()));
-                    return false;
-                } else { // isProtected
-                    boolean isInstance = false;
-                    try {
-                        isInstance = classManager.isInstance(callingClassSmali, definingClassSmali);
-                    } catch (UnknownAncestors e) {
-                        e.printStackTrace();
-                    }
+        String callingClassJava = SmaliClassUtils.smaliClassToJava(callingClassSmali);
+        String definingClassJava = SmaliClassUtils.smaliClassToJava(definingClassSmali);
+        if (callingClassSmali.equals(definingClassSmali)) {
+            return true;
+        }
 
-                    if (!isInstance) {
-                        StringBuilder sb = new StringBuilder();
-                        String modifiers = Modifier.toString(accessFlags);
-                        sb.append("Class ").append(callingClassJava).append(" can not access a member of class ")
-                                        .append(definingClassJava).append(" with modifiers \"").append(modifiers)
-                                        .append("\"");
-                        setException(new VirtualException(IllegalAccessException.class, sb.toString()));
-                        return false;
-                    }
-                }
+        StringBuilder sb = new StringBuilder();
+        String modifiers = Modifier.toString(accessFlags);
+        sb.append("Class ").append(callingClassJava).append(" can not access a member of class ")
+                        .append(definingClassJava).append(" with modifiers \"").append(modifiers).append("\"");
+
+        if (Modifier.isPrivate(accessFlags)) {
+            setException(new VirtualException(IllegalAccessException.class, sb.toString()));
+            return false;
+        }
+
+        if (Modifier.isProtected(accessFlags)) {
+            boolean isInstance = false;
+            try {
+                isInstance = classManager.isInstance(callingClassSmali, definingClassSmali);
+            } catch (UnknownAncestors e) {
+                e.printStackTrace();
             }
+
+            if (isInstance) {
+                return true;
+            }
+
+            setException(new VirtualException(IllegalAccessException.class, sb.toString()));
+            return false;
         }
 
         return true;
