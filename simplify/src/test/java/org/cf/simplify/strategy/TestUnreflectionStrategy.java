@@ -26,7 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
-public class TestReflectionRemovalStrategy {
+public class TestUnreflectionStrategy {
 
     public static class TestFieldLookups {
 
@@ -371,7 +371,7 @@ public class TestReflectionRemovalStrategy {
     private static final String CLASS_NAME = "Lreflection_removal_strategy_test;";
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(TestReflectionRemovalStrategy.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(TestUnreflectionStrategy.class.getSimpleName());
 
     private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
 

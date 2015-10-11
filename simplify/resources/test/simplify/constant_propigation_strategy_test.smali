@@ -66,7 +66,7 @@
   return-void
 .end method
 
-.method private static AddOneNoSideEffects(I)I
+.method private static AddSelfNoSideEffects(I)I
   .locals 0
 
   add-int/2addr p0, p0
@@ -74,7 +74,7 @@
   return p0
 .end method
 
-.method private static AddOneWithSideEffects(I)I
+.method private static AddSelfWithSideEffects(I)I
   .locals 0
 
   invoke-static {}, Lunknown_class;->UnknownMethodHasSideEffects()V
