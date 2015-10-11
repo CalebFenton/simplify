@@ -6,6 +6,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.linked.TIntLinkedList;
 
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.smalivm.context.ExecutionNode;
@@ -200,22 +201,56 @@ public class TestMethodBackedGraph {
     }
 
     @Test
-    public void testReplaceInstructionRetainsNodeRelationshipsAndContextValues() {
+    public void testReplaceInstructionRetainsNodeContextValues() {
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
         BuilderInstruction replacement = new BuilderInstruction21s(Opcode.CONST_16, 0, 0);
         mbgraph.replaceInstruction(1, replacement);
 
         HeapItem consensus = mbgraph.getRegisterConsensus(1, 1);
         assertEquals(1, consensus.getValue());
+    }
 
-        ExecutionNode parent = mbgraph.getNodePile(0).get(0);
-        ExecutionNode inserted = mbgraph.getNodePile(1).get(0);
-        assertEquals(parent, inserted.getParent());
-        assertEquals(parent.getChildren().get(0), inserted);
+    @Test
+    public void testReplaceInstructionWithMultipleModifiesStateCorrectly() {
+        //@formatter:off
+        Object[][] expected = new Object[][] {
+                        { 0, Opcode.CONST_4, new Object[][][] { { { 1, Opcode.CONST_16 } } } },
+                        { 1, Opcode.CONST_16, new Object[][][] { { { 3, Opcode.CONST_16 } } } },
+                        { 3, Opcode.CONST_16, new Object[][][] { { { 5, Opcode.CONST_4 } } } },
+                        { 5, Opcode.CONST_4, new Object[][][] { { { 6, Opcode.CONST_4 } } } },
+                        { 6, Opcode.CONST_4, new Object[][][] { { { 7, Opcode.CONST_4 } } } },
+                        { 7, Opcode.CONST_4, new Object[][][] { { { 8, Opcode.RETURN_VOID } } } },
+                        { 8, Opcode.RETURN_VOID, new Object[1][0][0] },
+        };
+        //@formatter:on
 
-        ExecutionNode child = mbgraph.getNodePile(3).get(0);
-        assertEquals(inserted, child.getParent());
-        assertEquals(child, inserted.getChildren().get(0));
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        BuilderInstruction replacement1 = new BuilderInstruction21s(Opcode.CONST_16, 1, 1);
+        BuilderInstruction replacement2 = new BuilderInstruction21s(Opcode.CONST_16, 2, 2);
+        List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
+        replacements.add(replacement1);
+        replacements.add(replacement2);
+        mbgraph.replaceInstruction(1, replacements);
+
+        test(expected, mbgraph);
+    }
+
+    @Test
+    public void testReplaceInstructionWithMultipleRetainsNodeContextValues() {
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        BuilderInstruction replacement1 = new BuilderInstruction21s(Opcode.CONST_16, 1, 1);
+        BuilderInstruction replacement2 = new BuilderInstruction21s(Opcode.CONST_16, 2, 2);
+        List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
+        replacements.add(replacement1);
+        replacements.add(replacement2);
+        mbgraph.replaceInstruction(1, replacements);
+
+        HeapItem consensus;
+        consensus = mbgraph.getRegisterConsensus(1, 1);
+        assertEquals(1, consensus.getValue());
+
+        consensus = mbgraph.getRegisterConsensus(3, 2);
+        assertEquals(2, consensus.getValue());
     }
 
     private static void test(Object[][] expected, MethodBackedGraph mbgraph) {
