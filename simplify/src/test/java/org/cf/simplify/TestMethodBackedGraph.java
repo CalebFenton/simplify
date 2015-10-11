@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.HeapItem;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
@@ -198,6 +199,25 @@ public class TestMethodBackedGraph {
         test(expected, mbgraph);
     }
 
+    @Test
+    public void testReplaceInstructionRetainsNodeRelationshipsAndContextValues() {
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        BuilderInstruction replacement = new BuilderInstruction21s(Opcode.CONST_16, 0, 0);
+        mbgraph.replaceInstruction(1, replacement);
+
+        HeapItem consensus = mbgraph.getRegisterConsensus(1, 1);
+        assertEquals(1, consensus.getValue());
+
+        ExecutionNode parent = mbgraph.getNodePile(0).get(0);
+        ExecutionNode inserted = mbgraph.getNodePile(1).get(0);
+        assertEquals(parent, inserted.getParent());
+        assertEquals(parent.getChildren().get(0), inserted);
+
+        ExecutionNode child = mbgraph.getNodePile(3).get(0);
+        assertEquals(inserted, child.getParent());
+        assertEquals(child, inserted.getChildren().get(0));
+    }
+
     private static void test(Object[][] expected, MethodBackedGraph mbgraph) {
         for (Object[] ex : expected) {
             int address = (Integer) ex[0];
@@ -216,6 +236,7 @@ public class TestMethodBackedGraph {
                 for (int j = 0; j < children.length; j++) {
                     children[j] = childNodes.get(j).getOp().getInstruction();
                 }
+
                 assertEquals(expectedOpcode.name + " @" + address + " children size", exChildren[i].length,
                                 children.length);
                 for (int j = 0; j < exChildren[i].length; j++) {

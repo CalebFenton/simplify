@@ -197,8 +197,9 @@ public class MethodBackedGraph extends ExecutionGraph {
     }
 
     public void replaceInstruction(int address, BuilderInstruction instruction) {
-        removeInstruction(getLocation(address));
         addInstruction(getLocation(address), instruction);
+        int replacedAddress = address + instruction.getCodeUnits();
+        removeInstruction(getLocation(replacedAddress));
     }
 
     public void replaceInstruction(int insertAddress, List<BuilderInstruction> instructions) {
@@ -239,12 +240,12 @@ public class MethodBackedGraph extends ExecutionGraph {
 
         Op shiftedOp = shiftedNodePile.get(0).getOp();
         Op op = opCreator.create(newLocation);
-        boolean padding = (op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp || shiftedOp instanceof SwitchPayloadOp));
+        boolean autoAddedPadding = (op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp || shiftedOp instanceof SwitchPayloadOp));
         for (int i = 0; i < shiftedNodePile.size(); i++) {
             ExecutionNode newNode = new ExecutionNode(op);
             newNodePile.add(i, newNode);
 
-            if (padding) {
+            if (autoAddedPadding) {
                 break;
             }
             if (i == TEMPLATE_NODE_INDEX) {
@@ -256,7 +257,7 @@ public class MethodBackedGraph extends ExecutionGraph {
             ExecutionContext newContext;
             if (parentNode != null) {
                 parentNode.replaceChild(shiftedNode, newNode);
-                newContext = parentNode.getContext().spawnChild();
+                newContext = shiftedNode.getContext();
             } else {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
                 newContext = vm.spawnExecutionContext(methodDescriptor);
