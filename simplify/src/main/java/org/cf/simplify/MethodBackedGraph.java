@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -225,7 +226,11 @@ public class MethodBackedGraph extends ExecutionGraph {
         return sb.toString();
     }
 
-    private void addToNodePile(MethodLocation newLocation) {
+    private List<ExecutionNode> addToNodePile(MethodLocation newLocation) {
+        // Returns node which need to be re-executed after graph / mappings are rebuilt
+        // E.g. branch offset instructions can't be created without accurate mappings
+        List<ExecutionNode> reexecute = new LinkedList<ExecutionNode>();
+
         int oldIndex = newLocation.getIndex() + 1;
         MethodLocation shiftedLocation = null;
         for (MethodLocation location : locationToNodePile.keySet()) {
@@ -262,11 +267,35 @@ public class MethodBackedGraph extends ExecutionGraph {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
                 newContext = vm.spawnExecutionContext(methodDescriptor);
             }
-            shiftedNode.setParentNode(newNode);
+            shiftedNode.setParent(newNode);
             newNode.setContext(newContext);
 
-            // Execute to set children and context
+            reexecute.add(newNode);
+        }
+
+        return reexecute;
+    }
+
+    private void reexecute(List<ExecutionNode> nodes) {
+        for (ExecutionNode node : nodes) {
+            MethodLocation location = node.getOp().getLocation();
+            Op op = opCreator.create(location);
+            ExecutionNode newNode = new ExecutionNode(op);
+            for (ExecutionNode child : node.getChildren()) {
+                child.setParent(newNode);
+            }
+            ExecutionNode parent = node.getParent();
+            if (parent != null) {
+                parent.replaceChild(node, newNode);
+            }
+
+            newNode.setContext(node.getContext());
             newNode.execute();
+
+            List<ExecutionNode> pile = locationToNodePile.get(location);
+            int index = pile.indexOf(node);
+            pile.remove(index);
+            pile.add(index, newNode);
         }
     }
 
@@ -277,10 +306,11 @@ public class MethodBackedGraph extends ExecutionGraph {
             freshLocations.add(instruction.getLocation());
         }
 
+        List<ExecutionNode> reexecute = new LinkedList<ExecutionNode>();
         Set<MethodLocation> addedLocations = new HashSet<MethodLocation>(freshLocations);
         addedLocations.removeAll(staleLocations);
         for (MethodLocation location : addedLocations) {
-            addToNodePile(location);
+            reexecute.addAll(addToNodePile(location));
         }
         Set<MethodLocation> removedLocations = new HashSet<MethodLocation>(staleLocations);
         removedLocations.removeAll(freshLocations);
@@ -291,6 +321,8 @@ public class MethodBackedGraph extends ExecutionGraph {
         TIntObjectMap<MethodLocation> newAddressToLocation = buildAddressToLocation(implementation);
         addressToLocation.clear();
         addressToLocation.putAll(newAddressToLocation);
+
+        reexecute(reexecute);
     }
 
     public MethodLocation getLocation(int address) {
@@ -354,10 +386,10 @@ public class MethodBackedGraph extends ExecutionGraph {
                 Op op = childNode.getOp();
                 boolean pseudoChild = (op instanceof FillArrayDataPayloadOp || op instanceof SwitchPayloadOp);
                 if (!pseudoChild) {
-                    childNode.setParentNode(parentNode);
+                    childNode.setParent(parentNode);
                 } else {
                     for (ExecutionNode grandChildNode : childNode.getChildren()) {
-                        grandChildNode.setParentNode(parentNode);
+                        grandChildNode.setParent(parentNode);
                     }
                     locationToChildNodeToRemove.put(childNode.getOp().getLocation(), childNode);
                 }
