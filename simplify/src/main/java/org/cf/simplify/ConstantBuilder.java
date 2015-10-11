@@ -9,7 +9,6 @@ import org.cf.smalivm.opcode.AGetOp;
 import org.cf.smalivm.opcode.BinaryMathOp;
 import org.cf.smalivm.opcode.MoveOp;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.smalivm.opcode.SGetOp;
 import org.cf.smalivm.opcode.UnaryMathOp;
 import org.cf.smalivm.type.LocalClass;
@@ -39,8 +38,9 @@ public class ConstantBuilder implements Dependancy {
     private static final String LAST_16_BITS_ZERO = "0000000000000000";
     private static final String LAST_48_BITS_ZERO = "000000000000000000000000000000000000000000000000";
 
+    // Don't include ReturnOp.class. It adds a constant which is then removed as dead, and the optimizers keep running.
     private static final Set<Class<?>> ConstantizableOps = new HashSet<Class<?>>(Arrays.asList(BinaryMathOp.class,
-                    UnaryMathOp.class, MoveOp.class, ReturnOp.class, SGetOp.class, AGetOp.class));
+                    UnaryMathOp.class, MoveOp.class, SGetOp.class, AGetOp.class));
 
     private static final Set<String> ConstantizableTypes = new HashSet<String>(Arrays.asList("I", "Z", "B", "S", "C",
                     "J", "F", "D", "Ljava/lang/String;", "Ljava/lang/Class;"));
