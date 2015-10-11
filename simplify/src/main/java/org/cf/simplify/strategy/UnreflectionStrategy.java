@@ -373,7 +373,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             declaringClass = method.getName().split("->")[0];
             ClassManager manager = mbgraph.getVM().getClassManager();
             classAccessFlags = manager.getClass(declaringClass).getAccessFlags();
-            parameterTypes = Utils.builderTypeListToStringList(methodDef.getParameterTypes());
+            parameterTypes = Utils.builderTypeListToTypeNames(methodDef.getParameterTypes());
             parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
             methodRef = mbgraph.getDexBuilder().internMethodReference(methodDef);
         }

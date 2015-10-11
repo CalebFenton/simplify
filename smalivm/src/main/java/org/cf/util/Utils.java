@@ -8,7 +8,6 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -101,14 +100,6 @@ public class Utils {
         return result;
     }
 
-    public static <E> Collection<E> makeCollection(Iterable<E> iter) {
-        Collection<E> list = new ArrayList<E>();
-        for (E item : iter) {
-            list.add(item);
-        }
-        return list;
-    }
-
     public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
         if (shift == 0) {
             return;
@@ -162,7 +153,7 @@ public class Utils {
         return getRegisterSize(SmaliClassUtils.javaClassToSmali(parameterTypes));
     }
 
-    public static List<String> builderTypeListToStringList(BuilderTypeList typeList) {
+    public static List<String> builderTypeListToTypeNames(BuilderTypeList typeList) {
         List<String> typeNames = new LinkedList<String>();
         for (BuilderTypeReference type : typeList) {
             typeNames.add(type.getType());
@@ -172,34 +163,34 @@ public class Utils {
     }
 
     public static int getRegisterSize(BuilderTypeList typeList) {
-        return getRegisterSize(builderTypeListToStringList(typeList));
+        return getRegisterSize(builderTypeListToTypeNames(typeList));
     }
 
     public static Integer getIntegerValue(Object obj) {
-        Integer intValue = (Integer) castToPrimitiveWrapper(obj, "Ljava/lang/Integer;");
+        Integer intValue = (Integer) castToPrimitive(obj, "Ljava/lang/Integer;");
 
         return intValue;
     }
 
     public static Float getFloatValue(Object obj) {
-        Float floatValue = (Float) castToPrimitiveWrapper(obj, "Ljava/lang/Float;");
+        Float floatValue = (Float) castToPrimitive(obj, "Ljava/lang/Float;");
 
         return floatValue;
     }
 
     public static Double getDoubleValue(Object obj) {
-        Double doubleValue = (Double) castToPrimitiveWrapper(obj, "Ljava/lang/Double;");
+        Double doubleValue = (Double) castToPrimitive(obj, "Ljava/lang/Double;");
 
         return doubleValue;
     }
 
     public static Long getLongValue(Object obj) {
-        Long longValue = (Long) castToPrimitiveWrapper(obj, "Ljava/lang/Long;");
+        Long longValue = (Long) castToPrimitive(obj, "Ljava/lang/Long;");
 
         return longValue;
     }
 
-    public static Object castToPrimitiveWrapper(Object value, String targetType) {
+    public static Object castToPrimitive(Object value, String targetType) {
         // TODO: add tests for this + confirm dalvik works this way
 
         // Type information is not always available beyond "const" because Dalvik handles multiple types like integers.
@@ -228,11 +219,11 @@ public class Utils {
             if ("Z".equals(targetType) || "Ljava/lang/Boolean;".equals(targetType)) {
                 return castValue;
             } else if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {
-                return castValue ? 1 : 0;
+                return (byte) (castValue ? 1 : 0);
             } else if ("I".equals(targetType) || "Ljava/lang/Integer;".equals(targetType)) {
                 return castValue ? 1 : 0;
             } else if ("S".equals(targetType) || "Ljava/lang/Short;".equals(targetType)) {
-                return castValue ? 1 : 0;
+                return (short) (castValue ? 1 : 0);
             }
         } else if (value instanceof Character) {
             Character castValue = (Character) value;

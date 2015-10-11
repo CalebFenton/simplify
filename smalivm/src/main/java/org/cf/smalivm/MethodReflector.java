@@ -166,7 +166,7 @@ public class MethodReflector {
             if (null != arg) {
                 // In Dalvik, I type is overloaded and can represent multiple primitives, e.g. B, S, C
                 if (argItem.isPrimitiveOrWrapper()) {
-                    arg = Utils.castToPrimitiveWrapper(arg, parameterType);
+                    arg = Utils.castToPrimitive(arg, parameterType);
                 }
             }
             args[i - offset] = arg;
