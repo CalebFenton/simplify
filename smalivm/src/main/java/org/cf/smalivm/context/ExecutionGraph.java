@@ -115,8 +115,9 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     protected static TIntObjectMap<MethodLocation> buildAddressToLocation(MutableMethodImplementation implementation) {
-        TIntObjectMap<MethodLocation> addressToLocation = new TIntObjectHashMap<MethodLocation>();
-        for (BuilderInstruction instruction : implementation.getInstructions()) {
+        List<BuilderInstruction> instructions = implementation.getInstructions();
+        TIntObjectMap<MethodLocation> addressToLocation = new TIntObjectHashMap<MethodLocation>(instructions.size());
+        for (BuilderInstruction instruction : instructions) {
             MethodLocation location = instruction.getLocation();
             int address = location.getCodeAddress();
             addressToLocation.put(address, location);

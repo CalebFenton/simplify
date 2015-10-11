@@ -4,16 +4,17 @@ import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VirtualMachine;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.BuilderOffsetInstruction;
+import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 
 public class GotoOpFactory implements OpFactory {
 
     @Override
     public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
         BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
-        int branchOffset = ((OffsetInstruction) instruction).getCodeOffset();
-        int targetAddress = instruction.getLocation().getCodeAddress() + branchOffset;
+        Label target = ((BuilderOffsetInstruction) instruction).getTarget();
+        int targetAddress = target.getCodeAddress();
         MethodLocation child = addressToLocation.get(targetAddress);
 
         return new GotoOp(location, child);

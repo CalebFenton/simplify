@@ -22,7 +22,6 @@ public class ExecutionContext {
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
     private final VirtualMachine vm;
-    private final TMap<String, ClassState> classNameToState;
     private final TMap<String, ClassStatus> classNameToStatus;
     private final Heap heap;
 
@@ -76,7 +75,6 @@ public class ExecutionContext {
 
         // Since there's a context per execution for each address, these maps are
         // only populated as needed (by asking ancestors). So be frugal with size.
-        classNameToState = new THashMap<String, ClassState>(0);
         classNameToStatus = new THashMap<String, ClassStatus>(0);
     }
 
@@ -171,7 +169,6 @@ public class ExecutionContext {
     }
 
     public void setClassState(String className, ClassState cState) {
-        // classNameToState.put(className, cState);
         classNameToStatus.put(className, new ClassStatus(cState));
     }
 
