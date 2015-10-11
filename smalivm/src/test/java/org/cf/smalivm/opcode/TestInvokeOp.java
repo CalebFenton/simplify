@@ -3,15 +3,23 @@ package org.cf.smalivm.opcode;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -19,6 +27,13 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
+import org.jf.dexlib2.Opcode;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction35c;
+import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
+import org.jf.dexlib2.iface.reference.MethodReference;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -26,7 +41,99 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestInvokeOp {
 
+    public static class UnitTest {
+
+        private static final int ADDRESS = 0;
+        private static final int ARG1_REGISTER = 2;
+        private static final int ARG2_REGISTER = 4;
+
+        private static final String METHOD_CLASS = "Lsome/class;";
+        private static final String METHOD_NAME = "someMethod";
+        private static final String METHOD_RETURN = "V";
+        private static final String METHOD_DESCRIPTOR = METHOD_CLASS + "->" + METHOD_NAME + "(I)" + METHOD_RETURN;
+        private static final String[] METHOD_PARAMS = { "I" };
+
+        private TIntObjectMap<MethodLocation> addressToLocation;
+
+        private BuilderInstruction instruction;
+
+        private MethodLocation location;
+
+        private ExecutionContext ectx;
+        private MethodState mState;
+        private ExecutionNode node;
+        private InvokeOp op;
+        private InvokeOpFactory opFactory;
+        private ClassManager classManager;
+        private VirtualMachine vm;
+        MethodReference methodRef;
+
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
+            ectx = mock(ExecutionContext.class);
+            mState = mock(MethodState.class);
+            when(ectx.getMethodState()).thenReturn(mState);
+            node = mock(ExecutionNode.class);
+            when(node.getContext()).thenReturn(ectx);
+            location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+
+            classManager = mock(ClassManager.class);
+            when(vm.getClassManager()).thenReturn(classManager);
+            when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
+            when(classManager.isFramework(METHOD_DESCRIPTOR)).thenReturn(false);
+            when(classManager.isSafeFramework(METHOD_DESCRIPTOR)).thenReturn(false);
+
+            methodRef = mock(MethodReference.class);
+            when(methodRef.getDefiningClass()).thenReturn(METHOD_CLASS);
+            when(methodRef.getName()).thenReturn(METHOD_NAME);
+            List<String> params = new LinkedList<String>();
+            for (String param : METHOD_PARAMS) {
+                params.add(param);
+            }
+            doReturn(params).when(methodRef).getParameterTypes();
+            when(methodRef.getReturnType()).thenReturn(METHOD_RETURN);
+
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
+
+            opFactory = new InvokeOpFactory();
+        }
+
+        private BuilderInstruction35c buildInstruction35c(Opcode opcode) {
+            BuilderInstruction35c instruction = mock(BuilderInstruction35c.class,
+                            withSettings().extraInterfaces(Instruction35c.class));
+            when(location.getInstruction()).thenReturn(instruction);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(instruction.getOpcode()).thenReturn(opcode);
+            when(instruction.getRegisterC()).thenReturn(ARG1_REGISTER);
+            when(instruction.getRegisterD()).thenReturn(ARG2_REGISTER);
+            when(instruction.getRegisterCount()).thenReturn(2);
+            when(((Instruction35c) instruction).getReference()).thenReturn(methodRef);
+
+            return instruction;
+        }
+
+        @Test
+        public void hasExpectedToString() {
+            int value = 0;
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value, "I");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value, "I");
+
+            instruction = buildInstruction35c(Opcode.INVOKE_STATIC);
+
+            op = (InvokeOp) opFactory.create(location, addressToLocation, vm);
+            op.execute(node, ectx);
+
+            String expected = "invoke-static {r" + ARG1_REGISTER + "}, " + METHOD_DESCRIPTOR;
+            assertEquals(expected, op.toString());
+        }
+    }
+
     public static class TestInvokeReflectedMethod {
+
         private static final String CLASS_NAME = "Linvoke_reflected_test;";
 
         @Test
@@ -61,6 +168,7 @@ public class TestInvokeOp {
     }
 
     public static class TestInvokeStatic {
+
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
         @Test
@@ -192,6 +300,7 @@ public class TestInvokeOp {
     }
 
     public static class TestInvokeVirtual {
+
         private static final String CLASS_NAME = "Linvoke_virtual_test;";
 
         @Test
@@ -241,6 +350,7 @@ public class TestInvokeOp {
     }
 
     public static class TestMethodStateProperties {
+
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
         @Test

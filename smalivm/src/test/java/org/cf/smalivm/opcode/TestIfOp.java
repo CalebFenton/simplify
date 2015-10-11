@@ -15,7 +15,6 @@ import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 import org.junit.Before;
 import org.junit.Test;
@@ -72,7 +71,7 @@ public class TestIfOp {
 
         private BuilderInstruction buildInstruction22t(Opcode opcode, int offset) {
             BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(NarrowLiteralInstruction.class, Instruction22t.class));
+                            withSettings().extraInterfaces(Instruction22t.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);

@@ -11,6 +11,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.iface.instruction.Instruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc;
@@ -28,50 +29,18 @@ public class InvokeOpFactory implements OpFactory {
         MethodReference methodReference = (MethodReference) ((ReferenceInstruction) instruction).getReference();
         String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
 
-        int[] registers = null;
-        if (opName.contains("/range")) {
-            Instruction3rc instr = (Instruction3rc) location.getInstruction();
-            int registerCount = instr.getRegisterCount();
-            int start = instr.getStartRegister();
-            int end = start + registerCount;
-
-            registers = new int[registerCount];
-            for (int i = start; i < end; i++) {
-                registers[i - start] = i;
-            }
-        } else {
-            Instruction35c instr = (Instruction35c) location.getInstruction();
-            int registerCount = instr.getRegisterCount();
-            registers = new int[registerCount];
-            switch (registerCount) {
-            case 5:
-                registers[4] = instr.getRegisterG();
-            case 4:
-                registers[3] = instr.getRegisterF();
-            case 3:
-                registers[2] = instr.getRegisterE();
-            case 2:
-                registers[1] = instr.getRegisterD();
-            case 1:
-                registers[0] = instr.getRegisterC();
-                break;
-            }
-        }
-
+        int[] registers = buildRegisters(location.getInstruction());
         String returnType = methodReference.getReturnType();
-        List<String> parameterTypes;
         boolean isStatic = opName.contains("-static");
         ClassManager classManager = vm.getClassManager();
-        if (classManager.isLocalMethod(methodDescriptor) && !(classManager.isFramework(methodDescriptor) && !classManager
-                        .isSafeFramework(methodDescriptor))) {
-            parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        } else {
-            parameterTypes = Utils.getParameterTypes(methodDescriptor);
-            if (!isStatic) {
-                parameterTypes.add(0, methodReference.getDefiningClass());
-            }
-        }
+        List<String> parameterTypes = getParameterTypes(methodDescriptor, isStatic, classManager);
+        int[] parameterRegisters = buildParameterRegisters(parameterTypes, registers);
 
+        return new InvokeOp(location, child, methodDescriptor, returnType, parameterRegisters, parameterTypes, vm,
+                        isStatic);
+    }
+
+    private int[] buildParameterRegisters(List<String> parameterTypes, int[] registers) {
         int i = 0;
         TIntList parameterRegisters = new TIntLinkedList(parameterTypes.size());
         for (String parameterType : parameterTypes) {
@@ -82,8 +51,63 @@ public class InvokeOpFactory implements OpFactory {
             }
         }
 
-        return new InvokeOp(location, child, methodDescriptor, returnType, parameterRegisters.toArray(),
-                        parameterTypes, vm, isStatic);
+        return parameterRegisters.toArray();
+    }
+
+    private static List<String> getParameterTypes(String methodDescriptor, boolean isStatic, ClassManager classManager) {
+        List<String> parameterTypes;
+        if (classManager.isLocalMethod(methodDescriptor) && !classManager.isFramework(methodDescriptor) || classManager
+                        .isSafeFramework(methodDescriptor)) {
+            parameterTypes = classManager.getParameterTypes(methodDescriptor);
+        } else {
+            parameterTypes = Utils.getParameterTypes(methodDescriptor);
+            if (!isStatic) {
+                parameterTypes.add(0, methodDescriptor.split("->")[0]);
+            }
+        }
+
+        return parameterTypes;
+    }
+
+    private static int[] buildRegisters(Instruction instr) {
+        if (instr instanceof Instruction3rc) {
+            return buildRegisters3rc((Instruction3rc) instr);
+        } else {
+            return buildRegisters35c((Instruction35c) instr);
+        }
+    }
+
+    private static int[] buildRegisters35c(Instruction35c instruction) {
+        int registerCount = instruction.getRegisterCount();
+        int[] registers = new int[registerCount];
+        switch (registerCount) {
+        case 5:
+            registers[4] = instruction.getRegisterG();
+        case 4:
+            registers[3] = instruction.getRegisterF();
+        case 3:
+            registers[2] = instruction.getRegisterE();
+        case 2:
+            registers[1] = instruction.getRegisterD();
+        case 1:
+            registers[0] = instruction.getRegisterC();
+            break;
+        }
+
+        return registers;
+    }
+
+    private static int[] buildRegisters3rc(Instruction3rc instruction) {
+        int registerCount = instruction.getRegisterCount();
+        int start = instruction.getStartRegister();
+        int end = start + registerCount;
+
+        int[] registers = new int[registerCount];
+        for (int i = start; i < end; i++) {
+            registers[i - start] = i;
+        }
+
+        return registers;
     }
 
 }
