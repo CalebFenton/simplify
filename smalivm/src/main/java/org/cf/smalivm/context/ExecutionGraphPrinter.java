@@ -10,33 +10,38 @@ public class ExecutionGraphPrinter {
     public static String print(ExecutionGraph graph) {
         ExecutionNode node = graph.getRoot();
         StringBuilder sb = new StringBuilder("digraph {\n");
-        getGraph(node, sb, new ArrayList<ExecutionNode>());
-        sb.append("}");
+        getGraph(node, graph, sb, new ArrayList<ExecutionNode>());
+        sb.append("labelloc=\"t\"\n");
+        sb.append("label=\"").append(graph.getMethodDescriptor()).append("\";\n");
+        sb.append('}');
 
         return sb.toString();
     }
 
-    private static void getGraph(ExecutionNode node, StringBuilder sb, List<ExecutionNode> visitedNodes) {
+    private static void getGraph(ExecutionNode node, ExecutionGraph graph, StringBuilder sb,
+                    List<ExecutionNode> visitedNodes) {
         if (visitedNodes.contains(node)) {
             return;
         }
         visitedNodes.add(node);
 
-        StringBuilder nodeState = getNodeState(node);
+        StringBuilder nodeState = getNodeState(node, graph);
         for (ExecutionNode child : node.getChildren()) {
-            sb.append(nodeState).append(" -> ").append(getNodeState(child)).append('\n');
+            sb.append(nodeState).append(" -> ").append(getNodeState(child, graph)).append('\n');
 
-            getGraph(child, sb, visitedNodes);
+            getGraph(child, graph, sb, visitedNodes);
         }
     }
 
-    private static StringBuilder getNodeState(ExecutionNode node) {
-        StringBuilder sb = new StringBuilder();
+    private static StringBuilder getNodeState(ExecutionNode node, ExecutionGraph graph) {
         MethodState state = node.getContext().getMethodState();
-        String opString = node.toString().replaceAll(DOT, "?").replace("\"", "\\\"");
-        String stateString = state.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
-        sb.append("\"@").append(node.getAddress()).append(" - ").append(opString).append('\n').append(stateString)
-                        .append('"');
+        String op = node.toString().replaceAll(DOT, "?").replace("\"", "\\\"");
+        String stateStr = state.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();
+        int nodeIndex = graph.getNodeIndex(node);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("\"@").append(node.getAddress()).append('.').append(nodeIndex).append(" :: ");
+        sb.append(op).append('\n').append(stateStr).append('"');
 
         return sb;
     }

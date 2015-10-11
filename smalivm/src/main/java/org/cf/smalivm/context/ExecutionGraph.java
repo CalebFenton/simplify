@@ -405,6 +405,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return contexts;
     }
 
+    public int getNodeIndex(ExecutionNode node) {
+        return getNodePile(node.getAddress()).indexOf(node);
+    }
+
     public HeapItem getTerminatingFieldConsensus(String fieldDescriptor) {
         Map<String, HeapItem> items = getTerminatingFieldConsensus(new String[] { fieldDescriptor });
 
