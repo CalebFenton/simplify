@@ -121,7 +121,7 @@ public class ExecutionNode {
 
     public void replaceChild(ExecutionNode oldChild, ExecutionNode newChild) {
         removeChild(oldChild);
-        newChild.setParentNode(this);
+        newChild.setParent(this);
     }
 
     public void setContext(ExecutionContext ectx) {
@@ -141,19 +141,19 @@ public class ExecutionNode {
         ectx.setMethodState(mState);
     }
 
-    public void setParentNode(ExecutionNode parent) {
+    public void setParent(ExecutionNode parent) {
         // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
         // Each execution of an instruction will have a new state.
         this.parent = parent;
         if (parent != null) {
-            parent.addChildNode(this);
+            parent.addChild(this);
         }
     }
 
     public ExecutionNode spawnChild(Op childOp) {
         ExecutionNode child = new ExecutionNode(childOp);
         child.setContext(ectx.spawnChild());
-        child.setParentNode(this);
+        child.setParent(this);
 
         return child;
     }
@@ -163,7 +163,7 @@ public class ExecutionNode {
         return op.toString();
     }
 
-    private void addChildNode(ExecutionNode child) {
+    private void addChild(ExecutionNode child) {
         children.add(child);
     }
 

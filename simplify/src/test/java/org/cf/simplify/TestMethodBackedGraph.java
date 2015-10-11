@@ -2,6 +2,7 @@ package org.cf.simplify;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.linked.TIntLinkedList;
 
@@ -13,8 +14,11 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.Label;
+import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.junit.Test;
 
 public class TestMethodBackedGraph {
@@ -198,16 +202,23 @@ public class TestMethodBackedGraph {
         mbgraph.replaceInstruction(0, replacement);
 
         test(expected, mbgraph);
+
+        HeapItem consensus = mbgraph.getRegisterConsensus(0, 0);
+        assertEquals(0, consensus.getValue());
     }
 
     @Test
-    public void testReplaceInstructionRetainsNodeContextValues() {
+    public void testReplaceInstructionExecutesNewNodeCorrectly() {
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        BuilderInstruction replacement = new BuilderInstruction21s(Opcode.CONST_16, 0, 0);
-        mbgraph.replaceInstruction(1, replacement);
+        BuilderInstruction returnVoid = mbgraph.getNodePile(4).get(0).getOp().getInstruction();
+        Label target = returnVoid.getLocation().addNewLabel();
+        // GOTO_32 shifts addresses around so mappings could break
+        BuilderInstruction replacement = new BuilderInstruction30t(Opcode.GOTO_32, target);
+        mbgraph.replaceInstruction(0, replacement);
 
-        HeapItem consensus = mbgraph.getRegisterConsensus(1, 1);
-        assertEquals(1, consensus.getValue());
+        ExecutionNode node = mbgraph.getNodePile(0).get(0);
+        MethodLocation[] children = node.getOp().getChildren();
+        assertNotNull(children[0]);
     }
 
     @Test
@@ -233,17 +244,6 @@ public class TestMethodBackedGraph {
         mbgraph.replaceInstruction(1, replacements);
 
         test(expected, mbgraph);
-    }
-
-    @Test
-    public void testReplaceInstructionWithMultipleRetainsNodeContextValues() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        BuilderInstruction replacement1 = new BuilderInstruction21s(Opcode.CONST_16, 1, 1);
-        BuilderInstruction replacement2 = new BuilderInstruction21s(Opcode.CONST_16, 2, 2);
-        List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
-        replacements.add(replacement1);
-        replacements.add(replacement2);
-        mbgraph.replaceInstruction(1, replacements);
 
         HeapItem consensus;
         consensus = mbgraph.getRegisterConsensus(1, 1);
