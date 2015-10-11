@@ -34,6 +34,8 @@ public class TestExecutionGraphPrinter {
     private static final String ROOT_NODE_STR = "root node";
     private static final String ROOT_STATE_STR = "root state";
 
+    private static final String METHOD_DESCRIPTOR = "Lclass;->method()V";
+
     @Test
     public void testHasExpectedGraph() {
         ExecutionNode child = buildNode(CHILD_ADDRESS, CHILD_NODE_STR, CHILD_STATE_STR);
@@ -46,14 +48,19 @@ public class TestExecutionGraphPrinter {
 
         ExecutionGraph graph = mock(ExecutionGraph.class);
         when(graph.getRoot()).thenReturn(root);
-
+        when(graph.getMethodDescriptor()).thenReturn(METHOD_DESCRIPTOR);
+        when(graph.getNodeIndex(root)).thenReturn(0);
+        when(graph.getNodeIndex(child)).thenReturn(0);
         String digraph = ExecutionGraphPrinter.print(graph);
 
         StringBuilder sb = new StringBuilder("digraph {\n");
-        sb.append("\"@").append(ROOT_ADDRESS).append(" - ").append(ROOT_NODE_STR).append('\n');
+        sb.append("\"@").append(ROOT_ADDRESS).append(".0 :: ").append(ROOT_NODE_STR).append('\n');
         sb.append(ROOT_STATE_STR).append("\" -> ");
-        sb.append("\"@").append(CHILD_ADDRESS).append(" - ").append(CHILD_NODE_STR).append('\n');
-        sb.append(CHILD_STATE_STR).append("\"\n}");
+        sb.append("\"@").append(CHILD_ADDRESS).append(".0 :: ").append(CHILD_NODE_STR).append('\n');
+        sb.append(CHILD_STATE_STR).append("\"\n");
+        sb.append("labelloc=\"t\"\n");
+        sb.append("label=\"").append(METHOD_DESCRIPTOR).append("\";");
+        sb.append("\n}");
 
         String expected = sb.toString();
         assertEquals(expected, digraph);
