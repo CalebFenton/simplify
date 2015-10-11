@@ -203,13 +203,13 @@ public class MethodBackedGraph extends ExecutionGraph {
     }
 
     public void replaceInstruction(int insertAddress, List<BuilderInstruction> instructions) {
-        MethodLocation location = getLocation(insertAddress);
-        int address = location.getCodeAddress();
-        removeInstruction(location);
+        int address = insertAddress;
         for (BuilderInstruction instruction : instructions) {
             addInstruction(address, instruction);
             address += instruction.getCodeUnits();
         }
+        MethodLocation location = getLocation(address);
+        removeInstruction(location);
     }
 
     public String toSmali() {
