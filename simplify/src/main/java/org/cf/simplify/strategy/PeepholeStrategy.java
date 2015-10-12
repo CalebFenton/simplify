@@ -2,12 +2,18 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.set.TIntSet;
+import gnu.trove.set.hash.TIntHashSet;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.MethodBackedGraph;
+import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
@@ -15,8 +21,14 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.util.SmaliClassUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.BuilderOffsetInstruction;
+import org.jf.dexlib2.builder.Label;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
+import org.jf.dexlib2.iface.instruction.formats.Instruction21t;
+import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
@@ -32,20 +44,23 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     private final MethodBackedGraph mbgraph;
     private int peepCount;
+    private int constantIfCount;
     private TIntList addresses;
     private boolean madeChanges;
 
     public PeepholeStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
         peepCount = 0;
+        constantIfCount = 0;
     }
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> result = new HashMap<String, Integer>();
-        result.put("peeps", peepCount);
+        Map<String, Integer> counts = new HashMap<String, Integer>();
+        counts.put("peeps", peepCount);
+        counts.put("constantIf", constantIfCount);
 
-        return result;
+        return counts;
     }
 
     public boolean perform() {
@@ -56,6 +71,9 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         addresses = getValidAddresses(mbgraph);
         peepStringInit();
+
+        addresses = getValidAddresses(mbgraph);
+        peepConstantPredicate();
 
         return madeChanges;
     }
@@ -68,7 +86,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
         HeapItem klazz = mbgraph.getRegisterConsensus(address, MethodState.ResultRegister);
         if (klazz == null) {
-            log.warn("Optimizing Class.forName of potentially non-existant class: " + smaliClassName);
+            log.warn("Optimizing Class.forName of potentially non-existant class: {}", smaliClassName);
         }
         BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
         BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
@@ -143,6 +161,60 @@ public class PeepholeStrategy implements OptimizationStrategy {
         }
     }
 
+    void peepConstantPredicate() {
+        TIntList peepAddresses = new TIntArrayList();
+        TIntSet nextAddresses = new TIntHashSet();
+        for (int address : addresses.toArray()) {
+            BuilderInstruction original = mbgraph.getInstruction(address);
+            if (!(original instanceof Instruction22t || original instanceof Instruction21t)) {
+                continue;
+            }
+
+            Set<ExecutionNode> children = new HashSet<ExecutionNode>();
+            List<ExecutionNode> pile = mbgraph.getNodePile(address);
+            for (ExecutionNode node : pile) {
+                children.addAll(node.getChildren());
+            }
+            if (children.size() != 1) {
+                break;
+            }
+            // Child is the same across all multiverses / execution paths.
+
+            ExecutionNode child = pile.get(0).getChildren().get(0);
+            boolean isNext = child.getAddress() == original.getLocation().getCodeAddress() + original.getCodeUnits();
+            peepAddresses.add(address);
+            if (isNext) {
+                // if-* is false, so it moves to next instruction
+                nextAddresses.add(address);
+            }
+        }
+
+        if (0 == peepAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
+        constantIfCount += peepAddresses.size();
+
+        peepAddresses.sort();
+        peepAddresses.reverse();
+        for (int address : peepAddresses.toArray()) {
+            BuilderInstruction replacement;
+            if (nextAddresses.contains(address)) {
+                replacement = new BuilderInstruction10x(Opcode.NOP);
+            } else {
+                BuilderOffsetInstruction original = (BuilderOffsetInstruction) mbgraph.getInstruction(address);
+                Label target = original.getTarget();
+                replacement = new BuilderInstruction30t(Opcode.GOTO_32, target);
+            }
+
+            if (log.isDebugEnabled()) {
+                log.debug("Peeping constant predicate @{} {}", address, mbgraph.getOp(address));
+            }
+            mbgraph.replaceInstruction(address, replacement);
+        }
+    }
+
     void peepStringInit() {
         TIntList peepAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
@@ -185,7 +257,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             BuilderInstruction replacement = ConstantBuilder.buildConstant(item.getValue(), item.getUnboxedValueType(),
                             instanceRegister, mbgraph.getDexBuilder());
             if (log.isDebugEnabled()) {
-                log.debug("Peeping string init @" + address + " " + mbgraph.getOp(address));
+                log.debug("Peeping string init @{} {}", address, mbgraph.getOp(address));
             }
             mbgraph.replaceInstruction(address, replacement);
         }

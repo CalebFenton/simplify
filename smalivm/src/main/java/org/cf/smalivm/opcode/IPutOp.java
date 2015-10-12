@@ -40,7 +40,7 @@ public class IPutOp extends ExecutionContextOp {
     }
 
     @Override
-    public SideEffect.Level sideEffectLevel() {
+    public SideEffect.Level getSideEffectLevel() {
         return SideEffect.Level.WEAK;
     }
 

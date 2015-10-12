@@ -7,6 +7,7 @@ import gnu.trove.map.TIntObjectMap;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
+import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,20 +19,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeSet;
 
 import javax.annotation.Nullable;
 
+import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.FillArrayDataPayloadOp;
+import org.cf.smalivm.opcode.IPutOp;
+import org.cf.smalivm.opcode.InvokeOp;
+import org.cf.smalivm.opcode.NewInstanceOp;
 import org.cf.smalivm.opcode.NopOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
 import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.smalivm.opcode.ReturnVoidOp;
+import org.cf.smalivm.opcode.SPutOp;
 import org.cf.smalivm.opcode.SwitchPayloadOp;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -52,19 +59,27 @@ public class MethodBackedGraph extends ExecutionGraph {
     private final DexBuilder dexBuilder;
     private final MutableMethodImplementation implementation;
     private final BuilderMethod method;
-    private final String methodDescriptor;
-    private OpCreator opCreator;
     private final VirtualMachine vm;
+    private final Set<MethodLocation> recreateLocations;
+    private final Set<MethodLocation> reexecuteLocations;
+    private OpCreator opCreator;
+    private boolean recreateOrReexecute;
 
     public MethodBackedGraph(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;
         this.method = method;
-        this.methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         implementation = (MutableMethodImplementation) method.getImplementation();
         this.vm = vm;
         opCreator = getOpCreator(vm, addressToLocation);
+        recreateLocations = new HashSet<MethodLocation>();
+
+        // When many ops are added, such as when unreflecting, need to execute in order to ensure
+        // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
+        reexecuteLocations = new TreeSet<MethodLocation>((e1, e2) -> Integer.compare(e1.getCodeAddress(),
+                        e2.getCodeAddress()));
+        recreateOrReexecute = true;
     }
 
     public void addInstruction(MethodLocation location, BuilderInstruction newInstruction) {
@@ -197,19 +212,21 @@ public class MethodBackedGraph extends ExecutionGraph {
         }
     }
 
-    public void replaceInstruction(int address, BuilderInstruction instruction) {
-        addInstruction(getLocation(address), instruction);
-        int replacedAddress = address + instruction.getCodeUnits();
-        removeInstruction(getLocation(replacedAddress));
+    public void replaceInstruction(int insertAddress, BuilderInstruction instruction) {
+        List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
+        instructions.add(instruction);
+        replaceInstruction(insertAddress, instructions);
     }
 
     public void replaceInstruction(int insertAddress, List<BuilderInstruction> instructions) {
+        recreateOrReexecute = false;
         int address = insertAddress;
         for (BuilderInstruction instruction : instructions) {
             addInstruction(address, instruction);
             address += instruction.getCodeUnits();
         }
         MethodLocation location = getLocation(address);
+        recreateOrReexecute = true;
         removeInstruction(location);
     }
 
@@ -226,11 +243,9 @@ public class MethodBackedGraph extends ExecutionGraph {
         return sb.toString();
     }
 
-    private List<ExecutionNode> addToNodePile(MethodLocation newLocation) {
+    private void addToNodePile(MethodLocation newLocation) {
         // Returns node which need to be re-executed after graph / mappings are rebuilt
         // E.g. branch offset instructions can't be created without accurate mappings
-        List<ExecutionNode> reexecute = new LinkedList<ExecutionNode>();
-
         int oldIndex = newLocation.getIndex() + 1;
         MethodLocation shiftedLocation = null;
         for (MethodLocation location : locationToNodePile.keySet()) {
@@ -239,18 +254,23 @@ public class MethodBackedGraph extends ExecutionGraph {
                 break;
             }
         }
+        assert shiftedLocation != null;
+
         List<ExecutionNode> shiftedNodePile = locationToNodePile.get(shiftedLocation);
         List<ExecutionNode> newNodePile = new ArrayList<ExecutionNode>();
         locationToNodePile.put(newLocation, newNodePile);
 
         Op shiftedOp = shiftedNodePile.get(0).getOp();
         Op op = opCreator.create(newLocation);
+        recreateLocations.add(newLocation);
+        reexecuteLocations.add(newLocation);
         boolean autoAddedPadding = (op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp || shiftedOp instanceof SwitchPayloadOp));
         for (int i = 0; i < shiftedNodePile.size(); i++) {
             ExecutionNode newNode = new ExecutionNode(op);
             newNodePile.add(i, newNode);
 
             if (autoAddedPadding) {
+                // Padding of this type is never reached
                 break;
             }
             if (i == TEMPLATE_NODE_INDEX) {
@@ -258,59 +278,97 @@ public class MethodBackedGraph extends ExecutionGraph {
             }
 
             ExecutionNode shiftedNode = shiftedNodePile.get(i);
-            ExecutionNode parentNode = shiftedNode.getParent();
+            ExecutionNode shiftedParent = shiftedNode.getParent();
             ExecutionContext newContext;
-            if (parentNode != null) {
-                parentNode.replaceChild(shiftedNode, newNode);
-                newContext = shiftedNode.getContext();
+            if (shiftedParent != null) {
+                newContext = shiftedParent.getContext().spawnChild();
+                newNode.setContext(newContext);
+                shiftedParent.replaceChild(shiftedNode, newNode);
+                recreateLocations.add(newNode.getParent().getOp().getLocation());
             } else {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
+                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
                 newContext = vm.spawnExecutionContext(methodDescriptor);
+                newNode.setContext(newContext);
             }
             shiftedNode.setParent(newNode);
-            newNode.setContext(newContext);
-
-            reexecute.add(newNode);
+            reexecuteLocations.add(shiftedNode.getOp().getLocation());
         }
-
-        return reexecute;
     }
 
-    private void reexecute(List<ExecutionNode> nodes) {
-        for (ExecutionNode node : nodes) {
-            MethodLocation location = node.getOp().getLocation();
-            Op op = opCreator.create(location);
-            ExecutionNode newNode = new ExecutionNode(op);
-            for (ExecutionNode child : node.getChildren()) {
-                child.setParent(newNode);
-            }
-            ExecutionNode parent = node.getParent();
-            if (parent != null) {
-                parent.replaceChild(node, newNode);
-            }
-
-            newNode.setContext(node.getContext());
-            newNode.execute();
-
-            List<ExecutionNode> pile = locationToNodePile.get(location);
-            int index = pile.indexOf(node);
-            pile.remove(index);
-            pile.add(index, newNode);
+    private void recreateAndExecute() {
+        if (!recreateOrReexecute) {
+            return;
         }
+
+        // Was removed from implementation before getting here
+        recreateLocations.removeIf(p -> p.getInstruction() == null);
+        reexecuteLocations.removeIf(p -> p.getInstruction() == null);
+
+        for (MethodLocation location : recreateLocations) {
+            Op op = opCreator.create(location);
+            List<ExecutionNode> pile = locationToNodePile.get(location);
+
+            // TODO: move side effects out of ops and into nodes or graph
+            // This is a big ugly.
+            if (op instanceof NewInstanceOp || op instanceof InvokeOp || op instanceof SPutOp || op instanceof IPutOp) {
+                ExecutionNode node = pile.get(0);
+
+                try {
+                    SideEffect.Level originalLevel = node.getOp().getSideEffectLevel();
+                    Class<? extends Op> klazz;
+                    if (op instanceof NewInstanceOp) {
+                        klazz = NewInstanceOp.class;
+                    } else if (op instanceof InvokeOp) { // InvokeOp
+                        klazz = InvokeOp.class;
+                    } else if (op instanceof SPutOp) {
+                        klazz = SPutOp.class;
+                    } else {
+                        klazz = IPutOp.class;
+                    }
+                    Field f = klazz.getDeclaredField("sideEffectLevel");
+                    f.setAccessible(true);
+                    f.set(op, originalLevel);
+                } catch (Exception e) {
+                    // Ugly.
+                    e.printStackTrace();
+                }
+            }
+
+            for (int i = 0; i < pile.size(); i++) {
+                pile.get(i).setOp(op);
+            }
+        }
+
+        for (MethodLocation location : reexecuteLocations) {
+            List<ExecutionNode> pile = locationToNodePile.get(location);
+            for (int i = 0; i < pile.size(); i++) {
+                ExecutionNode node = pile.get(i);
+                if (i == TEMPLATE_NODE_INDEX) {
+                    continue;
+                }
+
+                node.execute();
+            }
+        }
+
+        recreateLocations.clear();
+        reexecuteLocations.clear();
     }
 
     private void rebuildGraph() {
+        // This seems like overkill until you realize implementation may change from under us.
+        // Multiple new instructions may be added from adding or removing a single instruction.
         Set<MethodLocation> staleLocations = locationToNodePile.keySet();
         Set<MethodLocation> freshLocations = new HashSet<MethodLocation>();
         for (BuilderInstruction instruction : implementation.getInstructions()) {
             freshLocations.add(instruction.getLocation());
         }
 
-        List<ExecutionNode> reexecute = new LinkedList<ExecutionNode>();
         Set<MethodLocation> addedLocations = new HashSet<MethodLocation>(freshLocations);
         addedLocations.removeAll(staleLocations);
         for (MethodLocation location : addedLocations) {
-            reexecute.addAll(addToNodePile(location));
+            addToNodePile(location);
         }
         Set<MethodLocation> removedLocations = new HashSet<MethodLocation>(staleLocations);
         removedLocations.removeAll(freshLocations);
@@ -322,7 +380,7 @@ public class MethodBackedGraph extends ExecutionGraph {
         addressToLocation.clear();
         addressToLocation.putAll(newAddressToLocation);
 
-        reexecute(reexecute);
+        recreateAndExecute();
     }
 
     public MethodLocation getLocation(int address) {
@@ -380,25 +438,34 @@ public class MethodBackedGraph extends ExecutionGraph {
             ExecutionNode parentNode = removedNode.getParent();
             if (parentNode != null) {
                 parentNode.removeChild(removedNode);
+                recreateLocations.add(parentNode.getOp().getLocation());
+                reexecuteLocations.add(parentNode.getOp().getLocation());
             }
+
             for (ExecutionNode childNode : removedNode.getChildren()) {
-                // parentNode could be null, and that's ok
-                Op op = childNode.getOp();
-                boolean pseudoChild = (op instanceof FillArrayDataPayloadOp || op instanceof SwitchPayloadOp);
+                Op childOp = childNode.getOp();
+                boolean pseudoChild = (childOp instanceof FillArrayDataPayloadOp || childOp instanceof SwitchPayloadOp);
                 if (!pseudoChild) {
-                    childNode.setParent(parentNode);
+                    if (parentNode != null) {
+                        childNode.setParent(parentNode);
+                        reexecuteLocations.add(childNode.getOp().getLocation());
+                    }
                 } else {
+                    // Implementation was altered such that dexlib removed something, probably nop padding
                     for (ExecutionNode grandChildNode : childNode.getChildren()) {
                         grandChildNode.setParent(parentNode);
+                        reexecuteLocations.add(grandChildNode.getOp().getLocation());
                     }
-                    locationToChildNodeToRemove.put(childNode.getOp().getLocation(), childNode);
+                    locationToChildNodeToRemove.put(childOp.getLocation(), childNode);
                 }
             }
         }
+
         for (Entry<MethodLocation, ExecutionNode> entry : locationToChildNodeToRemove.entrySet()) {
             List<ExecutionNode> pile = locationToNodePile.get(entry.getKey());
             pile.remove(entry.getValue());
         }
+
     }
 
     TIntList getReachedAddresses() {

@@ -30,7 +30,7 @@ subprojects {
     apply plugin: 'idea'
 
     group = 'org.cf'
-    sourceCompatibility = 1.7
+    sourceCompatibility = 1.8
     version = parent.version
 
     jar {

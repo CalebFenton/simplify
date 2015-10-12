@@ -50,10 +50,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             Op op = opCreator.create(location);
             ExecutionNode node = new ExecutionNode(op);
 
-            // Most node piles will be a template node and one or more ContextNodes.
-            List<ExecutionNode> nodePile = new ArrayList<ExecutionNode>(2);
-            nodePile.add(node);
-            locationToNodePile.put(location, nodePile);
+            // Most node piles will be a template node and 1+ ExecutionNodes.
+            List<ExecutionNode> pile = new ArrayList<ExecutionNode>(2);
+            pile.add(node);
+            locationToNodePile.put(location, pile);
         }
 
         return locationToNodePile;
@@ -240,7 +240,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         SideEffect.Level result = SideEffect.Level.NONE;
         for (ExecutionNode node : this) {
             Op op = node.getOp();
-            SideEffect.Level level = op.sideEffectLevel();
+            SideEffect.Level level = op.getSideEffectLevel();
             switch (level) {
             case STRONG:
                 return level;

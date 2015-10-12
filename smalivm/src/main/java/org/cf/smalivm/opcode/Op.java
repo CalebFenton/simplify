@@ -48,7 +48,7 @@ public abstract class Op {
         return getInstruction().getOpcode().name;
     }
 
-    public SideEffect.Level sideEffectLevel() {
+    public SideEffect.Level getSideEffectLevel() {
         return SideEffect.Level.NONE;
     }
 
