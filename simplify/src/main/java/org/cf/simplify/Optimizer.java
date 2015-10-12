@@ -54,17 +54,15 @@ public class Optimizer {
 
         int sweep = 0;
         madeAnyChanges = false;
+        boolean madeChange;
         do {
-            boolean sweepChange = false;
+            madeChange = false;
             for (OptimizationStrategy strategy : strategies) {
-                sweepChange |= strategy.perform();
+                madeChange |= strategy.perform();
             }
-            if (!sweepChange) {
-                break;
-            }
-            madeAnyChanges = true;
+            madeAnyChanges |= madeChange;
             sweep++;
-        } while (sweep < maxSweeps);
+        } while (madeChange && sweep < maxSweeps);
 
         updateOptimizationCounts();
     }

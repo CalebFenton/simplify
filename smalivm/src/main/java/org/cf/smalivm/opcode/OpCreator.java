@@ -5,6 +5,7 @@ import gnu.trove.map.TIntObjectMap;
 import org.cf.smalivm.VirtualMachine;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.iface.instruction.Instruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -342,7 +343,8 @@ public final class OpCreator {
     }
 
     public Op create(MethodLocation location) {
-        Opcode opcode = location.getInstruction().getOpcode();
+        Instruction instruction = location.getInstruction();
+        Opcode opcode = instruction.getOpcode();
         OpFactory opFactory = getOpFactory(opcode);
 
         return opFactory.create(location, addressToLocation, vm);

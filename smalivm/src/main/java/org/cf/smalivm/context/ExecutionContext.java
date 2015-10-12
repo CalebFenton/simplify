@@ -39,12 +39,6 @@ public class ExecutionContext {
         private ClassState cState;
         private SideEffect.Level level;
 
-        ClassStatus(ClassState cState, SideEffect.Level level) {
-            this(cState);
-            this.level = level;
-            isInitialized = true;
-        }
-
         ClassStatus(ClassState cState) {
             this.cState = cState;
         }
@@ -269,7 +263,7 @@ public class ExecutionContext {
         classNameToStatus.get(className).setSideEffectLevel(level);
     }
 
-    private void setParent(ExecutionContext parent) {
+    public void setParent(ExecutionContext parent) {
         assert parent.getMethodState() != null;
 
         this.parent = parent;
@@ -280,7 +274,7 @@ public class ExecutionContext {
         setMethodState(childMethodState);
     }
 
-    ExecutionContext getParent() {
+    public ExecutionContext getParent() {
         return parent;
     }
 

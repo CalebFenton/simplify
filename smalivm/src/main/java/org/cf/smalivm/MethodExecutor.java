@@ -12,8 +12,6 @@ import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.opcode.Op;
-import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,15 +70,12 @@ public class MethodExecutor {
                     MaxMethodVisitsExceeded, UnhandledVirtualException {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
-        ExceptionHandlerAddressResolver exceptionResolver = new ExceptionHandlerAddressResolver(classManager,
-                        methodDescriptor);
-
-        ExecutionNode currentNode = graph.getRoot();
-        int callDepth = currentNode.getCallDepth();
+        ExecutionNode node = graph.getRoot();
+        int callDepth = node.getCallDepth();
         if (log.isInfoEnabled()) {
             log.info("Executing {}, depth={}", methodDescriptor, callDepth);
         }
-        if (currentNode.getCallDepth() > getMaxCallDepth()) {
+        if (node.getCallDepth() > getMaxCallDepth()) {
             throw new MaxCallDepthExceeded(methodDescriptor);
         }
 
@@ -89,77 +84,19 @@ public class MethodExecutor {
             resetTotalVisits();
         }
 
+        NodeExecutor nodeExecutor = new NodeExecutor(graph, classManager);
         Deque<ExecutionNode> executeStack = new ArrayDeque<ExecutionNode>();
-        executeStack.push(currentNode);
-        while ((currentNode = executeStack.poll()) != null) {
+        executeStack.push(node);
+        while ((node = executeStack.poll()) != null) {
             totalVisits += 1;
-            checkMaxVisits(currentNode, methodDescriptor, addressToVisitCount);
+            checkMaxVisits(node, methodDescriptor, addressToVisitCount);
 
-            try {
-                currentNode.execute();
-            } catch (Exception e) {
-                // TODO: this exception handler should be REMOVED when ops set exceptions properly
-                // These exceptions could be from bugs in simplify, not real exceptions
-                if (log.isWarnEnabled()) {
-                    log.warn("{} generated a real exception:", currentNode, e);
-                }
-                int childAddress = exceptionResolver.resolve(e, currentNode.getAddress());
-                spawnChild(graph, currentNode, childAddress);
-            }
+            nodeExecutor.execute(node);
 
-            spawnChildren(graph, currentNode);
-            spawnExceptionChildren(graph, currentNode, exceptionResolver);
-
-            executeStack.addAll(currentNode.getChildren());
+            executeStack.addAll(node.getChildren());
         }
 
         return graph;
-    }
-
-    private static void spawnChild(ExecutionGraph graph, ExecutionNode parentNode, int childAddress) {
-        Op childOp = graph.getTemplateNode(childAddress).getOp();
-        ExecutionNode childNode = parentNode.spawnChild(childOp);
-        graph.addNode(childNode);
-    }
-
-    private static void spawnChildren(ExecutionGraph graph, ExecutionNode parentNode) {
-        // Each visit adds a new ExecutionNode to the pile. These piles can be inspected for register or field
-        // consensus, or other optimizations.
-        for (MethodLocation childLocation : parentNode.getChildLocations()) {
-            spawnChild(graph, parentNode, childLocation.getCodeAddress());
-        }
-    }
-
-    private static void spawnExceptionChildren(ExecutionGraph graph, ExecutionNode node,
-                    ExceptionHandlerAddressResolver exceptionResolver) throws UnhandledVirtualException {
-        if (node.mayThrowException()) {
-            for (VirtualException exception : node.getExceptions()) {
-                if (log.isTraceEnabled()) {
-                    log.trace("{} may throw virtual exception: {}", node, exception);
-                }
-
-                int childAddress = exceptionResolver.resolve(exception, node.getAddress());
-                if (childAddress == -1) {
-                    if (node.getChildLocations().length == 0) {
-                        if (log.isErrorEnabled()) {
-                            log.error("{} unhandled virtual exception: {}", node, exception);
-                        }
-
-                        throw new UnhandledVirtualException(exception);
-                    } else {
-                        /*
-                         * Since there are children, it means the op *may* have an exception. If it's unhandled, assume
-                         * there is no exception. In many cases, the verifier catches this stuff.
-                         */
-                        if (log.isTraceEnabled()) {
-                            log.trace("{} possible unhandled virtual exception: {}", node, exception);
-                        }
-                    }
-                } else {
-                    spawnChild(graph, node, childAddress);
-                }
-            }
-        }
     }
 
 }

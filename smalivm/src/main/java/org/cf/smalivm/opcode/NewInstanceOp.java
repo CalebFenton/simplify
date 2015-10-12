@@ -48,7 +48,7 @@ public class NewInstanceOp extends ExecutionContextOp {
     }
 
     @Override
-    public SideEffect.Level sideEffectLevel() {
+    public SideEffect.Level getSideEffectLevel() {
         return sideEffectLevel;
     }
 

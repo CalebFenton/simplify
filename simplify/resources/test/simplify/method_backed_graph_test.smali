@@ -13,6 +13,18 @@
   return-void
 .end method
 
+.method public static constantPredicate()I
+  .locals 1
+
+  const/4 v0, 0x0
+  if-eq v0, v0, :end
+
+  const/4 v0, 0x1
+
+  :end
+  return v0
+.end method
+
 .method private static hasGotoAndOneNop()V
     .locals 0
 

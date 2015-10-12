@@ -18,7 +18,7 @@ public class ExecutionNode {
     private static Logger log = LoggerFactory.getLogger(ExecutionNode.class.getSimpleName());
 
     private final List<ExecutionNode> children;
-    private final Op op;
+    private Op op;
 
     private ExecutionContext ectx;
     private ExecutionNode parent;
@@ -28,6 +28,10 @@ public class ExecutionNode {
     public ExecutionNode(ExecutionNode other) {
         op = other.op;
         children = new ArrayList<ExecutionNode>(other.getChildren());
+    }
+
+    public void setOp(Op op) {
+        this.op = op;
     }
 
     public ExecutionNode(Op op) {
@@ -117,6 +121,14 @@ public class ExecutionNode {
     public void removeChild(ExecutionNode child) {
         // http://stream1.gifsoup.com/view/773318/not-the-father-dance-o.gif
         children.remove(child);
+        rebuildChildLocationsFromChildren();
+    }
+
+    private void rebuildChildLocationsFromChildren() {
+        childLocations = new MethodLocation[children.size()];
+        for (int i = 0; i < childLocations.length; i++) {
+            childLocations[i] = children.get(i).getOp().getLocation();
+        }
     }
 
     public void replaceChild(ExecutionNode oldChild, ExecutionNode newChild) {
@@ -148,6 +160,7 @@ public class ExecutionNode {
         if (parent != null) {
             parent.addChild(this);
         }
+        getContext().setParent(parent.getContext());
     }
 
     public ExecutionNode spawnChild(Op childOp) {
@@ -165,6 +178,6 @@ public class ExecutionNode {
 
     private void addChild(ExecutionNode child) {
         children.add(child);
+        rebuildChildLocationsFromChildren();
     }
-
 }

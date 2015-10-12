@@ -194,9 +194,9 @@ public class ConstantBuilder implements Dependancy {
         OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
         int register = instruction.getRegisterA();
         HeapItem item = mbgraph.getRegisterConsensus(address, register);
-        BuilderInstruction result = buildConstant(item.getValue(), item.getUnboxedValueType(), register, dexBuilder);
+        BuilderInstruction constant = buildConstant(item.getValue(), item.getUnboxedValueType(), register, dexBuilder);
 
-        return result;
+        return constant;
     }
 
 }

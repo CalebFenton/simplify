@@ -12,6 +12,7 @@ import java.util.List;
 
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.opcode.Op;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.Label;
@@ -49,6 +50,9 @@ public class TestMethodBackedGraph {
         mbgraph.addInstruction(4, addition);
 
         test(expected, mbgraph);
+        testHeritage(mbgraph, 2);
+        testHeritage(mbgraph, 4);
+        testHeritage(mbgraph, 5);
     }
 
     @Test
@@ -146,10 +150,11 @@ public class TestMethodBackedGraph {
         mbgraph.addInstruction(0, addition);
 
         test(expected, mbgraph);
+        testHeritage(mbgraph, 0);
     }
 
     @Test
-    public void testRemoveInstructionModifiesStateCorrectly() {
+    public void testRemoveInstructionWithNoParentModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_4, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
@@ -164,6 +169,33 @@ public class TestMethodBackedGraph {
         mbgraph.removeInstruction(0);
 
         test(expected, mbgraph);
+        testHeritage(mbgraph, 0);
+    }
+
+    @Test
+    public void testRemoveInstructionWithParentModifiesStateCorrectly() {
+        //@formatter:off
+        Object[][] expected = new Object[][] {
+                        { 0, Opcode.CONST_4, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
+                        { 1, Opcode.CONST_4, new Object[][][] { { { 2, Opcode.CONST_4 } } } },
+                        { 2, Opcode.CONST_4, new Object[][][] { { { 3, Opcode.CONST_4 } } } },
+                        { 3, Opcode.CONST_4, new Object[][][] { { { 4, Opcode.RETURN_VOID } } } },
+                        { 4, Opcode.RETURN_VOID, new Object[1][0][0] },
+        };
+        //@formatter:on
+
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph.removeInstruction(1);
+
+        test(expected, mbgraph);
+        testHeritage(mbgraph, 0);
+        testHeritage(mbgraph, 1);
+
+        ExecutionNode child = mbgraph.getNodePile(1).get(0);
+        assertArrayEquals(new int[] { 2 }, child.getContext().getMethodState().getRegistersAssigned().toArray());
+
+        ExecutionNode parent = mbgraph.getNodePile(0).get(0);
+        assertArrayEquals(new int[] { 0 }, parent.getContext().getMethodState().getRegistersAssigned().toArray());
     }
 
     @Test
@@ -179,9 +211,26 @@ public class TestMethodBackedGraph {
         //@formatter:on
 
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNopPadding()V");
-        mbgraph.removeInstruction(4);
+        // Removing second fill-array-data doesn't change semantics
+        mbgraph.removeInstruction(7);
 
         test(expected, mbgraph);
+        testHeritage(mbgraph, 4);
+    }
+
+    @Test
+    public void testReplaceInstructionExecutesNewNodeCorrectly() {
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "constantPredicate()I");
+
+        BuilderInstruction returnVoid = mbgraph.getNodePile(4).get(0).getOp().getInstruction();
+        Label target = returnVoid.getLocation().addNewLabel();
+
+        // GOTO_32 shifts addresses around so mappings could break
+        BuilderInstruction replacement = new BuilderInstruction30t(Opcode.GOTO_32, target);
+        mbgraph.replaceInstruction(1, replacement);
+
+        testHeritage(mbgraph, 0);
+        testHeritage(mbgraph, 1);
     }
 
     @Test
@@ -208,20 +257,6 @@ public class TestMethodBackedGraph {
     }
 
     @Test
-    public void testReplaceInstructionExecutesNewNodeCorrectly() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        BuilderInstruction returnVoid = mbgraph.getNodePile(4).get(0).getOp().getInstruction();
-        Label target = returnVoid.getLocation().addNewLabel();
-        // GOTO_32 shifts addresses around so mappings could break
-        BuilderInstruction replacement = new BuilderInstruction30t(Opcode.GOTO_32, target);
-        mbgraph.replaceInstruction(0, replacement);
-
-        ExecutionNode node = mbgraph.getNodePile(0).get(0);
-        MethodLocation[] children = node.getOp().getChildren();
-        assertNotNull(children[0]);
-    }
-
-    @Test
     public void testReplaceInstructionWithMultipleModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
@@ -244,6 +279,9 @@ public class TestMethodBackedGraph {
         mbgraph.replaceInstruction(1, replacements);
 
         test(expected, mbgraph);
+        testHeritage(mbgraph, 0);
+        testHeritage(mbgraph, 1);
+        testHeritage(mbgraph, 3);
 
         HeapItem consensus;
         consensus = mbgraph.getRegisterConsensus(1, 1);
@@ -282,6 +320,29 @@ public class TestMethodBackedGraph {
                 }
             }
         }
+    }
+
+    private static void testHeritage(MethodBackedGraph mbgraph, int address) {
+        ExecutionNode template = mbgraph.getTemplateNode(address);
+        assertEquals(0, template.getChildren().size());
+        assertNotNull(template.getOp().getChildren());
+
+        ExecutionNode node = mbgraph.getNodePile(address).get(0);
+        assertEquals(template.getOp(), node.getOp());
+
+        List<ExecutionNode> children = node.getChildren();
+        assertEquals(1, children.size());
+
+        MethodLocation[] childLocations = node.getChildLocations();
+        assertEquals(1, childLocations.length);
+
+        ExecutionNode child = node.getChildren().get(0);
+        assertEquals(node, child.getParent());
+        assertEquals(node.getContext(), child.getContext().getParent());
+
+        Op childOp = child.getOp();
+        assertEquals(childOp.getLocation(), childLocations[0]);
+        assertEquals(childOp.getLocation(), node.getOp().getChildren()[0]);
     }
 
 }

@@ -165,7 +165,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     @Override
-    public SideEffect.Level sideEffectLevel() {
+    public SideEffect.Level getSideEffectLevel() {
         return sideEffectLevel;
     }
 
