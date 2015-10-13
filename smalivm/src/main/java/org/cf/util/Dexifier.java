@@ -12,6 +12,7 @@ import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 import org.apache.commons.io.FileUtils;
+import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.smali.LexerErrorInterface;
@@ -88,7 +89,7 @@ public class Dexifier {
     }
 
     public static List<BuilderClassDef> dexifySmaliFiles(String path) throws Exception {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(Dexifier.DEFAULT_API_LEVEL));
 
         return dexifySmaliFiles(new File(path), dexBuilder);
     }

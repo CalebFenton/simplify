@@ -24,6 +24,7 @@ import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
@@ -52,7 +53,7 @@ public class Launcher {
         }
 
         long startTime = System.currentTimeMillis();
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(opts.getOutputAPILevel());
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(opts.getOutputAPILevel()));
         ClassManager classManager = getClassManager(opts.getInFile(), opts.isApk() | opts.isDex(), dexBuilder);
         VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
                         opts.getMaxMethodVisits());
