@@ -199,7 +199,7 @@ public class TestMethodBackedGraph {
     }
 
     @Test
-    public void testRemoveInstructionThatCausesNopPaddingToBeRemovedModifiesStateCorrectly() {
+    public void testRemoveInstructionThatCausesNopPaddingToBeRemovedAndHasParentWhichShouldNotBeReexecutedModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
@@ -211,10 +211,10 @@ public class TestMethodBackedGraph {
         //@formatter:on
 
         mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNopPadding()V");
-        // Removing second fill-array-data doesn't change semantics
-        mbgraph.removeInstruction(7);
+        mbgraph.removeInstruction(4);
 
         test(expected, mbgraph);
+        testHeritage(mbgraph, 2);
         testHeritage(mbgraph, 4);
     }
 
