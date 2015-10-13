@@ -20,6 +20,12 @@ allprojects {
         mavenCentral()
     }
 
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+        }
+    }
+
     apply plugin: 'jacoco'
     apply plugin: 'com.github.kt3k.coveralls'
 }
