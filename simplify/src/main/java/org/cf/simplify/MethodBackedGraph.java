@@ -30,7 +30,6 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.FillArrayDataPayloadOp;
-import org.cf.smalivm.opcode.IPutOp;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.NewInstanceOp;
 import org.cf.smalivm.opcode.NopOp;
@@ -38,7 +37,6 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
 import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.smalivm.opcode.ReturnVoidOp;
-import org.cf.smalivm.opcode.SPutOp;
 import org.cf.smalivm.opcode.SwitchPayloadOp;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -311,7 +309,7 @@ public class MethodBackedGraph extends ExecutionGraph {
 
             // TODO: move side effects out of ops and into nodes or graph
             // This is a big ugly.
-            if (op instanceof NewInstanceOp || op instanceof InvokeOp || op instanceof SPutOp || op instanceof IPutOp) {
+            if (op instanceof NewInstanceOp || op instanceof InvokeOp) {
                 ExecutionNode node = pile.get(0);
 
                 try {
@@ -319,12 +317,8 @@ public class MethodBackedGraph extends ExecutionGraph {
                     Class<? extends Op> klazz;
                     if (op instanceof NewInstanceOp) {
                         klazz = NewInstanceOp.class;
-                    } else if (op instanceof InvokeOp) { // InvokeOp
+                    } else { // InvokeOp
                         klazz = InvokeOp.class;
-                    } else if (op instanceof SPutOp) {
-                        klazz = SPutOp.class;
-                    } else {
-                        klazz = IPutOp.class;
                     }
                     Field f = klazz.getDeclaredField("sideEffectLevel");
                     f.setAccessible(true);
@@ -439,7 +433,6 @@ public class MethodBackedGraph extends ExecutionGraph {
             if (parentNode != null) {
                 parentNode.removeChild(removedNode);
                 recreateLocations.add(parentNode.getOp().getLocation());
-                reexecuteLocations.add(parentNode.getOp().getLocation());
             }
 
             for (ExecutionNode childNode : removedNode.getChildren()) {
