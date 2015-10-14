@@ -11,15 +11,16 @@ import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeSet;
 
 import javax.annotation.Nullable;
 
@@ -59,7 +60,7 @@ public class MethodBackedGraph extends ExecutionGraph {
     private final BuilderMethod method;
     private final VirtualMachine vm;
     private final Set<MethodLocation> recreateLocations;
-    private final Set<MethodLocation> reexecuteLocations;
+    private final List<MethodLocation> reexecuteLocations;
     private OpCreator opCreator;
     private boolean recreateOrReexecute;
 
@@ -75,8 +76,7 @@ public class MethodBackedGraph extends ExecutionGraph {
 
         // When many ops are added, such as when unreflecting, need to execute in order to ensure
         // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
-        reexecuteLocations = new TreeSet<MethodLocation>((e1, e2) -> Integer.compare(e1.getCodeAddress(),
-                        e2.getCodeAddress()));
+        reexecuteLocations = new LinkedList<MethodLocation>();
         recreateOrReexecute = true;
     }
 
@@ -334,7 +334,11 @@ public class MethodBackedGraph extends ExecutionGraph {
             }
         }
 
-        for (MethodLocation location : reexecuteLocations) {
+        // Locations with the same address may be added. One is probably being removed. If using a sorted set with an
+        // address comparator, it prevents adding multiple locations. This prevents them from executing here.
+        Collections.sort(reexecuteLocations, (e1, e2) -> Integer.compare(e1.getCodeAddress(), e2.getCodeAddress()));
+        Set<MethodLocation> reexecute = new LinkedHashSet<MethodLocation>(reexecuteLocations);
+        for (MethodLocation location : reexecute) {
             List<ExecutionNode> pile = locationToNodePile.get(location);
             for (int i = 0; i < pile.size(); i++) {
                 ExecutionNode node = pile.get(i);
@@ -441,7 +445,7 @@ public class MethodBackedGraph extends ExecutionGraph {
                 if (!pseudoChild) {
                     if (parentNode != null) {
                         childNode.setParent(parentNode);
-                        reexecuteLocations.add(childNode.getOp().getLocation());
+                        reexecuteLocations.add(childOp.getLocation());
                     }
                 } else {
                     // Implementation was altered such that dexlib removed something, probably nop padding
