@@ -28,23 +28,34 @@ public class Optimizer {
 
     private final MethodBackedGraph mbgraph;
     private final String methodDescriptor;
-    private final List<OptimizationStrategy> strategies;
+    private final List<OptimizationStrategy> reoptimizeStrategies;
+    private final List<OptimizationStrategy> reexecuteStrategies;
+    private final List<OptimizationStrategy> allStrategies;
 
     private boolean madeAnyChanges;
+    private boolean shouldReexecute;
     private Map<String, Integer> optimizationCounts;
 
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, Options opts) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
 
-        strategies = new LinkedList<OptimizationStrategy>();
-        // Strategies should be able to define their own configuration and options.
+        reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         strategy.setRemoveWeak(opts.isRemoveWeak());
-        strategies.add(strategy);
-        strategies.add(new ConstantPropigationStrategy(mbgraph));
-        strategies.add(new PeepholeStrategy(mbgraph));
-        strategies.add(new UnreflectionStrategy(mbgraph));
+        reoptimizeStrategies.add(strategy);
+        reoptimizeStrategies.add(new ConstantPropigationStrategy(mbgraph));
+        reoptimizeStrategies.add(new PeepholeStrategy(mbgraph));
+
+        // Some strategies may alter semantics. E.g. it's possible to remove method reflection without knowing the
+        // result of the reflected method call. This leaves method states in a weird way, i.e. move-result has unknown
+        // values. In these cases, re-execute the method to establish semantics.
+        reexecuteStrategies = new LinkedList<OptimizationStrategy>();
+        reexecuteStrategies.add(new UnreflectionStrategy(mbgraph));
+
+        allStrategies = new LinkedList<OptimizationStrategy>();
+        allStrategies.addAll(reoptimizeStrategies);
+        allStrategies.addAll(reexecuteStrategies);
 
         optimizationCounts = new HashMap<String, Integer>();
     }
@@ -57,10 +68,14 @@ public class Optimizer {
         boolean madeChange;
         do {
             madeChange = false;
-            for (OptimizationStrategy strategy : strategies) {
+            for (OptimizationStrategy strategy : reoptimizeStrategies) {
                 madeChange |= strategy.perform();
             }
-            madeAnyChanges |= madeChange;
+            for (OptimizationStrategy strategy : reexecuteStrategies) {
+                shouldReexecute |= strategy.perform();
+            }
+
+            madeAnyChanges |= madeChange | shouldReexecute;
             sweep++;
         } while (madeChange && sweep < maxSweeps);
 
@@ -71,8 +86,12 @@ public class Optimizer {
         return madeAnyChanges;
     }
 
+    public boolean shouldReexecute() {
+        return shouldReexecute;
+    }
+
     private void updateOptimizationCounts() {
-        for (OptimizationStrategy strategy : strategies) {
+        for (OptimizationStrategy strategy : allStrategies) {
             Map<String, Integer> optimizations = strategy.getOptimizationCounts();
             for (String key : optimizations.keySet()) {
                 Integer currentCount = optimizationCounts.get(key);
