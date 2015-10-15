@@ -20,6 +20,7 @@ import org.cf.smalivm.opcode.GotoOp;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.NopOp;
 import org.cf.smalivm.opcode.Op;
+import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -175,7 +176,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         TIntSet removeSet = new TIntHashSet();
         TIntList removeAddresses;
-        removeAddresses = getUnvisitedAddresses();
+        removeAddresses = getUnusedAddresses();
         unvisitedCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
@@ -317,14 +318,18 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         if (op instanceof NopOp) {
-            // If it's unreached and a nop, it may be a padding nop and shouldn't be removed.
-            return false;
+            int nextAddress = address + op.getLocation().getInstruction().getCodeUnits();
+            Opcode nextOp = mbgraph.getLocation(nextAddress).getInstruction().getOpcode();
+            if (nextOp == Opcode.ARRAY_PAYLOAD) {
+                // Necessary nop padding
+                return false;
+            }
         }
 
         return true;
     }
 
-    TIntList getUnvisitedAddresses() {
+    TIntList getUnusedAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             if (isDead(address)) {

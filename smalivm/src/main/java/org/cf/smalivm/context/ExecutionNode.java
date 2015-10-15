@@ -49,22 +49,11 @@ public class ExecutionNode {
 
     public void execute() {
         ExecutionContext ectx = getContext();
-        if (log.isDebugEnabled()) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("HANDLING @").append(op.getAddress()).append(": ").append(op);
-            sb.append("\nContext before:\n").append(ectx);
-            log.debug(sb.toString());
-        }
-
         if (op instanceof MethodStateOp) {
             MethodState mState = ectx.getMethodState();
             ((MethodStateOp) op).execute(this, mState);
         } else if (op instanceof ExecutionContextOp) {
             ((ExecutionContextOp) op).execute(this, ectx);
-        }
-
-        if (log.isDebugEnabled()) {
-            log.debug("Context after:\n" + ectx);
         }
 
         // Op didn't set children specifically. Pull in template values.

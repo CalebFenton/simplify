@@ -224,7 +224,7 @@ public class TestUnreflectionStrategy {
                             "const/4 r6, 0x3",
                             "aget-object r6, r2, r6",
                             "check-cast r6, Ljava/lang/Integer;",
-                            "invoke-static {r3, r4, r5, r6}, Lreflection_removal_strategy_test;->FourParameterMethod(IIII)V",
+                            "invoke-static {r3, r4, r5, r6}, Lunreflect_strategy_test;->FourParameterMethod(IIII)V",
                             "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                             "return-void", };
 
@@ -237,20 +237,11 @@ public class TestUnreflectionStrategy {
             MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, new Object[] { 4, 3, 2, 1 }, "[Ljava/lang/Object;");
             String[] expectedLines = new String[] {
-                            "nop",
-                            "const/4 r0, 0x0",
-                            "aget-object r0, r2, r0",
-                            "check-cast r0, Ljava/lang/Integer;",
-                            "const/4 r1, 0x1",
-                            "aget-object r1, r2, r1",
-                            "check-cast r1, Ljava/lang/Integer;",
-                            "const/4 r3, 0x2",
-                            "aget-object r3, r2, r3",
-                            "check-cast r3, Ljava/lang/Integer;",
-                            "const/4 r4, 0x3",
-                            "aget-object r4, r2, r4",
-                            "check-cast r4, Ljava/lang/Integer;",
-                            "invoke-static {r0, r1, r3, r4}, Lreflection_removal_strategy_test;->FourParameterMethod(IIII)V",
+                            "nop", "const/4 r0, 0x0", "aget-object r0, r2, r0", "check-cast r0, Ljava/lang/Integer;",
+                            "const/4 r1, 0x1", "aget-object r1, r2, r1", "check-cast r1, Ljava/lang/Integer;",
+                            "const/4 r3, 0x2", "aget-object r3, r2, r3", "check-cast r3, Ljava/lang/Integer;",
+                            "const/4 r4, 0x3", "aget-object r4, r2, r4", "check-cast r4, Ljava/lang/Integer;",
+                            "invoke-static {r0, r1, r3, r4}, Lunreflect_strategy_test;->FourParameterMethod(IIII)V",
                             "move-result-object r0", "return-void", };
 
             testSmali(mbgraph, expectedLines);
@@ -261,27 +252,14 @@ public class TestUnreflectionStrategy {
     public static class TestInvokeVirtualLocalMethodWithSixParameters {
 
         private static final String[] EXPECTED_SHARED = new String[] {
-                        "nop",
-                        "move-object/16 r3, r1",
-                        "const/4 r4, 0x0",
-                        "aget-object r4, r2, r4",
-                        "check-cast r4, Ljava/lang/Integer;",
-                        "const/4 r5, 0x1",
-                        "aget-object r5, r2, r5",
-                        "check-cast r5, Ljava/lang/Integer;",
-                        "const/4 r6, 0x2",
-                        "aget-object r6, r2, r6",
-                        "check-cast r6, Ljava/lang/Integer;",
-                        "const/4 r7, 0x3",
-                        "aget-object r7, r2, r7",
-                        "check-cast r7, Ljava/lang/Integer;",
-                        "const/4 r8, 0x4",
-                        "aget-object r8, r2, r8",
-                        "check-cast r8, Ljava/lang/Integer;",
-                        "const/4 r9, 0x5",
-                        "aget-object r9, r2, r9",
+                        "nop", "move-object/16 r3, r1", "const/4 r4, 0x0", "aget-object r4, r2, r4",
+                        "check-cast r4, Ljava/lang/Integer;", "const/4 r5, 0x1", "aget-object r5, r2, r5",
+                        "check-cast r5, Ljava/lang/Integer;", "const/4 r6, 0x2", "aget-object r6, r2, r6",
+                        "check-cast r6, Ljava/lang/Integer;", "const/4 r7, 0x3", "aget-object r7, r2, r7",
+                        "check-cast r7, Ljava/lang/Integer;", "const/4 r8, 0x4", "aget-object r8, r2, r8",
+                        "check-cast r8, Ljava/lang/Integer;", "const/4 r9, 0x5", "aget-object r9, r2, r9",
                         "check-cast r9, Ljava/lang/Integer;",
-                        "invoke-virtual/range {r3 .. r9}, Lreflection_removal_strategy_test;->SixParameterMethod(IIIIII)V", };
+                        "invoke-virtual/range {r3 .. r9}, Lunreflect_strategy_test;->SixParameterMethod(IIIIII)V", };
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");
 
         @Test
@@ -314,7 +292,7 @@ public class TestUnreflectionStrategy {
 
         private static final String[] expectedLines = new String[] {
                         "nop",
-                        "invoke-direct {r1}, Lreflection_removal_strategy_test;->PrivateVirtualMethod()V",
+                        "invoke-direct {r1}, Lunreflect_strategy_test;->PrivateVirtualMethod()V",
                         "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->PrivateVirtualMethod()V");
@@ -368,7 +346,7 @@ public class TestUnreflectionStrategy {
 
     }
 
-    private static final String CLASS_NAME = "Lreflection_removal_strategy_test;";
+    private static final String CLASS_NAME = "Lunreflect_strategy_test;";
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(TestUnreflectionStrategy.class.getSimpleName());

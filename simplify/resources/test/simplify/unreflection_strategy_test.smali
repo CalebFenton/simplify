@@ -1,4 +1,4 @@
-.class Lreflection_removal_strategy_test;
+.class Lunreflect_strategy_test;
 .super Ljava/lang/Object;
 
 .field private someInt:I
