@@ -13,16 +13,29 @@
   return-void
 .end method
 
+.method public static hasLabelOnConstantizableOp(I)I
+    .locals 1
+
+    const/4 v0, 0x1
+    if-eq p0, v0, :cond_0
+
+    :cond_0
+    add-int/2addr v0, v0
+
+    :end
+    return v0
+.end method
+
 .method public static constantPredicate()I
-  .locals 1
+    .locals 1
 
-  const/4 v0, 0x0
-  if-eq v0, v0, :end
+    const/4 v0, 0x0
+    if-eq v0, v0, :end
 
-  const/4 v0, 0x1
+    const/4 v0, 0x1
 
-  :end
-  return v0
+    :end
+    return v0
 .end method
 
 .method private static hasGotoAndOneNop()V

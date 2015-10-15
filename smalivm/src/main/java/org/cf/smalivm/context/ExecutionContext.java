@@ -264,14 +264,18 @@ public class ExecutionContext {
     }
 
     public void setParent(ExecutionContext parent) {
+        setShallowParent(parent);
+
+        MethodState childMethodState = parent.getMethodState().getChild(this);
+        setMethodState(childMethodState);
+    }
+
+    public void setShallowParent(ExecutionContext parent) {
         assert parent.getMethodState() != null;
 
         this.parent = parent;
         callDepth = parent.getCallDepth();
         getHeap().setParent(parent.getHeap());
-
-        MethodState childMethodState = parent.getMethodState().getChild(this);
-        setMethodState(childMethodState);
     }
 
     public ExecutionContext getParent() {

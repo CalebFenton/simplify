@@ -12,12 +12,14 @@ import java.util.List;
 
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.Op;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.junit.Test;
@@ -30,7 +32,30 @@ public class TestMethodBackedGraph {
     private MethodBackedGraph mbgraph;
 
     @Test
-    public void testAddInstructionThatCausesNopPaddingToBeAddedModifiesStateCorrectly() {
+    public void testAddingInstructionModifiesStateCorrectly() {
+        //@formatter:off
+        Object[][] expected = new Object[][] {
+                        { 0, Opcode.NOP, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
+                        { 1, Opcode.CONST_4, new Object[][][] { { { 2, Opcode.CONST_4 } } } },
+                        { 2, Opcode.CONST_4, new Object[][][] { { { 3, Opcode.CONST_4 } } } },
+                        { 3, Opcode.CONST_4, new Object[][][] { { { 4, Opcode.CONST_4 } } } },
+                        { 4, Opcode.CONST_4, new Object[][][] { { { 5, Opcode.CONST_4 } } } },
+                        { 5, Opcode.CONST_4, new Object[][][] { { { 6, Opcode.RETURN_VOID } } } },
+                        { 6, Opcode.RETURN_VOID, new Object[1][0][0] },
+        };
+        //@formatter:on
+
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
+        mbgraph.addInstruction(0, addition);
+
+        test(expected, mbgraph);
+        testHeritage(mbgraph, 0);
+        testHeritage(mbgraph, 1);
+    }
+
+    @Test
+    public void testAddingInstructionThatCausesNopPaddingToBeAddedModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
@@ -56,29 +81,7 @@ public class TestMethodBackedGraph {
     }
 
     @Test
-    public void testHasEveryRegisterAvailableAtEveryAddress() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        int[] addresses = mbgraph.getAddresses();
-        int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, };
-        for (int address : addresses) {
-            int[] actualAvailable = mbgraph.getAvailableRegisters(address).toArray();
-            Arrays.sort(actualAvailable);
-            assertArrayEquals(expectedAvailable, actualAvailable);
-        }
-    }
-
-    @Test
-    public void testHasExpectedBasicProperties() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-
-        int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
-        int[] actualAddresses = mbgraph.getAddresses();
-        Arrays.sort(actualAddresses);
-        assertArrayEquals(expectedAddresses, actualAddresses);
-    }
-
-    @Test
-    public void testInsertingManyNopsAfterGotoModifiesStateCorrectly() {
+    public void testAddingManyNopsAfterGotoModifiesStateCorrectly() {
         int nops_to_insert = 127;
 
         Object[][] expected = new Object[3 + nops_to_insert][];
@@ -104,7 +107,7 @@ public class TestMethodBackedGraph {
     }
 
     @Test
-    public void testInsertingThenRemovingManyNopsAfterGotoModifiesStateCorrectly() {
+    public void testAddingThenRemovingManyNopsAfterGotoModifiesStateCorrectly() {
         Object[][] expected = new Object[3][];
         expected[0] = new Object[] { 0, Opcode.GOTO_16, new Object[][][] { { { 3, Opcode.RETURN_VOID } } } };
         expected[1] = new Object[] { 2, Opcode.NOP, new Object[0][0][0] };
@@ -122,35 +125,58 @@ public class TestMethodBackedGraph {
         mbgraph.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
 
         TIntList removeList = new TIntLinkedList();
-        for (int i = 0; i < nops_to_insert; i++) {
+        // for (int removeAddress = 2, i = 0; i < nops_to_insert; removeAddress++, i++) {
+        for (int i = 1; i < nops_to_insert; i++) {
             int removeAddress = i + 2;
             removeList.add(removeAddress);
         }
         mbgraph.removeInstructions(removeList);
 
+        mbgraph.removeInstruction(2);
+
         test(expected, mbgraph);
     }
 
     @Test
-    public void testInsertInstructionModifiesStateCorrectly() {
+    public void testHasEveryRegisterAvailableAtEveryAddress() {
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        int[] addresses = mbgraph.getAddresses();
+        int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, };
+        for (int address : addresses) {
+            int[] actualAvailable = mbgraph.getAvailableRegisters(address).toArray();
+            Arrays.sort(actualAvailable);
+            assertArrayEquals(expectedAvailable, actualAvailable);
+        }
+    }
+
+    @Test
+    public void testHasExpectedBasicProperties() {
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+
+        int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
+        int[] actualAddresses = mbgraph.getAddresses();
+        Arrays.sort(actualAddresses);
+        assertArrayEquals(expectedAddresses, actualAddresses);
+    }
+
+    @Test
+    public void testRemoveInstructionThatCausesNopPaddingToBeRemovedAndHasParentWhichWModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
-                        { 0, Opcode.NOP, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
-                        { 1, Opcode.CONST_4, new Object[][][] { { { 2, Opcode.CONST_4 } } } },
-                        { 2, Opcode.CONST_4, new Object[][][] { { { 3, Opcode.CONST_4 } } } },
-                        { 3, Opcode.CONST_4, new Object[][][] { { { 4, Opcode.CONST_4 } } } },
-                        { 4, Opcode.CONST_4, new Object[][][] { { { 5, Opcode.CONST_4 } } } },
-                        { 5, Opcode.CONST_4, new Object[][][] { { { 6, Opcode.RETURN_VOID } } } },
-                        { 6, Opcode.RETURN_VOID, new Object[1][0][0] },
+                        { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
+                        { 2, Opcode.NEW_ARRAY, new Object[][][] { { { 4, Opcode.FILL_ARRAY_DATA } } } },
+                        { 4, Opcode.FILL_ARRAY_DATA, new Object[][][] { { { 8, Opcode.ARRAY_PAYLOAD } } } },
+                        { 7, Opcode.RETURN_VOID, new Object[1][0][0] },
+                        { 8, Opcode.ARRAY_PAYLOAD, new Object[][][] { { { 7, Opcode.RETURN_VOID } } } },
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
-        BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
-        mbgraph.addInstruction(0, addition);
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNopPadding()V");
+        mbgraph.removeInstruction(4);
 
         test(expected, mbgraph);
-        testHeritage(mbgraph, 0);
+        testHeritage(mbgraph, 2);
+        testHeritage(mbgraph, 4);
     }
 
     @Test
@@ -190,32 +216,16 @@ public class TestMethodBackedGraph {
         test(expected, mbgraph);
         testHeritage(mbgraph, 0);
         testHeritage(mbgraph, 1);
-
-        ExecutionNode child = mbgraph.getNodePile(1).get(0);
-        assertArrayEquals(new int[] { 2 }, child.getContext().getMethodState().getRegistersAssigned().toArray());
-
-        ExecutionNode parent = mbgraph.getNodePile(0).get(0);
-        assertArrayEquals(new int[] { 0 }, parent.getContext().getMethodState().getRegistersAssigned().toArray());
-    }
-
-    @Test
-    public void testRemoveInstructionThatCausesNopPaddingToBeRemovedAndHasParentWhichShouldNotBeReexecutedModifiesStateCorrectly() {
-        //@formatter:off
-        Object[][] expected = new Object[][] {
-                        { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
-                        { 2, Opcode.NEW_ARRAY, new Object[][][] { { { 4, Opcode.FILL_ARRAY_DATA } } } },
-                        { 4, Opcode.FILL_ARRAY_DATA, new Object[][][] { { { 8, Opcode.ARRAY_PAYLOAD } } } },
-                        { 7, Opcode.RETURN_VOID, new Object[1][0][0] },
-                        { 8, Opcode.ARRAY_PAYLOAD, new Object[][][] { { { 7, Opcode.RETURN_VOID } } } },
-        };
-        //@formatter:on
-
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNopPadding()V");
-        mbgraph.removeInstruction(4);
-
-        test(expected, mbgraph);
         testHeritage(mbgraph, 2);
-        testHeritage(mbgraph, 4);
+
+        MethodState parentState = mbgraph.getNodePile(0).get(0).getContext().getMethodState();
+        assertArrayEquals(new int[] { 0 }, parentState.getRegistersAssigned().toArray());
+
+        MethodState childState = mbgraph.getNodePile(1).get(0).getContext().getMethodState();
+        assertArrayEquals(new int[] { 2 }, childState.getRegistersAssigned().toArray());
+
+        MethodState grandchildState = mbgraph.getNodePile(2).get(0).getContext().getMethodState();
+        assertArrayEquals(new int[] { 3 }, grandchildState.getRegistersAssigned().toArray());
     }
 
     @Test
@@ -230,11 +240,10 @@ public class TestMethodBackedGraph {
         mbgraph.replaceInstruction(1, replacement);
 
         testHeritage(mbgraph, 0);
-        testHeritage(mbgraph, 1);
     }
 
     @Test
-    public void testReplaceInstructionModifiesStateCorrectly() {
+    public void testReplacingInstructionWithDifferentOpcodeWidthModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.CONST_4 } } } },
@@ -289,6 +298,16 @@ public class TestMethodBackedGraph {
 
         consensus = mbgraph.getRegisterConsensus(3, 2);
         assertEquals(2, consensus.getValue());
+    }
+
+    @Test
+    public void testReplacingInstructionGetsLabelsAtInsertionAddress() {
+        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasLabelOnConstantizableOp(I)I");
+        BuilderInstruction addition = new BuilderInstruction11n(Opcode.CONST_4, 0, 2);
+
+        assertEquals(1, mbgraph.getInstruction(3).getLocation().getLabels().size());
+        mbgraph.replaceInstruction(3, addition);
+        assertEquals(1, mbgraph.getInstruction(3).getLocation().getLabels().size());
     }
 
     private static void test(Object[][] expected, MethodBackedGraph mbgraph) {
