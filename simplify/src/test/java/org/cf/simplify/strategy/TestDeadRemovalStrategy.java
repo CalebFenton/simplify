@@ -27,9 +27,20 @@ public class TestDeadRemovalStrategy {
         String methodName = "DeadCode()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getUnvisitedAddresses();
+        TIntList found = strategy.getUnusedAddresses();
         found.sort();
         TIntList expected = new TIntArrayList(new int[] { 2, 3, 4, 5 });
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void testDeadNopPaddingIsNotRemoved() {
+        String methodName = "hasNopPadding()V";
+        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        TIntList found = strategy.getUnusedAddresses();
+        TIntList expected = new TIntArrayList(new int[] {});
 
         assertEquals(expected, found);
     }
@@ -39,7 +50,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "DeadCodeWithStrongSideEffect()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getUnvisitedAddresses();
+        TIntList found = strategy.getUnusedAddresses();
         found.sort();
         TIntList expected = new TIntArrayList(new int[] { 1 });
 

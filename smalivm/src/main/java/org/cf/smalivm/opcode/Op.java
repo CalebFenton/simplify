@@ -45,7 +45,12 @@ public abstract class Op {
     }
 
     public final String getName() {
-        return getInstruction().getOpcode().name;
+        if (getInstruction() != null) {
+            return getInstruction().getOpcode().name;
+        } else {
+            // Happens during instruction removal
+            return "*null instr*";
+        }
     }
 
     public SideEffect.Level getSideEffectLevel() {

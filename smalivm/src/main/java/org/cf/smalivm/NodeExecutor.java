@@ -22,6 +22,14 @@ public class NodeExecutor {
     }
 
     public void execute(ExecutionNode node) throws UnhandledVirtualException {
+        if (log.isDebugEnabled()) {
+            Op op = node.getOp();
+            StringBuilder sb = new StringBuilder("Handling @");
+            sb.append(op.getAddress()).append(": ").append(op);
+            sb.append("\nContext before:\n").append(node.getContext());
+            log.debug(sb.toString());
+        }
+
         try {
             node.execute();
         } catch (Exception e) {
@@ -36,6 +44,10 @@ public class NodeExecutor {
 
         spawnChildren(graph, node);
         spawnExceptionChildren(graph, node, exceptionResolver);
+
+        if (log.isDebugEnabled()) {
+            log.debug("Context after:\n" + node.getContext());
+        }
     }
 
     private static void spawnChild(ExecutionGraph graph, ExecutionNode parentNode, int childAddress) {
