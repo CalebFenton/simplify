@@ -135,12 +135,12 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private TIntList addresses;
-    private int deadAssignmentCount;
-    private int deadBranchCount;
-    private int deadCount;
+    private int unusedAssignmentCount;
+    private int uselessBranchCount;
+    private int unvisitedCount;
     private int nopCount;
 
-    private int deadResultCount;
+    private int unusedResultCount;
 
     private SideEffect.Level sideEffectThreshold = SideEffect.Level.NONE;
 
@@ -149,20 +149,20 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
         this.mbgraph = mbgraph;
         addresses = getValidAddresses(mbgraph);
-        deadAssignmentCount = 0;
-        deadBranchCount = 0;
-        deadCount = 0;
-        deadResultCount = 0;
+        unusedAssignmentCount = 0;
+        uselessBranchCount = 0;
+        unvisitedCount = 0;
+        unusedResultCount = 0;
         nopCount = 0;
     }
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
         Map<String, Integer> result = new HashMap<String, Integer>();
-        result.put("dead", deadCount);
-        result.put("deadAssignment", deadAssignmentCount);
-        result.put("deadResult", deadResultCount);
-        result.put("deadBranch", deadBranchCount);
+        result.put("unvisited", unvisitedCount);
+        result.put("unusedAssignment", unusedAssignmentCount);
+        result.put("unusedResult", unusedResultCount);
+        result.put("uselessBranch", uselessBranchCount);
         result.put("nops", nopCount);
 
         return result;
@@ -175,20 +175,20 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
         TIntSet removeSet = new TIntHashSet();
         TIntList removeAddresses;
-        removeAddresses = getDeadAddresses();
-        deadCount += removeAddresses.size();
+        removeAddresses = getUnvisitedAddresses();
+        unvisitedCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
-        removeAddresses = getDeadAssignmentAddresses();
-        deadAssignmentCount += removeAddresses.size();
+        removeAddresses = getUnusedAssignmentAddresses();
+        unusedAssignmentCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
-        removeAddresses = getDeadResultAddresses();
-        deadResultCount += removeAddresses.size();
+        removeAddresses = getUnusedResultAddresses();
+        unusedResultCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
         removeAddresses = getUselessBranchAddresses();
-        deadBranchCount += removeAddresses.size();
+        uselessBranchCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
         removeAddresses = getNopAddresses();
@@ -324,7 +324,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getDeadAddresses() {
+    TIntList getUnvisitedAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             if (isDead(address)) {
@@ -335,7 +335,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    TIntList getDeadAssignmentAddresses() {
+    TIntList getUnusedAssignmentAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             if (isDeadAssignment(address)) {
@@ -346,7 +346,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return result;
     }
 
-    TIntList getDeadResultAddresses() {
+    TIntList getUnusedResultAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
             if (isDeadResult(address)) {

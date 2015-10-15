@@ -8,6 +8,7 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -80,9 +81,18 @@ public class MethodBackedGraph extends ExecutionGraph {
         recreateOrReexecute = true;
     }
 
-    public void addInstruction(MethodLocation location, BuilderInstruction newInstruction) {
+    public void addInstruction(MethodLocation location, BuilderInstruction instruction) {
         int index = location.getIndex();
-        implementation.addInstruction(index, newInstruction);
+        implementation.addInstruction(index, instruction);
+        MethodLocation newLocation = instruction.getLocation();
+        MethodLocation oldLocation = implementation.getInstructions().get(index + 1).getLocation();
+        try {
+            Method m = MethodLocation.class.getDeclaredMethod("mergeInto", MethodLocation.class);
+            m.setAccessible(true);
+            m.invoke(oldLocation, newLocation);
+        } catch (Exception e) {
+            log.error("Error invoking MethodLocation#mergeInto(). Wrong dexlib version?", e);
+        }
 
         rebuildGraph();
     }
@@ -192,7 +202,7 @@ public class MethodBackedGraph extends ExecutionGraph {
     public void removeInstruction(MethodLocation location) {
         int index = location.getIndex();
         implementation.removeInstruction(index);
-        removeEmptyTryCatchBlocks();
+        // removeEmptyTryCatchBlocks();
 
         rebuildGraph();
     }
@@ -279,18 +289,29 @@ public class MethodBackedGraph extends ExecutionGraph {
             ExecutionNode shiftedParent = shiftedNode.getParent();
             ExecutionContext newContext;
             if (shiftedParent != null) {
-                newContext = shiftedParent.getContext().spawnChild();
-                newNode.setContext(newContext);
-                shiftedParent.replaceChild(shiftedNode, newNode);
-                recreateLocations.add(newNode.getParent().getOp().getLocation());
+                shiftedParent.removeChild(shiftedNode);
+                reparentNode(newNode, shiftedParent);
+
+                // Recreate parent op because its children locations may be affected.
+                recreateLocations.add(shiftedParent.getOp().getLocation());
             } else {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
                 newContext = vm.spawnExecutionContext(methodDescriptor);
                 newNode.setContext(newContext);
             }
-            shiftedNode.setParent(newNode);
-            reexecuteLocations.add(shiftedNode.getOp().getLocation());
+            reparentNode(shiftedNode, newNode);
+        }
+    }
+
+    private void reparentNode(ExecutionNode child, ExecutionNode parent) {
+        ExecutionContext newContext = parent.getContext().spawnChild();
+        child.setContext(newContext);
+        child.setParent(parent);
+        reexecuteLocations.add(child.getOp().getLocation());
+
+        for (ExecutionNode grandChild : child.getChildren()) {
+            grandChild.getContext().setShallowParent(newContext);
         }
     }
 
@@ -358,18 +379,18 @@ public class MethodBackedGraph extends ExecutionGraph {
         // This seems like overkill until you realize implementation may change from under us.
         // Multiple new instructions may be added from adding or removing a single instruction.
         Set<MethodLocation> staleLocations = locationToNodePile.keySet();
-        Set<MethodLocation> freshLocations = new HashSet<MethodLocation>();
+        Set<MethodLocation> implementationLocations = new HashSet<MethodLocation>();
         for (BuilderInstruction instruction : implementation.getInstructions()) {
-            freshLocations.add(instruction.getLocation());
+            implementationLocations.add(instruction.getLocation());
         }
 
-        Set<MethodLocation> addedLocations = new HashSet<MethodLocation>(freshLocations);
+        Set<MethodLocation> addedLocations = new HashSet<MethodLocation>(implementationLocations);
         addedLocations.removeAll(staleLocations);
         for (MethodLocation location : addedLocations) {
             addToNodePile(location);
         }
         Set<MethodLocation> removedLocations = new HashSet<MethodLocation>(staleLocations);
-        removedLocations.removeAll(freshLocations);
+        removedLocations.removeAll(implementationLocations);
         for (MethodLocation location : removedLocations) {
             removeFromNodePile(location);
         }
@@ -429,29 +450,27 @@ public class MethodBackedGraph extends ExecutionGraph {
     }
 
     private void removeFromNodePile(MethodLocation location) {
-        List<ExecutionNode> nodePile = locationToNodePile.get(location);
-        locationToNodePile.remove(location);
+        List<ExecutionNode> nodePile = locationToNodePile.remove(location);
         Map<MethodLocation, ExecutionNode> locationToChildNodeToRemove = new HashMap<MethodLocation, ExecutionNode>();
         for (ExecutionNode removedNode : nodePile) {
             ExecutionNode parentNode = removedNode.getParent();
-            if (parentNode != null) {
-                parentNode.removeChild(removedNode);
-                recreateLocations.add(parentNode.getOp().getLocation());
+            if (parentNode == null) {
+                continue;
             }
+
+            parentNode.removeChild(removedNode);
+            recreateLocations.add(parentNode.getOp().getLocation());
+            // reexecuteLocations.add(parentNode.getOp().getLocation());
 
             for (ExecutionNode childNode : removedNode.getChildren()) {
                 Op childOp = childNode.getOp();
                 boolean pseudoChild = (childOp instanceof FillArrayDataPayloadOp || childOp instanceof SwitchPayloadOp);
                 if (!pseudoChild) {
-                    if (parentNode != null) {
-                        childNode.setParent(parentNode);
-                        reexecuteLocations.add(childOp.getLocation());
-                    }
-                } else {
+                    reparentNode(childNode, parentNode);
+                } else { // pseudo child
                     // Implementation was altered such that dexlib removed something, probably nop padding
                     for (ExecutionNode grandChildNode : childNode.getChildren()) {
-                        grandChildNode.setParent(parentNode);
-                        reexecuteLocations.add(grandChildNode.getOp().getLocation());
+                        reparentNode(grandChildNode, parentNode);
                     }
                     locationToChildNodeToRemove.put(childOp.getLocation(), childNode);
                 }
@@ -462,7 +481,6 @@ public class MethodBackedGraph extends ExecutionGraph {
             List<ExecutionNode> pile = locationToNodePile.get(entry.getKey());
             pile.remove(entry.getValue());
         }
-
     }
 
     TIntList getReachedAddresses() {

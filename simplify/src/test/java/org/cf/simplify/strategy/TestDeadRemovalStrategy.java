@@ -27,7 +27,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "DeadCode()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAddresses();
+        TIntList found = strategy.getUnvisitedAddresses();
         found.sort();
         TIntList expected = new TIntArrayList(new int[] { 2, 3, 4, 5 });
 
@@ -39,7 +39,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "DeadCodeWithStrongSideEffect()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAddresses();
+        TIntList found = strategy.getUnvisitedAddresses();
         found.sort();
         TIntList expected = new TIntArrayList(new int[] { 1 });
 
@@ -51,7 +51,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "ReassignedInOnlyOneMultiverse(I)I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
+        TIntList found = strategy.getUnusedAssignmentAddresses();
         found.sort();
         TIntList expected = new TIntArrayList(new int[0]);
 
@@ -63,7 +63,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "DeadTryCatchBlock()V";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
+        TIntList found = strategy.getUnusedAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] { 0 });
 
         assertEquals(expected, found);
@@ -85,7 +85,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "MoveP0IntoV0With30Locals(I)V";
         MethodBackedGraph mbgraph = getOptimizedGraph(methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
+        TIntList found = strategy.getUnusedAssignmentAddresses();
 
         assertEquals(0, found.size());
     }
@@ -95,7 +95,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "UnusedAssignment()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
+        TIntList found = strategy.getUnusedAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] { 0 });
 
         assertEquals(expected, found);
@@ -106,7 +106,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "UnusedResultNoSideEffects()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadResultAddresses();
+        TIntList found = strategy.getUnusedResultAddresses();
         TIntList expected = new TIntArrayList(new int[] { 1 });
 
         assertEquals(expected, found);
@@ -117,7 +117,7 @@ public class TestDeadRemovalStrategy {
         String methodName = "UnusedResultWithSideEffects()I";
         MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
-        TIntList found = strategy.getDeadAssignmentAddresses();
+        TIntList found = strategy.getUnusedAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] {});
 
         assertEquals(expected, found);
