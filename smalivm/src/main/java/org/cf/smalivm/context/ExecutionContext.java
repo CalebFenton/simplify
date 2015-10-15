@@ -93,7 +93,7 @@ public class ExecutionContext {
         return ancestor.classNameToStatus.get(className).getSideEffectLevel();
     }
 
-    public Heap getHeap() {
+    Heap getHeap() {
         return heap;
     }
 

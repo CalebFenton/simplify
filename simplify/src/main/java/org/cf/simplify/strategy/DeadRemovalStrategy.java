@@ -306,18 +306,28 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return (level.compareTo(sideEffectThreshold) > 0);
     }
 
+    boolean isDead(int address) {
+        Op op = mbgraph.getOp(address);
+        if (log.isDebugEnabled()) {
+            log.debug("Dead test @" + address + " for: " + op);
+        }
+
+        if (mbgraph.wasAddressReached(address)) {
+            return false;
+        }
+
+        if (op instanceof NopOp) {
+            // If it's unreached and a nop, it may be a padding nop and shouldn't be removed.
+            return false;
+        }
+
+        return true;
+    }
+
     TIntList getDeadAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOp(address);
-            if (log.isDebugEnabled()) {
-                log.debug("Dead test @" + address + " for: " + op);
-            }
-
-            if (!mbgraph.wasAddressReached(address)) {
-                if (log.isDebugEnabled()) {
-                    log.debug("dead: " + op);
-                }
+            if (isDead(address)) {
                 result.add(address);
             }
         }
@@ -371,6 +381,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getNopAddresses() {
         TIntList nopAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
+            if (!mbgraph.wasAddressReached(address)) {
+                continue;
+            }
             Op op = mbgraph.getOp(address);
             if (op instanceof NopOp) {
                 nopAddresses.add(address);

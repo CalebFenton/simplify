@@ -85,27 +85,32 @@ public class Launcher {
         }
 
         for (String methodDescriptor : methodDescriptors) {
-            System.out.println("Executing: " + methodDescriptor);
-            ExecutionGraph graph = null;
-            try {
-                graph = vm.execute(methodDescriptor);
-            } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
-                System.err.println("Max visitation exception: " + e);
-            }
+            boolean shouldReexecute = false;
+            do {
+                System.out.println("Executing: " + methodDescriptor);
+                ExecutionGraph graph = null;
+                try {
+                    graph = vm.execute(methodDescriptor);
+                } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+                    System.err.println("Max visitation exception: " + e);
+                }
 
-            if (null == graph) {
-                System.out.println("Skipping " + methodDescriptor);
-                break;
-            }
+                if (null == graph) {
+                    System.out.println("Skipping " + methodDescriptor);
+                    break;
+                }
 
-            BuilderMethod method = classManager.getMethod(methodDescriptor);
-            Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
-            optimizer.simplify(opts.getMaxOptimizationPasses());
-            if (optimizer.madeChanges()) {
-                // Optimizer changed the implementation. Re-build graph to include changes.
-                vm.updateInstructionGraph(methodDescriptor);
-            }
-            System.out.println(optimizer.getOptimizationCounts());
+                BuilderMethod method = classManager.getMethod(methodDescriptor);
+                Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
+                optimizer.simplify(opts.getMaxOptimizationPasses());
+                if (optimizer.madeChanges()) {
+                    // Optimizer changed the implementation. Re-build graph to include changes.
+                    vm.updateInstructionGraph(methodDescriptor);
+                }
+                System.out.println(optimizer.getOptimizationCounts());
+
+                shouldReexecute = optimizer.shouldReexecute();
+            } while (shouldReexecute);
         }
     }
 
