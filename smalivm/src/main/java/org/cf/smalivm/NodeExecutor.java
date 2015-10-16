@@ -46,7 +46,7 @@ public class NodeExecutor {
         spawnExceptionChildren(graph, node, exceptionResolver);
 
         if (log.isDebugEnabled()) {
-            log.debug("Context after:\n" + node.getContext());
+            log.debug("Context after:\n{}", node.getContext());
         }
     }
 
