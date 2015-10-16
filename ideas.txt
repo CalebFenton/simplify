@@ -2,6 +2,32 @@ This is a scratch pad for ideas.
 Many of them are too undercooked or too broad to be articulated as issues on github.
 
 
+add time limits to methods
+
+toggle optimizers
+
+
+
+rewrite option handling to use apache cmdline handler
+    change to <input dex / apk> [options]
+    add example for -it option, uses com/package not com.package
+
+
+move side effects out of ops and into execution nodes
+the op is shared between all nodes at a location
+record side effect information the node
+
+replace all methodDescriptors internally with methodreferences
+this is to keep string duplication down
+
+
+-i sandbox/hubert/hubert_sample.apk -it 'Lcom/i_manager/ajroute/c;->a\(Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/Integer;\)Ljava/lang/Integer;' -v
+has this, which should be considered dead, needs to be specifically white listed
+v0 is "assigned" since it's an instance and could have changed, but v0 is never used
+    #@1f
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+
 Emulate System.exit() to halt the thread
 
 During execution, the context has no awareness of the current method or the call stack. Knowing these things allows for:
