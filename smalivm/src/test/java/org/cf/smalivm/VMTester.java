@@ -29,6 +29,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
+import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
@@ -123,21 +124,21 @@ public class VMTester {
     }
 
     public static DexBuilder getDexBuilder() {
-        return DexBuilder.makeDexBuilder(Dexifier.DEFAULT_API_LEVEL);
+        return DexBuilder.makeDexBuilder(Opcodes.forApi(Dexifier.DEFAULT_API_LEVEL));
     }
 
     public static VirtualMachine getTestVM(boolean reloadClasses) {
         // Not reloading classes is an optimization to speed up tests
         if ((null == classManager) || reloadClasses) {
             try {
-                classManager = new ClassManager(TEST_DIRECTORY, getDexBuilder());
+                classManager = new ClassManagerFactory().build(TEST_DIRECTORY, getDexBuilder());
             } catch (IOException e) {
                 e.printStackTrace();
                 System.exit(-1);
             }
         }
 
-        return new VirtualMachine(classManager);
+        return new VirtualMachineFactory().build(classManager);
     }
 
     public static VirtualMachine getTestVM() {

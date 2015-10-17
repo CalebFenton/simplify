@@ -24,7 +24,7 @@ public class TestClassManager {
 
     @BeforeClass
     public static void getClassManager() throws IOException {
-        manager = new ClassManager(TEST_DIRECTORY);
+        manager = new ClassManagerFactory().build(TEST_DIRECTORY);
     }
 
     @Test

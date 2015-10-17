@@ -57,22 +57,12 @@ public class VirtualMachine {
 
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
 
-    private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
-    private static final int DEFAULT_MAX_CALL_DEPTH = 20;
-    private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
-    private static final int DEFAULT_MAX_EXECUTION_TIME = 5 * 60;
-
     private final MethodExecutor methodExecutor;
     private final ClassManager classManager;
     private final Map<BuilderMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
 
-    public VirtualMachine(ClassManager manager) {
-        this(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS,
-                        DEFAULT_MAX_EXECUTION_TIME);
-    }
-
-    public VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
+    VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
                     int maxExecutionTime) {
         this.classManager = manager;
         methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits,

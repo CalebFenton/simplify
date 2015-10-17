@@ -1,7 +1,7 @@
 package org.cf.demoapp;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineFactory;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
@@ -20,20 +20,19 @@ public class Main {
     private static VirtualMachine vm;
 
     public static void main(String[] args) throws Exception {
-        // The class manager is responsible for loading Smali files.
-        ClassManager classManager = new ClassManager(SMALI_PATH);
-        vm = new VirtualMachine(classManager);
+        VirtualMachineFactory vmFactory = new VirtualMachineFactory();
+        vm = vmFactory.build(SMALI_PATH);
 
         // Hook println with our own implementation
         MethodEmulator.addMethod("Ljava/io/PrintStream;->println(Ljava/lang/String;)V",
                         java_io_PrintStream_println.class);
 
         // Execute particular method
-        // vm.execute("Lorg/cf/demosmali/Main;->main([Ljava/lang/String;)V");
+        vm.execute("Lorg/cf/demosmali/Main;->main([Ljava/lang/String;)V");
 
         executePrintParameter(42);
-        // executeParameterLogicWithUnknownParameter();
-        // executeParameterLogicWithKnownParameter(10);
+        executeParameterLogicWithUnknownParameter();
+        executeParameterLogicWithKnownParameter(10);
     }
 
     private static void executeParameterLogicWithKnownParameter(int parameterValue) throws MaxAddressVisitsExceeded,
