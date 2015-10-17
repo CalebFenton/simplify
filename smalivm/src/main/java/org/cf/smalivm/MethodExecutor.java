@@ -93,6 +93,7 @@ public class MethodExecutor {
         while ((node = stack.poll()) != null) {
             totalVisits += 1;
             checkMaxVisits(node, methodDescriptor, addressToVisitCount);
+
             nodeExecutor.execute(node);
             stack.addAll(node.getChildren());
             checkMaxExecutionTime(endTime, methodDescriptor);
