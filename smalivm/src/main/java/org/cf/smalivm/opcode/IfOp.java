@@ -96,7 +96,7 @@ public class IfOp extends MethodStateOp {
         }
 
         if (log.isTraceEnabled()) {
-            log.trace("IF compare: " + lhs + " vs " + rhs + " = " + cmp);
+            log.trace("IF compare: {} vs {} = {}", lhs, rhs, cmp);
         }
 
         int childIndex = isTrue(ifType, cmp) ? 1 : 0;

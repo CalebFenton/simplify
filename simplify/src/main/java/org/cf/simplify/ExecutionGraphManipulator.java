@@ -65,7 +65,8 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     private OpCreator opCreator;
     private boolean recreateOrReexecute;
 
-    public ExecutionGraphManipulator(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
+    public ExecutionGraphManipulator(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm,
+                    DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;
@@ -202,7 +203,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     public void removeInstruction(MethodLocation location) {
         int index = location.getIndex();
         implementation.removeInstruction(index);
-        // removeEmptyTryCatchBlocks();
+        removeEmptyTryCatchBlocks();
 
         rebuildGraph();
     }
@@ -481,17 +482,6 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             List<ExecutionNode> pile = locationToNodePile.get(entry.getKey());
             pile.remove(entry.getValue());
         }
-    }
-
-    TIntList getReachedAddresses() {
-        TIntList result = new TIntArrayList();
-        for (int address : addressToLocation.keys()) {
-            if (wasAddressReached(address)) {
-                result.add(address);
-            }
-        }
-
-        return result;
     }
 
 }

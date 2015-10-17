@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -930,6 +931,7 @@ public class TestBinaryMathOp {
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("J"));
+            assertEquals("div-long r" + DEST_REGISTER + ", r" + ARG1_REGISTER + ", r" + ARG2_REGISTER, op.toString());
         }
 
         @Test
