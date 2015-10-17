@@ -227,7 +227,7 @@ public class ExecutionContext {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         if (mState != null) {
-            sb.append("Method: ").append(mState.toString());
+            sb.append("Method state: ").append(mState.toString());
         }
         if (sb.length() > 0) {
             sb.append('\n');
@@ -238,7 +238,7 @@ public class ExecutionContext {
             for (String className : initializedClasses) {
                 // ClassState cState = peekClassState(className);
                 ClassState cState = classNameToStatus.get(className).getClassState();
-                sb.append("Class: ").append(className).append(' ').append(cState);
+                sb.append("Class state: ").append(className).append(' ').append(cState);
             }
         }
 

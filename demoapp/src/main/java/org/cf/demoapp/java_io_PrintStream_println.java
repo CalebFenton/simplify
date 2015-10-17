@@ -9,8 +9,9 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodStateMethod;
+import org.cf.smalivm.emulate.UnknownValuesMethod;
 
-public class java_io_PrintStream_println implements MethodStateMethod {
+public class java_io_PrintStream_println implements MethodStateMethod, UnknownValuesMethod {
 
     @Override
     public void execute(VirtualMachine vm, MethodState mState) {

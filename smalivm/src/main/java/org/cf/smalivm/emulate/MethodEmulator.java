@@ -68,7 +68,7 @@ public class MethodEmulator {
     public static boolean canHandleUnknownValues(String methodDescriptor) {
         Class<? extends EmulatedMethod> methodClass = emulatedMethods.get(methodDescriptor);
 
-        return (methodClass != null) && (methodClass.isAssignableFrom(UnknownValuesMethod.class));
+        return (methodClass != null) && (UnknownValuesMethod.class.isAssignableFrom(methodClass));
     }
 
     public static void clearMethods() {
