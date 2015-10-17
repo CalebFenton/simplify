@@ -59,12 +59,16 @@ public class Launcher {
         VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
                         opts.getMaxMethodVisits(), opts.getMaxExecutionTime());
         Set<String> classNames = classManager.getNonFrameworkClassNames();
+        int classCount = 0;
+        int methodCount = 0;
         for (String className : classNames) {
-            executeClass(vm, className);
+            int newCount = executeClass(vm, className);
+            classCount += newCount > 0 ? 1 : 0;
+            methodCount += newCount;
         }
 
         long totalTime = System.currentTimeMillis() - startTime;
-        System.out.println("Simplified " + classNames.size() + " classes in " + totalTime + " ms.");
+        System.out.println("Simplified " + methodCount + " methods from " + classCount + " classes in " + totalTime + " ms.");
         System.out.println(Optimizer.getTotalOptimizationCounts());
 
         System.out.println("Writing output to " + opts.getOutFile());
@@ -75,7 +79,7 @@ public class Launcher {
         }
     }
 
-    private void executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
+    private int executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
 
@@ -113,6 +117,8 @@ public class Launcher {
                 shouldReexecute = optimizer.shouldReexecute();
             } while (shouldReexecute);
         }
+
+        return methodDescriptors.size();
     }
 
     private static String disassemble(File file) throws IOException {
