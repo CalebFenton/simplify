@@ -26,7 +26,6 @@ import org.junit.Test;
 
 public class TestMethodBackedGraph {
 
-    // TODO: add tests for register and field consensus, + same after modifications
     private static final String CLASS_NAME = "Lmethod_backed_graph_test;";
 
     private MethodBackedGraph mbgraph;

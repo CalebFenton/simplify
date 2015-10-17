@@ -15,6 +15,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.type.LocalInstance;
@@ -59,6 +60,7 @@ public class VirtualMachine {
     private static final int DEFAULT_MAX_ADDRESS_VISITS = 500;
     private static final int DEFAULT_MAX_CALL_DEPTH = 20;
     private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
+    private static final int DEFAULT_MAX_EXECUTION_TIME = 5 * 60;
 
     private final MethodExecutor methodExecutor;
     private final ClassManager classManager;
@@ -66,18 +68,21 @@ public class VirtualMachine {
     private final StaticFieldAccessor staticFieldAccessor;
 
     public VirtualMachine(ClassManager manager) {
-        this(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS);
+        this(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH, DEFAULT_MAX_METHOD_VISITS,
+                        DEFAULT_MAX_EXECUTION_TIME);
     }
 
-    public VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits) {
+    public VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
+                    int maxExecutionTime) {
         this.classManager = manager;
-        methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits);
+        methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits,
+                        maxExecutionTime);
         methodToTemplateExecutionGraph = new HashMap<BuilderMethod, ExecutionGraph>();
         staticFieldAccessor = new StaticFieldAccessor(this);
     }
 
     public ExecutionGraph execute(String methodDescriptor) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded, UnhandledVirtualException {
+                    MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         if (!classManager.methodHasImplementation(methodDescriptor)) {
             return null;
         }
@@ -87,13 +92,13 @@ public class VirtualMachine {
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
-                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException {
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         return execute(methodDescriptor, ectx, null, null);
     }
 
     public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
-                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException {
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         if (callerContext != null) {
             inheritClassStates(callerContext, calleeContext);
         }

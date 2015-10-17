@@ -26,10 +26,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
-import org.cf.smalivm.exception.MaxCallDepthExceeded;
-import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
-import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Dexifier;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -114,7 +111,7 @@ public class VMTester {
         ExecutionGraph graph = null;
         try {
             graph = vm.execute(methodDescriptor, ectx);
-        } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | UnhandledVirtualException e) {
+        } catch (VirtualMachineException e) {
             e.printStackTrace();
         }
 

@@ -2,9 +2,9 @@ package org.cf.smalivm.exception;
 
 import org.cf.smalivm.VirtualException;
 
-public final class UnhandledVirtualException extends Exception {
+public class UnhandledVirtualException extends VirtualMachineException {
 
-    private static final long serialVersionUID = 5225112348847465697L;
+    private static final long serialVersionUID = 7055493085764845808L;
 
     private final VirtualException exception;
 

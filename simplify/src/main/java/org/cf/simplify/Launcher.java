@@ -22,6 +22,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.jf.dexlib2.Opcodes;
@@ -56,7 +57,7 @@ public class Launcher {
         DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(opts.getOutputAPILevel()));
         ClassManager classManager = getClassManager(opts.getInFile(), opts.isApk() | opts.isDex(), dexBuilder);
         VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
-                        opts.getMaxMethodVisits());
+                        opts.getMaxMethodVisits(), opts.getMaxExecutionTime());
         Set<String> classNames = classManager.getNonFrameworkClassNames();
         for (String className : classNames) {
             executeClass(vm, className);
@@ -91,8 +92,8 @@ public class Launcher {
                 ExecutionGraph graph = null;
                 try {
                     graph = vm.execute(methodDescriptor);
-                } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
-                    System.err.println("Max visitation exception: " + e);
+                } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
+                    System.err.println("Aborting execution: " + e);
                 }
 
                 if (null == graph) {

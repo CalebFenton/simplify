@@ -16,6 +16,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.type.LocalType;
@@ -290,13 +291,12 @@ public class InvokeOp extends ExecutionContextOp {
         ExecutionGraph graph = null;
         try {
             graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
-        } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+        } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
             if (log.isWarnEnabled()) {
                 log.warn(e.toString());
             }
         } catch (UnhandledVirtualException e) {
-            // TODO: handle this properly
-            // bubble up this exception to the node and stop executing here
+            // TODO: handle this properly - bubble up this exception to the node and stop executing here
             if (log.isWarnEnabled()) {
                 log.warn(e.toString());
             }
@@ -304,7 +304,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
-            log.info("Problem executing " + methodDescriptor + ", propagating ambiguity.");
+            log.info("Problem executing {}, propagating ambiguity.", methodDescriptor);
             assumeMaximumUnknown(callerContext.getMethodState());
 
             return;
@@ -345,7 +345,6 @@ public class InvokeOp extends ExecutionContextOp {
             HeapItem newInstanceItem = calleeContext.getMethodState().peekParameter(0);
             if (originalInstanceItem.getValue() != newInstanceItem.getValue()) {
                 // Instance went from UninitializedInstance class to something else.
-                // TODO: add test for this!
                 callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
             } else {
                 if (!ImmutableUtils.isImmutableClass(newInstanceItem.getType())) {
@@ -398,7 +397,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         if (!classManager.isLocalClass(className)) {
             // Can't trace any further up.
-            // Note, also checked if this is white-listed Java API
+            // Note: already checked if this is white-listed Java API
             return null;
         }
 

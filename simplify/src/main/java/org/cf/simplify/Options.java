@@ -38,6 +38,9 @@ public class Options implements Serializable {
     @Option(name = "--max-passes", usage = "Limit optimization passes.")
     private int maxOptimizationPasses = 100;
 
+    @Option(name = "--max-execution-time", usage = "Limit execution time (in seconds).")
+    private int maxExecutionTime = 5 * 60;
+
     @Option(name = "-o", aliases = { "--output" }, metaVar = "output", handler = FileOptionHandler.class,
                     usage = "Output DEX file, default is <infile>_simple.dex")
     private File outFile;
@@ -94,6 +97,10 @@ public class Options implements Serializable {
 
     public int getMaxOptimizationPasses() {
         return maxOptimizationPasses;
+    }
+
+    public int getMaxExecutionTime() {
+        return maxExecutionTime;
     }
 
     public File getOutDexFile() {

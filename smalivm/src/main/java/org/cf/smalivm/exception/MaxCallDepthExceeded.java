@@ -1,6 +1,6 @@
 package org.cf.smalivm.exception;
 
-public class MaxCallDepthExceeded extends Exception {
+public class MaxCallDepthExceeded extends VirtualMachineException {
 
     private static final long serialVersionUID = -9148536615221065528L;
 

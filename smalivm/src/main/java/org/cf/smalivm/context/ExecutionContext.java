@@ -11,6 +11,7 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.slf4j.Logger;
@@ -199,7 +200,7 @@ public class ExecutionContext {
             ExecutionGraph graph = null;
             try {
                 graph = vm.execute(clinitDescriptor, initContext, this, null);
-            } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded e) {
+            } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
                 log.warn(e.toString());
             } catch (UnhandledVirtualException e) {
                 // TODO: handle this properly by bubbling up the exception
