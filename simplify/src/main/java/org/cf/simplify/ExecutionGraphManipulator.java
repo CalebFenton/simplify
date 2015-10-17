@@ -51,10 +51,10 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MethodBackedGraph extends ExecutionGraph {
+public class ExecutionGraphManipulator extends ExecutionGraph {
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(MethodBackedGraph.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ExecutionGraphManipulator.class.getSimpleName());
 
     private final DexBuilder dexBuilder;
     private final MutableMethodImplementation implementation;
@@ -65,7 +65,7 @@ public class MethodBackedGraph extends ExecutionGraph {
     private OpCreator opCreator;
     private boolean recreateOrReexecute;
 
-    public MethodBackedGraph(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
+    public ExecutionGraphManipulator(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;

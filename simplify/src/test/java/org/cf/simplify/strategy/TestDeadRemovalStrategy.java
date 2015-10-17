@@ -5,7 +5,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
@@ -25,7 +25,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testDeadCodeIsRemoved() {
         String methodName = "DeadCode()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAddresses();
         found.sort();
@@ -37,7 +37,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testDeadNopPaddingIsNotRemoved() {
         String methodName = "hasNopPadding()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAddresses();
         TIntList expected = new TIntArrayList(new int[] {});
@@ -48,7 +48,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testDeadCodeWithStrongSideEffectIsRemoved() {
         String methodName = "DeadCodeWithStrongSideEffect()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAddresses();
         found.sort();
@@ -60,7 +60,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testAssignmentReassignedInOnlyOneMultiverseIsNotRemoved() {
         String methodName = "ReassignedInOnlyOneMultiverse(I)I";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAssignmentAddresses();
         found.sort();
@@ -72,7 +72,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testDeadTryCatchBlockIsRemoved() {
         String methodName = "DeadTryCatchBlock()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] { 0 });
@@ -83,7 +83,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testInstanceInitializerIsNotRemoved() {
         String methodName = "<init>()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         strategy.perform();
 
@@ -94,7 +94,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testMoveOpWithOnlyOneRegisterReassignedIsNotRemoved() {
         String methodName = "MoveP0IntoV0With30Locals(I)V";
-        MethodBackedGraph mbgraph = getOptimizedGraph(methodName);
+        ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAssignmentAddresses();
 
@@ -104,7 +104,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testUnusedAssignmentIsRemoved() {
         String methodName = "UnusedAssignment()I";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] { 0 });
@@ -115,7 +115,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testUnusedResultNoSideEffectsRemovesInvoke() {
         String methodName = "UnusedResultNoSideEffects()I";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedResultAddresses();
         TIntList expected = new TIntArrayList(new int[] { 1 });
@@ -126,7 +126,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testUnusedResultWithSideEffectsIsNotValidForRemoval() {
         String methodName = "UnusedResultWithSideEffects()I";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUnusedAssignmentAddresses();
         TIntList expected = new TIntArrayList(new int[] {});
@@ -137,7 +137,7 @@ public class TestDeadRemovalStrategy {
     @Test
     public void testUselessGotoIsRemoved() {
         String methodName = "UselessGoto()V";
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         TIntList found = strategy.getUselessBranchAddresses();
         TIntList expected = new TIntArrayList(new int[] { 0 });
@@ -145,9 +145,9 @@ public class TestDeadRemovalStrategy {
         assertEquals(expected, found);
     }
 
-    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
         strategy.perform();
 

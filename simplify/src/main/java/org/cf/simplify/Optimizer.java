@@ -26,7 +26,7 @@ public class Optimizer {
 
     private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
-    private final MethodBackedGraph mbgraph;
+    private final ExecutionGraphManipulator mbgraph;
     private final String methodDescriptor;
     private final List<OptimizationStrategy> reoptimizeStrategies;
     private final List<OptimizationStrategy> reexecuteStrategies;
@@ -38,7 +38,7 @@ public class Optimizer {
 
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, Options opts) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        mbgraph = new MethodBackedGraph(graph, method, vm, dexBuilder);
+        mbgraph = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
 
         reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);

@@ -24,11 +24,11 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.junit.Test;
 
-public class TestMethodBackedGraph {
+public class TestExecutionGraphManipulator {
 
-    private static final String CLASS_NAME = "Lmethod_backed_graph_test;";
+    private static final String CLASS_NAME = "Lexecution_graph_manipulator_test;";
 
-    private MethodBackedGraph mbgraph;
+    private ExecutionGraphManipulator mbgraph;
 
     @Test
     public void testAddingInstructionModifiesStateCorrectly() {
@@ -44,7 +44,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
         mbgraph.addInstruction(0, addition);
 
@@ -69,7 +69,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNoNopPadding()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasNoNopPadding()V");
         BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
         mbgraph.addInstruction(4, addition);
 
@@ -93,7 +93,7 @@ public class TestMethodBackedGraph {
         }
         expected[129] = new Object[] { 130, Opcode.RETURN_VOID, new Object[1][0][0] };
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasGotoAndOneNop()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasGotoAndOneNop()V");
 
         // Adding 126 bytes (nop) between goto and target offset causes dexlib to "fix" goto into goto/16
         for (int i = 0; i < nops_to_insert - 1; i++) {
@@ -114,7 +114,7 @@ public class TestMethodBackedGraph {
 
         int nops_to_insert = 127;
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasGotoAndOneNop()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasGotoAndOneNop()V");
 
         // Adding 126 bytes (nop) between goto and target offset causes dexlib to "fix" goto into goto/16
         for (int i = 0; i < nops_to_insert - 1; i++) {
@@ -138,7 +138,7 @@ public class TestMethodBackedGraph {
 
     @Test
     public void testHasEveryRegisterAvailableAtEveryAddress() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         int[] addresses = mbgraph.getAddresses();
         int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, };
         for (int address : addresses) {
@@ -150,7 +150,7 @@ public class TestMethodBackedGraph {
 
     @Test
     public void testHasExpectedBasicProperties() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
 
         int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
         int[] actualAddresses = mbgraph.getAddresses();
@@ -170,7 +170,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasNopPadding()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasNopPadding()V");
         mbgraph.removeInstruction(4);
 
         test(expected, mbgraph);
@@ -190,7 +190,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         mbgraph.removeInstruction(0);
 
         test(expected, mbgraph);
@@ -209,7 +209,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         mbgraph.removeInstruction(1);
 
         test(expected, mbgraph);
@@ -229,7 +229,7 @@ public class TestMethodBackedGraph {
 
     @Test
     public void testReplaceInstructionExecutesNewNodeCorrectly() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "constantPredicate()I");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "constantPredicate()I");
 
         BuilderInstruction returnVoid = mbgraph.getNodePile(4).get(0).getOp().getInstruction();
         Label target = returnVoid.getLocation().addNewLabel();
@@ -254,7 +254,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         BuilderInstruction replacement = new BuilderInstruction21s(Opcode.CONST_16, 0, 0);
         mbgraph.replaceInstruction(0, replacement);
 
@@ -278,7 +278,7 @@ public class TestMethodBackedGraph {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "verySimple()V");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         BuilderInstruction replacement1 = new BuilderInstruction21s(Opcode.CONST_16, 1, 1);
         BuilderInstruction replacement2 = new BuilderInstruction21s(Opcode.CONST_16, 2, 2);
         List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
@@ -301,7 +301,7 @@ public class TestMethodBackedGraph {
 
     @Test
     public void testReplacingInstructionGetsLabelsAtInsertionAddress() {
-        mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, "hasLabelOnConstantizableOp(I)I");
+        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasLabelOnConstantizableOp(I)I");
         BuilderInstruction addition = new BuilderInstruction11n(Opcode.CONST_4, 0, 2);
 
         assertEquals(1, mbgraph.getInstruction(3).getLocation().getLabels().size());
@@ -309,7 +309,7 @@ public class TestMethodBackedGraph {
         assertEquals(1, mbgraph.getInstruction(3).getLocation().getLabels().size());
     }
 
-    private static void test(Object[][] expected, MethodBackedGraph mbgraph) {
+    private static void test(Object[][] expected, ExecutionGraphManipulator mbgraph) {
         for (Object[] ex : expected) {
             int address = (Integer) ex[0];
             BuilderInstruction actualInstruction = mbgraph.getInstruction(address);
@@ -340,7 +340,7 @@ public class TestMethodBackedGraph {
         }
     }
 
-    private static void testHeritage(MethodBackedGraph mbgraph, int address) {
+    private static void testHeritage(ExecutionGraphManipulator mbgraph, int address) {
         ExecutionNode template = mbgraph.getTemplateNode(address);
         assertEquals(0, template.getChildren().size());
         assertNotNull(template.getOp().getChildren());

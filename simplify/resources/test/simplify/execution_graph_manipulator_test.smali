@@ -1,4 +1,4 @@
-.class Lmethod_backed_graph_test;
+.class Lexecution_graph_manipulator_test;
 .super Ljava/lang/Object;
 
 .method private static verySimple()V

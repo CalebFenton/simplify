@@ -8,7 +8,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.simplify.ConstantBuilder;
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
@@ -32,7 +32,7 @@ public class TestConstantPropigationStrategy {
 
         @Test
         public void testConstantizablesHandlesNull() {
-            MethodBackedGraph graph = mock(MethodBackedGraph.class);
+            ExecutionGraphManipulator graph = mock(ExecutionGraphManipulator.class);
             ConstantBuilder builder = mock(ConstantBuilder.class);
             BuilderInstruction instruction = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(OneRegisterInstruction.class));
@@ -58,7 +58,7 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testAddInt2AddrConstantizesToExpectedInstruction() {
             String methodName = "AddInt2Addr()V";
-            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 0, 3, "I");
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, 3, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(6, 0);
 
             testEquals(expected, mbgraph, 0);
@@ -67,7 +67,7 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testAGetIsConstable() {
             String methodName = "ArrayGetFromV0AtV1ToV0()V";
-            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, "[I", 1, 1, "I");
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, "[I", 1, 1, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(7, 0);
 
             testEquals(expected, mbgraph, 0);
@@ -77,7 +77,7 @@ public class TestConstantPropigationStrategy {
         public void testMoveOpIsWithConst16ConstantizesToExpectedInstruction() {
             int value = 0x42;
             String methodName = "MoveV0IntoV1()V";
-            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 0, value, "I");
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, value, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(value, 1);
 
             testEquals(expected, mbgraph, 0);
@@ -86,7 +86,7 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testNonDeterministicallyExecuteConstableOpConstantizesToExpectedInstruction() {
             String methodName = "NonDeterministicallyStaticGetIntegerMaxValue(I)V";
-            MethodBackedGraph mbgraph = getOptimizedGraph(methodName, 1, new UnknownValue(), "I");
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 1, new UnknownValue(), "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
             testEquals(expected, mbgraph, 2);
@@ -95,7 +95,7 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testSGetIsConstable() {
             String methodName = "StaticGetIntegerMaxValue()V";
-            MethodBackedGraph mbgraph = getOptimizedGraph(methodName);
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName);
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
             testEquals(expected, mbgraph, 0);
@@ -108,8 +108,8 @@ public class TestConstantPropigationStrategy {
         public void testAddInt2AddrDoesNotConstantize() {
             String methodName = "AddInt2Addr()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
+            ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+            ExecutionGraphManipulator after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -118,8 +118,8 @@ public class TestConstantPropigationStrategy {
         public void testAGetWithUnknownArrayDoesNotConstantize() {
             String methodName = "ArrayGetFromV0AtV1ToV0()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I", 1, 0, "I");
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
+            ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+            ExecutionGraphManipulator after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -129,8 +129,8 @@ public class TestConstantPropigationStrategy {
             String methodName = "ArrayGetFromV0AtV1ToV0()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 0, 7 }, "[I", 1,
                             new UnknownValue(), "I");
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
+            ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+            ExecutionGraphManipulator after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -139,8 +139,8 @@ public class TestConstantPropigationStrategy {
         public void testMoveOpDoesNotConstantize() {
             String methodName = "MoveV0IntoV1()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
+            ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+            ExecutionGraphManipulator after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
         }
@@ -149,8 +149,8 @@ public class TestConstantPropigationStrategy {
         public void testIntegerValueOfDoesNotConstantize() {
             String methodName = "IntegerValueOf()Ljava/lang/Integer;";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
-            MethodBackedGraph before = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
-            MethodBackedGraph after = getOptimizedGraph(methodName, initial);
+            ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+            ExecutionGraphManipulator after = getOptimizedGraph(methodName, initial);
 
             assertEquals(before.toSmali(), after.toSmali());
         }
@@ -161,21 +161,21 @@ public class TestConstantPropigationStrategy {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(TestConstantPropigationStrategy.class.getSimpleName());
 
-    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
 
         return getOptimizedGraph(methodName, initial);
     }
 
-    private static MethodBackedGraph getOptimizedGraph(String methodName, TIntObjectMap<HeapItem> initial) {
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, TIntObjectMap<HeapItem> initial) {
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
         ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
         strategy.perform();
 
         return mbgraph;
     }
 
-    private static void testEquals(BuilderInstruction expected, MethodBackedGraph mbgraph, int address) {
+    private static void testEquals(BuilderInstruction expected, ExecutionGraphManipulator mbgraph, int address) {
         BuilderInstruction actual = mbgraph.getInstruction(address);
 
         assertEquals(expected.getOpcode(), actual.getOpcode());

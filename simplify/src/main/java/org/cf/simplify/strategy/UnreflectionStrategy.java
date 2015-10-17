@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
@@ -114,13 +114,13 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return op;
     }
 
-    private final MethodBackedGraph mbgraph;
+    private final ExecutionGraphManipulator mbgraph;
     private int unreflectCount;
     private TIntList addresses;
 
     private boolean madeChanges;
 
-    public UnreflectionStrategy(MethodBackedGraph mbgraph) {
+    public UnreflectionStrategy(ExecutionGraphManipulator mbgraph) {
         this.mbgraph = mbgraph;
         unreflectCount = 0;
     }
@@ -593,7 +593,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+    TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
         TIntList result = new TIntArrayList(mbgraph.getAddresses());
         for (int address : result.toArray()) {
             if (!mbgraph.wasAddressReached(address)) {
