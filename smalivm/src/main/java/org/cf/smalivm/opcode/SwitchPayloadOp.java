@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.TIntObjectMap;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -15,10 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class SwitchPayloadOp extends MethodStateOp {
-
-    static enum SwitchType {
-        PACKED, SPARSE
-    }
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
@@ -67,7 +64,9 @@ public class SwitchPayloadOp extends MethodStateOp {
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
         sb.append(" [");
-        for (int key : targetKeyToOffset.keys()) {
+        int[] keys = targetKeyToOffset.keys();
+        Arrays.sort(keys);
+        for (int key : keys) {
             int offset = targetKeyToOffset.get(key);
             sb.append(key).append(" -> #").append(offset).append(", ");
         }

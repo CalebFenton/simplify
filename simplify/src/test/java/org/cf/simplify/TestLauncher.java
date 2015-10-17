@@ -27,7 +27,7 @@ public class TestLauncher {
         File outFile = File.createTempFile("simplify-test", ".tmp");
         outFile.deleteOnExit();
         launcher.run(new String[] {
-                        "-i", "resources/test/obfuscated-example.dex", "-it", "WhiteNoise", "-o",
+                        "-i", "resources/test/obfuscated-example.zip", "-it", "WhiteNoise", "-o",
                         outFile.getAbsolutePath() });
 
         assertTrue(outFile.exists());

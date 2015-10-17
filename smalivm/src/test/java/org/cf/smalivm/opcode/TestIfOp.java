@@ -4,14 +4,18 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
+import gnu.trove.list.TIntList;
+import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -154,6 +158,28 @@ public class TestIfOp {
             String methodSignature = "IfEqualZero()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, Integer.valueOf(0), "I");
             VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
+        }
+
+        @Test
+        public void testIfUnknownIntegerTakesBothPaths() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, methodSignature, initial);
+            int[] addresses = graph.getAddresses();
+            TIntList expectedVisits = new TIntArrayList(IF_ALL_VISITATIONS);
+            TIntList actualVisits = new TIntArrayList();
+            for (int address : addresses) {
+                if (!graph.wasAddressReached(address)) {
+                    continue;
+                }
+                actualVisits.add(address);
+            }
+            actualVisits.reverse();
+
+            assertEquals(expectedVisits, actualVisits);
+            assertEquals(1, graph.getNodePile(ADDRESS_NOP).size());
+            // Two execution paths hit return
+            assertEquals(2, graph.getNodePile(ADDRESS_RETURN).size());
         }
     }
 
@@ -600,5 +626,7 @@ public class TestIfOp {
     private static final int[] IF_FALSE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
 
     private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
+
+    private static final int[] IF_ALL_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
 
 }

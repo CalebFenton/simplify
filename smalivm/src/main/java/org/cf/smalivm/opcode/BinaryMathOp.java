@@ -1,5 +1,7 @@
 package org.cf.smalivm.opcode;
 
+import javax.annotation.Nonnull;
+
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -30,63 +32,52 @@ public class BinaryMathOp extends MethodStateOp {
         ADD, AND, DIV, MUL, OR, REM, RSUB, SHL, SHR, SUB, USHR, XOR,
     };
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());;
 
+    @SuppressWarnings("incomplete-switch")
     private static Object doDoubleOperation(MathOperator mathOperator, Double lhs, Double rhs) {
         Object result = null;
-        try {
-            switch (mathOperator) {
-            case ADD:
-                result = lhs + rhs;
-                break;
-            case DIV:
-                result = lhs / rhs;
-                break;
-            case MUL:
-                result = lhs * rhs;
-                break;
-            case REM:
-                result = lhs % rhs;
-                break;
-            case SUB:
-                result = lhs - rhs;
-                break;
-            default:
-                break;
-            }
-        } catch (ArithmeticException e) {
-            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
-            return exception;
+        switch (mathOperator) {
+        case ADD:
+            result = lhs + rhs;
+            break;
+        case DIV:
+            result = lhs / rhs;
+            break;
+        case MUL:
+            result = lhs * rhs;
+            break;
+        case REM:
+            result = lhs % rhs;
+            break;
+        case SUB:
+            result = lhs - rhs;
+            break;
         }
 
         return result;
     }
 
+    @SuppressWarnings("incomplete-switch")
     private static Object doFloatOperation(MathOperator mathOperator, Float lhs, Float rhs) {
         Object result = null;
-        try {
-            switch (mathOperator) {
-            case ADD:
-                result = lhs + rhs;
-                break;
-            case DIV:
-                result = lhs / rhs;
-                break;
-            case MUL:
-                result = lhs * rhs;
-                break;
-            case REM:
-                result = lhs % rhs;
-                break;
-            case SUB:
-                result = lhs - rhs;
-                break;
-            default:
-                break;
-            }
-        } catch (ArithmeticException e) {
-            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
-            return exception;
+        switch (mathOperator) {
+        case ADD:
+            result = lhs + rhs;
+            break;
+        case DIV:
+            result = lhs / rhs;
+            break;
+        case MUL:
+            result = lhs * rhs;
+            break;
+        case REM:
+            result = lhs % rhs;
+            break;
+        case SUB:
+            result = lhs - rhs;
+            break;
         }
 
         return result;
@@ -132,8 +123,6 @@ public class BinaryMathOp extends MethodStateOp {
             case XOR:
                 result = lhs ^ rhs;
                 break;
-            default:
-                break;
             }
         } catch (ArithmeticException e) {
             VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
@@ -143,6 +132,7 @@ public class BinaryMathOp extends MethodStateOp {
         return result;
     }
 
+    @SuppressWarnings("incomplete-switch")
     private static Object doLongOperation(MathOperator mathOperator, Long lhs, Long rhs) {
         Object result = null;
         try {
@@ -179,8 +169,6 @@ public class BinaryMathOp extends MethodStateOp {
                 break;
             case XOR:
                 result = lhs ^ rhs;
-                break;
-            default:
                 break;
             }
         } catch (ArithmeticException e) {
@@ -281,11 +269,7 @@ public class BinaryMathOp extends MethodStateOp {
         Object resultValue = null;
         if (!(lhsItem.isUnknown() || rhsItem.isUnknown())) {
             resultValue = getResult(lhsItem.getValue(), rhsItem.getValue());
-            if (null == resultValue) {
-                if (log.isWarnEnabled()) {
-                    log.warn("Null result in binary math with known values. Not possibruuu!");
-                }
-            } else if (resultValue instanceof VirtualException) {
+            if (resultValue instanceof VirtualException) {
                 VirtualException exception = (VirtualException) resultValue;
                 node.setException(exception);
                 node.clearChildren();
@@ -322,7 +306,7 @@ public class BinaryMathOp extends MethodStateOp {
         return sb.toString();
     }
 
-    private Object getResult(Object lhs, Object rhs) {
+    private @Nonnull Object getResult(Object lhs, Object rhs) {
         Object result = null;
         switch (mathOperandType) {
         case INT:
