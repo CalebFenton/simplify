@@ -6,6 +6,7 @@ import java.io.Serializable;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FilenameUtils;
+import org.cf.util.Dexifier;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.spi.FileOptionHandler;
 import org.kohsuke.args4j.spi.PatternOptionHandler;
@@ -46,7 +47,7 @@ public class Options implements Serializable {
     private File outFile;
 
     @Option(name = "--output-api-level", usage = "Output DEX API compatibility level.")
-    private int outputAPILevel = 15;
+    private int outputAPILevel = Dexifier.DEFAULT_API_LEVEL;
 
     @Option(name = "-v", aliases = { "--verbose" }, usage = "Be verbose")
     private boolean verbose;

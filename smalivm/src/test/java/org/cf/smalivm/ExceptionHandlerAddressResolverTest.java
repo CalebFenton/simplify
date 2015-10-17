@@ -1,6 +1,7 @@
 package org.cf.smalivm;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,11 +37,12 @@ public class ExceptionHandlerAddressResolverTest {
         when(classManager.getTryBlocks(METHOD)).thenReturn(tryBlocks);
     }
 
-    private static BuilderTryBlock buildTryBlock(int startAddress, int codeUnits, List handlers) {
+    private static BuilderTryBlock buildTryBlock(int startAddress, int codeUnits,
+                    List<? extends BuilderExceptionHandler> handlers) {
         BuilderTryBlock tryBlock = mock(BuilderTryBlock.class);
         when(tryBlock.getStartCodeAddress()).thenReturn(0);
         when(tryBlock.getCodeUnitCount()).thenReturn(10);
-        when(tryBlock.getExceptionHandlers()).thenReturn(handlers);
+        doReturn(handlers).when(tryBlock).getExceptionHandlers();
 
         return tryBlock;
     }
@@ -62,7 +64,7 @@ public class ExceptionHandlerAddressResolverTest {
 
         when(vex.getExceptionClass()).thenReturn(EXCEPTION1);
 
-        List handlers = new LinkedList<BuilderExceptionHandler>();
+        List<BuilderExceptionHandler> handlers = new LinkedList<BuilderExceptionHandler>();
         handlers.add(buildHandler(handlerCodeAddress, EXCEPTION1));
         tryBlocks.add(buildTryBlock(tryStartAddress, tryCodeUnits, handlers));
 
@@ -83,11 +85,11 @@ public class ExceptionHandlerAddressResolverTest {
 
         when(vex.getExceptionClass()).thenReturn(EXCEPTION1);
 
-        List handlers1 = new LinkedList<BuilderExceptionHandler>();
+        List<BuilderExceptionHandler> handlers1 = new LinkedList<BuilderExceptionHandler>();
         handlers1.add(buildHandler(handlerCodeAddress1, EXCEPTION1));
         tryBlocks.add(buildTryBlock(tryStartAddress1, tryCodeUnits, handlers1));
 
-        List handlers2 = new LinkedList<BuilderExceptionHandler>();
+        List<BuilderExceptionHandler> handlers2 = new LinkedList<BuilderExceptionHandler>();
         handlers2.add(buildHandler(handlerCodeAddress2, EXCEPTION2));
         tryBlocks.add(buildTryBlock(tryStartAddress2, tryCodeUnits, handlers2));
 
@@ -108,11 +110,11 @@ public class ExceptionHandlerAddressResolverTest {
 
         when(vex.getExceptionClass()).thenReturn(EXCEPTION3);
 
-        List handlers1 = new LinkedList<BuilderExceptionHandler>();
+        List<BuilderExceptionHandler> handlers1 = new LinkedList<BuilderExceptionHandler>();
         handlers1.add(buildHandler(handlerCodeAddress1, EXCEPTION1));
         tryBlocks.add(buildTryBlock(tryStartAddress1, tryCodeUnits, handlers1));
 
-        List handlers2 = new LinkedList<BuilderExceptionHandler>();
+        List<BuilderExceptionHandler> handlers2 = new LinkedList<BuilderExceptionHandler>();
         handlers2.add(buildHandler(handlerCodeAddress2, EXCEPTION2));
         tryBlocks.add(buildTryBlock(tryStartAddress2, tryCodeUnits, handlers2));
 

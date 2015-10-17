@@ -38,7 +38,7 @@ public class ClassManager {
 
     private static final Logger log = LoggerFactory.getLogger(ClassManager.class.getSimpleName());
 
-    // Use separate dex builder to intern framework classes so they're not included in output dex
+    // Use separate DexBuilder to intern framework classes so they're not included in output dex
     private final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
 
     private final Map<String, SmaliFile> classNameToSmaliFile;
@@ -50,14 +50,7 @@ public class ClassManager {
     private final Map<String, List<String>> classNameToFieldNameAndType;
     private final SmaliFileFactory smaliFileFactory;
 
-    /**
-     *
-     * @param smaliPath
-     *            Path to Smali file or folder
-     * @param dexBuilder
-     * @throws IOException
-     */
-    public ClassManager(File smaliPath, DexBuilder dexBuilder) throws IOException {
+    ClassManager(File smaliPath, DexBuilder dexBuilder) throws IOException {
         smaliFileFactory = new SmaliFileFactory();
         Set<SmaliFile> smaliFiles = smaliFileFactory.getSmaliFiles(smaliPath);
         classNameToSmaliFile = new HashMap<String, SmaliFile>();
@@ -70,27 +63,6 @@ public class ClassManager {
         methodDescriptorToParameterTypes = new HashMap<String, List<String>>();
         methodDescriptorToTryBlocks = new HashMap<String, List<BuilderTryBlock>>();
         classNameToFieldNameAndType = new HashMap<String, List<String>>();
-    }
-
-    /**
-     *
-     * @param smaliPath
-     *            Path to Smali file or folder
-     * @throws IOException
-     */
-    public ClassManager(String smaliPath) throws IOException {
-        this(smaliPath, DexBuilder.makeDexBuilder());
-    }
-
-    /**
-     *
-     * @param smaliPath
-     *            Path to Smali file or folder
-     * @param dexBuilder
-     * @throws IOException
-     */
-    public ClassManager(String smaliPath, DexBuilder dexBuilder) throws IOException {
-        this(new File(smaliPath), dexBuilder);
     }
 
     /**

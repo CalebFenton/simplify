@@ -19,13 +19,13 @@ import java.util.regex.Pattern;
 import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineFactory;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
@@ -40,10 +40,14 @@ public class Launcher {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
-    private static Options opts;
-
     private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
-    private static final String TEMP_DIR_NAME = "simplify";
+
+    private final VirtualMachineFactory vmFactory;
+    private Options opts;
+
+    public Launcher(VirtualMachineFactory vmFactory) {
+        this.vmFactory = vmFactory;
+    }
 
     public void run(String[] args) throws IOException, UnhandledVirtualException {
         opts = getOptions(args);
@@ -54,10 +58,9 @@ public class Launcher {
         }
 
         long startTime = System.currentTimeMillis();
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(opts.getOutputAPILevel()));
-        ClassManager classManager = getClassManager(opts.getInFile(), opts.isApk() | opts.isDex(), dexBuilder);
-        VirtualMachine vm = new VirtualMachine(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
-                        opts.getMaxMethodVisits(), opts.getMaxExecutionTime());
+        VirtualMachine vm = vmFactory.build(opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(),
+                        opts.getMaxCallDepth(), opts.getMaxMethodVisits(), opts.getMaxExecutionTime());
+        ClassManager classManager = vm.getClassManager();
         Set<String> classNames = classManager.getNonFrameworkClassNames();
         int classCount = 0;
         int methodCount = 0;
@@ -72,7 +75,7 @@ public class Launcher {
         System.out.println(Optimizer.getTotalOptimizationCounts());
 
         System.out.println("Writing output to " + opts.getOutFile());
-        dexBuilder.writeTo(new FileDataStore(opts.getOutDexFile()));
+        classManager.getDexBuilder().writeTo(new FileDataStore(opts.getOutDexFile()));
         if (opts.isApk()) {
             FileUtils.copyFile(opts.getInFile(), opts.getOutFile());
             updateZip(opts.getOutFile(), opts.getOutDexFile(), "classes.dex");
@@ -82,7 +85,6 @@ public class Launcher {
     private int executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
-
         Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
         filterMethods(methodDescriptors, opts.getIncludeFilter(), opts.getExcludeFilter());
         if (!opts.includeSupportLibrary()) {
@@ -121,18 +123,6 @@ public class Launcher {
         return methodDescriptors.size();
     }
 
-    private static String disassemble(File file) throws IOException {
-        // No, no, I'll do it since you're too lazy to do this yourself.
-        // All these options are just for funsies. Could help with debugging.
-        Path tempDir = Files.createTempDirectory(TEMP_DIR_NAME);
-        String[] args = new String[] {
-                        "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(), "--output",
-                        tempDir.toString(), };
-        org.jf.baksmali.main.main(args);
-
-        return tempDir.toString();
-    }
-
     private static void filterMethods(Collection<String> methodDescriptors, Pattern positive, Pattern negative) {
         for (Iterator<String> it = methodDescriptors.iterator(); it.hasNext();) {
             String name = it.next();
@@ -151,19 +141,6 @@ public class Launcher {
                 it.remove();
             }
         }
-    }
-
-    private static ClassManager getClassManager(File inFile, boolean disassemble, DexBuilder dexBuilder)
-                    throws IOException {
-        ClassManager classManager = null;
-        if (disassemble) {
-            String outPath = disassemble(inFile);
-            classManager = new ClassManager(outPath, dexBuilder);
-        } else {
-            classManager = new ClassManager(inFile, dexBuilder);
-        }
-
-        return classManager;
     }
 
     private static Options getOptions(String[] args) {
