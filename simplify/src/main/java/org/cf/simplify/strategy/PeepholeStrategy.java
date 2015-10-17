@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.cf.simplify.ConstantBuilder;
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -42,13 +42,13 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     private static final String ClassForNameSignature = "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
 
-    private final MethodBackedGraph mbgraph;
+    private final ExecutionGraphManipulator mbgraph;
     private int peepCount;
     private int constantIfCount;
     private TIntList addresses;
     private boolean madeChanges;
 
-    public PeepholeStrategy(MethodBackedGraph mbgraph) {
+    public PeepholeStrategy(ExecutionGraphManipulator mbgraph) {
         this.mbgraph = mbgraph;
         peepCount = 0;
         constantIfCount = 0;
@@ -117,7 +117,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+    TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
         TIntList result = new TIntArrayList(mbgraph.getAddresses());
         for (int address : result.toArray()) {
             if (!mbgraph.wasAddressReached(address)) {

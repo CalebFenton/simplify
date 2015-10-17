@@ -189,7 +189,7 @@ public class ConstantBuilder implements Dependancy {
         return result;
     }
 
-    public static BuilderInstruction buildConstant(int address, MethodBackedGraph mbgraph) {
+    public static BuilderInstruction buildConstant(int address, ExecutionGraphManipulator mbgraph) {
         DexBuilder dexBuilder = mbgraph.getDexBuilder();
         OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
         int register = instruction.getRegisterA();

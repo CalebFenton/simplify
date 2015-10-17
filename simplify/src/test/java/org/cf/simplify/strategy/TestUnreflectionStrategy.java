@@ -10,7 +10,7 @@ import java.util.List;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
@@ -46,7 +46,7 @@ public class TestUnreflectionStrategy {
         @Test
         public void testLocalInstanceFieldWithMoveResult() {
             LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
                             1, LOCAL_INSTANCE_FIELD, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
                             "iget r0, r2, " + CLASS_NAME + "->" + LOCAL_INSTANCE_FIELD + ":" + LOCAL_INSTANCE_FIELD_TYPE,
@@ -59,7 +59,7 @@ public class TestUnreflectionStrategy {
         @Test
         public void testLocalStaticFieldWithMoveResult() {
             LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
                             1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
                             "sget-object r0, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
@@ -72,7 +72,7 @@ public class TestUnreflectionStrategy {
         @Test
         public void testLocalStaticFieldWithMoveResultAndWithOneAvailableRegister() {
             LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0,
                             fieldClass, "Ljava/lang/Class;", 1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
                             "sget-object r2, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
@@ -86,7 +86,7 @@ public class TestUnreflectionStrategy {
         public void testLocalStaticFieldWithMoveResultAndWithoutAvailableRegistersDoesNotOptimize() {
             LocalClass fieldClass = new LocalClass(CLASS_NAME);
             String fieldName = "someStaticObject";
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0,
                             fieldClass, "Ljava/lang/Class;", 1, fieldName, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
                             "invoke-virtual {r0, r2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
@@ -100,7 +100,7 @@ public class TestUnreflectionStrategy {
         public void testNonLocalStaticFieldWithMoveResult() {
             Class<?> fieldClass = Integer.class;
             String fieldName = "MAX_VALUE";
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass, "Ljava/lang/Class;",
                             1, fieldName, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] { "sget r0, Ljava/lang/Integer;->MAX_VALUE:I", "return-void", };
             String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
@@ -115,7 +115,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
                             1, new ArrayList<String>(), "Ljava/lang/ArrayList;", 2, 0, "I");
             String[] expectedLines = new String[] {
                             "nop",
@@ -144,7 +144,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testPrivateNonLocalMethodIsNotOptimized() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
                             PRIVATE_NON_LOCAL_METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
 
             testSmali(mbgraph, EXPECTED_LINES);
@@ -153,7 +153,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testUnknownMethodIsNotOptimized() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, UNKNOWN_METHOD,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, UNKNOWN_METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, null, "null");
 
             testSmali(mbgraph, EXPECTED_LINES);
@@ -162,7 +162,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testUnknownParametersIsNotOptimized() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, LOCAL_STATIC_METHOD,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, LOCAL_STATIC_METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, new UnknownValue(), "[Ljava/lang/Object");
 
             testSmali(mbgraph, EXPECTED_LINES);
@@ -176,7 +176,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
                             1, 0, "I", 2, 0, "I");
             String[] expectedLines = new String[] {
                             "nop",
@@ -190,7 +190,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith7ContiguousAvailable() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, null, "null");
             // TODO: should remove move-result after invoke if method returns void, replace if not object!
             String[] expectedLines = new String[] {
@@ -208,7 +208,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
                             1, 0, "I", 2, new Object[] { 4, 3, 2, 1 }, "[Ljava/lang/Object;");
             String[] expectedLines = new String[] {
                             "nop",
@@ -234,7 +234,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith7ContiguousAvailable() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, new Object[] { 4, 3, 2, 1 }, "[Ljava/lang/Object;");
             String[] expectedLines = new String[] {
                             "nop", "const/4 r0, 0x0", "aget-object r0, r2, r0", "check-cast r0, Ljava/lang/Integer;",
@@ -264,7 +264,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
                             1, 0, "I", 2, new Object[] { 6, 5, 4, 3, 2, 1 }, "[Ljava/lang/Object;");
             String[] endLines = new String[] {
                             "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
@@ -277,7 +277,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith7ContiguousAvailable() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, new Object[] { 6, 5, 4, 3, 2, 1 }, "Ljava/lang/Object;");
             String[] endLines = new String[] { "move-result-object r0", "return-void", };
             String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
@@ -299,7 +299,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
                             1, 0, "I", 2, null, "null");
 
             testSmali(mbgraph, expectedLines);
@@ -308,7 +308,7 @@ public class TestUnreflectionStrategy {
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0AvailableAndUnknownTarget() {
-            MethodBackedGraph mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
+            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE,
                             1, new UnknownValue(), CLASS_NAME, 2, null, "null");
 
             testSmali(mbgraph, expectedLines);
@@ -366,23 +366,23 @@ public class TestUnreflectionStrategy {
         }
     }
 
-    private static MethodBackedGraph getOptimizedGraph(String methodName, Object... args) {
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
-        MethodBackedGraph mbgraph = OptimizerTester.getMethodBackedGraph(CLASS_NAME, methodName, initial);
+        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
         UnreflectionStrategy strategy = new UnreflectionStrategy(mbgraph);
         strategy.perform();
 
         return mbgraph;
     }
 
-    private static void testRegisterCount(MethodBackedGraph mbgraph, String methodSignature, int expectedRegisterCount) {
+    private static void testRegisterCount(ExecutionGraphManipulator mbgraph, String methodSignature, int expectedRegisterCount) {
         BuilderMethod method = mbgraph.getVM().getClassManager().getMethod(CLASS_NAME, methodSignature);
         int actualRegisterCount = method.getImplementation().getRegisterCount();
 
         assertEquals(expectedRegisterCount, actualRegisterCount);
     }
 
-    private static void testSmali(MethodBackedGraph mbgraph, String[] expectedLines) {
+    private static void testSmali(ExecutionGraphManipulator mbgraph, String[] expectedLines) {
         String actualLines[] = StringUtils.split(mbgraph.toSmali(), "\n");
         assertArrayEquals(expectedLines, actualLines);
     }

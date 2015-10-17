@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
@@ -32,7 +32,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
 
-    private static TIntSet getExceptionHandlerAddresses(MethodBackedGraph mbgraph) {
+    private static TIntSet getExceptionHandlerAddresses(ExecutionGraphManipulator mbgraph) {
         int[] allAddresses = mbgraph.getAddresses();
         Arrays.sort(allAddresses);
         int highestAddress = allAddresses[allAddresses.length - 1];
@@ -75,7 +75,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return assigned;
     }
 
-    private static boolean isAnyRegisterUsed(int address, TIntSet registers, MethodBackedGraph graph) {
+    private static boolean isAnyRegisterUsed(int address, TIntSet registers, ExecutionGraphManipulator graph) {
         List<ExecutionNode> children = graph.getChildren(address);
         for (ExecutionNode child : children) {
             TIntSet newRegisters = new TIntHashSet(registers);
@@ -87,7 +87,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private static boolean isAnyRegisterUsed(int address, TIntSet registers, MethodBackedGraph graph, ExecutionNode node) {
+    private static boolean isAnyRegisterUsed(int address, TIntSet registers, ExecutionGraphManipulator graph, ExecutionNode node) {
         ExecutionNode current = node;
         for (;;) {
             MethodState mState = current.getContext().getMethodState();
@@ -145,9 +145,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private SideEffect.Level sideEffectThreshold = SideEffect.Level.NONE;
 
-    private final MethodBackedGraph mbgraph;
+    private final ExecutionGraphManipulator mbgraph;
 
-    public DeadRemovalStrategy(MethodBackedGraph mbgraph) {
+    public DeadRemovalStrategy(ExecutionGraphManipulator mbgraph) {
         this.mbgraph = mbgraph;
         addresses = getValidAddresses(mbgraph);
         unusedAssignmentCount = 0;
@@ -398,7 +398,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return nopAddresses;
     }
 
-    TIntList getValidAddresses(MethodBackedGraph mbgraph) {
+    TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
         TIntList validAddresses = new TIntArrayList(mbgraph.getAddresses());
         // Keep the last address. It's a hack. Last op is normally a return, goto, etc.
         // Though could be array-payload (but we don't check, hence hack)

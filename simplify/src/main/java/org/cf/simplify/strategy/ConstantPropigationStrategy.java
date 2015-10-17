@@ -8,7 +8,7 @@ import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.Dependancy;
-import org.cf.simplify.MethodBackedGraph;
+import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.opcode.Op;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -21,13 +21,13 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategy.class.getSimpleName());
 
-    private final MethodBackedGraph mbgraph;
+    private final ExecutionGraphManipulator mbgraph;
     private int constantCount;
     private boolean madeChanges;
 
     protected ConstantBuilder constantBuilder;
 
-    public ConstantPropigationStrategy(MethodBackedGraph mbgraph) {
+    public ConstantPropigationStrategy(ExecutionGraphManipulator mbgraph) {
         getDependancies();
         this.mbgraph = mbgraph;
         constantCount = 0;

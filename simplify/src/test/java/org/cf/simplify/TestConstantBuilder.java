@@ -52,7 +52,7 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "Z");
             int address = 0;
-            MethodBackedGraph mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
 
             Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
 
@@ -94,7 +94,7 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "B");
             int address = 0;
-            MethodBackedGraph mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
 
             Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
 
@@ -111,7 +111,7 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction21lh(Opcode.CONST_WIDE_HIGH16, REGISTER, longBits);
             HeapItem value = new HeapItem(longValue, "D");
             int address = 0;
-            MethodBackedGraph mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
 
             Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
 
@@ -146,7 +146,7 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "F");
             int address = 0;
-            MethodBackedGraph mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
 
             Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
 
@@ -316,7 +316,7 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "S");
             int address = 0;
-            MethodBackedGraph mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
 
             Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
 
@@ -330,8 +330,8 @@ public class TestConstantBuilder {
 
     private static final int REGISTER = 0;
 
-    private static MethodBackedGraph getMockedGraph(int address, HeapItem value) {
-        MethodBackedGraph mbgraph = mock(MethodBackedGraph.class);
+    private static ExecutionGraphManipulator getMockedGraph(int address, HeapItem value) {
+        ExecutionGraphManipulator mbgraph = mock(ExecutionGraphManipulator.class);
         BuilderInstruction instruction = mock(BuilderInstruction.class,
                         withSettings().extraInterfaces(OneRegisterInstruction.class));
         when(((OneRegisterInstruction) instruction).getRegisterA()).thenReturn(REGISTER);
