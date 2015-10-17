@@ -10,6 +10,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
+import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.slf4j.Logger;
@@ -20,16 +21,19 @@ public class MethodExecutor {
     private static Logger log = LoggerFactory.getLogger(MethodExecutor.class.getSimpleName());
 
     private final ClassManager classManager;
-    private final int maxCallDepth;
     private final int maxAddressVisits;
+    private final int maxCallDepth;
     private final int maxMethodVisits;
+    private final int maxExecutionTime;
     private int totalVisits;
 
-    MethodExecutor(ClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits) {
+    MethodExecutor(ClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits,
+                    int maxExecutionTime) {
         this.classManager = classManager;
         this.maxCallDepth = maxCallDepth;
         this.maxAddressVisits = maxAddressVisits;
         this.maxMethodVisits = maxMethodVisits;
+        this.maxExecutionTime = maxExecutionTime;
         totalVisits = 0;
     }
 
@@ -67,14 +71,12 @@ public class MethodExecutor {
     }
 
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded, UnhandledVirtualException {
+                    MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         String methodDescriptor = graph.getMethodDescriptor();
         ExecutionNode node = graph.getRoot();
         int callDepth = node.getCallDepth();
-        if (log.isInfoEnabled()) {
-            log.info("Executing {}, depth={}", methodDescriptor, callDepth);
-        }
+        log.info("Executing {}, depth={}", methodDescriptor, callDepth);
         if (node.getCallDepth() > getMaxCallDepth()) {
             throw new MaxCallDepthExceeded(methodDescriptor);
         }
@@ -85,18 +87,24 @@ public class MethodExecutor {
         }
 
         NodeExecutor nodeExecutor = new NodeExecutor(graph, classManager);
-        Deque<ExecutionNode> executeStack = new ArrayDeque<ExecutionNode>();
-        executeStack.push(node);
-        while ((node = executeStack.poll()) != null) {
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>();
+        stack.push(node);
+        long endTime = System.currentTimeMillis() + (maxExecutionTime * 1000);
+        while ((node = stack.poll()) != null) {
             totalVisits += 1;
             checkMaxVisits(node, methodDescriptor, addressToVisitCount);
-
             nodeExecutor.execute(node);
-
-            executeStack.addAll(node.getChildren());
+            stack.addAll(node.getChildren());
+            checkMaxExecutionTime(endTime, methodDescriptor);
         }
 
         return graph;
+    }
+
+    private static void checkMaxExecutionTime(long endTime, String methodDescriptor) throws MaxExecutionTimeExceeded {
+        if (System.currentTimeMillis() >= endTime) {
+            throw new MaxExecutionTimeExceeded(methodDescriptor);
+        }
     }
 
 }
