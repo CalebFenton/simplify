@@ -3,11 +3,11 @@ package org.cf.smalivm.context;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExecutionGraphPrinter {
+public class ExecutionGrapher {
 
     private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
-    public static String print(ExecutionGraph graph) {
+    public static String graph(ExecutionGraph graph) {
         ExecutionNode node = graph.getRoot();
         StringBuilder sb = new StringBuilder("digraph {\n");
         getGraph(node, graph, sb, new ArrayList<ExecutionNode>());

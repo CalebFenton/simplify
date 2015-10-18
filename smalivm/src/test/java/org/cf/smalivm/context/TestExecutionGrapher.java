@@ -9,7 +9,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-public class TestExecutionGraphPrinter {
+public class TestExecutionGrapher {
 
     private static ExecutionNode buildNode(int address, String nodeString, String stateString) {
         ExecutionNode node = mock(ExecutionNode.class);
@@ -51,7 +51,7 @@ public class TestExecutionGraphPrinter {
         when(graph.getMethodDescriptor()).thenReturn(METHOD_DESCRIPTOR);
         when(graph.getNodeIndex(root)).thenReturn(0);
         when(graph.getNodeIndex(child)).thenReturn(0);
-        String digraph = ExecutionGraphPrinter.print(graph);
+        String digraph = ExecutionGrapher.graph(graph);
 
         StringBuilder sb = new StringBuilder("digraph {\n");
         sb.append("\"@").append(ROOT_ADDRESS).append(".0 :: ").append(ROOT_NODE_STR).append('\n');
