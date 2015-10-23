@@ -16,6 +16,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
@@ -29,8 +32,7 @@ import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
+import org.jf.util.ConsoleUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +45,7 @@ public class Launcher {
     private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
 
     private final VirtualMachineFactory vmFactory;
-    private Options opts;
+    private SimplifyOptions opts;
 
     public Launcher(VirtualMachineFactory vmFactory) {
         this.vmFactory = vmFactory;
@@ -76,7 +78,7 @@ public class Launcher {
 
         System.out.println("Writing output to " + opts.getOutFile());
         classManager.getDexBuilder().writeTo(new FileDataStore(opts.getOutDexFile()));
-        if (opts.isApk()) {
+        if (opts.isZip()) {
             FileUtils.copyFile(opts.getInFile(), opts.getOutFile());
             updateZip(opts.getOutFile(), opts.getOutDexFile(), "classes.dex");
         }
@@ -143,25 +145,24 @@ public class Launcher {
         }
     }
 
-    private static Options getOptions(String[] args) {
-        Options opts = new Options();
-        CmdLineParser parser = new CmdLineParser(opts);
+    private static SimplifyOptions getOptions(String[] args) {
+        SimplifyOptions opts = null;
         try {
-            parser.parseArgument(args);
-        } catch (CmdLineException e) {
-            System.err.println(e);
-            parser.printUsage(System.out);
+            opts = SimplifyOptionsParser.parse(args);
+        } catch (ParseException e) {
+            usage(SimplifyOptionsParser.getOptions());
             System.exit(-1);
         }
+
         if (opts.isHelp()) {
-            parser.printUsage(System.out);
+            usage(SimplifyOptionsParser.getOptions());
             System.exit(0);
         }
 
         return opts;
     }
 
-    private static void setLogLevel(Options bean) {
+    private static void setLogLevel(SimplifyOptions bean) {
         if (bean.isQuiet()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
@@ -169,15 +170,15 @@ public class Launcher {
             return;
         }
 
-        if (bean.isVerbose()) {
+        if (bean.getVerbosity() == 1) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.INFO);
-        } else if (bean.isVverbose()) {
+        } else if (bean.getVerbosity() == 2) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.DEBUG);
-        } else if (bean.isVvverbose()) {
+        } else if (bean.getVerbosity() == 3) {
             // Ok, you asked for it.
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
                             .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
@@ -200,6 +201,17 @@ public class Launcher {
         } finally {
             fs.close();
         }
+    }
+
+    private static void usage(Options options) {
+        HelpFormatter formatter = new HelpFormatter();
+        int consoleWidth = ConsoleUtil.getConsoleWidth();
+        if (consoleWidth <= 0) {
+            consoleWidth = 80;
+        }
+        formatter.setWidth(consoleWidth);
+
+        formatter.printHelp("java -jar simplify.jar <input> [options]", "deobfuscates a dalvik executable", options, "");
     }
 
 }

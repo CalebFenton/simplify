@@ -10,7 +10,7 @@ public class Main {
     private static Launcher launcher;
 
     public static void main(String[] args) throws IOException, UnhandledVirtualException {
-        createLauncher();
+        setupLauncher();
         launcher.run(args);
     }
 
@@ -18,7 +18,7 @@ public class Main {
         Main.launcher = launcher;
     }
 
-    private static void createLauncher() {
+    private static void setupLauncher() {
         if (launcher == null) {
             VirtualMachineFactory vmFactory = new VirtualMachineFactory();
             launcher = new Launcher(vmFactory);

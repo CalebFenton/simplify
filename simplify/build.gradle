@@ -8,6 +8,7 @@ buildscript {
 }
 
 dependencies {
+    // SmaliVM
     compile project(':smalivm')
 
     // Lazy
@@ -15,7 +16,7 @@ dependencies {
     compile depends.commons_lang
 
     // CLI parsing
-    compile depends.args4j
+    compile 'commons-cli:commons-cli:1.3.1'
 
     // Primitive collections
     compile depends.trove4j
@@ -32,6 +33,22 @@ dependencies {
     testCompile depends.junit
     testCompile depends.mockito
     testCompile project(path: ':smalivm', configuration: 'testArtifacts')
+}
+
+// Because of conflicting transitive dependencies (commons-cli), SmaliVM must be at the END of the classpath.
+eclipse.classpath.file {
+    withXml {
+        def node = it.asNode()
+        def smalivmNode
+        node.children().each { n ->
+            if ( n.attributes()['path'] == '/smalivm') {
+                smalivmNode = n
+                return
+            }
+        }
+        node.remove(smalivmNode)
+        node.append(smalivmNode)
+    }
 }
 
 // Build a separate jar that contains all dependencies
@@ -70,7 +87,6 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
     keep 'public class android.util.**  { *; }'
 
     keep 'class org.apache.commons.logging.** { public protected *; }'
-    keep 'public class org.kohsuke.args4j.** { public protected *; }'
     keep 'public class ch.qos.** { public protected *; }'
 
     dontwarn

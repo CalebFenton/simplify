@@ -102,7 +102,11 @@ public class MethodExecutor {
         return graph;
     }
 
-    private static void checkMaxExecutionTime(long endTime, String methodDescriptor) throws MaxExecutionTimeExceeded {
+    private void checkMaxExecutionTime(long endTime, String methodDescriptor) throws MaxExecutionTimeExceeded {
+        if (maxExecutionTime == 0) {
+            return;
+        }
+
         if (System.currentTimeMillis() >= endTime) {
             throw new MaxExecutionTimeExceeded(methodDescriptor);
         }

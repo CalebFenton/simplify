@@ -5,7 +5,6 @@ mainClassName = 'org.cf.demoapp.Main'
 
 dependencies {
     compile project(':smalivm')
-    compile project(':grapher')
 
     // Logging
     compile 'org.slf4j:slf4j-api:1.7.7'
