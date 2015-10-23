@@ -44,14 +44,14 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     private static final String ClassForNameSignature = "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
 
-    private final ExecutionGraphManipulator mbgraph;
+    private final ExecutionGraphManipulator manipulator;
     private int peepCount;
     private int constantIfCount;
     private TIntList addresses;
     private boolean madeChanges;
 
-    public PeepholeStrategy(ExecutionGraphManipulator mbgraph) {
-        this.mbgraph = mbgraph;
+    public PeepholeStrategy(ExecutionGraphManipulator manipulator) {
+        this.manipulator = manipulator;
         peepCount = 0;
         constantIfCount = 0;
     }
@@ -65,46 +65,47 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return counts;
     }
 
+    @Override
     public boolean perform() {
         madeChanges = false;
 
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
         peepClassForName();
 
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
         peepStringInit();
 
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
         peepConstantPredicate();
 
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
         peepCheckCast();
         return madeChanges;
     }
 
     BuilderInstruction buildClassForNameReplacement(int address) {
-        InvokeOp op = (InvokeOp) mbgraph.getOp(address);
+        InvokeOp op = (InvokeOp) manipulator.getOp(address);
         int[] parameterRegisters = op.getParameterRegisters();
         int register = parameterRegisters[0];
-        String javaClassName = (String) mbgraph.getRegisterConsensusValue(address, register);
+        String javaClassName = (String) manipulator.getRegisterConsensusValue(address, register);
         String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
-        HeapItem klazz = mbgraph.getRegisterConsensus(address, MethodState.ResultRegister);
+        HeapItem klazz = manipulator.getRegisterConsensus(address, MethodState.ResultRegister);
         if (klazz == null) {
             log.warn("Optimizing Class.forName of potentially non-existant class: {}", smaliClassName);
         }
-        BuilderTypeReference classRef = mbgraph.getDexBuilder().internTypeReference(smaliClassName);
+        BuilderTypeReference classRef = manipulator.getDexBuilder().internTypeReference(smaliClassName);
         BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
 
         return constClassInstruction;
     }
 
     boolean canPeepClassForName(int address) {
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (!(op instanceof InvokeOp)) {
             return false;
         }
 
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        BuilderInstruction instruction = manipulator.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
         String methodDescriptor = ReferenceUtil.getReferenceString(instr.getReference());
         if (!methodDescriptor.equals(ClassForNameSignature)) {
@@ -113,7 +114,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int registerA = parameterRegisters[0];
-        HeapItem className = mbgraph.getRegisterConsensus(address, registerA);
+        HeapItem className = manipulator.getRegisterConsensus(address, registerA);
         if (className.isUnknown()) {
             return false;
         }
@@ -121,10 +122,10 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
+    TIntList getValidAddresses(ExecutionGraphManipulator manipulator) {
         TIntList addresses = new TIntLinkedList();
-        for (int address : mbgraph.getAddresses()) {
-            if (mbgraph.wasAddressReached(address)) {
+        for (int address : manipulator.getAddresses()) {
+            if (manipulator.wasAddressReached(address)) {
                 addresses.add(address);
             }
         }
@@ -150,18 +151,18 @@ public class PeepholeStrategy implements OptimizationStrategy {
         peepAddresses.sort();
         peepAddresses.reverse();
         for (int address : peepAddresses.toArray()) {
-            BuilderInstruction original = mbgraph.getInstruction(address);
+            BuilderInstruction original = manipulator.getInstruction(address);
             int nextAddress = address + original.getCodeUnits();
             if (addresses.contains(nextAddress)) {
-                BuilderInstruction nextInstruction = mbgraph.getInstruction(nextAddress);
+                BuilderInstruction nextInstruction = manipulator.getInstruction(nextAddress);
                 if (nextInstruction.getOpcode().name.startsWith("move-result")) {
                     // There is a move-result after the instruction being replaced. "Deal" with it.
-                    mbgraph.removeInstruction(nextAddress);
+                    manipulator.removeInstruction(nextAddress);
                 }
             }
 
             BuilderInstruction replacement = buildClassForNameReplacement(address);
-            mbgraph.replaceInstruction(address, replacement);
+            manipulator.replaceInstruction(address, replacement);
         }
     }
 
@@ -169,13 +170,13 @@ public class PeepholeStrategy implements OptimizationStrategy {
         TIntList peepAddresses = new TIntArrayList();
         TIntSet nextAddresses = new TIntHashSet();
         for (int address : addresses.toArray()) {
-            BuilderInstruction original = mbgraph.getInstruction(address);
+            BuilderInstruction original = manipulator.getInstruction(address);
             if (!(original instanceof Instruction22t || original instanceof Instruction21t)) {
                 continue;
             }
 
             Set<ExecutionNode> children = new HashSet<ExecutionNode>();
-            List<ExecutionNode> pile = mbgraph.getNodePile(address);
+            List<ExecutionNode> pile = manipulator.getNodePile(address);
             for (ExecutionNode node : pile) {
                 children.addAll(node.getChildren());
             }
@@ -207,22 +208,22 @@ public class PeepholeStrategy implements OptimizationStrategy {
             if (nextAddresses.contains(address)) {
                 replacement = new BuilderInstruction10x(Opcode.NOP);
             } else {
-                BuilderOffsetInstruction original = (BuilderOffsetInstruction) mbgraph.getInstruction(address);
+                BuilderOffsetInstruction original = (BuilderOffsetInstruction) manipulator.getInstruction(address);
                 Label target = original.getTarget();
                 replacement = new BuilderInstruction30t(Opcode.GOTO_32, target);
             }
 
             if (log.isDebugEnabled()) {
-                log.debug("Peeping constant predicate @{} {}", address, mbgraph.getOp(address));
+                log.debug("Peeping constant predicate @{} {}", address, manipulator.getOp(address));
             }
-            mbgraph.replaceInstruction(address, replacement);
+            manipulator.replaceInstruction(address, replacement);
         }
     }
 
     void peepStringInit() {
         TIntList peepAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            BuilderInstruction original = mbgraph.getInstruction(address);
+            BuilderInstruction original = manipulator.getInstruction(address);
             if (!(original instanceof Instruction35c)) {
                 // Not an invoke direct
                 continue;
@@ -236,7 +237,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             }
 
             int instanceRegister = instr.getRegisterC();
-            HeapItem item = mbgraph.getRegisterConsensus(address, instanceRegister);
+            HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
             if (!(item.getValue() instanceof String)) {
                 // Not UnknownValue
                 continue;
@@ -254,35 +255,35 @@ public class PeepholeStrategy implements OptimizationStrategy {
         peepAddresses.sort();
         peepAddresses.reverse();
         for (int address : peepAddresses.toArray()) {
-            BuilderInstruction original = mbgraph.getInstruction(address);
+            BuilderInstruction original = manipulator.getInstruction(address);
             Instruction35c instr = (Instruction35c) original;
             int instanceRegister = instr.getRegisterC();
-            HeapItem item = mbgraph.getRegisterConsensus(address, instanceRegister);
+            HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
             BuilderInstruction replacement = ConstantBuilder.buildConstant(item.getValue(), item.getUnboxedValueType(),
-                            instanceRegister, mbgraph.getDexBuilder());
+                            instanceRegister, manipulator.getDexBuilder());
             if (log.isDebugEnabled()) {
-                log.debug("Peeping string init @{} {}", address, mbgraph.getOp(address));
+                log.debug("Peeping string init @{} {}", address, manipulator.getOp(address));
             }
-            mbgraph.replaceInstruction(address, replacement);
+            manipulator.replaceInstruction(address, replacement);
         }
     }
 
     void peepCheckCast() {
         TIntList peepAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOp(address);
+            Op op = manipulator.getOp(address);
             if (!op.toString().startsWith("check-cast")) {
                 continue;
             }
 
-            BuilderInstruction21c original = (BuilderInstruction21c) mbgraph.getInstruction(address);
+            BuilderInstruction21c original = (BuilderInstruction21c) manipulator.getInstruction(address);
             int registerA = original.getRegisterA();
 
             // Heap item at address would have been recast. Need to examine parents.
             // Also, don't care about values. Just collecting types.
             Set<String> ancestorTypes = new HashSet<String>();
-            for (int parentAddress : mbgraph.getParentAddresses(address).toArray()) {
-                for (HeapItem item : mbgraph.getRegisterItems(parentAddress, registerA)) {
+            for (int parentAddress : manipulator.getParentAddresses(address).toArray()) {
+                for (HeapItem item : manipulator.getRegisterItems(parentAddress, registerA)) {
                     ancestorTypes.add(item.getType());
                 }
             }
@@ -299,7 +300,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
                 // check-cast is first op with no parents
                 // this implies it's acting on a parameter register
                 // look at freshly spawned execution context type
-                ExecutionContext ectx = mbgraph.getVM().spawnExecutionContext(mbgraph.getMethodDescriptor());
+                ExecutionContext ectx = manipulator.getVM().spawnExecutionContext(manipulator.getMethodDescriptor());
                 HeapItem item = ectx.getMethodState().peekRegister(registerA);
                 preCastType = item.getType();
             }
@@ -323,8 +324,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
         peepAddresses.sort();
         peepAddresses.reverse();
         for (int address : peepAddresses.toArray()) {
-            log.debug("Removing useless check-cast @{} {}", address, mbgraph.getOp(address));
-            mbgraph.removeInstruction(address);
+            log.debug("Removing useless check-cast @{} {}", address, manipulator.getOp(address));
+            manipulator.removeInstruction(address);
         }
     }
 

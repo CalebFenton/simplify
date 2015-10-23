@@ -26,7 +26,7 @@ public class Optimizer {
 
     private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
-    private final ExecutionGraphManipulator mbgraph;
+    private final ExecutionGraphManipulator manipulator;
     private final String methodDescriptor;
     private final List<OptimizationStrategy> reoptimizeStrategies;
     private final List<OptimizationStrategy> reexecuteStrategies;
@@ -36,22 +36,23 @@ public class Optimizer {
     private boolean shouldReexecute;
     private Map<String, Integer> optimizationCounts;
 
-    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, SimplifyOptions opts) {
+    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder,
+                    SimplifyOptions opts) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        mbgraph = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
+        manipulator = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
 
         reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(mbgraph);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         strategy.setRemoveWeak(opts.isRemoveWeak());
         reoptimizeStrategies.add(strategy);
-        reoptimizeStrategies.add(new ConstantPropigationStrategy(mbgraph));
-        reoptimizeStrategies.add(new PeepholeStrategy(mbgraph));
+        reoptimizeStrategies.add(new ConstantPropigationStrategy(manipulator));
+        reoptimizeStrategies.add(new PeepholeStrategy(manipulator));
 
         // Some strategies may alter semantics. E.g. it's possible to remove method reflection without knowing the
         // result of the reflected method call. This leaves method states in a weird way, i.e. move-result has unknown
         // values. In these cases, re-execute the method to establish semantics.
         reexecuteStrategies = new LinkedList<OptimizationStrategy>();
-        reexecuteStrategies.add(new UnreflectionStrategy(mbgraph));
+        reexecuteStrategies.add(new UnreflectionStrategy(manipulator));
 
         allStrategies = new LinkedList<OptimizationStrategy>();
         allStrategies.addAll(reoptimizeStrategies);

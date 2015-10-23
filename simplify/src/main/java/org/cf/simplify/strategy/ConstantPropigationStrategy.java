@@ -21,15 +21,15 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategy.class.getSimpleName());
 
-    private final ExecutionGraphManipulator mbgraph;
+    private final ExecutionGraphManipulator manipulator;
     private int constantCount;
     private boolean madeChanges;
 
     protected ConstantBuilder constantBuilder;
 
-    public ConstantPropigationStrategy(ExecutionGraphManipulator mbgraph) {
+    public ConstantPropigationStrategy(ExecutionGraphManipulator manipulator) {
         getDependancies();
-        this.mbgraph = mbgraph;
+        this.manipulator = manipulator;
         constantCount = 0;
     }
 
@@ -50,13 +50,13 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         addresses.reverse();
         for (int address : addresses.toArray()) {
             madeChanges = true;
-            BuilderInstruction original = mbgraph.getInstruction(address);
-            BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, mbgraph);
+            BuilderInstruction original = manipulator.getInstruction(address);
+            BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, manipulator);
             boolean isReturn = original.getOpcode().name().startsWith("RETURN");
             if (isReturn) {
-                mbgraph.addInstruction(address, constInstruction);
+                manipulator.addInstruction(address, constInstruction);
             } else {
-                mbgraph.replaceInstruction(address, constInstruction);
+                manipulator.replaceInstruction(address, constInstruction);
             }
             constantCount++;
         }
@@ -66,7 +66,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     private TIntList getValidAddresses() {
         TIntList addresses = new TIntLinkedList();
-        for (int address : mbgraph.getAddresses()) {
+        for (int address : manipulator.getAddresses()) {
             if (canConstantizeAddress(address)) {
                 addresses.add(address);
             }
@@ -76,23 +76,23 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     }
 
     private boolean canConstantizeAddress(int address) {
-        if (!mbgraph.wasAddressReached(address)) {
+        if (!manipulator.wasAddressReached(address)) {
             return false;
         }
 
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (!constantBuilder.canConstantizeOp(op)) {
             return false;
         }
 
-        OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
+        OneRegisterInstruction instruction = (OneRegisterInstruction) manipulator.getInstruction(address);
         if (instruction == null) {
             return false;
         }
         int register = instruction.getRegisterA();
-        HeapItem consensus = mbgraph.getRegisterConsensus(address, register);
+        HeapItem consensus = manipulator.getRegisterConsensus(address, register);
         // Consensus may be null if we have correct syntax without legitimate values (fake code)
-        if ((consensus == null) || consensus.isUnknown()) {
+        if (consensus == null || consensus.isUnknown()) {
             return false;
         }
 

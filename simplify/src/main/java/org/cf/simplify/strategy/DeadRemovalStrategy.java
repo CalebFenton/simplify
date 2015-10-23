@@ -32,22 +32,22 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
 
-    private static TIntSet getExceptionHandlerAddresses(ExecutionGraphManipulator mbgraph) {
-        int[] allAddresses = mbgraph.getAddresses();
+    private static TIntSet getExceptionHandlerAddresses(ExecutionGraphManipulator manipulator) {
+        int[] allAddresses = manipulator.getAddresses();
         Arrays.sort(allAddresses);
         int highestAddress = allAddresses[allAddresses.length - 1];
         TIntSet handlerAddresses = new TIntHashSet();
-        List<BuilderTryBlock> tryBlocks = mbgraph.getTryBlocks();
+        List<BuilderTryBlock> tryBlocks = manipulator.getTryBlocks();
         for (BuilderTryBlock tryBlock : tryBlocks) {
             List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
             for (BuilderExceptionHandler handler : handlers) {
                 int address = handler.getHandlerCodeAddress();
-                BuilderInstruction instruction = mbgraph.getInstruction(address);
+                BuilderInstruction instruction = manipulator.getInstruction(address);
                 while (address < highestAddress) {
                     // Add all instructions until return, goto, etc.
                     handlerAddresses.add(address);
                     address += instruction.getCodeUnits();
-                    instruction = mbgraph.getInstruction(address);
+                    instruction = manipulator.getInstruction(address);
                     if (!instruction.getOpcode().canContinue()) {
                         break;
                     }
@@ -87,7 +87,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private static boolean isAnyRegisterUsed(int address, TIntSet registers, ExecutionGraphManipulator graph, ExecutionNode node) {
+    private static boolean isAnyRegisterUsed(int address, TIntSet registers, ExecutionGraphManipulator graph,
+                    ExecutionNode node) {
         ExecutionNode current = node;
         for (;;) {
             MethodState mState = current.getContext().getMethodState();
@@ -145,11 +146,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private SideEffect.Level sideEffectThreshold = SideEffect.Level.NONE;
 
-    private final ExecutionGraphManipulator mbgraph;
+    private final ExecutionGraphManipulator manipulator;
 
-    public DeadRemovalStrategy(ExecutionGraphManipulator mbgraph) {
-        this.mbgraph = mbgraph;
-        addresses = getValidAddresses(mbgraph);
+    public DeadRemovalStrategy(ExecutionGraphManipulator manipulator) {
+        this.manipulator = manipulator;
+        addresses = getValidAddresses(manipulator);
         unusedAssignmentCount = 0;
         uselessBranchCount = 0;
         unvisitedCount = 0;
@@ -172,7 +173,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     @Override
     public boolean perform() {
         // Updated addresses each time because they change outside of this method.
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
 
         TIntSet removeSet = new TIntHashSet();
         TIntList removeAddresses;
@@ -197,7 +198,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         removeSet.addAll(removeAddresses);
 
         removeAddresses = new TIntArrayList(removeSet.toArray());
-        mbgraph.removeInstructions(removeAddresses);
+        manipulator.removeInstructions(removeAddresses);
 
         return removeAddresses.size() > 0;
     }
@@ -209,11 +210,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private boolean isDeadAssignment(int address) {
-        if (!mbgraph.wasAddressReached(address)) {
+        if (!manipulator.wasAddressReached(address)) {
             return false;
         }
 
-        ExecutionNode node = mbgraph.getNodePile(address).get(0);
+        ExecutionNode node = manipulator.getNodePile(address).get(0);
         ExecutionContext ectx = node.getContext();
         if (ectx == null) {
             if (log.isWarnEnabled()) {
@@ -230,7 +231,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (isSideEffectAboveThreshold(op.getSideEffectLevel())) {
             return false;
         }
@@ -247,7 +248,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             log.debug("Dead assignments test @" + address + " for: " + op);
         }
 
-        if (isAnyRegisterUsed(address, assigned, mbgraph)) {
+        if (isAnyRegisterUsed(address, assigned, manipulator)) {
             return false;
         }
 
@@ -255,11 +256,11 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private boolean isDeadResult(int address) {
-        if (!mbgraph.wasAddressReached(address)) {
+        if (!manipulator.wasAddressReached(address)) {
             return false;
         }
 
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (!(op instanceof InvokeOp)) {
             return false;
         }
@@ -277,9 +278,9 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        BuilderInstruction instruction = manipulator.getInstruction(address);
         int nextAddress = address + instruction.getCodeUnits();
-        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        BuilderInstruction nextInstr = manipulator.getInstruction(nextAddress);
         if (nextInstr == null) {
             return false;
         }
@@ -289,12 +290,12 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        ExecutionNode node = mbgraph.getNodePile(address).get(0);
+        ExecutionNode node = manipulator.getNodePile(address).get(0);
         ExecutionContext ectx = node.getContext();
         MethodState mState = ectx.getMethodState();
         TIntSet assigned = getNormalRegistersAssigned(mState);
         if (0 < assigned.size()) {
-            if (isAnyRegisterUsed(address, assigned, mbgraph)) {
+            if (isAnyRegisterUsed(address, assigned, manipulator)) {
                 // Result may not be used, but assignments *are* used
                 return false;
             }
@@ -304,22 +305,22 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private boolean isSideEffectAboveThreshold(SideEffect.Level level) {
-        return (level.compareTo(sideEffectThreshold) > 0);
+        return level.compareTo(sideEffectThreshold) > 0;
     }
 
     boolean isDead(int address) {
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (log.isDebugEnabled()) {
             log.debug("Dead test @" + address + " for: " + op);
         }
 
-        if (mbgraph.wasAddressReached(address)) {
+        if (manipulator.wasAddressReached(address)) {
             return false;
         }
 
         if (op instanceof NopOp) {
             int nextAddress = address + op.getLocation().getInstruction().getCodeUnits();
-            Opcode nextOp = mbgraph.getLocation(nextAddress).getInstruction().getOpcode();
+            Opcode nextOp = manipulator.getLocation(nextAddress).getInstruction().getOpcode();
             if (nextOp == Opcode.ARRAY_PAYLOAD) {
                 // Necessary nop padding
                 return false;
@@ -365,13 +366,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getUselessBranchAddresses() {
         TIntList result = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            Op op = mbgraph.getOp(address);
+            Op op = manipulator.getOp(address);
             if (!(op instanceof GotoOp)) {
                 continue;
             }
 
             // Branch is useless if it branches to the next instruction.
-            OffsetInstruction instruction = (OffsetInstruction) mbgraph.getInstruction(address);
+            OffsetInstruction instruction = (OffsetInstruction) manipulator.getInstruction(address);
             int branchOffset = instruction.getCodeOffset();
             if (branchOffset != instruction.getCodeUnits()) {
                 continue;
@@ -386,10 +387,10 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     TIntList getNopAddresses() {
         TIntList nopAddresses = new TIntArrayList();
         for (int address : addresses.toArray()) {
-            if (!mbgraph.wasAddressReached(address)) {
+            if (!manipulator.wasAddressReached(address)) {
                 continue;
             }
-            Op op = mbgraph.getOp(address);
+            Op op = manipulator.getOp(address);
             if (op instanceof NopOp) {
                 nopAddresses.add(address);
             }
@@ -398,23 +399,23 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return nopAddresses;
     }
 
-    TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
-        TIntList validAddresses = new TIntArrayList(mbgraph.getAddresses());
+    TIntList getValidAddresses(ExecutionGraphManipulator manipulator) {
+        TIntList validAddresses = new TIntArrayList(manipulator.getAddresses());
         // Keep the last address. It's a hack. Last op is normally a return, goto, etc.
         // Though could be array-payload (but we don't check, hence hack)
         validAddresses.sort();
         validAddresses.removeAt(validAddresses.size() - 1);
 
         // For now, don't remove any exception handler code until VM actually understands them.
-        validAddresses.removeAll(getExceptionHandlerAddresses(mbgraph));
+        validAddresses.removeAll(getExceptionHandlerAddresses(manipulator));
 
         for (int address : validAddresses.toArray()) {
-            if (!mbgraph.wasAddressReached(address)) {
+            if (!manipulator.wasAddressReached(address)) {
                 // DEAD, totally valid
                 continue;
             }
 
-            Op op = mbgraph.getOp(address);
+            Op op = manipulator.getOp(address);
             if (isSideEffectAboveThreshold(op.getSideEffectLevel())) {
                 validAddresses.remove(address);
                 continue;
@@ -423,7 +424,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             if (op instanceof NopOp) {
                 // Usually, the only reason a nop exists is because it was generated by the compiler.
                 // Most decompilers are smart enough to deal with them.
-                if (!mbgraph.wasAddressReached(address)) {
+                if (!manipulator.wasAddressReached(address)) {
                     // Wasn't reached, so must be a padding op. Dexlib will remove this if necessary.
                     validAddresses.remove(address);
                     continue;
@@ -432,8 +433,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
             if (op.getName().startsWith("invoke-direct")) {
                 // Initializers shouldn't be removed because they setup instance state.
-                if (mbgraph.getMethodDescriptor().contains(";-><init>(")) {
-                    ExecutionNode node = mbgraph.getNodePile(address).get(0);
+                if (manipulator.getMethodDescriptor().contains(";-><init>(")) {
+                    ExecutionNode node = manipulator.getNodePile(address).get(0);
                     ExecutionContext ectx = node.getContext();
                     MethodState mState = ectx.getMethodState();
 

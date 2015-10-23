@@ -58,47 +58,48 @@ public class TestConstantPropigationStrategy {
         @Test
         public void testAddInt2AddrConstantizesToExpectedInstruction() {
             String methodName = "AddInt2Addr()V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, 3, "I");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, 3, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(6, 0);
 
-            testEquals(expected, mbgraph, 0);
+            testEquals(expected, manipulator, 0);
         }
 
         @Test
         public void testAGetIsConstable() {
             String methodName = "ArrayGetFromV0AtV1ToV0()V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, "[I", 1, 1, "I");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new int[] { 0, 7 }, "[I", 1, 1,
+                            "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(7, 0);
 
-            testEquals(expected, mbgraph, 0);
+            testEquals(expected, manipulator, 0);
         }
 
         @Test
         public void testMoveOpIsWithConst16ConstantizesToExpectedInstruction() {
             int value = 0x42;
             String methodName = "MoveV0IntoV1()V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, value, "I");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, value, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(value, 1);
 
-            testEquals(expected, mbgraph, 0);
+            testEquals(expected, manipulator, 0);
         }
 
         @Test
         public void testNonDeterministicallyExecuteConstableOpConstantizesToExpectedInstruction() {
             String methodName = "NonDeterministicallyStaticGetIntegerMaxValue(I)V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 1, new UnknownValue(), "I");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 1, new UnknownValue(), "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
-            testEquals(expected, mbgraph, 2);
+            testEquals(expected, manipulator, 2);
         }
 
         @Test
         public void testSGetIsConstable() {
             String methodName = "StaticGetIntegerMaxValue()V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName);
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName);
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
-            testEquals(expected, mbgraph, 0);
+            testEquals(expected, manipulator, 0);
         }
     }
 
@@ -168,15 +169,15 @@ public class TestConstantPropigationStrategy {
     }
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, TIntObjectMap<HeapItem> initial) {
-        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
-        ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(mbgraph);
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+        ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(manipulator);
         strategy.perform();
 
-        return mbgraph;
+        return manipulator;
     }
 
-    private static void testEquals(BuilderInstruction expected, ExecutionGraphManipulator mbgraph, int address) {
-        BuilderInstruction actual = mbgraph.getInstruction(address);
+    private static void testEquals(BuilderInstruction expected, ExecutionGraphManipulator manipulator, int address) {
+        BuilderInstruction actual = manipulator.getInstruction(address);
 
         assertEquals(expected.getOpcode(), actual.getOpcode());
 

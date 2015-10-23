@@ -73,7 +73,7 @@ public class ConstantBuilder implements Dependancy {
     }
 
     public static BuilderInstruction buildConstant(float value, int register) {
-        if ((value % 1) == 0) {
+        if (value % 1 == 0) {
             // No decimal portion
             if (value <= Integer.MAX_VALUE) {
                 return buildConstant(((Float) value).intValue(), register);
@@ -102,9 +102,9 @@ public class ConstantBuilder implements Dependancy {
     public static BuilderInstruction buildConstant(int value, int register) {
         BuilderInstruction result;
         int bitCount = value == 0 ? 1 : 1 + Integer.numberOfTrailingZeros(Integer.highestOneBit(value));
-        if ((bitCount < 4) && ((register & 0xFFFFFFF0) == 0)) {
+        if (bitCount < 4 && (register & 0xFFFFFFF0) == 0) {
             result = new BuilderInstruction11n(Opcode.CONST_4, register, value);
-        } else if ((bitCount < 16) && ((register & 0xFFFFFF00) == 0)) {
+        } else if (bitCount < 16 && (register & 0xFFFFFF00) == 0) {
             result = new BuilderInstruction21s(Opcode.CONST_16, register, value);
         } else {
             result = new BuilderInstruction31i(Opcode.CONST, register, value);
@@ -116,9 +116,9 @@ public class ConstantBuilder implements Dependancy {
     public static BuilderInstruction buildConstant(long value, int register) {
         BuilderInstruction result;
         int bitCount = Long.numberOfTrailingZeros(Long.highestOneBit(value));
-        if ((bitCount < 16) && ((register & 0xFFFFFF00) == 0)) {
+        if (bitCount < 16 && (register & 0xFFFFFF00) == 0) {
             result = new BuilderInstruction21s(Opcode.CONST_WIDE_16, register, (int) value);
-        } else if ((bitCount < 32) && ((register & 0xFFFFFF00) == 0)) {
+        } else if (bitCount < 32 && (register & 0xFFFFFF00) == 0) {
             result = new BuilderInstruction31i(Opcode.CONST_WIDE_32, register, (int) value);
         } else {
             result = new BuilderInstruction51l(Opcode.CONST_WIDE, register, value);
@@ -131,31 +131,31 @@ public class ConstantBuilder implements Dependancy {
         BuilderInstruction result = null;
         if (type.equals("I")) {
             if (value instanceof Integer) {
-                result = buildConstant(((Integer) value), register);
+                result = buildConstant((Integer) value, register);
             } else {
                 result = buildConstant(Utils.getIntegerValue(value), register);
             }
         } else if (type.equals("B")) {
             if (value instanceof Byte) {
-                result = buildConstant(((Byte) value), register);
+                result = buildConstant((Byte) value, register);
             } else {
                 result = buildConstant(Utils.getIntegerValue(value), register);
             }
         } else if (type.equals("S")) {
             if (value instanceof Short) {
-                result = buildConstant(((Short) value), register);
+                result = buildConstant((Short) value, register);
             } else {
                 result = buildConstant(Utils.getIntegerValue(value), register);
             }
         } else if (type.equals("C")) {
             if (value instanceof Character) {
-                result = buildConstant(((Character) value), register);
+                result = buildConstant((Character) value, register);
             } else {
                 result = buildConstant(Utils.getIntegerValue(value), register);
             }
         } else if (type.equals("Z")) {
             if (value instanceof Boolean) {
-                result = buildConstant(((Boolean) value), register);
+                result = buildConstant((Boolean) value, register);
             } else {
                 result = buildConstant(Utils.getIntegerValue(value), register);
             }
@@ -189,11 +189,11 @@ public class ConstantBuilder implements Dependancy {
         return result;
     }
 
-    public static BuilderInstruction buildConstant(int address, ExecutionGraphManipulator mbgraph) {
-        DexBuilder dexBuilder = mbgraph.getDexBuilder();
-        OneRegisterInstruction instruction = (OneRegisterInstruction) mbgraph.getInstruction(address);
+    public static BuilderInstruction buildConstant(int address, ExecutionGraphManipulator manipulator) {
+        DexBuilder dexBuilder = manipulator.getDexBuilder();
+        OneRegisterInstruction instruction = (OneRegisterInstruction) manipulator.getInstruction(address);
         int register = instruction.getRegisterA();
-        HeapItem item = mbgraph.getRegisterConsensus(address, register);
+        HeapItem item = manipulator.getRegisterConsensus(address, register);
         BuilderInstruction constant = buildConstant(item.getValue(), item.getUnboxedValueType(), register, dexBuilder);
 
         return constant;

@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 public class TestConstantBuilder {
 
     public static class TestBuildBoolean {
+
         @Test
         public void testWithFalse() {
             Boolean value = Boolean.FALSE;
@@ -52,9 +53,9 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "Z");
             int address = 0;
-            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator manipulator = getMockedGraph(address, value);
 
-            Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
+            Instruction actual = ConstantBuilder.buildConstant(address, manipulator);
 
             testEquals(expected, actual);
         }
@@ -70,6 +71,7 @@ public class TestConstantBuilder {
     }
 
     public static class TestBuildByte {
+
         @Test
         public void testWith4BitLiteral() {
             byte value = 7;
@@ -94,15 +96,16 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "B");
             int address = 0;
-            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator manipulator = getMockedGraph(address, value);
 
-            Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
+            Instruction actual = ConstantBuilder.buildConstant(address, manipulator);
 
             testEquals(expected, actual);
         }
     }
 
     public static class TestBuildDouble {
+
         @Test
         public void testWithHeapItemWithDoubleTypeAndLongValue() {
             double doubleValue = Math.pow(2, 15);
@@ -111,9 +114,9 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction21lh(Opcode.CONST_WIDE_HIGH16, REGISTER, longBits);
             HeapItem value = new HeapItem(longValue, "D");
             int address = 0;
-            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator manipulator = getMockedGraph(address, value);
 
-            Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
+            Instruction actual = ConstantBuilder.buildConstant(address, manipulator);
 
             testEquals(expected, actual);
         }
@@ -140,15 +143,16 @@ public class TestConstantBuilder {
     }
 
     public static class TestBuildFloat {
+
         @Test
         public void testWithHeapItemWitFloatTypeAndIntegerValue() {
             int intValue = 5;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "F");
             int address = 0;
-            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator manipulator = getMockedGraph(address, value);
 
-            Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
+            Instruction actual = ConstantBuilder.buildConstant(address, manipulator);
 
             testEquals(expected, actual);
         }
@@ -175,6 +179,7 @@ public class TestConstantBuilder {
     }
 
     public static class TestBuildInteger {
+
         @Test
         public void testWith15BitLiteral() {
             int value = (int) (Math.pow(2, 15) - 1);
@@ -213,6 +218,7 @@ public class TestConstantBuilder {
     }
 
     public static class TestBuildLong {
+
         @Test
         public void testWith31BitLiteral() {
             long value = (long) (Math.pow(2, 31) - 1);
@@ -251,6 +257,7 @@ public class TestConstantBuilder {
     }
 
     public static class TestBuildObject {
+
         DexBuilder dexBuilder;
 
         @Before
@@ -292,6 +299,7 @@ public class TestConstantBuilder {
     }
 
     public static class TestBuildShort {
+
         @Test
         public void testWith15BitLiteral() {
             short value = Short.MAX_VALUE;
@@ -316,9 +324,9 @@ public class TestConstantBuilder {
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "S");
             int address = 0;
-            ExecutionGraphManipulator mbgraph = getMockedGraph(address, value);
+            ExecutionGraphManipulator manipulator = getMockedGraph(address, value);
 
-            Instruction actual = ConstantBuilder.buildConstant(address, mbgraph);
+            Instruction actual = ConstantBuilder.buildConstant(address, manipulator);
 
             testEquals(expected, actual);
         }
@@ -331,14 +339,14 @@ public class TestConstantBuilder {
     private static final int REGISTER = 0;
 
     private static ExecutionGraphManipulator getMockedGraph(int address, HeapItem value) {
-        ExecutionGraphManipulator mbgraph = mock(ExecutionGraphManipulator.class);
+        ExecutionGraphManipulator manipulator = mock(ExecutionGraphManipulator.class);
         BuilderInstruction instruction = mock(BuilderInstruction.class,
                         withSettings().extraInterfaces(OneRegisterInstruction.class));
         when(((OneRegisterInstruction) instruction).getRegisterA()).thenReturn(REGISTER);
-        when(mbgraph.getRegisterConsensus(address, REGISTER)).thenReturn(value);
-        when(mbgraph.getInstruction(address)).thenReturn(instruction);
+        when(manipulator.getRegisterConsensus(address, REGISTER)).thenReturn(value);
+        when(manipulator.getInstruction(address)).thenReturn(instruction);
 
-        return mbgraph;
+        return manipulator;
     }
 
     private static void testEquals(Instruction expectedInstr, Instruction actualInstr) {

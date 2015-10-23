@@ -118,14 +118,14 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return op;
     }
 
-    private final ExecutionGraphManipulator mbgraph;
+    private final ExecutionGraphManipulator manipulator;
     private int unreflectCount;
     private TIntList addresses;
 
     private boolean madeChanges;
 
-    public UnreflectionStrategy(ExecutionGraphManipulator mbgraph) {
-        this.mbgraph = mbgraph;
+    public UnreflectionStrategy(ExecutionGraphManipulator manipulator) {
+        this.manipulator = manipulator;
         unreflectCount = 0;
     }
 
@@ -137,25 +137,26 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return result;
     }
 
+    @Override
     public boolean perform() {
         madeChanges = false;
 
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
         replaceMethodInvoke();
 
-        addresses = getValidAddresses(mbgraph);
+        addresses = getValidAddresses(manipulator);
         replaceFieldGet();
 
         return madeChanges;
     }
 
     private BuilderInstruction buildFieldGetReplacement(int address) {
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int fieldRegister = parameterRegisters[0];
         int targetRegister = parameterRegisters[1];
-        Object fieldValue = mbgraph.getRegisterConsensusValue(address, fieldRegister);
-        // Object targetValue = mbgraph.getRegisterConsensusValue(address, targetRegister);
+        Object fieldValue = manipulator.getRegisterConsensusValue(address, fieldRegister);
+        // Object targetValue = manipulator.getRegisterConsensusValue(address, targetRegister);
 
         String fieldDescriptor = null;
         if (fieldValue instanceof LocalField) {
@@ -181,28 +182,28 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         FieldReference fieldRef = null;
         boolean isStatic = false;
         if (fieldValue instanceof LocalField) {
-            ClassManager classManager = mbgraph.getVM().getClassManager();
+            ClassManager classManager = manipulator.getVM().getClassManager();
             BuilderField builderField = classManager.getField(className, fieldName);
-            fieldRef = (FieldReference) builderField;
+            fieldRef = builderField;
             isStatic = Modifier.isStatic(builderField.getAccessFlags());
         } else {
             Field field = (Field) fieldValue;
-            fieldRef = mbgraph.getDexBuilder()
-                            .internField(className, fieldName, type, field.getModifiers(), null, null);
+            fieldRef = manipulator.getDexBuilder().internField(className, fieldName, type, field.getModifiers(), null,
+                            null);
             isStatic = Modifier.isStatic(field.getModifiers());
         }
         Opcode newOp = getGetOpcode(type, isStatic);
 
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        BuilderInstruction instruction = manipulator.getInstruction(address);
         int nextAddress = address + instruction.getCodeUnits();
-        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        BuilderInstruction nextInstr = manipulator.getInstruction(nextAddress);
         String opName = nextInstr.getOpcode().name;
         int destRegister;
         if (opName.startsWith("move-result")) {
             BuilderInstruction11x moveInstr = (BuilderInstruction11x) nextInstr;
             destRegister = moveInstr.getRegisterA();
         } else {
-            destRegister = mbgraph.getAvailableRegisters(address).get(0);
+            destRegister = manipulator.getAvailableRegisters(address).get(0);
         }
 
         BuilderInstruction replacement = null;
@@ -223,7 +224,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         ImmutableMethodReference immutableMethodRef = new ImmutableMethodReference(className, name, parameterTypes,
                         returnType);
-        MethodReference methodRef = mbgraph.getDexBuilder().internMethodReference(immutableMethodRef);
+        MethodReference methodRef = manipulator.getDexBuilder().internMethodReference(immutableMethodRef);
 
         return methodRef;
     }
@@ -241,7 +242,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 // Check cast expects a type reference, which I've never seen to be a primitive type.
                 typeName = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(typeName));
             }
-            BuilderTypeReference typeRef = mbgraph.getDexBuilder().internTypeReference(typeName);
+            BuilderTypeReference typeRef = manipulator.getDexBuilder().internTypeReference(typeName);
             BuilderInstruction checkCast = new BuilderInstruction21c(Opcode.CHECK_CAST, register, typeRef);
 
             instructions.add(constInstruction);
@@ -277,13 +278,13 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private void removeMoveResultIfNecessary(int address) {
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        BuilderInstruction instruction = manipulator.getInstruction(address);
         int nextAddress = address + instruction.getCodeUnits();
-        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        BuilderInstruction nextInstr = manipulator.getInstruction(nextAddress);
 
         String opName = nextInstr.getOpcode().name;
         if (opName.startsWith("move-result")) {
-            mbgraph.removeInstruction(nextAddress);
+            manipulator.removeInstruction(nextAddress);
         }
     }
 
@@ -306,7 +307,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         for (int address : getAddresses.toArray()) {
             BuilderInstruction replacement = buildFieldGetReplacement(address);
             removeMoveResultIfNecessary(address);
-            mbgraph.replaceInstruction(address, replacement);
+            manipulator.replaceInstruction(address, replacement);
         }
     }
 
@@ -335,13 +336,13 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 e.printStackTrace();
             }
 
-            mbgraph.replaceInstruction(address, replacements);
+            manipulator.replaceInstruction(address, replacements);
         }
     }
 
     List<BuilderInstruction> buildMethodInvokeReplacement(int address) throws Exception {
         // The good news is: this is as complicated as it gets
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
         int targetRegister = parameterRegisters[1];
@@ -349,11 +350,11 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         // As long as Method;->invoke is not emulated (it will never be white-listed!) current address will have all
         // unknown values. Get details from parents.
-        TIntSet parentAddresses = mbgraph.getParentAddresses(address);
-        Object methodValue = mbgraph.getRegisterConsensusValue(parentAddresses, methodRegister);
-        // Object targetValue = mbgraph.getRegisterConsensusValue(parentAddresses, targetRegister);
-        Object parametersValue = mbgraph.getRegisterConsensusValue(parentAddresses, parametersRegister);
-        assert (methodValue instanceof LocalMethod) || (methodValue instanceof Method);
+        TIntSet parentAddresses = manipulator.getParentAddresses(address);
+        Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
+        // Object targetValue = manipulator.getRegisterConsensusValue(parentAddresses, targetRegister);
+        Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
+        assert methodValue instanceof LocalMethod || methodValue instanceof Method;
         // assert !(targetValue instanceof UnknownValue);
         assert !(parametersValue instanceof UnknownValue);
 
@@ -372,14 +373,14 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             methodRef = buildMethodReference(method);
         } else if (methodValue instanceof LocalMethod) {
             LocalMethod method = (LocalMethod) methodValue;
-            BuilderMethod methodDef = mbgraph.getVM().getClassManager().getMethod(method.getName());
+            BuilderMethod methodDef = manipulator.getVM().getClassManager().getMethod(method.getName());
             methodAccessFlags = methodDef.getAccessFlags();
             declaringClass = method.getName().split("->")[0];
-            ClassManager manager = mbgraph.getVM().getClassManager();
+            ClassManager manager = manipulator.getVM().getClassManager();
             classAccessFlags = manager.getClass(declaringClass).getAccessFlags();
             parameterTypes = Utils.builderTypeListToTypeNames(methodDef.getParameterTypes());
             parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
-            methodRef = mbgraph.getDexBuilder().internMethodReference(methodDef);
+            methodRef = manipulator.getDexBuilder().internMethodReference(methodDef);
         }
         boolean isStatic = Modifier.isStatic(methodAccessFlags);
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
@@ -390,9 +391,9 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             registers = new TIntArrayList(new int[5]);
         } else {
             registers = new TIntArrayList();
-            TIntList availableRegisters = mbgraph.getAvailableRegisters(address);
+            TIntList availableRegisters = manipulator.getAvailableRegisters(address);
             availableRegisters.sort();
-            if ((parametersValue instanceof Object[]) && (0 < ((Object[]) parametersValue).length)) {
+            if (parametersValue instanceof Object[] && 0 < ((Object[]) parametersValue).length) {
                 // Not just an empty array, so will need to pull values out later.
                 availableRegisters.remove(parametersRegister);
             }
@@ -403,8 +404,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
             if (availableRegisters.size() < parameterRegisterCount) {
                 // Add some more locals to this method
-                String methodDescriptor = mbgraph.getMethodDescriptor();
-                BuilderMethod builderMethod = mbgraph.getVM().getClassManager().getMethod(methodDescriptor);
+                String methodDescriptor = manipulator.getMethodDescriptor();
+                BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
                 int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                 int registerCount = oldRegisterCount + invokeRegisterCount;
                 setRegisterCount(builderMethod, registerCount);
@@ -426,13 +427,13 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 }
             } else {
                 // Either find contiguous available or make them available
-                for (int i = 0; (i < availableRegisters.size()) && (registers.size() < invokeRegisterCount); i++) {
+                for (int i = 0; i < availableRegisters.size() && registers.size() < invokeRegisterCount; i++) {
                     int register = availableRegisters.get(i);
                     registers.add(register);
 
-                    if ((i + 1) < availableRegisters.size()) {
+                    if (i + 1 < availableRegisters.size()) {
                         int nextRegister = availableRegisters.get(i + 1);
-                        if ((nextRegister - register) != 1) {
+                        if (nextRegister - register != 1) {
                             registers.clear();
                         }
                     }
@@ -441,8 +442,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 if (registers.size() < invokeRegisterCount) {
                     // Couldn't find enough contiguous. Expand locals and use registers at the end.
                     registers.clear();
-                    String methodDescriptor = mbgraph.getMethodDescriptor();
-                    BuilderMethod builderMethod = mbgraph.getVM().getClassManager().getMethod(methodDescriptor);
+                    String methodDescriptor = manipulator.getMethodDescriptor();
+                    BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
                     int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                     int registerCount = oldRegisterCount + invokeRegisterCount;
                     setRegisterCount(builderMethod, registerCount);
@@ -490,12 +491,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     boolean canReplaceFieldGet(int address) {
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (!(op instanceof InvokeOp)) {
             return false;
         }
 
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        BuilderInstruction instruction = manipulator.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
         String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
         if (!methodSignature.equals(FieldGetSignature)) {
@@ -504,8 +505,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int fieldRegister = parameterRegisters[0];
-        // TIntList parentAddresses = mbgraph.getParentAddresses(address);
-        Object fieldValue = mbgraph.getRegisterConsensusValue(address, fieldRegister);
+        // TIntList parentAddresses = manipulator.getParentAddresses(address);
+        Object fieldValue = manipulator.getRegisterConsensusValue(address, fieldRegister);
         if (fieldValue instanceof UnknownValue) {
             return false;
         }
@@ -516,7 +517,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             String className = parts[0];
             String fieldNameAndType = parts[1];
             String fieldName = fieldNameAndType.split(":")[0];
-            ClassManager classManager = mbgraph.getVM().getClassManager();
+            ClassManager classManager = manipulator.getVM().getClassManager();
             BuilderField builderField = classManager.getField(className, fieldName);
             if (Modifier.isPublic(builderField.getAccessFlags()) && field.isAccessible()) {
                 return false;
@@ -525,17 +526,17 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             Field field = (Field) fieldValue;
             boolean isPublic = Modifier.isPublic(field.getModifiers());
             if (!isPublic && field.isAccessible()) {
-                // TODO: need to also check if mbgraph method has access to this field
+                // TODO: need to also check if manipulatormethod has access to this field
                 // same for localfields
                 return false;
             }
         }
 
         int nextAddress = address + instruction.getCodeUnits();
-        BuilderInstruction nextInstr = mbgraph.getInstruction(nextAddress);
+        BuilderInstruction nextInstr = manipulator.getInstruction(nextAddress);
         String opName = nextInstr.getOpcode().name;
         if (!opName.startsWith("move-result")) {
-            TIntList available = mbgraph.getAvailableRegisters(address);
+            TIntList available = manipulator.getAvailableRegisters(address);
             if (available.size() == 0) {
                 // How often do you see field lookup where the result isn't used
                 // and there are no available registers?
@@ -547,12 +548,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     boolean canReplaceMethodInvoke(int address) {
-        Op op = mbgraph.getOp(address);
+        Op op = manipulator.getOp(address);
         if (!(op instanceof InvokeOp)) {
             return false;
         }
 
-        BuilderInstruction instruction = mbgraph.getInstruction(address);
+        BuilderInstruction instruction = manipulator.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
         String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
         if (!methodSignature.equals(MethodInvokeSignature)) {
@@ -561,19 +562,19 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
-        TIntSet parentAddresses = mbgraph.getParentAddresses(address);
-        Object methodValue = mbgraph.getRegisterConsensusValue(parentAddresses, methodRegister);
+        TIntSet parentAddresses = manipulator.getParentAddresses(address);
+        Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         if (methodValue instanceof UnknownValue) {
             return false;
         }
 
         int parametersRegister = parameterRegisters[2];
-        Object parametersValue = mbgraph.getRegisterConsensusValue(parentAddresses, parametersRegister);
+        Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
         if (parametersValue instanceof UnknownValue) {
             return false;
         }
 
-        String className = mbgraph.getMethodDescriptor().split("->")[0];
+        String className = manipulator.getMethodDescriptor().split("->")[0];
         int methodAccessFlags = 0;
         String declaringClass = null;
         if (methodValue instanceof Method) {
@@ -582,7 +583,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             declaringClass = SmaliClassUtils.javaClassToSmali(method.getDeclaringClass());
         } else if (methodValue instanceof LocalMethod) {
             LocalMethod method = (LocalMethod) methodValue;
-            ClassManager manager = mbgraph.getVM().getClassManager();
+            ClassManager manager = manipulator.getVM().getClassManager();
             BuilderMethod methodDef = manager.getMethod(method.getName());
             methodAccessFlags = methodDef.getAccessFlags();
             declaringClass = method.getName().split("->")[0];
@@ -597,11 +598,11 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
-        int[] addresses = mbgraph.getAddresses();
+    TIntList getValidAddresses(ExecutionGraphManipulator manipulator) {
+        int[] addresses = manipulator.getAddresses();
         TIntList validAddresses = new TIntLinkedList();
         for (int address : addresses) {
-            if (mbgraph.wasAddressReached(address)) {
+            if (manipulator.wasAddressReached(address)) {
                 validAddresses.add(address);
             }
         }

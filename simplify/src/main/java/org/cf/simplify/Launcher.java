@@ -128,9 +128,9 @@ public class Launcher {
     private static void filterMethods(Collection<String> methodDescriptors, Pattern positive, Pattern negative) {
         for (Iterator<String> it = methodDescriptors.iterator(); it.hasNext();) {
             String name = it.next();
-            if ((positive != null) && !positive.matcher(name).find()) {
+            if (positive != null && !positive.matcher(name).find()) {
                 it.remove();
-            } else if ((negative != null) && negative.matcher(name).find()) {
+            } else if (negative != null && negative.matcher(name).find()) {
                 it.remove();
             }
         }
@@ -165,23 +165,23 @@ public class Launcher {
     private static void setLogLevel(SimplifyOptions bean) {
         if (bean.isQuiet()) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
-                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+                            .getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.OFF);
             return;
         }
 
         if (bean.getVerbosity() == 1) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
-                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+                            .getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.INFO);
         } else if (bean.getVerbosity() == 2) {
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
-                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+                            .getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.DEBUG);
         } else if (bean.getVerbosity() == 3) {
             // Ok, you asked for it.
             ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory
-                            .getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME);
+                            .getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.TRACE);
         }
     }

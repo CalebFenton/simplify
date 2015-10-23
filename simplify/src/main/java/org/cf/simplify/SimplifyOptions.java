@@ -67,11 +67,11 @@ public class SimplifyOptions implements Serializable {
     }
 
     protected void setIsHelp() {
-        this.help = true;
+        help = true;
     }
 
     protected void setIsQuiet() {
-        this.quiet = true;
+        quiet = true;
     }
 
     protected void setMaxAddressVisits(int maxAddressVisits) {

@@ -34,11 +34,11 @@ public class TestPeepholeStrategy {
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
         TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
-        ExecutionGraphManipulator mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
-        PeepholeStrategy strategy = new PeepholeStrategy(mbgraph);
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+        PeepholeStrategy strategy = new PeepholeStrategy(manipulator);
         strategy.perform();
 
-        return mbgraph;
+        return manipulator;
     }
 
     public static class TestConstantPredicate {
@@ -49,9 +49,9 @@ public class TestPeepholeStrategy {
         public void testConstantPredicateReplacedWithUnconditionalBranch() {
             // I say phrases like "unconditional branch" instead of "goto".
             // I'm also a riot at dinner parties.
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_NAME);
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME);
 
-            BuilderInstruction instruction = mbgraph.getInstruction(1);
+            BuilderInstruction instruction = manipulator.getInstruction(1);
 
             assertEquals(Opcode.GOTO_32, instruction.getOpcode());
             assertEquals(4, ((OffsetInstruction) instruction).getCodeOffset());
@@ -65,9 +65,9 @@ public class TestPeepholeStrategy {
         private static final String METHOD_NAME = "classForName()V";
 
         private void testForExpectedInstruction(String register0, String expectedClassName) {
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_NAME, 0, register0, "Ljava/lang/String;");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, register0, "Ljava/lang/String;");
 
-            BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
+            BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction(ADDRESS);
             assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
             assertEquals(0, instruction.getRegisterA());
 
@@ -92,9 +92,9 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testInvokeClassForNameForUnknownValueIsNotReplaced() {
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue(),
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, new UnknownValue(),
                             "Ljava/lang/String;");
-            Instruction35c instruction = (Instruction35c) mbgraph.getInstruction(ADDRESS);
+            Instruction35c instruction = (Instruction35c) manipulator.getInstruction(ADDRESS);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
 
             assertEquals("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", methodDescriptor);
@@ -106,49 +106,49 @@ public class TestPeepholeStrategy {
         @Test
         public void testUselessCheckCastIsRemoved() {
             String methodName = "uselessCheckCast(I)V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, 0, "I");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, 0, "I");
 
-            assertArrayEquals(new int[] { 0 }, mbgraph.getAddresses());
-            assertEquals("return-void", mbgraph.getOp(0).toString());
+            assertArrayEquals(new int[] { 0 }, manipulator.getAddresses());
+            assertEquals("return-void", manipulator.getOp(0).toString());
         }
 
         @Test
         public void testUselessCheckCastWithMultiplePathsIsRemoved() {
             String methodName = "uselessCheckCastWithMultiplePaths(I)V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, new UnknownValue(), "I");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new UnknownValue(), "I");
 
-            int[] addresses = mbgraph.getAddresses();
+            int[] addresses = manipulator.getAddresses();
             assertArrayEquals(new int[] { 0, 2, 4 }, addresses);
-            assertEquals("if-eqz r0, #4", mbgraph.getOp(0).toString());
-            assertEquals("sget r0, Ljava/lang/Integer;->MAX_VALUE:I", mbgraph.getOp(2).toString());
-            assertEquals("return-void", mbgraph.getOp(4).toString());
+            assertEquals("if-eqz r0, #4", manipulator.getOp(0).toString());
+            assertEquals("sget r0, Ljava/lang/Integer;->MAX_VALUE:I", manipulator.getOp(2).toString());
+            assertEquals("return-void", manipulator.getOp(4).toString());
         }
 
         @Test
         public void testActiveCheckCastIsNotRemoved() {
             String methodName = "activeCheckCast(Ljava/lang/Object;)V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, new UnknownValue(),
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new UnknownValue(),
                             "Ljava/lang/Object;");
 
-            assertArrayEquals(new int[] { 0, 2 }, mbgraph.getAddresses());
-            assertEquals("check-cast r0, Ljava/lang/Integer;", mbgraph.getOp(0).toString());
-            assertEquals("return-void", mbgraph.getOp(2).toString());
+            assertArrayEquals(new int[] { 0, 2 }, manipulator.getAddresses());
+            assertEquals("check-cast r0, Ljava/lang/Integer;", manipulator.getOp(0).toString());
+            assertEquals("return-void", manipulator.getOp(2).toString());
         }
 
         @Test
         public void testActiveCheckCastWithMultiplePathsIsNotRemoved() {
             String methodName = "activeCheckCastWithMultiplePaths(Ljava/lang/Object;)V";
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(methodName, 0, new UnknownValue(),
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new UnknownValue(),
                             "Ljava/lang/Object;");
 
-            assertArrayEquals(new int[] { 0, 2, 3, 6, 7, 9 }, mbgraph.getAddresses());
-            assertEquals("if-eqz r1, #7", mbgraph.getOp(0).toString());
-            assertEquals("const/4 r0, 0x0", mbgraph.getOp(2).toString());
-            assertEquals("invoke-static {r0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;", mbgraph.getOp(3)
+            assertArrayEquals(new int[] { 0, 2, 3, 6, 7, 9 }, manipulator.getAddresses());
+            assertEquals("if-eqz r1, #7", manipulator.getOp(0).toString());
+            assertEquals("const/4 r0, 0x0", manipulator.getOp(2).toString());
+            assertEquals("invoke-static {r0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;", manipulator.getOp(3)
                             .toString());
-            assertEquals("move-result r1", mbgraph.getOp(6).toString());
-            assertEquals("check-cast r1, Ljava/lang/Integer;", mbgraph.getOp(7).toString());
-            assertEquals("return-void", mbgraph.getOp(9).toString());
+            assertEquals("move-result r1", manipulator.getOp(6).toString());
+            assertEquals("check-cast r1, Ljava/lang/Integer;", manipulator.getOp(7).toString());
+            assertEquals("return-void", manipulator.getOp(9).toString());
         }
     }
 
@@ -159,10 +159,10 @@ public class TestPeepholeStrategy {
         private static final String ZENSUNNI_POEM = "Sand keeps the skin clean, and the mind.";
 
         private void testForExpectedInstruction(Object register1, String expectedConstant) {
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
                             "Ljava/lang/String;"), "Ljava/lang/String;", 1, register1, "[B");
 
-            BuilderInstruction21c instruction = (BuilderInstruction21c) mbgraph.getInstruction(ADDRESS);
+            BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction(ADDRESS);
             assertEquals(Opcode.CONST_STRING, instruction.getOpcode());
             assertEquals(0, instruction.getRegisterA());
 
@@ -177,9 +177,9 @@ public class TestPeepholeStrategy {
 
         @Test
         public void testStringInitWithUnknownValueIsNotReplaced() {
-            ExecutionGraphManipulator mbgraph = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
                             "Ljava/lang/String;"), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
-            Instruction35c instruction = (Instruction35c) mbgraph.getInstruction(ADDRESS);
+            Instruction35c instruction = (Instruction35c) manipulator.getInstruction(ADDRESS);
             String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
 
             assertEquals("Ljava/lang/String;-><init>([B)V", methodDescriptor);

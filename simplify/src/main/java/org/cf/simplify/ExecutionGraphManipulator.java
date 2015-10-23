@@ -107,7 +107,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         ExecutionNode node = stack.peek();
         if (null == node) {
             // Edge case.
-            assert (getTemplateNode(address).getOp() instanceof ReturnOp) || (getTemplateNode(address).getOp() instanceof ReturnVoidOp);
+            assert getTemplateNode(address).getOp() instanceof ReturnOp || getTemplateNode(address).getOp() instanceof ReturnVoidOp;
             MethodState mState = getNodePile(address).get(0).getContext().getMethodState();
             TIntList available = new TIntLinkedList();
             // They're all available!
@@ -272,7 +272,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         Op op = opCreator.create(newLocation);
         recreateLocations.add(newLocation);
         reexecuteLocations.add(newLocation);
-        boolean autoAddedPadding = (op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp || shiftedOp instanceof SwitchPayloadOp));
+        boolean autoAddedPadding = op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp || shiftedOp instanceof SwitchPayloadOp);
         for (int i = 0; i < shiftedNodePile.size(); i++) {
             ExecutionNode newNode = new ExecutionNode(op);
             newNodePile.add(i, newNode);
@@ -464,7 +464,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
 
             for (ExecutionNode childNode : removedNode.getChildren()) {
                 Op childOp = childNode.getOp();
-                boolean pseudoChild = (childOp instanceof FillArrayDataPayloadOp || childOp instanceof SwitchPayloadOp);
+                boolean pseudoChild = childOp instanceof FillArrayDataPayloadOp || childOp instanceof SwitchPayloadOp;
                 if (!pseudoChild) {
                     reparentNode(childNode, parentNode);
                 } else { // pseudo child

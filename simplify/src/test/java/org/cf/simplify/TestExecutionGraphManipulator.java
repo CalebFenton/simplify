@@ -28,7 +28,7 @@ public class TestExecutionGraphManipulator {
 
     private static final String CLASS_NAME = "Lexecution_graph_manipulator_test;";
 
-    private ExecutionGraphManipulator mbgraph;
+    private ExecutionGraphManipulator manipulator;
 
     @Test
     public void testAddingInstructionModifiesStateCorrectly() {
@@ -44,13 +44,13 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
-        mbgraph.addInstruction(0, addition);
+        manipulator.addInstruction(0, addition);
 
-        test(expected, mbgraph);
-        testHeritage(mbgraph, 0);
-        testHeritage(mbgraph, 1);
+        test(expected, manipulator);
+        testHeritage(manipulator, 0);
+        testHeritage(manipulator, 1);
     }
 
     @Test
@@ -69,14 +69,14 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasNoNopPadding()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasNoNopPadding()V");
         BuilderInstruction addition = new BuilderInstruction10x(Opcode.NOP);
-        mbgraph.addInstruction(4, addition);
+        manipulator.addInstruction(4, addition);
 
-        test(expected, mbgraph);
-        testHeritage(mbgraph, 2);
-        testHeritage(mbgraph, 4);
-        testHeritage(mbgraph, 5);
+        test(expected, manipulator);
+        testHeritage(manipulator, 2);
+        testHeritage(manipulator, 4);
+        testHeritage(manipulator, 5);
     }
 
     @Test
@@ -93,16 +93,16 @@ public class TestExecutionGraphManipulator {
         }
         expected[129] = new Object[] { 130, Opcode.RETURN_VOID, new Object[1][0][0] };
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasGotoAndOneNop()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasGotoAndOneNop()V");
 
         // Adding 126 bytes (nop) between goto and target offset causes dexlib to "fix" goto into goto/16
         for (int i = 0; i < nops_to_insert - 1; i++) {
-            mbgraph.addInstruction(1, new BuilderInstruction10x(Opcode.NOP));
+            manipulator.addInstruction(1, new BuilderInstruction10x(Opcode.NOP));
         }
         // Addresses 0 and 1 are now goto/16, need to insert at 2
-        mbgraph.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
+        manipulator.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
 
-        test(expected, mbgraph);
+        test(expected, manipulator);
     }
 
     @Test
@@ -114,14 +114,14 @@ public class TestExecutionGraphManipulator {
 
         int nops_to_insert = 127;
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasGotoAndOneNop()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasGotoAndOneNop()V");
 
         // Adding 126 bytes (nop) between goto and target offset causes dexlib to "fix" goto into goto/16
         for (int i = 0; i < nops_to_insert - 1; i++) {
-            mbgraph.addInstruction(1, new BuilderInstruction10x(Opcode.NOP));
+            manipulator.addInstruction(1, new BuilderInstruction10x(Opcode.NOP));
         }
         // Addresses 0 and 1 are now goto/16, need to insert at 2
-        mbgraph.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
+        manipulator.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
 
         TIntList removeList = new TIntLinkedList();
         // for (int removeAddress = 2, i = 0; i < nops_to_insert; removeAddress++, i++) {
@@ -129,19 +129,19 @@ public class TestExecutionGraphManipulator {
             int removeAddress = i + 2;
             removeList.add(removeAddress);
         }
-        mbgraph.removeInstructions(removeList);
-        mbgraph.removeInstruction(2);
+        manipulator.removeInstructions(removeList);
+        manipulator.removeInstruction(2);
 
-        test(expected, mbgraph);
+        test(expected, manipulator);
     }
 
     @Test
     public void testHasEveryRegisterAvailableAtEveryAddress() {
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
-        int[] addresses = mbgraph.getAddresses();
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        int[] addresses = manipulator.getAddresses();
         int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, };
         for (int address : addresses) {
-            int[] actualAvailable = mbgraph.getAvailableRegisters(address).toArray();
+            int[] actualAvailable = manipulator.getAvailableRegisters(address).toArray();
             Arrays.sort(actualAvailable);
             assertArrayEquals(expectedAvailable, actualAvailable);
         }
@@ -149,10 +149,10 @@ public class TestExecutionGraphManipulator {
 
     @Test
     public void testHasExpectedBasicProperties() {
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
 
         int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
-        int[] actualAddresses = mbgraph.getAddresses();
+        int[] actualAddresses = manipulator.getAddresses();
         assertArrayEquals(expectedAddresses, actualAddresses);
     }
 
@@ -168,12 +168,12 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasNopPadding()V");
-        mbgraph.removeInstruction(4);
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasNopPadding()V");
+        manipulator.removeInstruction(4);
 
-        test(expected, mbgraph);
-        testHeritage(mbgraph, 2);
-        testHeritage(mbgraph, 4);
+        test(expected, manipulator);
+        testHeritage(manipulator, 2);
+        testHeritage(manipulator, 4);
     }
 
     @Test
@@ -188,11 +188,11 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
-        mbgraph.removeInstruction(0);
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        manipulator.removeInstruction(0);
 
-        test(expected, mbgraph);
-        testHeritage(mbgraph, 0);
+        test(expected, manipulator);
+        testHeritage(manipulator, 0);
     }
 
     @Test
@@ -207,36 +207,36 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
-        mbgraph.removeInstruction(1);
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        manipulator.removeInstruction(1);
 
-        test(expected, mbgraph);
-        testHeritage(mbgraph, 0);
-        testHeritage(mbgraph, 1);
-        testHeritage(mbgraph, 2);
+        test(expected, manipulator);
+        testHeritage(manipulator, 0);
+        testHeritage(manipulator, 1);
+        testHeritage(manipulator, 2);
 
-        MethodState parentState = mbgraph.getNodePile(0).get(0).getContext().getMethodState();
+        MethodState parentState = manipulator.getNodePile(0).get(0).getContext().getMethodState();
         assertArrayEquals(new int[] { 0 }, parentState.getRegistersAssigned().toArray());
 
-        MethodState childState = mbgraph.getNodePile(1).get(0).getContext().getMethodState();
+        MethodState childState = manipulator.getNodePile(1).get(0).getContext().getMethodState();
         assertArrayEquals(new int[] { 2 }, childState.getRegistersAssigned().toArray());
 
-        MethodState grandchildState = mbgraph.getNodePile(2).get(0).getContext().getMethodState();
+        MethodState grandchildState = manipulator.getNodePile(2).get(0).getContext().getMethodState();
         assertArrayEquals(new int[] { 3 }, grandchildState.getRegistersAssigned().toArray());
     }
 
     @Test
     public void testReplaceInstructionExecutesNewNodeCorrectly() {
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "constantPredicate()I");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "constantPredicate()I");
 
-        BuilderInstruction returnVoid = mbgraph.getNodePile(4).get(0).getOp().getInstruction();
+        BuilderInstruction returnVoid = manipulator.getNodePile(4).get(0).getOp().getInstruction();
         Label target = returnVoid.getLocation().addNewLabel();
 
         // GOTO_32 shifts addresses around so mappings could break
         BuilderInstruction replacement = new BuilderInstruction30t(Opcode.GOTO_32, target);
-        mbgraph.replaceInstruction(1, replacement);
+        manipulator.replaceInstruction(1, replacement);
 
-        testHeritage(mbgraph, 0);
+        testHeritage(manipulator, 0);
     }
 
     @Test
@@ -252,13 +252,13 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         BuilderInstruction replacement = new BuilderInstruction21s(Opcode.CONST_16, 0, 0);
-        mbgraph.replaceInstruction(0, replacement);
+        manipulator.replaceInstruction(0, replacement);
 
-        test(expected, mbgraph);
+        test(expected, manipulator);
 
-        HeapItem consensus = mbgraph.getRegisterConsensus(0, 0);
+        HeapItem consensus = manipulator.getRegisterConsensus(0, 0);
         assertEquals(0, consensus.getValue());
     }
 
@@ -276,46 +276,46 @@ public class TestExecutionGraphManipulator {
         };
         //@formatter:on
 
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         BuilderInstruction replacement1 = new BuilderInstruction21s(Opcode.CONST_16, 1, 1);
         BuilderInstruction replacement2 = new BuilderInstruction21s(Opcode.CONST_16, 2, 2);
         List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
         replacements.add(replacement1);
         replacements.add(replacement2);
-        mbgraph.replaceInstruction(1, replacements);
+        manipulator.replaceInstruction(1, replacements);
 
-        test(expected, mbgraph);
-        testHeritage(mbgraph, 0);
-        testHeritage(mbgraph, 1);
-        testHeritage(mbgraph, 3);
+        test(expected, manipulator);
+        testHeritage(manipulator, 0);
+        testHeritage(manipulator, 1);
+        testHeritage(manipulator, 3);
 
         HeapItem consensus;
-        consensus = mbgraph.getRegisterConsensus(1, 1);
+        consensus = manipulator.getRegisterConsensus(1, 1);
         assertEquals(1, consensus.getValue());
 
-        consensus = mbgraph.getRegisterConsensus(3, 2);
+        consensus = manipulator.getRegisterConsensus(3, 2);
         assertEquals(2, consensus.getValue());
     }
 
     @Test
     public void testReplacingInstructionGetsLabelsAtInsertionAddress() {
-        mbgraph = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasLabelOnConstantizableOp(I)I");
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasLabelOnConstantizableOp(I)I");
         BuilderInstruction addition = new BuilderInstruction11n(Opcode.CONST_4, 0, 2);
 
-        assertEquals(1, mbgraph.getInstruction(3).getLocation().getLabels().size());
-        mbgraph.replaceInstruction(3, addition);
-        assertEquals(1, mbgraph.getInstruction(3).getLocation().getLabels().size());
+        assertEquals(1, manipulator.getInstruction(3).getLocation().getLabels().size());
+        manipulator.replaceInstruction(3, addition);
+        assertEquals(1, manipulator.getInstruction(3).getLocation().getLabels().size());
     }
 
-    private static void test(Object[][] expected, ExecutionGraphManipulator mbgraph) {
+    private static void test(Object[][] expected, ExecutionGraphManipulator manipulator) {
         for (Object[] ex : expected) {
             int address = (Integer) ex[0];
-            BuilderInstruction actualInstruction = mbgraph.getInstruction(address);
+            BuilderInstruction actualInstruction = manipulator.getInstruction(address);
             Opcode expectedOpcode = (Opcode) ex[1];
             assertEquals(expectedOpcode, actualInstruction.getOpcode());
 
             Object[][][] exChildren = (Object[][][]) ex[2];
-            List<ExecutionNode> actualNodePile = mbgraph.getNodePile(address);
+            List<ExecutionNode> actualNodePile = manipulator.getNodePile(address);
             assertEquals(expectedOpcode.name + " @" + address + " node pile size", exChildren.length,
                             actualNodePile.size());
             for (int i = 0; i < exChildren.length; i++) {
@@ -331,19 +331,19 @@ public class TestExecutionGraphManipulator {
                 for (int j = 0; j < exChildren[i].length; j++) {
                     assertEquals(expectedOpcode.name + " @" + address + " child address", (int) exChildren[i][j][0],
                                     children[j].getLocation().getCodeAddress());
-                    assertEquals(expectedOpcode.name + " @" + address + " child opcode", (Opcode) exChildren[i][j][1],
+                    assertEquals(expectedOpcode.name + " @" + address + " child opcode", exChildren[i][j][1],
                                     children[j].getOpcode());
                 }
             }
         }
     }
 
-    private static void testHeritage(ExecutionGraphManipulator mbgraph, int address) {
-        ExecutionNode template = mbgraph.getTemplateNode(address);
+    private static void testHeritage(ExecutionGraphManipulator manipulator, int address) {
+        ExecutionNode template = manipulator.getTemplateNode(address);
         assertEquals(0, template.getChildren().size());
         assertNotNull(template.getOp().getChildren());
 
-        ExecutionNode node = mbgraph.getNodePile(address).get(0);
+        ExecutionNode node = manipulator.getNodePile(address).get(0);
         assertEquals(template.getOp(), node.getOp());
 
         List<ExecutionNode> children = node.getChildren();
