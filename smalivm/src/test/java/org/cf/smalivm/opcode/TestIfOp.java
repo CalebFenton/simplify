@@ -174,7 +174,6 @@ public class TestIfOp {
                 }
                 actualVisits.add(address);
             }
-            actualVisits.reverse();
 
             assertEquals(expectedVisits, actualVisits);
             assertEquals(1, graph.getNodePile(ADDRESS_NOP).size());

@@ -178,16 +178,15 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         return node.getOp().getInstruction();
     }
 
-    public TIntList getParentAddresses(int address) {
-        TIntSet parentAddressSet = new TIntHashSet();
+    public TIntSet getParentAddresses(int address) {
+        TIntSet parentAddresses = new TIntHashSet();
         for (ExecutionNode node : getNodePile(address)) {
             ExecutionNode parent = node.getParent();
             if (null == parent) {
                 continue;
             }
-            parentAddressSet.add(parent.getAddress());
+            parentAddresses.add(parent.getAddress());
         }
-        TIntList parentAddresses = new TIntArrayList(parentAddressSet);
 
         return parentAddresses;
     }

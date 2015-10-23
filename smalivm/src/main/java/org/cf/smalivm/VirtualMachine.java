@@ -1,6 +1,6 @@
 package org.cf.smalivm;
 
-import gnu.trove.list.TIntList;
+import gnu.trove.set.TIntSet;
 
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
@@ -32,11 +32,10 @@ public class VirtualMachine {
         return methodDescriptor.split("->", 2)[0];
     }
 
-    private static HeapItem getMutableParameterConsensus(TIntList addressList, ExecutionGraph graph,
-                    int parameterRegister) {
-        ExecutionNode firstNode = graph.getNodePile(addressList.get(0)).get(0);
+    private static HeapItem getMutableParameterConsensus(TIntSet addressSet, ExecutionGraph graph, int parameterRegister) {
+        int[] addresses = addressSet.toArray();
+        ExecutionNode firstNode = graph.getNodePile(addresses[0]).get(0);
         HeapItem item = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
-        int[] addresses = addressList.toArray();
         for (int address : addresses) {
             List<ExecutionNode> nodes = graph.getNodePile(address);
             for (ExecutionNode node : nodes) {
@@ -210,7 +209,7 @@ public class VirtualMachine {
      */
     private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext callerContext,
                     int[] parameterRegisters) {
-        TIntList terminatingAddresses = graph.getConnectedTerminatingAddresses();
+        TIntSet terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
             List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);

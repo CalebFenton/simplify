@@ -36,7 +36,7 @@ public class Optimizer {
     private boolean shouldReexecute;
     private Map<String, Integer> optimizationCounts;
 
-    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, Options opts) {
+    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder, SimplifyOptions opts) {
         methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
         mbgraph = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
 

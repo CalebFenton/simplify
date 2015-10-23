@@ -130,7 +130,6 @@ public class TestExecutionGraphManipulator {
             removeList.add(removeAddress);
         }
         mbgraph.removeInstructions(removeList);
-
         mbgraph.removeInstruction(2);
 
         test(expected, mbgraph);
@@ -154,7 +153,6 @@ public class TestExecutionGraphManipulator {
 
         int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
         int[] actualAddresses = mbgraph.getAddresses();
-        Arrays.sort(actualAddresses);
         assertArrayEquals(expectedAddresses, actualAddresses);
     }
 

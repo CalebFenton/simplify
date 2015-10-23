@@ -33,3 +33,43 @@
   :end
   return v0
 .end method
+
+.method public static activeCheckCast(Ljava/lang/Object;)V
+  .locals 0
+
+  check-cast p0, Ljava/lang/Integer;
+  return-void
+.end method
+
+.method public static activeCheckCastWithMultiplePaths(Ljava/lang/Object;)V
+  .locals 1
+
+  if-eqz p0, :check
+
+  const/4 v0, 0x0
+  invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+  move-result p0
+
+  :check
+  check-cast p0, Ljava/lang/Integer;
+  return-void
+.end method
+
+.method public static uselessCheckCast(I)V
+  .locals 0
+
+  check-cast p0, I
+  return-void
+.end method
+
+.method public static uselessCheckCastWithMultiplePaths(I)V
+  .locals 0
+
+  if-eqz p0, :check
+
+  sget p0, Ljava/lang/Integer;->MAX_VALUE:I
+
+  :check
+  check-cast p0, I
+  return-void
+.end method

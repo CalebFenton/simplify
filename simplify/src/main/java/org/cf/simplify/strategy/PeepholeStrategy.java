@@ -2,6 +2,7 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
@@ -13,6 +14,7 @@ import java.util.Set;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
+import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -75,6 +77,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
         addresses = getValidAddresses(mbgraph);
         peepConstantPredicate();
 
+        addresses = getValidAddresses(mbgraph);
+        peepCheckCast();
         return madeChanges;
     }
 
@@ -118,14 +122,14 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
-        TIntList result = new TIntArrayList(mbgraph.getAddresses());
-        for (int address : result.toArray()) {
-            if (!mbgraph.wasAddressReached(address)) {
-                result.remove(address);
+        TIntList addresses = new TIntLinkedList();
+        for (int address : mbgraph.getAddresses()) {
+            if (mbgraph.wasAddressReached(address)) {
+                addresses.add(address);
             }
         }
 
-        return result;
+        return addresses;
     }
 
     void peepClassForName() {
@@ -260,6 +264,67 @@ public class PeepholeStrategy implements OptimizationStrategy {
                 log.debug("Peeping string init @{} {}", address, mbgraph.getOp(address));
             }
             mbgraph.replaceInstruction(address, replacement);
+        }
+    }
+
+    void peepCheckCast() {
+        TIntList peepAddresses = new TIntArrayList();
+        for (int address : addresses.toArray()) {
+            Op op = mbgraph.getOp(address);
+            if (!op.toString().startsWith("check-cast")) {
+                continue;
+            }
+
+            BuilderInstruction21c original = (BuilderInstruction21c) mbgraph.getInstruction(address);
+            int registerA = original.getRegisterA();
+
+            // Heap item at address would have been recast. Need to examine parents.
+            // Also, don't care about values. Just collecting types.
+            Set<String> ancestorTypes = new HashSet<String>();
+            for (int parentAddress : mbgraph.getParentAddresses(address).toArray()) {
+                for (HeapItem item : mbgraph.getRegisterItems(parentAddress, registerA)) {
+                    ancestorTypes.add(item.getType());
+                }
+            }
+
+            if (ancestorTypes.size() > 1) {
+                // More than one type. At least one item was cast.
+                continue;
+            }
+
+            String preCastType;
+            if (ancestorTypes.size() > 0) {
+                preCastType = ancestorTypes.toArray(new String[1])[0];
+            } else {
+                // check-cast is first op with no parents
+                // this implies it's acting on a parameter register
+                // look at freshly spawned execution context type
+                ExecutionContext ectx = mbgraph.getVM().spawnExecutionContext(mbgraph.getMethodDescriptor());
+                HeapItem item = ectx.getMethodState().peekRegister(registerA);
+                preCastType = item.getType();
+            }
+
+            String referenceType = ReferenceUtil.getReferenceString(original.getReference());
+            if (!preCastType.equals(referenceType)) {
+                // Item was cast to new type
+                continue;
+            }
+
+            peepAddresses.add(address);
+        }
+
+        if (0 == peepAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
+        peepCount += peepAddresses.size();
+
+        peepAddresses.sort();
+        peepAddresses.reverse();
+        for (int address : peepAddresses.toArray()) {
+            log.debug("Removing useless check-cast @{} {}", address, mbgraph.getOp(address));
+            mbgraph.removeInstruction(address);
         }
     }
 

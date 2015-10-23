@@ -2,8 +2,8 @@ package org.cf.smalivm.opcode;
 
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import gnu.trove.list.TIntList;
 import gnu.trove.map.TIntObjectMap;
+import gnu.trove.set.TIntSet;
 
 import java.util.Arrays;
 
@@ -31,7 +31,7 @@ public class TestMoveOp {
 
         // Must invoke VM directly to ensure reference identity
         ExecutionGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
-        TIntList addresses = graph.getConnectedTerminatingAddresses();
+        TIntSet addresses = graph.getConnectedTerminatingAddresses();
         assertTrue("Should terminate when expected: " + addresses + " == {1}",
                         Arrays.equals(addresses.toArray(), new int[] { 1 }));
 

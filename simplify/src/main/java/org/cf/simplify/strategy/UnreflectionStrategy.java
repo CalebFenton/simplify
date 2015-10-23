@@ -2,6 +2,8 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
+import gnu.trove.list.linked.TIntLinkedList;
+import gnu.trove.set.TIntSet;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -63,12 +65,14 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         return fourBitValues;
     }
+
     private static void setRegisterCount(BuilderMethod method, int registerCount) throws Exception {
         MethodImplementation implementation = method.getImplementation();
         Field f = implementation.getClass().getDeclaredField("registerCount");
         f.setAccessible(true); // hack the planet
         f.set(implementation, Integer.valueOf(registerCount));
     }
+
     static Opcode getGetOpcode(String type, boolean isStatic) {
         Opcode op;
         if (isStatic) {
@@ -345,7 +349,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         // As long as Method;->invoke is not emulated (it will never be white-listed!) current address will have all
         // unknown values. Get details from parents.
-        TIntList parentAddresses = mbgraph.getParentAddresses(address);
+        TIntSet parentAddresses = mbgraph.getParentAddresses(address);
         Object methodValue = mbgraph.getRegisterConsensusValue(parentAddresses, methodRegister);
         // Object targetValue = mbgraph.getRegisterConsensusValue(parentAddresses, targetRegister);
         Object parametersValue = mbgraph.getRegisterConsensusValue(parentAddresses, parametersRegister);
@@ -557,7 +561,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
-        TIntList parentAddresses = mbgraph.getParentAddresses(address);
+        TIntSet parentAddresses = mbgraph.getParentAddresses(address);
         Object methodValue = mbgraph.getRegisterConsensusValue(parentAddresses, methodRegister);
         if (methodValue instanceof UnknownValue) {
             return false;
@@ -594,14 +598,15 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     TIntList getValidAddresses(ExecutionGraphManipulator mbgraph) {
-        TIntList result = new TIntArrayList(mbgraph.getAddresses());
-        for (int address : result.toArray()) {
-            if (!mbgraph.wasAddressReached(address)) {
-                result.remove(address);
+        int[] addresses = mbgraph.getAddresses();
+        TIntList validAddresses = new TIntLinkedList();
+        for (int address : addresses) {
+            if (mbgraph.wasAddressReached(address)) {
+                validAddresses.add(address);
             }
         }
 
-        return result;
+        return validAddresses;
     }
 
 }
