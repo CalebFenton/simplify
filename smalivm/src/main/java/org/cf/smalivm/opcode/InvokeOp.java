@@ -4,6 +4,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
@@ -99,11 +101,11 @@ public class InvokeOp extends ExecutionContextOp {
         // MethodExecutor can maintain a mapping such that calleeContext -> (callerContext, caller address)
         // With this mapping, stack traces can be reconstructed.
         String targetMethod = methodDescriptor;
-        if (getName().contains("-virtual")) { // -virtual/range
+        if (getName().startsWith("invoke-virtual")) { // -virtual/range
             // Resolve what the actual virtual target is because method call may be to interface or abstract class.
             int targetRegister = parameterRegisters[0];
             HeapItem item = ectx.getMethodState().peekRegister(targetRegister);
-            targetMethod = getLocalTargetForVirtualMethod(item.getValue());
+            targetMethod = resolveVirtualMethod(item.getValue());
         }
 
         MethodState callerMethodState = ectx.getMethodState();
@@ -115,9 +117,7 @@ public class InvokeOp extends ExecutionContextOp {
                 executeNonLocalMethod(targetMethod, callerMethodState, calleeContext, node);
                 return;
             } else {
-                if (log.isTraceEnabled()) {
-                    log.trace("Not emulating / reflecting " + targetMethod + " because all args not known.");
-                }
+                log.trace("Not emulating / reflecting {} because all args not known.", targetMethod);
                 assumeMaximumUnknown(callerMethodState);
             }
         } else {
@@ -360,30 +360,32 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private String getLocalTargetForVirtualMethod(Object value) {
-        String actualType;
-        if (value instanceof LocalType) {
-            actualType = ((LocalType) value).getName();
+    /*
+     * It's legal to explicitly call a virtual method on a class that's implemented in a parent class or interface.
+     * This method checks all parents and interfaces and returns the first method descriptor with the class that
+     * implements the method.
+     */
+    private @Nullable String resolveVirtualMethod(Object virtualTarget) {
+        String virtualType;
+        if (virtualTarget instanceof LocalType) {
+            virtualType = ((LocalType) virtualTarget).getName();
         } else {
-            actualType = SmaliClassUtils.javaClassToSmali(value.getClass().getName());
+            virtualType = SmaliClassUtils.javaClassToSmali(virtualTarget.getClass().getName());
         }
 
-        if (SmaliClassUtils.isPrimitiveType(actualType)) {
-            actualType = SmaliClassUtils.smaliPrimitiveToJavaWrapper(actualType);
+        if (SmaliClassUtils.isPrimitiveType(virtualType)) {
+            virtualType = SmaliClassUtils.smaliPrimitiveToJavaWrapper(virtualType);
         }
         String methodSignature = methodDescriptor.split("->")[1];
         ClassManager classManager = vm.getClassManager();
-        String targetMethod = getLocalTargetForVirtualMethod(actualType, methodSignature, classManager,
-                        new HashSet<String>());
+        String targetMethod = resolveVirtualMethod(virtualType, methodSignature, classManager, new HashSet<String>(4));
 
         return targetMethod != null ? targetMethod : methodDescriptor;
     }
 
-    private String getLocalTargetForVirtualMethod(String className, String methodSignature, ClassManager classManager,
+    private @Nullable String resolveVirtualMethod(String className, String methodSignature, ClassManager classManager,
                     Set<String> visited) {
-        visited.add(className);
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(methodSignature);
+        StringBuilder sb = new StringBuilder(className).append("->").append(methodSignature);
         String methodDescriptor = sb.toString();
 
         boolean isLocalMethod = classManager.isLocalMethod(methodDescriptor);
@@ -402,7 +404,8 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         BuilderClassDef classDef = classManager.getClass(className);
-        Set<String> parents = new HashSet<String>();
+        List<String> interfaces = classDef.getInterfaces();
+        Set<String> parents = new HashSet<String>(interfaces.size() + 1, 1);
         parents.addAll(classDef.getInterfaces());
         if (null != classDef.getSuperclass()) {
             parents.add(classDef.getSuperclass());
@@ -412,7 +415,8 @@ public class InvokeOp extends ExecutionContextOp {
             if (visited.contains(parent)) {
                 continue;
             }
-            String target = getLocalTargetForVirtualMethod(parent, methodSignature, classManager, visited);
+            visited.add(className);
+            String target = resolveVirtualMethod(parent, methodSignature, classManager, visited);
             if (null != target) {
                 return target;
             }

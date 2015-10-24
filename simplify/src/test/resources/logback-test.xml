@@ -1,5 +1,4 @@
-<configuration>
-
+<configuration debug="false">
   <appender name="FILE" class="ch.qos.logback.core.FileAppender">
     <encoder>
       <pattern>%d{HH:mm:ss.SSS} %level %logger - %msg%n</pattern>
@@ -12,7 +11,7 @@
     </encoder>
   </appender>
 
-  <root level="debug">
+  <root level="warn">
     <appender-ref ref="FILE" />
     <appender-ref ref="STDOUT" />
   </root>
