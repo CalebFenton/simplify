@@ -1,0 +1,3 @@
+[submodule "smalivm/src/main/resources/reflib"]
+	path = smalivm/src/main/resources/reflib
+	url = https://github.com/CalebFenton/Android-17-Smali.git
