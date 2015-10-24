@@ -6,9 +6,7 @@ Simplify
 Generic Android Deobfuscator
 ----------------------------
 
-Simplify uses a virtual machine to understand what an app does. Then, it applies optimizations to create code that behaves identically, but is easier for a human to understand. Specifically, it takes Smali files as input and outputs a Dex file with (hopefully) identical semantics but less complicated structure.
-
-For example, if an app's strings are encrypted, Simplify will interpret the app in its own virtual machine to determine semantics. Then, it uses the apps own code to decrypt the strings and replaces the encrypted strings and the decryption method calls with the decrypted versions. It's a **generic** deobfuscator because Simplify doesn't need to know how the decryption works ahead of time. This technique also works well for eliminating different types of white noise, such as no-ops and useless arithmetic.
+Simplify uses a virtual machine to execute an app and understand what it does. Then, it applies optimizations to create code that behaves identically but is easier for a human to understand. It is a _generic_ deobfuscator because it doesn't need any special configuration or code for different types of obfuscation.
 
 **Before / After**
 
@@ -21,38 +19,46 @@ For example, if an app's strings are encrypted, Simplify will interpret the app 
 
 There are three parts to the project:
 
-1. **Smali Virtual Machine (SmaliVM)** - A VM designed to handle ambiguous values and multiple possible execution paths. For example, if there is an `if`, and the predicate includes unknown values (user input, current time, read from a file, etc.), the VM will assume either one could happen, and takes both the `true` and `false` paths. This increases uncertainty, but ensures fidelity. SmaliVM's output is a graph that represents what the app could do. It contains every possible execution path and the register and class member values at each possible execution of every instruction.
-2. **Simplify** - The optimizer. It takes the graphs from SmaliVM and applies optimizations like constant propagation, dead code removal, and  specific peephole optimizations.
-3. **Demoapp** - A short and heavily commented project that shows how to get started using SmaliVM.
+1. **smalivm**: Smali Virtual Machine. Handles executing each instruction and returns a context sensitive control flow graph of the method. This means the value of all classes and registers is recorded for every execution of every instruction. It doesn't need to know the arguments for a method to execute it as it can handle unknown values. It also takes all possible execution paths. For example, if an `if` could be `true` or `false` because it references an unknown value, it assumes both could happen and executes both paths.
+2. **simplify** - This takes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and  specific peephole optimizations.
+3. **demoapp** - A small and heavily commented project that shows how to use **smalivm**.
 
 
 Building
 --------
 
-To build, `./gradlew fatjar`
+Because of submodules, either clone with `--recursive`:
+
+`git clone --recursive https://github.com/CalebFenton/simplify.git`
+
+Or update submodules afterwards:
+
+`git submodule update --init --recursive`
+
+Then, to build a single jar:
+
+`./gradlew fatjar`
 
 The Simplify jar will be in `simplify/build/libs/simplify.jar`
 
-You can test it's working with: `java -jar simplify/build/libs/simplify.jar -i simplify/obfuscated-example`
-
+You can test it's working with: `java -jar simplify/build/libs/simplify.jar simplify/obfuscated-example`
 
 Troubleshooting
 ---------------
 
-Simplify is still in early stages of development. If you encounter a failure, try these recommendations, in order:
+Simplify is in early stages of development. If you encounter a failure, try these recommendations, in order:
 
-1. Limit to just a few methods or classes `-it`.
+1. Include only a few methods or classes with `-it`.
 2. If failure is because of maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
-3. Try with `-v` or `-vv` and report the issue.
+3. Try with `-v` or `-v 2` and report the issue with the logs.
 4. Try again, but do not break eye contact. Simpify can sense fear.
-
 
 Reporting Issues
 ----------------
 
-1. If you can, link the **APK** or **DEX**.
+1. If you can, link the **APK** or **DEX** or post the SHA1.
 2. The full command used.
-3. *Optional*: verbose logs
+3. *Optional*: Include verbose logs.
 
 Optimization Example
 --------------------

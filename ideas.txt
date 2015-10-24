@@ -1,59 +1,66 @@
-This is a scratch pad for ideas.
-Many of them are too undercooked or too broad to be articulated as issues on github.
+# IDEA SCRATCH PAD
 
-Features:
-graph before and after
+check that immutable classes aren't cloned
 
-toggle optimizers, or turn off optimization
+Debugger
+  next / previous(!)
+  show local code
+  set breakpoints
+    method address
+    line number
+    on field access
+  show vm info
+    loaded classes
+    stack trace
+  show method state info
+    registers
+  provide method parameters as serialized objects
 
-output json of graphs
+Graphing
+  save control flow / execution flow graph before or after optimization
+  show line numbers and other debug info
 
-Improvements:
-rename MethodBackedGraph -> MutableExecutionGraph
+Save Progress
+  on VM finalize, or when exiting, serialize graphs (perhaps gson)
+  --resume <directory with json graphs>
 
-rewrite option handling to use apache cmdline handler
-    change to <input dex / apk> [options]
-    add example for -it option, uses com/package not com.package
+Theading
+  Because why not.
 
-move side effects out of ops and into execution nodes
-the op is shared between all nodes at a location
-record side effect information the node
+Hygene
+  move sideeffect out of op and into node
+    op shared between all nodes at address, should record sideeffect per execution
 
-theading
+  replace all methodDescriptors internally with methodreferences
+    reduce string duplication and parsing (split)
 
-Optimizations:
+  smalivm shouldn't require grove
+    remove arrays and regular lists / sets instead
+    primitive unboxing probably isn't that bad
 
-replace all methodDescriptors internally with methodreferences
-this is to keep string duplication down
-
-
--i sandbox/hubert/hubert_sample.apk -it 'Lcom/i_manager/ajroute/c;->a\(Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/Integer;\)Ljava/lang/Integer;' -v
-has this, which should be considered dead, needs to be specifically white listed
-v0 is "assigned" since it's an instance and could have changed, but v0 is never used
-    #@1f
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+  remove array data payloads that are unreferenced
+    Obfuscated example does this in reflected field lookups
 
 
-Emulate System.exit() to halt the thread
+Profiling
+  record each method descriptor and the number of times it was called
 
-During execution, the context has no awareness of the current method or the call stack. Knowing these things allows for:
-  1.) illegal access checks on fields, right now, no way to tell if the field is in the same class as the current method
-  2.) contextualized exception throwing with stack trace
-* update - execution context of first op in method has callerContext and callerAddress, which can be traced back up to rebuild call stack
+  filter for only method descriptors which have a pattern
 
-Beef up whitelist:
-  many Class.is*
+  record only methods that failed, methods that could be whitelisted
 
-Emulate:
+
+Emulate
+  System.exit() to halt the execution path
+
   Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
   invoke ourselves or run emulated method
-
 
 Android class lifecycle initialization
   sometimes it can be assumed onCreate has been called
   or just give a list of methods to be called before whatever else
 
-  java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
+  simplify 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
   ArrayLists are initialized in onCreate, but since that's not known, everything fails
 
 
@@ -72,18 +79,19 @@ Emulate / spoof stack traces - requires call stack in context or similar
   invoke-virtual {v2}, Ljava/lang/Thread;->getStackTrace()[Ljava/lang/StackTraceElement;
 
 
-Fail stories:
-  * inner classes are not always resolved properly, should add tests for this, look at base64$coder
-
-Success stories:
-  * java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
-  * java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
-  * java -jar build/libs/simplify-0.1.0-all.jar -i sandbox/8748278/ -it Acgt -v
+sandbox/hubert/hubert_sample.apk -it 'Lcom/i_manager/ajroute/c;->a\(Ljava/lang/String;Ljava/lang/Boolean;Ljava/lang/Integer;\)Ljava/lang/Integer;' -v
+has this, which should be considered dead, needs to be specifically white listed
+v0 is "assigned" since it's an instance and could have changed, but v0 is never used
+    #@1f
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
 
 
-remove array data payloads that are unreferenced
-  Obfuscated example does this in reflected field lookups
+During execution, the context has no awareness of the call stack. Knowing these things allows for:
+  1.) illegal access checks on fields, right now, no way to tell if the field is in the same class as the current method
+  2.) contextualized exception throwing with stack trace
+* update - execution context of first op in method has callerContext and callerAddress, which can be traced back up to rebuild call stack
+
 
 what if?
   get stack trace, first element
@@ -109,19 +117,6 @@ invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 move-result v1
 invoke-static {v1}, Ldoes/not/exist;->howdy(Ljava/lang/Integer;)V
 
-
-
-look for all instanceof unknownvalue, replace with isUnknown if possible
-
-tests for binary math op
-2 * different types (int, long, etc) tests - lhs or rhs unknown makes unknown int for int ops
-
-
-test fill array data payload by making sure it creates bytes, ints or longs or whatever is needed
-
-fillednewarrayop should handle partial unknown
-
-test switch works for integer, short, byte, etc. types
 
 
 assumeMaxUnknown for invokeop wont work for LocalInstance.isInitialized == false, add tests
@@ -163,3 +158,9 @@ consider unit testing
 catch unhandled virtual exceptions in invokeop
 set THOSE as the exceptions, clear children, return
 make notes saying that just because eomething is unhandled doesn't mean if there's an actual context for a method instead of just starting it at the root then it might be a handled exception
+
+
+Success stories:
+  * java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
+  * java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
+  * java -jar build/libs/simplify-0.1.0-all.jar -i sandbox/8748278/ -it Acgt -v
