@@ -8,7 +8,7 @@ Generic Android Deobfuscator
 
 Simplify uses a virtual machine to execute an app and understand what it does. Then, it applies optimizations to create code that behaves identically but is easier for a human to understand. It is a _generic_ deobfuscator because it doesn't need any special configuration or code for different types of obfuscation.
 
-**Before / After**
+### Before and After
 
 <section>
 <p align="center">
@@ -19,19 +19,19 @@ Simplify uses a virtual machine to execute an app and understand what it does. T
 
 There are three parts to the project:
 
-1. **smalivm**: Smali Virtual Machine. Handles executing each instruction and returns a context sensitive control flow graph of the method. This means the value of all classes and registers is recorded for every execution of every instruction. It doesn't need to know the arguments for a method to execute it as it can handle unknown values. It also takes all possible execution paths. For example, if an `if` could be `true` or `false` because it references an unknown value, it assumes both could happen and executes both paths.
-2. **simplify** - This takes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and  specific peephole optimizations.
-3. **demoapp** - A small and heavily commented project that shows how to use **smalivm**.
+1. **smalivm**: Creates a context sensitive control flow graph of a method by executing each instruction. The value of all classes and registers is recorded at every execution of every instruction. It doesn't need to know the arguments for a method to execute it as it handles unknown values. Also, it executes every possible path. For example, if an `if` could be `true` or `false` because it references an unknown value, it assumes both could happen and executes both paths.
+2. **simplify**: Takes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and  specific peephole optimizations.
+3. **demoapp**: Contains simple, heavily commented examples of how to use **smalivm**.
 
 
 Building
 --------
 
-Because of submodules, either clone with `--recursive`:
+Because this project contains submodules, either clone with `--recursive`:
 
 `git clone --recursive https://github.com/CalebFenton/simplify.git`
 
-Or update submodules afterwards:
+Or update submodules at any time with:
 
 `git submodule update --init --recursive`
 
@@ -56,9 +56,13 @@ Simplify is in early stages of development. If you encounter a failure, try thes
 Reporting Issues
 ----------------
 
-1. If you can, link the **APK** or **DEX** or post the SHA1.
+1. If you can, link the APK or DEX. Otherwise post the SHA1.
 2. The full command used.
 3. *Optional*: Include verbose logs.
+
+Contributing
+------------
+Just submit a pull request. We can talk through it there. I can clean up the style
 
 Optimization Example
 --------------------
@@ -79,7 +83,6 @@ Optimization Example
 ```
 
 All this does is `v0 = 1`.
-
 
 ### After Constant Propagation
 ```smali
