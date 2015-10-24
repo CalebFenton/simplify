@@ -16,41 +16,11 @@ import org.slf4j.LoggerFactory;
 
 public class SmaliFileFactory {
 
-    private static final Logger log = LoggerFactory.getLogger(SmaliFileFactory.class.getSimpleName());
-
     private static Map<String, SmaliFile> frameworkCache;
 
+    private static final Logger log = LoggerFactory.getLogger(SmaliFileFactory.class.getSimpleName());
+
     private Map<String, SmaliFile> frameworkClassNameToSmaliFile;
-
-    public Set<SmaliFile> getSmaliFiles(String path) throws IOException {
-        return getSmaliFiles(new String[] { path });
-    }
-
-    public Set<SmaliFile> getSmaliFiles(String[] paths) throws IOException {
-        File[] files = new File[paths.length];
-        for (int i = 0; i < paths.length; i++) {
-            files[i] = new File(paths[i]);
-        }
-
-        return getSmaliFiles(files);
-    }
-
-    public Set<SmaliFile> getSmaliFiles(File file) throws IOException {
-        return getSmaliFiles(new File[] { file });
-    }
-
-    public boolean isFrameworkClass(String className) {
-        return frameworkClassNameToSmaliFile.containsKey(className);
-    }
-
-    public boolean isSafeFrameworkClass(String className) {
-        SmaliFile smaliFile = frameworkClassNameToSmaliFile.get(className);
-        if (null == smaliFile) {
-            return false;
-        }
-
-        return smaliFile.isSafeFrameworkClass();
-    }
 
     private synchronized void cacheFramework() throws IOException {
         if (frameworkCache != null) {
@@ -82,6 +52,10 @@ public class SmaliFileFactory {
         }
     }
 
+    public Set<SmaliFile> getSmaliFiles(File file) throws IOException {
+        return getSmaliFiles(new File[] { file });
+    }
+
     public Set<SmaliFile> getSmaliFiles(File[] files) throws IOException {
         Set<SmaliFile> smaliFiles = new HashSet<SmaliFile>();
         Set<String> inputClasses = new HashSet<String>();
@@ -96,19 +70,42 @@ public class SmaliFileFactory {
 
         cacheFramework();
 
-        // Override framework classes with input classes of the same name
+        // Input classes take precedence over framework classes
         frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>(frameworkCache);
-        List<Map.Entry<String, SmaliFile>> entriesToRemove = new LinkedList<Map.Entry<String, SmaliFile>>();
-        for (Map.Entry<String, SmaliFile> entry : frameworkClassNameToSmaliFile.entrySet()) {
-            if (inputClasses.contains(entry.getKey())) {
-                entriesToRemove.add(entry);
-            } else {
-                smaliFiles.add(entry.getValue());
+        for (Map.Entry<String, SmaliFile> entry : frameworkCache.entrySet()) {
+            if (!inputClasses.contains(entry.getKey())) {
+                frameworkClassNameToSmaliFile.put(entry.getKey(), entry.getValue());
             }
         }
-        frameworkClassNameToSmaliFile.entrySet().removeAll(entriesToRemove);
+        smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
 
         return smaliFiles;
+    }
+
+    public Set<SmaliFile> getSmaliFiles(String path) throws IOException {
+        return getSmaliFiles(new String[] { path });
+    }
+
+    public Set<SmaliFile> getSmaliFiles(String[] paths) throws IOException {
+        File[] files = new File[paths.length];
+        for (int i = 0; i < paths.length; i++) {
+            files[i] = new File(paths[i]);
+        }
+
+        return getSmaliFiles(files);
+    }
+
+    public boolean isFrameworkClass(String className) {
+        return frameworkClassNameToSmaliFile.containsKey(className);
+    }
+
+    public boolean isSafeFrameworkClass(String className) {
+        SmaliFile smaliFile = frameworkClassNameToSmaliFile.get(className);
+        if (null == smaliFile) {
+            return false;
+        }
+
+        return smaliFile.isSafeFrameworkClass();
     }
 
     private static List<File> getFilesWithSmaliExtension(File file) {

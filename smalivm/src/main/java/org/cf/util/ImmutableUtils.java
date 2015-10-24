@@ -32,13 +32,13 @@ public class ImmutableUtils {
             return false;
         }
 
+        if (immutableClasses.contains(smaliClassName)) {
+            return true;
+        }
+
         if ("?".equals(smaliClassName)) {
             // Unknown type. Probably lazy and didn't get implied type.
             return false;
-        }
-
-        if (immutableClasses.contains(smaliClassName)) {
-            return true;
         }
 
         return false;

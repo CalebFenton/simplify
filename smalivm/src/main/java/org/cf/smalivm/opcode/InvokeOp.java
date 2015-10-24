@@ -264,7 +264,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private ExecutionContext buildLocalCalleeContext(String methodDescriptor, ExecutionContext callerContext) {
-        ExecutionContext calleeContext = vm.spawnExecutionContext(methodDescriptor, callerContext, getAddress());
+        ExecutionContext calleeContext = vm.spawnRootExecutionContext(methodDescriptor, callerContext, getAddress());
         MethodState callerMethodState = callerContext.getMethodState();
         MethodState calleeMethodState = calleeContext.getMethodState();
         assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);

@@ -352,10 +352,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         // unknown values. Get details from parents.
         TIntSet parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
-        // Object targetValue = manipulator.getRegisterConsensusValue(parentAddresses, targetRegister);
         Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
         assert methodValue instanceof LocalMethod || methodValue instanceof Method;
-        // assert !(targetValue instanceof UnknownValue);
         assert !(parametersValue instanceof UnknownValue);
 
         int methodAccessFlags = 0;

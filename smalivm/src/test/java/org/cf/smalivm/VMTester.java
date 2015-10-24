@@ -133,8 +133,7 @@ public class VMTester {
             try {
                 classManager = new ClassManagerFactory().build(TEST_DIRECTORY, getDexBuilder());
             } catch (IOException e) {
-                e.printStackTrace();
-                System.exit(-1);
+                throw new RuntimeException("Exception getting test VM for " + TEST_DIRECTORY, e);
             }
         }
 
@@ -250,7 +249,7 @@ public class VMTester {
     private static ExecutionContext getInitializedContext(VirtualMachine vm, String methodDescriptor,
                     TIntObjectMap<HeapItem> registerToItem,
                     Map<String, Map<String, HeapItem>> classNameToInitialFieldItem) {
-        ExecutionContext ectx = vm.spawnExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnRootExecutionContext(methodDescriptor);
         int registerCount = ectx.getMethodState().getRegisterCount();
         setupMethodState(ectx, registerToItem, registerCount);
         setupClassStates(ectx, classNameToInitialFieldItem);

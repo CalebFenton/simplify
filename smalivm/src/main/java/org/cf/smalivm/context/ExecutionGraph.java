@@ -162,15 +162,16 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public TIntSet getConnectedTerminatingAddresses() {
-        TIntSet result = new TIntHashSet();
-        for (int i = 0; i < terminatingAddresses.size(); i++) {
+        int maxSize = terminatingAddresses.size();
+        TIntSet addresses = new TIntHashSet(maxSize);
+        for (int i = 0; i < maxSize; i++) {
             int address = terminatingAddresses.get(i);
             if (wasAddressReached(address)) {
-                result.add(address);
+                addresses.add(address);
             }
         }
 
-        return result;
+        return addresses;
     }
 
     public HeapItem getFieldConsensus(TIntSet addressSet, String fieldDescriptor) {
@@ -414,7 +415,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return contexts;
     }
 
-    public int getNodeIndex(ExecutionNode node) {
+    protected int getNodeIndex(ExecutionNode node) {
         return getNodePile(node.getAddress()).indexOf(node);
     }
 

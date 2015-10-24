@@ -61,10 +61,10 @@ public class Optimizer {
         optimizationCounts = new HashMap<String, Integer>();
     }
 
-    public void simplify(int maxSweeps) {
+    public void simplify(int maxPasses) {
         System.out.println("Simplifying: " + methodDescriptor);
 
-        int sweep = 0;
+        int pass = 0;
         madeAnyChanges = false;
         boolean madeChange;
         do {
@@ -77,8 +77,8 @@ public class Optimizer {
             }
 
             madeAnyChanges |= madeChange | shouldReexecute;
-            sweep++;
-        } while (madeChange && sweep < maxSweeps);
+            pass++;
+        } while (madeChange && pass < maxPasses);
 
         updateOptimizationCounts();
     }

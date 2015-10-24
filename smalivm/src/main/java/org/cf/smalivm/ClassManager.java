@@ -371,11 +371,7 @@ public class ClassManager {
                             .dexifySmaliFile(smaliFile.getPath(), is, isFramework ? frameworkDexBuilder : dexBuilder);
             is.close();
         } catch (Exception e) {
-            if (log.isErrorEnabled()) {
-                log.error("Error while loading class necessary for " + typeDescriptor, e);
-            }
-            System.exit(-1);
-            return;
+            throw new RuntimeException("Error while loading class necessary for " + typeDescriptor, e);
         }
 
         classNameToClassDef.put(className, classDef);
@@ -412,7 +408,7 @@ public class ClassManager {
     }
 
     Set<String> getClassAncestors(String className) {
-        Set<String> ancestors = new HashSet<String>();
+        Set<String> ancestors = new HashSet<String>(3);
         ancestors.add(className);
         String superClass = className;
         do {

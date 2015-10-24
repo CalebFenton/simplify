@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -32,8 +34,7 @@ public class VirtualMachine {
         return methodDescriptor.split("->", 2)[0];
     }
 
-    private static HeapItem getMutableParameterConsensus(TIntSet addressSet, ExecutionGraph graph, int parameterRegister) {
-        int[] addresses = addressSet.toArray();
+    private static HeapItem getMutableParameterConsensus(int[] addresses, ExecutionGraph graph, int parameterRegister) {
         ExecutionNode firstNode = graph.getNodePile(addresses[0]).get(0);
         HeapItem item = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
         for (int address : addresses) {
@@ -41,9 +42,7 @@ public class VirtualMachine {
             for (ExecutionNode node : nodes) {
                 HeapItem otherItem = node.getContext().getMethodState().peekParameter(parameterRegister);
                 if (item.getValue() != otherItem.getValue()) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("No conensus value for r" + parameterRegister + ". Returning unknown.");
-                    }
+                    log.trace("No conensus value for r{}. Returning unknown.", parameterRegister);
 
                     return HeapItem.newUnknown(item.getType());
                 }
@@ -75,7 +74,7 @@ public class VirtualMachine {
         if (!classManager.methodHasImplementation(methodDescriptor)) {
             return null;
         }
-        ExecutionContext ectx = spawnExecutionContext(methodDescriptor);
+        ExecutionContext ectx = spawnRootExecutionContext(methodDescriptor);
 
         return execute(methodDescriptor, ectx);
     }
@@ -127,12 +126,12 @@ public class VirtualMachine {
         return spawn;
     }
 
-    public ExecutionContext spawnExecutionContext(String methodDescriptor) {
-        return spawnExecutionContext(methodDescriptor, null, 0);
+    public ExecutionContext spawnRootExecutionContext(String methodDescriptor) {
+        return spawnRootExecutionContext(methodDescriptor, null, 0);
     }
 
-    public ExecutionContext spawnExecutionContext(String methodDescriptor, ExecutionContext callerContext,
-                    int callerAddress) {
+    public ExecutionContext spawnRootExecutionContext(String methodDescriptor,
+                    @Nullable ExecutionContext callerContext, int callerAddress) {
         if (!classManager.isLocalMethod(methodDescriptor)) {
             throw new IllegalArgumentException("Method does not exist: " + methodDescriptor);
         }
@@ -147,12 +146,8 @@ public class VirtualMachine {
         ClassState templateClassState = getTemplateClassState(spawnedContext, className);
         spawnedContext.setClassState(className, templateClassState);
 
-        BuilderMethod method = classManager.getMethod(methodDescriptor);
-        MethodImplementation implementation = method.getImplementation();
-        int registerCount = implementation.getRegisterCount();
-        List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        boolean isStatic = Modifier.isStatic(method.getAccessFlags());
-        addTemplateMethodState(spawnedContext, isStatic, registerCount, parameterTypes);
+        MethodState templateMethodState = getTemplateMethodState(spawnedContext);
+        spawnedContext.setMethodState(templateMethodState);
 
         if (callerContext != null) {
             spawnedContext.registerCaller(callerContext, callerAddress);
@@ -161,14 +156,19 @@ public class VirtualMachine {
         return spawnedContext;
     }
 
-    private static void addTemplateMethodState(ExecutionContext ectx, boolean isStatic, int registerCount,
-                    List<String> parameterTypes) {
+    private MethodState getTemplateMethodState(ExecutionContext ectx) {
+        String methodDescriptor = ectx.getMethodDescriptor();
+        BuilderMethod method = classManager.getMethod(methodDescriptor);
+        MethodImplementation implementation = method.getImplementation();
+        int registerCount = implementation.getRegisterCount();
+        List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         MethodState mState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
         int firstParameter = mState.getParameterStart();
         int parameterRegister = firstParameter;
 
         // Assume all input values are unknown.
+        boolean isStatic = Modifier.isStatic(method.getAccessFlags());
         for (String type : parameterTypes) {
             HeapItem item;
             if (!isStatic && (parameterRegister == firstParameter)) {
@@ -179,7 +179,8 @@ public class VirtualMachine {
             mState.assignParameter(parameterRegister, item);
             parameterRegister += Utils.getRegisterSize(type);
         }
-        ectx.setMethodState(mState);
+
+        return mState;
     }
 
     public boolean isLocalClass(String classDescriptor) {
@@ -209,7 +210,8 @@ public class VirtualMachine {
      */
     private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext callerContext,
                     int[] parameterRegisters) {
-        TIntSet terminatingAddresses = graph.getConnectedTerminatingAddresses();
+        TIntSet terminatingAddressSet = graph.getConnectedTerminatingAddresses();
+        int[] terminatingAddresses = terminatingAddressSet.toArray();
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
             List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
@@ -228,10 +230,14 @@ public class VirtualMachine {
             }
         }
 
+        // TODO: performance: this is expensive and happens frequently.
+        // classManager has all classes, include reflib. would be nice to keep track of all initialized classes
+        // for each method execution, and use that to iterate instead
+        List<ExecutionContext> terminatingContexts = graph.getTerminatingContexts();
         for (String className : classManager.getClassNames()) {
-            List<ExecutionContext> terminatingContexts = graph.getTerminatingContexts();
-            hasOneInitialization: if (!callerContext.isClassInitialized(className)) {
-                // Was initialized in caller. Maybe was initialized in callee multiverse.
+            boolean isInitializedInCaller = callerContext.isClassInitialized(className);
+            hasOneInitialization: if (!isInitializedInCaller) {
+                // Not initialized in caller, but maybe initialized in callee multiverse.
                 for (ExecutionContext ectx : terminatingContexts) {
                     if (ectx.isClassInitialized(className)) {
                         break hasOneInitialization;
@@ -244,7 +250,7 @@ public class VirtualMachine {
 
             List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
             ClassState cState;
-            if (callerContext.isClassInitialized(className)) {
+            if (isInitializedInCaller) {
                 cState = callerContext.peekClassState(className);
             } else {
                 cState = new ClassState(callerContext, className, fieldNameAndTypes.size());
@@ -253,7 +259,7 @@ public class VirtualMachine {
             }
 
             for (String fieldNameAndType : fieldNameAndTypes) {
-                HeapItem item = graph.getFieldConsensus(terminatingAddresses, className, fieldNameAndType);
+                HeapItem item = graph.getFieldConsensus(terminatingAddressSet, className, fieldNameAndType);
                 cState.pokeField(fieldNameAndType, item);
             }
         }

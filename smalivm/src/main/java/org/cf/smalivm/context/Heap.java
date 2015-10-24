@@ -2,8 +2,6 @@ package org.cf.smalivm.context;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,19 +26,18 @@ class Heap {
 
     private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
         Heap current = child;
-        List<String> reassigned = new LinkedList<String>();
+        Set<String> reassigned = new HashSet<String>();
         while (current != ancestor) {
             reassigned.addAll(current.keySet());
             current = current.getParent();
         }
-        Set<String> result = new HashSet<String>(reassigned);
 
-        return result;
+        return reassigned;
     }
 
     private Set<String> keySet() {
-        // It's not that I don't trust you to mutate the keys, but I don't trust you.
-        return new HashSet<String>(keyToHeapItem.keySet());
+        // Note: mutating this directly alters keytoHeapItem's keys
+        return keyToHeapItem.keySet();
     }
 
     void setParent(Heap parent) {

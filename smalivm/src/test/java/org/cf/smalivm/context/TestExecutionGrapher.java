@@ -11,30 +11,15 @@ import org.junit.Test;
 
 public class TestExecutionGrapher {
 
-    private static ExecutionNode buildNode(int address, String nodeString, String stateString) {
-        ExecutionNode node = mock(ExecutionNode.class);
-        when(node.getAddress()).thenReturn(address);
-        when(node.toString()).thenReturn(nodeString);
-
-        MethodState state = mock(MethodState.class);
-        when(state.toString()).thenReturn(stateString);
-        ExecutionContext context = mock(ExecutionContext.class);
-        when(context.getMethodState()).thenReturn(state);
-
-        when(node.getContext()).thenReturn(context);
-
-        return node;
-    }
-
     private static final int CHILD_ADDRESS = 2;
+
     private static final String CHILD_NODE_STR = "child node";
     private static final String CHILD_STATE_STR = "child state";
+    private static final String METHOD_DESCRIPTOR = "Lclass;->method()V";
 
     private static final int ROOT_ADDRESS = 1;
     private static final String ROOT_NODE_STR = "root node";
     private static final String ROOT_STATE_STR = "root state";
-
-    private static final String METHOD_DESCRIPTOR = "Lclass;->method()V";
 
     @Test
     public void testHasExpectedGraph() {
@@ -64,6 +49,21 @@ public class TestExecutionGrapher {
 
         String expected = sb.toString();
         assertEquals(expected, digraph);
+    }
+
+    private static ExecutionNode buildNode(int address, String nodeString, String stateString) {
+        ExecutionNode node = mock(ExecutionNode.class);
+        when(node.getAddress()).thenReturn(address);
+        when(node.toString()).thenReturn(nodeString);
+
+        MethodState state = mock(MethodState.class);
+        when(state.toString()).thenReturn(stateString);
+        ExecutionContext context = mock(ExecutionContext.class);
+        when(context.getMethodState()).thenReturn(state);
+
+        when(node.getContext()).thenReturn(context);
+
+        return node;
     }
 
 }

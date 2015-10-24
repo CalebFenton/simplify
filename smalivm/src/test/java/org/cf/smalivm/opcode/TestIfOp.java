@@ -28,65 +28,17 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestIfOp {
 
-    public static class UnitTest {
+    private static final int ADDRESS_IF = 0;
 
-        private static final int ADDRESS = 0;
-        private static final int ARG1_REGISTER = 2;
-        private static final int ARG2_REGISTER = 4;
+    private static final int ADDRESS_NOP = 2;
 
-        private TIntObjectMap<MethodLocation> addressToLocation;
+    private static final int ADDRESS_RETURN = 3;
 
-        private BuilderInstruction instruction;
+    private static final String CLASS_NAME = "Lif_test;";
 
-        private MethodLocation location;
-
-        private MethodState mState;
-        private ExecutionNode node;
-        private IfOp op;
-        private IfOpFactory opFactory;
-        private VirtualMachine vm;
-
-        @Before
-        public void setUp() {
-            vm = mock(VirtualMachine.class);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            location = mock(MethodLocation.class);
-            when(location.getCodeAddress()).thenReturn(ADDRESS);
-
-            addressToLocation = new TIntObjectHashMap<MethodLocation>();
-            addressToLocation.put(ADDRESS, location);
-
-            opFactory = new IfOpFactory();
-        }
-
-        @Test
-        public void hasExpectedToStringValue() {
-            int value = 0;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value, "D");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value, "D");
-
-            instruction = buildInstruction22t(Opcode.IF_GE, 0);
-            op = (IfOp) opFactory.create(location, addressToLocation, vm);
-            op.execute(node, mState);
-
-            assertEquals("if-ge r2, r4, #0", op.toString());
-        }
-
-        private BuilderInstruction buildInstruction22t(Opcode opcode, int offset) {
-            BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(Instruction22t.class));
-            when(location.getInstruction()).thenReturn(instruction);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(opcode);
-            when(((Instruction22t) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
-            when(((Instruction22t) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
-            when(((Instruction22t) instruction).getCodeOffset()).thenReturn(offset);
-
-            return instruction;
-        }
-    }
+    private static final int[] IF_ALL_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
+    private static final int[] IF_FALSE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
+    private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
 
     public static class TestCompareObjectReferences {
 
@@ -154,13 +106,6 @@ public class TestIfOp {
         }
 
         @Test
-        public void testIfZeroIntegerEqualZero() {
-            String methodSignature = "IfEqualZero()V";
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, Integer.valueOf(0), "I");
-            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
-        }
-
-        @Test
         public void testIfUnknownIntegerTakesBothPaths() {
             String methodSignature = "IfEqualZero()V";
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
@@ -179,6 +124,13 @@ public class TestIfOp {
             assertEquals(1, graph.getNodePile(ADDRESS_NOP).size());
             // Two execution paths hit return
             assertEquals(2, graph.getNodePile(ADDRESS_RETURN).size());
+        }
+
+        @Test
+        public void testIfZeroIntegerEqualZero() {
+            String methodSignature = "IfEqualZero()V";
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, Integer.valueOf(0), "I");
+            VMTester.testVisitation(CLASS_NAME, methodSignature, initial, IF_TRUE_VISITATIONS);
         }
     }
 
@@ -616,16 +568,64 @@ public class TestIfOp {
         }
     }
 
-    private static final int ADDRESS_IF = 0;
-    private static final int ADDRESS_NOP = 2;
-    private static final int ADDRESS_RETURN = 3;
+    public static class UnitTest {
 
-    private static final String CLASS_NAME = "Lif_test;";
+        private static final int ADDRESS = 0;
+        private static final int ARG1_REGISTER = 2;
+        private static final int ARG2_REGISTER = 4;
 
-    private static final int[] IF_FALSE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
+        private TIntObjectMap<MethodLocation> addressToLocation;
 
-    private static final int[] IF_TRUE_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_RETURN };
+        private BuilderInstruction instruction;
 
-    private static final int[] IF_ALL_VISITATIONS = new int[] { ADDRESS_IF, ADDRESS_NOP, ADDRESS_RETURN };
+        private MethodLocation location;
+
+        private MethodState mState;
+        private ExecutionNode node;
+        private IfOp op;
+        private IfOpFactory opFactory;
+        private VirtualMachine vm;
+
+        private BuilderInstruction buildInstruction22t(Opcode opcode, int offset) {
+            BuilderInstruction instruction = mock(BuilderInstruction.class,
+                            withSettings().extraInterfaces(Instruction22t.class));
+            when(location.getInstruction()).thenReturn(instruction);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(instruction.getOpcode()).thenReturn(opcode);
+            when(((Instruction22t) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
+            when(((Instruction22t) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
+            when(((Instruction22t) instruction).getCodeOffset()).thenReturn(offset);
+
+            return instruction;
+        }
+
+        @Test
+        public void hasExpectedToStringValue() {
+            int value = 0;
+            VMTester.addHeapItem(mState, ARG1_REGISTER, value, "D");
+            VMTester.addHeapItem(mState, ARG2_REGISTER, value, "D");
+
+            instruction = buildInstruction22t(Opcode.IF_GE, 0);
+            op = (IfOp) opFactory.create(location, addressToLocation, vm);
+            op.execute(node, mState);
+
+            assertEquals("if-ge r2, r4, #0", op.toString());
+        }
+
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+            location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
+
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
+
+            opFactory = new IfOpFactory();
+        }
+    }
 
 }

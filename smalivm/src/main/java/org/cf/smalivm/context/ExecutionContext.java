@@ -192,7 +192,7 @@ public class ExecutionContext {
         if (vm.getClassManager().isLocalMethod(clinitDescriptor)) {
             // TODO: determine what the call stack actually is when the vm clinit's a class
             // this assumes the call stack is empty
-            ExecutionContext initContext = vm.spawnExecutionContext(clinitDescriptor);
+            ExecutionContext initContext = vm.spawnRootExecutionContext(clinitDescriptor);
 
             ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);

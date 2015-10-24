@@ -13,18 +13,19 @@ import org.junit.runner.RunWith;
 public class TestSwitchOp {
 
     public static class TestPackedSwitch {
+
         private static final String METHOD_NAME = "PackedSwitch()V";
 
         @Test
         public void testKnownPredicateVisitsExpectedLabel() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "Z");
             int[] expected = new int[] { 0, 1, 5, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
         public void testUnhandledPredicateVisitsNextOp() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 100, "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 100, "S");
             int[] expected = new int[] { 0, 1, 4, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }
@@ -38,11 +39,12 @@ public class TestSwitchOp {
     }
 
     public static class TestSparseSwitch {
+
         private static final String METHOD_NAME = "SparseSwitch()V";
 
         @Test
         public void testKnownPredicateVisitsExpectedLabel() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "I");
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 1, "B");
             int[] expected = new int[] { 0, 1, 5, 8 };
             VMTester.testVisitation(CLASS_NAME, METHOD_NAME, initial, expected);
         }

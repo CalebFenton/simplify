@@ -300,7 +300,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
                 // check-cast is first op with no parents
                 // this implies it's acting on a parameter register
                 // look at freshly spawned execution context type
-                ExecutionContext ectx = manipulator.getVM().spawnExecutionContext(manipulator.getMethodDescriptor());
+                ExecutionContext ectx = manipulator.getVM().spawnRootExecutionContext(manipulator.getMethodDescriptor());
                 HeapItem item = ectx.getMethodState().peekRegister(registerA);
                 preCastType = item.getType();
             }

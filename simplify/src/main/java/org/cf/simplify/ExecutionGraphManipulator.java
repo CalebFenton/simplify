@@ -297,7 +297,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             } else {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
                 String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                newContext = vm.spawnExecutionContext(methodDescriptor);
+                newContext = vm.spawnRootExecutionContext(methodDescriptor);
                 newNode.setContext(newContext);
             }
             reparentNode(shiftedNode, newNode);

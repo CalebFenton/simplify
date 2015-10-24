@@ -39,7 +39,7 @@ public class Main {
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
 
-        ExecutionContext ectx = vm.spawnExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnRootExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
         // This method has 4 locals (r0, r1, r2, r3). It's virtual so p0 (r4) is 'this' reference.
         // First method parameter starts at r5, or parameter start + 1.
@@ -70,7 +70,7 @@ public class Main {
         String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
 
         // Execute method with some context
-        ExecutionContext ectx = vm.spawnExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnRootExecutionContext(methodDescriptor);
         MethodState mState = ectx.getMethodState();
         mState.assignParameter(3, parameterValue, "I");
         vm.execute(methodDescriptor, ectx);
