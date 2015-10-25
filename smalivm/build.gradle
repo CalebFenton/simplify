@@ -26,6 +26,7 @@ dependencies {
     // Contains Android framework classes that should be reflected instead of virtually executed
     compile files('libs/android-local.jar')
 
+    // Testing
     testCompile depends.junit
     testCompile depends.mockito
 }

@@ -1,7 +1,5 @@
 package org.cf.smalivm;
 
-import gnu.trove.set.TIntSet;
-
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.List;
@@ -210,8 +208,7 @@ public class VirtualMachine {
      */
     private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext callerContext,
                     int[] parameterRegisters) {
-        TIntSet terminatingAddressSet = graph.getConnectedTerminatingAddresses();
-        int[] terminatingAddresses = terminatingAddressSet.toArray();
+        int[] terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
             List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
@@ -259,7 +256,7 @@ public class VirtualMachine {
             }
 
             for (String fieldNameAndType : fieldNameAndTypes) {
-                HeapItem item = graph.getFieldConsensus(terminatingAddressSet, className, fieldNameAndType);
+                HeapItem item = graph.getFieldConsensus(terminatingAddresses, className, fieldNameAndType);
                 cState.pokeField(fieldNameAndType, item);
             }
         }

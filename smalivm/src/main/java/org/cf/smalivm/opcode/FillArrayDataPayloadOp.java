@@ -63,7 +63,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         MethodState parent = mState.getParent();
-        int targetRegister = parent.getRegistersAssigned().toArray()[0];
+        int targetRegister = parent.getRegistersAssigned()[0];
         // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
         HeapItem arrayItem = mState.peekRegister(targetRegister);
         if (!arrayItem.isUnknown()) {

@@ -42,26 +42,26 @@ class BaseState {
         return registerCount;
     }
 
-    public TIntSet getRegistersAssigned() {
-        return registersAssigned;
+    public int[] getRegistersAssigned() {
+        return registersAssigned.toArray();
     }
 
-    public TIntSet getRegistersRead() {
-        return registersRead;
+    public int[] getRegistersRead() {
+        return registersRead.toArray();
     }
 
     public boolean wasRegisterAssigned(int register) {
-        return getRegistersAssigned().contains(register);
+        return registersAssigned.contains(register);
     }
 
     void assignRegister(int register, HeapItem item, String heapId) {
-        getRegistersAssigned().add(register);
+        registersAssigned.add(register);
 
         pokeRegister(register, item, heapId);
     }
 
     void assignRegisterAndUpdateIdentities(int register, HeapItem item, String heapId) {
-        getRegistersAssigned().add(register);
+        registersAssigned.add(register);
         ectx.getHeap().update(heapId, register, item);
     }
 
@@ -103,7 +103,7 @@ class BaseState {
     }
 
     HeapItem readRegister(int register, String heapId) {
-        getRegistersRead().add(register);
+        registersRead.add(register);
 
         return peekRegister(register, heapId);
     }
@@ -113,7 +113,7 @@ class BaseState {
     }
 
     boolean wasRegisterRead(int register, String heapId) {
-        if (getRegistersRead().contains(register)) {
+        if (registersRead.contains(register)) {
             return true;
         }
 
@@ -123,7 +123,7 @@ class BaseState {
         }
 
         // Don't just examine registersRead. v0 and v1 may contain the same object reference, but v0 is never read.
-        for (int currentRegister : getRegistersRead().toArray()) {
+        for (int currentRegister : getRegistersRead()) {
             HeapItem currentItem = peekRegister(currentRegister, heapId);
             if (item.getValue() == currentItem.getValue()) {
                 return true;
