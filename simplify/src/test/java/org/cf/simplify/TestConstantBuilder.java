@@ -190,6 +190,15 @@ public class TestConstantBuilder {
         }
 
         @Test
+        public void testWith16BitLiteral() {
+            int value = 50000;
+            Instruction expected = new BuilderInstruction31i(Opcode.CONST, REGISTER, value);
+            Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
+
+            testEquals(expected, actual);
+        }
+
+        @Test
         public void testWith31BitLiteral() {
             int value = Integer.MAX_VALUE;
             Instruction expected = new BuilderInstruction31i(Opcode.CONST, REGISTER, value);

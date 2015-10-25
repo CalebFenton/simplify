@@ -115,7 +115,7 @@ public class ConstantBuilder implements Dependancy {
 
     public static BuilderInstruction buildConstant(long value, int register) {
         BuilderInstruction result;
-        int bitCount = Long.numberOfTrailingZeros(Long.highestOneBit(value));
+        int bitCount = Long.SIZE - Long.numberOfLeadingZeros(value);
         if (bitCount < 16 && (register & 0xFFFFFF00) == 0) {
             result = new BuilderInstruction21s(Opcode.CONST_WIDE_16, register, (int) value);
         } else if (bitCount < 32 && (register & 0xFFFFFF00) == 0) {
