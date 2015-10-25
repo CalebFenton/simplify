@@ -14,6 +14,7 @@ dependencies {
     // Lazy
     compile depends.commons_io
     compile depends.commons_lang
+    compile 'com.google.guava:guava:19.0-rc2'
 
     // CLI parsing
     compile 'commons-cli:commons-cli:1.3.1'
@@ -83,7 +84,6 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
     keepattributes '*Annotation*,Signature,InnerClasses,EnclosingMethod'
 
     keep 'public class org.cf.simplify.Main { public static void main(java.lang.String[]); }'
-    keep 'public class org.cf.simplify.Options  { *; }'
     keep 'public class android.util.**  { *; }'
 
     keep 'class org.apache.commons.logging.** { public protected *; }'

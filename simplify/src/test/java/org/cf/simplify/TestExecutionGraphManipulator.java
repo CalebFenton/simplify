@@ -3,10 +3,7 @@ package org.cf.simplify;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import gnu.trove.list.TIntList;
-import gnu.trove.list.linked.TIntLinkedList;
 
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -123,7 +120,7 @@ public class TestExecutionGraphManipulator {
         // Addresses 0 and 1 are now goto/16, need to insert at 2
         manipulator.addInstruction(2, new BuilderInstruction10x(Opcode.NOP));
 
-        TIntList removeList = new TIntLinkedList();
+        List<Integer> removeList = new LinkedList<Integer>();
         // for (int removeAddress = 2, i = 0; i < nops_to_insert; removeAddress++, i++) {
         for (int i = 1; i < nops_to_insert; i++) {
             int removeAddress = i + 2;
@@ -139,11 +136,10 @@ public class TestExecutionGraphManipulator {
     public void testHasEveryRegisterAvailableAtEveryAddress() {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         int[] addresses = manipulator.getAddresses();
-        int[] expectedAvailable = new int[] { 0, 1, 2, 3, 4, };
         for (int address : addresses) {
-            int[] actualAvailable = manipulator.getAvailableRegisters(address).toArray();
-            Arrays.sort(actualAvailable);
-            assertArrayEquals(expectedAvailable, actualAvailable);
+            int[] actualAvailable = manipulator.getAvailableRegisters(address);
+
+            assertArrayEquals(new int[] { 0, 1, 2, 3, 4 }, actualAvailable);
         }
     }
 
@@ -216,13 +212,13 @@ public class TestExecutionGraphManipulator {
         testHeritage(manipulator, 2);
 
         MethodState parentState = manipulator.getNodePile(0).get(0).getContext().getMethodState();
-        assertArrayEquals(new int[] { 0 }, parentState.getRegistersAssigned().toArray());
+        assertArrayEquals(new int[] { 0 }, parentState.getRegistersAssigned());
 
         MethodState childState = manipulator.getNodePile(1).get(0).getContext().getMethodState();
-        assertArrayEquals(new int[] { 2 }, childState.getRegistersAssigned().toArray());
+        assertArrayEquals(new int[] { 2 }, childState.getRegistersAssigned());
 
         MethodState grandchildState = manipulator.getNodePile(2).get(0).getContext().getMethodState();
-        assertArrayEquals(new int[] { 3 }, grandchildState.getRegistersAssigned().toArray());
+        assertArrayEquals(new int[] { 3 }, grandchildState.getRegistersAssigned());
     }
 
     @Test

@@ -1,9 +1,9 @@
 package org.cf.simplify.strategy;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.linked.TIntLinkedList;
-
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
@@ -45,10 +45,10 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     public boolean perform() {
         madeChanges = false;
 
-        TIntList addresses = getValidAddresses();
-        addresses.sort();
-        addresses.reverse();
-        for (int address : addresses.toArray()) {
+        List<Integer> addresses = getValidAddresses();
+        Collections.sort(addresses);
+        Collections.reverse(addresses);
+        for (int address : addresses) {
             madeChanges = true;
             BuilderInstruction original = manipulator.getInstruction(address);
             BuilderInstruction constInstruction = ConstantBuilder.buildConstant(address, manipulator);
@@ -64,8 +64,8 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return madeChanges;
     }
 
-    private TIntList getValidAddresses() {
-        TIntList addresses = new TIntLinkedList();
+    private List<Integer> getValidAddresses() {
+        List<Integer> addresses = new LinkedList<Integer>();
         for (int address : manipulator.getAddresses()) {
             if (canConstantizeAddress(address)) {
                 addresses.add(address);

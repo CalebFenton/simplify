@@ -28,6 +28,8 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.primitives.Ints;
+
 public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
@@ -59,7 +61,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private static TIntSet getNormalRegistersAssigned(MethodState mState) {
-        TIntSet assigned = mState.getRegistersAssigned();
+        TIntSet assigned = new TIntHashSet(mState.getRegistersAssigned());
 
         // The state of these registers can become invalid as we start to remove ops.
         // Infer if the result is used, etc. by means other than looking if the register
@@ -198,7 +200,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         removeSet.addAll(removeAddresses);
 
         removeAddresses = new TIntArrayList(removeSet.toArray());
-        manipulator.removeInstructions(removeAddresses);
+        manipulator.removeInstructions(Ints.asList(removeSet.toArray()));
 
         return removeAddresses.size() > 0;
     }
@@ -244,10 +246,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Dead assignments test @" + address + " for: " + op);
-        }
-
+        log.debug("Dead assignments test @{} for: {}", address, op);
         if (isAnyRegisterUsed(address, assigned, manipulator)) {
             return false;
         }
@@ -265,10 +264,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("Dead result test @" + address + " for: " + op);
-        }
-
+        log.debug("Dead result test @{} for: {}", address, op);
         if (isSideEffectAboveThreshold(op.getSideEffectLevel())) {
             return false;
         }
@@ -310,9 +306,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     boolean isDead(int address) {
         Op op = manipulator.getOp(address);
-        if (log.isDebugEnabled()) {
-            log.debug("Dead test @" + address + " for: " + op);
-        }
+        log.debug("Dead test @{} for: {}", address, op);
 
         if (manipulator.wasAddressReached(address)) {
             return false;

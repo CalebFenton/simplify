@@ -31,8 +31,8 @@ public class TestUnreflectionStrategy {
     public static class TestFieldLookups {
 
         private static final String[] EXPECTED_SHARED = {
-            "invoke-virtual {r0, r1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
-            "move-result-object r0", };
+                        "invoke-virtual {r0, r1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
+                        "move-result-object r0", };
         private static final String LOCAL_INSTANCE_FIELD = "someInt";
         private static final String LOCAL_INSTANCE_FIELD_TYPE = "I";
 
@@ -133,10 +133,10 @@ public class TestUnreflectionStrategy {
     public static class TestInvokeNonOptimizableScenarios {
 
         private static final String[] EXPECTED_LINES = new String[] {
-            "nop",
-            "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
-            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
-            "return-void", };
+                        "nop",
+                        "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+                        "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                        "return-void", };
         private static final LocalMethod LOCAL_STATIC_METHOD = new LocalMethod(
                         CLASS_NAME + "->FourParameterMethod(IIII)V");
         private static final Method PRIVATE_NON_LOCAL_METHOD = getMethod(System.class, "checkKey",
@@ -254,14 +254,14 @@ public class TestUnreflectionStrategy {
     public static class TestInvokeVirtualLocalMethodWithSixParameters {
 
         private static final String[] EXPECTED_SHARED = new String[] {
-            "nop", "move-object/16 r3, r1", "const/4 r4, 0x0", "aget-object r4, r2, r4",
-            "check-cast r4, Ljava/lang/Integer;", "const/4 r5, 0x1", "aget-object r5, r2, r5",
-            "check-cast r5, Ljava/lang/Integer;", "const/4 r6, 0x2", "aget-object r6, r2, r6",
-            "check-cast r6, Ljava/lang/Integer;", "const/4 r7, 0x3", "aget-object r7, r2, r7",
-            "check-cast r7, Ljava/lang/Integer;", "const/4 r8, 0x4", "aget-object r8, r2, r8",
-            "check-cast r8, Ljava/lang/Integer;", "const/4 r9, 0x5", "aget-object r9, r2, r9",
-            "check-cast r9, Ljava/lang/Integer;",
-            "invoke-virtual/range {r3 .. r9}, Lunreflect_strategy_test;->SixParameterMethod(IIIIII)V", };
+                        "nop", "move-object/16 r3, r1", "const/4 r4, 0x0", "aget-object r4, r2, r4",
+                        "check-cast r4, Ljava/lang/Integer;", "const/4 r5, 0x1", "aget-object r5, r2, r5",
+                        "check-cast r5, Ljava/lang/Integer;", "const/4 r6, 0x2", "aget-object r6, r2, r6",
+                        "check-cast r6, Ljava/lang/Integer;", "const/4 r7, 0x3", "aget-object r7, r2, r7",
+                        "check-cast r7, Ljava/lang/Integer;", "const/4 r8, 0x4", "aget-object r8, r2, r8",
+                        "check-cast r8, Ljava/lang/Integer;", "const/4 r9, 0x5", "aget-object r9, r2, r9",
+                        "check-cast r9, Ljava/lang/Integer;",
+                        "invoke-virtual/range {r3 .. r9}, Lunreflect_strategy_test;->SixParameterMethod(IIIIII)V", };
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");
 
         @Test
@@ -294,10 +294,10 @@ public class TestUnreflectionStrategy {
     public static class TestInvokeVirtualPrivateLocalMethod {
 
         private static final String[] expectedLines = new String[] {
-            "nop",
-            "invoke-direct {r1}, Lunreflect_strategy_test;->PrivateVirtualMethod()V",
-            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
-            "return-void", };
+                        "nop",
+                        "invoke-direct {r1}, Lunreflect_strategy_test;->PrivateVirtualMethod()V",
+                        "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                        "return-void", };
         private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->PrivateVirtualMethod()V");
 
         @Test

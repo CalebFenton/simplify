@@ -282,7 +282,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             // Heap item at address would have been recast. Need to examine parents.
             // Also, don't care about values. Just collecting types.
             Set<String> ancestorTypes = new HashSet<String>();
-            for (int parentAddress : manipulator.getParentAddresses(address).toArray()) {
+            for (int parentAddress : manipulator.getParentAddresses(address)) {
                 for (HeapItem item : manipulator.getRegisterItems(parentAddress, registerA)) {
                     ancestorTypes.add(item.getType());
                 }
@@ -300,7 +300,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
                 // check-cast is first op with no parents
                 // this implies it's acting on a parameter register
                 // look at freshly spawned execution context type
-                ExecutionContext ectx = manipulator.getVM().spawnRootExecutionContext(manipulator.getMethodDescriptor());
+                ExecutionContext ectx = manipulator.getVM()
+                                .spawnRootExecutionContext(manipulator.getMethodDescriptor());
                 HeapItem item = ectx.getMethodState().peekRegister(registerA);
                 preCastType = item.getType();
             }

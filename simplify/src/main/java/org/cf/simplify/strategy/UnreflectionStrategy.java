@@ -2,12 +2,11 @@ package org.cf.simplify.strategy;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.list.linked.TIntLinkedList;
-import gnu.trove.set.TIntSet;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -45,6 +44,8 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.primitives.Ints;
+
 public class UnreflectionStrategy implements OptimizationStrategy {
 
     @SuppressWarnings("unused")
@@ -54,8 +55,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
     private static final String FieldGetSignature = "Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;";
 
-    private static TIntList getFourBitValues(TIntList values) {
-        TIntList fourBitValues = new TIntArrayList();
+    private static int[] getFourBitValues(TIntList values) {
+        List<Integer> fourBitValues = new LinkedList<Integer>();
         for (int i = 0; i < values.size(); i++) {
             int value = values.get(i);
             if (value <= 0b1111) { // you don't see this literal format every day
@@ -63,7 +64,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             }
         }
 
-        return fourBitValues;
+        return Ints.toArray(fourBitValues);
     }
 
     private static void setRegisterCount(BuilderMethod method, int registerCount) throws Exception {
@@ -120,7 +121,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
     private final ExecutionGraphManipulator manipulator;
     private int unreflectCount;
-    private TIntList addresses;
+    private int[] addresses;
 
     private boolean madeChanges;
 
@@ -203,7 +204,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             BuilderInstruction11x moveInstr = (BuilderInstruction11x) nextInstr;
             destRegister = moveInstr.getRegisterA();
         } else {
-            destRegister = manipulator.getAvailableRegisters(address).get(0);
+            destRegister = manipulator.getAvailableRegisters(address)[0];
         }
 
         BuilderInstruction replacement = null;
@@ -229,7 +230,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return methodRef;
     }
 
-    private List<BuilderInstruction> getArrayAccessorInstructions(int arrayRegister, TIntList registers,
+    private List<BuilderInstruction> getArrayAccessorInstructions(int arrayRegister, List<Integer> registers,
                     List<String> parameterTypes) {
         List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
         for (int index = 0; index < parameterTypes.size(); index++) {
@@ -289,8 +290,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private void replaceFieldGet() {
-        TIntList getAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
+        List<Integer> getAddresses = new LinkedList<Integer>();
+        for (int address : addresses) {
             if (canReplaceFieldGet(address)) {
                 getAddresses.add(address);
             }
@@ -302,9 +303,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         madeChanges = true;
         unreflectCount += getAddresses.size();
-        getAddresses.sort();
-        getAddresses.reverse();
-        for (int address : getAddresses.toArray()) {
+        Collections.reverse(getAddresses);
+        for (int address : getAddresses) {
             BuilderInstruction replacement = buildFieldGetReplacement(address);
             removeMoveResultIfNecessary(address);
             manipulator.replaceInstruction(address, replacement);
@@ -313,7 +313,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
     private void replaceMethodInvoke() {
         TIntList invokeAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
+        for (int address : addresses) {
             if (canReplaceMethodInvoke(address)) {
                 invokeAddresses.add(address);
             }
@@ -350,7 +350,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         // As long as Method;->invoke is not emulated (it will never be white-listed!) current address will have all
         // unknown values. Get details from parents.
-        TIntSet parentAddresses = manipulator.getParentAddresses(address);
+        int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
         assert methodValue instanceof LocalMethod || methodValue instanceof Method;
@@ -384,12 +384,9 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
 
         boolean isRange = false;
-        TIntList registers;
-        if (0 == invokeRegisterCount) {
-            registers = new TIntArrayList(new int[5]);
-        } else {
-            registers = new TIntArrayList();
-            TIntList availableRegisters = manipulator.getAvailableRegisters(address);
+        List<Integer> registers = new LinkedList<Integer>();
+        if (invokeRegisterCount > 0) {
+            TIntList availableRegisters = new TIntArrayList(manipulator.getAvailableRegisters(address));
             availableRegisters.sort();
             if (parametersValue instanceof Object[] && 0 < ((Object[]) parametersValue).length) {
                 // Not just an empty array, so will need to pull values out later.
@@ -413,15 +410,15 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 }
             }
 
-            TIntList fourBitRegisters = getFourBitValues(availableRegisters);
-            if (fourBitRegisters.size() < parameterRegisterCount) {
+            int[] fourBitRegisters = getFourBitValues(availableRegisters);
+            if (fourBitRegisters.length < parameterRegisterCount) {
                 // invoke/range doesn't need all registers to be <4 bits
                 isRange = true;
             }
 
             if (!isRange) {
                 for (int i = 0; i < parameterRegisterCount; i++) {
-                    registers.add(fourBitRegisters.get(i));
+                    registers.add(fourBitRegisters[i]);
                 }
             } else {
                 // Either find contiguous available or make them available
@@ -534,8 +531,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         BuilderInstruction nextInstr = manipulator.getInstruction(nextAddress);
         String opName = nextInstr.getOpcode().name;
         if (!opName.startsWith("move-result")) {
-            TIntList available = manipulator.getAvailableRegisters(address);
-            if (available.size() == 0) {
+            int[] available = manipulator.getAvailableRegisters(address);
+            if (available.length == 0) {
                 // How often do you see field lookup where the result isn't used
                 // and there are no available registers?
                 return false;
@@ -560,7 +557,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
-        TIntSet parentAddresses = manipulator.getParentAddresses(address);
+        int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         if (methodValue instanceof UnknownValue) {
             return false;
@@ -596,16 +593,16 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getValidAddresses(ExecutionGraphManipulator manipulator) {
+    int[] getValidAddresses(ExecutionGraphManipulator manipulator) {
         int[] addresses = manipulator.getAddresses();
-        TIntList validAddresses = new TIntLinkedList();
+        List<Integer> validAddresses = new LinkedList<Integer>();
         for (int address : addresses) {
             if (manipulator.wasAddressReached(address)) {
                 validAddresses.add(address);
             }
         }
 
-        return validAddresses;
+        return Ints.toArray(validAddresses);
     }
 
 }

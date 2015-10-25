@@ -51,6 +51,8 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.primitives.Ints;
+
 public class ExecutionGraphManipulator extends ExecutionGraph {
 
     @SuppressWarnings("unused")
@@ -102,7 +104,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         addInstruction(getLocation(address), newInstruction);
     }
 
-    public TIntList getAvailableRegisters(int address) {
+    public int[] getAvailableRegisters(int address) {
         Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildren(address));
         ExecutionNode node = stack.peek();
         if (null == node) {
@@ -115,7 +117,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
                 available.add(i);
             }
 
-            return available;
+            return available.toArray();
         }
 
         int[] registers = new int[node.getContext().getMethodState().getRegisterCount()];
@@ -155,7 +157,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             available.add(register);
         }
 
-        return available;
+        return available.toArray();
     }
 
     public List<ExecutionNode> getChildren(int address) {
@@ -178,8 +180,8 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         return node.getOp().getInstruction();
     }
 
-    public TIntSet getParentAddresses(int address) {
-        TIntSet parentAddresses = new TIntHashSet();
+    public int[] getParentAddresses(int address) {
+        Set<Integer> parentAddresses = new HashSet<Integer>();
         for (ExecutionNode node : getNodePile(address)) {
             ExecutionNode parent = node.getParent();
             if (null == parent) {
@@ -188,7 +190,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             parentAddresses.add(parent.getAddress());
         }
 
-        return parentAddresses;
+        return Ints.toArray(parentAddresses);
     }
 
     public List<BuilderTryBlock> getTryBlocks() {
@@ -211,11 +213,11 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         removeInstruction(getLocation(address));
     }
 
-    public void removeInstructions(TIntList addresses) {
-        addresses.sort();
-        addresses.reverse();
-        log.debug("Removing instructions: " + addresses);
-        for (int address : addresses.toArray()) {
+    public void removeInstructions(List<Integer> addresses) {
+        Collections.sort(addresses);
+        Collections.reverse(addresses);
+        log.debug("Removing instructions: {}", addresses);
+        for (int address : addresses) {
             removeInstruction(address);
         }
     }
