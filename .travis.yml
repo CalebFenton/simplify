@@ -1,21 +1,27 @@
 language: java
 jdk:
-    - oraclejdk8
-
+- oraclejdk8
 env:
-    - TERM=dumb
-
+  matrix:
+  - TERM=dumb
+  global:
+    secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
 before_install:
-    - chmod +x gradlew
-
+- chmod +x gradlew
 script:
-    - ./gradlew test
-
+- "./gradlew test"
 after_success:
-    - ./gradlew jacocoTestReport coveralls
-
+- "./gradlew jacocoTestReport coveralls"
 sudo: false
-
 cache:
-    directories:
-        - $HOME/.gradle
+  directories:
+  - "$HOME/.gradle"
+addons:
+  coverity_scan:
+    project:
+      name: "CalebFenton/simplify"
+      description: "Build submitted via Travis CI"
+    notification_email: calebjfenton@gmail.com
+    build_command_prepend: "./gradlew clean"
+    build_command:   "./gradlew build"
+    branch_pattern: coverity_scan
