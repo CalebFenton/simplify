@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.cf.smalivm.SideEffect;
@@ -306,7 +307,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         }
     }
 
-    private void reparentNode(ExecutionNode child, ExecutionNode parent) {
+    private void reparentNode(@Nonnull ExecutionNode child, @Nonnull ExecutionNode parent) {
         ExecutionContext newContext = parent.getContext().spawnChild();
         child.setContext(newContext);
         child.setParent(parent);

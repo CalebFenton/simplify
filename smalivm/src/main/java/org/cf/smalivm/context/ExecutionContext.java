@@ -34,7 +34,7 @@ public class ExecutionContext {
     private int callerAddress;
     private int callDepth;
 
-    private class ClassStatus {
+    private static class ClassStatus {
 
         private boolean isInitialized;
         private ClassState cState;

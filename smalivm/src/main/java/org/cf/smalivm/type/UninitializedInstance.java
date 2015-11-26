@@ -1,6 +1,7 @@
 package org.cf.smalivm.type;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 public class UninitializedInstance implements LocalType {
 
@@ -25,6 +26,11 @@ public class UninitializedInstance implements LocalType {
     }
 
     @Override
+    public int hashCode() {
+        return new HashCodeBuilder(337, 97).append(getName()).hashCode();
+    }
+
+    @Override
     public String getName() {
         return smaliType;
     }
@@ -33,5 +39,5 @@ public class UninitializedInstance implements LocalType {
     public String toString() {
         return "Uninitialized " + smaliType;
     }
-    
+
 }

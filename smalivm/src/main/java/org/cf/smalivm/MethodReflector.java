@@ -12,7 +12,7 @@ import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.ConfigLoader;
+import org.cf.util.ConfigurationLoader;
 import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,17 +63,17 @@ public class MethodReflector {
 
     private static void loadSafeClasses() throws IOException {
         // Methods from safe classes must not have any side effects, e.g. any IO.
-        List<String> lines = ConfigLoader.loadConfig(SAFE_CLASSES_PATH);
+        List<String> lines = ConfigurationLoader.loadConfig(SAFE_CLASSES_PATH);
         SafeClasses = new HashSet<String>(lines);
     }
 
     private static void loadSafeMethods() throws IOException {
-        List<String> lines = ConfigLoader.loadConfig(SAFE_METHODS_PATH);
+        List<String> lines = ConfigurationLoader.loadConfig(SAFE_METHODS_PATH);
         SafeMethods = new HashSet<String>(lines);
     }
 
     private static void loadUnsafeMethods() throws IOException {
-        List<String> lines = ConfigLoader.loadConfig(UNSAFE_METHODS_PATH);
+        List<String> lines = ConfigurationLoader.loadConfig(UNSAFE_METHODS_PATH);
         UnsafeMethods = new HashSet<String>(lines);
     }
 

@@ -22,7 +22,7 @@ public class SmaliFileFactory {
 
     private Map<String, SmaliFile> frameworkClassNameToSmaliFile;
 
-    private synchronized void cacheFramework() throws IOException {
+    private static synchronized void cacheFramework() throws IOException {
         if (frameworkCache != null) {
             return;
         }
@@ -30,8 +30,9 @@ public class SmaliFileFactory {
         frameworkCache = new HashMap<String, SmaliFile>();
 
         long startTime = System.currentTimeMillis();
-        List<String> frameworkClassesCfg = ConfigLoader.loadConfig("framework_classes.cfg");
-        Set<String> safeFrameworkClasses = new HashSet<String>(ConfigLoader.loadConfig("safe_framework_classes.cfg"));
+        List<String> frameworkClassesCfg = ConfigurationLoader.loadConfig("framework_classes.cfg");
+        Set<String> safeFrameworkClasses = new HashSet<String>(
+                        ConfigurationLoader.loadConfig("safe_framework_classes.cfg"));
         for (String line : frameworkClassesCfg) {
             String[] parts = line.split(":");
             String className = parts[0];

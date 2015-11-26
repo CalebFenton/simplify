@@ -80,7 +80,7 @@ public class IfOp extends MethodStateOp {
         if (compareToZero) {
             if (lhs == null) {
                 // if-*z ops are used to check for null refs
-                cmp = lhs == null ? 0 : 1;
+                cmp = 0;
             } else if ((lhs instanceof Number || lhs instanceof Boolean || lhs instanceof Character) && (rhs instanceof Number || rhs instanceof Boolean || rhs instanceof Character)) {
                 Integer aIntValue = Utils.getIntegerValue(lhs);
                 cmp = aIntValue.compareTo((Integer) rhs);

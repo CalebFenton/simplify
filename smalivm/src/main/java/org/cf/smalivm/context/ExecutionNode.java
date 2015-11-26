@@ -5,6 +5,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
+
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.opcode.ExecutionContextOp;
 import org.cf.smalivm.opcode.MethodStateOp;
@@ -142,13 +144,11 @@ public class ExecutionNode {
         ectx.setMethodState(mState);
     }
 
-    public void setParent(ExecutionNode parent) {
+    public void setParent(@Nonnull ExecutionNode parent) {
         // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
         // Each execution of an instruction will have a new state.
         this.parent = parent;
-        if (parent != null) {
-            parent.addChild(this);
-        }
+        parent.addChild(this);
         getContext().setParent(parent.getContext());
     }
 

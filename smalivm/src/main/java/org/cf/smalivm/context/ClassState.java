@@ -2,6 +2,8 @@ package org.cf.smalivm.context;
 
 import gnu.trove.set.hash.THashSet;
 
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,16 +59,21 @@ public class ClassState extends BaseState {
         }
         ClassState other = (ClassState) obj;
 
-        return this.toString().equals(other.toString());
+        return new EqualsBuilder().append(className, other.className)
+                        .append(fieldNameAndTypes, other.fieldNameAndTypes).isEquals();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(1337, 13).append(className).append(fieldNameAndTypes).hashCode();
     }
 
     public HeapItem peekField(String fieldNameAndType) {
         int register = 0;
         String heapKey = getKey(fieldNameAndType);
-
         HeapItem fieldItem = peekRegister(register, heapKey);
         if (fieldItem == null) {
-            log.error("Undefined field: " + className + ";->" + fieldNameAndType + ". Returning unknown.");
+            log.error("Undefined field: {};->{} - returning unknown.", className, fieldNameAndType);
             fieldItem = HeapItem.newUnknown(fieldNameAndType.split(":")[1]);
         }
 

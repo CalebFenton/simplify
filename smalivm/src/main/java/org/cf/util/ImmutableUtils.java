@@ -18,7 +18,7 @@ public class ImmutableUtils {
     private static Set<String> getImmutableClasses() {
         List<String> lines = new ArrayList<String>();
         try {
-            lines = ConfigLoader.loadConfig("immutable_classes.cfg");
+            lines = ConfigurationLoader.loadConfig("immutable_classes.cfg");
         } catch (IOException e) {
             log.warn("Error loading immutable classes.", e);
         }

@@ -42,8 +42,11 @@ public class SimplifyOptions implements Serializable {
 
         FileInputStream fis = new FileInputStream(inFile);
         byte[] buf = new byte[3];
-        fis.read(buf);
-        fis.close();
+        try {
+            fis.read(buf);
+        } finally {
+            fis.close();
+        }
 
         if (Arrays.equals(DEX_MAGIC, buf)) {
             return InputType.DEX;

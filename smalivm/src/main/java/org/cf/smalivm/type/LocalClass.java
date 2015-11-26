@@ -28,9 +28,10 @@ public class LocalClass implements LocalType {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(className).toHashCode();
+        return new HashCodeBuilder(607, 23).append(className).toHashCode();
     }
 
+    @Override
     public String getName() {
         return className;
     }

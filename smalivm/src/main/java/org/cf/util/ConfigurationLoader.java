@@ -1,16 +1,19 @@
 package org.cf.util;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
 
-public class ConfigLoader {
+public class ConfigurationLoader {
 
     public static List<String> loadConfig(String path) throws IOException {
         // Some classes may be mostly safe except a few methods. Either exclude or emulate them.
-        List<String> lines = IOUtils.readLines(ConfigLoader.class.getClassLoader().getResourceAsStream(path));
+        InputStream is = ConfigurationLoader.class.getClassLoader().getResourceAsStream(path);
+        List<String> lines = IOUtils.readLines(is);
+        IOUtils.closeQuietly(is);
         removeNonDefinitionLines(lines);
 
         return lines;

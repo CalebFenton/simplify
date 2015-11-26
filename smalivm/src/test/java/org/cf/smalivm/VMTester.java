@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.cf.smalivm.context.ClassState;
@@ -192,8 +193,9 @@ public class VMTester {
             testRegisterEquals(register, item, consensus);
         }
 
-        for (String currentClassName : classNameToExpectedFieldItem.keySet()) {
-            Map<String, HeapItem> check = classNameToExpectedFieldItem.get(currentClassName);
+        for (Entry<String, Map<String, HeapItem>> entry : classNameToExpectedFieldItem.entrySet()) {
+            String currentClassName = entry.getKey();
+            Map<String, HeapItem> check = entry.getValue();
             for (String fieldReference : check.keySet()) {
                 HeapItem checkItem = check.get(fieldReference);
                 String fieldDescriptor = currentClassName + "->" + fieldReference;
@@ -258,11 +260,13 @@ public class VMTester {
     }
 
     private static void setupClassStates(ExecutionContext ectx, Map<String, Map<String, HeapItem>> classNameToFieldItem) {
-        for (String className : classNameToFieldItem.keySet()) {
-            Map<String, HeapItem> fieldToItem = classNameToFieldItem.get(className);
+        for (Entry<String, Map<String, HeapItem>> entry : classNameToFieldItem.entrySet()) {
+            String className = entry.getKey();
+            Map<String, HeapItem> fieldToItem = entry.getValue();
             ClassState cState = ectx.peekClassState(className);
-            for (String fieldNameAndType : fieldToItem.keySet()) {
-                HeapItem item = fieldToItem.get(fieldNameAndType);
+            for (Entry<String, HeapItem> fieldEntry : fieldToItem.entrySet()) {
+                String fieldNameAndType = fieldEntry.getKey();
+                HeapItem item = fieldEntry.getValue();
                 cState.pokeField(fieldNameAndType, item);
             }
             ectx.initializeClass(className, cState, SideEffect.Level.NONE);

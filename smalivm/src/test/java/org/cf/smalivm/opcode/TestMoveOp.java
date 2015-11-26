@@ -31,7 +31,7 @@ public class TestMoveOp {
         // Must invoke VM directly to ensure reference identity
         ExecutionGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
         int[] addresses = graph.getConnectedTerminatingAddresses();
-        assertTrue("Should terminate when expected: " + addresses + " == {1}",
+        assertTrue("Should terminate when expected: " + Arrays.toString(addresses) + " == {1}",
                         Arrays.equals(addresses, new int[] { 1 }));
 
         HeapItem register0 = graph.getRegisterConsensus(1, 0);

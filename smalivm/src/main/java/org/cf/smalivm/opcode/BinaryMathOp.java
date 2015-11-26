@@ -329,6 +329,8 @@ public class BinaryMathOp extends MethodStateOp {
             rhs = Utils.getDoubleValue(rhs);
             result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
             break;
+        default:
+            throw new RuntimeException("Unknown math operand type!");
         }
 
         return result;

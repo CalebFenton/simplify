@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.cf.simplify.strategy.ConstantPropigationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
@@ -94,7 +95,8 @@ public class Optimizer {
     private void updateOptimizationCounts() {
         for (OptimizationStrategy strategy : allStrategies) {
             Map<String, Integer> optimizations = strategy.getOptimizationCounts();
-            for (String key : optimizations.keySet()) {
+            for (Entry<String, Integer> entry : optimizations.entrySet()) {
+                String key = entry.getKey();
                 Integer currentCount = optimizationCounts.get(key);
                 if (null == currentCount) {
                     currentCount = 0;
@@ -104,7 +106,7 @@ public class Optimizer {
                     totalCount = 0;
                 }
 
-                int count = optimizations.get(key);
+                int count = entry.getValue();
                 currentCount += count;
                 optimizationCounts.put(key, currentCount);
                 totalCount += count;

@@ -73,7 +73,7 @@ public class HeapItem {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(113, 21).append(getType()).append(getValue()).hashCode();
+        return new HashCodeBuilder(123, 51).append(getType()).append(getValue()).hashCode();
     }
 
     public boolean valueIdentity(HeapItem other) {
