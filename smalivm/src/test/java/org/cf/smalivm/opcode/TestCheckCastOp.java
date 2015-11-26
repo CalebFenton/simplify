@@ -32,14 +32,24 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class TestCheckCastOp {
 
+    private static final String CLASS_NAME = "Lcheck_cast_test;";
+
     public static class IntegrationTest {
+
+        @Test
+        public void testNullWithObjectTypeCastsToString() {
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "Ljava/lang/Object;");
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, null, "Ljava/lang/String;");
+
+            VMTester.testMethodState(CLASS_NAME, "CheckCastToString()V", initial, expected);
+        }
 
         @Test
         public void testStringWithObjectTypeCastsToString() {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/Object;");
-            TIntObjectMap<HeapItem> expected = initial;
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/String;");
 
-            VMTester.testMethodState(CLASS_NAME, "CheckCastIsString()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "CheckCastToString()V", initial, expected);
         }
 
         @Test
@@ -47,7 +57,7 @@ public class TestCheckCastOp {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/String;");
             TIntObjectMap<HeapItem> expected = initial;
 
-            VMTester.testMethodState(CLASS_NAME, "CheckCastIsObject()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "CheckCastToObject()V", initial, expected);
         }
     }
 
@@ -63,16 +73,16 @@ public class TestCheckCastOp {
         private ExecutionNode node;
         private CheckCastOp op;
         private CheckCastOpFactory opFactory;
-        private TypeReference typeRef;
+        private TypeReference castTypeRef;
         private VirtualMachine vm;
 
         @Test
-        public void nonObjectTypeCastToObjectTypeThrowsExpectedException() throws UnknownAncestors {
+        public void objectNotOfCastTypeThrowsClassCastException() throws UnknownAncestors {
             String castType = "Llolmoney;";
             String registerType = "Lmoneylol;";
-            when(typeRef.getType()).thenReturn(castType);
+            when(castTypeRef.getType()).thenReturn(castType);
             when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(false);
-            VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
+            VMTester.addHeapItem(mState, ARG1_REGISTER, new Object(), registerType);
 
             op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
@@ -86,7 +96,7 @@ public class TestCheckCastOp {
         public void nullValueWithCastableTypeThrowsNoExceptionAndIsConverted() throws UnknownAncestors {
             String castType = "Llolmoney;";
             String registerType = "Lmoneylol;";
-            when(typeRef.getType()).thenReturn(castType);
+            when(castTypeRef.getType()).thenReturn(castType);
             when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(true);
             VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
 
@@ -102,7 +112,7 @@ public class TestCheckCastOp {
             vm = mock(VirtualMachine.class);
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
-            typeRef = mock(TypeReference.class);
+            castTypeRef = mock(TypeReference.class);
             classManager = mock(ClassManager.class);
             when(vm.getClassManager()).thenReturn(classManager);
 
@@ -115,7 +125,7 @@ public class TestCheckCastOp {
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
-            when(((ReferenceInstruction) instruction).getReference()).thenReturn(typeRef);
+            when(((ReferenceInstruction) instruction).getReference()).thenReturn(castTypeRef);
             when(instruction.getOpcode()).thenReturn(Opcode.CHECK_CAST);
             when(((Instruction21c) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
 
@@ -125,7 +135,5 @@ public class TestCheckCastOp {
             opFactory = new CheckCastOpFactory();
         }
     }
-
-    private static final String CLASS_NAME = "Lcheck_cast_test;";
 
 }

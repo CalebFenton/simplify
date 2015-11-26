@@ -17,7 +17,7 @@ public class CheckCastOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(CheckCastOp.class.getSimpleName());
 
-    private final String className;
+    private final String checkClassName;
     private final int targetRegister;
     private final VirtualMachine vm;
 
@@ -25,37 +25,50 @@ public class CheckCastOp extends MethodStateOp {
         super(location, child);
 
         this.targetRegister = targetRegister;
-        this.className = className;
+        this.checkClassName = className;
         this.vm = vm;
+    }
+
+    private static boolean isInstance(HeapItem item, ClassManager classManager, String targetType) {
+        try {
+            if (!SmaliClassUtils.isPrimitiveType(item.getType())) {
+                if (item.getValue() == null) {
+                    /*
+                     * This covers cases where type info cannot be implied from value. E.g.
+                     * Object o = null;
+                     * String s = (String) o;
+                     */
+                    return true;
+                }
+            }
+
+            for (String type : Utils.getTypes(item)) {
+                if (classManager.isInstance(type, targetType)) {
+                    return true;
+                }
+            }
+        } catch (UnknownAncestors e) {
+            log.error("Unable to determine ancestory for {}\n{}", targetType, e);
+        }
+
+        return false;
     }
 
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem item = mState.readRegister(targetRegister);
-        boolean isInstance = false;
-        try {
-            ClassManager classManager = vm.getClassManager();
-            for (String type : Utils.getTypes(item)) {
-                isInstance = classManager.isInstance(type, className);
-                if (isInstance) {
-                    break;
-                }
-            }
-        } catch (UnknownAncestors e) {
-            if (log.isErrorEnabled()) {
-                log.error("Unable to determine ancestory for {}\n{}", className, e);
-            }
-        }
+        ClassManager classManager = vm.getClassManager();
+        boolean isInstance = isInstance(item, classManager, checkClassName);
 
         if (isInstance) {
             node.clearExceptions();
-            mState.assignRegister(targetRegister, item.getValue(), className);
+            mState.assignRegister(targetRegister, item.getValue(), checkClassName);
         } else {
-            // java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
+            // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             StringBuilder sb = new StringBuilder();
             sb.append(SmaliClassUtils.smaliClassToJava(item.getType()));
             sb.append(" cannot be cast to ");
-            sb.append(SmaliClassUtils.smaliClassToJava(className));
+            sb.append(SmaliClassUtils.smaliClassToJava(checkClassName));
 
             VirtualException exception = new VirtualException(ClassCastException.class, sb.toString());
             node.setException(exception);
@@ -72,7 +85,7 @@ public class CheckCastOp extends MethodStateOp {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(targetRegister).append(", ").append(className);
+        sb.append(" r").append(targetRegister).append(", ").append(checkClassName);
 
         return sb.toString();
     }
