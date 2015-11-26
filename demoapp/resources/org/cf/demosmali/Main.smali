@@ -21,7 +21,7 @@
 
     #@0
     .prologue
-    .line 11
+    .line 6
     const/16 v2, 0x10
 
     #@2
@@ -31,7 +31,7 @@
     fill-array-data v0, :array_0
 
     #@7
-    .line 12
+    .line 7
     .local v0, "data":[B
     new-instance v1, Ljava/lang/String;
 
@@ -45,7 +45,7 @@
     invoke-direct {v1, v2}, Ljava/lang/String;-><init>([B)V
 
     #@10
-    .line 14
+    .line 9
     .local v1, "output":Ljava/lang/String;
     sget-object v2, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
@@ -74,11 +74,11 @@
     invoke-virtual {v2, v3}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
 
     #@24
-    .line 15
+    .line 10
     return-void
 
     #@25
-    .line 11
+    .line 6
     nop
 
     #@26
@@ -109,15 +109,15 @@
 
     #@0
     .prologue
-    .line 6
+    .line 13
     invoke-static {}, Lorg/cf/demosmali/Main;->helloWorld()V
 
     #@3
-    .line 7
+    .line 14
     invoke-static {}, Lorg/cf/demosmali/Main;->stringBuilder()V
 
     #@6
-    .line 8
+    .line 15
     return-void
 .end method
 
@@ -247,10 +247,10 @@
     invoke-static {v1}, Ljava/lang/Long;->parseLong(Ljava/lang/String;)J
 
     #@13
-    move-result-wide v1
+    move-result-wide v2
 
     #@14
-    invoke-virtual {v0, v1, v2}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
 
     #@17
     .line 21

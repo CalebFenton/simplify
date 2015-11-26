@@ -10,6 +10,12 @@ public class TestExceptionHandling {
         System.out.println("val = " + catchParentButNotGrandparentException());
     }
 
+    public void testCasting() {
+        Object o = Integer.valueOf(5);
+        int x = (int) o;
+        System.out.println(x);
+    }
+
     public static int throwException() {
         int value = 1;
         try {

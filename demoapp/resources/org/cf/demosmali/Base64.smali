@@ -22,20 +22,20 @@
 
     #@0
     .prologue
-    .line 46
+    .line 45
     if-nez p0, :cond_0
 
     #@2
-    .line 47
+    .line 46
     const/4 v1, 0x0
 
     #@3
-    .line 51
+    .line 50
     :goto_0
     return-object v1
 
     #@4
-    .line 49
+    .line 48
     :cond_0
     invoke-virtual {p0}, Ljava/lang/String;->getBytes()[B
 
@@ -43,7 +43,7 @@
     move-result-object v0
 
     #@8
-    .line 51
+    .line 50
     .local v0, "data":[B
     invoke-static {v0}, Lorg/cf/demosmali/Base64;->decode([B)[B
 
@@ -63,11 +63,11 @@
     const/16 v7, 0x3d
 
     #@2
-    .line 55
+    .line 6
     array-length v4, p0
 
     #@3
-    .line 56
+    .line 7
     .local v4, "tail":I
     :goto_0
     add-int/lit8 v5, v4, -0x1
@@ -79,7 +79,7 @@
     if-eq v5, v7, :cond_2
 
     #@9
-    .line 59
+    .line 10
     array-length v5, p0
 
     #@a
@@ -92,7 +92,7 @@
     new-array v0, v5, [B
 
     #@10
-    .line 61
+    .line 12
     .local v0, "dest":[B
     const/4 v2, 0x0
 
@@ -105,7 +105,7 @@
     if-lt v2, v5, :cond_3
 
     #@14
-    .line 78
+    .line 29
     const/4 v3, 0x0
 
     #@15
@@ -124,14 +124,14 @@
     if-lt v1, v5, :cond_a
 
     #@1b
-    .line 83
+    .line 34
     array-length v5, v0
 
     #@1c
     if-ge v1, v5, :cond_0
 
     #@1e
-    .line 84
+    .line 35
     aget-byte v5, p0, v3
 
     #@20
@@ -162,7 +162,7 @@
     aput-byte v5, v0, v1
 
     #@30
-    .line 86
+    .line 37
     :cond_0
     add-int/lit8 v1, v1, 0x1
 
@@ -173,7 +173,7 @@
     if-ge v1, v5, :cond_1
 
     #@35
-    .line 87
+    .line 38
     add-int/lit8 v5, v3, 0x1
 
     #@37
@@ -207,12 +207,12 @@
     aput-byte v5, v0, v1
 
     #@49
-    .line 90
+    .line 41
     :cond_1
     return-object v0
 
     #@4a
-    .line 57
+    .line 8
     .end local v0    # "dest":[B
     .end local v1    # "didx":I
     .end local v2    # "idx":I
@@ -224,7 +224,7 @@
     goto :goto_0
 
     #@4d
-    .line 62
+    .line 13
     .restart local v0    # "dest":[B
     .restart local v2    # "idx":I
     :cond_3
@@ -234,14 +234,14 @@
     if-ne v5, v7, :cond_5
 
     #@51
-    .line 63
+    .line 14
     const/4 v5, 0x0
 
     #@52
     aput-byte v5, p0, v2
 
     #@54
-    .line 61
+    .line 12
     :cond_4
     :goto_3
     add-int/lit8 v2, v2, 0x1
@@ -250,7 +250,7 @@
     goto :goto_1
 
     #@57
-    .line 64
+    .line 15
     :cond_5
     aget-byte v5, p0, v2
 
@@ -261,7 +261,7 @@
     if-ne v5, v6, :cond_6
 
     #@5d
-    .line 65
+    .line 16
     const/16 v5, 0x3f
 
     #@5f
@@ -271,7 +271,7 @@
     goto :goto_3
 
     #@62
-    .line 66
+    .line 17
     :cond_6
     aget-byte v5, p0, v2
 
@@ -282,7 +282,7 @@
     if-ne v5, v6, :cond_7
 
     #@68
-    .line 67
+    .line 18
     const/16 v5, 0x3e
 
     #@6a
@@ -292,7 +292,7 @@
     goto :goto_3
 
     #@6d
-    .line 68
+    .line 19
     :cond_7
     aget-byte v5, p0, v2
 
@@ -312,7 +312,7 @@
     if-gt v5, v6, :cond_8
 
     #@79
-    .line 69
+    .line 20
     aget-byte v5, p0, v2
 
     #@7b
@@ -328,7 +328,7 @@
     goto :goto_3
 
     #@81
-    .line 70
+    .line 21
     :cond_8
     aget-byte v5, p0, v2
 
@@ -348,7 +348,7 @@
     if-gt v5, v6, :cond_9
 
     #@8d
-    .line 71
+    .line 22
     aget-byte v5, p0, v2
 
     #@8f
@@ -364,7 +364,7 @@
     goto :goto_3
 
     #@95
-    .line 72
+    .line 23
     :cond_9
     aget-byte v5, p0, v2
 
@@ -384,7 +384,7 @@
     if-gt v5, v6, :cond_4
 
     #@a1
-    .line 73
+    .line 24
     aget-byte v5, p0, v2
 
     #@a3
@@ -400,7 +400,7 @@
     goto :goto_3
 
     #@a9
-    .line 79
+    .line 30
     .restart local v1    # "didx":I
     .restart local v3    # "sidx":I
     :cond_a
@@ -434,7 +434,7 @@
     aput-byte v5, v0, v1
 
     #@bb
-    .line 80
+    .line 31
     add-int/lit8 v5, v1, 0x1
 
     #@bd
@@ -471,7 +471,7 @@
     aput-byte v6, v0, v5
 
     #@d1
-    .line 81
+    .line 32
     add-int/lit8 v5, v1, 0x2
 
     #@d3
@@ -505,7 +505,7 @@
     aput-byte v6, v0, v5
 
     #@e5
-    .line 78
+    .line 29
     add-int/lit8 v3, v3, 0x4
 
     #@e7
@@ -521,7 +521,7 @@
 
     #@0
     .prologue
-    .line 42
+    .line 90
     invoke-virtual {p0}, Ljava/lang/String;->getBytes()[B
 
     #@3
@@ -546,20 +546,20 @@
     const/4 v6, 0x0
 
     #@1
-    .line 6
+    .line 54
     if-nez p0, :cond_0
 
     #@3
-    .line 7
+    .line 55
     const/4 v5, 0x0
 
     #@4
-    .line 38
+    .line 86
     :goto_0
     return-object v5
 
     #@5
-    .line 9
+    .line 57
     :cond_0
     array-length v5, p0
 
@@ -570,7 +570,7 @@
     new-array v0, v5, [B
 
     #@a
-    .line 10
+    .line 58
     .local v0, "data":[B
     array-length v5, p0
 
@@ -578,7 +578,7 @@
     invoke-static {p0, v6, v0, v6, v5}, Ljava/lang/System;->arraycopy(Ljava/lang/Object;ILjava/lang/Object;II)V
 
     #@e
-    .line 11
+    .line 59
     array-length v5, v0
 
     #@f
@@ -591,7 +591,7 @@
     new-array v1, v5, [B
 
     #@15
-    .line 13
+    .line 61
     .local v1, "dest":[B
     const/4 v4, 0x0
 
@@ -608,7 +608,7 @@
     if-lt v4, v5, :cond_1
 
     #@1a
-    .line 20
+    .line 68
     const/4 v3, 0x0
 
     #@1b
@@ -620,7 +620,7 @@
     if-lt v3, v5, :cond_2
 
     #@1e
-    .line 34
+    .line 82
     array-length v5, v1
 
     #@1f
@@ -640,7 +640,7 @@
     if-gt v3, v5, :cond_7
 
     #@28
-    .line 38
+    .line 86
     new-instance v5, Ljava/lang/String;
 
     #@2a
@@ -650,7 +650,7 @@
     goto :goto_0
 
     #@2e
-    .line 14
+    .line 62
     .end local v3    # "idx":I
     :cond_1
     aget-byte v5, v0, v4
@@ -668,7 +668,7 @@
     aput-byte v5, v1, v2
 
     #@37
-    .line 15
+    .line 63
     add-int/lit8 v5, v2, 0x1
 
     #@39
@@ -702,7 +702,7 @@
     aput-byte v6, v1, v5
 
     #@4b
-    .line 16
+    .line 64
     add-int/lit8 v5, v2, 0x2
 
     #@4d
@@ -739,7 +739,7 @@
     aput-byte v6, v1, v5
 
     #@61
-    .line 17
+    .line 65
     add-int/lit8 v5, v2, 0x3
 
     #@63
@@ -758,7 +758,7 @@
     aput-byte v6, v1, v5
 
     #@6c
-    .line 13
+    .line 61
     add-int/lit8 v4, v4, 0x3
 
     #@6e
@@ -768,7 +768,7 @@
     goto :goto_1
 
     #@71
-    .line 21
+    .line 69
     .restart local v3    # "idx":I
     :cond_2
     aget-byte v5, v1, v3
@@ -780,7 +780,7 @@
     if-ge v5, v6, :cond_3
 
     #@77
-    .line 22
+    .line 70
     aget-byte v5, v1, v3
 
     #@79
@@ -793,7 +793,7 @@
     aput-byte v5, v1, v3
 
     #@7e
-    .line 20
+    .line 68
     :goto_4
     add-int/lit8 v3, v3, 0x1
 
@@ -801,7 +801,7 @@
     goto :goto_2
 
     #@81
-    .line 23
+    .line 71
     :cond_3
     aget-byte v5, v1, v3
 
@@ -812,7 +812,7 @@
     if-ge v5, v6, :cond_4
 
     #@87
-    .line 24
+    .line 72
     aget-byte v5, v1, v3
 
     #@89
@@ -831,7 +831,7 @@
     goto :goto_4
 
     #@91
-    .line 25
+    .line 73
     :cond_4
     aget-byte v5, v1, v3
 
@@ -842,7 +842,7 @@
     if-ge v5, v6, :cond_5
 
     #@97
-    .line 26
+    .line 74
     aget-byte v5, v1, v3
 
     #@99
@@ -861,7 +861,7 @@
     goto :goto_4
 
     #@a1
-    .line 27
+    .line 75
     :cond_5
     aget-byte v5, v1, v3
 
@@ -872,7 +872,7 @@
     if-ge v5, v6, :cond_6
 
     #@a7
-    .line 28
+    .line 76
     const/16 v5, 0x2b
 
     #@a9
@@ -882,7 +882,7 @@
     goto :goto_4
 
     #@ac
-    .line 30
+    .line 78
     :cond_6
     const/16 v5, 0x2f
 
@@ -893,7 +893,7 @@
     goto :goto_4
 
     #@b1
-    .line 35
+    .line 83
     :cond_7
     const/16 v5, 0x3d
 
@@ -901,7 +901,7 @@
     aput-byte v5, v1, v3
 
     #@b5
-    .line 34
+    .line 82
     add-int/lit8 v3, v3, -0x1
 
     #@b7

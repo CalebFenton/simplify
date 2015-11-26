@@ -3,6 +3,8 @@ package org.cf.smalivm.context;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
+import javax.annotation.Nullable;
+
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.cf.smalivm.type.UnknownValue;
@@ -29,7 +31,7 @@ public class HeapItem {
         type = other.getType();
     }
 
-    public Object getValue() {
+    public @Nullable Object getValue() {
         return value;
     }
 
