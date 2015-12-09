@@ -147,9 +147,7 @@ public class InvokeOp extends ExecutionContextOp {
                 ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
                 executeLocalMethod(targetMethod, ectx, calleeContext);
             } else {
-                if (log.isDebugEnabled()) {
-                    log.debug("Unknown method: " + targetMethod + ". Assuming maximum ambiguity.");
-                }
+                log.debug("Unknown method: {}. Assuming maximum ambiguity.", targetMethod);
                 assumeMaximumUnknown(callerMethodState);
             }
         }

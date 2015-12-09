@@ -236,6 +236,12 @@ public class ClassManager {
     }
 
     public boolean isInstance(String childType, String targetType) throws UnknownAncestors {
+        // Arrays are objects
+        // http://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.3.1
+        if (childType.startsWith("[") && targetType.equals("Ljava/lang/Object;")) {
+            return true;
+        }
+
         int childDimension = Utils.getDimensionCount(childType);
         int targetDimension = Utils.getDimensionCount(targetType);
         if (childDimension != targetDimension) {

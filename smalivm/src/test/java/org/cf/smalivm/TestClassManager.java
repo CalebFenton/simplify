@@ -16,20 +16,15 @@ public class TestClassManager {
 
     private static final String TEST_DIRECTORY = "resources/test";
     private static final String CHILD_CLASS = "Lchild_class;";
-    private static final String PARENT_CLASS = "Lparent_class;";
     private static final String GRANDPARENT_CLASS = "Lgrandparent_class;";
     private static final String NON_EXISTENT_CLASS = "Lthis_certainly_wont_exists;";
+    private static final String PARENT_CLASS = "Lparent_class;";
 
     private static ClassManager manager;
 
-    @BeforeClass
-    public static void getClassManager() throws IOException {
-        manager = new ClassManagerFactory().build(TEST_DIRECTORY);
-    }
-
     @Test
-    public void testChildIsInstanceOfParent() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(CHILD_CLASS, PARENT_CLASS);
+    public void testArrayIsInstanceOfObject() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance("[B", "Ljava/lang/Object;");
 
         assertTrue(isInstance);
     }
@@ -49,31 +44,28 @@ public class TestClassManager {
     }
 
     @Test
-    public void testParentIsNotInstanceOfChild() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(PARENT_CLASS, CHILD_CLASS);
-
-        assertFalse(isInstance);
-    }
-
-    @Test
-    public void testStringIsInstanceOfObject() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(String.class, Object.class);
+    public void testChildIsInstanceOfParent() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(CHILD_CLASS, PARENT_CLASS);
 
         assertTrue(isInstance);
     }
 
     @Test
-    public void testStringArrayIsInstanceOfObjectArray() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(String[].class, Object[].class);
+    public void testGetFieldsAndTypesReturnsFieldsFromSuperClasses() {
+        List<String> fieldNameAndTypes = manager.getFieldNameAndTypes("Lchild_class;");
+        String[] actual = fieldNameAndTypes.toArray(new String[fieldNameAndTypes.size()]);
+        String[] expected = new String[] { "childField:I", "parentField:I", "grandparentField:I" };
+        Arrays.sort(actual);
+        Arrays.sort(expected);
 
-        assertTrue(isInstance);
+        assertArrayEquals(expected, actual);
     }
 
     @Test
-    public void testStringArrayIsInstanceOf2DObjectArray() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(String[].class, Object[][].class);
+    public void testIntPrimitiveIsInstanceIntPrimitive() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, int.class);
 
-        assertFalse(isInstance);
+        assertTrue(isInstance);
     }
 
     @Test
@@ -91,10 +83,10 @@ public class TestClassManager {
     }
 
     @Test
-    public void testIntPrimitiveIsInstanceIntPrimitive() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(int.class, int.class);
+    public void testIntPrimitiveIsNotInstanceOfIntArray() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(int.class, int[].class);
 
-        assertTrue(isInstance);
+        assertFalse(isInstance);
     }
 
     @Test
@@ -105,10 +97,31 @@ public class TestClassManager {
     }
 
     @Test
-    public void testIntPrimitiveIsNotInstanceOfIntArray() throws UnknownAncestors {
-        boolean isInstance = manager.isInstance(int.class, int[].class);
+    public void testParentIsNotInstanceOfChild() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(PARENT_CLASS, CHILD_CLASS);
 
         assertFalse(isInstance);
+    }
+
+    @Test
+    public void testStringArrayIsInstanceOf2DObjectArray() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(String[].class, Object[][].class);
+
+        assertFalse(isInstance);
+    }
+
+    @Test
+    public void testStringArrayIsInstanceOfObjectArray() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(String[].class, Object[].class);
+
+        assertTrue(isInstance);
+    }
+
+    @Test
+    public void testStringIsInstanceOfObject() throws UnknownAncestors {
+        boolean isInstance = manager.isInstance(String.class, Object.class);
+
+        assertTrue(isInstance);
     }
 
     @Test(expected = UnknownAncestors.class)
@@ -121,15 +134,9 @@ public class TestClassManager {
         manager.isInstance(CHILD_CLASS, NON_EXISTENT_CLASS);
     }
 
-    @Test
-    public void testGetFieldsAndTypesReturnsFieldsFromSuperClasses() {
-        List<String> fieldNameAndTypes = manager.getFieldNameAndTypes("Lchild_class;");
-        String[] actual = fieldNameAndTypes.toArray(new String[fieldNameAndTypes.size()]);
-        String[] expected = new String[] { "childField:I", "parentField:I", "grandparentField:I" };
-        Arrays.sort(actual);
-        Arrays.sort(expected);
-
-        assertArrayEquals(expected, actual);
+    @BeforeClass
+    public static void getClassManager() throws IOException {
+        manager = new ClassManagerFactory().build(TEST_DIRECTORY);
     }
 
 }

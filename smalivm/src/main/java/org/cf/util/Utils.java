@@ -29,8 +29,8 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
 public class Utils {
 
-    private static final Pattern ParameterIndividuator = Pattern.compile("(\\[*(?:[BCDFIJSZ]|L[^;]+;))");
-    private static final Pattern ParameterIsolator = Pattern.compile("\\([^\\)]+\\)");
+    private static final Pattern PARAMETER_INDIVIDUATOR = Pattern.compile("(\\[*(?:[BCDFIJSZ]|L[^;]+;))");
+    private static final Pattern PARAMETER_ISOLATOR = Pattern.compile("\\([^\\)]+\\)");
 
     public static String getArrayDimensionString(Object array) {
         if (!array.getClass().isArray()) {
@@ -87,11 +87,11 @@ public class Utils {
     public static List<String> getParameterTypes(String methodDescriptor) {
         // Only use this for non-local methods.
         // For local methods, there's VirtualMachine#getParameterTypes.
-        Matcher m = ParameterIsolator.matcher(methodDescriptor);
+        Matcher m = PARAMETER_ISOLATOR.matcher(methodDescriptor);
         List<String> result = new ArrayList<String>();
         if (m.find()) {
             String params = m.group();
-            m = ParameterIndividuator.matcher(params);
+            m = PARAMETER_INDIVIDUATOR.matcher(params);
             while (m.find()) {
                 result.add(m.group());
             }
