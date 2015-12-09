@@ -24,8 +24,7 @@ public class Test_java_lang_Class_getMethod {
 
     private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
 
-    private static MethodState getMethodState(VirtualMachine vm, Object klazz, String methodName,
-                    Class<?>[] parameterTypes) {
+    private static MethodState getMethodState(VirtualMachine vm, Object klazz, String methodName, Object parameterTypes) {
         ExecutionContext ectx = new ExecutionContext(vm, "Ljava/lang/Class;->getMethod()Ljava/lang/reflect/Method;");
         int registerCount = 3;
         MethodState mState = new MethodState(ectx, registerCount);
@@ -54,6 +53,18 @@ public class Test_java_lang_Class_getMethod {
         @Test
         public void testGetExistentMethodWithNoParameterTypesReturnsExpectedLocalMethod() throws Exception {
             MethodState mState = getMethodState(vm, CLASS, "someString", null);
+            emulatedMethod.execute(vm, mState);
+
+            LocalMethod expectedValue = new LocalMethod(CLASS_NAME + "->someString()Ljava/lang/String;");
+            HeapItem expected = new HeapItem(expectedValue, METHOD_TYPE);
+            HeapItem actual = mState.readRegister(MethodState.ReturnRegister);
+            assertEquals(expected, actual);
+        }
+
+        @Test
+        public void testGetExistentMethodWithNoParameterTypesUsingZeroAsNullReturnsExpectedLocalMethod()
+                        throws Exception {
+            MethodState mState = getMethodState(vm, CLASS, "someString", 0);
             emulatedMethod.execute(vm, mState);
 
             LocalMethod expectedValue = new LocalMethod(CLASS_NAME + "->someString()Ljava/lang/String;");

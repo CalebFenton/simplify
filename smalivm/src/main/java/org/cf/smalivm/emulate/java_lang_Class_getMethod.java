@@ -5,8 +5,8 @@ import java.lang.reflect.Method;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.ClassManager;
+import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
@@ -41,7 +41,11 @@ public class java_lang_Class_getMethod implements MethodStateMethod {
         HeapItem classItem = mState.peekParameter(0);
         Object classValue = classItem.getValue();
         String methodName = (String) mState.peekParameter(1).getValue();
-        Object[] parameterTypesValue = (Object[]) mState.peekParameter(2).getValue();
+        Object paramTypesVal = mState.peekParameter(2).getValue();
+        if (paramTypesVal instanceof Integer && ((Integer) paramTypesVal) == 0) {
+            paramTypesVal = null;
+        }
+        Object[] parameterTypesValue = (Object[]) paramTypesVal;
 
         Object methodValue = null;
         if (classValue instanceof Class<?>) {
