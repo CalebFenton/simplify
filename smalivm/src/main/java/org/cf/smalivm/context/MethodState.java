@@ -187,11 +187,10 @@ public class MethodState extends BaseState {
                 continue;
             }
 
+            ctx.append('v').append(register);
             boolean isLocal = register < getParameterStart();
             if (!isLocal) {
-                ctx.append('p').append(register - getParameterStart());
-            } else {
-                ctx.append('v').append(register);
+                ctx.append("(p").append(register - getParameterStart()).append(")");
             }
             HeapItem item = peekRegister(register);
             ctx.append(": ").append(item).append('\n');
