@@ -4,9 +4,12 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -19,6 +22,7 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
+import org.jf.dexlib2.writer.io.FileDataStore;
 import org.junit.Test;
 
 public class TestExecutionGraphManipulator {
@@ -233,6 +237,22 @@ public class TestExecutionGraphManipulator {
         manipulator.replaceInstruction(1, replacement);
 
         testHeritage(manipulator, 0);
+    }
+
+    @Test
+    public void testEmptyingATryBlockWithTwoHandlersWhichCreatesNullStartAndEndLocationsIsRemovedWithoutIncident()
+                    throws IOException {
+        manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "tryBlockWithTwoCatches()V");
+        assertEquals(2, manipulator.getTryBlocks().size());
+
+        manipulator.removeInstruction(0);
+        assertEquals(0, manipulator.getTryBlocks().size());
+
+        // Exception is thrown when saving. Make sure doesn't happen.
+        ClassManager classManager = manipulator.getVM().getClassManager();
+        File out = File.createTempFile("test", "simplify");
+        classManager.getDexBuilder().writeTo(new FileDataStore(out));
+        out.delete();
     }
 
     @Test

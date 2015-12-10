@@ -117,7 +117,9 @@ public class InvokeOp extends ExecutionContextOp {
                 executeNonLocalMethod(targetMethod, callerMethodState, calleeContext, node);
                 return;
             } else {
-                log.trace("Not emulating / reflecting {} because all args not known.", targetMethod);
+                if (log.isTraceEnabled()) {
+                    log.trace("Not emulating / reflecting {} because all args not known.", targetMethod);
+                }
                 assumeMaximumUnknown(callerMethodState);
             }
         } else {
@@ -126,7 +128,7 @@ public class InvokeOp extends ExecutionContextOp {
             if (classManager.isLocalMethod(targetMethod)) {
                 if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Not executing unsafe local method: " + targetMethod + ". Assuming maxiumum ambiguity.");
+                        log.debug("Not executing unsafe local method: {}. Assuming maxiumum ambiguity.", targetMethod);
                     }
                     assumeMaximumUnknown(callerMethodState);
                     return;
@@ -135,9 +137,11 @@ public class InvokeOp extends ExecutionContextOp {
                 if (!classManager.methodHasImplementation(targetMethod)) {
                     if (log.isWarnEnabled()) {
                         if (!classManager.isNativeMethod(targetMethod)) {
-                            log.warn("Attempting to execute local method without implementation: " + targetMethod + ". Assuming maxiumum ambiguity.");
+                            log.warn("Attempting to execute local method without implementation: {}. Assuming maxiumum ambiguity.",
+                                            targetMethod);
                         } else {
-                            log.warn("Cannot execute local native method: " + targetMethod + ". Assuming maxiumum ambiguity.");
+                            log.warn("Cannot execute local native method: {}. Assuming maxiumum ambiguity.",
+                                            targetMethod);
                         }
                     }
                     assumeMaximumUnknown(callerMethodState);
@@ -233,7 +237,7 @@ public class InvokeOp extends ExecutionContextOp {
                 // May be immutable type, but if this is the initializer, internal state would be changing.
                 if (ImmutableUtils.isImmutableClass(type)) {
                     if (log.isTraceEnabled()) {
-                        log.trace(type + " (parameter) is immutable");
+                        log.trace("{} (parameter) is immutable", type);
                     }
                     continue;
                 }
@@ -241,7 +245,7 @@ public class InvokeOp extends ExecutionContextOp {
                 if (item.isImmutable()) {
                     // Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
                     if (log.isTraceEnabled()) {
-                        log.trace(type + " (actual) is immutable");
+                        log.trace("{} (actual) is immutable", type);
                     }
                     continue;
                 }
@@ -249,7 +253,7 @@ public class InvokeOp extends ExecutionContextOp {
 
             item = HeapItem.newUnknown(type);
             if (log.isDebugEnabled()) {
-                log.debug(type + " is mutable and passed into unresolvable method execution, making Unknown");
+                log.debug("{} is mutable and passed into unresolvable method execution, making Unknown", type);
             }
 
             mState.pokeRegister(register, item);

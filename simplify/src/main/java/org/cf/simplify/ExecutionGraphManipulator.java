@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -217,7 +218,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     public void removeInstructions(List<Integer> addresses) {
         Collections.sort(addresses);
         Collections.reverse(addresses);
-        log.debug("Removing instructions: {}", addresses);
+        log.info("Removing instructions: {}", addresses);
         for (int address : addresses) {
             removeInstruction(address);
         }
@@ -247,6 +248,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         StringBuilder sb = new StringBuilder();
         for (int address : addresses) {
             Op op = getOp(address);
+            // sb.append("#@").append(address).append('\n');
             sb.append(op.toString()).append('\n');
         }
         sb.setLength(sb.length() - 1);
@@ -412,10 +414,38 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     @SuppressWarnings("unchecked")
     private void removeEmptyTryCatchBlocks() {
         /*
-         * MutableMethodImplementation#getTryBlocks() returns immutable collection. Maybe dexlib should be smart enough
-         * to remove the try block if start, end and catch labels are removed, but it isn't. To be fair, this is a
-         * strange event.
+         * If every op from a try block is removed, the dex file will fail to save. Maybe dexlib should be smart enough
+         * to remove empty blocks itself, but this is an admittedly strange event.
          */
+
+        ListIterator<BuilderTryBlock> iter = implementation.getTryBlocks().listIterator();
+        TIntList removeIndexes = new TIntArrayList();
+        while (iter.hasNext()) {
+            int index = iter.nextIndex();
+            BuilderTryBlock tryBlock = iter.next();
+            // Get location using reflection to avoid null check.
+            MethodLocation start = getLocation(tryBlock.start);
+            MethodLocation end = getLocation(tryBlock.end);
+
+            if (start == null || end == null || start.getCodeAddress() == end.getCodeAddress()) {
+                // Empty try block!
+
+                // Went through the trouble of getting indexes ahead of time because otherwise
+                // calls to equals might need to be made, and that would inspect properties
+                // of the try block, which could cause null pointer exceptions.
+                removeIndexes.add(index);
+
+                if (start != null) {
+                    List<Label> remove = new ArrayList<Label>();
+                    remove.add(tryBlock.start);
+                    remove.add(tryBlock.end);
+                    remove.add(tryBlock.exceptionHandler.getHandler());
+                    start.getLabels().removeAll(remove);
+                }
+            }
+        }
+
+        // MutableMethodImplementation#getTryBlocks() returns an immutable collection, but we need to modify it.
         ArrayList<BuilderTryBlock> tryBlocks = null;
         try {
             java.lang.reflect.Field f = implementation.getClass().getDeclaredField("tryBlocks");
@@ -425,31 +455,23 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             e.printStackTrace();
         }
 
-        TIntList indexes = new TIntArrayList();
-        for (BuilderTryBlock tryBlock : implementation.getTryBlocks()) {
-            MethodLocation startLocation = tryBlock.start.getLocation();
-            MethodLocation endLocation = tryBlock.end.getLocation();
-            if (startLocation.getCodeAddress() == endLocation.getCodeAddress()) {
-                // Empty try block!
-
-                // Use indexOf, because if you try and remove by object reference, it needs to call equals, which will
-                // fail because we just wiped out the labels and dexlib is like "wtf".
-                indexes.add(tryBlocks.indexOf(tryBlock));
-
-                List<Label> remove = new ArrayList<Label>();
-                remove.add(tryBlock.start);
-                remove.add(tryBlock.end);
-                remove.add(tryBlock.exceptionHandler.getHandler());
-                startLocation.getLabels().removeAll(remove);
-            }
-        }
-
         // Remove from the end to avoid re-indexing invalidations
-        indexes.sort();
-        indexes.reverse();
-        for (int index : indexes.toArray()) {
+        removeIndexes.sort();
+        removeIndexes.reverse();
+        for (int index : removeIndexes.toArray()) {
             tryBlocks.remove(index);
         }
+    }
+
+    private @Nullable MethodLocation getLocation(Label label) {
+        try {
+            Field f = Label.class.getDeclaredField("location");
+            f.setAccessible(true);
+            return (MethodLocation) f.get(label);
+        } catch (Exception e) {
+            log.error("Couldn't get label location.", e);
+        }
+        return null;
     }
 
     private void removeFromNodePile(MethodLocation location) {

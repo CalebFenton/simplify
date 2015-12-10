@@ -312,6 +312,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
+        if (op instanceof GotoOp) {
+            // Let dead branch logic handle these.
+            // Getting weird errors about unplaced labels if these are removed.
+            // In that case, it was jumping to a exception handler.
+            return false;
+        }
+
         if (op instanceof NopOp) {
             int nextAddress = address + op.getLocation().getInstruction().getCodeUnits();
             Opcode nextOp = manipulator.getLocation(nextAddress).getInstruction().getOpcode();

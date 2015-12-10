@@ -237,3 +237,20 @@
     :return
     return-void
 .end method
+
+.method public static final tryBlockWithTwoCatches()V
+    .locals 0
+
+    :try_start_3
+    goto :end
+    :try_end_3
+    .catch Ljava/io/FileNotFoundException; {:try_start_3 .. :try_end_3} :catch_0
+    .catch Ljava/io/IOException; {:try_start_3 .. :try_end_3} :catch_1
+
+    goto :end
+
+    :catch_0
+    :catch_1
+    :end
+    return-object v0
+.end method
