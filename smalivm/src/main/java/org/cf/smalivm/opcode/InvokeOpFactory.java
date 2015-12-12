@@ -55,11 +55,14 @@ public class InvokeOpFactory implements OpFactory {
     }
 
     private static List<String> getParameterTypes(String methodDescriptor, boolean isStatic, ClassManager classManager) {
-        List<String> parameterTypes;
-        if (classManager.isLocalMethod(methodDescriptor) && !classManager.isFramework(methodDescriptor) || classManager
-                        .isSafeFramework(methodDescriptor)) {
+        List<String> parameterTypes = null;
+        if (classManager.isLocalMethod(methodDescriptor) && !classManager.isFrameworkClass(methodDescriptor) || classManager
+                        .isSafeFrameworkClass(methodDescriptor)) {
             parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        } else {
+        }
+
+        if (parameterTypes == null) {
+            // Possibly a framework class, but the method was not found.
             parameterTypes = Utils.getParameterTypes(methodDescriptor);
             if (!isStatic) {
                 parameterTypes.add(0, methodDescriptor.split("->")[0]);

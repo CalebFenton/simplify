@@ -218,7 +218,7 @@ public class ClassManager {
         return methodDescriptorToTryBlocks.get(methodDescriptor);
     }
 
-    public boolean isFramework(String typeName) {
+    public boolean isFrameworkClass(String typeName) {
         String className = typeName.split("->")[0];
 
         return smaliFileFactory.isFrameworkClass(className);
@@ -296,7 +296,7 @@ public class ClassManager {
         return Modifier.isNative(method.getAccessFlags());
     }
 
-    public boolean isSafeFramework(String typeName) {
+    public boolean isSafeFrameworkClass(String typeName) {
         String className = typeName.split("->")[0];
 
         return smaliFileFactory.isSafeFrameworkClass(className);
@@ -344,7 +344,7 @@ public class ClassManager {
         int accessFlags = method.getAccessFlags();
         boolean isStatic = Modifier.isStatic(accessFlags);
         if (!isStatic) {
-            // First "parameter" for non-static methods is instance ref
+            // First "parameter" for non-static methods is instance reference
             parameterTypes.add(0, method.getDefiningClass());
         }
 

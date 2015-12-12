@@ -126,7 +126,7 @@ public class InvokeOp extends ExecutionContextOp {
             // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
             ClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
-                if (classManager.isFramework(targetMethod) && !classManager.isSafeFramework(targetMethod)) {
+                if (classManager.isFrameworkClass(targetMethod) && !classManager.isSafeFrameworkClass(targetMethod)) {
                     if (log.isDebugEnabled()) {
                         log.debug("Not executing unsafe local method: {}. Assuming maxiumum ambiguity.", targetMethod);
                     }

@@ -82,8 +82,8 @@ public class TestInvokeOp {
             classManager = mock(ClassManager.class);
             when(vm.getClassManager()).thenReturn(classManager);
             when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
-            when(classManager.isFramework(METHOD_DESCRIPTOR)).thenReturn(false);
-            when(classManager.isSafeFramework(METHOD_DESCRIPTOR)).thenReturn(false);
+            when(classManager.isFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
+            when(classManager.isSafeFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
 
             methodRef = mock(MethodReference.class);
             when(methodRef.getDefiningClass()).thenReturn(METHOD_CLASS);

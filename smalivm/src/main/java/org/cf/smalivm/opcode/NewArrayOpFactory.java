@@ -25,9 +25,9 @@ public class NewArrayOpFactory implements OpFactory {
         String baseClassName = SmaliClassUtils.getBaseClass(arrayType);
         ClassManager classManager = vm.getClassManager();
         boolean useLocalClass = false;
-        if (classManager.isFramework(baseClassName)) {
+        if (classManager.isFrameworkClass(baseClassName)) {
             // Create arrays of LocalInstance
-            useLocalClass = classManager.isSafeFramework(baseClassName);
+            useLocalClass = classManager.isSafeFrameworkClass(baseClassName);
         } else {
             useLocalClass = classManager.isLocalClass(baseClassName);
         }
