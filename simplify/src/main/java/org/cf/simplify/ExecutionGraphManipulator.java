@@ -207,7 +207,6 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         int index = location.getIndex();
         implementation.removeInstruction(index);
         removeEmptyTryCatchBlocks();
-
         rebuildGraph();
     }
 
@@ -426,7 +425,6 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             // Get location using reflection to avoid null check.
             MethodLocation start = getLocation(tryBlock.start);
             MethodLocation end = getLocation(tryBlock.end);
-
             if (start == null || end == null || start.getCodeAddress() == end.getCodeAddress()) {
                 // Empty try block!
 
@@ -435,13 +433,13 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
                 // of the try block, which could cause null pointer exceptions.
                 removeIndexes.add(index);
 
-                if (start != null) {
-                    List<Label> remove = new ArrayList<Label>();
-                    remove.add(tryBlock.start);
-                    remove.add(tryBlock.end);
-                    remove.add(tryBlock.exceptionHandler.getHandler());
-                    start.getLabels().removeAll(remove);
-                }
+                // I think dexlib correctly, gracefully handles removing orphaned labels
+                // if (start != null) {
+                // List<Label> remove = new LinkedList<Label>();
+                // remove.add(tryBlock.start);
+                // remove.add(tryBlock.end);
+                // start.getLabels().removeAll(remove);
+                // }
             }
         }
 
