@@ -61,6 +61,10 @@ public class MethodReflector {
         return false;
     }
 
+    public static boolean isUnsafeMethod(String methodDescriptor) {
+        return !UnsafeMethods.contains(methodDescriptor);
+    }
+
     private static void loadSafeClasses() throws IOException {
         // Methods from safe classes must not have any side effects, e.g. any IO.
         List<String> lines = ConfigurationLoader.loadConfig(SAFE_CLASSES_PATH);

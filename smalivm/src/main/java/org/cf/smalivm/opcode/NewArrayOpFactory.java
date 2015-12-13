@@ -9,8 +9,12 @@ import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NewArrayOpFactory implements OpFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(NewArrayOpFactory.class.getSimpleName());
 
     @Override
     public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
@@ -27,7 +31,11 @@ public class NewArrayOpFactory implements OpFactory {
         boolean useLocalClass = false;
         if (classManager.isFrameworkClass(baseClassName)) {
             // Create arrays of LocalInstance
-            useLocalClass = classManager.isSafeFrameworkClass(baseClassName);
+            if (classManager.isSafeFrameworkClass(baseClassName)) {
+                useLocalClass = true;
+            } else {
+                log.warn("{} is framework but not safe; will treat as if it doesn't exist.", baseClassName);
+            }
         } else {
             useLocalClass = classManager.isLocalClass(baseClassName);
         }
