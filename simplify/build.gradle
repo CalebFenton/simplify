@@ -79,6 +79,7 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
 
     dontobfuscate
     //dontoptimize
+    optimizations '!code/allocation/variable'
 
     keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
     keepattributes '*Annotation*,Signature,InnerClasses,EnclosingMethod'
@@ -88,6 +89,7 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
 
     keep 'class org.apache.commons.logging.** { public protected *; }'
     keep 'public class ch.qos.** { public protected *; }'
+    keep 'public class org.slf4j.** { public protected *; }'
 
     dontwarn
     verbose
