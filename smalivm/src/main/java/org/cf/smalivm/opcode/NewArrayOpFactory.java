@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.ClassManager;
+import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.util.SmaliClassUtils;
 import org.cf.util.Utils;
@@ -28,9 +29,11 @@ public class NewArrayOpFactory implements OpFactory {
         // Lsome_class;
         String baseClassName = SmaliClassUtils.getBaseClass(arrayType);
         ClassManager classManager = vm.getClassManager();
+        // Create arrays of LocalInstance
         boolean useLocalClass = false;
-        if (classManager.isFrameworkClass(baseClassName)) {
-            // Create arrays of LocalInstance
+        if (MethodReflector.isSafe(baseClassName)) {
+            useLocalClass = false;
+        } else if (classManager.isFrameworkClass(baseClassName)) {
             if (classManager.isSafeFrameworkClass(baseClassName)) {
                 useLocalClass = true;
             } else {
