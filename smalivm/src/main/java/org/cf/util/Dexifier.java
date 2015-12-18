@@ -11,7 +11,6 @@ import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
-import org.apache.commons.io.FileUtils;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -70,7 +69,7 @@ public class Dexifier {
     public static List<BuilderClassDef> dexifySmaliFiles(File file, DexBuilder dexBuilder) throws Exception {
         List<File> smaliFiles;
         if (file.isDirectory()) {
-            smaliFiles = (List<File>) FileUtils.listFiles(file, new String[] { "smali" }, true);
+            smaliFiles = Utils.getFilesWithSmaliExtension(file);
         } else {
             smaliFiles = new ArrayList<File>();
             smaliFiles.add(file);

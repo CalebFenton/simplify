@@ -1,19 +1,18 @@
 package org.cf.util;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.URL;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.commons.io.IOUtils;
+import com.google.common.base.Charsets;
+import com.google.common.io.Resources;
 
 public class ConfigurationLoader {
 
     public static List<String> loadConfig(String path) throws IOException {
-        // Some classes may be mostly safe except a few methods. Either exclude or emulate them.
-        InputStream is = ConfigurationLoader.class.getClassLoader().getResourceAsStream(path);
-        List<String> lines = IOUtils.readLines(is);
-        IOUtils.closeQuietly(is);
+        URL url = Resources.getResource(path);
+        List<String> lines = Resources.readLines(url, Charsets.UTF_8);
         removeNonDefinitionLines(lines);
 
         return lines;

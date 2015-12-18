@@ -4,9 +4,13 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.FileSystems;
+import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -31,6 +35,28 @@ public class Utils {
 
     private static final Pattern PARAMETER_INDIVIDUATOR = Pattern.compile("(\\[*(?:[BCDFIJSZ]|L[^;]+;))");
     private static final Pattern PARAMETER_ISOLATOR = Pattern.compile("\\([^\\)]+\\)");
+    private static final PathMatcher SMALI_MATCHER = FileSystems.getDefault().getPathMatcher("glob:**.smali");
+
+    public static List<File> getFilesWithSmaliExtension(File file) {
+        final List<File> files = new LinkedList<File>();
+        if (file.isDirectory()) {
+            try {
+                java.nio.file.Files.walk(file.toPath()).forEach(filePath -> {
+                    if (java.nio.file.Files.isRegularFile(filePath)) {
+                        if (SMALI_MATCHER.matches(filePath)) {
+                            files.add(filePath.toFile());
+                        }
+                    }
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else if (file.getAbsolutePath().toLowerCase().endsWith(".smali")) {
+            files.add(file);
+        }
+
+        return files;
+    }
 
     public static String getArrayDimensionString(Object array) {
         if (!array.getClass().isArray()) {

@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.VirtualMachineFactory;
@@ -79,7 +78,7 @@ public class Launcher {
         System.out.println("Writing output to " + opts.getOutFile());
         classManager.getDexBuilder().writeTo(new FileDataStore(opts.getOutDexFile()));
         if (opts.isZip()) {
-            FileUtils.copyFile(opts.getInFile(), opts.getOutFile());
+            Files.copy(opts.getInFile().toPath(), opts.getOutFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
             updateZip(opts.getOutFile(), opts.getOutDexFile(), "classes.dex");
         }
     }

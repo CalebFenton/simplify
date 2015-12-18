@@ -6,14 +6,11 @@ dependencies {
     compile 'commons-beanutils:commons-beanutils:1.9.2'
 
     // Lazy
-    compile depends.commons_io
     compile depends.commons_lang
+    compile depends.guava
 
     // Primitive collections
     compile depends.trove4j
-
-    // Perfromance benchmarking
-    compile depends.perfidix
 
     // Logging facade
     compile depends.slf4j_api
@@ -29,6 +26,7 @@ dependencies {
     // Testing
     testCompile depends.junit
     testCompile depends.mockito
+    testCompile depends.perfidix // benchmarks
 }
 
 // Build a separate jar that contains all dependencies
@@ -50,4 +48,25 @@ configurations {
 
 artifacts {
    testArtifacts myTestsJar
+}
+
+task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
+    def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
+
+    injars fatJar.archivePath
+    outjars outFile
+
+    libraryjars "${System.properties['java.home']}/lib/rt.jar"
+
+    dontobfuscate
+    //dontoptimize
+    optimizations '!code/allocation/variable'
+
+    keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
+    keepattributes '*'
+
+    keep 'public class * { public protected *; }'
+
+    dontwarn
+    verbose
 }

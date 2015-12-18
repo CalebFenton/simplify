@@ -4,12 +4,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.io.FileUtils;
 import org.cf.smalivm.SmaliFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +59,7 @@ public class SmaliFileFactory {
         Set<SmaliFile> smaliFiles = new HashSet<SmaliFile>();
         Set<String> inputClasses = new HashSet<String>();
         for (File file : files) {
-            List<File> matches = getFilesWithSmaliExtension(file);
+            List<File> matches = Utils.getFilesWithSmaliExtension(file);
             for (File match : matches) {
                 SmaliFile smaliFile = new SmaliFile(match);
                 smaliFiles.add(smaliFile);
@@ -107,17 +105,6 @@ public class SmaliFileFactory {
         }
 
         return smaliFile.isSafeFrameworkClass();
-    }
-
-    private static List<File> getFilesWithSmaliExtension(File file) {
-        List<File> files = new LinkedList<File>();
-        if (file.isDirectory()) {
-            files = (List<File>) FileUtils.listFiles(file, new String[] { "smali" }, true);
-        } else if (file.getAbsolutePath().toLowerCase().endsWith(".smali")) {
-            files.add(file);
-        }
-
-        return files;
     }
 
 }
