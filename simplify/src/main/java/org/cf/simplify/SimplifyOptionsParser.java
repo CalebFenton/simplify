@@ -9,7 +9,8 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.FilenameUtils;
+
+import com.google.common.io.Files;
 
 public class SimplifyOptionsParser {
 
@@ -92,13 +93,13 @@ public class SimplifyOptionsParser {
         simplifyOpts.setInFile(new File(inputPath));
         if (simplifyOpts.getOutFile() == null) {
             String fileName = simplifyOpts.getInFile().toString();
-            String baseName = FilenameUtils.getBaseName(fileName);
+            String baseName = Files.getNameWithoutExtension(fileName);
             String outFileName = baseName + "_simple";
 
             if (simplifyOpts.isDirectory()) {
                 outFileName += ".dex";
             } else {
-                String ext = FilenameUtils.getExtension(fileName);
+                String ext = Files.getFileExtension(fileName);
                 if (!ext.isEmpty()) {
                     outFileName += "." + ext;
                 }

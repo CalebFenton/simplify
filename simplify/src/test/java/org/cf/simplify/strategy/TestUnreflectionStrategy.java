@@ -8,8 +8,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
@@ -24,6 +22,8 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ObjectArrays;
 
 @RunWith(Enclosed.class)
 public class TestUnreflectionStrategy {
@@ -51,7 +51,7 @@ public class TestUnreflectionStrategy {
             String[] endLines = new String[] {
                             "iget r0, r2, " + CLASS_NAME + "->" + LOCAL_INSTANCE_FIELD + ":" + LOCAL_INSTANCE_FIELD_TYPE,
                             "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
@@ -64,7 +64,7 @@ public class TestUnreflectionStrategy {
             String[] endLines = new String[] {
                             "sget-object r0, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
                             "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
@@ -78,7 +78,7 @@ public class TestUnreflectionStrategy {
             String[] endLines = new String[] {
                             "sget-object r2, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
                             "invoke-static {r0, r1}, Llolmoney/moneylol;->lol(II)V", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
@@ -93,7 +93,7 @@ public class TestUnreflectionStrategy {
             String[] endLines = new String[] {
                             "invoke-virtual {r0, r2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
                             "invoke-static {r0, r1, r2}, Llolmoney/moneylol;->lol(III)V", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
@@ -105,7 +105,7 @@ public class TestUnreflectionStrategy {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass,
                             "Ljava/lang/Class;", 1, fieldName, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] { "sget r0, Ljava/lang/Integer;->MAX_VALUE:I", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
@@ -271,7 +271,7 @@ public class TestUnreflectionStrategy {
             String[] endLines = new String[] {
                             "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                             "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 10);
@@ -283,7 +283,7 @@ public class TestUnreflectionStrategy {
                             0, METHOD, METHOD_TYPE, 1, 0, "I", 2, new Object[] { 6, 5, 4, 3, 2, 1 },
                             "Ljava/lang/Object;");
             String[] endLines = new String[] { "move-result-object r0", "return-void", };
-            String[] expectedLines = ArrayUtils.addAll(EXPECTED_SHARED, endLines);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
             testRegisterCount(manipulator, METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 10);
@@ -387,7 +387,8 @@ public class TestUnreflectionStrategy {
     }
 
     private static void testSmali(ExecutionGraphManipulator manipulator, String[] expectedLines) {
-        String actualLines[] = StringUtils.split(manipulator.toSmali(), "\n");
+        String actualLines[] = manipulator.toSmali().split("\n");
+
         assertArrayEquals(expectedLines, actualLines);
     }
 
