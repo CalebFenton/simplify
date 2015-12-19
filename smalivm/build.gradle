@@ -1,3 +1,12 @@
+buildscript {
+    dependencies {
+        classpath depends.proguard_gradle
+    }
+    repositories {
+        mavenCentral()
+    }
+}
+
 dependencies {
     // Object cloning
     compile 'uk.com.robust-it:cloning:1.9.2'
