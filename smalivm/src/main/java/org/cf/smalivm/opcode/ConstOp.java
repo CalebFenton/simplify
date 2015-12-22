@@ -83,7 +83,7 @@ public class ConstOp extends MethodStateOp {
             } catch (ClassNotFoundException e) {
                 // It could be a framework class we're not aware of.
                 if (log.isWarnEnabled()) {
-                    log.warn("Unknown class: " + className + ", assuming it's local.");
+                    log.warn("Unknown class: {}, assuming it's local.", className);
                 }
                 result = new LocalClass(className);
             }

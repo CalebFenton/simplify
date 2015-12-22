@@ -43,7 +43,7 @@ public class StaticFieldAccessor {
             } catch (ClassNotFoundException | IllegalArgumentException | IllegalAccessException e) {
                 fieldItem = HeapItem.newUnknown(fieldType);
                 if (log.isWarnEnabled()) {
-                    log.warn("Couldn't access field: " + fieldDescriptor);
+                    log.warn("Couldn't access field: {}", fieldDescriptor);
                 }
                 if (log.isDebugEnabled()) {
                     log.debug("Stack trace:", e);
@@ -66,7 +66,7 @@ public class StaticFieldAccessor {
             cState.assignField(fieldNameAndType, putItem);
         } else {
             if (log.isWarnEnabled()) {
-                log.warn("Ignoring non-local static assignment: " + fieldDescriptor + " = " + putItem);
+                log.warn("Ignoring non-local static assignment: {} = {}", fieldDescriptor, putItem);
             }
         }
     }
