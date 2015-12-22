@@ -14,18 +14,16 @@ import org.slf4j.LoggerFactory;
 
 public class SmaliFileFactory {
 
-    private static Map<String, SmaliFile> frameworkCache;
+    private static Map<String, SmaliFile> frameworkClassNameToSmaliFile;
 
     private static final Logger log = LoggerFactory.getLogger(SmaliFileFactory.class.getSimpleName());
 
-    private Map<String, SmaliFile> frameworkClassNameToSmaliFile;
-
     private static synchronized void cacheFramework() throws IOException {
-        if (frameworkCache != null) {
+        if (frameworkClassNameToSmaliFile != null) {
             return;
         }
 
-        frameworkCache = new HashMap<String, SmaliFile>();
+        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>();
 
         long startTime = System.currentTimeMillis();
         List<String> frameworkClassesCfg = ConfigurationLoader.loadConfig("framework_classes.cfg");
@@ -38,16 +36,13 @@ public class SmaliFileFactory {
             SmaliFile smaliFile = new SmaliFile(path, className);
             smaliFile.setIsResource(true);
             smaliFile.setIsSafeFramework(safeFrameworkClasses.contains(className));
-            frameworkCache.put(smaliFile.getClassName(), smaliFile);
+            frameworkClassNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
         }
 
         if (log.isDebugEnabled()) {
             long endTime = System.currentTimeMillis();
             long totalTime = endTime - startTime; // assuming time has not gone backwards
-            StringBuilder sb = new StringBuilder();
-            sb.append("Cached ").append(frameworkCache.size()).append(" framework classes in ").append(totalTime)
-                            .append(" ms.");
-            log.debug(sb.toString());
+            log.debug("Cached {} framework classes in {} ms.", frameworkClassNameToSmaliFile.size(), totalTime);
         }
     }
 
@@ -56,27 +51,24 @@ public class SmaliFileFactory {
     }
 
     public Set<SmaliFile> getSmaliFiles(File[] files) throws IOException {
+        cacheFramework();
+
         Set<SmaliFile> smaliFiles = new HashSet<SmaliFile>();
-        Set<String> inputClasses = new HashSet<String>();
+        smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
+
         for (File file : files) {
             List<File> matches = Utils.getFilesWithSmaliExtension(file);
             for (File match : matches) {
                 SmaliFile smaliFile = new SmaliFile(match);
-                smaliFiles.add(smaliFile);
-                inputClasses.add(smaliFile.getClassName());
+                // DalvikVM rejects classes that are already defined.
+                // Framework classes take precedence over local classes.
+                if (isFrameworkClass(smaliFile.getClassName())) {
+                    log.warn("'{}' has an earlier definition; blocking out", smaliFile.getClassName());
+                } else {
+                    smaliFiles.add(smaliFile);
+                }
             }
         }
-
-        cacheFramework();
-
-        // Input classes take precedence over framework classes
-        frameworkClassNameToSmaliFile = new HashMap<String, SmaliFile>(frameworkCache);
-        for (Map.Entry<String, SmaliFile> entry : frameworkCache.entrySet()) {
-            if (!inputClasses.contains(entry.getKey())) {
-                frameworkClassNameToSmaliFile.put(entry.getKey(), entry.getValue());
-            }
-        }
-        smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
 
         return smaliFiles;
     }
