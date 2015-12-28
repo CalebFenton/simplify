@@ -1,16 +1,15 @@
-.class Lunreflect_strategy_test;
+.class Lunreflection_strategy_test;
 .super Ljava/lang/Object;
 
-.field private someInt:I
-.field private someInt:I
-.field private static someStaticObject:Ljava/lang/Object;
+.field private privateInstanceInt:I
+.field private static privateStaticObject:Ljava/lang/Object;
 
 .method public static MethodInvokeWith3LocalsAnd0Available()V
   .locals 3
 
   nop # hack, need a parent op
   invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
-  invoke-static {v0, v1, v2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V
+  invoke-static {v0, v1, v2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V
 
   return-void
 .end method
@@ -46,7 +45,7 @@
   # Get method
   const-class v4, Ljava/lang/StringBuilder;
   const-string v2, "append"
-  invoke-virtual {v4, v2, v3}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  invoke-virtual {v4, v2, v3}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
   move-result-object v3
 
   # StringBuilder v4 = new StringBuilder();
@@ -68,7 +67,7 @@
 .method public static FieldLookupWithMoveResult()V
   .locals 3
 
-  invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
   move-result-object v0
 
   invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
@@ -80,12 +79,12 @@
 .method public static FieldLookupWithoutMoveResultWithOneAvailableRegister()V
   .locals 3
 
-  invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
   move-result-object v0
 
   invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
-  invoke-static {v0, v1}, Llolmoney/moneylol;->lol(II)V
+  invoke-static {v0, v1}, Lunreflection_strategy_test;->useRegisters(II)V
 
   return-void
 .end method
@@ -93,29 +92,50 @@
 .method public static FieldLookupWithoutMoveResultWithNoAvailableRegisters()V
   .locals 3
 
-  invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
   move-result-object v0
 
   invoke-virtual {v0, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
-  invoke-static {v0, v1, v2}, Llolmoney/moneylol;->lol(III)V
+  invoke-static {v0, v1, v2}, Lunreflection_strategy_test;->useRegisters(III)V
 
   return-void
 .end method
 
-.method public SixParameterMethod(IIIIII)V
+.method private static useRegisters(II)V
+  .locals 0
+  return-void
+.end method
+
+.method private static useRegisters(III)V
+  .locals 0
+  return-void
+.end method
+
+.method private static useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V
+  .locals 0
+  return-void
+.end method
+
+.method private privateInstanceNoParameters()V
   .locals 0
 
   return-void
 .end method
 
-.method private PrivateVirtualMethod()V
+.method private privateInstanceOneParameter(Ljava/lang/Object;)V
   .locals 0
 
   return-void
 .end method
 
-.method private static FourParameterMethod(IIII)V
+.method private static privateStaticFourParameters(IIII)V
+  .locals 0
+
+  return-void
+.end method
+
+.method public publicInstanceSixParameters(IIIIII)V
   .locals 0
 
   return-void

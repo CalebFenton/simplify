@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.regex.Pattern;
 
-import org.cf.util.Dexifier;
+import org.cf.smalivm.smali.Dexifier;
 
 public class SimplifyOptions implements Serializable {
 

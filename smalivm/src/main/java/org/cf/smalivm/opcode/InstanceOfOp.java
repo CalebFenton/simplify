@@ -1,11 +1,11 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
+import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;

@@ -18,7 +18,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 public class ConstOpFactory implements OpFactory {
 
     @Override
-    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+    public ConstOp create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
         MethodLocation child = Utils.getNextLocation(location, addressToLocation);
         BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
@@ -30,17 +30,12 @@ public class ConstOpFactory implements OpFactory {
             literal = ((StringReference) instr.getReference()).getString();
             constantType = ConstantType.STRING;
         } else if (opName.endsWith("-class")) {
+            // Don't lookup the class here. Defer to actual execution to handle any possible exceptions.
             ReferenceInstruction instr = (ReferenceInstruction) location.getInstruction();
             Reference classRef = instr.getReference();
             String className = ReferenceUtil.getReferenceString(classRef);
             literal = className;
-
-            // Defer class lookup for execute. We may want to handle any possible errors there.
-            if (vm.isLocalClass(className)) {
-                constantType = ConstantType.LOCAL_CLASS;
-            } else {
-                constantType = ConstantType.CLASS;
-            }
+            constantType = ConstantType.CLASS;
         } else if (opName.contains("-wide")) {
             WideLiteralInstruction instr = (WideLiteralInstruction) location.getInstruction();
             literal = instr.getWideLiteral();
@@ -51,7 +46,7 @@ public class ConstOpFactory implements OpFactory {
             constantType = ConstantType.NARROW;
         }
 
-        return new ConstOp(location, child, destRegister, constantType, literal);
+        return new ConstOp(location, child, destRegister, constantType, literal, vm.getClassLoader());
     }
 
 }

@@ -1,6 +1,6 @@
 package org.cf.smalivm.context;
 
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 
 public class StackTraceElement {
 
@@ -11,7 +11,7 @@ public class StackTraceElement {
 
     public StackTraceElement(String methodDescriptor, String fileName, int lineNumber) {
         String[] parts = methodDescriptor.split("->");
-        definingClass = SmaliClassUtils.smaliClassToJava(parts[0]);
+        definingClass = ClassNameUtils.internalToBinary(parts[0]);
         methodName = parts[1].split("\\(")[0];
         this.fileName = fileName;
         this.lineNumber = lineNumber;

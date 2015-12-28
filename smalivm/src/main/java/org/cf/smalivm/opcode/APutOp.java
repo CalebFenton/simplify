@@ -2,13 +2,13 @@ package org.cf.smalivm.opcode;
 
 import java.lang.reflect.Array;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.util.SmaliClassUtils;
+import org.cf.smalivm.smali.ClassManager;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
@@ -43,11 +43,11 @@ public class APutOp extends MethodStateOp {
     }
 
     private static boolean isOverloadedPrimitiveType(String type) {
-        return SmaliClassUtils.isPrimitiveType(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
+        return ClassNameUtils.isPrimitive(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
     }
 
     private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, String valueType) {
-        String arrayComponentType = SmaliClassUtils.getComponentType(arrayType);
+        String arrayComponentType = ClassNameUtils.getComponentType(arrayType);
         // These types are all represented identically in bytecode: Z B C S I
         if (isOverloadedPrimitiveType(valueType) && isOverloadedPrimitiveType(arrayComponentType)) {
             // TODO: figure out what dalvik actually does when you try to aput 0x2 into [B
@@ -94,7 +94,7 @@ public class APutOp extends MethodStateOp {
 
         boolean throwsStoreException = throwsArrayStoreException(classManager, arrayItem.getType(), valueItem.getType());
         if (throwsStoreException) {
-            String storeType = SmaliClassUtils.smaliClassToJava(valueItem.getType());
+            String storeType = ClassNameUtils.internalToBinary(valueItem.getType());
             node.setException(new VirtualException(ArrayStoreException.class, storeType));
             node.clearChildren();
             return;

@@ -6,7 +6,7 @@ import org.apache.commons.lang3.reflect.FieldUtils;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,18 +29,18 @@ public class StaticFieldAccessor {
         String fieldType = parts[1];
 
         HeapItem fieldItem;
-        if (vm.isLocalClass(className)) {
+        if (vm.shouldTreatAsLocal(className)) {
             ClassState cState = ectx.readClassState(className);
             fieldItem = cState.peekField(fieldNameAndType);
-        } else if (MethodReflector.isSafe(className)) {
-            // Use reflection
+        } else if (vm.getConfiguration().isSafe(className)) {
             try {
-                String javaClassName = SmaliClassUtils.smaliClassToJava(className);
-                Class<?> klazz = Class.forName(javaClassName);
+                String binaryClassName = ClassNameUtils.internalToBinary(className);
+                Class<?> klazz = Class.forName(binaryClassName);
                 Field field = FieldUtils.getField(klazz, fieldName);
                 Object fieldValue = field.get(null);
                 fieldItem = new HeapItem(fieldValue, fieldType);
             } catch (ClassNotFoundException | IllegalArgumentException | IllegalAccessException e) {
+                // TODO: medium - throw these exceptions and handle them by setting correct virtual exceptions
                 fieldItem = HeapItem.newUnknown(fieldType);
                 if (log.isWarnEnabled()) {
                     log.warn("Couldn't access field: {}", fieldDescriptor);
@@ -51,6 +51,7 @@ public class StaticFieldAccessor {
             }
         } else {
             // Access denied!
+            // TODO: easy - warn here, figure out when it happens
             fieldItem = HeapItem.newUnknown(fieldType);
         }
 
@@ -61,7 +62,7 @@ public class StaticFieldAccessor {
         String[] parts = fieldDescriptor.split("->");
         String className = parts[0];
         String fieldNameAndType = parts[1];
-        if (vm.isLocalClass(className)) {
+        if (vm.shouldTreatAsLocal(className)) {
             ClassState cState = ectx.readClassState(className);
             cState.assignField(fieldNameAndType, putItem);
         } else {

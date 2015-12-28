@@ -14,7 +14,8 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
 public class BinaryMathOpFactory implements OpFactory {
 
     @Override
-    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
+    public BinaryMathOp create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation,
+                    VirtualMachine vm) {
         MethodLocation child = Utils.getNextLocation(location, addressToLocation);
         BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         TwoRegisterInstruction instr = (TwoRegisterInstruction) location.getInstruction();

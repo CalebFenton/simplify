@@ -29,8 +29,11 @@ dependencies {
     compile 'org.smali:smali:2.1.0'
     compile 'org.smali:baksmali:2.1.0'
 
+    //compile 'net.bytebuddy:byte-buddy:0.8.0'
+
     // Contains Android framework classes that should be reflected instead of virtually executed
     compile files('libs/android-local.jar')
+    compile files('libs/byte-buddy-0.8-SNAPSHOT.jar')
 
     // Testing
     testCompile depends.junit

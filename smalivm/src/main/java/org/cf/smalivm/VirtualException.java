@@ -2,7 +2,7 @@ package org.cf.smalivm;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 
 public class VirtualException {
 
@@ -15,11 +15,11 @@ public class VirtualException {
     }
 
     public VirtualException(Class<?> exceptionClass) {
-        this(SmaliClassUtils.javaClassToSmali(exceptionClass), "");
+        this(ClassNameUtils.toInternal(exceptionClass), "");
     }
 
     public VirtualException(Class<?> exceptionClass, String message) {
-        this(SmaliClassUtils.javaClassToSmali(exceptionClass), message);
+        this(ClassNameUtils.toInternal(exceptionClass), message);
     }
 
     public VirtualException(String exceptionClass, String message) {

@@ -3,15 +3,15 @@ package org.cf.smalivm.emulate;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.cf.smalivm.ClassManager;
-import org.cf.smalivm.MethodReflector;
+import javax.annotation.Nonnull;
+
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.LocalClass;
-import org.cf.util.SmaliClassUtils;
+import org.cf.smalivm.smali.ClassManager;
+import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,14 +35,18 @@ public class java_lang_Class_forName implements ExecutionContextMethod {
         return exceptions;
     }
 
-    private void reflectRealMethod(MethodState mState, String javaClassName) throws ClassNotFoundException {
-        try {
-            Class<?> value = Class.forName(javaClassName);
-            mState.assignReturnRegister(value, RETURN_TYPE);
-        } catch (ClassNotFoundException e) {
-            // Happens if JVM doesn't have class. Typo in safe classes definitions?
-            throw e;
+    private @Nonnull Class<?> forSafeClass(MethodState mState, String binaryName) throws ClassNotFoundException {
+        return Class.forName(binaryName);
+    }
+
+    private @Nonnull Class<?> forUnsafeClass(ExecutionContext ectx, MethodState mState, String internalName,
+                    ClassLoader classLoader, ClassManager classManager) throws ClassNotFoundException {
+        Class<?> klazz = classLoader.loadClass(internalName);
+
+        if (classManager.isLocalClass(internalName)) {
         }
+
+        return klazz;
     }
 
     private void setException(VirtualException exception) {
@@ -50,28 +54,39 @@ public class java_lang_Class_forName implements ExecutionContextMethod {
     }
 
     @Override
-    public void execute(VirtualMachine vm, ExecutionContext ectx) throws ClassNotFoundException {
+    public void execute(VirtualMachine vm, ExecutionContext ectx) {
         MethodState mState = ectx.getMethodState();
-        String javaClassName = (String) mState.peekParameter(0).getValue();
-        String className = SmaliClassUtils.javaClassToSmali(javaClassName);
+        String binaryName = (String) mState.peekParameter(0).getValue();
+        String className = ClassNameUtils.binaryToInternal(binaryName);
 
-        /*
-         * Reflect Class.forName if class is safe. Otherwise, emulate Class.forName with local classes.
-         */
-        if (MethodReflector.isSafe(className)) {
-            reflectRealMethod(mState, javaClassName);
-        } else {
-            ClassManager classManager = vm.getClassManager();
-            if (classManager.isLocalClass(className)) {
-                // Class.forName will statically initialize a class
+        ClassManager classManager = vm.getClassManager();
+        if (classManager.isLocalClass(className)) {
+            // If it's not local, it's not framework. That only leaves JVM classes not part of Android.
+            // No. Leave the JVM alone.
+            setException(new VirtualException(ClassNotFoundException.class, binaryName));
+        }
+
+        Class<?> value = null;
+        try {
+            if (vm.getConfiguration().isSafe(className)) {
+                value = Class.forName(binaryName);
+            } else {
+                ClassLoader classLoader = vm.getClassLoader();
+                value = classLoader.loadClass(binaryName);
+                /*
+                 * While the VM class loader provides actual Java classes for local Smali classes, the fields and
+                 * methods should never be used. To this end, static initialization is done locally as well as when the
+                 * class is loaded and only the local values are used.
+                 * Note: this is done after trying to load the class in case there's an exception
+                 */
                 if (!ectx.isClassInitialized(className)) {
                     ectx.staticallyInitializeClassIfNecessary(className);
                     level = ectx.getClassSideEffectLevel(className);
                 }
-                mState.assignReturnRegister(new LocalClass(className), RETURN_TYPE);
-            } else {
-                setException(new VirtualException(ClassNotFoundException.class, className));
             }
+            mState.assignReturnRegister(value, RETURN_TYPE);
+        } catch (ClassNotFoundException e) {
+            setException(new VirtualException(ClassNotFoundException.class, binaryName));
         }
     }
 

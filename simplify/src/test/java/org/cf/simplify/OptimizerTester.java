@@ -31,7 +31,7 @@ public class OptimizerTester {
     public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature,
                     TIntObjectMap<HeapItem> initial, Map<String, Map<String, HeapItem>> classNameToFieldValue) {
         // Force class reloading because implementations will have changed
-        VirtualMachine vm = VMTester.getTestVM(true);
+        VirtualMachine vm = VMTester.spawnVM(true);
         String methodDescriptor = className + "->" + methodSignature;
         ExecutionGraph graph = VMTester.execute(vm, className, methodSignature, initial, classNameToFieldValue);
 

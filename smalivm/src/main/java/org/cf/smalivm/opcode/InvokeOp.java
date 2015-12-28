@@ -6,7 +6,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-import org.cf.smalivm.ClassManager;
+import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -21,9 +21,9 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.type.LocalType;
-import org.cf.util.ImmutableUtils;
-import org.cf.util.SmaliClassUtils;
+import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.LocalInstance;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
@@ -37,7 +37,7 @@ public class InvokeOp extends ExecutionContextOp {
     private static boolean doesNonLocalMethodExist(String className, String methodSignature) {
         Class<?> klazz = null;
         try {
-            klazz = Class.forName(SmaliClassUtils.smaliClassToJava(className));
+            klazz = Class.forName(ClassNameUtils.internalToBinary(className));
         } catch (ClassNotFoundException e) {
             return false;
         }
@@ -49,10 +49,10 @@ public class InvokeOp extends ExecutionContextOp {
         for (int i = 0; i < paramList.size(); i++) {
             String paramName = paramList.get(i);
             try {
-                if (SmaliClassUtils.isPrimitiveType(paramName)) {
-                    params[i] = SmaliClassUtils.getPrimitiveType(SmaliClassUtils.smaliClassToJava(paramName));
+                if (ClassNameUtils.isPrimitive(paramName)) {
+                    params[i] = ClassUtils.getClass(ClassNameUtils.internalToBinary(paramName));
                 } else {
-                    params[i] = Class.forName(SmaliClassUtils.smaliClassToJava(paramName));
+                    params[i] = Class.forName(ClassNameUtils.internalToBinary(paramName));
                 }
             } catch (ClassNotFoundException e) {
                 return false;
@@ -110,7 +110,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         MethodState callerMethodState = ectx.getMethodState();
         // Try to reflect or emulate before using local class.
-        if (MethodReflector.canReflect(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
+        if (vm.getConfiguration().isSafe(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
             ExecutionContext calleeContext = buildNonLocalCalleeContext(ectx);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
@@ -235,7 +235,7 @@ public class InvokeOp extends ExecutionContextOp {
             boolean isInitializing = methodDescriptor.contains(";-><init>(");
             if (!isInitializing) {
                 // May be immutable type, but if this is the initializer, internal state would be changing.
-                if (ImmutableUtils.isImmutableClass(type)) {
+                if (vm.getConfiguration().isImmutable(type)) {
                     if (log.isTraceEnabled()) {
                         log.trace("{} (parameter) is immutable", type);
                     }
@@ -331,7 +331,7 @@ public class InvokeOp extends ExecutionContextOp {
                 node.setExceptions(emulator.getExceptions());
                 return;
             }
-        } else if (MethodReflector.canReflect(methodDescriptor)) {
+        } else if (vm.getConfiguration().isSafe(methodDescriptor)) {
             assert allArgumentsKnown(calleeContext.getMethodState());
 
             MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
@@ -349,7 +349,7 @@ public class InvokeOp extends ExecutionContextOp {
                 // Instance went from UninitializedInstance class to something else.
                 callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
             } else {
-                if (!ImmutableUtils.isImmutableClass(newInstanceItem.getType())) {
+                if (!vm.getConfiguration().isImmutable(newInstanceItem.getType())) {
                     // The instance type is mutable and could have changed. Mark it assigned here for optimizer.
                     callerContext.assignRegister(parameterRegisters[0], newInstanceItem);
                 }
@@ -363,20 +363,16 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     /*
-     * It's legal to explicitly call a virtual method on a class that's implemented in a parent class or interface.
-     * This method checks all parents and interfaces and returns the first method descriptor with the class that
-     * implements the method.
+     * A method may not be declared in the type given by the method invocation. This method searches super and interface
+     * hierarchy returns a method descriptor from the first class which implements the method. The method descriptor
+     * points to the implementing class.
      */
     private @Nullable String resolveVirtualMethod(Object virtualTarget) {
         String virtualType;
-        if (virtualTarget instanceof LocalType) {
-            virtualType = ((LocalType) virtualTarget).getName();
+        if (virtualTarget instanceof LocalInstance) {
+            virtualType = ((LocalInstance) virtualTarget).getName();
         } else {
-            virtualType = SmaliClassUtils.javaClassToSmali(virtualTarget.getClass().getName());
-        }
-
-        if (SmaliClassUtils.isPrimitiveType(virtualType)) {
-            virtualType = SmaliClassUtils.smaliPrimitiveToJavaWrapper(virtualType);
+            virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
         }
         String methodSignature = methodDescriptor.split("->")[1];
         ClassManager classManager = vm.getClassManager();
@@ -395,7 +391,7 @@ public class InvokeOp extends ExecutionContextOp {
             return methodDescriptor;
         }
 
-        if (MethodReflector.isSafe(methodDescriptor) && doesNonLocalMethodExist(className, methodSignature)) {
+        if (vm.getConfiguration().isSafe(methodDescriptor) && doesNonLocalMethodExist(className, methodSignature)) {
             return methodDescriptor;
         }
 

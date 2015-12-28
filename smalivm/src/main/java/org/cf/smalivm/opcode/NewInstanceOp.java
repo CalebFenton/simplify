@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -30,13 +29,13 @@ public class NewInstanceOp extends ExecutionContextOp {
     @Override
     public void execute(ExecutionNode node, ExecutionContext ectx) {
         Object instance = null;
-        if (vm.isLocalClass(className)) {
+        if (vm.shouldTreatAsLocal(className)) {
             // New-instance causes static initialization (but not new-array!)
             ectx.readClassState(className); // access will initialize if necessary
             sideEffectLevel = ectx.getClassSideEffectLevel(className);
             instance = new LocalInstance(className);
         } else {
-            if (MethodReflector.isSafe(className)) {
+            if (vm.getConfiguration().isSafe(className)) {
                 sideEffectLevel = SideEffect.Level.NONE;
             }
             instance = new UninitializedInstance(className);

@@ -22,7 +22,7 @@ public class TestSideEffects {
 
     @Before
     public void setupVM() throws Exception {
-        vm = VMTester.getTestVM();
+        vm = VMTester.spawnVM();
     }
 
     @Test
@@ -67,7 +67,7 @@ public class TestSideEffects {
 
     @Test
     public void testInvokeSideEffectMethodHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeSideEffectMethod(Ljava/lang/OutputStream;[B)V";
+        String methodName = "InvokeSideEffectMethod(Ljava/io/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
@@ -142,7 +142,6 @@ public class TestSideEffects {
     @Test
     public void testNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects()
                     throws VirtualMachineException {
-        // Method names? Pssh, we have method PARAGRAPHS.
         String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
@@ -151,7 +150,7 @@ public class TestSideEffects {
 
     @Test
     public void testWriteOutputStreamHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "WriteOutputStream(Ljava/lang/OutputStream;[B)V";
+        String methodName = "WriteOutputStream(Ljava/io/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());

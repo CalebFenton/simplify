@@ -6,7 +6,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
@@ -20,8 +19,9 @@ import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
-import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction12x;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction22s;
+import org.jf.dexlib2.builder.instruction.BuilderInstruction23x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
@@ -36,7 +36,7 @@ public class BinaryMathOpTest {
     public static class TestDouble {
 
         @Test
-        public void testAddDouble() {
+        public void testAddDouble() throws ClassNotFoundException {
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D + 20.5D, "D");
 
@@ -820,11 +820,7 @@ public class BinaryMathOpTest {
         private static final int DEST_REGISTER = 0;
 
         private TIntObjectMap<MethodLocation> addressToLocation;
-
-        private BuilderInstruction instruction;
-
         private MethodLocation location;
-
         private MethodState mState;
         private ExecutionNode node;
         private BinaryMathOp op;
@@ -839,8 +835,8 @@ public class BinaryMathOpTest {
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "D");
             VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "D");
 
-            instruction = buildInstruction12x(Opcode.DIV_DOUBLE);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction12x(Opcode.DIV_DOUBLE);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("D"));
@@ -854,8 +850,8 @@ public class BinaryMathOpTest {
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "F");
             VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "F");
 
-            instruction = buildInstruction12x(Opcode.DIV_FLOAT);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction12x(Opcode.DIV_FLOAT);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("F"));
@@ -868,8 +864,8 @@ public class BinaryMathOpTest {
             int expected = value1 / value2;
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
-            instruction = buildInstruction22s(Opcode.DIV_INT, value2);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction22s(Opcode.DIV_INT, value2);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("I"));
@@ -881,8 +877,8 @@ public class BinaryMathOpTest {
             int value2 = 0;
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
-            instruction = buildInstruction22s(Opcode.DIV_INT_LIT16, value2);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction22s(Opcode.DIV_INT_LIT16, value2);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
@@ -895,8 +891,8 @@ public class BinaryMathOpTest {
             int value2 = 0;
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
 
-            instruction = buildInstruction22s(Opcode.REM_INT_LIT16, value2);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction22s(Opcode.REM_INT_LIT16, value2);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
@@ -910,8 +906,8 @@ public class BinaryMathOpTest {
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
             VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
-            instruction = buildInstruction23x(Opcode.DIV_LONG);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction23x(Opcode.DIV_LONG);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
@@ -926,8 +922,8 @@ public class BinaryMathOpTest {
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
             VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
-            instruction = buildInstruction23x(Opcode.DIV_LONG);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction23x(Opcode.DIV_LONG);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("J"));
@@ -941,8 +937,8 @@ public class BinaryMathOpTest {
             VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
             VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
 
-            instruction = buildInstruction23x(Opcode.REM_LONG);
-            op = (BinaryMathOp) opFactory.create(location, addressToLocation, vm);
+            buildInstruction23x(Opcode.REM_LONG);
+            op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
@@ -963,26 +959,25 @@ public class BinaryMathOpTest {
             opFactory = new BinaryMathOpFactory();
         }
 
-        private BuilderInstruction buildInstruction12x(Opcode opcode) {
-            BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
+        private void setupInstruction(BuilderInstruction instruction, Opcode opcode) {
             when(location.getInstruction()).thenReturn(instruction);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);
             when(instruction.getOpcode()).thenReturn(opcode);
+        }
+
+        private BuilderInstruction12x buildInstruction12x(Opcode opcode) {
+            BuilderInstruction12x instruction = mock(BuilderInstruction12x.class);
+            setupInstruction(instruction, opcode);
             when(((Instruction12x) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
             when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG2_REGISTER);
 
             return instruction;
         }
 
-        private BuilderInstruction buildInstruction22s(Opcode opcode, int value) {
-            BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(NarrowLiteralInstruction.class, Instruction22s.class));
-            when(location.getInstruction()).thenReturn(instruction);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(opcode);
+        private BuilderInstruction22s buildInstruction22s(Opcode opcode, int value) {
+            BuilderInstruction22s instruction = mock(BuilderInstruction22s.class);
+            setupInstruction(instruction, opcode);
             when(((Instruction22s) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
             when(((Instruction22s) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction22s) instruction).getNarrowLiteral()).thenReturn(value);
@@ -990,13 +985,9 @@ public class BinaryMathOpTest {
             return instruction;
         }
 
-        private BuilderInstruction buildInstruction23x(Opcode opcode) {
-            BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction23x.class));
-            when(location.getInstruction()).thenReturn(instruction);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(opcode);
+        private BuilderInstruction23x buildInstruction23x(Opcode opcode) {
+            BuilderInstruction23x instruction = mock(BuilderInstruction23x.class);
+            setupInstruction(instruction, opcode);
             when(((Instruction23x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
             when(((Instruction23x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
             when(((Instruction23x) instruction).getRegisterC()).thenReturn(ARG2_REGISTER);

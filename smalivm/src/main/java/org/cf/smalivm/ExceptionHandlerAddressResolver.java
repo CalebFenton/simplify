@@ -6,7 +6,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.cf.util.SmaliClassUtils;
+import org.cf.smalivm.smali.ClassManager;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.TryBlock;
@@ -23,7 +24,7 @@ public class ExceptionHandlerAddressResolver {
 
     @Deprecated
     int resolve(Exception ex, int address) {
-        String exceptionClass = SmaliClassUtils.javaClassToSmali(ex.getClass().getName());
+        String exceptionClass = ClassNameUtils.binaryToInternal(ex.getClass().getName());
 
         return resolve(exceptionClass, address);
     }

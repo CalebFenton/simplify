@@ -8,7 +8,6 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.file.FileSystems;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
@@ -21,10 +20,6 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.HeapItem;
-import org.cf.smalivm.type.LocalClass;
-import org.cf.smalivm.type.LocalField;
-import org.cf.smalivm.type.LocalInstance;
-import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -37,146 +32,25 @@ public class Utils {
     private static final Pattern PARAMETER_ISOLATOR = Pattern.compile("\\([^\\)]+\\)");
     private static final PathMatcher SMALI_MATCHER = FileSystems.getDefault().getPathMatcher("glob:**.smali");
 
-    public static List<File> getFilesWithSmaliExtension(File file) {
-        final List<File> files = new LinkedList<File>();
-        if (file.isDirectory()) {
-            try {
-                java.nio.file.Files.walk(file.toPath()).forEach(filePath -> {
-                    if (java.nio.file.Files.isRegularFile(filePath)) {
-                        if (SMALI_MATCHER.matches(filePath)) {
-                            files.add(filePath.toFile());
-                        }
-                    }
-                });
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } else if (file.getAbsolutePath().toLowerCase().endsWith(".smali")) {
-            files.add(file);
-        }
-
-        return files;
+    public static Object buildArray(String internalName, int length) throws ClassNotFoundException {
+        return buildArray(internalName, length, Utils.class.getClassLoader());
     }
 
-    public static String getArrayDimensionString(Object array) {
-        if (!array.getClass().isArray()) {
-            return "";
-        }
-
-        StringBuilder sb = new StringBuilder();
-        Object current = array;
-        int len = Array.getLength(current);
-        sb.append('[').append(len).append(']');
-
-        while (len > 0) {
-            current = Array.get(current, 0);
-            if ((current == null) || !current.getClass().isArray()) {
-                break;
-            }
-            len = Array.getLength(current);
-            sb.append('[').append(len).append(']');
-        }
-
-        return sb.toString();
-    }
-
-    public static Object buildArray(String typeReference, int length, boolean useLocalClass)
+    public static Object buildArray(String internalName, int length, ClassLoader classLoader)
                     throws ClassNotFoundException {
-        String baseClassName = SmaliClassUtils.getBaseClass(typeReference);
-        String javaClassName;
-        if (useLocalClass) {
-            javaClassName = LocalInstance.class.getName();
-        } else {
-            javaClassName = SmaliClassUtils.smaliClassToJava(baseClassName);
-        }
+        String baseClassName = ClassNameUtils.getComponentBase(internalName);
+        String binaryName = ClassNameUtils.internalToBinary(baseClassName);
 
-        int dimensionCount = getDimensionCount(typeReference) - 1;
-        String classNameWithDimensions = addDimensionsToClassName(javaClassName, dimensionCount);
+        int dimensionCount = ClassNameUtils.getDimensionCount(internalName) - 1;
+        String classNameWithDimensions = ClassNameUtils.addDimensionsToBinaryClassName(binaryName, dimensionCount);
         // Building generic arrays at this point allows us to add stuff like LocalInstances
         // But it creates other problems like how are you going to ensure you're passing
         // arrays a reflected method knows how to handle? I.e. it doesn't include our own types
         // classNameWithDimensions = addDimensionsToClassName("java.lang.Object", dimensionCount);
-        Class<?> klazz = ClassUtils.getClass(classNameWithDimensions);
+        Class<?> klazz = ClassUtils.getClass(classLoader, classNameWithDimensions);
         Object array = Array.newInstance(klazz, length);
 
         return array;
-    }
-
-    public static int getDimensionCount(String typeReference) {
-        // A fancy word for "number of dimensions" is "rank".
-        // But getRank() only makes sense if you're a total nerd.
-        String baseClassName = typeReference.replace("[", "");
-
-        return typeReference.length() - baseClassName.length();
-    }
-
-    public static List<String> getParameterTypes(String methodDescriptor) {
-        // Only use this for non-local methods.
-        // For local methods, there's VirtualMachine#getParameterTypes.
-        Matcher m = PARAMETER_ISOLATOR.matcher(methodDescriptor);
-        List<String> result = new ArrayList<String>();
-        if (m.find()) {
-            String params = m.group();
-            m = PARAMETER_INDIVIDUATOR.matcher(params);
-            while (m.find()) {
-                result.add(m.group());
-            }
-        }
-
-        return result;
-    }
-
-    public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
-        if (shift == 0) {
-            return;
-        }
-
-        TIntList keysToShift = new TIntArrayList(intToObject.keys());
-        // Exclude anything before and including startKey
-        for (int currentKey : keysToShift.toArray()) {
-            if (currentKey <= startKey) {
-                keysToShift.remove(currentKey);
-            }
-        }
-
-        keysToShift.sort();
-        if (shift > 0) {
-            // Shifting keys up, so start at the end to avoid overwriting keys.
-            keysToShift.reverse();
-        }
-
-        for (int currentKey : keysToShift.toArray()) {
-            T obj = intToObject.get(currentKey);
-            intToObject.remove(currentKey);
-            intToObject.put(currentKey + shift, obj);
-        }
-    }
-
-    private static String addDimensionsToClassName(String className, int dimensionCount) {
-        // Apache's ClassUtils.forName expects someArray[] instead of [someArray
-        StringBuilder sb = new StringBuilder(className);
-        for (int i = 0; i < dimensionCount; i++) {
-            sb.append("[]");
-        }
-
-        return sb.toString();
-    }
-
-    public static int getRegisterSize(List<String> typeNames) {
-        int size = 0;
-        for (String typeName : typeNames) {
-            size += getRegisterSize(typeName);
-        }
-
-        return size;
-    }
-
-    public static int getRegisterSize(String typeName) {
-        return "J".equals(typeName) || "D".equals(typeName) ? 2 : 1;
-    }
-
-    public static int getRegisterSize(Class<?>[] parameterTypes) {
-        return getRegisterSize(SmaliClassUtils.javaClassToSmali(parameterTypes));
     }
 
     public static List<String> builderTypeListToTypeNames(BuilderTypeList typeList) {
@@ -188,32 +62,13 @@ public class Utils {
         return typeNames;
     }
 
-    public static int getRegisterSize(BuilderTypeList typeList) {
-        return getRegisterSize(builderTypeListToTypeNames(typeList));
-    }
+    public static String buildFieldDescriptor(Field field) {
+        String className = ClassNameUtils.toInternal(field.getDeclaringClass());
+        String typeName = ClassNameUtils.toInternal(field.getType());
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(field.getName()).append(':').append(typeName);
 
-    public static Integer getIntegerValue(Object obj) {
-        Integer intValue = (Integer) castToPrimitive(obj, "Ljava/lang/Integer;");
-
-        return intValue;
-    }
-
-    public static Float getFloatValue(Object obj) {
-        Float floatValue = (Float) castToPrimitive(obj, "Ljava/lang/Float;");
-
-        return floatValue;
-    }
-
-    public static Double getDoubleValue(Object obj) {
-        Double doubleValue = (Double) castToPrimitive(obj, "Ljava/lang/Double;");
-
-        return doubleValue;
-    }
-
-    public static Long getLongValue(Object obj) {
-        Long longValue = (Long) castToPrimitive(obj, "Ljava/lang/Long;");
-
-        return longValue;
+        return sb.toString();
     }
 
     public static Object castToPrimitive(Object value, String targetType) {
@@ -268,27 +123,80 @@ public class Utils {
         return value;
     }
 
-    public static Set<String> getTypes(HeapItem item) {
-        Set<String> types = new HashSet<String>();
-
-        String declaredType = item.getType();
-        types.add(declaredType);
-
-        Object value = item.getValue();
-        if (value instanceof UnknownValue) {
-            // Can't imply type from value
-        } else if (value instanceof LocalClass) {
-            types.add(SmaliClassUtils.javaClassToSmali(Class.class));
-        } else if (value instanceof LocalField) {
-            types.add(SmaliClassUtils.javaClassToSmali(Field.class));
-        } else if (value instanceof LocalMethod) {
-            types.add(SmaliClassUtils.javaClassToSmali(Method.class));
-        } else if (value != null) {
-            // All other value classes should be the actual classes
-            types.add(SmaliClassUtils.javaClassToSmali(value.getClass()));
+    public static String getArrayDimensionString(Object array) {
+        if (!array.getClass().isArray()) {
+            return "";
         }
 
-        return types;
+        StringBuilder sb = new StringBuilder();
+        Object current = array;
+        int len = Array.getLength(current);
+        sb.append('[').append(len).append(']');
+
+        while (len > 0) {
+            current = Array.get(current, 0);
+            if ((current == null) || !current.getClass().isArray()) {
+                break;
+            }
+            len = Array.getLength(current);
+            sb.append('[').append(len).append(']');
+        }
+
+        return sb.toString();
+    }
+
+    public static Double getDoubleValue(Object obj) {
+        Double doubleValue = (Double) castToPrimitive(obj, "Ljava/lang/Double;");
+
+        return doubleValue;
+    }
+
+    public static List<File> getFilesWithSmaliExtension(File file) {
+        final List<File> files = new LinkedList<File>();
+        if (file.isDirectory()) {
+            try {
+                java.nio.file.Files.walk(file.toPath()).forEach(filePath -> {
+                    if (java.nio.file.Files.isRegularFile(filePath)) {
+                        if (SMALI_MATCHER.matches(filePath)) {
+                            files.add(filePath.toFile());
+                        }
+                    }
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else if (file.getAbsolutePath().toLowerCase().endsWith(".smali")) {
+            files.add(file);
+        }
+
+        return files;
+    }
+
+    public static Float getFloatValue(Object obj) {
+        Float floatValue = (Float) castToPrimitive(obj, "Ljava/lang/Float;");
+
+        return floatValue;
+    }
+
+    public static Integer getIntegerValue(Object obj) {
+        Integer intValue = (Integer) castToPrimitive(obj, "Ljava/lang/Integer;");
+
+        return intValue;
+    }
+
+    public static final MethodLocation[] getLocations(BuilderInstruction... instructions) {
+        MethodLocation[] locations = new MethodLocation[instructions.length];
+        for (int i = 0; i < locations.length; i++) {
+            locations[i] = instructions[i].getLocation();
+        }
+
+        return locations;
+    }
+
+    public static Long getLongValue(Object obj) {
+        Long longValue = (Long) castToPrimitive(obj, "Ljava/lang/Long;");
+
+        return longValue;
     }
 
     public static MethodLocation getNextLocation(MethodLocation location,
@@ -299,13 +207,88 @@ public class Utils {
         return addressToLocation.get(nextAddress);
     }
 
-    public static final MethodLocation[] getLocations(BuilderInstruction... instructions) {
-        MethodLocation[] locations = new MethodLocation[instructions.length];
-        for (int i = 0; i < locations.length; i++) {
-            locations[i] = instructions[i].getLocation();
+    /**
+     * Determine parameter types by parsing the method descriptor.
+     * Note: For local methods, there's ClassManager#getParameterTypes.
+     * 
+     * @param methodDescriptor
+     * @return list of parameter types in internal form
+     */
+    public static List<String> getParameterTypes(String methodDescriptor) {
+        Matcher m = PARAMETER_ISOLATOR.matcher(methodDescriptor);
+        List<String> result = new ArrayList<String>();
+        if (m.find()) {
+            String params = m.group();
+            m = PARAMETER_INDIVIDUATOR.matcher(params);
+            while (m.find()) {
+                result.add(m.group());
+            }
         }
 
-        return locations;
+        return result;
+    }
+
+    public static int getRegisterSize(BuilderTypeList typeList) {
+        return getRegisterSize(builderTypeListToTypeNames(typeList));
+    }
+
+    public static int getRegisterSize(Class<?>[] parameterTypes) {
+        return getRegisterSize(ClassNameUtils.toInternal(parameterTypes));
+    }
+
+    public static int getRegisterSize(List<String> typeNames) {
+        int size = 0;
+        for (String typeName : typeNames) {
+            size += getRegisterSize(typeName);
+        }
+
+        return size;
+    }
+
+    public static int getRegisterSize(String typeName) {
+        return "J".equals(typeName) || "D".equals(typeName) ? 2 : 1;
+    }
+
+    public static Set<String> getTypes(HeapItem item) {
+        Set<String> types = new HashSet<String>();
+        String declaredType = item.getType();
+        types.add(declaredType);
+
+        Object value = item.getValue();
+        if (value instanceof UnknownValue) {
+            // Can't imply type from value
+        } else if (value != null) {
+            // All other value classes should be the actual classes
+            types.add(ClassNameUtils.toInternal(value.getClass()));
+        }
+
+        return types;
+    }
+
+    public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
+        if (shift == 0) {
+            return;
+        }
+
+        TIntList keysToShift = new TIntArrayList(intToObject.keys());
+        // Exclude anything before and including startKey
+        for (int currentKey : keysToShift.toArray()) {
+            if (currentKey <= startKey) {
+                keysToShift.remove(currentKey);
+            }
+        }
+
+        keysToShift.sort();
+        if (shift > 0) {
+            // Shifting keys up, so start at the end to avoid overwriting keys.
+            keysToShift.reverse();
+        }
+
+        for (int currentKey : keysToShift.toArray()) {
+            T obj = intToObject.get(currentKey);
+            intToObject.remove(currentKey);
+            intToObject.put(currentKey + shift, obj);
+        }
     }
 
 }

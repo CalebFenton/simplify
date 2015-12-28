@@ -28,8 +28,10 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.VirtualMachineException;
+import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.smali.ClassManagerFactory;
+import org.cf.smalivm.smali.Dexifier;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.Dexifier;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -38,7 +40,7 @@ import com.google.common.collect.Sets;
 
 public class VMTester {
 
-    private static final String TEST_DIRECTORY = "resources/test";
+    private static final String TEST_CLASS_PATH = "resources/test";
 
     private static ClassManager classManager;
 
@@ -101,7 +103,7 @@ public class VMTester {
     public static ExecutionGraph execute(String className, String methodSignature,
                     TIntObjectMap<HeapItem> registerToItem, Map<String, Map<String, HeapItem>> classNameToFieldItem,
                     Set<String> classNamesToStaticInit) {
-        VirtualMachine vm = getTestVM();
+        VirtualMachine vm = spawnVM();
 
         return execute(vm, className, methodSignature, registerToItem, classNameToFieldItem);
     }
@@ -128,21 +130,22 @@ public class VMTester {
         return DexBuilder.makeDexBuilder(Opcodes.forApi(Dexifier.DEFAULT_API_LEVEL));
     }
 
-    public static VirtualMachine getTestVM(boolean reloadClasses) {
-        // Not reloading classes is an optimization to speed up tests
+    public static VirtualMachine spawnVM(boolean reloadClasses) {
+        // Only reload classes by rebuilding the class manager when specifically asked for it.
+        // There's a lot of caching that's done, which shouldn't interfere with tests, but is costly.
         if ((null == classManager) || reloadClasses) {
             try {
-                classManager = new ClassManagerFactory().build(TEST_DIRECTORY, getDexBuilder());
+                classManager = new ClassManagerFactory().build(TEST_CLASS_PATH, getDexBuilder());
             } catch (IOException e) {
-                throw new RuntimeException("Exception getting test VM for " + TEST_DIRECTORY, e);
+                throw new RuntimeException("Exception building class manager for " + TEST_CLASS_PATH, e);
             }
         }
 
         return new VirtualMachineFactory().build(classManager);
     }
 
-    public static VirtualMachine getTestVM() {
-        return getTestVM(false);
+    public static VirtualMachine spawnVM() {
+        return spawnVM(false);
     }
 
     public static void testClassState(String className, String methodSignature,
@@ -189,7 +192,6 @@ public class VMTester {
         for (int register : expectedRegisterToItem.keys()) {
             HeapItem item = expectedRegisterToItem.get(register);
             HeapItem consensus = graph.getTerminatingRegisterConsensus(register);
-
             testRegisterEquals(register, item, consensus);
         }
 

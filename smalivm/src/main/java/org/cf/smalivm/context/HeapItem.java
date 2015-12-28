@@ -7,9 +7,9 @@ import javax.annotation.Nullable;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.ImmutableUtils;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 
 import com.rits.cloning.Cloner;
@@ -85,15 +85,15 @@ public class HeapItem {
     }
 
     public boolean isPrimitive() {
-        return SmaliClassUtils.isPrimitiveType(getType());
+        return ClassNameUtils.isPrimitive(getType());
     }
 
     public boolean isPrimitiveOrWrapper() {
-        return SmaliClassUtils.isPrimitiveOrWrapperType(getType());
+        return ClassNameUtils.isPrimitiveOrWrapper(getType());
     }
 
     public boolean isPrimitiveWrapper() {
-        return SmaliClassUtils.isWrapperType(getType());
+        return ClassNameUtils.isWrapper(getType());
     }
 
     public boolean isUnknown() {
@@ -101,12 +101,12 @@ public class HeapItem {
     }
 
     public boolean isImmutable() {
-        return ImmutableUtils.isImmutableClass(getType());
+        return Configuration.instance().isImmutable(getType());
     }
 
     public String getUnboxedValueType() {
-        String unboxedType = SmaliClassUtils.smaliWrapperToSmaliPrimitive(getType());
-        if (null == unboxedType) {
+        String unboxedType = ClassNameUtils.getPrimitive(getType());
+        if (unboxedType == null) {
             unboxedType = type;
         }
 

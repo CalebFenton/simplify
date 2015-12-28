@@ -22,7 +22,7 @@ public class TestMethodInheritence {
 
         @Before
         public void setupVM() {
-            vm = VMTester.getTestVM();
+            vm = VMTester.spawnVM();
         }
 
         @Test
@@ -64,7 +64,7 @@ public class TestMethodInheritence {
 
         @Before
         public void setupVM() {
-            vm = VMTester.getTestVM();
+            vm = VMTester.spawnVM();
         }
 
         @Test

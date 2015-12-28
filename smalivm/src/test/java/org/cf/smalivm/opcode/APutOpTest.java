@@ -10,7 +10,6 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
@@ -18,9 +17,9 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.smalivm.type.LocalClass;
-import org.cf.smalivm.type.LocalInstance;
+import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -105,12 +104,37 @@ public class APutOpTest {
 
         @Test
         public void testPutObject() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new LocalInstance[1], "[" + CLASS_NAME, 1,
-                            0, "I", 2, new LocalInstance(CLASS_NAME), CLASS_NAME);
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new LocalInstance[] { new LocalInstance(
-                            CLASS_NAME) }, "[" + CLASS_NAME);
+            String valueType = "Ljava/lang/String;";
+            String arrayType = "[" + valueType;
+            Object[] array = new String[1];
+            int index = 0;
+            String value = "Arrakis, Dune, desert planet...";
+
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, array, arrayType, 1, index, "I", 2, value,
+                            valueType);
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new String[] { value }, arrayType);
 
             VMTester.testMethodState(CLASS_NAME, "putObject()V", initial, expected);
+        }
+
+        @Test
+        public void canInsertLocalClassAndClassIntoSameArray() throws ClassNotFoundException {
+            String valueType = "Ljava/lang/Class;";
+            String arrayType = "[" + valueType;
+            Object[] array = new Class<?>[2];
+            int index1 = 0;
+            int index2 = 1;
+            Class<?> value1 = String.class;
+            String binaryClassName = ClassNameUtils.internalToBinary(CLASS_NAME);
+            ClassLoader classLoader = VMTester.spawnVM().getClassLoader();
+            Class<?> value2 = classLoader.loadClass(binaryClassName);
+
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, array, arrayType, 1, index1, "I", 2,
+                            value1, valueType, 3, index2, "I", 4, value2, valueType);
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new Class<?>[] { value1, value2 },
+                            arrayType);
+
+            VMTester.testMethodState(CLASS_NAME, "putObjects()V", initial, expected);
         }
 
         @Test
@@ -209,25 +233,6 @@ public class APutOpTest {
         private APutOpFactory opFactory;
         private ArgumentCaptor<HeapItem> setItem;
         private VirtualMachine vm;
-
-        // @Test
-        public void canInsertLocalClassAndClass() {
-            // TODO: https://github.com/CalebFenton/simplify/issues/25
-            // Need to change new-array to return [HeapItem and make everything aware of that
-            // First part easy, second part hard
-            when(mState.readRegister(VALUE_REGISTER)).thenReturn(
-                            new HeapItem(new LocalClass("Landroid/app/Activity;"), "Ljava/lang/Class;"));
-            when(mState.readRegister(ARRAY_REGISTER)).thenReturn(
-                            new HeapItem(new LocalClass("Landroid/app/Activity;"), "Ljava/lang/Class;"));
-
-            when(instruction.getOpcode()).thenReturn(Opcode.APUT_OBJECT);
-
-            op = (APutOp) opFactory.create(location, addressToLocation, vm);
-            op.execute(node, mState);
-
-            // Division result is zero since long division drops decimal value
-            // verify(mState, times(1)).assignRegister(any(Integer.class), eq(value1 / value2), eq("J"));
-        }
 
         @Test
         public void incompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters() {

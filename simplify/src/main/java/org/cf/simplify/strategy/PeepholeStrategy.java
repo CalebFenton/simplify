@@ -20,7 +20,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderOffsetInstruction;
@@ -88,7 +88,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         int[] parameterRegisters = op.getParameterRegisters();
         int register = parameterRegisters[0];
         String javaClassName = (String) manipulator.getRegisterConsensusValue(address, register);
-        String smaliClassName = SmaliClassUtils.javaClassToSmali(javaClassName);
+        String smaliClassName = ClassNameUtils.binaryToInternal(javaClassName);
         HeapItem klazz = manipulator.getRegisterConsensus(address, MethodState.ResultRegister);
         if (klazz == null) {
             log.warn("Optimizing Class.forName of potentially non-existant class: {}", smaliClassName);

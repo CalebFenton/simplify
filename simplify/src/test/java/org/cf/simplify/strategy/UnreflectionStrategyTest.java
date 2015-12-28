@@ -12,9 +12,8 @@ import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
-import org.cf.smalivm.type.LocalClass;
-import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.junit.Test;
@@ -28,90 +27,95 @@ import com.google.common.collect.ObjectArrays;
 @RunWith(Enclosed.class)
 public class UnreflectionStrategyTest {
 
-    public static class TestFieldLookups {
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(UnreflectionStrategyTest.class.getSimpleName());
 
-        private static final String[] EXPECTED_SHARED = {
-                        "invoke-virtual {r0, r1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
+    private static final String CLASS_NAME = "Lunreflection_strategy_test;";
+    private static final Class<?> CLASS = getTestClass();
+
+    private static Class<?> getTestClass() {
+        try {
+            String binaryName = ClassNameUtils.internalToBinary(CLASS_NAME);
+            return VMTester.spawnVM().getClassLoader().loadClass(binaryName);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
+    private static final String METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE = "MethodInvokeWith10LocalsAnd7ContiguousAvailable()V";
+    private static final String METHOD_WITH_3_LOCALS_AND_0_AVAILABLE = "MethodInvokeWith3LocalsAnd0Available()V";
+
+    public static class FieldUnreflection {
+
+        private static final String[] EXPECTED_SHARED_SMALI = {
+                        "invoke-virtual {r0, r1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;",
                         "move-result-object r0", };
-        private static final String LOCAL_INSTANCE_FIELD = "someInt";
-        private static final String LOCAL_INSTANCE_FIELD_TYPE = "I";
 
-        private static final String LOCAL_STATIC_FIELD = "someStaticObject";
-        private static final String LOCAL_STATIC_FIELD_TYPE = "Ljava/lang/Object;";
+        private static final String INSTANCE_FIELD_NAME = "privateInstanceInt";
+        private static final String INSTANCE_FIELD_TYPE = "I";
+
+        private static final String STATIC_FIELD_NAME = "privateStaticObject";
+        private static final String STATIC_FIELD_TYPE = "Ljava/lang/Object;";
+
         private static final String METHOD_WITH_MOVE_RESULT = "FieldLookupWithMoveResult()V";
         private static final String METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS = "FieldLookupWithoutMoveResultWithNoAvailableRegisters()V";
-
         private static final String METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER = "FieldLookupWithoutMoveResultWithOneAvailableRegister()V";
 
         @Test
-        public void testLocalInstanceFieldWithMoveResult() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass,
-                            "Ljava/lang/Class;", 1, LOCAL_INSTANCE_FIELD, "Ljava/lang/String;", 2, null, null);
+        public void testInstanceFieldWithMoveResultOptimizesAsExpected() {
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, CLASS,
+                            "Ljava/lang/Class;", 1, INSTANCE_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
-                            "iget r0, r2, " + CLASS_NAME + "->" + LOCAL_INSTANCE_FIELD + ":" + LOCAL_INSTANCE_FIELD_TYPE,
+                            "iget r0, r2, " + CLASS_NAME + "->" + INSTANCE_FIELD_NAME + ":" + INSTANCE_FIELD_TYPE,
                             "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
 
         @Test
-        public void testLocalStaticFieldWithMoveResult() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass,
-                            "Ljava/lang/Class;", 1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
+        public void testStaticFieldWithMoveResultOptimizesAsExpected() {
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, CLASS,
+                            "Ljava/lang/Class;", 1, STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
-                            "sget-object r0, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
+                            "sget-object r0, " + CLASS_NAME + "->" + STATIC_FIELD_NAME + ":" + STATIC_FIELD_TYPE,
                             "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
 
         @Test
-        public void testLocalStaticFieldWithMoveResultAndWithOneAvailableRegister() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
+        public void testStaticFieldWithMoveResultAndWithOneAvailableRegister() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(
-                            METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0, fieldClass, "Ljava/lang/Class;",
-                            1, LOCAL_STATIC_FIELD, "Ljava/lang/String;", 2, null, null);
+                            METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0, CLASS, "Ljava/lang/Class;", 1,
+                            STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
-                            "sget-object r2, " + CLASS_NAME + "->" + LOCAL_STATIC_FIELD + ":" + LOCAL_STATIC_FIELD_TYPE,
-                            "invoke-static {r0, r1}, Llolmoney/moneylol;->lol(II)V", "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
+                            "sget-object r2, " + CLASS_NAME + "->" + STATIC_FIELD_NAME + ":" + STATIC_FIELD_TYPE,
+                            "invoke-static {r0, r1}, Lunreflection_strategy_test;->useRegisters(II)V", "return-void", };
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
 
         @Test
-        public void testLocalStaticFieldWithMoveResultAndWithoutAvailableRegistersDoesNotOptimize() {
-            LocalClass fieldClass = new LocalClass(CLASS_NAME);
-            String fieldName = "someStaticObject";
+        public void testStaticFieldWithMoveResultAndWithoutAvailableRegistersDoesNotOptimize() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(
-                            METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0, fieldClass, "Ljava/lang/Class;",
-                            1, fieldName, "Ljava/lang/String;", 2, null, null);
+                            METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0, CLASS, "Ljava/lang/Class;", 1,
+                            STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
             String[] endLines = new String[] {
                             "invoke-virtual {r0, r2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
-                            "invoke-static {r0, r1, r2}, Llolmoney/moneylol;->lol(III)V", "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
-
-            testSmali(manipulator, expectedLines);
-        }
-
-        @Test
-        public void testNonLocalStaticFieldWithMoveResult() {
-            Class<?> fieldClass = Integer.class;
-            String fieldName = "MAX_VALUE";
-            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, fieldClass,
-                            "Ljava/lang/Class;", 1, fieldName, "Ljava/lang/String;", 2, null, null);
-            String[] endLines = new String[] { "sget r0, Ljava/lang/Integer;->MAX_VALUE:I", "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
+                            "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(III)V",
+                            "return-void", };
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
         }
     }
 
-    public static class TestInvokeNonLocalInterfaceMethod {
+    public static class MethodUnreflectionWithInterfaceMethod {
 
         private static final Method METHOD = getMethod(List.class, "isEmpty", new Class<?>[0]);
 
@@ -122,68 +126,56 @@ public class UnreflectionStrategyTest {
             String[] expectedLines = new String[] {
                             "nop",
                             "invoke-interface {r1}, Ljava/util/List;->isEmpty()Z",
-                            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                            "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                             "return-void", };
 
             testSmali(manipulator, expectedLines);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
+
     }
 
-    public static class TestInvokeNonOptimizableScenarios {
+    public static class MethodUnreflectionWithImpossibleScenarios {
 
-        private static final String[] EXPECTED_LINES = new String[] {
+        private static final String[] EXPECTED_SHARED_SMALI = new String[] {
                         "nop",
                         "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
-                        "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                        "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
-        private static final LocalMethod LOCAL_STATIC_METHOD = new LocalMethod(
-                        CLASS_NAME + "->FourParameterMethod(IIII)V");
-        private static final Method PRIVATE_NON_LOCAL_METHOD = getMethod(System.class, "checkKey",
-                        new Class<?>[] { String.class });
-
+        private static final Method METHOD = getMethod(CLASS, "privateInstanceOneParameter", Object.class);
         private static final UnknownValue UNKNOWN_METHOD = new UnknownValue();
-
-        @Test
-        public void testPrivateNonLocalMethodIsNotOptimized() {
-            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
-                            PRIVATE_NON_LOCAL_METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
-
-            testSmali(manipulator, EXPECTED_LINES);
-            testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
-        }
 
         @Test
         public void testUnknownMethodIsNotOptimized() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
                             UNKNOWN_METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
 
-            testSmali(manipulator, EXPECTED_LINES);
+            testSmali(manipulator, EXPECTED_SHARED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
 
         @Test
-        public void testUnknownParametersIsNotOptimized() {
-            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
-                            LOCAL_STATIC_METHOD, METHOD_TYPE, 1, 0, "I", 2, new UnknownValue(), "[Ljava/lang/Object");
+        public void testUnknownParametersOfPubilcMethodIsNotOptimized() {
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
+                            METHOD_TYPE, 1, 0, "I", 2, new UnknownValue(), "[Ljava/lang/Object");
 
-            testSmali(manipulator, EXPECTED_LINES);
+            testSmali(manipulator, EXPECTED_SHARED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
 
-    public static class TestInvokeStaticNonLocalMethodWithNoParameters {
+    public static class MethodUnreflectionWithZeroParameters {
 
         private static final Method METHOD = getMethod(System.class, "gc", new Class<?>[0]);
 
         @Test
-        public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
+        public void testMethodWithNoParametersOptimizesEvenWithNoRegistersAvailable() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, 0, "I");
             String[] expectedLines = new String[] {
                             "nop",
                             "invoke-static {}, Ljava/lang/System;->gc()V",
-                            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                            "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                             "return-void", };
 
             testSmali(manipulator, expectedLines);
@@ -191,10 +183,9 @@ public class UnreflectionStrategyTest {
         }
 
         @Test
-        public void testOptimizesToExpectedLinesWith7ContiguousAvailable() {
+        public void testMethodWithNoParametersOptimizesWithManyRegistersAvailable() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE,
                             0, METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
-            // TODO: should remove move-result after invoke if method returns void, replace if not object!
             String[] expectedLines = new String[] {
                             "nop", "invoke-static {}, Ljava/lang/System;->gc()V", "move-result-object r0",
                             "return-void", };
@@ -204,9 +195,10 @@ public class UnreflectionStrategyTest {
         }
     }
 
-    public static class TestInvokeStaticPrivateLocalMethod {
+    public static class MethodUnreflectionWithPrivateStaticMethod {
 
-        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->FourParameterMethod(IIII)V");
+        private static final Method METHOD = getMethod(CLASS, "privateStaticFourParameters", int.class, int.class,
+                        int.class, int.class);
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
@@ -226,8 +218,8 @@ public class UnreflectionStrategyTest {
                             "const/4 r6, 0x3",
                             "aget-object r6, r2, r6",
                             "check-cast r6, Ljava/lang/Integer;",
-                            "invoke-static {r3, r4, r5, r6}, Lunreflect_strategy_test;->FourParameterMethod(IIII)V",
-                            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                            "invoke-static {r3, r4, r5, r6}, Lunreflection_strategy_test;->privateStaticFourParameters(IIII)V",
+                            "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                             "return-void", };
 
             testSmali(manipulator, expectedLines);
@@ -239,11 +231,20 @@ public class UnreflectionStrategyTest {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE,
                             0, METHOD, METHOD_TYPE, 1, 0, "I", 2, new Object[] { 4, 3, 2, 1 }, "[Ljava/lang/Object;");
             String[] expectedLines = new String[] {
-                            "nop", "const/4 r0, 0x0", "aget-object r0, r2, r0", "check-cast r0, Ljava/lang/Integer;",
-                            "const/4 r1, 0x1", "aget-object r1, r2, r1", "check-cast r1, Ljava/lang/Integer;",
-                            "const/4 r3, 0x2", "aget-object r3, r2, r3", "check-cast r3, Ljava/lang/Integer;",
-                            "const/4 r4, 0x3", "aget-object r4, r2, r4", "check-cast r4, Ljava/lang/Integer;",
-                            "invoke-static {r0, r1, r3, r4}, Lunreflect_strategy_test;->FourParameterMethod(IIII)V",
+                            "nop",
+                            "const/4 r0, 0x0",
+                            "aget-object r0, r2, r0",
+                            "check-cast r0, Ljava/lang/Integer;",
+                            "const/4 r1, 0x1",
+                            "aget-object r1, r2, r1",
+                            "check-cast r1, Ljava/lang/Integer;",
+                            "const/4 r3, 0x2",
+                            "aget-object r3, r2, r3",
+                            "check-cast r3, Ljava/lang/Integer;",
+                            "const/4 r4, 0x3",
+                            "aget-object r4, r2, r4",
+                            "check-cast r4, Ljava/lang/Integer;",
+                            "invoke-static {r0, r1, r3, r4}, Lunreflection_strategy_test;->privateStaticFourParameters(IIII)V",
                             "move-result-object r0", "return-void", };
 
             testSmali(manipulator, expectedLines);
@@ -251,27 +252,42 @@ public class UnreflectionStrategyTest {
         }
     }
 
-    public static class TestInvokeVirtualLocalMethodWithSixParameters {
+    public static class MethodUnreflectionWithPublicInstanceMethod {
 
-        private static final String[] EXPECTED_SHARED = new String[] {
-                        "nop", "move-object/16 r3, r1", "const/4 r4, 0x0", "aget-object r4, r2, r4",
-                        "check-cast r4, Ljava/lang/Integer;", "const/4 r5, 0x1", "aget-object r5, r2, r5",
-                        "check-cast r5, Ljava/lang/Integer;", "const/4 r6, 0x2", "aget-object r6, r2, r6",
-                        "check-cast r6, Ljava/lang/Integer;", "const/4 r7, 0x3", "aget-object r7, r2, r7",
-                        "check-cast r7, Ljava/lang/Integer;", "const/4 r8, 0x4", "aget-object r8, r2, r8",
-                        "check-cast r8, Ljava/lang/Integer;", "const/4 r9, 0x5", "aget-object r9, r2, r9",
+        private static final String[] EXPECTED_SHARED_SMALI = new String[] {
+                        "nop",
+                        "move-object/16 r3, r1",
+                        "const/4 r4, 0x0",
+                        "aget-object r4, r2, r4",
+                        "check-cast r4, Ljava/lang/Integer;",
+                        "const/4 r5, 0x1",
+                        "aget-object r5, r2, r5",
+                        "check-cast r5, Ljava/lang/Integer;",
+                        "const/4 r6, 0x2",
+                        "aget-object r6, r2, r6",
+                        "check-cast r6, Ljava/lang/Integer;",
+                        "const/4 r7, 0x3",
+                        "aget-object r7, r2, r7",
+                        "check-cast r7, Ljava/lang/Integer;",
+                        "const/4 r8, 0x4",
+                        "aget-object r8, r2, r8",
+                        "check-cast r8, Ljava/lang/Integer;",
+                        "const/4 r9, 0x5",
+                        "aget-object r9, r2, r9",
                         "check-cast r9, Ljava/lang/Integer;",
-                        "invoke-virtual/range {r3 .. r9}, Lunreflect_strategy_test;->SixParameterMethod(IIIIII)V", };
-        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->SixParameterMethod(IIIIII)V");
+                        "invoke-virtual/range {r3 .. r9}, Lunreflection_strategy_test;->publicInstanceSixParameters(IIIIII)V", };
+
+        private static final Method METHOD = getMethod(CLASS, "publicInstanceSixParameters", new Class<?>[] {
+                        int.class, int.class, int.class, int.class, int.class, int.class, });
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, new Object[] { 6, 5, 4, 3, 2, 1 }, "[Ljava/lang/Object;");
             String[] endLines = new String[] {
-                            "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                            "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                             "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 10);
@@ -283,7 +299,7 @@ public class UnreflectionStrategyTest {
                             0, METHOD, METHOD_TYPE, 1, 0, "I", 2, new Object[] { 6, 5, 4, 3, 2, 1 },
                             "Ljava/lang/Object;");
             String[] endLines = new String[] { "move-result-object r0", "return-void", };
-            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED, endLines, String.class);
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
             testRegisterCount(manipulator, METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE, 10);
@@ -291,21 +307,21 @@ public class UnreflectionStrategyTest {
 
     }
 
-    public static class TestInvokeVirtualPrivateLocalMethod {
+    public static class MethodUnreflectionWithPrivateInstanceMethod {
 
-        private static final String[] expectedLines = new String[] {
+        private static final String[] EXPECTED_SMALI = new String[] {
                         "nop",
-                        "invoke-direct {r1}, Lunreflect_strategy_test;->PrivateVirtualMethod()V",
-                        "invoke-static {r0, r1, r2}, Li_need/these/registers;->mine(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                        "invoke-direct {r1}, Lunreflection_strategy_test;->privateInstanceNoParameters()V",
+                        "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
-        private static final LocalMethod METHOD = new LocalMethod(CLASS_NAME + "->PrivateVirtualMethod()V");
+        private static final Method METHOD = getMethod(CLASS, "privateInstanceNoParameters");
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, 0, "I", 2, null, "null");
 
-            testSmali(manipulator, expectedLines);
+            testSmali(manipulator, EXPECTED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
 
@@ -314,7 +330,7 @@ public class UnreflectionStrategyTest {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
                             METHOD_TYPE, 1, new UnknownValue(), CLASS_NAME, 2, null, "null");
 
-            testSmali(manipulator, expectedLines);
+            testSmali(manipulator, EXPECTED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
     }
@@ -349,18 +365,7 @@ public class UnreflectionStrategyTest {
 
     }
 
-    private static final String CLASS_NAME = "Lunreflect_strategy_test;";
-
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(UnreflectionStrategyTest.class.getSimpleName());
-
-    private static final String METHOD_TYPE = "Ljava/lang/reflect/Method;";
-
-    private static final String METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE = "MethodInvokeWith10LocalsAnd7ContiguousAvailable()V";
-
-    private static final String METHOD_WITH_3_LOCALS_AND_0_AVAILABLE = "MethodInvokeWith3LocalsAnd0Available()V";
-
-    private static Method getMethod(Class<?> klazz, String methodName, Class<?>[] parameterTypes) {
+    private static Method getMethod(Class<?> klazz, String methodName, Class<?>... parameterTypes) {
         try {
             return klazz.getDeclaredMethod(methodName, parameterTypes);
         } catch (NoSuchMethodException | SecurityException e) {

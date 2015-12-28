@@ -9,7 +9,6 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
@@ -17,6 +16,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
+import org.cf.smalivm.smali.ClassManager;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;

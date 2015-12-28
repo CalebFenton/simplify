@@ -6,8 +6,8 @@ import gnu.trove.map.TIntObjectMap;
 
 import java.util.List;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;

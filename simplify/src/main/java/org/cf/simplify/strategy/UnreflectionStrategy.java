@@ -14,13 +14,10 @@ import java.util.Map;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.type.LocalField;
-import org.cf.smalivm.type.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.Opcode;
@@ -38,7 +35,6 @@ import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.immutable.reference.ImmutableMethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
@@ -77,8 +73,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     static Opcode getGetOpcode(String type, boolean isStatic) {
         Opcode op;
         if (isStatic) {
-            if (SmaliClassUtils.isPrimitiveType(type)) {
-                // wide, boolean, byte, char, short, get
+            if (ClassNameUtils.isPrimitive(type)) {
                 if ("J".equals(type) || "D".equals(type)) {
                     op = Opcode.SGET_WIDE;
                 } else if ("Z".equals(type)) {
@@ -96,8 +91,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 op = Opcode.SGET_OBJECT;
             }
         } else {
-            if (SmaliClassUtils.isPrimitiveType(type)) {
-                // wide, boolean, byte, char, short, get
+            if (ClassNameUtils.isPrimitive(type)) {
                 if ("J".equals(type) || "D".equals(type)) {
                     op = Opcode.IGET_WIDE;
                 } else if ("Z".equals(type)) {
@@ -159,18 +153,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         Object fieldValue = manipulator.getRegisterConsensusValue(address, fieldRegister);
         // Object targetValue = manipulator.getRegisterConsensusValue(address, targetRegister);
 
-        String fieldDescriptor = null;
-        if (fieldValue instanceof LocalField) {
-            LocalField field = (LocalField) fieldValue;
-            fieldDescriptor = field.getName();
-        } else if (fieldValue instanceof Field) {
-            Field field = (Field) fieldValue;
-            StringBuilder sb = new StringBuilder();
-            sb.append(SmaliClassUtils.javaClassToSmali(field.getDeclaringClass()));
-            sb.append("->").append(field.getName()).append(':');
-            sb.append(SmaliClassUtils.javaClassToSmali(field.getType()));
-            fieldDescriptor = sb.toString();
-        }
+        Field field = (Field) fieldValue;
+        String fieldDescriptor = Utils.buildFieldDescriptor(field);
 
         String[] parts;
         parts = fieldDescriptor.split("->");
@@ -180,19 +164,10 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         String fieldName = parts[0];
         String type = parts[1];
 
-        FieldReference fieldRef = null;
         boolean isStatic = false;
-        if (fieldValue instanceof LocalField) {
-            ClassManager classManager = manipulator.getVM().getClassManager();
-            BuilderField builderField = classManager.getField(className, fieldName);
-            fieldRef = builderField;
-            isStatic = Modifier.isStatic(builderField.getAccessFlags());
-        } else {
-            Field field = (Field) fieldValue;
-            fieldRef = manipulator.getDexBuilder().internField(className, fieldName, type, field.getModifiers(), null,
-                            null);
-            isStatic = Modifier.isStatic(field.getModifiers());
-        }
+        FieldReference fieldRef = manipulator.getDexBuilder().internField(className, fieldName, type,
+                        field.getModifiers(), null, null);
+        isStatic = Modifier.isStatic(field.getModifiers());
         Opcode newOp = getGetOpcode(type, isStatic);
 
         BuilderInstruction instruction = manipulator.getInstruction(address);
@@ -218,10 +193,10 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private MethodReference buildMethodReference(Method method) {
-        String className = SmaliClassUtils.javaClassToSmali(method.getDeclaringClass());
+        String className = ClassNameUtils.toInternal(method.getDeclaringClass());
         String name = method.getName();
-        List<String> parameterTypes = SmaliClassUtils.javaClassToSmali(method.getParameterTypes());
-        String returnType = SmaliClassUtils.javaClassToSmali(method.getReturnType());
+        List<String> parameterTypes = ClassNameUtils.toInternal(method.getParameterTypes());
+        String returnType = ClassNameUtils.toInternal(method.getReturnType());
 
         ImmutableMethodReference immutableMethodRef = new ImmutableMethodReference(className, name, parameterTypes,
                         returnType);
@@ -239,9 +214,9 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             BuilderInstruction arrayGet = new BuilderInstruction23x(Opcode.AGET_OBJECT, register, arrayRegister,
                             register);
             String typeName = parameterTypes.get(index);
-            if (SmaliClassUtils.isPrimitiveType(typeName)) {
-                // Check cast expects a type reference, which I've never seen to be a primitive type.
-                typeName = SmaliClassUtils.javaClassToSmali(SmaliClassUtils.smaliPrimitiveToJavaWrapper(typeName));
+            if (ClassNameUtils.isPrimitive(typeName)) {
+                // check-cast expects a non-primitive type reference (afaik)
+                typeName = ClassNameUtils.binaryToInternal(ClassNameUtils.getWrapper(typeName));
             }
             BuilderTypeReference typeRef = manipulator.getDexBuilder().internTypeReference(typeName);
             BuilderInstruction checkCast = new BuilderInstruction21c(Opcode.CHECK_CAST, register, typeRef);
@@ -348,42 +323,25 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int targetRegister = parameterRegisters[1];
         int parametersRegister = parameterRegisters[2];
 
-        // As long as Method;->invoke is not emulated (it will never be white-listed!) current address will have all
-        // unknown values. Get details from parents.
+        // As long as Method;->invoke is not emulated (it must never be whitelisted as safe) current address will have
+        // all unknown values. Get details from parents.
         int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
-        assert methodValue instanceof LocalMethod || methodValue instanceof Method;
+        // assert methodValue instanceof Method;
         assert !(parametersValue instanceof UnknownValue);
 
-        int methodAccessFlags = 0;
-        int classAccessFlags = 0;
-        int parameterRegisterCount = 0;
-        List<String> parameterTypes = null;
-        MethodReference methodRef = null;
-        String declaringClass = null;
-        if (methodValue instanceof Method) {
-            Method method = (Method) methodValue;
-            methodAccessFlags = method.getModifiers();
-            classAccessFlags = method.getDeclaringClass().getModifiers();
-            parameterTypes = SmaliClassUtils.javaClassToSmali(method.getParameterTypes());
-            parameterRegisterCount = Utils.getRegisterSize(parameterTypes);
-            methodRef = buildMethodReference(method);
-        } else if (methodValue instanceof LocalMethod) {
-            LocalMethod method = (LocalMethod) methodValue;
-            BuilderMethod methodDef = manipulator.getVM().getClassManager().getMethod(method.getName());
-            methodAccessFlags = methodDef.getAccessFlags();
-            declaringClass = method.getName().split("->")[0];
-            ClassManager manager = manipulator.getVM().getClassManager();
-            classAccessFlags = manager.getClass(declaringClass).getAccessFlags();
-            parameterTypes = Utils.builderTypeListToTypeNames(methodDef.getParameterTypes());
-            parameterRegisterCount = Utils.getRegisterSize(methodDef.getParameterTypes());
-            methodRef = manipulator.getDexBuilder().internMethodReference(methodDef);
-        }
+        Method method = (Method) methodValue;
+        int methodAccessFlags = method.getModifiers();
+        int classAccessFlags = method.getDeclaringClass().getModifiers();
+        List<String> parameterTypes = ClassNameUtils.toInternal(method.getParameterTypes());
+        int parameterRegisterCount = Utils.getRegisterSize(parameterTypes);
+        MethodReference methodRef = buildMethodReference(method);
+
         boolean isStatic = Modifier.isStatic(methodAccessFlags);
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
 
-        boolean isRange = false;
+        boolean isRange = 5 < parameterRegisterCount;
         List<Integer> registers = new LinkedList<Integer>();
         if (invokeRegisterCount > 0) {
             TIntList availableRegisters = new TIntArrayList(manipulator.getAvailableRegisters(address));
@@ -391,10 +349,6 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             if (parametersValue instanceof Object[] && 0 < ((Object[]) parametersValue).length) {
                 // Not just an empty array, so will need to pull values out later.
                 availableRegisters.remove(parametersRegister);
-            }
-
-            if (5 < parameterRegisterCount) {
-                isRange = true;
             }
 
             if (availableRegisters.size() < parameterRegisterCount) {
@@ -500,31 +454,16 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int fieldRegister = parameterRegisters[0];
-        // TIntList parentAddresses = manipulator.getParentAddresses(address);
         Object fieldValue = manipulator.getRegisterConsensusValue(address, fieldRegister);
         if (fieldValue instanceof UnknownValue) {
             return false;
         }
 
-        if (fieldValue instanceof LocalField) {
-            LocalField field = (LocalField) fieldValue;
-            String[] parts = field.getName().split("->");
-            String className = parts[0];
-            String fieldNameAndType = parts[1];
-            String fieldName = fieldNameAndType.split(":")[0];
-            ClassManager classManager = manipulator.getVM().getClassManager();
-            BuilderField builderField = classManager.getField(className, fieldName);
-            if (Modifier.isPublic(builderField.getAccessFlags()) && field.isAccessible()) {
-                return false;
-            }
-        } else if (fieldValue instanceof Field) {
-            Field field = (Field) fieldValue;
-            boolean isPublic = Modifier.isPublic(field.getModifiers());
-            if (!isPublic && field.isAccessible()) {
-                // TODO: need to also check if manipulatormethod has access to this field
-                // same for localfields
-                return false;
-            }
+        Field field = (Field) fieldValue;
+        boolean isPublic = Modifier.isPublic(field.getModifiers());
+        if (!isPublic && field.isAccessible()) {
+            // TODO: need to also check if manipulator method has access to this field
+            return false;
         }
 
         int nextAddress = address + instruction.getCodeUnits();
@@ -570,23 +509,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         }
 
         String className = manipulator.getMethodDescriptor().split("->")[0];
-        int methodAccessFlags = 0;
-        String declaringClass = null;
-        if (methodValue instanceof Method) {
-            Method method = (Method) methodValue;
-            methodAccessFlags = method.getModifiers();
-            declaringClass = SmaliClassUtils.javaClassToSmali(method.getDeclaringClass());
-        } else if (methodValue instanceof LocalMethod) {
-            LocalMethod method = (LocalMethod) methodValue;
-            ClassManager manager = manipulator.getVM().getClassManager();
-            BuilderMethod methodDef = manager.getMethod(method.getName());
-            methodAccessFlags = methodDef.getAccessFlags();
-            declaringClass = method.getName().split("->")[0];
-        }
+        Method method = (Method) methodValue;
+        int methodAccessFlags = method.getModifiers();
+        String declaringClass = ClassNameUtils.toInternal(method.getDeclaringClass());
 
         boolean isPrivate = Modifier.isPrivate(methodAccessFlags);
-        if (isPrivate && !declaringClass.equals(className)) {
-            // Can't access this method without method.setAccessible(true)
+        if (isPrivate && !declaringClass.equals(className) && !method.isAccessible()) {
             return false;
         }
 

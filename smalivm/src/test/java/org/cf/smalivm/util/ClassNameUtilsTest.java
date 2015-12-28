@@ -1,0 +1,223 @@
+package org.cf.smalivm.util;
+
+import static org.junit.Assert.assertEquals;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
+
+import org.cf.util.ClassNameUtils;
+import org.cf.util.ClassNameUtils.TypeFormat;
+import org.junit.Test;
+
+public class ClassNameUtilsTest {
+
+    private static final Map<String, String> internalNameToBinaryName;
+    private static final Map<String, Boolean> internalNameToIsPrimitive;
+    private static final Map<String, String> internalNameToSourceName;
+    private static final Map<String, Class<?>> internalPrimitiveToWrapperClass;
+
+    static {
+        internalNameToBinaryName = new HashMap<String, String>();
+        internalNameToBinaryName.put("Lthis/is/Test;", "this.is.Test");
+        internalNameToBinaryName.put("[Lthis/is/Test;", "[Lthis.is.Test;");
+        internalNameToBinaryName.put("I", "int");
+        internalNameToBinaryName.put("B", "byte");
+        internalNameToBinaryName.put("V", "void");
+        internalNameToBinaryName.put("[I", int[].class.getName()); // [I
+        internalNameToBinaryName.put("[[Z", boolean[][].class.getName()); // [[Z
+
+        internalNameToSourceName = new HashMap<String, String>();
+        internalNameToSourceName.put("Lthis/is/Test;", "this.is.Test");
+        internalNameToSourceName.put("[Lthis/is/Test;", "this.is.Test[]");
+        internalNameToSourceName.put("I", "int");
+        internalNameToSourceName.put("B", "byte");
+        internalNameToSourceName.put("V", "void");
+        internalNameToSourceName.put("[I", "int[]");
+        internalNameToSourceName.put("[[Z", "boolean[][]");
+
+        internalNameToIsPrimitive = new HashMap<String, Boolean>();
+        internalNameToIsPrimitive.put("Lsome/class;", false);
+        internalNameToIsPrimitive.put("[Lsome/class;", false);
+        internalNameToIsPrimitive.put("I", true);
+        internalNameToIsPrimitive.put("Z", true);
+        internalNameToIsPrimitive.put("C", true);
+        internalNameToIsPrimitive.put("S", true);
+        internalNameToIsPrimitive.put("D", true);
+        internalNameToIsPrimitive.put("F", true);
+        internalNameToIsPrimitive.put("J", true);
+        internalNameToIsPrimitive.put("B", true);
+        internalNameToIsPrimitive.put("V", true);
+        internalNameToIsPrimitive.put("[I", true);
+        internalNameToIsPrimitive.put("[[I", true);
+
+        internalPrimitiveToWrapperClass = new HashMap<String, Class<?>>();
+        internalPrimitiveToWrapperClass.put("I", Integer.class);
+        internalPrimitiveToWrapperClass.put("Z", Boolean.class);
+        internalPrimitiveToWrapperClass.put("C", Character.class);
+        internalPrimitiveToWrapperClass.put("S", Short.class);
+        internalPrimitiveToWrapperClass.put("D", Double.class);
+        internalPrimitiveToWrapperClass.put("F", Float.class);
+        internalPrimitiveToWrapperClass.put("J", Long.class);
+        internalPrimitiveToWrapperClass.put("B", Byte.class);
+        internalPrimitiveToWrapperClass.put("[I", Integer[].class);
+        internalPrimitiveToWrapperClass.put("[[I", Integer[][].class);
+    }
+
+    @Test
+    public void binaryToInternalTest() {
+        for (Entry<String, String> entry : internalNameToBinaryName.entrySet()) {
+            String className = entry.getValue();
+            String expected = entry.getKey();
+            String actual = ClassNameUtils.binaryToInternal(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void getComponentBaseTest() {
+        String internalName = "[[[[[[Lsome/class;";
+        String internalBase = "Lsome/class;";
+
+        assertEquals(internalBase, ClassNameUtils.getComponentBase(internalName));
+
+        String binaryName = "[[[Lsome.class;";
+        String binaryBase = "Lsome.class;";
+
+        assertEquals(binaryBase, ClassNameUtils.getComponentBase(binaryName));
+    }
+
+    @Test
+    public void getComponentTypeTest() {
+        String internalName = "[[[[[[Lsome/class;";
+        String internalComponent = "[[[[[Lsome/class;";
+
+        assertEquals(internalComponent, ClassNameUtils.getComponentType(internalName));
+
+        String binaryName = "[[[Lsome.class;";
+        String binaryComponent = "[[Lsome.class;";
+
+        assertEquals(binaryComponent, ClassNameUtils.getComponentType(binaryName));
+    }
+
+    @Test
+    public void getDimensionCountOfRandomRankArrayReturnsExpected() {
+        Random rng = new Random();
+
+        for (int run = 0; run < 100; run++) {
+            StringBuilder sb = new StringBuilder();
+            int expected = rng.nextInt(10);
+            for (int i = 0; i < expected; i++) {
+                sb.append('[');
+            }
+            sb.append("Lsome/Type;");
+            String typeReference = sb.toString();
+            int actual = ClassNameUtils.getDimensionCount(typeReference);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void getPackageNameTest() {
+        assertEquals("some.package", ClassNameUtils.getPackageName("Lsome/package/Class;"));
+        assertEquals("", ClassNameUtils.getPackageName("LSomeClass;"));
+        assertEquals("", ClassNameUtils.getPackageName("SomeClass"));
+        assertEquals("", ClassNameUtils.getPackageName("SomeClass[]"));
+        assertEquals("", ClassNameUtils.getPackageName("[LSomeClass;"));
+    }
+
+    @Test
+    public void getWrapperTest() {
+        for (Entry<String, Class<?>> entry : internalPrimitiveToWrapperClass.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue().getName();
+            String actual = ClassNameUtils.getWrapper(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void internalToBinaryTest() {
+        for (Entry<String, String> entry : internalNameToBinaryName.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue();
+            String actual = ClassNameUtils.internalToBinary(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void internalToSourceTest() {
+        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue();
+            String actual = ClassNameUtils.internalToSource(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void isPrimitiveTest() {
+        for (Entry<String, Boolean> entry : internalNameToIsPrimitive.entrySet()) {
+            String className = entry.getKey();
+            boolean expected = entry.getValue();
+            boolean actual = ClassNameUtils.isPrimitive(className);
+
+            assertEquals("class: " + className, expected, actual);
+        }
+    }
+
+    @Test
+    public void sourceToBinaryTest() {
+        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
+            String className = entry.getValue();
+            String expected = internalNameToBinaryName.get(entry.getKey());
+            String actual = ClassNameUtils.sourceToBinary(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void sourceToInternalTest() {
+        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
+            String className = entry.getValue();
+            String expected = entry.getKey();
+            String actual = ClassNameUtils.sourceToInternal(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void toFormatTest() {
+        assertEquals("java.lang.Object", ClassNameUtils.toFormat("Ljava/lang/Object;", TypeFormat.SOURCE));
+        assertEquals("java.lang.Object", ClassNameUtils.toFormat("java.lang.Object", TypeFormat.SOURCE));
+        assertEquals("java.lang.Object[]", ClassNameUtils.toFormat("[Ljava.lang.Object;", TypeFormat.SOURCE));
+        assertEquals("SomeClass", ClassNameUtils.toFormat("LSomeClass;", TypeFormat.SOURCE));
+        assertEquals("SomeClass", ClassNameUtils.toFormat("SomeClass", TypeFormat.SOURCE));
+        assertEquals("SomeClass[]", ClassNameUtils.toFormat("[LSomeClass;", TypeFormat.SOURCE));
+
+        assertEquals("[Ljava/lang/Object;", ClassNameUtils.toFormat("java.lang.Object[]", TypeFormat.INTERNAL));
+        assertEquals("I", ClassNameUtils.toFormat("int", TypeFormat.INTERNAL));
+        assertEquals("[I", ClassNameUtils.toFormat("int[]", TypeFormat.INTERNAL));
+        assertEquals("[Ljava/lang/Object;", ClassNameUtils.toFormat("[Ljava.lang.Object;", TypeFormat.INTERNAL));
+        assertEquals("[Ljava/lang/Object;", ClassNameUtils.toFormat("[Ljava/lang/Object;", TypeFormat.INTERNAL));
+
+        assertEquals("[Ljava.lang.Object;", ClassNameUtils.toFormat("java.lang.Object[]", TypeFormat.BINARY));
+        ;
+        assertEquals("java.lang.Object", ClassNameUtils.toFormat("java.lang.Object", TypeFormat.BINARY));
+        ;
+        assertEquals("java.lang.Object", ClassNameUtils.toFormat("Ljava/lang/Object;", TypeFormat.BINARY));
+        ;
+        assertEquals("int", ClassNameUtils.toFormat("I", TypeFormat.BINARY));
+        assertEquals("[I", ClassNameUtils.toFormat("[I", TypeFormat.BINARY));
+    }
+
+}

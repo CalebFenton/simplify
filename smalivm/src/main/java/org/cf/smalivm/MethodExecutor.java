@@ -13,6 +13,7 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.smali.ClassManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

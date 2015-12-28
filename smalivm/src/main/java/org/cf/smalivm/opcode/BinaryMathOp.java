@@ -125,8 +125,7 @@ public class BinaryMathOp extends MethodStateOp {
                 break;
             }
         } catch (ArithmeticException e) {
-            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
-            return exception;
+            return new VirtualException(e);
         }
 
         return result;
@@ -266,12 +265,11 @@ public class BinaryMathOp extends MethodStateOp {
             rhsItem = mState.readRegister(arg2Register);
         }
 
-        Object resultValue = null;
-        if (!(lhsItem.isUnknown() || rhsItem.isUnknown())) {
-            resultValue = getResult(lhsItem.getValue(), rhsItem.getValue());
-            if (resultValue instanceof VirtualException) {
-                VirtualException exception = (VirtualException) resultValue;
-                node.setException(exception);
+        Object result = null;
+        if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
+            result = getResult(lhsItem.getValue(), rhsItem.getValue());
+            if (result instanceof VirtualException) {
+                node.setException((VirtualException) result);
                 node.clearChildren();
                 return;
             } else {
@@ -279,11 +277,11 @@ public class BinaryMathOp extends MethodStateOp {
             }
         }
 
-        if (null == resultValue) {
-            resultValue = new UnknownValue();
+        if (null == result) {
+            result = new UnknownValue();
         }
 
-        mState.assignRegister(destRegister, resultValue, mathOperandType.getType());
+        mState.assignRegister(destRegister, result, mathOperandType.getType());
     }
 
     @Override

@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.cf.smalivm.smali.ClassManager;
 import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.junit.Before;

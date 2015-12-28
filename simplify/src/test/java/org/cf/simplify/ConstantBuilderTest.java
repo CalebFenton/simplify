@@ -7,8 +7,7 @@ import static org.mockito.Mockito.withSettings;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
-import org.cf.smalivm.type.LocalClass;
-import org.cf.util.SmaliClassUtils;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
@@ -36,7 +35,7 @@ import org.slf4j.LoggerFactory;
 @RunWith(Enclosed.class)
 public class ConstantBuilderTest {
 
-    public static class TestBuildBoolean {
+    public static class BuildBoolean {
 
         @Test
         public void testWithFalse() {
@@ -70,7 +69,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildByte {
+    public static class BuildByte {
 
         @Test
         public void testWith4BitLiteral() {
@@ -104,7 +103,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildDouble {
+    public static class BuildDouble {
 
         @Test
         public void testWithHeapItemWithDoubleTypeAndLongValue() {
@@ -142,7 +141,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildFloat {
+    public static class BuildFloat {
 
         @Test
         public void testWithHeapItemWitFloatTypeAndIntegerValue() {
@@ -178,7 +177,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildInteger {
+    public static class BuildInteger {
 
         @Test
         public void testWith15BitLiteral() {
@@ -226,7 +225,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildLong {
+    public static class BuildLong {
 
         @Test
         public void testWith31BitLiteral() {
@@ -265,7 +264,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildObject {
+    public static class BuildObject {
 
         DexBuilder dexBuilder;
 
@@ -277,18 +276,7 @@ public class ConstantBuilderTest {
         @Test
         public void testWithClass() {
             Class<?> value = String.class;
-            String className = SmaliClassUtils.javaClassToSmali(value);
-            TypeReference typeRef = dexBuilder.internTypeReference(className);
-            Instruction expected = new BuilderInstruction21c(Opcode.CONST_CLASS, REGISTER, typeRef);
-            Instruction actual = ConstantBuilder.buildConstant(value, "Ljava/lang/Class;", REGISTER, dexBuilder);
-
-            testEquals(expected, actual);
-        }
-
-        @Test
-        public void testWithLocalClass() {
-            String className = "Lconstant_propigation_strategy_test;";
-            LocalClass value = new LocalClass(className);
+            String className = ClassNameUtils.toInternal(value);
             TypeReference typeRef = dexBuilder.internTypeReference(className);
             Instruction expected = new BuilderInstruction21c(Opcode.CONST_CLASS, REGISTER, typeRef);
             Instruction actual = ConstantBuilder.buildConstant(value, "Ljava/lang/Class;", REGISTER, dexBuilder);
@@ -307,7 +295,7 @@ public class ConstantBuilderTest {
         }
     }
 
-    public static class TestBuildShort {
+    public static class BuildShort {
 
         @Test
         public void testWith15BitLiteral() {

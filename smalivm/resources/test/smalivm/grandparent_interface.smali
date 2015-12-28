@@ -1,4 +1,4 @@
-.class interface Lgrandparent_interface;
+.class public interface abstract Lgrandparent_interface;
 .super Ljava/lang/Object;
 
 

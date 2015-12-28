@@ -16,14 +16,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
@@ -54,9 +55,7 @@ public class InvokeOpTest {
         private static final String[] METHOD_PARAMS = { "I" };
 
         private TIntObjectMap<MethodLocation> addressToLocation;
-
         private BuilderInstruction instruction;
-
         private MethodLocation location;
 
         private ExecutionContext ectx;
@@ -71,6 +70,16 @@ public class InvokeOpTest {
         @Before
         public void setUp() {
             vm = mock(VirtualMachine.class);
+
+            classManager = mock(ClassManager.class);
+            when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
+            when(classManager.isFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
+            when(classManager.isSafeFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
+            when(vm.getClassManager()).thenReturn(classManager);
+
+            Configuration configuration = mock(Configuration.class);
+            when(vm.getConfiguration()).thenReturn(configuration);
+
             ectx = mock(ExecutionContext.class);
             mState = mock(MethodState.class);
             when(ectx.getMethodState()).thenReturn(mState);
@@ -78,12 +87,6 @@ public class InvokeOpTest {
             when(node.getContext()).thenReturn(ectx);
             location = mock(MethodLocation.class);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
-
-            classManager = mock(ClassManager.class);
-            when(vm.getClassManager()).thenReturn(classManager);
-            when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
-            when(classManager.isFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
-            when(classManager.isSafeFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
 
             methodRef = mock(MethodReference.class);
             when(methodRef.getDefiningClass()).thenReturn(METHOD_CLASS);

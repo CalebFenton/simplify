@@ -184,7 +184,7 @@ public class ExecutionContext {
         // 2.) The invocation of a constructor of the class (covered by #1)
         // 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
         // that are both static and final, and are initialized by a compile-time constant expression.
-        if (!vm.isLocalClass(className) || isClassInitialized(className)) {
+        if (!vm.shouldTreatAsLocal(className) || isClassInitialized(className)) {
             return;
         }
 

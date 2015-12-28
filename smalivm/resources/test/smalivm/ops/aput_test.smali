@@ -44,6 +44,15 @@
     return-void
 .end method
 
+.method public static putObjects()V
+    .locals 3
+
+    aput-object v2, v0, v1
+    aput-object v4, v0, v3
+
+    return-void
+.end method
+
 .method public static putBoolean()V
     .locals 3
 

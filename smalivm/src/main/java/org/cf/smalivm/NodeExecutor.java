@@ -4,6 +4,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.smali.ClassManager;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

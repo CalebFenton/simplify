@@ -1,13 +1,13 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.ClassManager;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.util.SmaliClassUtils;
+import org.cf.smalivm.smali.ClassManager;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
@@ -31,7 +31,7 @@ public class CheckCastOp extends MethodStateOp {
 
     private static boolean isInstance(HeapItem item, ClassManager classManager, String targetType) {
         try {
-            if (!SmaliClassUtils.isPrimitiveType(item.getType())) {
+            if (!ClassNameUtils.isPrimitive(item.getType())) {
                 if (item.getValue() == null) {
                     /*
                      * This covers cases where type info cannot be implied from value. E.g.
@@ -66,9 +66,9 @@ public class CheckCastOp extends MethodStateOp {
         } else {
             // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             StringBuilder sb = new StringBuilder();
-            sb.append(SmaliClassUtils.smaliClassToJava(item.getType()));
+            sb.append(ClassNameUtils.internalToBinary(item.getType()));
             sb.append(" cannot be cast to ");
-            sb.append(SmaliClassUtils.smaliClassToJava(checkClassName));
+            sb.append(ClassNameUtils.internalToBinary(checkClassName));
 
             VirtualException exception = new VirtualException(ClassCastException.class, sb.toString());
             node.setException(exception);
