@@ -25,14 +25,16 @@ dependencies {
     compile depends.slf4j_api
 
     // Parsing and writing dex files
-    compile 'org.smali:dexlib2:2.1.0'
-    compile 'org.smali:smali:2.1.0'
-    compile 'org.smali:baksmali:2.1.0'
+    compile 'org.smali:dexlib2:2.1.1'
+    compile 'org.smali:smali:2.1.1'
+    compile 'org.smali:baksmali:2.1.1'
 
     //compile 'net.bytebuddy:byte-buddy:0.8.0'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
     compile files('libs/android-local.jar')
+
+    // Manually patched to allow for multiple fields of the same name but different types
     compile files('libs/byte-buddy-0.8-SNAPSHOT.jar')
 
     // Testing
