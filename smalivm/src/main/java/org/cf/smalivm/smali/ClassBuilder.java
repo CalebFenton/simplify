@@ -28,6 +28,7 @@ import net.bytebuddy.dynamic.DynamicType.Loaded;
 import net.bytebuddy.dynamic.DynamicType.Unloaded;
 import net.bytebuddy.dynamic.TargetType;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
+import net.bytebuddy.dynamic.scaffold.TypeValidation;
 import net.bytebuddy.implementation.StubMethod;
 import net.bytebuddy.jar.asm.Opcodes;
 
@@ -92,7 +93,7 @@ public class ClassBuilder {
 
         startBuilding(className);
 
-        ByteBuddy buddy = new ByteBuddy();
+        ByteBuddy buddy = new ByteBuddy().with(TypeValidation.DISABLED);
         Builder<?> builder = setSuperclass(buddy, classDef.getSuperclass());
         builder = setInterfaces(builder, classDef.getInterfaces());
         builder = setAnnotations(builder, classDef.getAnnotations());
@@ -135,7 +136,7 @@ public class ClassBuilder {
     private void buildShallowClass(String className, boolean isInterface) throws ClassNotFoundException {
         startBuilding(className);
 
-        ByteBuddy buddy = new ByteBuddy();
+        ByteBuddy buddy = new ByteBuddy().with(TypeValidation.DISABLED);
         Builder<?> builder = setSuperclass(buddy, "Ljava/lang/Object;");
         builder = builder.name(className);
         ModifierContributor.ForType[] modifiers = getShallowTypeModifiers(isInterface);

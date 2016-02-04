@@ -133,6 +133,17 @@ public class ClassBuilderTest {
     }
 
     @Test
+    public void testy() throws ClassNotFoundException, IOException {
+        classManager = new ClassManagerFactory().build("../simplify/obfuscated-example");
+        classBuilder = new ClassBuilder(classManager);
+        String className = "android.support.v4.media.TransportMediatorJellybeanMR2$2";
+        className = "org.cf.obfuscated.Reflection";
+        // android.support.v4.view.accessibility.AccessibilityNodeInfoCompatJellybeanMr2
+        Map<String, Class<?>> classes = classBuilder.build(className);
+
+    }
+
+    @Test
     public void canBuildSelfReferencingClass() throws Exception {
         String className = "org.cf.test.SelfReference";
         Map<String, Class<?>> classes = classBuilder.build(className);
