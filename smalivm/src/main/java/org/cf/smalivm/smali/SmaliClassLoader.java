@@ -3,11 +3,14 @@ package org.cf.smalivm.smali;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import org.cf.util.ClassNameUtils;
+import org.jf.dexlib2.iface.ClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +72,18 @@ public class SmaliClassLoader extends ClassLoader {
         return cachedClasses.get(name);
     }
 
+    private void filterAvailableClasses(Set<String> classNames) {
+        Iterator<String> iter = classNames.iterator();
+        while (iter.hasNext()) {
+            String className = iter.next();
+            String baseName = ClassNameUtils.getComponentBase(className);
+            String binaryName = ClassNameUtils.internalToBinary(baseName);
+            if (loadClassWithoutBuilding(binaryName) != null) {
+                iter.remove();
+            }
+        }
+    }
+
     @Override
     public synchronized Class<?> loadClass(String name) throws ClassNotFoundException {
         Class<?> klazz = loadClassWithoutBuilding(name);
@@ -76,13 +91,21 @@ public class SmaliClassLoader extends ClassLoader {
             return klazz;
         }
 
-        if (cachedClasses.isEmpty()) {
-            Set<String> classNames = classManager.getNonFrameworkClassNames();
-            // If I don't set this to null first, cachedClasses does not update.
-            // VERY VERY STRANGE
-            cachedClasses = null;
-            cachedClasses = classBuilder.build(classNames);
-        }
+        ClassDef classDef = classManager.getClass(ClassNameUtils.binaryToInternal(name));
+        Set<String> classNames = ClassDependencyCollector.collect(classDef);
+        filterAvailableClasses(classNames);
+        Map<String, Class<?>> newClasses = classBuilder.build(classNames);
+        cachedClasses.putAll(newClasses);
+
+        // if (cachedClasses.isEmpty()) {
+        // Set<String> classNames = classManager.getNonFrameworkClassNames();
+        // classNames.clear();
+        // classNames.add(name);
+        // If I don't set this to null first, cachedClasses does not update.
+        // VERY VERY STRANGE
+        // cachedClasses = null;
+        // cachedClasses = classBuilder.build(classNames);
+        // }
 
         klazz = findClass(name);
         if (klazz == null) {
