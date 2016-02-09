@@ -24,8 +24,8 @@ public class MethodExecutor {
     private final ClassManager classManager;
     private final int maxAddressVisits;
     private final int maxCallDepth;
-    private final int maxMethodVisits;
     private final int maxExecutionTime;
+    private final int maxMethodVisits;
     private int totalVisits;
 
     MethodExecutor(ClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits,
@@ -35,39 +35,6 @@ public class MethodExecutor {
         this.maxAddressVisits = maxAddressVisits;
         this.maxMethodVisits = maxMethodVisits;
         this.maxExecutionTime = maxExecutionTime;
-        totalVisits = 0;
-    }
-
-    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)
-                    throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
-        if (totalVisits > getMaxMethodVisits()) {
-            throw new MaxMethodVisitsExceeded(node, methodDescriptor);
-        }
-
-        int address = node.getAddress();
-        int visitCount = addressToVisitCount.get(address);
-        if (visitCount > getMaxAddressVisits()) {
-            throw new MaxAddressVisitsExceeded(node, methodDescriptor);
-        }
-        boolean adjusted = addressToVisitCount.adjustValue(address, 1);
-        if (!adjusted) {
-            addressToVisitCount.put(address, 1);
-        }
-    }
-
-    private int getMaxAddressVisits() {
-        return maxAddressVisits;
-    }
-
-    private int getMaxCallDepth() {
-        return maxCallDepth;
-    }
-
-    private int getMaxMethodVisits() {
-        return maxMethodVisits;
-    }
-
-    private void resetTotalVisits() {
         totalVisits = 0;
     }
 
@@ -111,6 +78,39 @@ public class MethodExecutor {
         if (System.currentTimeMillis() >= endTime) {
             throw new MaxExecutionTimeExceeded(methodDescriptor);
         }
+    }
+
+    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)
+                    throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
+        if (totalVisits > getMaxMethodVisits()) {
+            throw new MaxMethodVisitsExceeded(node, methodDescriptor);
+        }
+
+        int address = node.getAddress();
+        int visitCount = addressToVisitCount.get(address);
+        if (visitCount > getMaxAddressVisits()) {
+            throw new MaxAddressVisitsExceeded(node, methodDescriptor);
+        }
+        boolean adjusted = addressToVisitCount.adjustValue(address, 1);
+        if (!adjusted) {
+            addressToVisitCount.put(address, 1);
+        }
+    }
+
+    private int getMaxAddressVisits() {
+        return maxAddressVisits;
+    }
+
+    private int getMaxCallDepth() {
+        return maxCallDepth;
+    }
+
+    private int getMaxMethodVisits() {
+        return maxMethodVisits;
+    }
+
+    private void resetTotalVisits() {
+        totalVisits = 0;
     }
 
 }

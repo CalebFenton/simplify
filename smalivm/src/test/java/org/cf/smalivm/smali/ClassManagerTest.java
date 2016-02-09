@@ -9,8 +9,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.smalivm.smali.ClassManager;
-import org.cf.smalivm.smali.ClassManagerFactory;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -55,6 +53,7 @@ public class ClassManagerTest {
     @Test
     public void testGetFieldsAndTypesReturnsFieldsFromSuperClasses() {
         List<String> fieldNameAndTypes = manager.getFieldNameAndTypes("Lchild_class;");
+        fieldNameAndTypes.removeIf(e -> e.startsWith("shadow$_"));
         String[] actual = fieldNameAndTypes.toArray(new String[fieldNameAndTypes.size()]);
         String[] expected = new String[] { "childField:I", "parentField:I", "grandparentField:I" };
         Arrays.sort(actual);

@@ -29,13 +29,12 @@ dependencies {
     compile 'org.smali:smali:2.1.1'
     compile 'org.smali:baksmali:2.1.1'
 
-    compile 'net.bytebuddy:byte-buddy:1.1.0'
+    // For dynamic java.lang.Class generation
+    compile 'org.ow2.asm:asm:5.0.4'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
+    // Mostly, Base64, but could be anything that's slow on the vm
     compile files('libs/android-local.jar')
-
-    // Manually patched to allow for multiple fields of the same name but different types
-    // compile files('libs/byte-buddy-0.8-SNAPSHOT.jar')
 
     // Testing
     testCompile depends.junit

@@ -25,7 +25,7 @@ import com.google.common.io.Files;
 public class FrameworkCacheBuilder {
 
     private static final String FRAMEWORK_SMALI_PATH = "/framework/smali";
-    private static final String DEFAULT_FRAMEWORK_PATH = FRAMEWORK_SMALI_PATH + "/android-17";
+    private static final String DEFAULT_FRAMEWORK_PATH = FRAMEWORK_SMALI_PATH + "/android-23";
 
     public static void main(String[] argv) throws Exception {
         System.out.println("Building framework cache ...");

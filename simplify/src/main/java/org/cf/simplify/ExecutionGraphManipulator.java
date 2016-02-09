@@ -217,6 +217,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     public void removeInstructions(List<Integer> addresses) {
         Collections.sort(addresses);
         Collections.reverse(addresses);
+
         log.info("Removing instructions: {}", addresses);
         for (int address : addresses) {
             removeInstruction(address);

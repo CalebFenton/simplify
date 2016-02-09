@@ -200,7 +200,10 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         removeSet.addAll(removeAddresses);
 
         removeAddresses = new TIntArrayList(removeSet.toArray());
-        manipulator.removeInstructions(Ints.asList(removeSet.toArray()));
+        List<Integer> deadAddresses = Ints.asList(removeSet.toArray());
+        if (deadAddresses.size() > 0) {
+            manipulator.removeInstructions(deadAddresses);
+        }
 
         return removeAddresses.size() > 0;
     }

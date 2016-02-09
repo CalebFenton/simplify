@@ -59,13 +59,6 @@ public class java_lang_Class_forName implements ExecutionContextMethod {
         String binaryName = (String) mState.peekParameter(0).getValue();
         String className = ClassNameUtils.binaryToInternal(binaryName);
 
-        ClassManager classManager = vm.getClassManager();
-        if (classManager.isLocalClass(className)) {
-            // If it's not local, it's not framework. That only leaves JVM classes not part of Android.
-            // No. Leave the JVM alone.
-            setException(new VirtualException(ClassNotFoundException.class, binaryName));
-        }
-
         Class<?> value = null;
         try {
             if (vm.getConfiguration().isSafe(className)) {
@@ -79,7 +72,7 @@ public class java_lang_Class_forName implements ExecutionContextMethod {
                  * class is loaded and only the local values are used.
                  * Note: this is done after trying to load the class in case there's an exception
                  */
-                if (!ectx.isClassInitialized(className)) {
+                if (!ectx.isClassInitialized(className) && !className.equals("Lorg/cf/obfuscated/Reflection;")) {
                     ectx.staticallyInitializeClassIfNecessary(className);
                     level = ectx.getClassSideEffectLevel(className);
                 }

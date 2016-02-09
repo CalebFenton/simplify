@@ -1,24 +1,34 @@
 package org.cf.smalivm.smali;
 
-import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Set;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
 
-import net.bytebuddy.dynamic.DynamicType.Loaded;
+import org.jf.dexlib2.iface.ClassDef;
 
 public class FrameworkJarBuilder {
 
     public static void main(String[] args) throws ClassNotFoundException, IOException {
         ClassManager classManager = getClassManager();
-        ClassBuilder builder = new ClassBuilder(classManager);
+        ClassBuilder builder = new ClassBuilder();
 
-        // Get comfortable!
+        String outPath = "framework.jar";
+        JarOutputStream out = new JarOutputStream(new FileOutputStream(outPath));
         Set<String> classNames = classManager.getFrameworkClassNames();
-        Loaded<?> loaded = builder.buildLoaded(classNames);
+        for (String className : classNames) {
+            ClassDef classDef = classManager.getClass(className);
+            byte[] b = builder.build(classDef);
 
-        File outPath = new File("framework.jar");
-        loaded.toJar(outPath);
-        System.out.println("Saved " + loaded.getAllTypes().size() + " classes to " + outPath);
+            String entryName = className.substring(1, className.length() - 1);
+            out.putNextEntry(new ZipEntry(entryName + ".class"));
+            out.write(b);
+            out.closeEntry();
+        }
+        out.close();
+
+        System.out.println("Saved " + classNames.size() + " classes to " + outPath);
     }
 
     private static ClassManager getClassManager() throws IOException {

@@ -19,8 +19,8 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.smali.SmaliClassLoader;
+import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.MethodImplementation;
@@ -191,7 +191,7 @@ public class VirtualMachine {
         return execution;
     }
 
-    public SmaliClassLoader getClassLoader() {
+    public ClassLoader getClassLoader() {
         return classLoader;
     }
 
