@@ -304,10 +304,13 @@ public class VMTester {
         if (expectedValue == null) {
             assertEquals(expected, consensus);
         } else if (expected.isUnknown()) {
-            // Normally, unknown doesn't equal anything, including itself, but tests are more relaxed.
+            // Normally unknown doesn't equal anything, including itself, but tests are more relaxed.
             assertEquals(expected.toString(), consensus.toString());
         } else if (expectedValue.getClass().isArray()) {
             assertEquals(expected.getType(), consensus.getType());
+
+            // TODO: why does an array of local instances equal an array of actual instances?
+            assertEquals(expectedValue.getClass(), consensusValue.getClass());
 
             if (expectedValue instanceof Object[] && consensusValue instanceof Object[])
                 assertArrayEquals((Object[]) expectedValue, (Object[]) consensusValue);

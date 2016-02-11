@@ -18,59 +18,9 @@ public class APutOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(APutOp.class.getSimpleName());
 
-    private static Object castValue(String opName, Object value) {
-        if (value instanceof Number) {
-            if (opName.endsWith("-wide")) {
-                // No need to cast anything
-            } else if (opName.endsWith("-boolean")) {
-                // Booleans are represented by integer literals, so need to convert
-                Integer intValue = Utils.getIntegerValue(value);
-                value = intValue == 1 ? true : false;
-            } else {
-                Integer intValue = Utils.getIntegerValue(value);
-                if (opName.endsWith("-byte")) {
-                    value = intValue.byteValue();
-                } else if (opName.endsWith("-char")) {
-                    // Characters, like boolean, are represented by integers
-                    value = (char) intValue.intValue();
-                } else if (opName.endsWith("-short")) {
-                    value = intValue.shortValue();
-                }
-            }
-        }
-
-        return value;
-    }
-
-    private static boolean isOverloadedPrimitiveType(String type) {
-        return ClassNameUtils.isPrimitive(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
-    }
-
-    private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, String valueType) {
-        String arrayComponentType = ClassNameUtils.getComponentType(arrayType);
-        // These types are all represented identically in bytecode: Z B C S I
-        if (isOverloadedPrimitiveType(valueType) && isOverloadedPrimitiveType(arrayComponentType)) {
-            // TODO: figure out what dalvik actually does when you try to aput 0x2 into [B
-            // also try to find other edge cases, like Integer.MAX_VALUE in [S
-            return false;
-        }
-
-        try {
-            return !classManager.isInstance(valueType, arrayComponentType);
-        } catch (UnknownAncestors e) {
-            if (log.isWarnEnabled()) {
-                log.warn("Unknown ancestors for either {} or {}", valueType, arrayComponentType);
-            }
-            return true;
-        }
-    }
-
-    private final int arrayRegister;
-
-    private final int indexRegister;
-
     private final int valueRegister;
-
+    private final int arrayRegister;
+    private final int indexRegister;
     private final ClassManager classManager;
 
     public APutOp(MethodLocation location, MethodLocation child, int putRegister, int arrayRegister, int indexRegister,
@@ -130,8 +80,6 @@ public class APutOp extends MethodStateOp {
             }
         }
 
-        // In most cases, register assignment means the old value was blown away.
-        // The optimizer handles assignments for this op specially.
         mState.assignRegister(arrayRegister, arrayItem);
     }
 
@@ -141,6 +89,53 @@ public class APutOp extends MethodStateOp {
         sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
 
         return sb.toString();
+    }
+
+    private static Object castValue(String opName, Object value) {
+        if (value instanceof Number) {
+            if (opName.endsWith("-wide")) {
+                // No need to cast anything
+            } else if (opName.endsWith("-boolean")) {
+                // Booleans are represented by integer literals, so need to convert
+                Integer intValue = Utils.getIntegerValue(value);
+                value = intValue == 1 ? true : false;
+            } else {
+                Integer intValue = Utils.getIntegerValue(value);
+                if (opName.endsWith("-byte")) {
+                    value = intValue.byteValue();
+                } else if (opName.endsWith("-char")) {
+                    // Characters, like boolean, are represented by integers
+                    value = (char) intValue.intValue();
+                } else if (opName.endsWith("-short")) {
+                    value = intValue.shortValue();
+                }
+            }
+        }
+
+        return value;
+    }
+
+    private static boolean isOverloadedPrimitiveType(String type) {
+        return ClassNameUtils.isPrimitive(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
+    }
+
+    private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, String valueType) {
+        String arrayComponentType = ClassNameUtils.getComponentType(arrayType);
+        // These types are all represented identically in bytecode: Z B C S I
+        if (isOverloadedPrimitiveType(valueType) && isOverloadedPrimitiveType(arrayComponentType)) {
+            // TODO: figure out what dalvik actually does when you try to aput 0x2 into [B
+            // also try to find other edge cases, like Integer.MAX_VALUE in [S
+            return false;
+        }
+
+        try {
+            return !classManager.isInstance(valueType, arrayComponentType);
+        } catch (UnknownAncestors e) {
+            if (log.isWarnEnabled()) {
+                log.warn("Unknown ancestors for either {} or {}", valueType, arrayComponentType);
+            }
+            return true;
+        }
     }
 
 }

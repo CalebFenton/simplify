@@ -122,59 +122,59 @@ public class NewArrayOpTest {
         private static final String CLASS_NAME = "Lnew_array_test;";
 
         @Test
-        public void TestNewInteger1DArray() {
+        public void canCreateIntegerArray() {
             int length = 1;
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[length], "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "NewIntegerArray()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "createIntegerArray()V", initial, expected);
         }
 
         @Test
-        public void TestNewInteger2DArray() {
+        public void canCreate2DIntegerArray() {
             int length = 3;
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[length][], "[[I");
 
-            VMTester.testMethodState(CLASS_NAME, "NewIntegerArrayArray()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "create2DIntegerArray()V", initial, expected);
         }
 
         @Test
-        public void TestNewIntegerArrayUnkonwnLength() {
+        public void canCreateIntegerArrayWithUnkonwnLengthValue() {
             Object length = new UnknownValue();
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, length, "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "NewIntegerArray()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "createIntegerArray()V", initial, expected);
         }
 
         @Test
-        public void TestNewIntegerArrayWithShortDimension() {
+        public void canCreateIntegerArrayWithShortTypeLengthValue() {
             Short length = 1;
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "S");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[length.intValue()], "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "NewIntegerArray()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "createIntegerArray()V", initial, expected);
         }
 
         @Test
-        public void TestNewLocalClass1DArray() {
+        public void canCreateLocalInstanceArray() {
             int length = 1;
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
             LocalInstance[] instances = new LocalInstance[length];
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, instances, "[" + CLASS_NAME);
 
-            VMTester.testMethodState(CLASS_NAME, "NewLocalClassArray()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "createLocalInstanceArray()V", initial, expected);
         }
 
         @Test
-        public void TestNewLocalClass2DArray() {
+        public void canCreate2DLocalInstanceArray() {
             int length = 5;
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
             LocalInstance[][] instances = new LocalInstance[length][];
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, instances, "[[" + CLASS_NAME);
 
-            VMTester.testMethodState(CLASS_NAME, "NewLocalClassArrayArray()V", initial, expected);
+            VMTester.testMethodState(CLASS_NAME, "create2DLocalInstanceArray()V", initial, expected);
         }
 
     }

@@ -34,7 +34,34 @@ import org.mockito.ArgumentCaptor;
 @RunWith(Enclosed.class)
 public class APutOpTest {
 
+    private static final String CLASS_NAME = "Laput_test;";
+
+    /*
+     * test 1 - can create arrays of local class objects, e.g. [Laput_test;
+     * test 2 - arrays of local instances can be passed to methods and values are unknown
+     * real test: obad
+     */
     public static class IntegrationTest {
+
+        @Test
+        public void canInsertLocalClassAndClassIntoSameArray() throws ClassNotFoundException {
+            String valueType = "Ljava/lang/Class;";
+            String arrayType = "[" + valueType;
+            Object[] array = new Class<?>[2];
+            int index1 = 0;
+            int index2 = 1;
+            Class<?> value1 = String.class;
+            String binaryClassName = ClassNameUtils.internalToBinary(CLASS_NAME);
+            ClassLoader classLoader = VMTester.spawnVM().getClassLoader();
+            Class<?> value2 = classLoader.loadClass(binaryClassName);
+
+            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, array, arrayType, 1, index1, "I", 2,
+                            value1, valueType, 3, index2, "I", 4, value2, valueType);
+            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new Class<?>[] { value1, value2 },
+                            arrayType);
+
+            VMTester.testMethodState(CLASS_NAME, "putObjects()V", initial, expected);
+        }
 
         @Test
         public void testPutBoolean() {
@@ -118,26 +145,6 @@ public class APutOpTest {
         }
 
         @Test
-        public void canInsertLocalClassAndClassIntoSameArray() throws ClassNotFoundException {
-            String valueType = "Ljava/lang/Class;";
-            String arrayType = "[" + valueType;
-            Object[] array = new Class<?>[2];
-            int index1 = 0;
-            int index2 = 1;
-            Class<?> value1 = String.class;
-            String binaryClassName = ClassNameUtils.internalToBinary(CLASS_NAME);
-            ClassLoader classLoader = VMTester.spawnVM().getClassLoader();
-            Class<?> value2 = classLoader.loadClass(binaryClassName);
-
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, array, arrayType, 1, index1, "I", 2,
-                            value1, valueType, 3, index2, "I", 4, value2, valueType);
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new Class<?>[] { value1, value2 },
-                            arrayType);
-
-            VMTester.testMethodState(CLASS_NAME, "putObjects()V", initial, expected);
-        }
-
-        @Test
         public void testPutShort() {
             Short value = 0x42;
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new short[1], "[S", 1, 0, "I", 2, value,
@@ -159,8 +166,8 @@ public class APutOpTest {
 
         @Test
         public void testPutUnknownValue() {
-            // TODO: Ideally, setting an element unknown shouldn't set entire array unknown. See APutOp for more
-            // details.
+            // TODO: Ideally, setting an element unknown shouldn't set entire array unknown.
+            // This is tricky to handle gracefully. See APutOp for more details.
             TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I", 2,
                             new UnknownValue(), "I");
             TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
@@ -377,7 +384,5 @@ public class APutOpTest {
             verify(node, times(0)).clearExceptions();
         }
     }
-
-    private static final String CLASS_NAME = "Laput_test;";
 
 }

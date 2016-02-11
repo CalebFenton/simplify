@@ -4,6 +4,12 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.cf.smalivm.context.InstanceState;
 
+/**
+ * Represents an object instance of a type defined by a local class such as an input or framework class.
+ * 
+ * @author caleb
+ *
+ */
 public class LocalInstance implements LocalType {
 
     private InstanceState iState;
