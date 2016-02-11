@@ -86,7 +86,7 @@ public class ClassBuilder {
         int version = Opcodes.V1_7;
         int access = classDef.getAccessFlags();
         String name = stripName(classDef.getType());
-        String signature = null;
+        String signature = buildASMSignature(classDef);
         String superName = null;
         if (classDef.getSuperclass() != null) {
             superName = stripName(classDef.getSuperclass());

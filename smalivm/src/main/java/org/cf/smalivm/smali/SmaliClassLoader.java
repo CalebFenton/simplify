@@ -63,7 +63,15 @@ public class SmaliClassLoader extends ClassLoader {
         klazz = defineClass(name, b, 0, b.length);
         cachedClasses.put(name, klazz);
 
+        // No one ever tells you this is also necessary, or you'll have null package for the class:
+        definePackage(getPackageName(name), null, null, null, null, null, null, null);
+
         return klazz;
+    }
+
+    private static String getPackageName(String className) {
+        int i = className.lastIndexOf('.');
+        return className.substring(0, i);
     }
 
 }
