@@ -65,7 +65,7 @@ public class SmaliClassLoader extends ClassLoader {
 
         // No one ever tells you this is also necessary, or you'll have null package for the class:
         String packageName = getPackageName(name);
-        if (getPackage(packageName) == null) {
+        if (packageName != null && getPackage(packageName) == null) {
             definePackage(getPackageName(name), null, null, null, null, null, null, null);
         }
 
@@ -74,7 +74,12 @@ public class SmaliClassLoader extends ClassLoader {
 
     private static String getPackageName(String className) {
         int i = className.lastIndexOf('.');
-        return className.substring(0, i);
+        if (i > 0) {
+            return className.substring(0, i);
+        } else {
+            // No package name, e.g. LsomeClass;
+            return null;
+        }
     }
 
 }
