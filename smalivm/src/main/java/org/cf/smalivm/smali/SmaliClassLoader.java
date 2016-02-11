@@ -64,7 +64,10 @@ public class SmaliClassLoader extends ClassLoader {
         cachedClasses.put(name, klazz);
 
         // No one ever tells you this is also necessary, or you'll have null package for the class:
-        definePackage(getPackageName(name), null, null, null, null, null, null, null);
+        String packageName = getPackageName(name);
+        if (getPackage(packageName) == null) {
+            definePackage(getPackageName(name), null, null, null, null, null, null, null);
+        }
 
         return klazz;
     }
