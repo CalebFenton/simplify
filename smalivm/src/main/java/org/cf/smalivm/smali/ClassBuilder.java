@@ -27,7 +27,7 @@ public class ClassBuilder {
         ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         visitClass(classDef, classWriter);
         visitFields(classDef.getFields(), classWriter);
-        visitMethods(classDef.getMethods(), classWriter);
+        visitMethods(classDef, classDef.getMethods(), classWriter);
         classWriter.visitEnd();
 
         return classWriter.toByteArray();
@@ -95,9 +95,19 @@ public class ClassBuilder {
         classWriter.visit(version, access, name, signature, superName, interfaces);
     }
 
-    private void visitClInitStub(Method method, MethodVisitor mv) {
+    private void visitClInitStub(MethodVisitor mv) {
         mv.visitInsn(Opcodes.RETURN);
-        mv.visitMaxs(0, 0);
+        // mv.visitMaxs(0, 0);
+    }
+
+    private void visitInitStub(ClassDef classDef, MethodVisitor mv) {
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        if (classDef.getSuperclass() != null) {
+            String superName = stripName(classDef.getSuperclass());
+            mv.visitMethodInsn(Opcodes.INVOKESPECIAL, superName, "<init>", "()V", false);
+        }
+        mv.visitInsn(Opcodes.RETURN);
+        // mv.visitMaxs(0, 0);
     }
 
     private void visitFields(Iterable<? extends Field> fields, ClassWriter classWriter) {
@@ -111,11 +121,13 @@ public class ClassBuilder {
         }
     }
 
-    private void visitMethod(Method method, MethodVisitor mv) {
+    private void visitMethod(ClassDef classDef, Method method, MethodVisitor mv) {
         mv.visitCode();
 
         if (method.getName().equals("<clinit>")) {
-            visitClInitStub(method, mv);
+            visitClInitStub(mv);
+        } else if (method.getName().equals("<init>")) {
+            visitInitStub(classDef, mv);
         } else {
             visitMethodStub(method, mv);
         }
@@ -125,7 +137,7 @@ public class ClassBuilder {
         mv.visitEnd();
     }
 
-    private void visitMethods(Iterable<? extends Method> methods, ClassWriter classWriter) {
+    private void visitMethods(ClassDef classDef, Iterable<? extends Method> methods, ClassWriter classWriter) {
         for (Method method : methods) {
             int access = method.getAccessFlags();
             String name = method.getName();
@@ -134,7 +146,7 @@ public class ClassBuilder {
             String[] exceptions = buildExceptions(method);
             MethodVisitor mv = classWriter.visitMethod(access, name, desc, signature, exceptions);
             if (method.getImplementation() != null) {
-                visitMethod(method, mv);
+                visitMethod(classDef, method, mv);
             }
         }
     }
