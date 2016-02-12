@@ -9,7 +9,7 @@
   return-void
 .end method
 
-.method public static UnusedAssignment()I
+.method public static unusedAssignment()I
   .locals 1
 
   const/4 v0, 0x1
@@ -18,7 +18,7 @@
   return v0
 .end method
 
-.method public static DeadCode()V
+.method public static deadCode()V
   .locals 1
 
   const/4 v0, 0x1
@@ -34,7 +34,7 @@
   return-void
 .end method
 
-.method public static DeadCodeWithStrongSideEffect()V
+.method public static deadCodeWithStrongSideEffect()V
   .locals 1
 
   goto :return
@@ -45,7 +45,7 @@
   return-void
 .end method
 
-.method public static DeadOpWithLabel()I
+.method public static deadOpWithLabel()I
   .locals 2
 
   const/4 v0, 0x1
@@ -59,7 +59,7 @@
   return v0
 .end method
 
-.method public static ReassignedInOnlyOneMultiverse(I)I
+.method public static reassignedInOnlyOneMultiverse(I)I
   .locals 2
 
   const/4 v0, 0x1
@@ -73,7 +73,7 @@
   return v0
 .end method
 
-.method public static UselessGoto()V
+.method public static uselessGoto()V
   .locals 0
 
   goto :return
@@ -82,7 +82,7 @@
   return-void
 .end method
 
-.method public static DeadTryCatchBlock()V
+.method public static deadTryCatchBlock()V
   .locals 1
 
   :try_start_1
@@ -96,25 +96,25 @@
   return-void
 .end method
 
-.method public static UnusedResultNoSideEffects()I
+.method public static unusedResultNoSideEffects()I
   .locals 1
 
   const/4 v0, 0x2
-  invoke-static {v0}, Ldead_removal_strategy_test;->AddOneNoSideEffects(I)I
+  invoke-static {v0}, Ldead_removal_strategy_test;->addOneNoSideEffects(I)I
 
   return v0
 .end method
 
-.method public static UnusedResultWithSideEffects()I
+.method public static unusedResultWithSideEffects()I
   .locals 1
 
   const/4 v0, 0x2
-  invoke-static {v0}, Ldead_removal_strategy_test;->AddOneWithSideEffects(I)I
+  invoke-static {v0}, Ldead_removal_strategy_test;->addOneWithSideEffects(I)I
 
   return v0
 .end method
 
-.method private static AddOneNoSideEffects(I)I
+.method private static addOneNoSideEffects(I)I
   .locals 0
 
   add-int/2addr p0, p0
@@ -122,16 +122,16 @@
   return p0
 .end method
 
-.method private static AddOneWithSideEffects(I)I
+.method private static addOneWithSideEffects(I)I
   .locals 0
 
-  invoke-static {}, Lunknown_class;->UnknownMethodHasSideEffects()V
+  invoke-static {}, Lunknown_class;->unknownMethodHasSideEffects()V
   add-int/2addr p0, p0
 
   return p0
 .end method
 
-.method public static MoveP0IntoV0With30Locals(I)V
+.method public static moveP0IntoV0With30Locals(I)V
     .locals 30
 
     # invoke-static needs 4 bit registers, so gotta move from p0 to v0
@@ -144,7 +144,7 @@
     return-object p0
 .end method
 
-.method public static AppendV0ToV1StringBuilderAndReturnResult()V
+.method public static appendV0ToV1StringBuilderAndReturnResult()V
   .locals 5
 
   invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;

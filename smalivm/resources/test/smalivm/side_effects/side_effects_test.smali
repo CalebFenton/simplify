@@ -3,13 +3,13 @@
 
 .field public instanceString:Ljava/lang/String;
 
-.method public static EmptyMethod()V
+.method public static emptyMethod()V
   .locals 0
 
   return-void
 .end method
 
-.method public static ConstOps()V
+.method public static constOps()V
   .locals 1
 
   const/4 v0, -0x3
@@ -28,7 +28,7 @@
   return-void
 .end method
 
-.method public static InvokeWhitelistedMethods()V
+.method public static invokeWhitelistedMethods()V
   .locals 2
 
   new-instance v0, Ljava/lang/StringBuilder;
@@ -45,14 +45,14 @@
   #return-object v1
 .end method
 
-.method public static InvokeMethodWithNoSideEffects()V
+.method public static invokeMethodWithNoSideEffects()V
   .locals 0
 
-  invoke-static {}, Lside_effects_test;->ConstOps()V
+  invoke-static {}, Lside_effects_test;->constOps()V
   return-void
 .end method
 
-.method public static NewInstanceNonLocalWhitelistedClass()V
+.method public static newInstanceNonLocalWhitelistedClass()V
   .locals 1
 
   new-instance v0, Ljava/lang/StringBuilder;
@@ -60,7 +60,15 @@
   return-void
 .end method
 
-.method public static NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V
+.method public static newInstanceOfMethodWithStaticInitializerWithNoSideEffects()V
+  .locals 1
+
+  new-instance v0, Lno_side_effect;
+
+  return-void
+.end method
+
+.method public static newInstanceOfMethodWithNoStaticInitializer()V
   .locals 1
 
   new-instance v0, Lside_effects_test;
@@ -68,24 +76,7 @@
   return-void
 .end method
 
-.method public static NewInstanceOfMethodWithNoStaticInitializer()V
-  .locals 1
-
-  new-instance v0, Lside_effects_test;
-
-  return-void
-.end method
-
-.method public static WriteOutputStream(Ljava/io/OutputStream;[B)V
-  .locals 0
-
-  invoke-virtual {p0, p1}, Ljava/io/OutputStream;->write([B)V
-  invoke-virtual {p0}, Ljava/io/OutputStream;->close()V
-
-  return-void
-.end method
-
-.method public static InvokeMethodThatInvokesUnknownMethod()V
+.method public static invokeMethodThatInvokesUnknownMethod()V
   .locals 0
 
   invoke-static {}, Lside_effects_test;->InvokeUnknownMethod()V
@@ -93,7 +84,7 @@
   return-void
 .end method
 
-.method public static InvokeUnknownMethod()V
+.method public static invokeUnknownMethod()V
   .locals 0
 
   invoke-static {}, Lthis/class/should/not/exist/refridgerator;->chill123()V
@@ -101,7 +92,7 @@
   return-void
 .end method
 
-.method public static InvokeSideEffectMethod(Ljava/io/OutputStream;[B)V
+.method public static invokeSideEffectMethod(Ljava/io/OutputStream;[B)V
   .locals 0
 
   invoke-static {p0, p1}, Lside_effects_test;->WriteOutputStream(Ljava/io/OutputStream;[B)V
@@ -109,7 +100,7 @@
   return-void
 .end method
 
-.method public static NewInstanceNonLocalNonWhitelistedClass()V
+.method public static newInstanceNonLocalNonWhitelistedClass()V
   .locals 1
 
   new-instance v0, Lsome/non/local;
@@ -117,7 +108,7 @@
   return-void
 .end method
 
-.method public static NewInstanceOfClassWithStaticInitializerWithStrongSideEffects()V
+.method public static newInstanceOfClassWithStaticInitializerWithStrongSideEffects()V
   .locals 1
 
   new-instance v0, Lstrong_side_effect;
@@ -125,7 +116,7 @@
   return-void
 .end method
 
-.method public static NewInstanceOfClassWithStaticInitializerWithWeakSideEffects()V
+.method public static newInstanceOfClassWithStaticInitializerWithWeakSideEffects()V
   .locals 1
 
   new-instance v0, Lweak_side_effect;
@@ -133,18 +124,27 @@
   return-void
 .end method
 
-.method public static InvokeOfNonAnalyzableMethod()V
+.method public static invokeOfNonAnalyzableMethod()V
   .locals 0
 
-  invoke-static {}, Lside_effects_test;->InvokeOfNonAnalyzableMethod()V
+  invoke-static {}, Lside_effects_test;->invokeOfNonAnalyzableMethod()V
 
   return-void
 .end method
 
-.method public ModifyInstanceMember()V
+.method public modifyInstanceMember()V
   .locals 2
 
   sput p0, Lside_effects_test;->instanceString:Ljava/lang/String;
+
+  return-void
+.end method
+
+.method public static writeOutputStream(Ljava/io/OutputStream;[B)V
+  .locals 0
+
+  invoke-virtual {p0, p1}, Ljava/io/OutputStream;->write([B)V
+  invoke-virtual {p0}, Ljava/io/OutputStream;->close()V
 
   return-void
 .end method

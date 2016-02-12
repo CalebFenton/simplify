@@ -20,137 +20,137 @@ public class TestSideEffects {
 
     private VirtualMachine vm;
 
+    @Test
+    public void constOpsHaveNoSideEffects() throws VirtualMachineException {
+        String methodName = "constOps()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void emptyMethodHasNoSideEffects() throws VirtualMachineException {
+        String methodName = "emptyMethod()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void invokeMethodThatInvokesUnknownMethodHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "invokeMethodThatInvokesUnknownMethod()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void invokeMethodWithNoSideEffectsHasNoSideEffects() throws VirtualMachineException {
+        String methodName = "invokeMethodWithNoSideEffects()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void invokeOfNonAnalyzableMethodHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "invokeOfNonAnalyzableMethod()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void invokeSideEffectMethodHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "invokeSideEffectMethod(Ljava/io/OutputStream;[B)V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void invokeUnknownMethodHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "invokeUnknownMethod()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void invokeWhitelistedMethodsHasNoSideEffects() throws VirtualMachineException {
+        String methodName = "invokeWhitelistedMethods()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void modifyInstanceMemberHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "modifyInstanceMember()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.WEAK, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void newInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "newInstanceNonLocalNonWhitelistedClass()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void newInstanceNonLocalWhitelistedClassHasNoSideEffects() throws VirtualMachineException {
+        String methodName = "newInstanceNonLocalWhitelistedClass()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void newInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects()
+                    throws VirtualMachineException {
+        String methodName = "newInstanceOfClassWithStaticInitializerWithStrongSideEffects()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void newInstanceOfClassWithStaticInitializerWithWeakSideEffectsHasWeakSideEffects()
+                    throws VirtualMachineException {
+        String methodName = "newInstanceOfClassWithStaticInitializerWithWeakSideEffects()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.WEAK, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void newInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() throws VirtualMachineException {
+        String methodName = "newInstanceOfMethodWithNoStaticInitializer()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
+    @Test
+    public void newInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects()
+                    throws VirtualMachineException {
+        String methodName = "newInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
+        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
+
+        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
+    }
+
     @Before
     public void setupVM() throws Exception {
         vm = VMTester.spawnVM();
     }
 
     @Test
-    public void testConstOpsHaveNoSideEffects() throws VirtualMachineException {
-        String methodName = "ConstOps()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testEmptyMethodHasNoSideEffects() throws VirtualMachineException {
-        String methodName = "EmptyMethod()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testInvokeMethodThatInvokesUnknownMethodHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeMethodThatInvokesUnknownMethod()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testInvokeMethodWithNoSideEffectsHasNoSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeMethodWithNoSideEffects()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testInvokeOfNonAnalyzableMethodHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeOfNonAnalyzableMethod()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testInvokeSideEffectMethodHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeSideEffectMethod(Ljava/io/OutputStream;[B)V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testInvokeUnknownMethodHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeUnknownMethod()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testInvokeWhitelistedMethodsHasNoSideEffects() throws VirtualMachineException {
-        String methodName = "InvokeWhitelistedMethods()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testModifyInstanceMemberHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "ModifyInstanceMember()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.WEAK, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testNewInstanceNonLocalNonWhitelistedClassHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "NewInstanceNonLocalNonWhitelistedClass()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testNewInstanceNonLocalWhitelistedClassHasNoSideEffects() throws VirtualMachineException {
-        String methodName = "NewInstanceNonLocalWhitelistedClass()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testNewInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects()
-                    throws VirtualMachineException {
-        String methodName = "NewInstanceOfClassWithStaticInitializerWithStrongSideEffects()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testNewInstanceOfClassWithStaticInitializerWithWeakSideEffectsHasWeakSideEffects()
-                    throws VirtualMachineException {
-        String methodName = "NewInstanceOfClassWithStaticInitializerWithWeakSideEffects()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.WEAK, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testNewInstanceOfMethodWithNoStaticInitializerHasNoSideEffects() throws VirtualMachineException {
-        String methodName = "NewInstanceOfMethodWithNoStaticInitializer()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testNewInstanceOfMethodWithStaticInitializerWithNoSideEffectsHasNoSideEffects()
-                    throws VirtualMachineException {
-        String methodName = "NewInstanceOfMethodWithStaticInitializerWithNoSideEffects()V";
-        ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-        assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
-    }
-
-    @Test
-    public void testWriteOutputStreamHasStrongSideEffects() throws VirtualMachineException {
-        String methodName = "WriteOutputStream(Ljava/io/OutputStream;[B)V";
+    public void writeOutputStreamHasStrongSideEffects() throws VirtualMachineException {
+        String methodName = "writeOutputStream(Ljava/io/OutputStream;[B)V";
         ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 
         assertEquals(SideEffect.Level.STRONG, graph.getHighestSideEffectLevel());

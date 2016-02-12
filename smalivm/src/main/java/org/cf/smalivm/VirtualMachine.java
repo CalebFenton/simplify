@@ -19,9 +19,8 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.smali.SmaliClassLoader;
 import org.cf.smalivm.smali.ClassManager;
-import org.cf.smalivm.type.LocalInstance;
+import org.cf.smalivm.smali.SmaliClassLoader;
 import org.cf.util.Utils;
 import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
@@ -123,12 +122,7 @@ public class VirtualMachine {
         // Assume all input values are unknown.
         boolean isStatic = Modifier.isStatic(method.getAccessFlags());
         for (String type : parameterTypes) {
-            HeapItem item;
-            if (!isStatic && (parameterRegister == firstParameter)) {
-                item = new HeapItem(new LocalInstance(type), type);
-            } else {
-                item = HeapItem.newUnknown(type);
-            }
+            HeapItem item = HeapItem.newUnknown(type);
             mState.assignParameter(parameterRegister, item);
             parameterRegister += Utils.getRegisterSize(type);
         }

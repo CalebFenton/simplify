@@ -10,6 +10,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
@@ -36,12 +37,16 @@ public class APutOpTest {
 
     private static final String CLASS_NAME = "Laput_test;";
 
-    /*
-     * test 1 - can create arrays of local class objects, e.g. [Laput_test;
-     * test 2 - arrays of local instances can be passed to methods and values are unknown
-     * real test: obad
-     */
     public static class IntegrationTest {
+
+        private VMState initial;
+        private VMState expected;
+
+        @Before
+        public void setUp() {
+            initial = new VMState();
+            expected = new VMState();
+        }
 
         @Test
         public void canInsertLocalClassAndClassIntoSameArray() throws ClassNotFoundException {
@@ -55,171 +60,156 @@ public class APutOpTest {
             ClassLoader classLoader = VMTester.spawnVM().getClassLoader();
             Class<?> value2 = classLoader.loadClass(binaryClassName);
 
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, array, arrayType, 1, index1, "I", 2,
-                            value1, valueType, 3, index2, "I", 4, value2, valueType);
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new Class<?>[] { value1, value2 },
-                            arrayType);
+            initial.setRegisters(0, array, arrayType, 1, index1, "I", 2, value1, valueType, 3, index2, "I", 4, value2,
+                            valueType);
+            expected.setRegisters(0, new Class<?>[] { value1, value2 }, arrayType);
 
-            VMTester.testMethodState(CLASS_NAME, "putObjects()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putObjects()V", initial, expected);
         }
 
         @Test
-        public void testPutBoolean() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new boolean[1], "[Z", 1, 0, "I", 2, 0x1,
-                            "Z");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new boolean[] { true }, "[Z");
+        public void canPutBoolean() {
+            initial.setRegisters(0, new boolean[1], "[Z", 1, 0, "I", 2, 0x1, "Z");
+            expected.setRegisters(0, new boolean[] { true }, "[Z");
 
-            VMTester.testMethodState(CLASS_NAME, "putBoolean()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putBoolean()V", initial, expected);
         }
 
         @Test
-        public void testPutBooleanWithShortValue() {
+        public void canPutBooleanWithShortValue() {
             Short value = 0x1;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new boolean[1], "[Z", 1, 0, "I", 2, value,
-                            "Z");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new boolean[] { true }, "[Z");
+            initial.setRegisters(0, new boolean[1], "[Z", 1, 0, "I", 2, value, "Z");
+            expected.setRegisters(0, new boolean[] { true }, "[Z");
 
-            VMTester.testMethodState(CLASS_NAME, "putBoolean()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putBoolean()V", initial, expected);
         }
 
         @Test
-        public void testPutByte() {
+        public void canPutByte() {
             Byte value = 0xf;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new byte[1], "[B", 1, 0, "I", 2, value,
-                            "B");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new byte[] { value }, "[B");
+            initial.setRegisters(0, new byte[1], "[B", 1, 0, "I", 2, value, "B");
+            expected.setRegisters(0, new byte[] { value }, "[B");
 
-            VMTester.testMethodState(CLASS_NAME, "putByte()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putByte()V", initial, expected);
         }
 
         @Test
-        public void testPutByteFromInt() {
+        public void canPutByteFromInt() {
             int value = 0xf;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new byte[1], "[B", 1, 0, "I", 2, value,
-                            "B");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new byte[] { (byte) value }, "[B");
+            initial.setRegisters(0, new byte[1], "[B", 1, 0, "I", 2, value, "B");
+            expected.setRegisters(0, new byte[] { (byte) value }, "[B");
 
-            VMTester.testMethodState(CLASS_NAME, "putByte()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putByte()V", initial, expected);
         }
 
         @Test
-        public void testPutChar() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new char[1], "[C", 1, 0, "I", 2, '$', "C");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new char[] { '$' }, "[C");
+        public void canPutChar() {
+            initial.setRegisters(0, new char[1], "[C", 1, 0, "I", 2, '$', "C");
+            expected.setRegisters(0, new char[] { '$' }, "[C");
 
-            VMTester.testMethodState(CLASS_NAME, "putChar()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putChar()V", initial, expected);
         }
 
         @Test
-        public void testPutCharFromInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new char[1], "[C", 1, 0, "I", 2,
-                            (int) '$', "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new char[] { '$' }, "[C");
+        public void canPutCharFromInt() {
+            initial.setRegisters(0, new char[1], "[C", 1, 0, "I", 2, (int) '$', "I");
+            expected.setRegisters(0, new char[] { '$' }, "[C");
 
-            VMTester.testMethodState(CLASS_NAME, "putChar()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putChar()V", initial, expected);
         }
 
         @Test
-        public void testPutIntegerWithShortIndex() {
+        public void canPutIntegerWithShortIndex() {
             Short index = 0;
-            TIntObjectMap<HeapItem> initial = VMTester
-                            .buildRegisterState(0, new int[1], "[I", 1, index, "S", 2, 4, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[] { 4 }, "[I");
+            initial.setRegisters(0, new int[1], "[I", 1, index, "S", 2, 4, "I");
+            expected.setRegisters(0, new int[] { 4 }, "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+            VMTester.test(CLASS_NAME, "put()V", initial, expected);
         }
 
         @Test
-        public void testPutObject() {
+        public void canPutObject() {
             String valueType = "Ljava/lang/String;";
             String arrayType = "[" + valueType;
             Object[] array = new String[1];
             int index = 0;
             String value = "Arrakis, Dune, desert planet...";
 
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, array, arrayType, 1, index, "I", 2, value,
-                            valueType);
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new String[] { value }, arrayType);
+            initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
+            expected.setRegisters(0, new String[] { value }, arrayType);
 
-            VMTester.testMethodState(CLASS_NAME, "putObject()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
         }
 
         @Test
-        public void testPutShort() {
+        public void canPutShort() {
             Short value = 0x42;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new short[1], "[S", 1, 0, "I", 2, value,
-                            "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new short[] { value }, "[S");
+            initial.setRegisters(0, new short[1], "[S", 1, 0, "I", 2, value, "S");
+            expected.setRegisters(0, new short[] { value }, "[S");
 
-            VMTester.testMethodState(CLASS_NAME, "putShort()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putShort()V", initial, expected);
         }
 
         @Test
-        public void testPutShortWithIntegerValue() {
+        public void canPutShortWithIntegerValue() {
             int value = 0x42;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new short[1], "[S", 1, 0, "I", 2, value,
-                            "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new short[] { (short) value }, "[S");
+            initial.setRegisters(0, new short[1], "[S", 1, 0, "I", 2, value, "I");
+            expected.setRegisters(0, new short[] { (short) value }, "[S");
 
-            VMTester.testMethodState(CLASS_NAME, "putShort()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putShort()V", initial, expected);
         }
 
         @Test
-        public void testPutUnknownValue() {
+        public void canPutUnknownValue() {
             // TODO: Ideally, setting an element unknown shouldn't set entire array unknown.
             // This is tricky to handle gracefully. See APutOp for more details.
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I", 2,
-                            new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
+            initial.setRegisters(0, new int[1], "[I", 1, 0, "I", 2, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+            VMTester.test(CLASS_NAME, "put()V", initial, expected);
         }
 
         @Test
-        public void testPutWideWithDouble() {
+        public void canPutWideWithDouble() {
             Double value = 100000000000D;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new double[1], "[D", 1, 0, "I", 2, value,
-                            "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new double[] { value }, "[D");
+            initial.setRegisters(0, new double[1], "[D", 1, 0, "I", 2, value, "D");
+            expected.setRegisters(0, new double[] { value }, "[D");
 
-            VMTester.testMethodState(CLASS_NAME, "putWide()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putWide()V", initial, expected);
         }
 
         @Test
-        public void testPutWideWithFloat() {
+        public void canPutWideWithFloat() {
             Float value = 10.45F;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new float[1], "[F", 1, 0, "I", 2, value,
-                            "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new float[] { value }, "[F");
+            initial.setRegisters(0, new float[1], "[F", 1, 0, "I", 2, value, "F");
+            expected.setRegisters(0, new float[] { value }, "[F");
 
-            VMTester.testMethodState(CLASS_NAME, "putWide()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putWide()V", initial, expected);
         }
 
         @Test
-        public void testPutWideWithLong() {
+        public void canPutWideWithLong() {
             Long value = 10000000000L;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new long[1], "[J", 1, 0, "I", 2, value,
-                            "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new long[] { value }, "[J");
+            initial.setRegisters(0, new long[1], "[J", 1, 0, "I", 2, value, "J");
+            expected.setRegisters(0, new long[] { value }, "[J");
 
-            VMTester.testMethodState(CLASS_NAME, "putWide()V", initial, expected);
+            VMTester.test(CLASS_NAME, "putWide()V", initial, expected);
         }
 
         @Test
-        public void testPutWithInteger() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, 0, "I", 2, 4, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[] { 4 }, "[I");
+        public void canPutWithInteger() {
+            initial.setRegisters(0, new int[1], "[I", 1, 0, "I", 2, 4, "I");
+            expected.setRegisters(0, new int[] { 4 }, "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+            VMTester.test(CLASS_NAME, "put()V", initial, expected);
         }
 
         @Test
-        public void testPutWithUnknownIndex() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[1], "[I", 1, new UnknownValue(),
-                            "I", 2, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
+        public void canPutWithUnknownIndex() {
+            initial.setRegisters(0, new int[1], "[I", 1, new UnknownValue(), "I", 2, 5, "I");
+            expected.setRegisters(0, new UnknownValue(), "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "put()V", initial, expected);
+            VMTester.test(CLASS_NAME, "put()V", initial, expected);
         }
     }
 

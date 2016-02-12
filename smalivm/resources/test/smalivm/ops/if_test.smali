@@ -1,7 +1,7 @@
 .class Lif_test;
 .super Ljava/lang/Object;
 
-.method public static IfEqual()V
+.method public static ifEqual()V
     .locals 2
 
     if-eq v0, v1, :end
@@ -12,7 +12,7 @@
     return-void
 .end method
 
-.method public static IfNotEqual()V
+.method public static ifNotEqual()V
     .locals 2
 
     if-ne v0, v1, :end
@@ -23,7 +23,7 @@
     return-void
 .end method
 
-.method public static IfLessThan()V
+.method public static ifLessThan()V
     .locals 2
 
     if-lt v0, v1, :end
@@ -34,7 +34,7 @@
     return-void
 .end method
 
-.method public static IfGreaterOrEqual()V
+.method public static ifGreaterOrEqual()V
     .locals 2
 
     if-ge v0, v1, :end
@@ -45,7 +45,7 @@
     return-void
 .end method
 
-.method public static IfGreaterThan()V
+.method public static ifGreaterThan()V
     .locals 2
 
     if-gt v0, v1, :end
@@ -56,7 +56,7 @@
     return-void
 .end method
 
-.method public static IfLessOrEqual()V
+.method public static ifLessOrEqual()V
     .locals 2
 
     if-le v0, v1, :end
@@ -67,7 +67,7 @@
     return-void
 .end method
 
-.method public static IfEqualZero()V
+.method public static ifEqualZero()V
     .locals 1
 
     if-eqz v0, :end
@@ -78,7 +78,7 @@
     return-void
 .end method
 
-.method public static IfNotEqualZero()V
+.method public static ifNotEqualZero()V
     .locals 1
 
     if-nez v0, :end
@@ -89,7 +89,7 @@
     return-void
 .end method
 
-.method public static IfLessThanZero()V
+.method public static ifLessThanZero()V
     .locals 1
 
     if-ltz v0, :end
@@ -100,7 +100,7 @@
     return-void
 .end method
 
-.method public static IfGreaterOrEqualZero()V
+.method public static ifGreaterOrEqualZero()V
     .locals 1
 
     if-gez v0, :end
@@ -110,7 +110,7 @@
     :end
     return-void
 .end method
-.method public static IfGreaterThanZero()V
+.method public static ifGreaterThanZero()V
     .locals 1
 
     if-gtz v0, :end
@@ -121,7 +121,7 @@
     return-void
 .end method
 
-.method public static IfLessOrEqualZero()V
+.method public static ifLessOrEqualZero()V
     .locals 1
 
     if-lez v0, :end
@@ -132,7 +132,7 @@
     return-void
 .end method
 
-.method public static IfEqIntToByte()V
+.method public static ifEqIntToByte()V
     .locals 2
 
     aget-byte v2, v1, v0
@@ -146,7 +146,7 @@
     return-void
 .end method
 
-.method public static IfEqByteToInt()V
+.method public static ifEqByteToInt()V
     .locals 2
 
     aget-byte v2, v1, v0

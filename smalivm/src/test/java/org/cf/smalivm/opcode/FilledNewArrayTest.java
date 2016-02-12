@@ -10,6 +10,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
@@ -39,49 +40,54 @@ public class FilledNewArrayTest {
     public static class IntegrationTest {
 
         private static final String CLASS_NAME = "Lfilled_new_array_test;";
-        private static final String METHOD_NAME = "TestFilledNewArray()V";
+        private static final String METHOD_NAME = "filledNewArray()V";
+
+        private VMState expected;
+        private VMState initial;
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
 
         @Test
         public void testIntegerParametersCreatesArrayWithExpectedContents() {
             int[] elements = new int[] { 2, 3, 5 };
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, elements[0], "I", 1, elements[1], "I", 2,
-                            elements[2], "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister, elements, "[I");
+            initial.setRegisters(0, elements[0], "I", 1, elements[1], "I", 2, elements[2], "I");
+            expected.setRegisters(MethodState.ResultRegister, elements, "[I");
 
-            VMTester.testMethodState(CLASS_NAME, METHOD_NAME, initial, expected);
+            VMTester.test(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
         public void testNewArrayRangeWithIntegerParametersCreatesArrayWithExpectedContents() {
             int[] elements = new int[] { 2, 3, 5, 7, 11, 13 };
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, elements[0], "I", 1, elements[1], "I", 2,
-                            elements[2], "I", 3, elements[3], "I", 4, elements[4], "I", 5, elements[5], "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister, elements, "[I");
+            initial.setRegisters(0, elements[0], "I", 1, elements[1], "I", 2, elements[2], "I", 3, elements[3], "I", 4,
+                            elements[4], "I", 5, elements[5], "I");
+            expected.setRegisters(MethodState.ResultRegister, elements, "[I");
 
-            VMTester.testMethodState(CLASS_NAME, "TestFilledNewArrayRange()V", initial, expected);
+            VMTester.test(CLASS_NAME, "filledNewArrayRange()V", initial, expected);
         }
 
         @Test
         public void testShortParametersCreatesArrayWithExpectedContents() {
             Short[] elements = new Short[] { 2, 3, 5 };
             int[] intElements = new int[] { 2, 3, 5 };
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, elements[0], "S", 1, elements[1], "S", 2,
-                            elements[2], "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister, intElements,
-                            "[I");
+            initial.setRegisters(0, elements[0], "S", 1, elements[1], "S", 2, elements[2], "S");
+            expected.setRegisters(MethodState.ResultRegister, intElements, "[I");
 
-            VMTester.testMethodState(CLASS_NAME, METHOD_NAME, initial, expected);
+            VMTester.test(CLASS_NAME, METHOD_NAME, initial, expected);
         }
 
         @Test
         public void testUnknownElementParameterReturnsUnknownValueOfIntegerArrayType() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 2, "I", 1, 3, "I", 2, new UnknownValue(),
-                            "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(MethodState.ResultRegister,
-                            new UnknownValue(), "[I");
+            initial.setRegisters(0, 2, "I", 1, 3, "I", 2, new UnknownValue(), "I");
+            expected.setRegisters(MethodState.ResultRegister, new UnknownValue(), "[I");
 
-            VMTester.testMethodState(CLASS_NAME, METHOD_NAME, initial, expected);
+            VMTester.test(CLASS_NAME, METHOD_NAME, initial, expected);
         }
+
     }
 
     @RunWith(MockitoJUnitRunner.class)
@@ -246,6 +252,7 @@ public class FilledNewArrayTest {
 
             verify(mState, times(1)).assignResultRegister(eq(expected), eq("[I"));
         }
+
     }
 
     @RunWith(MockitoJUnitRunner.class)
@@ -340,6 +347,7 @@ public class FilledNewArrayTest {
             }
             verify(mState, times(1)).assignResultRegister(eq(expected), eq("[I"));
         }
+
     }
 
 }

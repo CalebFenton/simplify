@@ -1,4 +1,4 @@
-.class Lno_side_effects;
+.class Lno_side_effect;
 .super Ljava/lang/Object;
 
 .method public static constructor <clinit>()V

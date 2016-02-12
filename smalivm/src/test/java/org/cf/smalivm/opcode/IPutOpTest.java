@@ -90,4 +90,5 @@ public class IPutOpTest {
         verify(mState, times(1)).assignRegister(eq(REGISTER_B), any(HeapItem.class));
         assertEquals("iput r" + REGISTER_A + ", r" + REGISTER_B + ", Lsome/class;->someMethod:I", op.toString());
     }
+
 }

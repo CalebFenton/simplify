@@ -2,34 +2,38 @@ package org.cf.smalivm.opcode;
 
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import gnu.trove.map.TIntObjectMap;
 
 import java.util.Arrays;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.junit.Before;
 import org.junit.Test;
 
 public class MoveOpTest {
 
     private static final String CLASS_NAME = "Lmove_test;";
 
-    @Test
-    public void testMoveException() {
-        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "Ljava/lang/Exception;");
+    private VMState expected;
+    private VMState initial;
 
-        VMTester.testMethodState(CLASS_NAME, "TestMoveException()V", expected);
+    @Test
+    public void canMoveException() {
+        expected.setRegisters(0, new UnknownValue(), "Ljava/lang/Exception;");
+
+        VMTester.test(CLASS_NAME, "moveException()V", expected);
     }
 
     @Test
-    public void testMoveRegisterObject() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new Object(), "Ljava/lang/Object;");
+    public void canMoveRegisterObject() {
+        initial.setRegisters(0, new Object(), "Ljava/lang/Object;");
 
         // Must invoke VM directly to ensure reference identity
-        ExecutionGraph graph = VMTester.execute(CLASS_NAME, "TestMoveRegisterObject()V", initial);
+        ExecutionGraph graph = VMTester.execute(CLASS_NAME, "moveRegisterObject()V", initial);
         int[] addresses = graph.getConnectedTerminatingAddresses();
         assertTrue("Should terminate when expected: " + Arrays.toString(addresses) + " == {1}",
                         Arrays.equals(addresses, new int[] { 1 }));
@@ -42,19 +46,25 @@ public class MoveOpTest {
     }
 
     @Test
-    public void testMoveRegisterPrimitive() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 42, "I");
-        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 42, "I", 1, 42, "I");
+    public void canMoveRegisterPrimitive() {
+        initial.setRegisters(0, 42, "I");
+        expected.setRegisters(0, 42, "I", 1, 42, "I");
 
-        VMTester.testMethodState(CLASS_NAME, "TestMoveRegisterPrimitive()V", initial, expected);
+        VMTester.test(CLASS_NAME, "moveRegisterPrimitive()V", initial, expected);
     }
 
     @Test
-    public void testMoveResult() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(MethodState.ResultRegister, 42, "I");
-        TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 42, "I");
+    public void canMoveResult() {
+        initial.setRegisters(MethodState.ResultRegister, 42, "I");
+        expected.setRegisters(0, 42, "I");
 
-        VMTester.testMethodState(CLASS_NAME, "TestMoveResult()V", initial, expected);
+        VMTester.test(CLASS_NAME, "moveResult()V", initial, expected);
+    }
+
+    @Before
+    public void setUp() {
+        expected = new VMState();
+        initial = new VMState();
     }
 
 }

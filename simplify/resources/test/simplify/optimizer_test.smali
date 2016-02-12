@@ -1,7 +1,7 @@
 .class Loptimizer_test;
 .super Ljava/lang/Object;
 
-.method public static SimpleLoop()I
+.method public static simpleLoop()I
   .locals 2
 
   const/4 v0, 0x1
@@ -18,7 +18,7 @@
 
 # The move-objects aren't me trolling. They're from unoptimized dx output.
 # They're useful for breaking some assumptions, so they're kept.
-.method public static StringBuilderHelloWorld()Ljava/lang/String;
+.method public static stringBuilderHelloWorld()Ljava/lang/String;
     .locals 5
 
     .prologue
@@ -129,7 +129,7 @@
 
 
 # index out of bounds
-.method public static CatchThingy()V
+.method public static catchThingy()V
     .locals 1
 
     :try_start_0
@@ -148,7 +148,7 @@
 .end method
 
 # direct methods
-.method public static TroubleTry()I
+.method public static troubleTry()I
     .locals 8
 
     const/4 v5, 0x4

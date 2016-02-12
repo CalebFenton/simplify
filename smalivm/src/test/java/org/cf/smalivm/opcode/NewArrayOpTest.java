@@ -9,12 +9,12 @@ import static org.mockito.Mockito.when;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
@@ -32,6 +32,77 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class NewArrayOpTest {
 
+    public static class IntegrationTest {
+
+        private static final String CLASS_NAME = "Lnew_array_test;";
+
+        private VMState expected;
+        private VMState initial;
+
+        @Test
+        public void canCreate2DIntegerArray() {
+            int length = 3;
+            initial.setRegisters(0, length, "I");
+            expected.setRegisters(0, new int[length][], "[[I");
+
+            VMTester.test(CLASS_NAME, "create2DIntegerArray()V", initial, expected);
+        }
+
+        @Test
+        public void canCreate2DLocalInstanceArray() {
+            int length = 5;
+            initial.setRegisters(0, length, "I");
+            LocalInstance[][] instances = new LocalInstance[length][];
+            expected.setRegisters(0, instances, "[[" + CLASS_NAME);
+
+            VMTester.test(CLASS_NAME, "create2DLocalInstanceArray()V", initial, expected);
+        }
+
+        @Test
+        public void canCreateIntegerArray() {
+            int length = 1;
+            initial.setRegisters(0, length, "I");
+            expected.setRegisters(0, new int[length], "[I");
+
+            VMTester.test(CLASS_NAME, "createIntegerArray()V", initial, expected);
+        }
+
+        @Test
+        public void canCreateIntegerArrayWithShortTypeLengthValue() {
+            Short length = 1;
+            initial.setRegisters(0, length, "S");
+            expected.setRegisters(0, new int[length.intValue()], "[I");
+
+            VMTester.test(CLASS_NAME, "createIntegerArray()V", initial, expected);
+        }
+
+        @Test
+        public void canCreateIntegerArrayWithUnkonwnLengthValue() {
+            Object length = new UnknownValue();
+            initial.setRegisters(0, length, "I");
+            expected.setRegisters(0, length, "[I");
+
+            VMTester.test(CLASS_NAME, "createIntegerArray()V", initial, expected);
+        }
+
+        @Test
+        public void canCreateLocalInstanceArray() {
+            int length = 1;
+            initial.setRegisters(0, length, "I");
+            LocalInstance[] instances = new LocalInstance[length];
+            expected.setRegisters(0, instances, "[" + CLASS_NAME);
+
+            VMTester.test(CLASS_NAME, "createLocalInstanceArray()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
+
+    }
+
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
@@ -39,51 +110,13 @@ public class NewArrayOpTest {
         private static final int SIZE_REGISTER = 4;
 
         private TIntObjectMap<MethodLocation> addressToLocation;
+        private Configuration configuration;
         private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
         private NewArrayOp op;
         private NewArrayOpFactory opFactory;
         private VirtualMachine vm;
-        private Configuration configuration;
-
-        @Before
-        public void setUp() {
-            vm = mock(VirtualMachine.class);
-
-            configuration = mock(Configuration.class);
-            when(vm.getConfiguration()).thenReturn(configuration);
-
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            location = mock(MethodLocation.class);
-            when(location.getCodeAddress()).thenReturn(ADDRESS);
-
-            addressToLocation = new TIntObjectHashMap<MethodLocation>();
-            addressToLocation.put(ADDRESS, location);
-
-            opFactory = new NewArrayOpFactory();
-        }
-
-        private void setupInstruction(BuilderInstruction instruction, Opcode opcode) {
-            when(location.getInstruction()).thenReturn(instruction);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(opcode);
-        }
-
-        private BuilderInstruction22c buildInstruction22c(Opcode opcode, String type) {
-            BuilderInstruction22c instruction = mock(BuilderInstruction22c.class);
-            setupInstruction(instruction, opcode);
-
-            when(((Instruction22c) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
-            when(((Instruction22c) instruction).getRegisterB()).thenReturn(SIZE_REGISTER);
-            TypeReference reference = mock(TypeReference.class);
-            when(reference.getType()).thenReturn(type);
-            when(instruction.getReference()).thenReturn(reference);
-
-            return instruction;
-        }
 
         @Test
         public void canCreateNewArray() throws ClassNotFoundException {
@@ -115,66 +148,42 @@ public class NewArrayOpTest {
             VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
-    }
+        @Before
+        public void setUp() {
+            vm = mock(VirtualMachine.class);
 
-    public static class IntegrationTest {
+            configuration = mock(Configuration.class);
+            when(vm.getConfiguration()).thenReturn(configuration);
 
-        private static final String CLASS_NAME = "Lnew_array_test;";
+            mState = mock(MethodState.class);
+            node = mock(ExecutionNode.class);
+            location = mock(MethodLocation.class);
+            when(location.getCodeAddress()).thenReturn(ADDRESS);
 
-        @Test
-        public void canCreateIntegerArray() {
-            int length = 1;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[length], "[I");
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
-            VMTester.testMethodState(CLASS_NAME, "createIntegerArray()V", initial, expected);
+            opFactory = new NewArrayOpFactory();
         }
 
-        @Test
-        public void canCreate2DIntegerArray() {
-            int length = 3;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[length][], "[[I");
+        private BuilderInstruction22c buildInstruction22c(Opcode opcode, String type) {
+            BuilderInstruction22c instruction = mock(BuilderInstruction22c.class);
+            setupInstruction(instruction, opcode);
 
-            VMTester.testMethodState(CLASS_NAME, "create2DIntegerArray()V", initial, expected);
+            when(((Instruction22c) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
+            when(((Instruction22c) instruction).getRegisterB()).thenReturn(SIZE_REGISTER);
+            TypeReference reference = mock(TypeReference.class);
+            when(reference.getType()).thenReturn(type);
+            when(instruction.getReference()).thenReturn(reference);
+
+            return instruction;
         }
 
-        @Test
-        public void canCreateIntegerArrayWithUnkonwnLengthValue() {
-            Object length = new UnknownValue();
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, length, "[I");
-
-            VMTester.testMethodState(CLASS_NAME, "createIntegerArray()V", initial, expected);
-        }
-
-        @Test
-        public void canCreateIntegerArrayWithShortTypeLengthValue() {
-            Short length = 1;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new int[length.intValue()], "[I");
-
-            VMTester.testMethodState(CLASS_NAME, "createIntegerArray()V", initial, expected);
-        }
-
-        @Test
-        public void canCreateLocalInstanceArray() {
-            int length = 1;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
-            LocalInstance[] instances = new LocalInstance[length];
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, instances, "[" + CLASS_NAME);
-
-            VMTester.testMethodState(CLASS_NAME, "createLocalInstanceArray()V", initial, expected);
-        }
-
-        @Test
-        public void canCreate2DLocalInstanceArray() {
-            int length = 5;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, length, "I");
-            LocalInstance[][] instances = new LocalInstance[length][];
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, instances, "[[" + CLASS_NAME);
-
-            VMTester.testMethodState(CLASS_NAME, "create2DLocalInstanceArray()V", initial, expected);
+        private void setupInstruction(BuilderInstruction instruction, Opcode opcode) {
+            when(location.getInstruction()).thenReturn(instruction);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(instruction.getOpcode()).thenReturn(opcode);
         }
 
     }

@@ -22,7 +22,6 @@ import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.smali.ClassManager;
-import org.cf.smalivm.type.LocalInstance;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -368,12 +367,7 @@ public class InvokeOp extends ExecutionContextOp {
      * points to the implementing class.
      */
     private @Nullable String resolveVirtualMethod(Object virtualTarget) {
-        String virtualType;
-        if (virtualTarget instanceof LocalInstance) {
-            virtualType = ((LocalInstance) virtualTarget).getName();
-        } else {
-            virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
-        }
+        String virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
         String methodSignature = methodDescriptor.split("->")[1];
         ClassManager classManager = vm.getClassManager();
         String targetMethod = resolveVirtualMethod(virtualType, methodSignature, classManager, new HashSet<String>(4));

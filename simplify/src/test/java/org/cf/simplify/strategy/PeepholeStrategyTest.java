@@ -2,12 +2,10 @@ package org.cf.simplify.strategy;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import gnu.trove.map.TIntObjectMap;
 
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
-import org.cf.smalivm.VMTester;
-import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -33,7 +31,8 @@ public class PeepholeStrategyTest {
     private static final Logger log = LoggerFactory.getLogger(PeepholeStrategyTest.class.getSimpleName());
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(args);
+        VMState initial = new VMState();
+        initial.setRegisters(args);
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
         PeepholeStrategy strategy = new PeepholeStrategy(manipulator);
         strategy.perform();
@@ -41,12 +40,12 @@ public class PeepholeStrategyTest {
         return manipulator;
     }
 
-    public static class TestConstantPredicate {
+    public static class ConstantPredicate {
 
         private static final String METHOD_NAME = "constantPredicate()I";
 
         @Test
-        public void testConstantPredicateReplacedWithUnconditionalBranch() {
+        public void constantPredicateReplacedWithUnconditionalBranch() {
             // I say phrases like "unconditional branch" instead of "goto".
             // I'm also a riot at dinner parties.
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME);
@@ -59,7 +58,7 @@ public class PeepholeStrategyTest {
 
     }
 
-    public static class TestReplaceClassForName {
+    public static class ReplaceClassForName {
 
         private static final int ADDRESS = 0;
         private static final String METHOD_NAME = "classForName()V";
@@ -101,10 +100,10 @@ public class PeepholeStrategyTest {
         }
     }
 
-    public static class TestRemoveUselessCheckCast {
+    public static class RemoveUselessCheckCast {
 
         @Test
-        public void testUselessCheckCastIsRemoved() {
+        public void uselessCheckCastIsRemoved() {
             String methodName = "uselessCheckCast(I)V";
             ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, 0, "I");
 
@@ -113,7 +112,7 @@ public class PeepholeStrategyTest {
         }
 
         @Test
-        public void testUselessCheckCastWithMultiplePathsIsRemoved() {
+        public void uselessCheckCastWithMultiplePathsIsRemoved() {
             String methodName = "uselessCheckCastWithMultiplePaths(I)V";
             ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new UnknownValue(), "I");
 
@@ -125,7 +124,7 @@ public class PeepholeStrategyTest {
         }
 
         @Test
-        public void testActiveCheckCastIsNotRemoved() {
+        public void activeCheckCastIsNotRemoved() {
             String methodName = "activeCheckCast(Ljava/lang/Object;)V";
             ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new UnknownValue(),
                             "Ljava/lang/Object;");
@@ -136,7 +135,7 @@ public class PeepholeStrategyTest {
         }
 
         @Test
-        public void testActiveCheckCastWithMultiplePathsIsNotRemoved() {
+        public void activeCheckCastWithMultiplePathsIsNotRemoved() {
             String methodName = "activeCheckCastWithMultiplePaths(Ljava/lang/Object;)V";
             ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName, 0, new UnknownValue(),
                             "Ljava/lang/Object;");
@@ -152,7 +151,7 @@ public class PeepholeStrategyTest {
         }
     }
 
-    public static class TestStringInit {
+    public static class StringInit {
 
         private static final int ADDRESS = 0;
         private static final String METHOD_NAME = "stringInit()V";
@@ -171,12 +170,12 @@ public class PeepholeStrategyTest {
         }
 
         @Test
-        public void testStringInitWithKnownStringIsReplaced() {
+        public void stringInitWithKnownStringIsReplaced() {
             testForExpectedInstruction(ZENSUNNI_POEM.getBytes(), ZENSUNNI_POEM);
         }
 
         @Test
-        public void testStringInitWithUnknownValueIsNotReplaced() {
+        public void stringInitWithUnknownValueIsNotReplaced() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, new UninitializedInstance(
                             "Ljava/lang/String;"), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
             Instruction35c instruction = (Instruction35c) manipulator.getInstruction(ADDRESS);
@@ -184,6 +183,7 @@ public class PeepholeStrategyTest {
 
             assertEquals("Ljava/lang/String;-><init>([B)V", methodDescriptor);
         }
+
     }
 
 }

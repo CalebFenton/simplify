@@ -1,79 +1,77 @@
 package org.cf.smalivm.opcode;
 
-import gnu.trove.map.TIntObjectMap;
-
-import java.util.Map;
-
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.context.HeapItem;
+import org.junit.Before;
 import org.junit.Test;
 
 public class SPutOpTest {
 
     private static final String CLASS_NAME = "Lsput_test;";
 
-    @Test
-    public void testStaticPutBoolean() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, true, "Z");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myBoolean:Z", true);
+    private VMState expected;
+    private VMState initial;
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutBoolean()V", initial, classNameToExpectedFieldValue);
+    @Test
+    public void putStaticBoolean() {
+        initial.setRegisters(0, true, "Z");
+        expected.setFields(CLASS_NAME, "myBoolean:Z", true);
+
+        VMTester.test(CLASS_NAME, "putStaticBoolean()V", initial, expected);
     }
 
     @Test
-    public void testStaticPutByte() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, (byte) 0xFF, "B");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myByte:B", (byte) 0xFF);
+    public void putStaticByte() {
+        initial.setRegisters(0, (byte) 0xFF, "B");
+        expected.setFields(CLASS_NAME, "myByte:B", (byte) 0xFF);
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutByte()V", initial, classNameToExpectedFieldValue);
+        VMTester.test(CLASS_NAME, "putStaticByte()V", initial, expected);
     }
 
     @Test
-    public void testStaticPutChar() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, '!', "C");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myChar:C", '!');
+    public void putStaticChar() {
+        initial.setRegisters(0, '!', "C");
+        expected.setFields(CLASS_NAME, "myChar:C", '!');
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutChar()V", initial, classNameToExpectedFieldValue);
+        VMTester.test(CLASS_NAME, "putStaticChar()V", initial, expected);
     }
 
     @Test
-    public void testStaticPutInt() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x42, "I");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myInt:I", 0x42);
+    public void putStaticInt() {
+        initial.setRegisters(0, 0x42, "I");
+        expected.setFields(CLASS_NAME, "myInt:I", 0x42);
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutInt()V", initial, classNameToExpectedFieldValue);
+        VMTester.test(CLASS_NAME, "putStaticInt()V", initial, expected);
     }
 
     @Test
-    public void testStaticPutObject() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "Do not pray for an easy life",
-                        "Ljava/lang/String;");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myString:Ljava/lang/String;", "Do not pray for an easy life");
+    public void putStaticObject() {
+        initial.setRegisters(0, "Do not pray for an easy life", "Ljava/lang/String;");
+        expected.setFields(CLASS_NAME, "myString:Ljava/lang/String;", "Do not pray for an easy life");
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutObject()V", initial, classNameToExpectedFieldValue);
+        VMTester.test(CLASS_NAME, "putStaticObject()V", initial, expected);
     }
 
     @Test
-    public void testStaticPutShort() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, (short) 0x4242, "S");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myShort:S", (short) 0x4242);
+    public void putStaticShort() {
+        initial.setRegisters(0, (short) 0x4242, "S");
+        expected.setFields(CLASS_NAME, "myShort:S", (short) 0x4242);
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutShort()V", initial, classNameToExpectedFieldValue);
+        VMTester.test(CLASS_NAME, "putStaticShort()V", initial, expected);
     }
 
     @Test
-    public void testStaticPutWide() {
-        TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0xFFFFFFFFFL, "J");
-        Map<String, Map<String, HeapItem>> classNameToExpectedFieldValue = VMTester.buildClassNameToFieldItem(
-                        CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);
+    public void putStaticWide() {
+        initial.setRegisters(0, 0xFFFFFFFFFL, "J");
+        expected.setFields(CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);
 
-        VMTester.testClassState(CLASS_NAME, "TestStaticPutWide()V", initial, classNameToExpectedFieldValue);
+        VMTester.test(CLASS_NAME, "putStaticWide()V", initial, expected);
+    }
+
+    @Before
+    public void setUp() {
+        expected = new VMState();
+        initial = new VMState();
     }
 
 }

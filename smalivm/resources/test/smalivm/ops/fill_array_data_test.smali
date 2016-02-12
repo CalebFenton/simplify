@@ -1,7 +1,7 @@
 .class Lfill_array_data_test;
 .super Ljava/lang/Object;
 
-.method public static TestFillArrayDataInt()V
+.method public static fillArrayDataInt()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -18,7 +18,7 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataLong()V
+.method public static fillArrayDataLong()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -32,7 +32,7 @@
         0x3L
     .end array-data
 .end method
-.method public static TestFillArrayDataBoolean()V
+.method public static fillArrayDataBoolean()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -48,7 +48,7 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataByte()V
+.method public static fillArrayDataByte()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -64,7 +64,7 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataChar()V
+.method public static fillArrayDataChar()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -79,7 +79,7 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataShort()V
+.method public static fillArrayDataShort()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -94,7 +94,7 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataFloat()V
+.method public static fillArrayDataFloat()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -108,7 +108,7 @@
     .end array-data
 .end method
 
-.method public static TestFillArrayDataDouble()V
+.method public static fillArrayDataDouble()V
     .locals 1
 
     fill-array-data v0, :array_0

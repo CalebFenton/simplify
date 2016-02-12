@@ -10,31 +10,31 @@
     return-void
 .end method
 
-.method public static InvokeReturnVoid()V
+.method public static invokeReturnVoid()V
   .locals 1
 
-  invoke-virtual {v0}, Linvoke_virtual_test;->ReturnVoid()V
+  invoke-virtual {v0}, Linvoke_virtual_test;->returnVoid()V
 
   return-void
 .end method
 
-.method public static InvokeReturnInt()V
+.method public static invokeReturnInt()V
   .locals 1
 
-  invoke-virtual {v0}, Linvoke_virtual_test;->ReturnInt()I
+  invoke-virtual {v0}, Linvoke_virtual_test;->returnInt()I
 
   return-void
 .end method
 
-.method public static InvokeReturnParameter()V
+.method public static invokeReturnParameter()V
   .locals 2
 
-  invoke-virtual {v0, v1}, Linvoke_virtual_test;->ReturnParameter(I)I
+  invoke-virtual {v0, v1}, Linvoke_virtual_test;->returnParameter(I)I
 
   return-void
 .end method
 
-.method public static InvokeGetComponentType()V
+.method public static invokeGetComponentType()V
   .locals 1
 
   const-class v0, [I
@@ -43,7 +43,7 @@
   return-void
 .end method
 
-.method public static InvokeRangeManyParameters()V
+.method public static invokeRangeManyParameters()V
   .locals 8
 
   # v0 - instance
@@ -51,18 +51,18 @@
   # v2+v3 - J
   # v4+v5 - J
   # v6+v7 - J
-  invoke-virtual/range {v0 .. v7}, Linvoke_virtual_test;->ManyParametersReturnsLast(JJJI)I
+  invoke-virtual/range {v0 .. v7}, Linvoke_virtual_test;->manyParametersReturnsLast(JJJI)I
 
   return-void
 .end method
 
-.method private ReturnVoid()V
+.method private returnVoid()V
     .locals 0
 
     return-void
 .end method
 
-.method private ReturnInt()I
+.method private returnInt()I
     .locals 1
 
     const/4 v0, 0x7
@@ -70,7 +70,7 @@
     return v0
 .end method
 
-.method private ReturnParameter(I)I
+.method private returnParameter(I)I
     .locals 1
 
     move v0, p1
@@ -78,7 +78,7 @@
     return v0
 .end method
 
-.method private ManyParametersReturnsLast(JJJI)I
+.method private manyParametersReturnsLast(JJJI)I
   .locals 0
 
   return v7

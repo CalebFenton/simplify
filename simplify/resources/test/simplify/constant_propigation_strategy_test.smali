@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 # TODO: Long, Float, Double, Byte, Char, Class and String
-.method public static AddInt2Addr()V
+.method public static addInt2Addr()V
   .locals 1
 
   add-int/2addr v0, v0
@@ -10,7 +10,7 @@
   return-void
 .end method
 
-.method public static MoveV0IntoV1()V
+.method public static moveV0IntoV1()V
   .locals 2
 
   move v1, v0
@@ -18,7 +18,7 @@
   return-void
 .end method
 
-.method public static InvokeIntegerMethods()I
+.method public static invokeIntegerMethods()I
   .locals 2
 
   new-instance v0, Ljava/lang/Integer;
@@ -30,7 +30,7 @@
   return v0
 .end method
 
-.method public static UseAddParameterToZero(I)I
+.method public static useAddParameterToZero(I)I
   .locals 1
 
   const/4 v0, 0x0
@@ -39,7 +39,7 @@
   return v0
 .end method
 
-.method public static StaticGetIntegerMaxValue()V
+.method public static getStaticIntegerMaxValue()V
   .locals 1
 
   sget v0, Ljava/lang/Integer;->MAX_VALUE:I
@@ -47,7 +47,7 @@
   return-void
 .end method
 
-.method public static ArrayGetFromV0AtV1ToV0()V
+.method public static arrayGetFromV0AtV1ToV0()V
   .locals 2
 
   aget v0, v0, v1
@@ -55,7 +55,7 @@
   return-void
 .end method
 
-.method public static NonDeterministicallyStaticGetIntegerMaxValue(I)V
+.method public static nonDeterministicallyStaticGetIntegerMaxValue(I)V
   .locals 1
 
   if-eqz p0, :end
@@ -66,7 +66,7 @@
   return-void
 .end method
 
-.method private static AddSelfNoSideEffects(I)I
+.method private static addSelfNoSideEffects(I)I
   .locals 0
 
   add-int/2addr p0, p0
@@ -74,16 +74,16 @@
   return p0
 .end method
 
-.method private static AddSelfWithSideEffects(I)I
+.method private static addSelfWithSideEffects(I)I
   .locals 0
 
-  invoke-static {}, Lunknown_class;->UnknownMethodHasSideEffects()V
+  invoke-static {}, Lunknown_class;->unknownMethodHasSideEffects()V
   add-int/2addr p0, p0
 
   return p0
 .end method
 
-.method private static IntegerValueOf()Ljava/lang/Integer;
+.method private static integerValueOf()Ljava/lang/Integer;
   .locals 1
 
   invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;

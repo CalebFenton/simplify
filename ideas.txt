@@ -1,7 +1,5 @@
 # IDEA SCRATCH PAD
 
-check that immutable classes aren't cloned
-
 Debugger
   next / previous(!)
   show local code
@@ -42,13 +40,14 @@ Hygene
     Obfuscated example does this in reflected field lookups
 
 
-Profiling
+Profiling Feature
   record each method descriptor and the number of times it was called
 
   filter for only method descriptors which have a pattern
 
   record only methods that failed, methods that could be whitelisted
 
+Making Hooking easier.
 
 Emulate
   System.exit() to halt the execution path
@@ -122,8 +121,6 @@ invoke-static {v1}, Ldoes/not/exist;->howdy(Ljava/lang/Integer;)V
 assumeMaxUnknown for invokeop wont work for LocalInstance.isInitialized == false, add tests
 boolean isInitializing = methodDescriptor.contains(";-><init>(") && ((value instanceof UninitializedInstance));
 
-new-array op looks buggy when determing if it's local. input smali should override framework.
-
 LocalTypes should not need to contain what kind of type they are?
 
 test aput for non-Number values, e.g. boolean and character into an int array, but see if dalvik handles it properly first
@@ -159,8 +156,10 @@ catch unhandled virtual exceptions in invokeop
 set THOSE as the exceptions, clear children, return
 make notes saying that just because eomething is unhandled doesn't mean if there's an actual context for a method instead of just starting it at the root then it might be a handled exception
 
+Cloner is not aware of many immutable classes. The problem is this is a micro optimization that has no obvious, clear way around. You need to give it class objects to ignore as immutable, which aren't available without a VM with a SmaliClassLoader that knows where the classes are.
+
 
 Success stories:
-  * java -jar simplify/build/libs/simplify-0.1.0-all.jar -i 6247332 -it 'Configs;-><clinit>'
-  * java -Xmx6g -jar simplify/build/libs/simplify-0.1.0-all.jar -i 7958300/smali -it '/smv;'
-  * java -jar build/libs/simplify-0.1.0-all.jar -i sandbox/8748278/ -it Acgt -v
+  * java -jar build/libs/simplify.jar sandbox/6247332 -it 'Configs;-><clinit>'
+  * java -Xmx6g -jar build/libs/simplify.jar sandbox/7958300/smali -it '/smv;'
+  * java -jar build/libs/simplify.jar sandbox/8748278/ -it Acgt -v

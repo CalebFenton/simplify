@@ -6,7 +6,6 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.jf.dexlib2.builder.MethodLocation;
 
@@ -14,8 +13,8 @@ public class NewInstanceOp extends ExecutionContextOp {
 
     private final String className;
     private final int destRegister;
-    private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
+    private SideEffect.Level sideEffectLevel;
 
     NewInstanceOp(MethodLocation location, MethodLocation child, int destRegister, String className, VirtualMachine vm) {
         super(location, child);
@@ -28,17 +27,13 @@ public class NewInstanceOp extends ExecutionContextOp {
 
     @Override
     public void execute(ExecutionNode node, ExecutionContext ectx) {
-        Object instance = null;
+        Object instance = new UninitializedInstance(className);
         if (vm.shouldTreatAsLocal(className)) {
             // New-instance causes static initialization (but not new-array!)
             ectx.readClassState(className); // access will initialize if necessary
             sideEffectLevel = ectx.getClassSideEffectLevel(className);
-            instance = new LocalInstance(className);
-        } else {
-            if (vm.getConfiguration().isSafe(className)) {
-                sideEffectLevel = SideEffect.Level.NONE;
-            }
-            instance = new UninitializedInstance(className);
+        } else if (vm.getConfiguration().isSafe(className)) {
+            sideEffectLevel = SideEffect.Level.NONE;
         }
 
         MethodState mState = ectx.getMethodState();

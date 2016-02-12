@@ -1,39 +1,30 @@
 package org.cf.simplify;
 
-import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
-
-import java.util.HashMap;
-import java.util.Map;
-
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.context.HeapItem;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
 public class OptimizerTester {
 
-    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature) {
-        TIntObjectMap<HeapItem> initial = new TIntObjectHashMap<HeapItem>();
+    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature,
+                    Object... args) {
+        VMState initial = new VMState();
+        if (args.length > 0) {
+            initial.setRegisters(args);
+        }
 
         return getGraphManipulator(className, methodSignature, initial);
     }
 
     public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature,
-                    TIntObjectMap<HeapItem> initial) {
-        Map<String, Map<String, HeapItem>> classNameToFieldValue = new HashMap<String, Map<String, HeapItem>>();
-
-        return getGraphManipulator(className, methodSignature, initial, classNameToFieldValue);
-    }
-
-    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature,
-                    TIntObjectMap<HeapItem> initial, Map<String, Map<String, HeapItem>> classNameToFieldValue) {
-        // Force class reloading because implementations will have changed
+                    VMState initial) {
+        // Force class reloading because implementations change (hopefully!)
         VirtualMachine vm = VMTester.spawnVM(true);
         String methodDescriptor = className + "->" + methodSignature;
-        ExecutionGraph graph = VMTester.execute(vm, className, methodSignature, initial, classNameToFieldValue);
+        ExecutionGraph graph = VMTester.execute(vm, className, methodSignature, initial);
 
         BuilderMethod method = vm.getClassManager().getMethod(methodDescriptor);
         DexBuilder dexBuilder = VMTester.getDexBuilder();

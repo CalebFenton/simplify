@@ -10,6 +10,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
@@ -29,287 +30,327 @@ import org.mockito.runners.MockitoJUnitRunner;
 @RunWith(Enclosed.class)
 public class UnaryMathOpTest {
 
-    public static class TestStartDouble {
+    private static final String CLASS_NAME = "Lunary_math_test;";
+
+    public static class DoubleValue {
+
+        private VMState expected;
+        private VMState initial;
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
 
         @Test
         public void testDoubleToFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 220D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 220F, "F");
+            initial.setRegisters(0, 220D, "D");
+            expected.setRegisters(0, 220F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "DoubleToFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "doubleToFloat()V", initial, expected);
         }
 
         @Test
         public void testDoubleToInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 200D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 200, "I");
+            initial.setRegisters(0, 200D, "D");
+            expected.setRegisters(0, 200, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "DoubleToInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "doubleToInt()V", initial, expected);
         }
 
         @Test
         public void testDoubleToLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 210D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 210L, "J");
+            initial.setRegisters(0, 210D, "D");
+            expected.setRegisters(0, 210L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "DoubleToLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "doubleToLong()V", initial, expected);
         }
 
         @Test
         public void testNegDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 15.1D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -15.1D, "D");
+            initial.setRegisters(0, 15.1D, "D");
+            expected.setRegisters(0, -15.1D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "NegDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "negDouble()V", initial, expected);
         }
 
     }
 
-    public static class TestStartFloat {
+    public static class FloatValue {
+
+        private VMState expected;
+        private VMState initial;
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
 
         @Test
         public void testFloatToDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 120F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 120D, "D");
+            initial.setRegisters(0, 120F, "F");
+            expected.setRegisters(0, 120D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "FloatToDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "floatToDouble()V", initial, expected);
         }
 
         @Test
         public void testFloatToInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 100F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 100, "I");
+            initial.setRegisters(0, 100F, "F");
+            expected.setRegisters(0, 100, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "FloatToInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "floatToInt()V", initial, expected);
         }
 
         @Test
         public void testFloatToLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 110F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 110L, "J");
+            initial.setRegisters(0, 110F, "F");
+            expected.setRegisters(0, 110L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "FloatToLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "floatToLong()V", initial, expected);
         }
 
         @Test
         public void testNegFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 10.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -10.5F, "F");
+            initial.setRegisters(0, 10.5F, "F");
+            expected.setRegisters(0, -10.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "NegFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "negFloat()V", initial, expected);
         }
+
     }
 
-    public static class TestStartInt {
+    public static class IntValue {
+
+        private VMState expected;
+        private VMState initial;
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
 
         @Test
         public void testIntToByte() {
             Integer value = 128;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, value.byteValue(), "B");
+            initial.setRegisters(0, value, "I");
+            expected.setRegisters(0, value.byteValue(), "B");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToByte()V", initial, expected);
         }
 
         @Test
         public void testIntToByteWithShort() {
             Short value = 1000;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, value.byteValue(), "B");
+            initial.setRegisters(0, value, "S");
+            expected.setRegisters(0, value.byteValue(), "B");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToByte()V", initial, expected);
         }
 
         @Test
         public void testIntToChar() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x62, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (char) 0x62, "C");
+            initial.setRegisters(0, 0x62, "I");
+            expected.setRegisters(0, (char) 0x62, "C");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToChar()V", initial, expected);
         }
 
         @Test
         public void testIntToCharWithShort() {
             Short value = 0x62;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (char) value.intValue(), "C");
+            initial.setRegisters(0, value, "S");
+            expected.setRegisters(0, (char) value.intValue(), "C");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToChar()V", initial, expected);
         }
 
         @Test
         public void testIntToDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 13, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 13D, "D");
+            initial.setRegisters(0, 13, "I");
+            expected.setRegisters(0, 13D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToDouble()V", initial, expected);
         }
 
         @Test
         public void testIntToFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 12, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 12F, "F");
+            initial.setRegisters(0, 12, "I");
+            expected.setRegisters(0, 12F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToFloat()V", initial, expected);
         }
 
         @Test
         public void testIntToLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 11, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 11L, "J");
+            initial.setRegisters(0, 11, "I");
+            expected.setRegisters(0, 11L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToLong()V", initial, expected);
         }
 
         @Test
         public void testIntToShort() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (short) 0x10, "S");
+            initial.setRegisters(0, 0x10, "I");
+            expected.setRegisters(0, (short) 0x10, "S");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToShort()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToShort()V", initial, expected);
         }
 
         @Test
         public void testNegInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x42, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -0x42, "I");
+            initial.setRegisters(0, 0x42, "I");
+            expected.setRegisters(0, -0x42, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "negInt()V", initial, expected);
         }
 
         @Test
         public void testNegIntWithShort() {
             Short value = 0x42;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -value, "S");
+            initial.setRegisters(0, value, "S");
+            expected.setRegisters(0, -value, "S");
 
-            VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "negInt()V", initial, expected);
         }
 
         @Test
         public void testNegUnknownInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "NegInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "negInt()V", initial, expected);
         }
 
         @Test
         public void testNotInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x42, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, ~0x42, "I");
+            initial.setRegisters(0, 0x42, "I");
+            expected.setRegisters(0, ~0x42, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "notInt()V", initial, expected);
         }
 
         @Test
         public void testNotIntWithShort() {
             Short value = 0x42;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, ~value, "S");
+            initial.setRegisters(0, value, "S");
+            expected.setRegisters(0, ~value, "S");
 
-            VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "notInt()V", initial, expected);
         }
 
         @Test
         public void testNotUnknownInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "NotInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "notInt()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToByte() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "B");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "B");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToByte()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToByte()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToChar() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "C");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "C");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToChar()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToChar()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "D");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "D");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToDouble()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "F");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "F");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToFloat()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "J");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "J");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToLong()V", initial, expected);
         }
 
         @Test
         public void testUnknownIntToShort() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "S");
+            initial.setRegisters(0, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "S");
 
-            VMTester.testMethodState(CLASS_NAME, "IntToShort()V", initial, expected);
+            VMTester.test(CLASS_NAME, "intToShort()V", initial, expected);
         }
 
     }
 
-    public static class TestStartLong {
+    public static class LongValue {
+
+        private VMState expected;
+        private VMState initial;
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
 
         @Test
         public void testLongToDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 23L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 23D, "D");
+            initial.setRegisters(0, 23L, "J");
+            expected.setRegisters(0, 23D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "LongToDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "longToDouble()V", initial, expected);
         }
 
         @Test
         public void testLongToFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22F, "F");
+            initial.setRegisters(0, 22L, "J");
+            expected.setRegisters(0, 22F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "LongToFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "longToFloat()V", initial, expected);
         }
 
         @Test
         public void testLongToInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 21L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 21, "I");
+            initial.setRegisters(0, 21L, "J");
+            expected.setRegisters(0, 21, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "LongToInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "longToInt()V", initial, expected);
         }
 
         @Test
         public void testNegLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -0x100L, "J");
+            initial.setRegisters(0, 0x100L, "J");
+            expected.setRegisters(0, -0x100L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "NegLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "negLong()V", initial, expected);
         }
 
         @Test
         public void testNotLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 100L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, ~100L, "J");
+            initial.setRegisters(0, 100L, "J");
+            expected.setRegisters(0, ~100L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "NotLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "notLong()V", initial, expected);
         }
+
     }
 
     @RunWith(MockitoJUnitRunner.class)
@@ -484,7 +525,5 @@ public class UnaryMathOpTest {
         }
 
     }
-
-    private static final String CLASS_NAME = "Lunary_math_test;";
 
 }

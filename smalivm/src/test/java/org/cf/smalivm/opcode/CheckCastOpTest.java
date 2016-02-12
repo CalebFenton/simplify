@@ -9,11 +9,11 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.UnknownAncestors;
 import org.cf.smalivm.smali.ClassManager;
@@ -36,29 +36,39 @@ public class CheckCastOpTest {
 
     public static class IntegrationTest {
 
-        @Test
-        public void testNullWithObjectTypeCastsToString() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, null, "Ljava/lang/Object;");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, null, "Ljava/lang/String;");
+        private VMState expected;
+        private VMState initial;
 
-            VMTester.testMethodState(CLASS_NAME, "CheckCastToString()V", initial, expected);
+        @Test
+        public void canCastNullWithObjectTypeToString() {
+            initial.setRegisters(0, null, "Ljava/lang/Object;");
+            expected.setRegisters(0, null, "Ljava/lang/String;");
+
+            VMTester.test(CLASS_NAME, "castToString()V", initial, expected);
         }
 
         @Test
-        public void testStringWithObjectTypeCastsToString() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/Object;");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/String;");
+        public void canCastStringWithObjectTypeToString() {
+            initial.setRegisters(0, "great maker", "Ljava/lang/Object;");
+            expected.setRegisters(0, "great maker", "Ljava/lang/String;");
 
-            VMTester.testMethodState(CLASS_NAME, "CheckCastToString()V", initial, expected);
+            VMTester.test(CLASS_NAME, "castToString()V", initial, expected);
         }
 
         @Test
-        public void testStringWithStringTypeCastsToObject() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "great maker", "Ljava/lang/String;");
-            TIntObjectMap<HeapItem> expected = initial;
+        public void canCastStringWithStringTypeToObject() {
+            initial.setRegisters(0, "great maker", "Ljava/lang/String;");
+            expected = initial;
 
-            VMTester.testMethodState(CLASS_NAME, "CheckCastToObject()V", initial, expected);
+            VMTester.test(CLASS_NAME, "castToObject()V", initial, expected);
         }
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
+
     }
 
     public static class UnitTest {
@@ -67,14 +77,29 @@ public class CheckCastOpTest {
         private static final int ARG1_REGISTER = 0;
 
         private TIntObjectMap<MethodLocation> addressToLocation;
+        private TypeReference castTypeRef;
         private ClassManager classManager;
         private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
         private CheckCastOp op;
         private CheckCastOpFactory opFactory;
-        private TypeReference castTypeRef;
         private VirtualMachine vm;
+
+        @Test
+        public void nullValueWithCastableTypeThrowsNoExceptionAndIsConverted() throws UnknownAncestors {
+            String castType = "Llolmoney;";
+            String registerType = "Lmoneylol;";
+            when(castTypeRef.getType()).thenReturn(castType);
+            when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(true);
+            VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
+
+            op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
+            op.execute(node, mState);
+
+            verify(node).clearExceptions();
+            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(null), eq(castType));
+        }
 
         @Test
         public void objectNotOfCastTypeThrowsClassCastException() throws UnknownAncestors {
@@ -90,21 +115,6 @@ public class CheckCastOpTest {
             VirtualException expectedException = new VirtualException(ClassCastException.class,
                             "moneylol cannot be cast to lolmoney");
             VMTester.verifyExceptionHandling(expectedException, node, mState);
-        }
-
-        @Test
-        public void nullValueWithCastableTypeThrowsNoExceptionAndIsConverted() throws UnknownAncestors {
-            String castType = "Llolmoney;";
-            String registerType = "Lmoneylol;";
-            when(castTypeRef.getType()).thenReturn(castType);
-            when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(true);
-            VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
-
-            op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
-            op.execute(node, mState);
-
-            verify(node).clearExceptions();
-            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(null), eq(castType));
         }
 
         @Before

@@ -9,11 +9,11 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -29,83 +29,101 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class ArrayLengthOpTest {
 
-    public static class TestObjectArrays {
+    private static final String CLASS_NAME = "Larray_length_test;";
+
+    public static class ObjectArrays {
+
+        private VMState expected;
+        private VMState initial;
 
         @Test
-        public void testArrayLengthForEmptyIntegerArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new Integer[] {}, "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+        public void canGetLengthForEmptyIntegerArray() {
+            initial.setRegisters(0, new Integer[] {}, "[I");
+            expected.setRegisters(0, 0, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForIntegerArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new Integer[] { 1, 2, 3 }, "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 3, "I");
+        public void canGetLengthForIntegerArray() {
+            initial.setRegisters(0, new Integer[] { 1, 2, 3 }, "[I");
+            expected.setRegisters(0, 3, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForStringArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new String[] { "isn't", "this", "where" },
-                            "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 3, "I");
+        public void canGetLengthForStringArray() {
+            initial.setRegisters(0, new String[] { "isn't", "this", "where" }, "[I");
+            expected.setRegisters(0, 3, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForUnknownValueOfIntegerType() {
-            TIntObjectMap<HeapItem> initial = VMTester
-                            .buildRegisterState(0, new UnknownValue(), "[Ljava/lang/Integer;");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+        public void canGetLengthForUnknownValueOfIntegerType() {
+            initial.setRegisters(0, new UnknownValue(), "[Ljava/lang/Integer;");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForUnknownValueOfPrimitiveType() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+        public void canGetLengthForUnknownValueOfPrimitiveType() {
+            initial.setRegisters(0, new UnknownValue(), "[I");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            initial = new VMState();
+            expected = new VMState();
         }
     }
 
-    public static class TestPrimitiveArrays {
+    public static class PrimitiveArrays {
+
+        private VMState expected;
+        private VMState initial;
 
         @Test
-        public void testArrayLengthForEmptyIntArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] {}, "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0, "I");
+        public void canGetLengthForEmptyIntArray() {
+            initial.setRegisters(0, new int[] {}, "[I");
+            expected.setRegisters(0, 0, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForIntArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new int[] { 1, 2, 3 }, "[I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 3, "I");
+        public void canGetLengthForIntArray() {
+            initial.setRegisters(0, new int[] { 1, 2, 3 }, "[I");
+            expected.setRegisters(0, 3, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForLongArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new long[] { 1, 2, 3, 4 }, "[J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 4, "I");
+        public void canGetLengthForLongArray() {
+            initial.setRegisters(0, new long[] { 1, 2, 3, 4 }, "[J");
+            expected.setRegisters(0, 4, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
         @Test
-        public void testArrayLengthForShortArray() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new short[] { 1, 2 }, "[S");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 2, "I");
+        public void canGetLengthForShortArray() {
+            initial.setRegisters(0, new short[] { 1, 2 }, "[S");
+            expected.setRegisters(0, 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ArrayLength()V", initial, expected);
+            VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            initial = new VMState();
+            expected = new VMState();
         }
     }
 
@@ -161,7 +179,5 @@ public class ArrayLengthOpTest {
             opFactory = new ArrayLengthOpFactory();
         }
     }
-
-    private static final String CLASS_NAME = "Larray_length_test;";
 
 }

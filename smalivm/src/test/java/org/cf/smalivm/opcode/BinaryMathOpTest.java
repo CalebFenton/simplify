@@ -9,11 +9,11 @@ import static org.mockito.Mockito.when;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -33,782 +33,819 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class BinaryMathOpTest {
 
-    public static class TestDouble {
+    private static final String CLASS_NAME = "Lbinary_math_test;";
+
+    public static class DoubleMath {
+
+        private VMState expected;
+        private VMState initial;
 
         @Test
-        public void testAddDouble() throws ClassNotFoundException {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D + 20.5D, "D");
+        public void canAddDouble() throws ClassNotFoundException {
+            initial.setRegisters(0, 0.5D, "D", 2, 20.5D, "D");
+            expected.setRegisters(0, 0.5D + 20.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "AddDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addDouble()V", initial, expected);
         }
 
         @Test
-        public void testAddDouble2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D + 20.5D, "D");
+        public void canAddDouble2Addr() {
+            initial.setRegisters(0, 0.5D, "D", 2, 20.5D, "D");
+            expected.setRegisters(0, 0.5D + 20.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "AddDouble2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addDouble2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9D, "D", 2, 0.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9D / 0.5D, "D");
+        public void canDivDouble() {
+            initial.setRegisters(0, 22.9D, "D", 2, 0.5D, "D");
+            expected.setRegisters(0, 22.9D / 0.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "DivDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divDouble()V", initial, expected);
         }
 
         @Test
-        public void testDivDouble2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9D, "D", 2, 0.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9D / 0.5D, "D");
+        public void canDivDouble2Addr() {
+            initial.setRegisters(0, 22.9D, "D", 2, 0.5D, "D");
+            expected.setRegisters(0, 22.9D / 0.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "DivDouble2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divDouble2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivDoubleWithDivisionByZero() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5D, "D", 1, 0D, "D");
+        public void canDivDoubleWithDivisionByZero() {
+            initial.setRegisters(0, 5D, "D", 1, 0D, "D");
             // Floats and doubles do not throw exceptions for div0
             int[] expected = new int[] { 0, 2 };
 
-            VMTester.testVisitation(CLASS_NAME, "DivDoubleWithCatch()V", initial, expected);
+            VMTester.testVisitation(CLASS_NAME, "divDoubleWithCatch()V", initial, expected);
         }
 
         @Test
-        public void testMulDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D * 20.5D, "D");
+        public void canMulDouble() {
+            initial.setRegisters(0, 0.5D, "D", 2, 20.5D, "D");
+            expected.setRegisters(0, 0.5D * 20.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "MulDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulDouble()V", initial, expected);
         }
 
         @Test
-        public void testMulDouble2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D * 20.5D, "D");
+        public void canMulDouble2Addr() {
+            initial.setRegisters(0, 0.5D, "D", 2, 20.5D, "D");
+            expected.setRegisters(0, 0.5D * 20.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "MulDouble2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulDouble2Addr()V", initial, expected);
         }
 
         @Test
-        public void testRemDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9D, "D", 2, 0.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9D % 0.5D, "D");
+        public void canRemDouble() {
+            initial.setRegisters(0, 22.9D, "D", 2, 0.5D, "D");
+            expected.setRegisters(0, 22.9D % 0.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "RemDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remDouble()V", initial, expected);
         }
 
         @Test
-        public void testRemDouble2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9D, "D", 2, 0.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9D % 0.5D, "D");
+        public void canRemDouble2Addr() {
+            initial.setRegisters(0, 22.9D, "D", 2, 0.5D, "D");
+            expected.setRegisters(0, 22.9D % 0.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "RemDouble2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remDouble2Addr()V", initial, expected);
         }
 
         @Test
-        public void testSubDouble() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D - 20.5D, "D");
+        public void canSubDouble() {
+            initial.setRegisters(0, 0.5D, "D", 2, 20.5D, "D");
+            expected.setRegisters(0, 0.5D - 20.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "SubDouble()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subDouble()V", initial, expected);
         }
 
         @Test
-        public void testSubDouble2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5D, "D", 2, 20.5D, "D");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5D - 20.5D, "D");
+        public void canSubDouble2Addr() {
+            initial.setRegisters(0, 0.5D, "D", 2, 20.5D, "D");
+            expected.setRegisters(0, 0.5D - 20.5D, "D");
 
-            VMTester.testMethodState(CLASS_NAME, "SubDouble2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subDouble2Addr()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
         }
     }
 
-    public static class TestFloat {
+    public static class FloatMath {
+
+        private VMState expected;
+        private VMState initial;
 
         @Test
-        public void testAddFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5F + 20.5F, "F");
+        public void canAddFloat() {
+            initial.setRegisters(0, 0.5F, "F", 1, 20.5F, "F");
+            expected.setRegisters(0, 0.5F + 20.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "AddFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addFloat()V", initial, expected);
         }
 
         @Test
-        public void testAddFloat2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5F + 20.5F, "F");
+        public void canAddFloat2Addr() {
+            initial.setRegisters(0, 0.5F, "F", 1, 20.5F, "F");
+            expected.setRegisters(0, 0.5F + 20.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "AddFloat2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addFloat2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9F, "F", 1, 0.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9F / 0.5F, "F");
+        public void canDivFloat() {
+            initial.setRegisters(0, 22.9F, "F", 1, 0.5F, "F");
+            expected.setRegisters(0, 22.9F / 0.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "DivFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divFloat()V", initial, expected);
         }
 
         @Test
-        public void testDivFloat2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9F, "F", 1, 0.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9F / 0.5F, "F");
+        public void canDivFloat2Addr() {
+            initial.setRegisters(0, 22.9F, "F", 1, 0.5F, "F");
+            expected.setRegisters(0, 22.9F / 0.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "DivFloat2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divFloat2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivFloatWithDivisionByZero() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5F, "F", 1, 0F, "F");
+        public void canDivFloatWithDivisionByZero() {
+            initial.setRegisters(0, 5F, "F", 1, 0F, "F");
             // Floats and doubles do not throw exceptions for div0
             int[] expected = new int[] { 0, 2 };
 
-            VMTester.testVisitation(CLASS_NAME, "DivFloatWithCatch()V", initial, expected);
+            VMTester.testVisitation(CLASS_NAME, "divFloatWithCatch()V", initial, expected);
         }
 
         @Test
-        public void testMulFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5F * 20.5F, "F");
+        public void canMulFloat() {
+            initial.setRegisters(0, 0.5F, "F", 1, 20.5F, "F");
+            expected.setRegisters(0, 0.5F * 20.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "MulFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulFloat()V", initial, expected);
         }
 
         @Test
-        public void testMulFloat2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5F * 20.5F, "F");
+        public void canMulFloat2Addr() {
+            initial.setRegisters(0, 0.5F, "F", 1, 20.5F, "F");
+            expected.setRegisters(0, 0.5F * 20.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "MulFloat2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulFloat2Addr()V", initial, expected);
         }
 
         @Test
-        public void testRemFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9F, "F", 1, 0.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9F % 0.5F, "F");
+        public void canRemFloat() {
+            initial.setRegisters(0, 22.9F, "F", 1, 0.5F, "F");
+            expected.setRegisters(0, 22.9F % 0.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "RemFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remFloat()V", initial, expected);
         }
 
         @Test
-        public void testRemFloat2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 22.9F, "F", 1, 0.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 22.9F % 0.5F, "F");
+        public void canRemFloat2Addr() {
+            initial.setRegisters(0, 22.9F, "F", 1, 0.5F, "F");
+            expected.setRegisters(0, 22.9F % 0.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "RemFloat2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remFloat2Addr()V", initial, expected);
         }
 
         @Test
-        public void testSubFloat() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5F - 20.5F, "F");
+        public void canSubFloat() {
+            initial.setRegisters(0, 0.5F, "F", 1, 20.5F, "F");
+            expected.setRegisters(0, 0.5F - 20.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "SubFloat()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subFloat()V", initial, expected);
         }
 
         @Test
-        public void testSubFloat2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0.5F, "F", 1, 20.5F, "F");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0.5F - 20.5F, "F");
+        public void canSubFloat2Addr() {
+            initial.setRegisters(0, 0.5F, "F", 1, 20.5F, "F");
+            expected.setRegisters(0, 0.5F - 20.5F, "F");
 
-            VMTester.testMethodState(CLASS_NAME, "SubFloat2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subFloat2Addr()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            initial = new VMState();
+            expected = new VMState();
         }
     }
 
-    public static class TestInteger {
+    public static class IntegerMath {
+
+        private VMState expected;
+        private VMState initial;
 
         @Test
-        public void testAddByteAndChar() {
+        public void canAddByteAndChar() {
             Byte b = 0xf;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 'a', "C", 1, b, "B");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 'a' + b, "I");
+            initial.setRegisters(0, 'a', "C", 1, b, "B");
+            expected.setRegisters(0, 'a' + b, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 + 7, "I");
+        public void canAddInt() {
+            initial.setRegisters(0, -3, "I", 1, 7, "I");
+            expected.setRegisters(0, -3 + 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 + 7, "I");
+        public void canAddInt2Addr() {
+            initial.setRegisters(0, -3, "I", 1, 7, "I");
+            expected.setRegisters(0, -3 + 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndBoolean() {
+        public void canAddIntAndBoolean() {
             Boolean value = true;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "Z", 1, 11, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1 + 11, "I");
+            initial.setRegisters(0, value, "Z", 1, 11, "I");
+            expected.setRegisters(0, 1 + 11, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndByte() {
+        public void canAddIntAndByte() {
             Byte b = 0xf;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, b, "B");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 12, "I");
+            initial.setRegisters(0, -3, "I", 1, b, "B");
+            expected.setRegisters(0, 12, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndChar() {
+        public void canAddIntAndChar() {
             // Compiler will actually produce something like this.
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, "$".charAt(0), "C", 1, 11, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, "$".charAt(0) + 11, "I");
+            initial.setRegisters(0, "$".charAt(0), "C", 1, 11, "I");
+            expected.setRegisters(0, "$".charAt(0) + 11, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndShort() {
+        public void canAddIntAndShort() {
             Short value = 5;
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, value, "S", 1, 11, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, value + 11, "I");
+            initial.setRegisters(0, value, "S", 1, 11, "I");
+            expected.setRegisters(0, value + 11, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndUnknownChar() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "C", 1, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+        public void canAddIntAndUnknownChar() {
+            initial.setRegisters(0, new UnknownValue(), "C", 1, 5, "I");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndUnknownCharAndByte() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "C", 1,
-                            new UnknownValue(), "B");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+        public void canAddIntAndUnknownCharAndByte() {
+            initial.setRegisters(0, new UnknownValue(), "C", 1, new UnknownValue(), "B");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntAndUnknownInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, new UnknownValue(), "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, new UnknownValue(), "I");
+        public void canAddIntAndUnknownInt() {
+            initial.setRegisters(0, -3, "I", 1, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AddInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addInt()V", initial, expected);
         }
 
         @Test
-        public void testAddIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -0xf, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (-0xf + 0xff), "I");
-            VMTester.testMethodState(CLASS_NAME, "AddIntLit16()V", initial, expected);
+        public void canAddIntLit16() {
+            initial.setRegisters(0, -0xf, "I");
+            expected.setRegisters(0, (-0xf + 0xff), "I");
+            VMTester.test(CLASS_NAME, "addIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testAddIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -0xf, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, (-0xf + 0xf), "I");
-            VMTester.testMethodState(CLASS_NAME, "AddIntLit8()V", initial, expected);
+        public void canAddIntLit8() {
+            initial.setRegisters(0, -0xf, "I");
+            expected.setRegisters(0, (-0xf + 0xf), "I");
+            VMTester.test(CLASS_NAME, "addIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testAndInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 2, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 2 & 7, "I");
+        public void canAndInt() {
+            initial.setRegisters(0, 2, "I", 1, 7, "I");
+            expected.setRegisters(0, 2 & 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AndInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "andInt()V", initial, expected);
         }
 
         @Test
-        public void testAndInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 2, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 2 & 7, "I");
+        public void canAndInt2Addr() {
+            initial.setRegisters(0, 2, "I", 1, 7, "I");
+            expected.setRegisters(0, 2 & 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AndInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "andInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testAndIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 2 & 0xff, "I");
+        public void canAndIntLit16() {
+            initial.setRegisters(0, 2, "I");
+            expected.setRegisters(0, 2 & 0xff, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AndIntLit16()V", initial, expected);
+            VMTester.test(CLASS_NAME, "andIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testAndIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 2 & 0xf, "I");
+        public void canAndIntLit8() {
+            initial.setRegisters(0, 2, "I");
+            expected.setRegisters(0, 2 & 0xf, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "AndIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "andIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testDivInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 12, "I", 1, 3, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 12 / 3, "I");
+        public void canDivInt() {
+            initial.setRegisters(0, 12, "I", 1, 3, "I");
+            expected.setRegisters(0, 12 / 3, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "DivInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divInt()V", initial, expected);
         }
 
         @Test
-        public void testDivInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 12, "I", 1, 3, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 12 / 3, "I");
+        public void canDivInt2Addr() {
+            initial.setRegisters(0, 12, "I", 1, 3, "I");
+            expected.setRegisters(0, 12 / 3, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "DivInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+        public void canDivIntLit16() {
+            initial.setRegisters(0, 0x100, "I");
+            expected.setRegisters(0, 1, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "DivIntLit16()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testDivIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 1, "I");
+        public void canDivIntLit8() {
+            initial.setRegisters(0, 0x10, "I");
+            expected.setRegisters(0, 1, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "DivIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testDivIntWithCatchWithUnkownValueVisitsExceptionHandler() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, new UnknownValue(), "I", 1, 5, "I");
+        public void canDivIntWithCatchWithUnkownValueVisitsExceptionHandler() {
+            initial.setRegisters(0, new UnknownValue(), "I", 1, 5, "I");
             int[] expected = new int[] { 0, 2, 3, 4 };
 
-            VMTester.testVisitation(CLASS_NAME, "DivIntWithCatch()V", initial, expected);
+            VMTester.testVisitation(CLASS_NAME, "divIntWithCatch()V", initial, expected);
         }
 
         @Test
-        public void testMulInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 * 7, "I");
+        public void canMulInt() {
+            initial.setRegisters(0, -3, "I", 1, 7, "I");
+            expected.setRegisters(0, -3 * 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "MulInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulInt()V", initial, expected);
         }
 
         @Test
-        public void testMulInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, 10, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 * 10, "I");
+        public void canMulInt2Addr() {
+            initial.setRegisters(0, -3, "I", 1, 10, "I");
+            expected.setRegisters(0, -3 * 10, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "MulInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testMulIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 * 0xff, "I");
+        public void canMulIntLit16() {
+            initial.setRegisters(0, -3, "I");
+            expected.setRegisters(0, -3 * 0xff, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "MulIntLit16()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testMulIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 * 0xf, "I");
+        public void canMulIntLit8() {
+            initial.setRegisters(0, -3, "I");
+            expected.setRegisters(0, -3 * 0xf, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "MulIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testOrInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 5 | 2, "I");
+        public void canOrInt() {
+            initial.setRegisters(0, 5, "I", 1, 2, "I");
+            expected.setRegisters(0, 5 | 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "OrInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "orInt()V", initial, expected);
         }
 
         @Test
-        public void testOrInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 5 | 2, "I");
+        public void canOrInt2Addr() {
+            initial.setRegisters(0, 5, "I", 1, 2, "I");
+            expected.setRegisters(0, 5 | 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "OrInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "orInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testOrIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 5 | 0xff, "I");
+        public void canOrIntLit16() {
+            initial.setRegisters(0, 5, "I");
+            expected.setRegisters(0, 5 | 0xff, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "OrIntLit16()V", initial, expected);
+            VMTester.test(CLASS_NAME, "orIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testOrIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 5 | 0xf, "I");
+        public void canOrIntLit8() {
+            initial.setRegisters(0, 5, "I");
+            expected.setRegisters(0, 5 | 0xf, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "OrIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "orIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testRemInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 % 5, "I");
+        public void canRemInt() {
+            initial.setRegisters(0, 7, "I", 1, 5, "I");
+            expected.setRegisters(0, 7 % 5, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "RemInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remInt()V", initial, expected);
         }
 
         @Test
-        public void testRemInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 5, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 % 5, "I");
+        public void canRemInt2Addr() {
+            initial.setRegisters(0, 7, "I", 1, 5, "I");
+            expected.setRegisters(0, 7 % 5, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "RemInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testRemIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x100 % 0xff, "I");
+        public void canRemIntLit16() {
+            initial.setRegisters(0, 0x100, "I");
+            expected.setRegisters(0, 0x100 % 0xff, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "RemIntLit16()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testRemIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10 % 0xf, "I");
+        public void canRemIntLit8() {
+            initial.setRegisters(0, 0x10, "I");
+            expected.setRegisters(0, 0x10 % 0xf, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "RemIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testRSubInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0xff - 7, "I");
+        public void canRSubInt() {
+            initial.setRegisters(0, 7, "I");
+            expected.setRegisters(0, 0xff - 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "RSubInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "RSubInt()V", initial, expected);
         }
 
         @Test
-        public void testRSubIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0xf - 7, "I");
+        public void canRSubIntLit8() {
+            initial.setRegisters(0, 7, "I");
+            expected.setRegisters(0, 0xf - 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "RSubIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "RSubIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testShlInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 5 << 2, "I");
+        public void canShlInt() {
+            initial.setRegisters(0, 5, "I", 1, 2, "I");
+            expected.setRegisters(0, 5 << 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ShlInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shlInt()V", initial, expected);
         }
 
         @Test
-        public void testShlInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 5 << 2, "I");
+        public void canShlInt2Addr() {
+            initial.setRegisters(0, 5, "I", 1, 2, "I");
+            expected.setRegisters(0, 5 << 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ShlInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shlInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testShlIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 3, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 3 << 0x2, "I");
+        public void canShlIntLit8() {
+            initial.setRegisters(0, 3, "I");
+            expected.setRegisters(0, 3 << 0x2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ShlIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shlIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testShrInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 >> 2, "I");
+        public void canShrInt() {
+            initial.setRegisters(0, 7, "I", 1, 2, "I");
+            expected.setRegisters(0, 7 >> 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ShrInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shrInt()V", initial, expected);
         }
 
         @Test
-        public void testShrInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 >> 2, "I");
+        public void canShrInt2Addr() {
+            initial.setRegisters(0, 7, "I", 1, 2, "I");
+            expected.setRegisters(0, 7 >> 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ShrInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shrInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testShrIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 >> 2, "I");
+        public void canShrIntLit8() {
+            initial.setRegisters(0, 7, "I", 1, 2, "I");
+            expected.setRegisters(0, 7 >> 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "ShrIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shrIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testSubInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 - 7, "I");
+        public void canSubInt() {
+            initial.setRegisters(0, -3, "I", 1, 7, "I");
+            expected.setRegisters(0, -3 - 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "SubInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subInt()V", initial, expected);
         }
 
         @Test
-        public void testSubInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -3, "I", 1, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -3 - 7, "I");
+        public void canSubInt2Addr() {
+            initial.setRegisters(0, -3, "I", 1, 7, "I");
+            expected.setRegisters(0, -3 - 7, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "SubInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testUshrInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -14, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -14 >>> 2, "I");
+        public void canUshrInt() {
+            initial.setRegisters(0, -14, "I", 1, 2, "I");
+            expected.setRegisters(0, -14 >>> 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "UshrInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "ushrInt()V", initial, expected);
         }
 
         @Test
-        public void testUshrInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -14, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -14 >>> 2, "I");
+        public void canUshrInt2Addr() {
+            initial.setRegisters(0, -14, "I", 1, 2, "I");
+            expected.setRegisters(0, -14 >>> 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "UshrInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "ushrInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testUshrIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, -14, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, -14 >>> 2, "I");
+        public void canUshrIntLit8() {
+            initial.setRegisters(0, -14, "I");
+            expected.setRegisters(0, -14 >>> 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "UshrIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "ushrIntLit8()V", initial, expected);
         }
 
         @Test
-        public void testXorInt() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 ^ 2, "I");
+        public void canXorInt() {
+            initial.setRegisters(0, 7, "I", 1, 2, "I");
+            expected.setRegisters(0, 7 ^ 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "XorInt()V", initial, expected);
+            VMTester.test(CLASS_NAME, "xorInt()V", initial, expected);
         }
 
         @Test
-        public void testXorInt2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I", 1, 2, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 ^ 2, "I");
+        public void canXorInt2Addr() {
+            initial.setRegisters(0, 7, "I", 1, 2, "I");
+            expected.setRegisters(0, 7 ^ 2, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "XorInt2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "xorInt2Addr()V", initial, expected);
         }
 
         @Test
-        public void testXorIntLit16() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 ^ 0x10, "I");
+        public void canXorIntLit16() {
+            initial.setRegisters(0, 7, "I");
+            expected.setRegisters(0, 7 ^ 0x10, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "XorIntLit16()V", initial, expected);
+            VMTester.test(CLASS_NAME, "xorIntLit16()V", initial, expected);
         }
 
         @Test
-        public void testXorIntLit8() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 7, "I");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 7 ^ 3, "I");
+        public void canXorIntLit8() {
+            initial.setRegisters(0, 7, "I");
+            expected.setRegisters(0, 7 ^ 3, "I");
 
-            VMTester.testMethodState(CLASS_NAME, "XorIntLit8()V", initial, expected);
+            VMTester.test(CLASS_NAME, "xorIntLit8()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            initial = new VMState();
+            expected = new VMState();
         }
 
     }
 
-    public static class TestLong {
+    public static class LongMath {
+
+        private VMState expected;
+        private VMState initial;
 
         @Test
-        public void testAddLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100000000L, "J", 2, 0x200000000L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x100000000L + 0x200000000L, "J");
+        public void canAddLong() {
+            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J");
+            expected.setRegisters(0, 0x100000000L + 0x200000000L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "AddLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addLong()V", initial, expected);
         }
 
         @Test
-        public void testAddLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100000000L, "J", 2, 0x200000000L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x100000000L + 0x200000000L, "J");
+        public void canAddLong2Addr() {
+            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J");
+            expected.setRegisters(0, 0x100000000L + 0x200000000L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "AddLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "addLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testAndLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x12345abcdL & 0x1234567890L, "J");
+        public void canAndLong() {
+            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
+            expected.setRegisters(0, 0x12345abcdL & 0x1234567890L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "AndLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "andLong()V", initial, expected);
         }
 
         @Test
-        public void testAndLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x12345abcdL & 0x1234567890L, "J");
+        public void canAndLong2Addr() {
+            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
+            expected.setRegisters(0, 0x12345abcdL & 0x1234567890L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "AndLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "andLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x300000000L, "J", 2, 3L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x300000000L / 3L, "J");
+        public void canDivLong() {
+            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J");
+            expected.setRegisters(0, 0x300000000L / 3L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "DivLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divLong()V", initial, expected);
         }
 
         @Test
-        public void testDivLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x300000000L, "J", 2, 3L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x300000000L / 3L, "J");
+        public void canDivLong2Addr() {
+            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J");
+            expected.setRegisters(0, 0x300000000L / 3L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "DivLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "divLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testDivLongWithCatchWithUnkownValueVisitsExceptionHandler() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 5L, "J", 1, new UnknownValue(), "J");
+        public void canDivLongWithCatchWithUnkownValueVisitsExceptionHandler() {
+            initial.setRegisters(0, 5L, "J", 1, new UnknownValue(), "J");
             int[] expected = new int[] { 0, 2, 3, 4 };
 
-            VMTester.testVisitation(CLASS_NAME, "DivLongWithCatch()V", initial, expected);
+            VMTester.testVisitation(CLASS_NAME, "divLongWithCatch()V", initial, expected);
         }
 
         @Test
-        public void testMulLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x300000000L, "J", 2, 3L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x300000000L * 3L, "J");
+        public void canMulLong() {
+            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J");
+            expected.setRegisters(0, 0x300000000L * 3L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "MulLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulLong()V", initial, expected);
         }
 
         @Test
-        public void testMulLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x300000000L, "J", 2, 3L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x300000000L * 3L, "J");
+        public void canMulLong2Addr() {
+            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J");
+            expected.setRegisters(0, 0x300000000L * 3L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "MulLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "mulLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testOrLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x12345abcdL | 0x1234567890L, "J");
+        public void canOrLong() {
+            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
+            expected.setRegisters(0, 0x12345abcdL | 0x1234567890L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "OrLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "orLong()V", initial, expected);
         }
 
         @Test
-        public void testOrLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x12345abcdL | 0x1234567890L, "J");
+        public void canOrLong2Addr() {
+            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
+            expected.setRegisters(0, 0x12345abcdL | 0x1234567890L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "OrLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "orLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testRemLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x300000123L, "J", 2, 3L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x300000123L % 3L, "J");
+        public void canRemLong() {
+            initial.setRegisters(0, 0x300000123L, "J", 2, 3L, "J");
+            expected.setRegisters(0, 0x300000123L % 3L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "RemLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remLong()V", initial, expected);
         }
 
         @Test
-        public void testRemLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x300000123L, "J", 2, 3L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x300000123L % 3L, "J");
+        public void canRemLong2Addr() {
+            initial.setRegisters(0, 0x300000123L, "J", 2, 3L, "J");
+            expected.setRegisters(0, 0x300000123L % 3L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "RemLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "remLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testShlLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10000L, "J", 2, 5L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000L << 5L, "J");
+        public void canShlLong() {
+            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J");
+            expected.setRegisters(0, 0x10000L << 5L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "ShlLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shlLong()V", initial, expected);
         }
 
         @Test
-        public void testShlLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10000L, "J", 2, 5L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000L << 5L, "J");
+        public void canShlLong2Addr() {
+            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J");
+            expected.setRegisters(0, 0x10000L << 5L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "ShlLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shlLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testShrLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10000L, "J", 2, 5L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000L >> 5L, "J");
+        public void canShrLong() {
+            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J");
+            expected.setRegisters(0, 0x10000L >> 5L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "ShrLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shrLong()V", initial, expected);
         }
 
         @Test
-        public void testShrLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10000L, "J", 2, 5L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000L >> 5L, "J");
+        public void canShrLong2Addr() {
+            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J");
+            expected.setRegisters(0, 0x10000L >> 5L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "ShrLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "shrLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testSubLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100000000L, "J", 2, 0x200000000L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x100000000L - 0x200000000L, "J");
+        public void canSubLong() {
+            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J");
+            expected.setRegisters(0, 0x100000000L - 0x200000000L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "SubLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subLong()V", initial, expected);
         }
 
         @Test
-        public void testSubLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x100000000L, "J", 2, 0x200000000L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x100000000L - 0x200000000L, "J");
+        public void canSubLong2Addr() {
+            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J");
+            expected.setRegisters(0, 0x100000000L - 0x200000000L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "SubLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "subLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testUshrLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10000L, "J", 2, 5L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000L >>> 5L, "J");
+        public void canUshrLong() {
+            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J");
+            expected.setRegisters(0, 0x10000L >>> 5L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "UshrLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "ushrLong()V", initial, expected);
         }
 
         @Test
-        public void testUshrLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x10000L, "J", 2, 5L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x10000L >>> 5L, "J");
+        public void canUshrLong2Addr() {
+            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J");
+            expected.setRegisters(0, 0x10000L >>> 5L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "UshrLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "ushrLong2Addr()V", initial, expected);
         }
 
         @Test
-        public void testXorLong() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x12345abcdL ^ 0x1234567890L, "J");
+        public void canXorLong() {
+            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
+            expected.setRegisters(0, 0x12345abcdL ^ 0x1234567890L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "XorLong()V", initial, expected);
+            VMTester.test(CLASS_NAME, "xorLong()V", initial, expected);
         }
 
         @Test
-        public void testXorLong2Addr() {
-            TIntObjectMap<HeapItem> initial = VMTester.buildRegisterState(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
-            TIntObjectMap<HeapItem> expected = VMTester.buildRegisterState(0, 0x12345abcdL ^ 0x1234567890L, "J");
+        public void canXorLong2Addr() {
+            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J");
+            expected.setRegisters(0, 0x12345abcdL ^ 0x1234567890L, "J");
 
-            VMTester.testMethodState(CLASS_NAME, "XorLong2Addr()V", initial, expected);
+            VMTester.test(CLASS_NAME, "xorLong2Addr()V", initial, expected);
+        }
+
+        @Before
+        public void setUp() {
+            initial = new VMState();
+            expected = new VMState();
         }
     }
 
@@ -959,13 +996,6 @@ public class BinaryMathOpTest {
             opFactory = new BinaryMathOpFactory();
         }
 
-        private void setupInstruction(BuilderInstruction instruction, Opcode opcode) {
-            when(location.getInstruction()).thenReturn(instruction);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(opcode);
-        }
-
         private BuilderInstruction12x buildInstruction12x(Opcode opcode) {
             BuilderInstruction12x instruction = mock(BuilderInstruction12x.class);
             setupInstruction(instruction, opcode);
@@ -995,8 +1025,13 @@ public class BinaryMathOpTest {
             return instruction;
         }
 
-    }
+        private void setupInstruction(BuilderInstruction instruction, Opcode opcode) {
+            when(location.getInstruction()).thenReturn(instruction);
+            when(instruction.getLocation()).thenReturn(location);
+            when(instruction.getCodeUnits()).thenReturn(0);
+            when(instruction.getOpcode()).thenReturn(opcode);
+        }
 
-    private static final String CLASS_NAME = "Lbinary_math_test;";
+    }
 
 }

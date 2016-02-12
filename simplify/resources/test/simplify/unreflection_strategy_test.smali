@@ -4,7 +4,7 @@
 .field private privateInstanceInt:I
 .field private static privateStaticObject:Ljava/lang/Object;
 
-.method public static MethodInvokeWith3LocalsAnd0Available()V
+.method public static methodInvokeWith3LocalsAnd0Available()V
   .locals 3
 
   nop # hack, need a parent op
@@ -14,7 +14,7 @@
   return-void
 .end method
 
-.method public static MethodInvokeWith10LocalsAnd7ContiguousAvailable()V
+.method public static methodInvokeWith10LocalsAnd7ContiguousAvailable()V
   .locals 10
 
   nop # hack, need a parent op
@@ -26,7 +26,7 @@
   return-void
 .end method
 
-.method public static MethodInvokeForKnownMethodAndTargetAndParameters()Ljava/lang/String;
+.method public static methodInvokeForKnownMethodAndTargetAndParameters()Ljava/lang/String;
   .locals 5
 
   # Build parameter values
@@ -64,7 +64,7 @@
   return-object v3
 .end method
 
-.method public static FieldLookupWithMoveResult()V
+.method public static fieldLookupWithMoveResult()V
   .locals 3
 
   invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
@@ -76,7 +76,7 @@
   return-void
 .end method
 
-.method public static FieldLookupWithoutMoveResultWithOneAvailableRegister()V
+.method public static fieldLookupWithoutMoveResultWithOneAvailableRegister()V
   .locals 3
 
   invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
@@ -89,7 +89,7 @@
   return-void
 .end method
 
-.method public static FieldLookupWithoutMoveResultWithNoAvailableRegisters()V
+.method public static fieldLookupWithoutMoveResultWithNoAvailableRegisters()V
   .locals 3
 
   invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
