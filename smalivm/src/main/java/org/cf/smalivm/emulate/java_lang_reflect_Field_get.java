@@ -60,7 +60,7 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
         Field field = (Field) fieldItem.getValue();
 
         String className = ClassNameUtils.toInternal(field.getDeclaringClass());
-        String callingMethodDescriptor = ectx.getCallerContext().getMethodDescriptor();
+        String callingMethodDescriptor = ectx.getCallerContext().getMethodSignature();
         String callingClassInternal = callingMethodDescriptor.split("->")[0];
         int accessFlags = field.getModifiers();
         if (!field.isAccessible()) {
@@ -141,7 +141,7 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
             item = new HeapItem(getObject, type);
         } catch (IllegalArgumentException | IllegalAccessException e) {
             String message = e.getMessage();
-            String callingMethodDescriptor = ectx.getCallerContext().getMethodDescriptor();
+            String callingMethodDescriptor = ectx.getCallerContext().getMethodSignature();
             String callingClass = callingMethodDescriptor.split("->")[0];
             String callingClassJava = ClassNameUtils.internalToBinary(callingClass);
             message = message.replace(java_lang_reflect_Field_get.class.getName(), callingClassJava);

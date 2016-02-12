@@ -39,23 +39,23 @@ public class ClassManager {
 
     private final Map<String, BuilderClassDef> classNameToClassDef;
 
-    private final Map<String, List<String>> classNameToFieldNameAndType;
+    private final Map<String, List<String>> classNameToFieldDescriptors;
     private final Map<String, SmaliFile> classNameToSmaliFile;
     private final DexBuilder dexBuilder;
     // Use separate DexBuilder to intern framework classes so they're not included in output dex
     private final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
-    private final Map<String, BuilderMethod> methodDescriptorToMethod;
-    private final Map<String, List<String>> methodDescriptorToParameterTypes;
-    private final Map<String, List<BuilderTryBlock>> methodDescriptorToTryBlocks;
+    private final Map<String, BuilderMethod> methodSignatureToMethod;
+    private final Map<String, List<String>> methodSignatureToParameterTypes;
+    private final Map<String, List<BuilderTryBlock>> methodSignatureToTryBlocks;
     private final SmaliFileFactory smaliFileFactory;
 
     private ClassManager(DexBuilder dexBuilder, boolean ignore) {
         this.dexBuilder = dexBuilder;
         classNameToClassDef = new HashMap<String, BuilderClassDef>();
-        methodDescriptorToMethod = new HashMap<String, BuilderMethod>();
-        methodDescriptorToParameterTypes = new HashMap<String, List<String>>();
-        methodDescriptorToTryBlocks = new HashMap<String, List<BuilderTryBlock>>();
-        classNameToFieldNameAndType = new HashMap<String, List<String>>();
+        methodSignatureToMethod = new HashMap<String, BuilderMethod>();
+        methodSignatureToParameterTypes = new HashMap<String, List<String>>();
+        methodSignatureToTryBlocks = new HashMap<String, List<BuilderTryBlock>>();
+        classNameToFieldDescriptors = new HashMap<String, List<String>>();
         smaliFileFactory = new SmaliFileFactory();
         classNameToSmaliFile = new HashMap<String, SmaliFile>();
     }
@@ -70,22 +70,22 @@ public class ClassManager {
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath));
     }
 
-    private void addFieldNameAndTypes(BuilderClassDef classDef) {
+    private void addFieldDescriptors(BuilderClassDef classDef) {
         String className = ReferenceUtil.getReferenceString(classDef);
         Collection<BuilderField> fields = classDef.getFields();
-        List<String> fieldNameAndTypes = new LinkedList<String>();
+        List<String> fieldDescriptors = new LinkedList<String>();
         for (BuilderField field : fields) {
-            String fieldDescriptor = ReferenceUtil.getFieldDescriptor(field);
-            String fieldNameAndType = fieldDescriptor.split("->")[1];
-            fieldNameAndTypes.add(fieldNameAndType);
+            String fieldSignature = ReferenceUtil.getFieldDescriptor(field);
+            String fieldDescriptor = fieldSignature.split("->")[1];
+            fieldDescriptors.add(fieldDescriptor);
         }
-        classNameToFieldNameAndType.put(className, fieldNameAndTypes);
+        classNameToFieldDescriptors.put(className, fieldDescriptors);
     }
 
     private void addMethods(BuilderClassDef classDef) {
         for (BuilderMethod method : classDef.getMethods()) {
-            String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-            methodDescriptorToMethod.put(methodDescriptor, method);
+            String methodSignature = ReferenceUtil.getMethodDescriptor(method);
+            methodSignatureToMethod.put(methodSignature, method);
             addParameterTypes(method);
             addTryBlocks(method);
         }
@@ -105,17 +105,17 @@ public class ClassManager {
             parameterTypes.add(0, method.getDefiningClass());
         }
 
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        methodDescriptorToParameterTypes.put(methodDescriptor, parameterTypes);
+        String methodSignature = ReferenceUtil.getMethodDescriptor(method);
+        methodSignatureToParameterTypes.put(methodSignature, parameterTypes);
     }
 
     private void addTryBlocks(BuilderMethod method) {
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+        String methodSignature = ReferenceUtil.getMethodDescriptor(method);
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         if (implementation == null) {
             return;
         }
-        methodDescriptorToTryBlocks.put(methodDescriptor, implementation.getTryBlocks());
+        methodSignatureToTryBlocks.put(methodSignature, implementation.getTryBlocks());
     }
 
     private void cacheSmaliFiles(Set<SmaliFile> smaliFiles) {
@@ -147,7 +147,7 @@ public class ClassManager {
 
         classNameToClassDef.put(className, classDef);
         addMethods(classDef);
-        addFieldNameAndTypes(classDef);
+        addFieldDescriptors(classDef);
     }
 
     private boolean isInstance(String childType, String targetType, Set<String> visited) throws UnknownAncestors {
@@ -220,7 +220,7 @@ public class ClassManager {
      * Loads the class if it has not been loaded.
      *
      * @param className
-     *            Fully qualified Smali class descriptor
+     *            Fully qualified Smali class path
      * @return class definition for the given class name
      */
     public @Nullable BuilderClassDef getClass(String className) {
@@ -283,7 +283,7 @@ public class ClassManager {
 
         List<String> fieldNameAndTypes = new LinkedList<String>();
         for (String ancestor : ancestors) {
-            fieldNameAndTypes.addAll(classNameToFieldNameAndType.get(ancestor));
+            fieldNameAndTypes.addAll(classNameToFieldDescriptors.get(ancestor));
         }
 
         return fieldNameAndTypes;
@@ -321,13 +321,13 @@ public class ClassManager {
 
     /**
      *
-     * @param methodDescriptor
-     * @return {@code BuilderMethod} for methodDescriptor or null if not found
+     * @param methodSignature
+     * @return {@code BuilderMethod} for methodSignature or null if not found
      */
-    public BuilderMethod getMethod(String methodDescriptor) {
-        dexifyClassIfNecessary(methodDescriptor);
+    public BuilderMethod getMethod(String methodSignature) {
+        dexifyClassIfNecessary(methodSignature);
 
-        return methodDescriptorToMethod.get(methodDescriptor);
+        return methodSignatureToMethod.get(methodSignature);
     }
 
     /**
@@ -346,9 +346,9 @@ public class ClassManager {
     /**
      *
      * @param className
-     * @return set of all method descriptors for given className
+     * @return set of all method signatures for given className
      */
-    public Set<String> getMethodDescriptors(String className) {
+    public Set<String> getMethodSignatures(String className) {
         dexifyClassIfNecessary(className);
 
         BuilderClassDef classDef = getClass(className);
@@ -378,29 +378,29 @@ public class ClassManager {
     }
 
     /**
-     * Get list of types for objects in parameter registers for a given method descriptor.
+     * Get list of types for objects in parameter registers for a given method signature.
      * This is different {@code Utils.getParameterTypes} in that non-static methods also have
      * the 'this' (p0) reference type in the return value.
      * Note: For non-static method,
      * 
-     * @param methodDescriptor
+     * @param methodSignature
      * @return list of internal format parameter types
      */
-    public List<String> getParameterTypes(String methodDescriptor) {
-        dexifyClassIfNecessary(methodDescriptor);
+    public List<String> getParameterTypes(String methodSignature) {
+        dexifyClassIfNecessary(methodSignature);
 
-        return methodDescriptorToParameterTypes.get(methodDescriptor);
+        return methodSignatureToParameterTypes.get(methodSignature);
     }
 
     /**
      *
-     * @param methodDescriptor
+     * @param methodSignature
      * @return try / catch blocks of given method
      */
-    public List<BuilderTryBlock> getTryBlocks(String methodDescriptor) {
-        dexifyClassIfNecessary(methodDescriptor);
+    public List<BuilderTryBlock> getTryBlocks(String methodSignature) {
+        dexifyClassIfNecessary(methodSignature);
 
-        return methodDescriptorToTryBlocks.get(methodDescriptor);
+        return methodSignatureToTryBlocks.get(methodSignature);
     }
 
     public boolean isFrameworkClass(String typeName) {
@@ -468,26 +468,26 @@ public class ClassManager {
 
     /**
      *
-     * @param methodDescriptor
+     * @param methodSignature
      * @return true if {@link=isLocalClass} is true, and method is defined for class
      */
-    public boolean isLocalMethod(String methodDescriptor) {
-        String[] parts = methodDescriptor.split("->");
+    public boolean isLocalMethod(String methodSignature) {
+        String[] parts = methodSignature.split("->");
         String className = parts[0];
         if (!isLocalClass(className)) {
             return false;
         }
 
-        return getMethod(methodDescriptor) != null;
+        return getMethod(methodSignature) != null;
     }
 
     /**
      *
-     * @param methodDescriptor
+     * @param methodSignature
      * @return true if method is native, false otherwise
      */
-    public boolean isNativeMethod(String methodDescriptor) {
-        BuilderMethod method = getMethod(methodDescriptor);
+    public boolean isNativeMethod(String methodSignature) {
+        BuilderMethod method = getMethod(methodSignature);
 
         return Modifier.isNative(method.getAccessFlags());
     }
@@ -500,11 +500,11 @@ public class ClassManager {
 
     /**
      *
-     * @param methodDescriptor
+     * @param methodSignature
      * @return true if method has implementation (not abstract or native), false otherwise
      */
-    public boolean methodHasImplementation(String methodDescriptor) {
-        BuilderMethod method = getMethod(methodDescriptor);
+    public boolean methodHasImplementation(String methodSignature) {
+        BuilderMethod method = getMethod(methodSignature);
 
         return null != method.getImplementation();
     }

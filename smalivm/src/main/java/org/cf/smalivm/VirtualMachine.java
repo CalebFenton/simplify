@@ -1,6 +1,5 @@
 package org.cf.smalivm;
 
-import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,12 +51,12 @@ public class VirtualMachine {
     /*
      * Get consensus for method and class states and merge them into callerContext.
      */
-    private void collapseMultiverse(String methodDescriptor, ExecutionGraph graph, ExecutionContext callerContext,
+    private void collapseMultiverse(String methodSignature, ExecutionGraph graph, ExecutionContext callerContext,
                     int[] parameterRegisters) {
         int[] terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
-            List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
+            List<String> parameterTypes = classManager.getParameterTypes(methodSignature);
             int parameterRegister = graph.getNodePile(0).get(0).getContext().getMethodState().getParameterStart();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
                 String type = parameterTypes.get(parameterIndex);
@@ -109,18 +108,17 @@ public class VirtualMachine {
     }
 
     private MethodState getTemplateMethodState(ExecutionContext ectx) {
-        String methodDescriptor = ectx.getMethodDescriptor();
-        BuilderMethod method = classManager.getMethod(methodDescriptor);
+        String methodSignature = ectx.getMethodSignature();
+        BuilderMethod method = classManager.getMethod(methodSignature);
         MethodImplementation implementation = method.getImplementation();
         int registerCount = implementation.getRegisterCount();
-        List<String> parameterTypes = classManager.getParameterTypes(methodDescriptor);
+        List<String> parameterTypes = classManager.getParameterTypes(methodSignature);
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         MethodState mState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
         int firstParameter = mState.getParameterStart();
         int parameterRegister = firstParameter;
 
         // Assume all input values are unknown.
-        boolean isStatic = Modifier.isStatic(method.getAccessFlags());
         for (String type : parameterTypes) {
             HeapItem item = HeapItem.newUnknown(type);
             mState.assignParameter(parameterRegister, item);
@@ -147,39 +145,39 @@ public class VirtualMachine {
         }
     }
 
-    public ExecutionGraph execute(String methodDescriptor) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+    public ExecutionGraph execute(String methodSignature) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
                     MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        if (!classManager.methodHasImplementation(methodDescriptor)) {
+        if (!classManager.methodHasImplementation(methodSignature)) {
             return null;
         }
-        ExecutionContext ectx = spawnRootExecutionContext(methodDescriptor);
+        ExecutionContext ectx = spawnRootExecutionContext(methodSignature);
 
-        return execute(methodDescriptor, ectx);
+        return execute(methodSignature, ectx);
     }
 
-    public ExecutionGraph execute(String methodDescriptor, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
+    public ExecutionGraph execute(String methodSignature, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        return execute(methodDescriptor, ectx, null, null);
+        return execute(methodSignature, ectx, null, null);
     }
 
-    public ExecutionGraph execute(String methodDescriptor, ExecutionContext calleeContext,
+    public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         if (callerContext != null) {
             inheritClassStates(callerContext, calleeContext);
         }
 
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        String className = getClassNameFromMethodSignature(methodSignature);
         calleeContext.staticallyInitializeClassIfNecessary(className);
 
-        ExecutionGraph graph = spawnInstructionGraph(methodDescriptor);
+        ExecutionGraph graph = spawnInstructionGraph(methodSignature);
         ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 
         ExecutionGraph execution = methodExecutor.execute(graph);
         if ((execution != null) && (callerContext != null)) {
-            collapseMultiverse(methodDescriptor, graph, callerContext, parameterRegisters);
+            collapseMultiverse(methodSignature, graph, callerContext, parameterRegisters);
         }
 
         return execution;
@@ -217,10 +215,10 @@ public class VirtualMachine {
         return classManager.isLocalClass(classDescriptor) && !getConfiguration().isSafe(classDescriptor);
     }
 
-    public ExecutionGraph spawnInstructionGraph(String methodDescriptor) {
-        BuilderMethod method = classManager.getMethod(methodDescriptor);
+    public ExecutionGraph spawnInstructionGraph(String methodSignature) {
+        BuilderMethod method = classManager.getMethod(methodSignature);
         if (!methodToTemplateExecutionGraph.containsKey(method)) {
-            updateInstructionGraph(methodDescriptor);
+            updateInstructionGraph(methodSignature);
         }
         ExecutionGraph graph = methodToTemplateExecutionGraph.get(method);
         ExecutionGraph spawn = new ExecutionGraph(graph);
@@ -228,23 +226,23 @@ public class VirtualMachine {
         return spawn;
     }
 
-    public ExecutionContext spawnRootExecutionContext(String methodDescriptor) {
-        return spawnRootExecutionContext(methodDescriptor, null, 0);
+    public ExecutionContext spawnRootExecutionContext(String methodSignature) {
+        return spawnRootExecutionContext(methodSignature, null, 0);
     }
 
-    public ExecutionContext spawnRootExecutionContext(String methodDescriptor,
+    public ExecutionContext spawnRootExecutionContext(String methodSignature,
                     @Nullable ExecutionContext callerContext, int callerAddress) {
-        if (!classManager.isLocalMethod(methodDescriptor)) {
-            throw new IllegalArgumentException("Method does not exist: " + methodDescriptor);
+        if (!classManager.isLocalMethod(methodSignature)) {
+            throw new IllegalArgumentException("Method does not exist: " + methodSignature);
         }
 
-        if (!classManager.methodHasImplementation(methodDescriptor)) {
+        if (!classManager.methodHasImplementation(methodSignature)) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
-            throw new IllegalArgumentException("No implementation for " + methodDescriptor);
+            throw new IllegalArgumentException("No implementation for " + methodSignature);
         }
 
-        ExecutionContext spawnedContext = new ExecutionContext(this, methodDescriptor);
-        String className = getClassNameFromMethodDescriptor(methodDescriptor);
+        ExecutionContext spawnedContext = new ExecutionContext(this, methodSignature);
+        String className = getClassNameFromMethodSignature(methodSignature);
         ClassState templateClassState = getTemplateClassState(spawnedContext, className);
         spawnedContext.setClassState(className, templateClassState);
 
@@ -258,14 +256,14 @@ public class VirtualMachine {
         return spawnedContext;
     }
 
-    public void updateInstructionGraph(String methodDescriptor) {
-        BuilderMethod method = classManager.getMethod(methodDescriptor);
+    public void updateInstructionGraph(String methodSignature) {
+        BuilderMethod method = classManager.getMethod(methodSignature);
         ExecutionGraph graph = new ExecutionGraph(this, method);
         methodToTemplateExecutionGraph.put(method, graph);
     }
 
-    private static String getClassNameFromMethodDescriptor(String methodDescriptor) {
-        return methodDescriptor.split("->", 2)[0];
+    private static String getClassNameFromMethodSignature(String methodSignature) {
+        return methodSignature.split("->", 2)[0];
     }
 
     private static HeapItem getMutableParameterConsensus(int[] addresses, ExecutionGraph graph, int parameterRegister) {

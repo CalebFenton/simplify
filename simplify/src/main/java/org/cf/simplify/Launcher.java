@@ -86,7 +86,7 @@ public class Launcher {
     private int executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
-        Set<String> methodDescriptors = classManager.getMethodDescriptors(className);
+        Set<String> methodDescriptors = classManager.getMethodSignatures(className);
         filterMethods(methodDescriptors, opts.getIncludeFilter(), opts.getExcludeFilter());
         if (!opts.includeSupportLibrary()) {
             filterSupportLibrary(methodDescriptors);

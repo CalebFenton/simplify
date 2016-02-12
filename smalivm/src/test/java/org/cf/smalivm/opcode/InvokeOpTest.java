@@ -23,7 +23,6 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.smali.ClassManager;
-import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
@@ -204,8 +203,9 @@ public class InvokeOpTest {
     public static class InvokeVirtual {
 
         private static final String CLASS_NAME = "Linvoke_virtual_test;";
-        private VMState expected;
+        private static final String CLASS_NAME_BINARY = "invoke_virtual_test";
 
+        private VMState expected;
         private VMState initial;
 
         @Before
@@ -223,25 +223,43 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeReturnIntReturnsInt() {
-            initial.setRegisters(0, new LocalInstance(CLASS_NAME), CLASS_NAME);
+        public void testInvokeReturnIntReturnsInt() throws InstantiationException, IllegalAccessException,
+                        ClassNotFoundException {
+            VirtualMachine vm = VMTester.spawnVM();
+            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object localInstance = localClass.newInstance();
+            initial.setRegisters(0, localInstance, CLASS_NAME);
             expected.setRegisters(MethodState.ResultRegister, 0x7, "I");
 
             VMTester.test(CLASS_NAME, "invokeReturnInt()V", initial, expected);
         }
 
         @Test
-        public void testInvokeReturnParameterReturnsParameter() {
-            initial.setRegisters(0, new LocalInstance(CLASS_NAME), CLASS_NAME, 1, 0x5, "I");
-            expected.setRegisters(0, new LocalInstance(CLASS_NAME), CLASS_NAME, 1, 0x5, "I",
-                            MethodState.ResultRegister, 0x5, "I");
+        public void testInvokeReturnParameterReturnsParameter() throws InstantiationException, IllegalAccessException,
+                        ClassNotFoundException {
+            VirtualMachine vm = VMTester.spawnVM();
+            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object localInstance = localClass.newInstance();
+            initial.setRegisters(0, localInstance, CLASS_NAME, 1, 0x5, "I");
+            expected.setRegisters(1, 0x5, "I", MethodState.ResultRegister, 0x5, "I");
 
-            VMTester.test(CLASS_NAME, "invokeReturnParameter()V", initial, expected);
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "invokeReturnParameter()V", initial);
+            VMTester.testState(graph, expected);
+
+            // Can't simply put localInstance in the expected state because mutable objects get cloned.
+            // The object reference at consensus would be different than the initial reference.
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(CLASS_NAME, consensus.getType());
+            assertEquals(localClass, consensus.getValue().getClass());
         }
 
         @Test
-        public void testInvokeReturnVoidReturnsVoid() {
-            initial.setRegisters(0, new LocalInstance(CLASS_NAME), CLASS_NAME);
+        public void testInvokeReturnVoidReturnsVoid() throws InstantiationException, IllegalAccessException,
+                        ClassNotFoundException {
+            VirtualMachine vm = VMTester.spawnVM();
+            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object localInstance = localClass.newInstance();
+            initial.setRegisters(0, localInstance, CLASS_NAME);
             ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeReturnVoid()V", initial);
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ResultRegister);
 
@@ -249,9 +267,13 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeVirtualManyParametersThrowsNoExceptions() {
-            initial.setRegisters(0, new LocalInstance(CLASS_NAME), CLASS_NAME, 1, 0x100L, "J", 3, 0x200L, "J", 5,
-                            0x300L, "J", 7, 0x3, "I");
+        public void testInvokeVirtualManyParametersThrowsNoExceptions() throws InstantiationException,
+                        IllegalAccessException, ClassNotFoundException {
+            VirtualMachine vm = VMTester.spawnVM();
+            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object localInstance = localClass.newInstance();
+            initial.setRegisters(0, localInstance, CLASS_NAME, 1, 0x100L, "J", 3, 0x200L, "J", 5, 0x300L, "J", 7, 0x3,
+                            "I");
             expected.setRegisters(MethodState.ResultRegister, 0x3, "I");
 
             VMTester.test(CLASS_NAME, "invokeRangeManyParameters()V", initial, expected);

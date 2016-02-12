@@ -28,7 +28,7 @@ public class ExecutionContext {
 
     private MethodState mState;
     private ExecutionContext parent;
-    private String methodDescriptor;
+    private String methodSignature;
 
     private ExecutionContext callerContext;
     private int callerAddress;
@@ -62,9 +62,9 @@ public class ExecutionContext {
         }
     }
 
-    public ExecutionContext(VirtualMachine vm, String methodDescriptor) {
+    public ExecutionContext(VirtualMachine vm, String methodSignature) {
         this.vm = vm;
-        this.methodDescriptor = methodDescriptor;
+        this.methodSignature = methodSignature;
         heap = new Heap();
         callDepth = 0;
 
@@ -109,8 +109,8 @@ public class ExecutionContext {
         return classes;
     }
 
-    public String getMethodDescriptor() {
-        return methodDescriptor;
+    public String getMethodSignature() {
+        return methodSignature;
     }
 
     public MethodState getMethodState() {
@@ -172,7 +172,7 @@ public class ExecutionContext {
     }
 
     public ExecutionContext spawnChild() {
-        ExecutionContext child = new ExecutionContext(vm, getMethodDescriptor());
+        ExecutionContext child = new ExecutionContext(vm, getMethodSignature());
         child.setParent(this);
 
         return child;
@@ -188,18 +188,18 @@ public class ExecutionContext {
             return;
         }
 
-        String clinitDescriptor = className + "-><clinit>()V";
-        if (vm.getClassManager().isLocalMethod(clinitDescriptor)) {
+        String clinitSignature = className + "-><clinit>()V";
+        if (vm.getClassManager().isLocalMethod(clinitSignature)) {
             // TODO: determine what the call stack actually is when the vm clinit's a class
             // this assumes the call stack is empty
-            ExecutionContext initContext = vm.spawnRootExecutionContext(clinitDescriptor);
+            ExecutionContext initContext = vm.spawnRootExecutionContext(clinitSignature);
 
             ClassState cState = initContext.peekClassState(className);
             initContext.initializeClass(className, cState, SideEffect.Level.NONE);
 
             ExecutionGraph graph = null;
             try {
-                graph = vm.execute(clinitDescriptor, initContext, this, null);
+                graph = vm.execute(clinitSignature, initContext, this, null);
             } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
                 log.warn(e.toString());
             } catch (UnhandledVirtualException e) {

@@ -114,7 +114,7 @@ public class java_lang_reflect_Field_get_Test {
 
         when(ectx.getMethodState()).thenReturn(mState);
         callerContext = mock(ExecutionContext.class);
-        when(callerContext.getMethodDescriptor()).thenReturn(MOCKED_METHOD_DESCRIPTOR);
+        when(callerContext.getMethodSignature()).thenReturn(MOCKED_METHOD_DESCRIPTOR);
         when(ectx.getCallerContext()).thenReturn(callerContext);
         method = new java_lang_reflect_Field_get();
     }
@@ -199,7 +199,7 @@ public class java_lang_reflect_Field_get_Test {
 
     @Test
     public void localExistentPrivateStaticFieldFromExternalClassThrowsException() throws Exception {
-        when(callerContext.getMethodDescriptor()).thenReturn(NON_DUMMY_CLASS_NAME_INTERNAL);
+        when(callerContext.getMethodSignature()).thenReturn(NON_DUMMY_CLASS_NAME_INTERNAL);
         Field field = DummyClass.class.getDeclaredField(DUMMY_PRIVATE_STATIC_FIELD_NAME);
 
         String expectedMessage = "Class " + NON_DUMMY_CLASS_NAME_BINARY + " can not access a member of class " + DUMMY_CLASS_NAME_BINARY + " with modifiers \"private static final\"";
@@ -216,7 +216,7 @@ public class java_lang_reflect_Field_get_Test {
 
     @Test
     public void localExistentPrivateStaticFieldFromInternalClassWorks() throws Exception {
-        when(callerContext.getMethodDescriptor()).thenReturn(DUMMER_INNER_CLASS_NAME_INTERNAL);
+        when(callerContext.getMethodSignature()).thenReturn(DUMMER_INNER_CLASS_NAME_INTERNAL);
         Field field = DummyClass.class.getDeclaredField(DUMMY_PRIVATE_STATIC_FIELD_NAME);
 
         testLocalCasePerformsLookup(field, null, DUMMY_PRIVATE_STATIC_FIELD_VALUE, DUMMY_PRIVATE_STATIC_FIELD_TYPE);
@@ -224,7 +224,7 @@ public class java_lang_reflect_Field_get_Test {
 
     @Test
     public void localExistentProtectedStaticFieldFromChildClassWorks() throws Exception {
-        when(callerContext.getMethodDescriptor()).thenReturn(DUMMY_CHILD_CLASS_NAME_INTERNAL);
+        when(callerContext.getMethodSignature()).thenReturn(DUMMY_CHILD_CLASS_NAME_INTERNAL);
         Field field = DummyClass.class.getDeclaredField(DUMMY_PROTECTED_STATIC_FIELD_NAME);
 
         testLocalCasePerformsLookup(field, null, DUMMY_PROTECTED_STATIC_FIELD_VALUE, DUMMY_PROTECTED_STATIC_FIELD_TYPE);
@@ -241,7 +241,7 @@ public class java_lang_reflect_Field_get_Test {
 
     @Test
     public void localExistentPrivateInstanceFieldFromExternalClassThrowsException() throws Exception {
-        when(callerContext.getMethodDescriptor()).thenReturn(NON_DUMMY_CLASS_NAME_INTERNAL);
+        when(callerContext.getMethodSignature()).thenReturn(NON_DUMMY_CLASS_NAME_INTERNAL);
         Field field = DummyClass.class.getDeclaredField(DUMMY_PRIVATE_INSTANCE_FIELD_NAME);
 
         String expectedMessage = "Class " + NON_DUMMY_CLASS_NAME_BINARY + " can not access a member of class " + DUMMY_CLASS_NAME_BINARY + " with modifiers \"private final\"";
@@ -250,7 +250,7 @@ public class java_lang_reflect_Field_get_Test {
 
     @Test
     public void localExistentPrivateInstanceFieldSetAccessibleFromExternalClassGivesUnknownValue() throws Exception {
-        when(callerContext.getMethodDescriptor()).thenReturn(NON_DUMMY_CLASS_NAME_INTERNAL);
+        when(callerContext.getMethodSignature()).thenReturn(NON_DUMMY_CLASS_NAME_INTERNAL);
         Field field = DummyClass.class.getDeclaredField(DUMMY_PRIVATE_INSTANCE_FIELD_NAME);
         field.setAccessible(true);
         Object instance = new DummyClass();
@@ -261,7 +261,7 @@ public class java_lang_reflect_Field_get_Test {
 
     @Test
     public void localExistentPrivateInstanceFieldFromInternalClassGivesUnknownValue() throws Exception {
-        when(callerContext.getMethodDescriptor()).thenReturn(DUMMER_INNER_CLASS_NAME_INTERNAL);
+        when(callerContext.getMethodSignature()).thenReturn(DUMMER_INNER_CLASS_NAME_INTERNAL);
         Field field = DummyClass.class.getDeclaredField(DUMMY_PRIVATE_INSTANCE_FIELD_NAME);
         Object instance = new DummyClass();
         Object value = new UnknownValue();

@@ -32,6 +32,7 @@
 
 .method public abstractMethod()Ljava/lang/String;
     .locals 1
+
     const-string v0, "abstract?"
 
     return-object v0
@@ -39,7 +40,10 @@
 
 .method public static callsAbstractMethod()Ljava/lang/String;
     .locals 1
+
     new-instance v0, Lchild_class;
+    invoke-direct {v0}, Lchild_class;-><init>()V
+
     invoke-virtual {v0}, Lparent_class;->abstractMethod()Ljava/lang/String;
     move-result-object v0
 
@@ -48,7 +52,10 @@
 
 .method public static callsParentMethod()Ljava/lang/String;
     .locals 1
+
     new-instance v0, Lchild_class;
+    invoke-direct {v0}, Lchild_class;-><init>()V
+
     invoke-virtual {v0}, Lchild_class;->parentMethod()Ljava/lang/String;
     move-result-object v0
 

@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.Assert.assertEquals;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -9,14 +10,17 @@ import static org.mockito.Mockito.when;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import java.lang.reflect.Array;
+
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
+import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -35,6 +39,7 @@ public class NewArrayOpTest {
     public static class IntegrationTest {
 
         private static final String CLASS_NAME = "Lnew_array_test;";
+        private static final String CLASS_NAME_BINARY = "new_array_test";
 
         private VMState expected;
         private VMState initial;
@@ -49,13 +54,16 @@ public class NewArrayOpTest {
         }
 
         @Test
-        public void canCreate2DLocalInstanceArray() {
+        public void canCreate2DLocalInstanceArray() throws ClassNotFoundException {
             int length = 5;
             initial.setRegisters(0, length, "I");
-            LocalInstance[][] instances = new LocalInstance[length][];
-            expected.setRegisters(0, instances, "[[" + CLASS_NAME);
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "create2DLocalInstanceArray()V", initial);
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
 
-            VMTester.test(CLASS_NAME, "create2DLocalInstanceArray()V", initial, expected);
+            assertEquals("[[" + CLASS_NAME, consensus.getType());
+            assertEquals(length, Array.getLength(consensus.getValue()));
+            Class<?> actualClass = consensus.getValue().getClass();
+            assertEquals("[[" + CLASS_NAME, actualClass.getName());
         }
 
         @Test
@@ -89,10 +97,13 @@ public class NewArrayOpTest {
         public void canCreateLocalInstanceArray() {
             int length = 1;
             initial.setRegisters(0, length, "I");
-            LocalInstance[] instances = new LocalInstance[length];
-            expected.setRegisters(0, instances, "[" + CLASS_NAME);
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "createLocalInstanceArray()V", initial);
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
 
-            VMTester.test(CLASS_NAME, "createLocalInstanceArray()V", initial, expected);
+            assertEquals("[" + CLASS_NAME, consensus.getType());
+            assertEquals(length, Array.getLength(consensus.getValue()));
+            Class<?> actualClass = consensus.getValue().getClass();
+            assertEquals("[" + CLASS_NAME, actualClass.getName());
         }
 
         @Before

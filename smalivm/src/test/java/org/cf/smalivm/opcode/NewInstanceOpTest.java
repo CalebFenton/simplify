@@ -2,7 +2,6 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.type.LocalInstance;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.junit.Before;
 import org.junit.Test;
@@ -10,6 +9,7 @@ import org.junit.Test;
 public class NewInstanceOpTest {
 
     private static final String CLASS_NAME = "Lnew_instance_test;";
+    private static final String CLASS_NAME_BINARY = "new_instance_test";
 
     private VMState expected;
     private VMState initial;
@@ -21,15 +21,15 @@ public class NewInstanceOpTest {
     }
 
     @Test
-    public void testNewLocalInstance() {
+    public void canCreateLocalInstance() throws ClassNotFoundException {
         initial.setRegisters(0, 1, "I");
-        expected.setRegisters(0, new LocalInstance(CLASS_NAME), CLASS_NAME);
+        expected.setRegisters(0, new UninitializedInstance(CLASS_NAME), CLASS_NAME);
 
         VMTester.test(CLASS_NAME, "newLocalInstance()V", initial, expected);
     }
 
     @Test
-    public void testNewNonLocalInstance() {
+    public void canCreateNonLocalInstance() {
         initial.setRegisters(0, 1, "I");
         expected.setRegisters(0, new UninitializedInstance("Ljava/lang/Integer;"), "Ljava/lang/Integer;");
 

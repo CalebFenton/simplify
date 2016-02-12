@@ -111,8 +111,7 @@ public class VMTester {
     }
 
     public static void test(String className, String methodSignature, VMState expectedState) {
-        ExecutionGraph graph = execute(className, methodSignature);
-        testState(graph, expectedState);
+        test(className, methodSignature, new VMState(), expectedState);
     }
 
     public static void testState(ExecutionGraph graph, VMState expectedState) {

@@ -1,8 +1,8 @@
-.class Linvoke_virtual_test;
+.class public Linvoke_virtual_test;
 .super Ljava/lang/Object;
 
 # direct methods
-.method constructor <init>()V
+.method public constructor <init>()V
     .locals 0
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V

@@ -22,6 +22,7 @@ import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -33,57 +34,20 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private static boolean doesNonLocalMethodExist(String className, String methodSignature) {
-        Class<?> klazz = null;
-        try {
-            klazz = Class.forName(ClassNameUtils.internalToBinary(className));
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(methodSignature);
-        List<String> paramList = Utils.getParameterTypes(sb.toString());
-        Class<?>[] params = new Class<?>[paramList.size()];
-        for (int i = 0; i < paramList.size(); i++) {
-            String paramName = paramList.get(i);
-            try {
-                if (ClassNameUtils.isPrimitive(paramName)) {
-                    params[i] = ClassUtils.getClass(ClassNameUtils.internalToBinary(paramName));
-                } else {
-                    params[i] = Class.forName(ClassNameUtils.internalToBinary(paramName));
-                }
-            } catch (ClassNotFoundException e) {
-                return false;
-            }
-        }
-
-        String methodName = methodSignature.split("\\(")[0];
-        try {
-            klazz.getMethod(methodName, params);
-        } catch (NoSuchMethodException e) {
-            return false;
-        } catch (SecurityException e) {
-            return false;
-        }
-
-        return true;
-    }
-
     private final boolean isStatic;
-    private final String methodDescriptor;
+
+    private final String methodSignature;
     private final int[] parameterRegisters;
     private final List<String> parameterTypes;
     private final String returnType;
     private SideEffect.Level sideEffectLevel;
-
     private final VirtualMachine vm;
 
-    InvokeOp(MethodLocation location, MethodLocation child, String methodDescriptor, String returnType,
+    InvokeOp(MethodLocation location, MethodLocation child, String methodSignature, String returnType,
                     int[] parameterRegisters, List<String> parameterTypes, VirtualMachine vm, boolean isStatic) {
         super(location, child);
 
-        this.methodDescriptor = methodDescriptor;
+        this.methodSignature = methodSignature;
         this.returnType = returnType;
         this.parameterRegisters = parameterRegisters;
         this.parameterTypes = parameterTypes;
@@ -99,7 +63,7 @@ public class InvokeOp extends ExecutionContextOp {
         // It also keeps things clear with method execution delegated to the class with the same name.
         // MethodExecutor can maintain a mapping such that calleeContext -> (callerContext, caller address)
         // With this mapping, stack traces can be reconstructed.
-        String targetMethod = methodDescriptor;
+        String targetMethod = methodSignature;
         if (getName().startsWith("invoke-virtual")) { // -virtual/range
             // Resolve what the actual virtual target is because method call may be to interface or abstract class.
             int targetRegister = parameterRegisters[0];
@@ -147,7 +111,7 @@ public class InvokeOp extends ExecutionContextOp {
                     return;
                 }
 
-                ExecutionContext calleeContext = buildLocalCalleeContext(targetMethod, ectx);
+                ExecutionContext calleeContext = buildLocalCalleeContext(ectx, targetMethod);
                 executeLocalMethod(targetMethod, ectx, calleeContext);
             } else {
                 log.debug("Unknown method: {}. Assuming maximum ambiguity.", targetMethod);
@@ -186,7 +150,7 @@ public class InvokeOp extends ExecutionContextOp {
                 sb.setLength(sb.length() - 2);
             }
         }
-        sb.append("}, ").append(methodDescriptor);
+        sb.append("}, ").append(methodSignature);
 
         return sb.toString();
     }
@@ -204,13 +168,22 @@ public class InvokeOp extends ExecutionContextOp {
         return true;
     }
 
-    private void assignCalleeMethodStateParameters(MethodState callerState, MethodState calleeState) {
+    private void assignCalleeMethodArguments(MethodState callerState, MethodState calleeState) {
         int parameterRegister = calleeState.getParameterStart();
         for (int i = 0; i < parameterRegisters.length; i++) {
             int callerRegister = parameterRegisters[i];
             HeapItem item = callerState.readRegister(callerRegister);
-            // Since we have explicit type, over ride any implied type as it may be inaccurate.
-            // For example, might think it's an int when really it's a short or boolean.
+
+            /*
+             * Type can be confused here. For example, creating a short, int, or boolean all looks the same:
+             * const/4 v0,0x1 (could be true, (int)1 or (short)1)
+             * If a more restrictive type is given in the method signature, prefer that, for example:
+             * method argument is an int but signature declares it as boolean, so switch it to boolean
+             * However, if the type is less specific, such as a super class or interface, do not change the type. For
+             * example:
+             * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
+             */
+            // TODO: don't lie
             String type = parameterTypes.get(i);
             calleeState.assignParameter(parameterRegister, new HeapItem(item.getValue(), type));
             parameterRegister += Utils.getRegisterSize(type);
@@ -231,7 +204,7 @@ public class InvokeOp extends ExecutionContextOp {
                 continue;
             }
 
-            boolean isInitializing = methodDescriptor.contains(";-><init>(");
+            boolean isInitializing = methodSignature.contains(";-><init>(");
             if (!isInitializing) {
                 // May be immutable type, but if this is the initializer, internal state would be changing.
                 if (vm.getConfiguration().isImmutable(type)) {
@@ -264,11 +237,11 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private ExecutionContext buildLocalCalleeContext(String methodDescriptor, ExecutionContext callerContext) {
-        ExecutionContext calleeContext = vm.spawnRootExecutionContext(methodDescriptor, callerContext, getAddress());
+    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext, String methodSignature) {
+        ExecutionContext calleeContext = vm.spawnRootExecutionContext(methodSignature, callerContext, getAddress());
         MethodState callerMethodState = callerContext.getMethodState();
         MethodState calleeMethodState = calleeContext.getMethodState();
-        assignCalleeMethodStateParameters(callerMethodState, calleeMethodState);
+        assignCalleeMethodArguments(callerMethodState, calleeMethodState);
 
         // Class state merging is handled by the VM.
 
@@ -276,22 +249,23 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private ExecutionContext buildNonLocalCalleeContext(ExecutionContext callerContext) {
-        ExecutionContext ectx = new ExecutionContext(vm, methodDescriptor);
+        ExecutionContext calleeContext = new ExecutionContext(vm, methodSignature);
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         int registerCount = parameterSize;
-        MethodState calleeMethodState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
-        assignCalleeMethodStateParameters(callerContext.getMethodState(), calleeMethodState);
-        ectx.setMethodState(calleeMethodState);
-        ectx.registerCaller(callerContext, getAddress());
+        MethodState calleeMethodState = new MethodState(calleeContext, registerCount, parameterTypes.size(),
+                        parameterSize);
+        assignCalleeMethodArguments(callerContext.getMethodState(), calleeMethodState);
+        calleeContext.setMethodState(calleeMethodState);
+        calleeContext.registerCaller(callerContext, getAddress());
 
-        return ectx;
+        return calleeContext;
     }
 
-    private void executeLocalMethod(String methodDescriptor, ExecutionContext callerContext,
+    private void executeLocalMethod(String methodSignature, ExecutionContext callerContext,
                     ExecutionContext calleeContext) {
         ExecutionGraph graph = null;
         try {
-            graph = vm.execute(methodDescriptor, calleeContext, callerContext, parameterRegisters);
+            graph = vm.execute(methodSignature, calleeContext, callerContext, parameterRegisters);
         } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
             if (log.isWarnEnabled()) {
                 log.warn(e.toString());
@@ -305,7 +279,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         if (graph == null) {
             // Problem executing the method. Maybe node visits or call depth exceeded?
-            log.info("Problem executing {}, propagating ambiguity.", methodDescriptor);
+            log.info("Problem executing {}, propagating ambiguity.", methodSignature);
             assumeMaximumUnknown(callerContext.getMethodState());
 
             return;
@@ -314,6 +288,23 @@ public class InvokeOp extends ExecutionContextOp {
         if (!returnType.equals("V")) {
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
+        } else {
+            if (methodSignature.contains(";-><init>(")) {
+                // The instance has been initialized. Need to replace the UninitializedInstance.
+                MethodState mState = callerContext.getMethodState();
+                int instanceRegister = parameterRegisters[0];
+                HeapItem instanceItem = mState.peekRegister(instanceRegister);
+                String instanceType = ((UninitializedInstance) instanceItem.getValue()).getName();
+                String binaryType = ClassNameUtils.internalToBinary(instanceType);
+                try {
+                    Class<?> instanceClass = vm.getClassLoader().loadClass(binaryType);
+                    HeapItem newInstance = new HeapItem(instanceClass.newInstance(), instanceType);
+                    // TODO: but why not update identities
+                    callerContext.getMethodState().assignRegister(instanceRegister, newInstance);
+                } catch (Exception e) {
+                    log.error("Failed to update uninitialized instance.", e);
+                }
+            }
         }
 
         sideEffectLevel = graph.getHighestSideEffectLevel();
@@ -341,15 +332,18 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         if (!isStatic) {
-            // Handle updating the instance reference
+            // This is virtual and the instance reference may have been initialized or mutated.
             HeapItem originalInstanceItem = callerContext.peekRegister(parameterRegisters[0]);
             HeapItem newInstanceItem = calleeContext.getMethodState().peekParameter(0);
             if (originalInstanceItem.getValue() != newInstanceItem.getValue()) {
-                // Instance went from UninitializedInstance class to something else.
+                // Instance has been initialized, i.e. was UninitializedInstance
+                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
+                // UninitializedInstance, and those need to be updated with the new instance.
                 callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
             } else {
-                if (!vm.getConfiguration().isImmutable(newInstanceItem.getType())) {
-                    // The instance type is mutable and could have changed. Mark it assigned here for optimizer.
+                boolean isMutable = !vm.getConfiguration().isImmutable(newInstanceItem.getType());
+                if (isMutable) {
+                    // The instance type is mutable so could have changed. Record that it was changed for the optimizer.
                     callerContext.assignRegister(parameterRegisters[0], newInstanceItem);
                 }
             }
@@ -368,25 +362,24 @@ public class InvokeOp extends ExecutionContextOp {
      */
     private @Nullable String resolveVirtualMethod(Object virtualTarget) {
         String virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
-        String methodSignature = methodDescriptor.split("->")[1];
+        String descriptor = methodSignature.split("->")[1];
         ClassManager classManager = vm.getClassManager();
-        String targetMethod = resolveVirtualMethod(virtualType, methodSignature, classManager, new HashSet<String>(4));
+        String targetMethod = resolveVirtualMethod(virtualType, descriptor, classManager, new HashSet<String>(4));
 
-        return targetMethod != null ? targetMethod : methodDescriptor;
+        return targetMethod != null ? targetMethod : methodSignature;
     }
 
-    private @Nullable String resolveVirtualMethod(String className, String methodSignature, ClassManager classManager,
+    private @Nullable String resolveVirtualMethod(String className, String descriptor, ClassManager classManager,
                     Set<String> visited) {
-        StringBuilder sb = new StringBuilder(className).append("->").append(methodSignature);
-        String methodDescriptor = sb.toString();
+        String signature = new StringBuilder(className).append("->").append(descriptor).toString();
 
-        boolean isLocalMethod = classManager.isLocalMethod(methodDescriptor);
-        if (isLocalMethod && classManager.methodHasImplementation(methodDescriptor)) {
-            return methodDescriptor;
+        boolean isLocalMethod = classManager.isLocalMethod(signature);
+        if (isLocalMethod && classManager.methodHasImplementation(signature)) {
+            return signature;
         }
 
-        if (vm.getConfiguration().isSafe(methodDescriptor) && doesNonLocalMethodExist(className, methodSignature)) {
-            return methodDescriptor;
+        if (vm.getConfiguration().isSafe(signature) && doesNonLocalMethodExist(className, descriptor)) {
+            return signature;
         }
 
         if (!classManager.isLocalClass(className)) {
@@ -408,13 +401,50 @@ public class InvokeOp extends ExecutionContextOp {
                 continue;
             }
             visited.add(className);
-            String target = resolveVirtualMethod(parent, methodSignature, classManager, visited);
+            String target = resolveVirtualMethod(parent, descriptor, classManager, visited);
             if (null != target) {
                 return target;
             }
         }
 
         return null;
+    }
+
+    private static boolean doesNonLocalMethodExist(String className, String descriptor) {
+        Class<?> klazz = null;
+        try {
+            klazz = Class.forName(ClassNameUtils.internalToBinary(className));
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+
+        StringBuilder sb = new StringBuilder(className);
+        sb.append("->").append(descriptor);
+        List<String> paramList = Utils.getParameterTypes(sb.toString());
+        Class<?>[] params = new Class<?>[paramList.size()];
+        for (int i = 0; i < paramList.size(); i++) {
+            String paramName = paramList.get(i);
+            try {
+                if (ClassNameUtils.isPrimitive(paramName)) {
+                    params[i] = ClassUtils.getClass(ClassNameUtils.internalToBinary(paramName));
+                } else {
+                    params[i] = Class.forName(ClassNameUtils.internalToBinary(paramName));
+                }
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        }
+
+        String methodName = descriptor.split("\\(")[0];
+        try {
+            klazz.getMethod(methodName, params);
+        } catch (NoSuchMethodException e) {
+            return false;
+        } catch (SecurityException e) {
+            return false;
+        }
+
+        return true;
     }
 
 }

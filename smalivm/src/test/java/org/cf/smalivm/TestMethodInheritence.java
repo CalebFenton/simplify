@@ -30,9 +30,8 @@ public class TestMethodInheritence {
             String methodName = "callsAbstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
-            String value = (String) item.getValue();
 
-            assertEquals(EXPECTED_VALUE, value);
+            assertEquals(EXPECTED_VALUE, item.getValue());
         }
 
         @Test
@@ -50,9 +49,8 @@ public class TestMethodInheritence {
             String methodName = "callsParentMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
-            String value = (String) item.getValue();
 
-            assertEquals("parentMethod", value);
+            assertEquals("parentMethod", item.getValue());
         }
     }
 
