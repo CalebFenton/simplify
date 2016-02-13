@@ -96,18 +96,22 @@ public class ClassBuilder {
     }
 
     private void visitClInitStub(MethodVisitor mv) {
+        mv.visitCode();
         mv.visitInsn(Opcodes.RETURN);
-        // mv.visitMaxs(0, 0);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
     }
 
     private void visitInitStub(ClassDef classDef, MethodVisitor mv) {
+        mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         if (classDef.getSuperclass() != null) {
             String superName = stripName(classDef.getSuperclass());
             mv.visitMethodInsn(Opcodes.INVOKESPECIAL, superName, "<init>", "()V", false);
         }
         mv.visitInsn(Opcodes.RETURN);
-        // mv.visitMaxs(0, 0);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
     }
 
     private void visitFields(Iterable<? extends Field> fields, ClassWriter classWriter) {
@@ -138,6 +142,7 @@ public class ClassBuilder {
     }
 
     private void visitMethods(ClassDef classDef, Iterable<? extends Method> methods, ClassWriter classWriter) {
+        boolean hasDefaultConstructor = false;
         for (Method method : methods) {
             int access = method.getAccessFlags();
             String name = method.getName();
@@ -146,7 +151,25 @@ public class ClassBuilder {
             String[] exceptions = buildExceptions(method);
             MethodVisitor mv = classWriter.visitMethod(access, name, desc, signature, exceptions);
             if (method.getImplementation() != null) {
+                if (method.getName().equals("<init>") && desc.equals("()V")) {
+                    hasDefaultConstructor = true;
+                }
                 visitMethod(classDef, method, mv);
+            }
+        }
+
+        if (!hasDefaultConstructor) {
+            boolean isInterface = (Opcodes.ACC_INTERFACE & classDef.getAccessFlags()) != 0;
+            if (!isInterface) {
+                /*
+                 * Every class gets a default constructor. This is a give-away but it simplifies things. Right now,
+                 * <init> stubs just call the empty arg / default constructor of the super, which may not exist. To do
+                 * this properly, would need to maybe randomly pick a constructor and call that one, which may kind of
+                 * one day affect correctness.
+                 */
+                int mods = Opcodes.ACC_PUBLIC;
+                MethodVisitor mv = classWriter.visitMethod(mods, "<init>", "()V", null, null);
+                visitInitStub(classDef, mv);
             }
         }
     }

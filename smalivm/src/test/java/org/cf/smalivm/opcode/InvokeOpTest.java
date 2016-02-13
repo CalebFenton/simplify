@@ -39,7 +39,7 @@ import org.junit.runner.RunWith;
 @RunWith(Enclosed.class)
 public class InvokeOpTest {
 
-    public static class InvokeReflectedMethod {
+    public static class InvokeReflected {
 
         private static final String CLASS_NAME = "Linvoke_reflected_test;";
 
@@ -254,9 +254,24 @@ public class InvokeOpTest {
         }
 
         @Test
+        public void instanceInitializerWorksAsExpected() throws InstantiationException, IllegalAccessException,
+                        ClassNotFoundException {
+            initial.setRegisters(0, new UninitializedInstance(CLASS_NAME), CLASS_NAME);
+            VirtualMachine vm = VMTester.spawnVM(true);
+            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "<init>()V", initial);
+
+            // Can't simply put localInstance in the expected state because mutable objects get cloned.
+            // The object reference at consensus would be different than the initial reference.
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(CLASS_NAME, consensus.getType());
+            assertEquals(localClass, consensus.getValue().getClass());
+        }
+
+        @Test
         public void testInvokeReturnVoidReturnsVoid() throws InstantiationException, IllegalAccessException,
                         ClassNotFoundException {
-            VirtualMachine vm = VMTester.spawnVM();
+            VirtualMachine vm = VMTester.spawnVM(true);
             Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object localInstance = localClass.newInstance();
             initial.setRegisters(0, localInstance, CLASS_NAME);

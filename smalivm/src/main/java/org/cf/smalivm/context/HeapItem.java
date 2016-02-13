@@ -13,13 +13,15 @@ import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 
 import com.rits.cloning.Cloner;
+import com.rits.cloning.ObjenesisInstantiationStrategy;
 
 public class HeapItem {
 
-    private static final Cloner cloner = new Cloner();
+    // private static final Cloner cloner = new Cloner();
+    private final Cloner cloner = new Cloner(new ObjenesisInstantiationStrategy());
 
-    private Object value;
     private String type;
+    private Object value;
 
     public HeapItem(Object value, String type) {
         this.value = value;
@@ -29,30 +31,6 @@ public class HeapItem {
     HeapItem(HeapItem other) {
         value = cloner.deepClone(other.getValue());
         type = other.getType();
-    }
-
-    public @Nullable Object getValue() {
-        return value;
-    }
-
-    public double getDoubleValue() {
-        return Utils.getDoubleValue(getValue());
-    }
-
-    public int getIntegerValue() {
-        return Utils.getIntegerValue(getValue());
-    }
-
-    public long getLongValue() {
-        return Utils.getLongValue(getValue());
-    }
-
-    public float getFloatValue() {
-        return Utils.getFloatValue(getValue());
-    }
-
-    public String getType() {
-        return type;
     }
 
     @Override
@@ -71,17 +49,46 @@ public class HeapItem {
         return new EqualsBuilder().append(getType(), rhs.getType()).append(getValue(), rhs.getValue()).isEquals();
     }
 
+    public double getDoubleValue() {
+        return Utils.getDoubleValue(getValue());
+    }
+
+    public float getFloatValue() {
+        return Utils.getFloatValue(getValue());
+    }
+
+    public int getIntegerValue() {
+        return Utils.getIntegerValue(getValue());
+    }
+
+    public long getLongValue() {
+        return Utils.getLongValue(getValue());
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public String getUnboxedValueType() {
+        String unboxedType = ClassNameUtils.getPrimitive(getType());
+        if (unboxedType == null) {
+            unboxedType = type;
+        }
+
+        return unboxedType;
+    }
+
+    public @Nullable Object getValue() {
+        return value;
+    }
+
     @Override
     public int hashCode() {
         return new HashCodeBuilder(123, 51).append(getType()).append(getValue()).hashCode();
     }
 
-    public boolean valueIdentity(HeapItem other) {
-        return getValue() == other.getValue();
-    }
-
-    public static HeapItem newUnknown(String type) {
-        return new HeapItem(new UnknownValue(), type);
+    public boolean isImmutable() {
+        return Configuration.instance().isImmutable(getType());
     }
 
     public boolean isPrimitive() {
@@ -98,19 +105,6 @@ public class HeapItem {
 
     public boolean isUnknown() {
         return getValue() instanceof UnknownValue;
-    }
-
-    public boolean isImmutable() {
-        return Configuration.instance().isImmutable(getType());
-    }
-
-    public String getUnboxedValueType() {
-        String unboxedType = ClassNameUtils.getPrimitive(getType());
-        if (unboxedType == null) {
-            unboxedType = type;
-        }
-
-        return unboxedType;
     }
 
     @Override
@@ -140,6 +134,18 @@ public class HeapItem {
         }
 
         return sb.toString();
+    }
+
+    public boolean valueIdentity(HeapItem other) {
+        return getValue() == other.getValue();
+    }
+
+    public static HeapItem newUnknown(String type) {
+        return new HeapItem(new UnknownValue(), type);
+    }
+
+    public String getComponentBase() {
+        return ClassNameUtils.getComponentBase(getType());
     }
 
 }

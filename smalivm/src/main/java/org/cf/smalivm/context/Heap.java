@@ -8,20 +8,19 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rits.cloning.Cloner;
+
 class Heap {
 
     private static final Logger log = LoggerFactory.getLogger(Heap.class.getSimpleName());
 
     private final Map<String, HeapItem> keyToHeapItem;
-
+    private final Cloner cloner;
     private Heap parent;
 
-    Heap() {
+    Heap(Cloner cloner) {
         keyToHeapItem = new HashMap<String, HeapItem>();
-    }
-
-    Heap(Heap other) {
-        keyToHeapItem = new HashMap<String, HeapItem>(other.keyToHeapItem);
+        this.cloner = cloner;
     }
 
     private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
@@ -90,7 +89,7 @@ class Heap {
          * down both mappings, but only if v1 was not reassigned between now and then.
          */
         HeapItem targetItem = ancestor.get(key);
-        HeapItem cloneItem = new HeapItem(targetItem);
+        HeapItem cloneItem = cloneItem(targetItem);
         Set<String> reassigned = getReassignedKeysBetweenChildAndAncestor(this, ancestor);
         Set<String> potential = ancestor.keySet();
         for (String currentKey : potential) {
@@ -105,6 +104,13 @@ class Heap {
         }
 
         return cloneItem;
+    }
+
+    private HeapItem cloneItem(HeapItem original) {
+        Object cloneValue = cloner.deepClone(original.getValue());
+        HeapItem clone = new HeapItem(cloneValue, original.getType());
+
+        return clone;
     }
 
     private String buildKey(String heapId, int register) {

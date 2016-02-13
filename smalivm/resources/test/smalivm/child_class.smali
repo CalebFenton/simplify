@@ -1,4 +1,4 @@
-.class Lchild_class;
+.class public Lchild_class;
 .super Lparent_class;
 
 .field public static childField:I

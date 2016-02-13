@@ -17,6 +17,8 @@ import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.rits.cloning.Cloner;
+
 public class ExecutionContext {
 
     @SuppressWarnings("unused")
@@ -65,7 +67,8 @@ public class ExecutionContext {
     public ExecutionContext(VirtualMachine vm, String methodSignature) {
         this.vm = vm;
         this.methodSignature = methodSignature;
-        heap = new Heap();
+        Cloner cloner = ClonerFactory.build(vm);
+        heap = new Heap(cloner);
         callDepth = 0;
 
         // Since there's a context per execution for each address, these maps are

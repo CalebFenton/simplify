@@ -8,19 +8,19 @@ import org.slf4j.LoggerFactory;
 
 public class Configuration {
 
-    private static final Logger log = LoggerFactory.getLogger(Configuration.class.getSimpleName());
-
-    private static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
-    private static final String SAFE_METHODS_PATH = "safe_methods.cfg";
-    private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
     private static final String IMMUTABLE_CLASSES_PATH = "immutable_classes.cfg";
 
+    private static Configuration instance = null;
+    private static final Logger log = LoggerFactory.getLogger(Configuration.class.getSimpleName());
+    private static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
+    private static final String SAFE_METHODS_PATH = "safe_methods.cfg";
+
+    private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
     private final Set<String> immutableClasses;
     private final Set<String> safeClasses;
     private final Set<String> safeMethods;
-    private final Set<String> unsafeMethods;
 
-    private static Configuration instance = null;
+    private final Set<String> unsafeMethods;
 
     private Configuration() {
         safeClasses = new HashSet<String>(ConfigurationLoader.load(SAFE_CLASSES_PATH));
@@ -29,12 +29,12 @@ public class Configuration {
         immutableClasses = new HashSet<String>(ConfigurationLoader.load(IMMUTABLE_CLASSES_PATH));
     }
 
-    public static Configuration instance() {
-        if (instance == null) {
-            instance = new Configuration();
-        }
+    public Set<String> getImmutableClasses() {
+        return immutableClasses;
+    }
 
-        return instance;
+    public boolean isImmutable(String className) {
+        return immutableClasses.contains(className);
     }
 
     /**
@@ -67,8 +67,12 @@ public class Configuration {
         return !unsafeMethods.contains(methodDescriptor);
     }
 
-    public boolean isImmutable(String className) {
-        return immutableClasses.contains(className);
+    public static Configuration instance() {
+        if (instance == null) {
+            instance = new Configuration();
+        }
+
+        return instance;
     }
 
 }

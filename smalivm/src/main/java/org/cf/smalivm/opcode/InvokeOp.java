@@ -1,5 +1,7 @@
 package org.cf.smalivm.opcode;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,9 +27,10 @@ import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Defaults;
 
 public class InvokeOp extends ExecutionContextOp {
 
@@ -41,6 +44,7 @@ public class InvokeOp extends ExecutionContextOp {
     private final String returnType;
     private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
+    private final ClassManager classManager;
 
     InvokeOp(MethodLocation location, MethodLocation child, String methodSignature, String returnType,
                     int[] parameterRegisters, List<String> parameterTypes, VirtualMachine vm, boolean isStatic) {
@@ -51,6 +55,7 @@ public class InvokeOp extends ExecutionContextOp {
         this.parameterRegisters = parameterRegisters;
         this.parameterTypes = parameterTypes;
         this.vm = vm;
+        classManager = vm.getClassManager();
         this.isStatic = isStatic;
         sideEffectLevel = SideEffect.Level.STRONG;
     }
@@ -62,6 +67,19 @@ public class InvokeOp extends ExecutionContextOp {
         // It also keeps things clear with method execution delegated to the class with the same name.
         // MethodExecutor can maintain a mapping such that calleeContext -> (callerContext, caller address)
         // With this mapping, stack traces can be reconstructed.
+
+        MethodState callerMethodState = ectx.getMethodState();
+        if (methodSignature.equals("Ljava/lang/Object;-><init>()V")) {
+            // Special little snow flake
+            try {
+                executeObjectInit(callerMethodState);
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return;
+        }
+
         String targetMethod = methodSignature;
         if (getName().startsWith("invoke-virtual")) { // -virtual/range
             // Resolve what the actual virtual target is because method call may be to interface or abstract class.
@@ -70,7 +88,6 @@ public class InvokeOp extends ExecutionContextOp {
             targetMethod = resolveVirtualMethod(item.getValue());
         }
 
-        MethodState callerMethodState = ectx.getMethodState();
         // Try to reflect or emulate before using local class.
         if (vm.getConfiguration().isSafe(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
             ExecutionContext calleeContext = buildNonLocalCalleeContext(ectx);
@@ -86,7 +103,6 @@ public class InvokeOp extends ExecutionContextOp {
             }
         } else {
             // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
-            ClassManager classManager = vm.getClassManager();
             if (classManager.isLocalMethod(targetMethod)) {
                 if (classManager.isFrameworkClass(targetMethod) && !classManager.isSafeFrameworkClass(targetMethod)) {
                     if (log.isDebugEnabled()) {
@@ -117,8 +133,36 @@ public class InvokeOp extends ExecutionContextOp {
                 assumeMaximumUnknown(callerMethodState);
             }
         }
+    }
 
-        return;
+    private void executeObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
+                    InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        int instanceRegister = parameterRegisters[0];
+        HeapItem instanceItem = callerMethodState.peekParameter(instanceRegister);
+        String binaryName = ClassNameUtils.internalToBinary(instanceItem.getType());
+        Class<?> klazz = vm.getClassLoader().loadClass(binaryName);
+        Object newInstance;
+
+        try {
+            newInstance = klazz.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            if (log.isTraceEnabled()) {
+                log.trace("{} has no default constructor, picking another", binaryName);
+            }
+            Constructor<?>[] ctors = klazz.getDeclaredConstructors();
+            Constructor<?> ctor = ctors[0];
+            ctor.setAccessible(true); // the little games we play, java...
+            Object[] args = new Object[ctor.getParameterCount()];
+            Class<?>[] parameterTypes = ctor.getParameterTypes();
+            for (int i = 0; i < args.length; i++) {
+                Class<?> parameterType = parameterTypes[i];
+                args[i] = Defaults.defaultValue(parameterType);
+            }
+            newInstance = ctor.newInstance(args);
+        }
+
+        HeapItem newInstanceItem = new HeapItem(newInstance, instanceItem.getType());
+        callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
     }
 
     public int[] getParameterRegisters() {
@@ -183,13 +227,19 @@ public class InvokeOp extends ExecutionContextOp {
              * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
              */
             String type;
-            if (ClassNameUtils.isPrimitive(item.getType())) {
+            if (item.isPrimitive()) {
                 type = parameterTypes.get(i);
             } else {
-                type = parameterTypes.get(i);
+                String parameterType = parameterTypes.get(i);
+                if (getAncestors(item.getComponentBase()).contains(parameterType)) {
+                    type = item.getType();
+                } else {
+                    type = parameterType;
+                }
             }
 
-            calleeState.assignParameter(parameterRegister, new HeapItem(item.getValue(), type));
+            HeapItem parameterItem = new HeapItem(item.getValue(), type);
+            calleeState.assignParameter(parameterRegister, parameterItem);
             parameterRegister += Utils.getRegisterSize(type);
         }
     }
@@ -292,12 +342,20 @@ public class InvokeOp extends ExecutionContextOp {
         if (!returnType.equals("V")) {
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
+        } else {
+            if (methodSignature.contains(";-><init>(")) {
+                // This was a call to a local parent <init> method
+                int calleeInstanceRegister = calleeContext.getMethodState().getParameterStart();
+                HeapItem newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister);
+                int instanceRegister = parameterRegisters[0];
+                callerContext.getMethodState().assignRegisterAndUpdateIdentities(instanceRegister, newInstance);
+            }
         }
 
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
-    private void executeNonLocalMethod(String methodDescriptor, MethodState callerContext,
+    private void executeNonLocalMethod(String methodDescriptor, MethodState callerMethodState,
                     ExecutionContext calleeContext, ExecutionNode node) {
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             MethodEmulator emulator = new MethodEmulator(vm, calleeContext, methodDescriptor);
@@ -320,25 +378,25 @@ public class InvokeOp extends ExecutionContextOp {
 
         if (!isStatic) {
             // This is virtual and the instance reference may have been initialized or mutated.
-            HeapItem originalInstanceItem = callerContext.peekRegister(parameterRegisters[0]);
+            HeapItem originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0]);
             HeapItem newInstanceItem = calleeContext.getMethodState().peekParameter(0);
             if (originalInstanceItem.getValue() != newInstanceItem.getValue()) {
                 // Instance has been initialized, i.e. was UninitializedInstance
                 // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
                 // UninitializedInstance, and those need to be updated with the new instance.
-                callerContext.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
+                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem);
             } else {
                 boolean isMutable = !vm.getConfiguration().isImmutable(newInstanceItem.getType());
                 if (isMutable) {
                     // The instance type is mutable so could have changed. Record that it was changed for the optimizer.
-                    callerContext.assignRegister(parameterRegisters[0], newInstanceItem);
+                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem);
                 }
             }
         }
 
         if (!"V".equals(returnType)) {
             HeapItem returnItem = calleeContext.getMethodState().readReturnRegister();
-            callerContext.assignResultRegister(returnItem);
+            callerMethodState.assignResultRegister(returnItem);
         }
     }
 
@@ -350,16 +408,13 @@ public class InvokeOp extends ExecutionContextOp {
     private @Nullable String resolveVirtualMethod(Object virtualTarget) {
         String virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
         String descriptor = methodSignature.split("->")[1];
-        ClassManager classManager = vm.getClassManager();
-        String targetMethod = resolveVirtualMethod(virtualType, descriptor, classManager, new HashSet<String>(4));
+        String targetMethod = resolveVirtualMethod(virtualType, descriptor, new HashSet<String>(4));
 
         return targetMethod != null ? targetMethod : methodSignature;
     }
 
-    private @Nullable String resolveVirtualMethod(String className, String descriptor, ClassManager classManager,
-                    Set<String> visited) {
+    private @Nullable String resolveVirtualMethod(String className, String descriptor, Set<String> visited) {
         String signature = new StringBuilder(className).append("->").append(descriptor).toString();
-
         boolean isLocalMethod = classManager.isLocalMethod(signature);
         if (isLocalMethod && classManager.methodHasImplementation(signature)) {
             return signature;
@@ -375,26 +430,44 @@ public class InvokeOp extends ExecutionContextOp {
             return null;
         }
 
-        BuilderClassDef classDef = classManager.getClass(className);
-        List<String> interfaces = classDef.getInterfaces();
-        Set<String> parents = new HashSet<String>(interfaces.size() + 1, 1);
-        parents.addAll(classDef.getInterfaces());
-        if (null != classDef.getSuperclass()) {
-            parents.add(classDef.getSuperclass());
-        }
-
+        Set<String> parents = getAncestors(className);
         for (String parent : parents) {
             if (visited.contains(parent)) {
                 continue;
             }
             visited.add(className);
-            String target = resolveVirtualMethod(parent, descriptor, classManager, visited);
+            String target = resolveVirtualMethod(parent, descriptor, visited);
             if (null != target) {
                 return target;
             }
         }
 
         return null;
+    }
+
+    private Set<String> getAncestors(String className) {
+        Set<String> getAncestors = new HashSet<String>();
+        String binaryName = ClassNameUtils.internalToBinary(className);
+        Class<?> klazz;
+        try {
+            klazz = vm.getClassLoader().loadClass(binaryName);
+        } catch (ClassNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return getAncestors;
+        }
+        for (Class<?> interfaceClass : klazz.getInterfaces()) {
+            String internalName = ClassNameUtils.toInternal(interfaceClass);
+            getAncestors.addAll(getAncestors(internalName));
+            getAncestors.add(internalName);
+        }
+        if (klazz.getSuperclass() != null) {
+            String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
+            getAncestors.addAll(getAncestors(internalName));
+            getAncestors.add(internalName);
+        }
+
+        return getAncestors;
     }
 
     private static boolean doesNonLocalMethodExist(String className, String descriptor) {

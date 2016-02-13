@@ -16,14 +16,14 @@ public class SmaliClassLoader extends ClassLoader {
 
     private static final String FRAMEWORK_STUBS_JAR = "/framework/framework-23.jar";
 
-    private Map<String, Class<?>> cachedClasses;
+    private static final Map<String, Class<?>> cachedClasses = new HashMap<String, Class<?>>();
     private final ClassBuilder classBuilder;
     private final ClassManager classManager;
-    private URLClassLoader jarLoader;
+    private final URLClassLoader jarLoader;
 
     public SmaliClassLoader(ClassManager classManager) {
         super(SmaliClassLoader.class.getClassLoader());
-        cachedClasses = new HashMap<String, Class<?>>();
+        // cachedClasses = new HashMap<String, Class<?>>();
         URL jarURL = SmaliClassLoader.class.getResource(FRAMEWORK_STUBS_JAR);
         jarLoader = new URLClassLoader(new URL[] { jarURL });
         this.classBuilder = new ClassBuilder();

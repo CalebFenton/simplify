@@ -91,9 +91,14 @@ public class VMTester {
         return spawnVM(false);
     }
 
+    /**
+     * Create a new virtual machine and class manager. This is necessary when class implementations are changing, such
+     * as testing the optimization strategies and when dealing with class loading and dynamic creation.
+     * 
+     * @param reloadClasses
+     * @return
+     */
     public static VirtualMachine spawnVM(boolean reloadClasses) {
-        // Only reload classes by rebuilding the class manager when specifically asked for it.
-        // There's a lot of caching that's done, which shouldn't interfere with tests, but is costly.
         if ((null == classManager) || reloadClasses) {
             try {
                 classManager = new ClassManagerFactory().build(TEST_CLASS_PATH, getDexBuilder());

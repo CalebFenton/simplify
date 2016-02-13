@@ -54,7 +54,8 @@ public class UnreflectionStrategyTest {
         @Test
         public void testInstanceFieldWithMoveResultOptimizesAsExpected() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, CLASS,
-                            "Ljava/lang/Class;", 1, INSTANCE_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
+                            "Ljava/lang/Class;", 1, INSTANCE_FIELD_NAME, "Ljava/lang/String;", 2, null,
+                            "Ljava/lang/Object;");
             String[] endLines = new String[] {
                             "iget r0, r2, " + CLASS_NAME + "->" + INSTANCE_FIELD_NAME + ":" + INSTANCE_FIELD_TYPE,
                             "return-void", };
@@ -67,7 +68,7 @@ public class UnreflectionStrategyTest {
         public void testStaticFieldWithMoveResultAndWithOneAvailableRegister() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(
                             METHOD_WITHOUT_MOVE_RESULT_AND_ONE_AVAILABLE_REGISTER, 0, CLASS, "Ljava/lang/Class;", 1,
-                            STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
+                            STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, "Ljava/lang/Object;");
             String[] endLines = new String[] {
                             "sget-object r2, " + CLASS_NAME + "->" + STATIC_FIELD_NAME + ":" + STATIC_FIELD_TYPE,
                             "invoke-static {r0, r1}, Lunreflection_strategy_test;->useRegisters(II)V", "return-void", };
@@ -80,7 +81,7 @@ public class UnreflectionStrategyTest {
         public void testStaticFieldWithMoveResultAndWithoutAvailableRegistersDoesNotOptimize() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(
                             METHOD_WITHOUT_MOVE_RESULT_AND_NO_AVAILABLE_REGISTERS, 0, CLASS, "Ljava/lang/Class;", 1,
-                            STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
+                            STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, "Ljava/lang/Object;");
             String[] endLines = new String[] {
                             "invoke-virtual {r0, r2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
                             "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(III)V",
@@ -93,7 +94,8 @@ public class UnreflectionStrategyTest {
         @Test
         public void testStaticFieldWithMoveResultOptimizesAsExpected() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, CLASS,
-                            "Ljava/lang/Class;", 1, STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null, null);
+                            "Ljava/lang/Class;", 1, STATIC_FIELD_NAME, "Ljava/lang/String;", 2, null,
+                            "Ljava/lang/Object;");
             String[] endLines = new String[] {
                             "sget-object r0, " + CLASS_NAME + "->" + STATIC_FIELD_NAME + ":" + STATIC_FIELD_TYPE,
                             "return-void", };
@@ -116,7 +118,7 @@ public class UnreflectionStrategyTest {
         @Test
         public void testUnknownMethodIsNotOptimized() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0,
-                            UNKNOWN_METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
+                            UNKNOWN_METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "Ljava/lang/Object;");
 
             testSmali(manipulator, EXPECTED_SHARED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
@@ -139,7 +141,7 @@ public class UnreflectionStrategyTest {
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
-                            METHOD_TYPE, 1, new ArrayList<String>(), "Ljava/lang/ArrayList;", 2, 0, "I");
+                            METHOD_TYPE, 1, new ArrayList<String>(), "Ljava/util/ArrayList;", 2, 0, "I");
             String[] expectedLines = new String[] {
                             "nop",
                             "invoke-interface {r1}, Ljava/util/List;->isEmpty()Z",
@@ -164,7 +166,7 @@ public class UnreflectionStrategyTest {
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
-                            METHOD_TYPE, 1, 0, "I", 2, null, "null");
+                            METHOD_TYPE, 1, 0, "I", 2, null, "Ljava/lang/Object;");
 
             testSmali(manipulator, EXPECTED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
@@ -173,7 +175,7 @@ public class UnreflectionStrategyTest {
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0AvailableAndUnknownTarget() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
-                            METHOD_TYPE, 1, new UnknownValue(), CLASS_NAME, 2, null, "null");
+                            METHOD_TYPE, 1, new UnknownValue(), CLASS_NAME, 2, null, "Ljava/lang/Object;");
 
             testSmali(manipulator, EXPECTED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
@@ -313,7 +315,7 @@ public class UnreflectionStrategyTest {
         @Test
         public void testMethodWithNoParametersOptimizesWithManyRegistersAvailable() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_10_LOCALS_AND_7_CONTIGUOUS_AVAILABLE,
-                            0, METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "null");
+                            0, METHOD, METHOD_TYPE, 1, 0, "I", 2, null, "Ljava/lang/Object;");
             String[] expectedLines = new String[] {
                             "nop", "invoke-static {}, Ljava/lang/System;->gc()V", "move-result-object r0",
                             "return-void", };
