@@ -43,8 +43,14 @@ public class ClonerFactory {
 
         cloner = new Cloner(new ObjenesisInstantiationStrategy());
         for (String immutableClass : immutableClasses) {
-            if (immutableClass.length() <= 1 || immutableClass.contains("$")) {
-                // Ignore primitives and inner classes to speed things up
+            if (immutableClass.length() <= 1 || immutableClass.contains("$") || immutableClass.startsWith("Ljava/")) {
+                /*
+                 * Creating a cloner is expensive because it has to build and load classes. Don't bother with:
+                 * primitives
+                 * inner classes
+                 * protected packages
+                 * To keep things fast and avoid warnings.
+                 */
                 continue;
             }
 

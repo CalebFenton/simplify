@@ -37,7 +37,7 @@ public class UninitializedInstance implements LocalType {
 
     @Override
     public String toString() {
-        return "Uninitialized " + smaliType;
+        return new StringBuilder("Uninitialized ").append(smaliType).toString();
     }
 
 }

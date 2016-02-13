@@ -40,8 +40,9 @@ public class SmaliFileFactory {
                 SmaliFile smaliFile = new SmaliFile(match);
                 // DalvikVM rejects classes that are already defined.
                 // Framework classes take precedence over local classes.
-                if (isFrameworkClass(smaliFile.getClassName())) {
-                    log.warn("'{}' has an earlier definition; blocking out", smaliFile.getClassName());
+                String className = smaliFile.getClassName();
+                if (isFrameworkClass(className) && !className.startsWith("Landroid/support/")) {
+                    log.warn("Input class '{}' has an earlier definition; ignoring", className);
                 } else {
                     smaliFiles.add(smaliFile);
                 }

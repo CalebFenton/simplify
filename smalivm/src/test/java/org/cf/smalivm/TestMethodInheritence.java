@@ -26,7 +26,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testInvokingAbstractMethodThroughParentReferenceWorks() throws VirtualMachineException {
+        public void canInvokeAbstractMethodThroughParentReference() throws VirtualMachineException {
             String methodName = "callsAbstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -35,7 +35,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testInvokingImplemenetedAbstractMethodWorks() throws VirtualMachineException {
+        public void canInvokeImplemenetedAbstractMethod() throws VirtualMachineException {
             String methodName = "abstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -45,7 +45,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testInvokingParentMethodWorks() throws VirtualMachineException {
+        public void canInvokeParentMethodOfChild() throws VirtualMachineException {
             String methodName = "callsParentMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
             HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
@@ -66,7 +66,7 @@ public class TestMethodInheritence {
         }
 
         @Test
-        public void testExecutingAbstractMethodReturnsNull() throws VirtualMachineException {
+        public void executingAbstractMethodReturnsNull() throws VirtualMachineException {
             String methodName = "abstractMethod()Ljava/lang/String;";
             ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
 

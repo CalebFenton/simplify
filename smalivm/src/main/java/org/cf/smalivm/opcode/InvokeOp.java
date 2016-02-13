@@ -135,36 +135,6 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private void executeObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
-                    InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        int instanceRegister = parameterRegisters[0];
-        HeapItem instanceItem = callerMethodState.peekParameter(instanceRegister);
-        String binaryName = ClassNameUtils.internalToBinary(instanceItem.getType());
-        Class<?> klazz = vm.getClassLoader().loadClass(binaryName);
-        Object newInstance;
-
-        try {
-            newInstance = klazz.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            if (log.isTraceEnabled()) {
-                log.trace("{} has no default constructor, picking another", binaryName);
-            }
-            Constructor<?>[] ctors = klazz.getDeclaredConstructors();
-            Constructor<?> ctor = ctors[0];
-            ctor.setAccessible(true); // the little games we play, java...
-            Object[] args = new Object[ctor.getParameterCount()];
-            Class<?>[] parameterTypes = ctor.getParameterTypes();
-            for (int i = 0; i < args.length; i++) {
-                Class<?> parameterType = parameterTypes[i];
-                args[i] = Defaults.defaultValue(parameterType);
-            }
-            newInstance = ctor.newInstance(args);
-        }
-
-        HeapItem newInstanceItem = new HeapItem(newInstance, instanceItem.getType());
-        callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
-    }
-
     public int[] getParameterRegisters() {
         return parameterRegisters;
     }
@@ -400,6 +370,61 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
+    private void executeObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
+                    InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        int instanceRegister = parameterRegisters[0];
+        HeapItem instanceItem = callerMethodState.peekParameter(instanceRegister);
+        String binaryName = ClassNameUtils.internalToBinary(instanceItem.getType());
+        Class<?> klazz = vm.getClassLoader().loadClass(binaryName);
+        Object newInstance;
+
+        try {
+            newInstance = klazz.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            if (log.isTraceEnabled()) {
+                log.trace("{} has no default constructor, picking another", binaryName);
+            }
+            Constructor<?>[] ctors = klazz.getDeclaredConstructors();
+            Constructor<?> ctor = ctors[0];
+            ctor.setAccessible(true); // the little games we play, java...
+            Object[] args = new Object[ctor.getParameterCount()];
+            Class<?>[] parameterTypes = ctor.getParameterTypes();
+            for (int i = 0; i < args.length; i++) {
+                Class<?> parameterType = parameterTypes[i];
+                args[i] = Defaults.defaultValue(parameterType);
+            }
+            newInstance = ctor.newInstance(args);
+        }
+
+        HeapItem newInstanceItem = new HeapItem(newInstance, instanceItem.getType());
+        callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
+    }
+
+    private Set<String> getAncestors(String className) {
+        Set<String> getAncestors = new HashSet<String>();
+        String binaryName = ClassNameUtils.internalToBinary(className);
+        Class<?> klazz;
+        try {
+            klazz = vm.getClassLoader().loadClass(binaryName);
+        } catch (ClassNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            return getAncestors;
+        }
+        for (Class<?> interfaceClass : klazz.getInterfaces()) {
+            String internalName = ClassNameUtils.toInternal(interfaceClass);
+            getAncestors.addAll(getAncestors(internalName));
+            getAncestors.add(internalName);
+        }
+        if (klazz.getSuperclass() != null) {
+            String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
+            getAncestors.addAll(getAncestors(internalName));
+            getAncestors.add(internalName);
+        }
+
+        return getAncestors;
+    }
+
     /*
      * A method may not be declared in the type given by the method invocation. This method searches super and interface
      * hierarchy returns a method descriptor from the first class which implements the method. The method descriptor
@@ -443,31 +468,6 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         return null;
-    }
-
-    private Set<String> getAncestors(String className) {
-        Set<String> getAncestors = new HashSet<String>();
-        String binaryName = ClassNameUtils.internalToBinary(className);
-        Class<?> klazz;
-        try {
-            klazz = vm.getClassLoader().loadClass(binaryName);
-        } catch (ClassNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            return getAncestors;
-        }
-        for (Class<?> interfaceClass : klazz.getInterfaces()) {
-            String internalName = ClassNameUtils.toInternal(interfaceClass);
-            getAncestors.addAll(getAncestors(internalName));
-            getAncestors.add(internalName);
-        }
-        if (klazz.getSuperclass() != null) {
-            String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
-            getAncestors.addAll(getAncestors(internalName));
-            getAncestors.add(internalName);
-        }
-
-        return getAncestors;
     }
 
     private static boolean doesNonLocalMethodExist(String className, String descriptor) {

@@ -129,20 +129,6 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsClassWithInterfaceDoubleDependency() throws Exception {
-        // TODO: easy make our own test case,
-        // Class A implements interface C
-        // Class B implements interface C
-        // Interface C references class A and B
-        // Making an unloaded reference does a lookup of declared methods for interfaces and super types
-        // If, while building an interface, an implementing class is built, a latent type is returned
-        // and you can't get declared methods of a latent type
-        String className = "android.os.Bundle";
-        Class<?> klazz = classLoader.loadClass(className);
-        klazz.getMethods();
-    }
-
-    @Test
     public void loadsClassWithOverloadedFields() throws Exception {
         String className = "org.cf.test.OverloadedFields";
         Class<?> klazz = classLoader.loadClass(className);

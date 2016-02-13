@@ -8,7 +8,7 @@ public class UnknownValue implements LocalType {
 
     @Override
     public boolean equals(Object other) {
-        // i.e. NULL != NULL
+        // This is similar to NULL != NULL
         return false;
     }
 

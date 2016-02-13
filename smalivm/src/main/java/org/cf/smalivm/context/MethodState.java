@@ -36,20 +36,20 @@ public class MethodState extends BaseState {
         mutableParameters = new TIntHashSet(parameterCount);
     }
 
-    private MethodState(MethodState parent, ExecutionContext ectx, TIntSet mutableParameters) {
-        super(parent, ectx);
-
-        this.parameterCount = parent.parameterCount;
-        this.parameterSize = parent.parameterSize;
-        this.mutableParameters = parent.mutableParameters;
-    }
-
     MethodState(MethodState other, ExecutionContext ectx) {
         super(other, ectx);
 
         this.parameterCount = other.parameterCount;
         this.parameterSize = other.parameterSize;
         mutableParameters = new TIntHashSet(other.mutableParameters);
+    }
+
+    private MethodState(MethodState parent, ExecutionContext ectx, TIntSet mutableParameters) {
+        super(parent, ectx);
+
+        this.parameterCount = parent.parameterCount;
+        this.parameterSize = parent.parameterSize;
+        this.mutableParameters = parent.mutableParameters;
     }
 
     public void assignParameter(int parameterRegister, HeapItem item) {
@@ -171,10 +171,6 @@ public class MethodState extends BaseState {
         pokeRegister(ReturnAddress, location, METHOD_HEAP);
     }
 
-    boolean hasRegister(int register) {
-        return hasRegister(register, METHOD_HEAP);
-    }
-
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -224,6 +220,10 @@ public class MethodState extends BaseState {
         MethodState child = new MethodState(this, childContext, mutableParameters);
 
         return child;
+    }
+
+    boolean hasRegister(int register) {
+        return hasRegister(register, METHOD_HEAP);
     }
 
 }

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 public class NewArrayOp extends MethodStateOp {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(NewArrayOp.class.getSimpleName());
 
     private final int destRegister;

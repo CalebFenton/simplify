@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 public class NewArrayOpFactory implements OpFactory {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(NewArrayOpFactory.class.getSimpleName());
 
     @Override
