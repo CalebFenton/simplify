@@ -22,7 +22,6 @@ import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.smali.ClassManager;
-import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -179,12 +178,17 @@ public class InvokeOp extends ExecutionContextOp {
              * const/4 v0,0x1 (could be true, (int)1 or (short)1)
              * If a more restrictive type is given in the method signature, prefer that, for example:
              * method argument is an int but signature declares it as boolean, so switch it to boolean
-             * However, if the type is less specific, such as a super class or interface, do not change the type. For
-             * example:
+             * However, if the type is less specific, such as a super class or interface, do not use the less specific
+             * type. For example:
              * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
              */
-            // TODO: don't lie
-            String type = parameterTypes.get(i);
+            String type;
+            if (ClassNameUtils.isPrimitive(item.getType())) {
+                type = parameterTypes.get(i);
+            } else {
+                type = parameterTypes.get(i);
+            }
+
             calleeState.assignParameter(parameterRegister, new HeapItem(item.getValue(), type));
             parameterRegister += Utils.getRegisterSize(type);
         }
@@ -278,7 +282,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         if (graph == null) {
-            // Problem executing the method. Maybe node visits or call depth exceeded?
+            // Maybe node visits or call depth exceeded?
             log.info("Problem executing {}, propagating ambiguity.", methodSignature);
             assumeMaximumUnknown(callerContext.getMethodState());
 
@@ -288,23 +292,6 @@ public class InvokeOp extends ExecutionContextOp {
         if (!returnType.equals("V")) {
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
-        } else {
-            if (methodSignature.contains(";-><init>(")) {
-                // The instance has been initialized. Need to replace the UninitializedInstance.
-                MethodState mState = callerContext.getMethodState();
-                int instanceRegister = parameterRegisters[0];
-                HeapItem instanceItem = mState.peekRegister(instanceRegister);
-                String instanceType = ((UninitializedInstance) instanceItem.getValue()).getName();
-                String binaryType = ClassNameUtils.internalToBinary(instanceType);
-                try {
-                    Class<?> instanceClass = vm.getClassLoader().loadClass(binaryType);
-                    HeapItem newInstance = new HeapItem(instanceClass.newInstance(), instanceType);
-                    // TODO: but why not update identities
-                    callerContext.getMethodState().assignRegister(instanceRegister, newInstance);
-                } catch (Exception e) {
-                    log.error("Failed to update uninitialized instance.", e);
-                }
-            }
         }
 
         sideEffectLevel = graph.getHighestSideEffectLevel();

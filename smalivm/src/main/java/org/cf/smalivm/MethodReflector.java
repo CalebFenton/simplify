@@ -48,22 +48,23 @@ public class MethodReflector {
             // Strip leading 'L' and trailing ';' from smali type descriptor
             // TODO: easy - add tests for array class method reflecting
             // also, see if toBinary without L and ; unless needed breaks everything
-            Class<?> clazz = Class.forName(classNameBinary.substring(1, classNameBinary.length() - 1));
+
+            // TODO: medium, this should probably be SmaliClassLoader.loadClass, but need a test case
+            Class<?> klazz = Class.forName(classNameBinary.substring(1, classNameBinary.length() - 1));
             Object[] args = getArguments(calleeContext);
-            if ("<init>".equals(methodName)) {
-                // This class is used by the JVM to do instance initialization, i.e. newInstance. Can't just reflect it.
+
+            if (isStatic) {
                 if (log.isDebugEnabled()) {
-                    log.debug("Reflecting {}, clazz={} args={}", methodDescriptor, clazz, Arrays.toString(args));
+                    log.debug("Reflecting {}, clazz={} args={}", methodDescriptor, klazz, Arrays.toString(args));
                 }
-                resultValue = ConstructorUtils.invokeConstructor(clazz, args);
-                // kind of a hack. store newly init'ed value here
-                calleeContext.assignParameter(0, new HeapItem(resultValue, classNameInternal));
+                resultValue = MethodUtils.invokeStaticMethod(klazz, methodName, args);
             } else {
-                if (isStatic) {
+                if ("<init>".equals(methodName)) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Reflecting {}, clazz={} args={}", methodDescriptor, clazz, Arrays.toString(args));
+                        log.debug("Reflecting {}, class={} args={}", methodDescriptor, klazz, Arrays.toString(args));
                     }
-                    resultValue = MethodUtils.invokeStaticMethod(clazz, methodName, args);
+                    resultValue = ConstructorUtils.invokeConstructor(klazz, args);
+                    calleeContext.assignParameter(0, new HeapItem(resultValue, classNameInternal));
                 } else {
                     HeapItem targetItem = calleeContext.peekRegister(0);
                     if (log.isDebugEnabled()) {
@@ -84,8 +85,7 @@ public class MethodReflector {
             }
         }
 
-        boolean returnsVoid = "V".equals(returnType);
-        if (!returnsVoid) {
+        if (!"V".equals(returnType)) {
             HeapItem resultItem = new HeapItem(resultValue, returnType);
             calleeContext.assignReturnRegister(resultItem);
         }
