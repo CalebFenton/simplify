@@ -3,6 +3,9 @@ package org.cf.smalivm.smali;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.jf.dexlib2.iface.ClassDef;
 import org.jf.dexlib2.iface.ExceptionHandler;
@@ -14,6 +17,7 @@ import org.jf.dexlib2.util.ReferenceUtil;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +31,11 @@ public class ClassBuilder {
         ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         visitClass(classDef, classWriter);
         visitFields(classDef.getFields(), classWriter);
-        visitMethods(classDef, classDef.getMethods(), classWriter);
+        if ((classDef.getAccessFlags() & Opcodes.ACC_ENUM) != 0) {
+            visitEnumMethods(classDef, classDef.getFields(), classWriter);
+        } else {
+            visitMethods(classDef, classDef.getMethods(), classWriter);
+        }
         classWriter.visitEnd();
 
         return classWriter.toByteArray();
@@ -98,8 +106,6 @@ public class ClassBuilder {
     private void visitClInitStub(MethodVisitor mv) {
         mv.visitCode();
         mv.visitInsn(Opcodes.RETURN);
-        mv.visitMaxs(0, 0);
-        mv.visitEnd();
     }
 
     private void visitInitStub(ClassDef classDef, MethodVisitor mv) {
@@ -127,7 +133,6 @@ public class ClassBuilder {
 
     private void visitMethod(ClassDef classDef, Method method, MethodVisitor mv) {
         mv.visitCode();
-
         if (method.getName().equals("<clinit>")) {
             visitClInitStub(mv);
         } else if (method.getName().equals("<init>")) {
@@ -135,8 +140,97 @@ public class ClassBuilder {
         } else {
             visitMethodStub(method, mv);
         }
-
         // Do this at the end so ASM can calculate max stack and locals sizes
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+    }
+
+    private void visitEnumMethods(ClassDef classDef, Iterable<? extends Field> fields, ClassWriter classWriter) {
+        String name = stripName(classDef.getType());
+
+        int access = Opcodes.ACC_PUBLIC + Opcodes.ACC_FINAL + Opcodes.ACC_STATIC + Opcodes.ACC_ENUM;
+        classWriter.visitField(access, "$shadow_instance", classDef.getType(), null, null);
+
+        MethodVisitor mv = classWriter.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
+        mv.visitCode();
+
+        // Set the fields for each enum value
+        Stream<? extends Field> fieldsStream = StreamSupport.stream(fields.spliterator(), false);
+        List<String> fieldNames = fieldsStream.filter(f -> (f.getAccessFlags() & Opcodes.ACC_ENUM) != 0)
+                        .map(f -> f.getName()).collect(Collectors.toList());
+        fieldNames.add("$shadow_instance");
+        int fieldCount = fieldNames.size();
+        for (int i = 0; i < fieldCount; i++) {
+            String fieldName = fieldNames.get(i);
+            mv.visitTypeInsn(Opcodes.NEW, name);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitLdcInsn(fieldName);
+            mv.visitIntInsn(Opcodes.BIPUSH, i);
+            mv.visitMethodInsn(Opcodes.INVOKESPECIAL, name, "<init>", "(Ljava/lang/String;I)V", false);
+            mv.visitFieldInsn(Opcodes.PUTSTATIC, name, fieldName, classDef.getType());
+        }
+
+        // Create array to hold values destined for $VALUES
+        mv.visitIntInsn(Opcodes.BIPUSH, fieldCount);
+        mv.visitTypeInsn(Opcodes.ANEWARRAY, name);
+
+        // Set elements of $VALUES
+        for (int i = 0; i < fieldCount; i++) {
+            String fieldName = fieldNames.get(i);
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitIntInsn(Opcodes.BIPUSH, i);
+            mv.visitFieldInsn(Opcodes.GETSTATIC, name, fieldName, classDef.getType());
+            mv.visitInsn(Opcodes.AASTORE);
+        }
+
+        // Store $VALUES
+        mv.visitFieldInsn(Opcodes.PUTSTATIC, name, "$VALUES", "[" + classDef.getType());
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        mv = classWriter.visitMethod(Opcodes.ACC_PRIVATE, "<init>", "(Ljava/lang/String;I)V", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitVarInsn(Opcodes.ALOAD, 1);
+        mv.visitVarInsn(Opcodes.ILOAD, 2);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Enum", "<init>", "(Ljava/lang/String;I)V", false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values", "()[" + classDef.getType(),
+                        null, null);
+        mv.visitCode();
+        mv.visitFieldInsn(Opcodes.GETSTATIC, name, "$VALUES", "[" + classDef.getType());
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitVarInsn(Opcodes.ASTORE, 0);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitInsn(Opcodes.ARRAYLENGTH);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitVarInsn(Opcodes.ISTORE, 1);
+        mv.visitTypeInsn(Opcodes.ANEWARRAY, name);
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitVarInsn(Opcodes.ASTORE, 2);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitVarInsn(Opcodes.ILOAD, 1);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "arraycopy",
+                        "(Ljava/lang/Object;ILjava/lang/Object;II)V", false);
+        mv.visitVarInsn(Opcodes.ALOAD, 2);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "valueOf",
+                        "(Ljava/lang/String;)" + classDef.getType(), null, null);
+        mv.visitCode();
+        mv.visitLdcInsn(Type.getType(classDef.getType()));
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Enum", "valueOf",
+                        "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;", false);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, name);
+        mv.visitInsn(Opcodes.ARETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();
     }

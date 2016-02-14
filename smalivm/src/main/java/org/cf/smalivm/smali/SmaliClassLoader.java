@@ -43,10 +43,10 @@ public class SmaliClassLoader extends ClassLoader {
             throw new ClassNotFoundException(name);
         }
 
-        try {
-            return jarLoader.loadClass(name);
-        } catch (ClassNotFoundException e) {
-        }
+        // try {
+        // return jarLoader.loadClass(name);
+        // } catch (ClassNotFoundException e) {
+        // }
 
         Class<?> klazz = cachedClasses.get(name);
         if (klazz != null) {

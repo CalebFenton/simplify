@@ -1,5 +1,6 @@
 package org.cf.smalivm.smali;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -38,40 +39,6 @@ public class SmaliClassLoaderTest {
     @Rule
     public final ExpectedException exception = ExpectedException.none();
 
-    private void assertHasObjectMethods(Class<?> klazz) {
-        Stream<String> methods = Arrays.stream(klazz.getMethods()).map(n -> n.toString());
-        List<String> methodDescriptors = methods.collect(Collectors.toList());
-        for (String objectMethod : OBJECT_METHODS) {
-            assertTrue(methodDescriptors.contains(objectMethod));
-        }
-    }
-
-    private List<Field> getFilteredFields(Class<?> klazz) {
-        List<Field> fields = new LinkedList<Field>();
-        for (Field f : klazz.getDeclaredFields()) {
-            if (f.getName().equals("$jacocoData")) {
-                // This is added by JaCoCo when testing from Gradle.
-                continue;
-            }
-            fields.add(f);
-        }
-
-        return fields;
-    }
-
-    private List<Method> getFilteredMethods(Class<?> klazz) {
-        List<Method> methods = new LinkedList<Method>();
-        for (Method m : klazz.getDeclaredMethods()) {
-            if (m.getName().equals("$jacocoInit")) {
-                // This is the "probe" method added by JaCoCo when running from Gradle
-                continue;
-            }
-            methods.add(m);
-        }
-
-        return methods;
-    }
-
     // @Test
     public void breakStuff() throws ClassNotFoundException {
         for (String className : classManager.getFrameworkClassNames()) {
@@ -89,12 +56,29 @@ public class SmaliClassLoaderTest {
         }
     }
 
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Test
-    public void loadsJVMClasses() throws ClassNotFoundException {
-        Class<?> expected = String.class;
-        Class<?> actual = classLoader.loadClass(expected.getName());
+    public void canLoadEnumClassAndGetEnumValue() throws ClassNotFoundException {
+        Class<?> klazz = classLoader.loadClass("android.annotation.SdkConstant$SdkConstantType");
 
-        assertEquals(expected, actual);
+        Object enumConstant = Enum.valueOf((Class<? extends Enum>) klazz, "ACTIVITY_INTENT_ACTION");
+        assertEquals(klazz, enumConstant.getClass());
+
+        String[] enumStrings = Arrays.asList(klazz.getEnumConstants()).stream().map(c -> c.toString())
+                        .toArray(size -> new String[size]);
+        String[] expectedEnumStrings = new String[] {
+                        "ACTIVITY_INTENT_ACTION", "BROADCAST_INTENT_ACTION", "FEATURE", "INTENT_CATEGORY",
+                        "SERVICE_ACTION", "$shadow_instance" };
+        assertArrayEquals(expectedEnumStrings, enumStrings);
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @Test
+    public void canLoadEnumClassWithNonEnumField() throws ClassNotFoundException {
+        Class<?> klazz = classLoader.loadClass("android.net.wifi.SupplicantState");
+
+        Object enumConstant = Enum.valueOf((Class<? extends Enum>) klazz, "ASSOCIATED");
+        assertEquals(klazz, enumConstant.getClass());
     }
 
     @Test
@@ -160,6 +144,14 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
+    public void loadsJVMClasses() throws ClassNotFoundException {
+        Class<?> expected = String.class;
+        Class<?> actual = classLoader.loadClass(expected.getName());
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
     public void loadsSelfReferencingClass() throws Exception {
         String className = "org.cf.test.SelfReference";
         Class<?> klazz = classLoader.loadClass(className);
@@ -208,6 +200,40 @@ public class SmaliClassLoaderTest {
         String nonExistantClassName = "asdf";
         exception.expect(ClassNotFoundException.class);
         classLoader.loadClass(nonExistantClassName);
+    }
+
+    private void assertHasObjectMethods(Class<?> klazz) {
+        Stream<String> methods = Arrays.stream(klazz.getMethods()).map(n -> n.toString());
+        List<String> methodDescriptors = methods.collect(Collectors.toList());
+        for (String objectMethod : OBJECT_METHODS) {
+            assertTrue(methodDescriptors.contains(objectMethod));
+        }
+    }
+
+    private List<Field> getFilteredFields(Class<?> klazz) {
+        List<Field> fields = new LinkedList<Field>();
+        for (Field f : klazz.getDeclaredFields()) {
+            if (f.getName().equals("$jacocoData")) {
+                // This is added by JaCoCo when testing from Gradle.
+                continue;
+            }
+            fields.add(f);
+        }
+
+        return fields;
+    }
+
+    private List<Method> getFilteredMethods(Class<?> klazz) {
+        List<Method> methods = new LinkedList<Method>();
+        for (Method m : klazz.getDeclaredMethods()) {
+            if (m.getName().equals("$jacocoInit")) {
+                // This is the "probe" method added by JaCoCo when running from Gradle
+                continue;
+            }
+            methods.add(m);
+        }
+
+        return methods;
     }
 
 }

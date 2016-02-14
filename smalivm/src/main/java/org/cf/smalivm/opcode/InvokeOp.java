@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashSet;
 import java.util.List;
@@ -10,6 +9,7 @@ import javax.annotation.Nullable;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.MethodReflector;
+import org.cf.smalivm.ObjectInstantiator;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -29,8 +29,6 @@ import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Defaults;
 
 public class InvokeOp extends ExecutionContextOp {
 
@@ -70,7 +68,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         MethodState callerMethodState = ectx.getMethodState();
         if (methodSignature.equals("Ljava/lang/Object;-><init>()V")) {
-            // Special little snow flake
+            // Object init is a special little snow flake
             try {
                 executeObjectInit(callerMethodState);
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
@@ -373,29 +371,10 @@ public class InvokeOp extends ExecutionContextOp {
     private void executeObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
                     InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
         int instanceRegister = parameterRegisters[0];
-        HeapItem instanceItem = callerMethodState.peekParameter(instanceRegister);
+        HeapItem instanceItem = callerMethodState.peekRegister(instanceRegister);
         String binaryName = ClassNameUtils.internalToBinary(instanceItem.getType());
         Class<?> klazz = vm.getClassLoader().loadClass(binaryName);
-        Object newInstance;
-
-        try {
-            newInstance = klazz.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            if (log.isTraceEnabled()) {
-                log.trace("{} has no default constructor, picking another", binaryName);
-            }
-            Constructor<?>[] ctors = klazz.getDeclaredConstructors();
-            Constructor<?> ctor = ctors[0];
-            ctor.setAccessible(true); // the little games we play, java...
-            Object[] args = new Object[ctor.getParameterCount()];
-            Class<?>[] parameterTypes = ctor.getParameterTypes();
-            for (int i = 0; i < args.length; i++) {
-                Class<?> parameterType = parameterTypes[i];
-                args[i] = Defaults.defaultValue(parameterType);
-            }
-            newInstance = ctor.newInstance(args);
-        }
-
+        Object newInstance = ObjectInstantiator.newInstance(klazz);
         HeapItem newInstanceItem = new HeapItem(newInstance, instanceItem.getType());
         callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
     }
