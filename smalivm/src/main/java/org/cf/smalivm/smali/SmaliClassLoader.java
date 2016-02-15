@@ -14,7 +14,7 @@ public class SmaliClassLoader extends ClassLoader {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliClassLoader.class.getSimpleName());
 
-    private static final String FRAMEWORK_STUBS_JAR = "/framework/framework-23.jar";
+    private static final String FRAMEWORK_STUBS_JAR = "/framework/android-23.jar";
 
     private static final Map<String, Class<?>> cachedClasses = new HashMap<String, Class<?>>();
     private final ClassBuilder classBuilder;

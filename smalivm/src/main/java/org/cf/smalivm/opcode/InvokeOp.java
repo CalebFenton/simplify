@@ -337,7 +337,7 @@ public class InvokeOp extends ExecutionContextOp {
         } else if (vm.getConfiguration().isSafe(methodDescriptor)) {
             assert allArgumentsKnown(calleeContext.getMethodState());
 
-            MethodReflector reflector = new MethodReflector(methodDescriptor, returnType, parameterTypes, isStatic);
+            MethodReflector reflector = new MethodReflector(vm, methodDescriptor, returnType, parameterTypes, isStatic);
             reflector.reflect(calleeContext.getMethodState()); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.

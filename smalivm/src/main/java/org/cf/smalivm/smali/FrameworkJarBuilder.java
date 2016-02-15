@@ -14,7 +14,7 @@ public class FrameworkJarBuilder {
         ClassManager classManager = getClassManager();
         ClassBuilder builder = new ClassBuilder();
 
-        String outPath = "framework.jar";
+        String outPath = "android-framework.jar";
         JarOutputStream out = new JarOutputStream(new FileOutputStream(outPath));
         Set<String> classNames = classManager.getFrameworkClassNames();
         for (String className : classNames) {
