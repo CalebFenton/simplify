@@ -129,8 +129,10 @@ public class MethodReflector {
                 if (argItem.isPrimitiveOrWrapper()) {
                     arg = Utils.castToPrimitive(arg, parameterTypeName);
                 } else {
-                    if (arg instanceof Number && argItem.getIntegerValue() == 0) {
-                        // Passing 0 as a non-primitive type means it's null (thanks Dalvik)
+                    if (arg instanceof Number && argItem.getIntegerValue() == 0 && !parameterTypeName
+                                    .equals("Ljava/lang/Object;")) {
+                        // TODO: medium - how the hell does Dalvik really know if it's a null or a 0?
+                        // Passing 0 as a non-primitive type *COULD* it's null (thanks Dalvik)
                         arg = null;
                     }
                 }
