@@ -43,7 +43,7 @@ Then, to build a single jar:
 
 The Simplify jar will be in `simplify/build/libs/simplify.jar`
 
-You can test it's working with: `java -jar simplify/build/libs/simplify.jar simplify/obfuscated-example`
+You can test it's working with: `java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example`
 
 Troubleshooting
 ---------------
@@ -58,13 +58,13 @@ Simplify is in early stages of development. If you encounter a failure, try thes
 Reporting Issues
 ----------------
 
-1. If you can, link the APK or DEX. Otherwise post the SHA1.
-2. The full command used.
+1. If possible, include a link the APK or DEX. If you can't share the sample, please include either the SHA1 or MD5 checksum.
+2. Include the full command used.
 3. *Optional*: Include verbose logs.
 
 Contributing
 ------------
-Just submit a pull request. We can talk through it there. I can clean up the style
+Just submit a pull request. We can review and talk through it there.
 
 Optimization Example
 --------------------
@@ -131,3 +131,5 @@ Related Works
 -------------
 
 * [Guillot, Yoann, and Alexandre Gazet. "Automatic Binary Deobfuscation." Journal in Computer Virology 6.3 (2010): 261-76](http://metasm.cr0.org/docs/sstic09-metasm-jcv.pdf)
+* [Unicorn - The ultimate CPU emulator](http://www.unicorn-engine.org/)
+* [Babak Yadegari, Saumya Debray. "Symbolic Execution of Obfuscated Code"](https://www.cs.arizona.edu/people/debray/Publications/ccs2015-symbolic.pdf)
