@@ -35,6 +35,7 @@ import org.jf.dexlib2.iface.reference.FieldReference;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.immutable.reference.ImmutableMethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.writer.builder.BuilderField;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
@@ -165,8 +166,10 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         String type = parts[1];
 
         boolean isStatic = false;
-        FieldReference fieldRef = manipulator.getDexBuilder().internField(className, fieldName, type,
+        BuilderField builderField = manipulator.getDexBuilder().internField(className, fieldName, type,
                         field.getModifiers(), null, null);
+        FieldReference fieldRef = manipulator.getDexBuilder().internFieldReference(builderField);
+
         isStatic = Modifier.isStatic(field.getModifiers());
         Opcode newOp = getGetOpcode(type, isStatic);
 
