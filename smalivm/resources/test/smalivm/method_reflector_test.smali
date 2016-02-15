@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 
-.method public static InitCharacterWithChar()V
+.method public static initCharacterWithChar()V
   .locals 1
 
   # Can't set v0 to "new-instance" at Java level
@@ -12,7 +12,7 @@
   return-void
 .end method
 
-.method public static InitBooleanWithBoolean()V
+.method public static initBooleanWithBoolean()V
   .locals 1
 
   new-instance v0, Ljava/lang/Boolean;
@@ -21,7 +21,7 @@
   return-void
 .end method
 
-.method public static ShortValueOfShort()V
+.method public static shortValueOfShort()V
   .locals 1
 
   invoke-static {v0}, Ljava/lang/Short;->valueOf(S)Ljava/lang/Short;
@@ -30,10 +30,19 @@
   return-void
 .end method
 
-.method public static ByteValueOfByte()V
+.method public static byteValueOfByte()V
   .locals 1
 
   invoke-static {v0}, Ljava/lang/Byte;->valueOf(B)Ljava/lang/Byte;
+  move-result v0
+
+  return-void
+.end method
+
+.method public static getClassMethod()V
+  .locals 2
+
+  invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
   move-result v0
 
   return-void

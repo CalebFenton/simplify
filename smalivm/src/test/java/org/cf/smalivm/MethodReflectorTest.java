@@ -16,39 +16,49 @@ public class MethodReflectorTest {
     }
 
     @Test
-    public void castsIntegerToByte() {
+    public void canCastIntegerToByte() {
         byte value = 6;
         initial.setRegisters(0, value, "B");
         expected.setRegisters(0, Byte.valueOf(value), "Ljava/lang/Byte;");
 
-        VMTester.test(CLASS_NAME, "ByteValueOfByte()V", initial, expected);
+        VMTester.test(CLASS_NAME, "byteValueOfByte()V", initial, expected);
     }
 
     @Test
-    public void initBooleanWithBoolean() {
+    public void canInitBooleanWithBoolean() {
         boolean value = true;
         initial.setRegisters(1, value, "Z");
         expected.setRegisters(0, Boolean.valueOf(value), "Ljava/lang/Boolean;");
 
-        VMTester.test(CLASS_NAME, "InitBooleanWithBoolean()V", initial, expected);
+        VMTester.test(CLASS_NAME, "initBooleanWithBoolean()V", initial, expected);
     }
 
     @Test
-    public void initCharacterWithChar() {
+    public void canInitCharacterWithChar() {
         char value = 'a';
         initial.setRegisters(1, value, "C");
         expected.setRegisters(0, Character.valueOf(value), "Ljava/lang/Character;");
 
-        VMTester.test(CLASS_NAME, "InitCharacterWithChar()V", initial, expected);
+        VMTester.test(CLASS_NAME, "initCharacterWithChar()V", initial, expected);
     }
 
     @Test
-    public void shortValueOfShort() {
+    public void canGetShortValueOfShort() {
         short value = 5;
         initial.setRegisters(0, value, "S");
         expected.setRegisters(0, Short.valueOf(value), "Ljava/lang/Short;");
 
-        VMTester.test(CLASS_NAME, "ShortValueOfShort()V", initial, expected);
+        VMTester.test(CLASS_NAME, "shortValueOfShort()V", initial, expected);
+    }
+
+    @Test
+    public void handlesNullArgumentProperly() throws NoSuchMethodException, SecurityException {
+        // Dalvik uses const/4 v1, 0x0 for null
+        initial.setRegisters(0, System.class, "Ljava/lang/Class;", 1, "currentTimeMillis", "Ljava/lang/String;", 2, 0,
+                        "I");
+        expected.setRegisters(0, System.class.getMethod("currentTimeMillis", null), "Ljava/lang/reflect/Method;");
+
+        VMTester.test(CLASS_NAME, "getClassMethod()V", initial, expected);
     }
 
 }

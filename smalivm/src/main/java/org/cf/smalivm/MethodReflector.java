@@ -139,7 +139,37 @@ public class MethodReflector {
 
             // Shouldn't need a VM class loader since these are all safe to reflect on the JVM
             // Also, some type names are arrays and loadClass only works for component types
-            Class<?> parameterType = Class.forName(ClassNameUtils.internalToBinary(parameterTypeName));
+
+            Class<?> parameterType;
+            switch (parameterTypeName) {
+            case "I":
+                parameterType = int.class;
+                break;
+            case "Z":
+                parameterType = boolean.class;
+                break;
+            case "J":
+                parameterType = long.class;
+                break;
+            case "B":
+                parameterType = byte.class;
+                break;
+            case "S":
+                parameterType = short.class;
+                break;
+            case "C":
+                parameterType = char.class;
+                break;
+            case "D":
+                parameterType = double.class;
+                break;
+            case "F":
+                parameterType = float.class;
+                break;
+            default:
+                parameterType = Class.forName(ClassNameUtils.internalToBinary(parameterTypeName));
+                break;
+            }
             parameterTypes[i - offset] = parameterType;
 
             if (Utils.getRegisterSize(parameterTypeName) == 2) {
