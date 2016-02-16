@@ -1,12 +1,16 @@
 package org.cf.simplify.strategy;
 
 import static org.junit.Assert.assertEquals;
-import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
+import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.junit.Test;
@@ -21,65 +25,19 @@ public class DeadRemovalStrategyTest {
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategyTest.class.getSimpleName());
 
     @Test
-    public void assignmentReassignedInOnlyOneMultiverseIsNotRemoved() {
+    public void doesNotDetectAssignmentReassignedInOnlyOneMultiverse() {
         String methodName = "reassignedInOnlyOneMultiverse(I)I";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAssignmentAddresses();
-        found.sort();
-        TIntList expected = new TIntArrayList(new int[0]);
+        List<Integer> found = strategy.getDeadAssignmentAddresses();
+        Collections.sort(found);
+        List<Integer> expected = new LinkedList<Integer>();
 
         assertEquals(expected, found);
     }
 
     @Test
-    public void deadCodeIsRemoved() {
-        String methodName = "deadCode()V";
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAddresses();
-        found.sort();
-        TIntList expected = new TIntArrayList(new int[] { 2, 3, 4, 5 });
-
-        assertEquals(expected, found);
-    }
-
-    @Test
-    public void deadCodeWithStrongSideEffectIsRemoved() {
-        String methodName = "deadCodeWithStrongSideEffect()V";
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAddresses();
-        found.sort();
-        TIntList expected = new TIntArrayList(new int[] { 1 });
-
-        assertEquals(expected, found);
-    }
-
-    @Test
-    public void deadNopPaddingIsNotRemoved() {
-        String methodName = "hasNopPadding()V";
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAddresses();
-        TIntList expected = new TIntArrayList(new int[] {});
-
-        assertEquals(expected, found);
-    }
-
-    @Test
-    public void deadTryCatchBlockIsRemoved() {
-        String methodName = "deadTryCatchBlock()V";
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAssignmentAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 0 });
-
-        assertEquals(expected, found);
-    }
-
-    @Test
-    public void instanceInitializerIsNotRemoved() {
+    public void doesNotDetectInstanceInitializer() {
         String methodName = "<init>()V";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
@@ -90,55 +48,112 @@ public class DeadRemovalStrategyTest {
     }
 
     @Test
-    public void moveOpWithOnlyOneRegisterReassignedIsNotRemoved() {
+    public void doesNotDetectMoveOpWithOnlyOneRegisterReassigned() {
         String methodName = "moveP0IntoV0With30Locals(I)V";
         ExecutionGraphManipulator manipulator = getOptimizedGraph(methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAssignmentAddresses();
+        List<Integer> found = strategy.getDeadAssignmentAddresses();
 
         assertEquals(0, found.size());
     }
 
     @Test
-    public void unusedAssignmentIsRemoved() {
-        String methodName = "unusedAssignment()I";
+    public void detectsDeadCodeWithStrongSideEffect() {
+        String methodName = "deadCodeWithStrongSideEffect()V";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAssignmentAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 0 });
+        List<Integer> found = strategy.getDeadAddresses();
+        Collections.sort(found);
+        List<Integer> expected = Arrays.asList(1);
 
         assertEquals(expected, found);
     }
 
     @Test
-    public void unusedResultNoSideEffectsRemovesInvoke() {
+    public void detectsDeadNopPadding() {
+        String methodName = "hasNopPadding()V";
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
+        List<Integer> found = strategy.getDeadAddresses();
+        List<Integer> expected = new LinkedList<Integer>();
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void detectsDeadTryCatchBlock() {
+        String methodName = "deadTryCatchBlock()V";
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
+        List<Integer> found = strategy.getDeadAssignmentAddresses();
+        List<Integer> expected = Arrays.asList(0);
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void detectshUnusedResultOfMethodInvocationWithNoSideEffects() {
         String methodName = "unusedResultNoSideEffects()I";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedResultAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 1 });
+        List<Integer> found = strategy.getDeadResultAddresses();
+        List<Integer> expected = Arrays.asList(1);
 
         assertEquals(expected, found);
     }
 
     @Test
-    public void unusedResultWithSideEffectsIsNotValidForRemoval() {
+    public void detectsMoveResultWithUnusedAssignment() {
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME,
+                        "moveResult()Ljava/lang/String;", MethodState.ResultRegister, "some string",
+                        "Ljava/lang/String;");
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
+        List<Integer> found = strategy.getDeadAssignmentAddresses();
+        List<Integer> expected = Arrays.asList(3, 7);
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void detectsSimpleDeadCode() {
+        String methodName = "deadCode()V";
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
+        List<Integer> found = strategy.getDeadAddresses();
+        Collections.sort(found);
+        List<Integer> expected = Arrays.asList(2, 3, 4, 5);
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void detectsUnusedAssignment() {
+        String methodName = "unusedAssignment()I";
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
+        List<Integer> found = strategy.getDeadAssignmentAddresses();
+        List<Integer> expected = Arrays.asList(0);
+
+        assertEquals(expected, found);
+    }
+
+    @Test
+    public void detectsUnusedResultOfMethodInvocationWithSideEffects() {
         String methodName = "unusedResultWithSideEffects()I";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUnusedAssignmentAddresses();
-        TIntList expected = new TIntArrayList(new int[] {});
+        List<Integer> found = strategy.getDeadAssignmentAddresses();
+        List<Integer> expected = new LinkedList<Integer>();
 
         assertEquals(expected, found);
     }
 
     @Test
-    public void uselessGotoIsRemoved() {
+    public void detectsUselessGoto() {
         String methodName = "uselessGoto()V";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        TIntList found = strategy.getUselessBranchAddresses();
-        TIntList expected = new TIntArrayList(new int[] { 0 });
+        List<Integer> found = strategy.getUselessBranchAddresses();
+        List<Integer> expected = Arrays.asList(0);
 
         assertEquals(expected, found);
     }

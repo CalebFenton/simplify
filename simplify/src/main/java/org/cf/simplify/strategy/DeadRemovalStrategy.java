@@ -1,14 +1,14 @@
 package org.cf.simplify.strategy;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
-
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.SideEffect;
@@ -28,127 +28,18 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.primitives.Ints;
-
 public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategy.class.getSimpleName());
 
-    private static TIntSet getExceptionHandlerAddresses(ExecutionGraphManipulator manipulator) {
-        int[] allAddresses = manipulator.getAddresses();
-        Arrays.sort(allAddresses);
-        int highestAddress = allAddresses[allAddresses.length - 1];
-        TIntSet handlerAddresses = new TIntHashSet();
-        List<BuilderTryBlock> tryBlocks = manipulator.getTryBlocks();
-        for (BuilderTryBlock tryBlock : tryBlocks) {
-            List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
-            for (BuilderExceptionHandler handler : handlers) {
-                int address = handler.getHandlerCodeAddress();
-                BuilderInstruction instruction = manipulator.getInstruction(address);
-                while (address < highestAddress) {
-                    // Add all instructions until return, goto, etc.
-                    handlerAddresses.add(address);
-                    address += instruction.getCodeUnits();
-                    instruction = manipulator.getInstruction(address);
-                    if (!instruction.getOpcode().canContinue()) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        return handlerAddresses;
-    }
-
-    private static TIntSet getNormalRegistersAssigned(MethodState mState) {
-        TIntSet assigned = new TIntHashSet(mState.getRegistersAssigned());
-
-        // The state of these registers can become invalid as we start to remove ops.
-        // Infer if the result is used, etc. by means other than looking if the register
-        // itself is read.
-        assigned.removeAll(new int[] {
-                        MethodState.ResultRegister, MethodState.ReturnAddress, MethodState.ReturnRegister });
-
-        for (int i = 0; i < mState.getParameterCount(); i++) {
-            int parameterRegister = mState.getParameterStart() + i;
-            assigned.remove(parameterRegister);
-        }
-
-        return assigned;
-    }
-
-    private static boolean isAnyRegisterUsed(int address, TIntSet registers, ExecutionGraphManipulator graph) {
-        List<ExecutionNode> children = graph.getChildren(address);
-        for (ExecutionNode child : children) {
-            TIntSet newRegisters = new TIntHashSet(registers);
-            if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static boolean isAnyRegisterUsed(int address, TIntSet registers, ExecutionGraphManipulator graph,
-                    ExecutionNode node) {
-        ExecutionNode current = node;
-        for (;;) {
-            MethodState mState = current.getContext().getMethodState();
-            for (int register : registers.toArray()) {
-                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
-                // Read check must come first because this still counts as a usage.
-                if (mState.wasRegisterRead(register)) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("r{} read after {} @{}, {}", register, address, current.getAddress(), current.getOp());
-                    }
-
-                    return true;
-                }
-                // aput is mutates an object. Assignment isn't "reassignment" like it is with other ops
-                else if (mState.wasRegisterAssigned(register) && !(current.getOp() instanceof APutOp)) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("r{} assigned after {} @{}, {}", register, address, current.getAddress(),
-                                        current.getOp());
-                    }
-
-                    registers.remove(register);
-                }
-            }
-
-            if (registers.isEmpty()) {
-                return false;
-            }
-
-            List<ExecutionNode> children = current.getChildren();
-            if (children.isEmpty()) {
-                return false;
-            }
-
-            if (children.size() == 1) {
-                current = children.get(0);
-            } else {
-                for (ExecutionNode child : children) {
-                    TIntSet newRegisters = new TIntHashSet(registers);
-                    if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        }
-    }
-
-    private TIntList addresses;
+    private final ExecutionGraphManipulator manipulator;
+    private List<Integer> addresses;
     private int unusedAssignmentCount;
     private int uselessBranchCount;
     private int unvisitedCount;
     private int nopCount;
-
     private int unusedResultCount;
-
     private SideEffect.Level sideEffectThreshold = SideEffect.Level.NONE;
-
-    private final ExecutionGraphManipulator manipulator;
 
     public DeadRemovalStrategy(ExecutionGraphManipulator manipulator) {
         this.manipulator = manipulator;
@@ -177,17 +68,17 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         // Updated addresses each time because they change outside of this method.
         addresses = getValidAddresses(manipulator);
 
-        TIntSet removeSet = new TIntHashSet();
-        TIntList removeAddresses;
-        removeAddresses = getUnusedAddresses();
+        Set<Integer> removeSet = new HashSet<Integer>();
+        List<Integer> removeAddresses;
+        removeAddresses = getDeadAddresses();
         unvisitedCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
-        removeAddresses = getUnusedAssignmentAddresses();
+        removeAddresses = getDeadAssignmentAddresses();
         unusedAssignmentCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
-        removeAddresses = getUnusedResultAddresses();
+        removeAddresses = getDeadResultAddresses();
         unusedResultCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
@@ -199,13 +90,12 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         nopCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
-        removeAddresses = new TIntArrayList(removeSet.toArray());
-        List<Integer> deadAddresses = Ints.asList(removeSet.toArray());
+        List<Integer> deadAddresses = new LinkedList<Integer>(removeSet);
         if (deadAddresses.size() > 0) {
             manipulator.removeInstructions(deadAddresses);
         }
 
-        return removeAddresses.size() > 0;
+        return !removeSet.isEmpty();
     }
 
     public void setRemoveWeak(boolean removeWeak) {
@@ -214,7 +104,105 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
     }
 
+    List<Integer> getDeadAddresses() {
+        return addresses.stream().filter(a -> isDead(a)).collect(Collectors.toList());
+    }
+
+    List<Integer> getDeadAssignmentAddresses() {
+        return addresses.stream().filter(a -> isDeadAssignment(a)).collect(Collectors.toList());
+    }
+
+    List<Integer> getDeadResultAddresses() {
+        return addresses.stream().filter(a -> isDeadResult(a)).collect(Collectors.toList());
+    }
+
+    List<Integer> getImpotentMethodInvocations() {
+        return addresses.stream().filter(a -> isImpotentMethodInvocation(a)).collect(Collectors.toList());
+    }
+
+    List<Integer> getNopAddresses() {
+        return addresses.stream().filter(a -> isNop(a)).collect(Collectors.toList());
+    }
+
+    List<Integer> getUselessBranchAddresses() {
+        return addresses.stream().filter(a -> isUselessBranch(a)).collect(Collectors.toList());
+    }
+
+    List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {
+        List<Integer> validAddresses = IntStream.of(manipulator.getAddresses()).boxed().collect(Collectors.toList());
+        List<Integer> invalidAddresses = new LinkedList<Integer>();
+
+        // Should never remove the last op. It's either return, goto, or an array payload.
+        invalidAddresses.add(validAddresses.get(validAddresses.size() - 1));
+
+        // Don't optimize exception handler code since the VM may incorrectly think the code is unreachable
+        // This needs to be in place until all ops properly raise possible exceptions
+        // invalidAddresses.addAll(getExceptionHandlerAddresses(manipulator));
+
+        for (int address : validAddresses) {
+            if (!manipulator.wasAddressReached(address)) {
+                // Unreached code is valid for removal
+                continue;
+            }
+
+            Op op = manipulator.getOp(address);
+            if (isSideEffectAboveThreshold(op.getSideEffectLevel())) {
+                invalidAddresses.add(address);
+                continue;
+            }
+
+            if (op.getName().startsWith("invoke-direct")) {
+                if (manipulator.getMethodDescriptor().contains(";-><init>(")) {
+                    // Can't remove init method without breaking the object
+                    ExecutionNode node = manipulator.getNodePile(address).get(0);
+                    ExecutionContext ectx = node.getContext();
+                    MethodState mState = ectx.getMethodState();
+
+                    StringBuilder sb = new StringBuilder("invoke-direct {r");
+                    sb.append(mState.getParameterStart() - 1); // p0 for instance method
+                    if (op.toString().startsWith(sb.toString())) {
+                        invalidAddresses.add(address);
+                        continue;
+                    }
+                }
+            }
+        }
+        validAddresses.removeAll(invalidAddresses);
+
+        return validAddresses;
+    }
+
+    private boolean isDead(int address) {
+        Op op = manipulator.getOp(address);
+        log.debug("Dead test @{} for: {}", address, op);
+
+        if (manipulator.wasAddressReached(address)) {
+            return false;
+        }
+
+        if (op instanceof GotoOp) {
+            // Let dead branch logic handle these.
+            // Getting weird errors about unplaced labels if these are removed.
+            // In that case, it was jumping to a exception handler.
+            return false;
+        }
+
+        if (op instanceof NopOp) {
+            int nextAddress = address + op.getLocation().getInstruction().getCodeUnits();
+            Opcode nextOp = manipulator.getLocation(nextAddress).getInstruction().getOpcode();
+            if (nextOp == Opcode.ARRAY_PAYLOAD) {
+                // Necessary nop padding
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private boolean isDeadAssignment(int address) {
+        if (address == 0x5c) {
+            System.out.println("examine here");
+        }
         if (!manipulator.wasAddressReached(address)) {
             return false;
         }
@@ -223,14 +211,14 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         ExecutionContext ectx = node.getContext();
         if (ectx == null) {
             if (log.isWarnEnabled()) {
-                log.warn("Null execution context @" + address + ". This shouldn't happen!");
+                log.warn("Null execution context @{}. This shouldn't happen!", address);
             }
 
             return false;
         }
 
         MethodState mState = ectx.getMethodState();
-        TIntSet assigned = getNormalRegistersAssigned(mState);
+        Set<Integer> assigned = getNormalRegistersAssigned(mState);
         if (assigned.isEmpty()) {
             // Has no assignments at all
             return false;
@@ -292,7 +280,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         ExecutionNode node = manipulator.getNodePile(address).get(0);
         ExecutionContext ectx = node.getContext();
         MethodState mState = ectx.getMethodState();
-        TIntSet assigned = getNormalRegistersAssigned(mState);
+        Set<Integer> assigned = getNormalRegistersAssigned(mState);
         if (0 < assigned.size()) {
             if (isAnyRegisterUsed(address, assigned, manipulator)) {
                 // Result may not be used, but assignments *are* used
@@ -303,156 +291,142 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return true;
     }
 
+    private boolean isImpotentMethodInvocation(int address) {
+        return false;
+    }
+
+    private boolean isNop(int address) {
+        if (!manipulator.wasAddressReached(address)) {
+            return false;
+        }
+
+        Op op = manipulator.getOp(address);
+        if (op instanceof NopOp) {
+            return true;
+        }
+
+        return false;
+    }
+
     private boolean isSideEffectAboveThreshold(SideEffect.Level level) {
         return level.compareTo(sideEffectThreshold) > 0;
     }
 
-    boolean isDead(int address) {
+    private boolean isUselessBranch(int address) {
         Op op = manipulator.getOp(address);
-        log.debug("Dead test @{} for: {}", address, op);
-
-        if (manipulator.wasAddressReached(address)) {
+        if (!(op instanceof GotoOp)) {
             return false;
         }
 
-        if (op instanceof GotoOp) {
-            // Let dead branch logic handle these.
-            // Getting weird errors about unplaced labels if these are removed.
-            // In that case, it was jumping to a exception handler.
+        // Branch is useless if it branches to the next instruction.
+        OffsetInstruction instruction = (OffsetInstruction) manipulator.getInstruction(address);
+        int branchOffset = instruction.getCodeOffset();
+        if (branchOffset != instruction.getCodeUnits()) {
             return false;
-        }
-
-        if (op instanceof NopOp) {
-            int nextAddress = address + op.getLocation().getInstruction().getCodeUnits();
-            Opcode nextOp = manipulator.getLocation(nextAddress).getInstruction().getOpcode();
-            if (nextOp == Opcode.ARRAY_PAYLOAD) {
-                // Necessary nop padding
-                return false;
-            }
         }
 
         return true;
     }
 
-    TIntList getUnusedAddresses() {
-        TIntList result = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            if (isDead(address)) {
-                result.add(address);
-            }
-        }
-
-        return result;
-    }
-
-    TIntList getUnusedAssignmentAddresses() {
-        TIntList result = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            if (isDeadAssignment(address)) {
-                result.add(address);
-            }
-        }
-
-        return result;
-    }
-
-    TIntList getUnusedResultAddresses() {
-        TIntList result = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            if (isDeadResult(address)) {
-                result.add(address);
-            }
-        }
-
-        return result;
-    }
-
-    TIntList getUselessBranchAddresses() {
-        TIntList result = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            Op op = manipulator.getOp(address);
-            if (!(op instanceof GotoOp)) {
-                continue;
-            }
-
-            // Branch is useless if it branches to the next instruction.
-            OffsetInstruction instruction = (OffsetInstruction) manipulator.getInstruction(address);
-            int branchOffset = instruction.getCodeOffset();
-            if (branchOffset != instruction.getCodeUnits()) {
-                continue;
-            }
-
-            result.add(address);
-        }
-
-        return result;
-    }
-
-    TIntList getNopAddresses() {
-        TIntList nopAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            if (!manipulator.wasAddressReached(address)) {
-                continue;
-            }
-            Op op = manipulator.getOp(address);
-            if (op instanceof NopOp) {
-                nopAddresses.add(address);
-            }
-        }
-
-        return nopAddresses;
-    }
-
-    TIntList getValidAddresses(ExecutionGraphManipulator manipulator) {
-        TIntList validAddresses = new TIntArrayList(manipulator.getAddresses());
-        // Keep the last address. It's a hack. Last op is normally a return, goto, etc.
-        // Though could be array-payload (but we don't check, hence hack)
-        validAddresses.sort();
-        validAddresses.removeAt(validAddresses.size() - 1);
-
-        // For now, don't remove any exception handler code until VM actually understands them.
-        validAddresses.removeAll(getExceptionHandlerAddresses(manipulator));
-
-        for (int address : validAddresses.toArray()) {
-            if (!manipulator.wasAddressReached(address)) {
-                // DEAD, totally valid
-                continue;
-            }
-
-            Op op = manipulator.getOp(address);
-            if (isSideEffectAboveThreshold(op.getSideEffectLevel())) {
-                validAddresses.remove(address);
-                continue;
-            }
-
-            if (op instanceof NopOp) {
-                // Usually, the only reason a nop exists is because it was generated by the compiler.
-                // Most decompilers are smart enough to deal with them.
-                if (!manipulator.wasAddressReached(address)) {
-                    // Wasn't reached, so must be a padding op. Dexlib will remove this if necessary.
-                    validAddresses.remove(address);
-                    continue;
-                }
-            }
-
-            if (op.getName().startsWith("invoke-direct")) {
-                // Initializers shouldn't be removed because they setup instance state.
-                if (manipulator.getMethodDescriptor().contains(";-><init>(")) {
-                    ExecutionNode node = manipulator.getNodePile(address).get(0);
-                    ExecutionContext ectx = node.getContext();
-                    MethodState mState = ectx.getMethodState();
-
-                    StringBuilder sb = new StringBuilder("invoke-direct {r");
-                    sb.append(mState.getParameterStart() - 1); // p0 for instance method
-                    if (op.toString().startsWith(sb.toString())) {
-                        validAddresses.remove(address);
-                        continue;
+    private static Set<Integer> getExceptionHandlerAddresses(ExecutionGraphManipulator manipulator) {
+        int[] allAddresses = manipulator.getAddresses();
+        Arrays.sort(allAddresses);
+        int highestAddress = allAddresses[allAddresses.length - 1];
+        Set<Integer> handlerAddresses = new HashSet<Integer>();
+        List<BuilderTryBlock> tryBlocks = manipulator.getTryBlocks();
+        for (BuilderTryBlock tryBlock : tryBlocks) {
+            List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
+            for (BuilderExceptionHandler handler : handlers) {
+                int address = handler.getHandlerCodeAddress();
+                BuilderInstruction instruction = manipulator.getInstruction(address);
+                while (address < highestAddress) {
+                    // Add all instructions until return, goto, etc.
+                    handlerAddresses.add(address);
+                    address += instruction.getCodeUnits();
+                    instruction = manipulator.getInstruction(address);
+                    if (!instruction.getOpcode().canContinue()) {
+                        break;
                     }
                 }
             }
         }
 
-        return validAddresses;
+        return handlerAddresses;
+    }
+
+    private static Set<Integer> getNormalRegistersAssigned(MethodState mState) {
+        Set<Integer> assigned = new HashSet<Integer>();
+        for (int register : mState.getRegistersAssigned()) {
+            if (register < 0) {
+                continue;
+            }
+            assigned.add(register);
+        }
+
+        for (int i = 0; i < mState.getParameterCount(); i++) {
+            int parameterRegister = mState.getParameterStart() + i;
+            assigned.remove(parameterRegister);
+        }
+
+        return assigned;
+    }
+
+    private static boolean isAnyRegisterUsed(int address, Set<Integer> registers, ExecutionGraphManipulator graph) {
+        List<ExecutionNode> children = graph.getChildren(address);
+        for (ExecutionNode child : children) {
+            Set<Integer> newRegisters = new HashSet<Integer>(registers);
+            if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isAnyRegisterUsed(int address, Set<Integer> usedRegisters, ExecutionGraphManipulator graph,
+                    ExecutionNode node) {
+        ExecutionNode current = node;
+        for (;;) {
+            MethodState mState = current.getContext().getMethodState();
+            for (int register : usedRegisters) {
+                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
+                // Read check must come first because this still counts as a usage.
+                if (mState.wasRegisterRead(register)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r{} read after {} @{}, {}", register, address, current.getAddress(), current.getOp());
+                    }
+
+                    return true;
+                }
+                // aput mutates an object. Assignment isn't "reassignment" like it is with other ops
+                else if (mState.wasRegisterAssigned(register) && !(current.getOp() instanceof APutOp)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r{} assigned after {} @{}, {}", register, address, current.getAddress(),
+                                        current.getOp());
+                    }
+
+                    usedRegisters.remove(register);
+                }
+            }
+
+            if (usedRegisters.isEmpty()) {
+                return false;
+            }
+
+            List<ExecutionNode> children = current.getChildren();
+            if (children.size() == 1) {
+                current = children.get(0);
+            } else {
+                for (ExecutionNode child : children) {
+                    Set<Integer> newRegisters = new HashSet<Integer>(usedRegisters);
+                    if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
     }
 
 }

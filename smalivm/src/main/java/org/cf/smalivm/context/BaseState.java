@@ -122,8 +122,15 @@ class BaseState {
             return false;
         }
 
-        // Don't just examine registersRead. v0 and v1 may contain the same object reference, but v0 is never read.
+        /*
+         * Since multiple registers may hold the same object reference, need to examine other registers for identity.
+         * However, result register must be excluded because move-result will always read and assign an identical object
+         * every time it's executed.
+         */
         for (int currentRegister : getRegistersRead()) {
+            if (currentRegister == MethodState.ResultRegister) {
+                continue;
+            }
             HeapItem currentItem = peekRegister(currentRegister, heapId);
             if (item.getValue() == currentItem.getValue()) {
                 return true;

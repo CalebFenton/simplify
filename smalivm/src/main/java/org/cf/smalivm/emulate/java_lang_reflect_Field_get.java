@@ -32,27 +32,6 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
     }
 
     @Override
-    public Set<VirtualException> getExceptions() {
-        return exceptions;
-    }
-
-    private HeapItem get(Field field, Object instance, String className, int accessFlags, ExecutionContext ectx,
-                    VirtualMachine vm) {
-        if (vm.getConfiguration().isSafe(className)) {
-            return getSafeField(field, instance, ectx);
-        } else {
-            boolean isStatic = Modifier.isStatic(accessFlags);
-            if (!isStatic) {
-                // Instance field lookup isn't supported yet.
-                String internalName = ClassNameUtils.toInternal(field.getType());
-                return HeapItem.newUnknown(internalName);
-            }
-
-            return getLocalField(field, vm, ectx);
-        }
-    }
-
-    @Override
     public void execute(VirtualMachine vm, ExecutionContext ectx) throws Exception {
         MethodState mState = ectx.getMethodState();
         HeapItem fieldItem = mState.peekParameter(0);
@@ -76,8 +55,14 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
         mState.assignReturnRegister(getItem);
     }
 
-    private void setException(VirtualException exception) {
-        exceptions.add(exception);
+    @Override
+    public Set<VirtualException> getExceptions() {
+        return exceptions;
+    }
+
+    @Override
+    public SideEffect.Level getSideEffectLevel() {
+        return level;
     }
 
     private boolean checkAccess(String callingClassInternal, String definingClassInternal, int accessFlags,
@@ -126,6 +111,22 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
         return true;
     }
 
+    private HeapItem get(Field field, Object instance, String className, int accessFlags, ExecutionContext ectx,
+                    VirtualMachine vm) {
+        if (vm.getConfiguration().isSafe(className)) {
+            return getSafeField(field, instance, ectx);
+        } else {
+            boolean isStatic = Modifier.isStatic(accessFlags);
+            if (!isStatic) {
+                // Instance field lookup isn't supported yet.
+                String internalName = ClassNameUtils.toInternal(field.getType());
+                return HeapItem.newUnknown(internalName);
+            }
+
+            return getLocalField(field, vm, ectx);
+        }
+    }
+
     private HeapItem getLocalField(Field field, VirtualMachine vm, ExecutionContext ectx) {
         String fieldDescriptor = Utils.buildFieldDescriptor(field);
         StaticFieldAccessor accessor = vm.getStaticFieldAccessor();
@@ -151,9 +152,8 @@ public class java_lang_reflect_Field_get implements ExecutionContextMethod {
         return item;
     }
 
-    @Override
-    public SideEffect.Level getSideEffectLevel() {
-        return level;
+    private void setException(VirtualException exception) {
+        exceptions.add(exception);
     }
 
 }

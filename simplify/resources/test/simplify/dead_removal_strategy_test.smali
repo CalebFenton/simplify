@@ -154,30 +154,50 @@
 .end method
 
 .method private static hasNopPadding()V
-    .locals 1
+  .locals 1
 
-    #@0
-    const/16 v0, 0x1
+  #@0
+  const/16 v0, 0x1
 
-    #@2
-    new-array v0, v0, [B
+  #@2
+  new-array v0, v0, [B
 
-    #@4
-    fill-array-data v0, :array_0
+  #@4
+  fill-array-data v0, :array_0
 
-    #@7
-    # if this is removed, nop @b is not needed and is removed by dexlib
-    fill-array-data v0, :array_0
+  #@7
+  # if this is removed, nop @b is not needed and is removed by dexlib
+  fill-array-data v0, :array_0
 
-    #@a
-    return-void
+  #@a
+  return-void
 
-    #@b
-    nop
+  #@b
+  nop
 
-    #@c
-    :array_0
-    .array-data 1
-        0x1t
-    .end array-data
+  #@c
+  :array_0
+  .array-data 1
+      0x1t
+  .end array-data
+.end method
+
+.method public static moveResult()Ljava/lang/String;
+  .locals 1
+
+  invoke-static {}, Ldead_removal_strategy_test;->getString()Ljava/lang/String;
+  move-result v0
+
+  invoke-static {}, Ldead_removal_strategy_test;->getString()Ljava/lang/String;
+  move-result v0
+
+  const-string v0, "other stringy"
+  return-object v0
+.end method
+
+.method public static getString()Ljava/lang/String;
+  .locals 1
+
+  const-string v0, "stringy"
+  return-object v0
 .end method
