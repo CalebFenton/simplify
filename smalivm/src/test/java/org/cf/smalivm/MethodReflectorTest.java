@@ -53,7 +53,6 @@ public class MethodReflectorTest {
 
     @Test
     public void handlesNullArgumentProperly() throws NoSuchMethodException, SecurityException {
-        // Dalvik doesn't have a null type, it uses 0x0
         initial.setRegisters(0, System.class, "Ljava/lang/Class;", 1, "currentTimeMillis", "Ljava/lang/String;", 2, 0,
                         "I");
         expected.setRegisters(0, System.class.getMethod("currentTimeMillis", (Class<?>[]) null),

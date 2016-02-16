@@ -49,6 +49,10 @@ public class HeapItem {
         return new EqualsBuilder().append(getType(), rhs.getType()).append(getValue(), rhs.getValue()).isEquals();
     }
 
+    public String getComponentBase() {
+        return ClassNameUtils.getComponentBase(getType());
+    }
+
     public double getDoubleValue() {
         return Utils.getDoubleValue(getValue());
     }
@@ -89,6 +93,10 @@ public class HeapItem {
 
     public boolean isImmutable() {
         return Configuration.instance().isImmutable(getType());
+    }
+
+    public boolean isObject() {
+        return ClassNameUtils.isObject(getType());
     }
 
     public boolean isPrimitive() {
@@ -142,10 +150,6 @@ public class HeapItem {
 
     public static HeapItem newUnknown(String type) {
         return new HeapItem(new UnknownValue(), type);
-    }
-
-    public String getComponentBase() {
-        return ClassNameUtils.getComponentBase(getType());
     }
 
 }

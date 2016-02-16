@@ -186,19 +186,26 @@ public class InvokeOp extends ExecutionContextOp {
             HeapItem item = callerState.readRegister(callerRegister);
 
             /*
-             * Type can be confused here. For example, creating a short, int, or boolean all looks the same:
-             * const/4 v0,0x1 (could be true, (int)1 or (short)1)
+             * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear:
+             * const/4 v0,0x0 (could be true, (int)0, or (short)0, null, etc.)
              * If a more restrictive type is given in the method signature, prefer that, for example:
              * method argument is an int but signature declares it as boolean, so switch it to boolean
              * However, if the type is less specific, such as a super class or interface, do not use the less specific
              * type. For example:
              * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
              */
+            String parameterType = parameterTypes.get(i);
+            Object value = item.getValue();
             String type;
             if (item.isPrimitive()) {
-                type = parameterTypes.get(i);
+                type = parameterType;
+                boolean hasNullByteValue = !item.isUnknown() && value instanceof Number && item.getIntegerValue() == 0;
+                if (hasNullByteValue && item.getType().equals("I") && ClassNameUtils.isObject(parameterType)) {
+                    value = null;
+                } else {
+                    value = Utils.castToPrimitive(value, type);
+                }
             } else {
-                String parameterType = parameterTypes.get(i);
                 if (getAncestors(item.getComponentBase()).contains(parameterType)) {
                     type = item.getType();
                 } else {
@@ -206,7 +213,7 @@ public class InvokeOp extends ExecutionContextOp {
                 }
             }
 
-            HeapItem parameterItem = new HeapItem(item.getValue(), type);
+            HeapItem parameterItem = new HeapItem(value, type);
             calleeState.assignParameter(parameterRegister, parameterItem);
             parameterRegister += Utils.getRegisterSize(type);
         }

@@ -9,6 +9,15 @@
   return-void
 .end method
 
+
+.method public static invokeBooleanValueOf()V
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
+
+  return-void
+.end method
+
 .method public static invokeStringBuilderAppendWithLong()V
   .locals 3
 

@@ -16,6 +16,7 @@ public class ClassNameUtils {
 
     private static final BiMap<String, String> internalPrimitiveToBinaryName;
     private static final BiMap<String, String> internalPrimitiveToWrapper;
+    private static final Map<String, Class<?>> internalPrimitiveToClass;
     static {
         internalPrimitiveToWrapper = HashBiMap.create();
         internalPrimitiveToWrapper.put("I", Integer.class.getName());
@@ -27,6 +28,16 @@ public class ClassNameUtils {
         internalPrimitiveToWrapper.put("Z", Boolean.class.getName());
         internalPrimitiveToWrapper.put("C", Character.class.getName());
         internalPrimitiveToWrapper.put("V", Void.class.getName());
+
+        internalPrimitiveToClass = new HashMap<String, Class<?>>(8);
+        internalPrimitiveToClass.put("I", int.class);
+        internalPrimitiveToClass.put("S", short.class);
+        internalPrimitiveToClass.put("J", long.class);
+        internalPrimitiveToClass.put("B", byte.class);
+        internalPrimitiveToClass.put("D", double.class);
+        internalPrimitiveToClass.put("F", float.class);
+        internalPrimitiveToClass.put("Z", boolean.class);
+        internalPrimitiveToClass.put("C", char.class);
 
         internalPrimitiveToBinaryName = HashBiMap.create();
         internalPrimitiveToBinaryName.put("I", int.class.getName());
@@ -55,25 +66,6 @@ public class ClassNameUtils {
 
     public static enum TypeFormat {
         BINARY, INTERNAL, SOURCE
-    }
-
-    static String addDimensionsToBinaryClassName(String className, int dimensionCount) {
-        StringBuilder sb = new StringBuilder(className);
-        for (int i = 0; i < dimensionCount; i++) {
-            sb.append("[]");
-        }
-
-        return sb.toString();
-    }
-
-    static String addDimensionsToInternalClassName(String className, int dimensionCount) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < dimensionCount; i++) {
-            sb.append('[');
-        }
-        sb.append(className);
-
-        return sb.toString();
     }
 
     /**
@@ -173,14 +165,14 @@ public class ClassNameUtils {
     }
 
     /**
-     * Get the binary format wrapper class name for a given primitive.
+     * Get the internal format primitive class name for a given primitive wrapper.
      * 
      * @param className
-     * @return wrapper class name or null if not found
+     * @return primitive class name or null if not found
      */
-    public static @Nullable String getWrapper(String className) {
+    public static @Nullable String getPrimitive(String className) {
         String internalName = toFormat(className, TypeFormat.INTERNAL);
-        String wrapperName = internalPrimitiveToWrapper.get(getComponentBase(internalName));
+        String wrapperName = internalPrimitiveToWrapper.inverse().get(getComponentBase(internalName));
         if (null == wrapperName) {
             return null;
         }
@@ -200,14 +192,24 @@ public class ClassNameUtils {
     }
 
     /**
-     * Get the internal format primitive class name for a given primitive wrapper.
+     * Get the class for a primitive className in the internal format.
      * 
      * @param className
-     * @return primitive class name or null if not found
+     * @return primitive class or null if not found
      */
-    public static @Nullable String getPrimitive(String className) {
+    public static Class<?> getPrimitiveClass(String className) {
+        return internalPrimitiveToClass.get(className);
+    }
+
+    /**
+     * Get the binary format wrapper class name for a given primitive.
+     * 
+     * @param className
+     * @return wrapper class name or null if not found
+     */
+    public static @Nullable String getWrapper(String className) {
         String internalName = toFormat(className, TypeFormat.INTERNAL);
-        String wrapperName = internalPrimitiveToWrapper.inverse().get(getComponentBase(internalName));
+        String wrapperName = internalPrimitiveToWrapper.get(getComponentBase(internalName));
         if (null == wrapperName) {
             return null;
         }
@@ -268,6 +270,17 @@ public class ClassNameUtils {
         }
 
         return sourceName.toString();
+    }
+
+    /**
+     * Determines if the type is an object reference type. This could either be an object or an array. Works with
+     * internal and binary formats.
+     * 
+     * @param type
+     * @return true if type is object, false otherwise
+     */
+    public static boolean isObject(String type) {
+        return type.startsWith("L") || type.startsWith("[");
     }
 
     /**
@@ -437,6 +450,25 @@ public class ClassNameUtils {
         }
 
         return names;
+    }
+
+    static String addDimensionsToBinaryClassName(String className, int dimensionCount) {
+        StringBuilder sb = new StringBuilder(className);
+        for (int i = 0; i < dimensionCount; i++) {
+            sb.append("[]");
+        }
+
+        return sb.toString();
+    }
+
+    static String addDimensionsToInternalClassName(String className, int dimensionCount) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < dimensionCount; i++) {
+            sb.append('[');
+        }
+        sb.append(className);
+
+        return sb.toString();
     }
 
 }

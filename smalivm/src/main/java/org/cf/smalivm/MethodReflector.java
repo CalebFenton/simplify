@@ -121,55 +121,16 @@ public class MethodReflector {
         Class<?>[] parameterTypes = new Class<?>[size];
         for (int i = offset; i < mState.getRegisterCount(); i++) {
             HeapItem argItem = mState.peekParameter(i);
-            Object arg = argItem.getValue();
+            args[i - offset] = argItem.getValue();
+
             String parameterTypeName = parameterTypeNames.get(i);
-            if (null != arg) {
-                // In Dalvik, I type is overloaded and can represent multiple primitives, e.g. B, S, C, even null.
-                if (argItem.isPrimitiveOrWrapper()) {
-                    arg = Utils.castToPrimitive(arg, parameterTypeName);
-                } else {
-                    if (arg instanceof Number && argItem.getIntegerValue() == 0 && !parameterTypeName
-                                    .equals("Ljava/lang/Object;")) {
-                        // TODO: medium - how the hell does Dalvik really know if it's a null or a 0?
-                        // Passing 0 as a non-primitive type *COULD* it's null (thanks Dalvik)
-                        arg = null;
-                    }
-                }
-            }
-            args[i - offset] = arg;
-
-            // Shouldn't need a VM class loader since these are all safe to reflect on the JVM
-            // Also, some type names are arrays and loadClass only works for component types
-
             Class<?> parameterType;
-            switch (parameterTypeName) {
-            case "I":
-                parameterType = int.class;
-                break;
-            case "Z":
-                parameterType = boolean.class;
-                break;
-            case "J":
-                parameterType = long.class;
-                break;
-            case "B":
-                parameterType = byte.class;
-                break;
-            case "S":
-                parameterType = short.class;
-                break;
-            case "C":
-                parameterType = char.class;
-                break;
-            case "D":
-                parameterType = double.class;
-                break;
-            case "F":
-                parameterType = float.class;
-                break;
-            default:
+            if (argItem.isPrimitive()) {
+                parameterType = ClassNameUtils.getPrimitiveClass(parameterTypeName);
+            } else {
+                // Shouldn't need a VM class loader since these are all safe to reflect on the JVM
+                // Also, some type names are arrays and loadClass only works for component types
                 parameterType = Class.forName(ClassNameUtils.internalToBinary(parameterTypeName));
-                break;
             }
             parameterTypes[i - offset] = parameterType;
 

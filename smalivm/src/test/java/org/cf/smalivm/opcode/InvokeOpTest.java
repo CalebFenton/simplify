@@ -46,6 +46,57 @@ public class InvokeOpTest {
         private VMState expected;
         private VMState initial;
 
+        @Test
+        public void intValueCorrectlyCoaxedToBoolean() {
+            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/lang/LinkedList;", 1, 1, "I", 2, 0, "I");
+            expected.setRegisters(0, 1, "Ljava/lang/Object;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyCoaxedToCharacter() {
+            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/lang/LinkedList;", 1, (int) 'a', "I", 2, 0, "I");
+            expected.setRegisters(0, (int) 'a', "Ljava/lang/Object;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyCoaxedToNull() {
+            // If Dalvik sees an I type with a value of 0 as an argument for an object parameter type, it's null
+            // There is no check-cast in addToListAndGet so result value is either null or an integer
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 0, "I", 2, 0, "I");
+            expected.setRegisters(0, null, "Ljava/lang/Object;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyCoaxedToShort() {
+            initial.setRegisters(0, new LinkedList<Short>(), "Ljava/lang/LinkedList;", 1, 5, "I", 2, 0, "I");
+            expected.setRegisters(0, 5, "Ljava/lang/Object;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyNotCoaxedToNull() {
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 5, "Ljava/lang/Integer;",
+                            2, 0, "I");
+            expected.setRegisters(0, 5, "Ljava/lang/Object;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueWhichLooksLikeNullNotCoaxedToNullWhenUsedAsPrimitive() {
+            initial.setRegisters(0, 0, "I");
+            expected.setRegisters(MethodState.ResultRegister, Boolean.FALSE, "Ljava/lang/Boolean;");
+
+            VMTester.test(CLASS_NAME, "invokeBooleanValueOf()V", initial, expected);
+        }
+
         @Before
         public void setUp() {
             expected = new VMState();
@@ -77,48 +128,6 @@ public class InvokeOpTest {
             expected.setRegisters(0, sb, "Ljava/lang/StringBuilder;", 1, value, "J");
 
             VMTester.test(CLASS_NAME, "invokeStringBuilderAppendWithLong()V", initial, expected);
-        }
-
-        @Test
-        public void intValueCorrectlyCoaxedToBoolean() {
-            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/lang/LinkedList;", 1, 1, "I", 2, 0, "I");
-            expected.setRegisters(0, Boolean.TRUE, "Ljava/lang/Boolean;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
-        }
-
-        @Test
-        public void intValueCorrectlyCoaxedToShort() {
-            initial.setRegisters(0, new LinkedList<Short>(), "Ljava/lang/LinkedList;", 1, 5, "I", 2, 0, "I");
-            expected.setRegisters(0, Short.valueOf((short) 5), "Ljava/lang/Short;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
-        }
-
-        @Test
-        public void intValueCorrectlyCoaxedToCharacter() {
-            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/lang/LinkedList;", 1, (int) 'a', "I", 2, 0, "I");
-            expected.setRegisters(0, Character.valueOf('a'), "Ljava/lang/Character;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
-        }
-
-        @Test
-        public void intValueCorrectlyCoaxedToNull() {
-            // If Dalvik sees an I type with a value of 0 as an argument for an object parameter type, it's null
-            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 0, "I", 2, 0, "I");
-            expected.setRegisters(0, null, "Ljava/lang/Integer;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
-        }
-
-        @Test
-        public void intValueCorrectlyNotCoaxedToNull() {
-            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 5, "Ljava/lang/Integer;",
-                            2, 0, "I");
-            expected.setRegisters(0, 5, "Ljava/lang/Integer;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
         }
     }
 
@@ -250,6 +259,21 @@ public class InvokeOpTest {
         private VMState expected;
         private VMState initial;
 
+        @Test
+        public void instanceInitializerWorksAsExpected() throws InstantiationException, IllegalAccessException,
+                        ClassNotFoundException {
+            initial.setRegisters(0, new UninitializedInstance(CLASS_NAME), CLASS_NAME);
+            VirtualMachine vm = VMTester.spawnVM(true);
+            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "<init>()V", initial);
+
+            // Can't simply put localInstance in the expected state because mutable objects get cloned.
+            // The object reference at consensus would be different than the initial reference.
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(CLASS_NAME, consensus.getType());
+            assertEquals(localClass, consensus.getValue().getClass());
+        }
+
         @Before
         public void setUp() {
             expected = new VMState();
@@ -287,21 +311,6 @@ public class InvokeOpTest {
 
             ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "invokeReturnParameter()V", initial);
             VMTester.testState(graph, expected);
-
-            // Can't simply put localInstance in the expected state because mutable objects get cloned.
-            // The object reference at consensus would be different than the initial reference.
-            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
-            assertEquals(CLASS_NAME, consensus.getType());
-            assertEquals(localClass, consensus.getValue().getClass());
-        }
-
-        @Test
-        public void instanceInitializerWorksAsExpected() throws InstantiationException, IllegalAccessException,
-                        ClassNotFoundException {
-            initial.setRegisters(0, new UninitializedInstance(CLASS_NAME), CLASS_NAME);
-            VirtualMachine vm = VMTester.spawnVM(true);
-            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
-            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "<init>()V", initial);
 
             // Can't simply put localInstance in the expected state because mutable objects get cloned.
             // The object reference at consensus would be different than the initial reference.

@@ -198,9 +198,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private boolean isDeadAssignment(int address) {
-        if (address == 0x5c) {
-            System.out.println("examine here");
-        }
         if (!manipulator.wasAddressReached(address)) {
             return false;
         }
