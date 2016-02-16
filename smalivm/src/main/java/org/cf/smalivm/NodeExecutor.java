@@ -31,10 +31,10 @@ public class NodeExecutor {
         try {
             node.execute();
         } catch (Exception e) {
-            // TODO: this exception handler should be REMOVED when ops set exceptions properly
-            // These exceptions could be from bugs in simplify, not real exceptions
+            // These exceptions are likely from simplify and not real.
+            // TODO: this exception handler should be re-examined when ops set exceptions properly
             if (log.isWarnEnabled()) {
-                log.warn("{} generated a real exception:", node, e);
+                log.warn("{} threw a real exception:", node, e);
             }
             int childAddress = exceptionResolver.resolve(e, node.getAddress());
             spawnChild(graph, node, childAddress);
@@ -74,15 +74,13 @@ public class NodeExecutor {
                 if (childAddress == -1) {
                     if (node.getChildLocations().length == 0) {
                         if (log.isErrorEnabled()) {
+                            // No children, probably a real exception
                             log.error("{} unhandled virtual exception: {}", node, exception);
                         }
 
                         throw new UnhandledVirtualException(exception);
                     } else {
-                        /*
-                         * Since there are children, it means the op *may* have an exception. If it's unhandled, assume
-                         * there is no exception. In many cases, the verifier catches this stuff.
-                         */
+                        // Op has children, doesn't *always* throw, probably virtual exception
                         if (log.isTraceEnabled()) {
                             log.trace("{} possible unhandled virtual exception: {}", node, exception);
                         }

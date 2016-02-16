@@ -409,9 +409,16 @@ public class ClassManager {
         return smaliFileFactory.isFrameworkClass(className);
     }
 
-    public boolean isInnerClass(String binaryChild, String binaryParent) {
-        // TODO: easy - add tests and documentation
-        if (binaryChild.startsWith(binaryParent + "$")) {
+    /**
+     * Determine if a class is an inner class of the other. Works with binary and internal formats.
+     * 
+     * @param childName
+     * @param parentName
+     * @return
+     */
+    public boolean isInnerClass(String childName, String parentName) {
+        // TODO: easy - add tests
+        if (childName.startsWith(parentName + "$")) {
             return true;
         }
 

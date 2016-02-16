@@ -67,7 +67,6 @@ public class MethodReflector {
         Object resultValue = null;
         try {
             // TODO: easy - add tests for array class method reflecting
-            // also, see if toBinary without L and ; unless needed breaks everything
             Class<?> klazz = Class.forName(classNameBinary);
             InvocationArguments invocationArgs = getArguments(calleeContext);
             Object[] args = invocationArgs.getArgs();

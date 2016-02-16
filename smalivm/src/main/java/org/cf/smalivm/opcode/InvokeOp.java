@@ -72,8 +72,7 @@ public class InvokeOp extends ExecutionContextOp {
             try {
                 executeObjectInit(callerMethodState);
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                log.error("Unexpected real exception initializing Object", e);
             }
             return;
         }
@@ -386,8 +385,7 @@ public class InvokeOp extends ExecutionContextOp {
         try {
             klazz = vm.getClassLoader().loadClass(binaryName);
         } catch (ClassNotFoundException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            log.error("Error loading class " + className, e);
             return getAncestors;
         }
         for (Class<?> interfaceClass : klazz.getInterfaces()) {

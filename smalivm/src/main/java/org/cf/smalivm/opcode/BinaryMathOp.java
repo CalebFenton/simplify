@@ -14,6 +14,9 @@ import org.slf4j.LoggerFactory;
 
 public class BinaryMathOp extends MethodStateOp {
 
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());
+
     private static enum MathOperandType {
         DOUBLE("D"), FLOAT("F"), INT("I"), LONG("J"), ;
 
@@ -26,14 +29,122 @@ public class BinaryMathOp extends MethodStateOp {
         public String getType() {
             return type;
         }
-    }
+    };
 
     private static enum MathOperator {
         ADD, AND, DIV, MUL, OR, REM, RSUB, SHL, SHR, SUB, USHR, XOR,
     };
 
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());;
+    private final int arg1Register;
+    private int arg2Register;
+    private final int destRegister;
+    private boolean hasLiteral;
+    private final MathOperandType mathOperandType;
+    private final MathOperator mathOperator;
+
+    private int narrowLiteral;
+
+    BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, int otherValue,
+                    boolean hasLiteral) {
+        this(location, child, destRegister, arg1Register);
+
+        this.hasLiteral = hasLiteral;
+        if (hasLiteral) {
+            narrowLiteral = otherValue;
+        } else {
+            arg2Register = otherValue;
+        }
+    }
+
+    private BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register) {
+        super(location, child);
+
+        this.destRegister = destRegister;
+        this.arg1Register = arg1Register;
+        mathOperator = getMathOp(getName());
+        mathOperandType = getMathOperandType(getName());
+
+        addException(new VirtualException(ArithmeticException.class, "/ by zero"));
+    }
+
+    @Override
+    public void execute(ExecutionNode node, MethodState mState) {
+        HeapItem lhsItem = mState.readRegister(arg1Register);
+        HeapItem rhsItem = null;
+        if (hasLiteral) {
+            rhsItem = new HeapItem(narrowLiteral, "I");
+        } else {
+            rhsItem = mState.readRegister(arg2Register);
+        }
+
+        Object result = null;
+        if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
+            result = getResult(lhsItem.getValue(), rhsItem.getValue());
+            if (result instanceof VirtualException) {
+                node.setException((VirtualException) result);
+                node.clearChildren();
+                return;
+            } else {
+                node.clearExceptions();
+            }
+        }
+
+        if (null == result) {
+            result = new UnknownValue();
+        }
+
+        mState.assignRegister(destRegister, result, mathOperandType.getType());
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(getName());
+        sb.append(" r").append(destRegister).append(", r");
+
+        boolean is2Addr = getName().endsWith("/2addr");
+        if (is2Addr) {
+            sb.append(arg2Register);
+        } else {
+            sb.append(arg1Register);
+            if (hasLiteral) {
+                sb.append(", 0x").append(Integer.toHexString(narrowLiteral));
+            } else {
+                sb.append(", r").append(arg2Register);
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private @Nonnull Object getResult(Object lhs, Object rhs) {
+        Object result = null;
+        switch (mathOperandType) {
+        case INT:
+            lhs = Utils.getIntegerValue(lhs);
+            rhs = Utils.getIntegerValue(rhs);
+            result = doIntegerOperation(mathOperator, (Integer) lhs, (Integer) rhs);
+            break;
+        case LONG:
+            lhs = Utils.getLongValue(lhs);
+            rhs = Utils.getLongValue(rhs);
+            result = doLongOperation(mathOperator, (Long) lhs, (Long) rhs);
+            break;
+        case FLOAT:
+            lhs = Utils.getFloatValue(lhs);
+            rhs = Utils.getFloatValue(rhs);
+            result = doFloatOperation(mathOperator, (Float) lhs, (Float) rhs);
+            break;
+        case DOUBLE:
+            lhs = Utils.getDoubleValue(lhs);
+            rhs = Utils.getDoubleValue(rhs);
+            result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
+            break;
+        default:
+            throw new RuntimeException("Unknown math operand type!");
+        }
+
+        return result;
+    }
 
     @SuppressWarnings("incomplete-switch")
     private static Object doDoubleOperation(MathOperator mathOperator, Double lhs, Double rhs) {
@@ -219,116 +330,6 @@ public class BinaryMathOp extends MethodStateOp {
             result = MathOperandType.FLOAT;
         } else if (opName.contains("-long")) {
             result = MathOperandType.LONG;
-        }
-
-        return result;
-    }
-
-    private final int arg1Register;
-    private int arg2Register;
-    private final int destRegister;
-    private boolean hasLiteral;
-    private final MathOperandType mathOperandType;
-    private final MathOperator mathOperator;
-    private int narrowLiteral;
-
-    private BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register) {
-        super(location, child);
-
-        this.destRegister = destRegister;
-        this.arg1Register = arg1Register;
-        mathOperator = getMathOp(getName());
-        mathOperandType = getMathOperandType(getName());
-
-        addException(new VirtualException(ArithmeticException.class, "/ by zero"));
-    }
-
-    BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, int otherValue,
-                    boolean hasLiteral) {
-        this(location, child, destRegister, arg1Register);
-
-        this.hasLiteral = hasLiteral;
-        if (hasLiteral) {
-            narrowLiteral = otherValue;
-        } else {
-            arg2Register = otherValue;
-        }
-    }
-
-    @Override
-    public void execute(ExecutionNode node, MethodState mState) {
-        HeapItem lhsItem = mState.readRegister(arg1Register);
-        HeapItem rhsItem = null;
-        if (hasLiteral) {
-            rhsItem = new HeapItem(narrowLiteral, "I");
-        } else {
-            rhsItem = mState.readRegister(arg2Register);
-        }
-
-        Object result = null;
-        if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
-            result = getResult(lhsItem.getValue(), rhsItem.getValue());
-            if (result instanceof VirtualException) {
-                node.setException((VirtualException) result);
-                node.clearChildren();
-                return;
-            } else {
-                node.clearExceptions();
-            }
-        }
-
-        if (null == result) {
-            result = new UnknownValue();
-        }
-
-        mState.assignRegister(destRegister, result, mathOperandType.getType());
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r");
-
-        boolean is2Addr = getName().endsWith("/2addr");
-        if (is2Addr) {
-            sb.append(arg2Register);
-        } else {
-            sb.append(arg1Register);
-            if (hasLiteral) {
-                sb.append(", 0x").append(Integer.toHexString(narrowLiteral));
-            } else {
-                sb.append(", r").append(arg2Register);
-            }
-        }
-
-        return sb.toString();
-    }
-
-    private @Nonnull Object getResult(Object lhs, Object rhs) {
-        Object result = null;
-        switch (mathOperandType) {
-        case INT:
-            lhs = Utils.getIntegerValue(lhs);
-            rhs = Utils.getIntegerValue(rhs);
-            result = doIntegerOperation(mathOperator, (Integer) lhs, (Integer) rhs);
-            break;
-        case LONG:
-            lhs = Utils.getLongValue(lhs);
-            rhs = Utils.getLongValue(rhs);
-            result = doLongOperation(mathOperator, (Long) lhs, (Long) rhs);
-            break;
-        case FLOAT:
-            lhs = Utils.getFloatValue(lhs);
-            rhs = Utils.getFloatValue(rhs);
-            result = doFloatOperation(mathOperator, (Float) lhs, (Float) rhs);
-            break;
-        case DOUBLE:
-            lhs = Utils.getDoubleValue(lhs);
-            rhs = Utils.getDoubleValue(rhs);
-            result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
-            break;
-        default:
-            throw new RuntimeException("Unknown math operand type!");
         }
 
         return result;

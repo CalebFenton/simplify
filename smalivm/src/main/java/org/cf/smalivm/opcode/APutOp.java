@@ -50,9 +50,8 @@ public class APutOp extends MethodStateOp {
             return;
         }
 
-        // TODO: https://github.com/CalebFenton/simplify/issues/21
         // TODO: exceptions should probably have string context
-        // TODO: for all exception handling ops, if ambiguous, need to throw all possible exceptions
+        // TODO: with unknown values, all exceptions may be raised, but can probably limit by looking at item types
         if (arrayItem.isUnknown()) {
             // Do nothing.
         } else {

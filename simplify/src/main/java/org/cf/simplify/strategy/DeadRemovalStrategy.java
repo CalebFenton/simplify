@@ -181,9 +181,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         if (op instanceof GotoOp) {
-            // Let dead branch logic handle these.
-            // Getting weird errors about unplaced labels if these are removed.
-            // In that case, it was jumping to a exception handler.
+            // These are handled specifically by isUselessBranch
             return false;
         }
 

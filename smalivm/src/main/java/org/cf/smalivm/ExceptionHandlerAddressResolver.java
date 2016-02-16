@@ -22,7 +22,6 @@ public class ExceptionHandlerAddressResolver {
         tryBlocks = classManager.getTryBlocks(methodDescriptor);
     }
 
-    @Deprecated
     int resolve(Exception ex, int address) {
         String exceptionClass = ClassNameUtils.binaryToInternal(ex.getClass().getName());
 

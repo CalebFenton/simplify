@@ -29,31 +29,6 @@ public class CheckCastOp extends MethodStateOp {
         this.vm = vm;
     }
 
-    private static boolean isInstance(HeapItem item, ClassManager classManager, String targetType) {
-        try {
-            if (!ClassNameUtils.isPrimitive(item.getType())) {
-                if (item.getValue() == null) {
-                    /*
-                     * This covers cases where type info cannot be implied from value. E.g.
-                     * Object o = null;
-                     * String s = (String) o;
-                     */
-                    return true;
-                }
-            }
-
-            for (String type : Utils.getTypes(item)) {
-                if (classManager.isInstance(type, targetType)) {
-                    return true;
-                }
-            }
-        } catch (UnknownAncestors e) {
-            log.error("Unable to determine ancestory for {}\n{}", targetType, e);
-        }
-
-        return false;
-    }
-
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem item = mState.readRegister(targetRegister);
@@ -88,6 +63,31 @@ public class CheckCastOp extends MethodStateOp {
         sb.append(" r").append(targetRegister).append(", ").append(checkClassName);
 
         return sb.toString();
+    }
+
+    private static boolean isInstance(HeapItem item, ClassManager classManager, String targetType) {
+        try {
+            if (!ClassNameUtils.isPrimitive(item.getType())) {
+                if (item.getValue() == null) {
+                    /*
+                     * This covers cases where type info cannot be implied from value. E.g.
+                     * Object o = null;
+                     * String s = (String) o;
+                     */
+                    return true;
+                }
+            }
+
+            for (String type : Utils.getTypes(item)) {
+                if (classManager.isInstance(type, targetType)) {
+                    return true;
+                }
+            }
+        } catch (UnknownAncestors e) {
+            log.error("Unable to determine ancestory for {}\n{}", targetType, e);
+        }
+
+        return false;
     }
 
 }

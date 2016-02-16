@@ -182,11 +182,13 @@ public class ExecutionContext {
     }
 
     public void staticallyInitializeClassIfNecessary(String className) {
-        // This method should be called when a class is first used. A usage is:
-        // 1.) The invocation of a method declared by the class (not inherited from a superclass)
-        // 2.) The invocation of a constructor of the class (covered by #1)
-        // 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
-        // that are both static and final, and are initialized by a compile-time constant expression.
+        /*
+         * This method should be called when a class is first used. A usage is:
+         * 1.) The invocation of a method declared by the class (not inherited from a superclass)
+         * 2.) The invocation of a constructor of the class (covered by #1)
+         * 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
+         * that are both static and final, and are initialized by a compile-time constant expression.
+         */
         if (!vm.shouldTreatAsLocal(className) || isClassInitialized(className)) {
             return;
         }

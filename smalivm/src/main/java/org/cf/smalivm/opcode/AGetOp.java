@@ -14,18 +14,6 @@ public class AGetOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(AGetOp.class.getSimpleName());
 
-    private static String getUnknownArrayInnerType(HeapItem array) {
-        String outerType = array.getType();
-        String result = null;
-        if ("?".equals(outerType)) {
-            result = "?";
-        } else {
-            result = outerType.replaceFirst("\\[", "");
-        }
-
-        return result;
-    }
-
     private final int valueRegister;
     private final int arrayRegister;
     private final int indexRegister;
@@ -89,6 +77,18 @@ public class AGetOp extends MethodStateOp {
         sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
 
         return sb.toString();
+    }
+
+    private static String getUnknownArrayInnerType(HeapItem array) {
+        String outerType = array.getType();
+        String result = null;
+        if ("?".equals(outerType)) {
+            result = "?";
+        } else {
+            result = outerType.replaceFirst("\\[", "");
+        }
+
+        return result;
     }
 
 }
