@@ -132,7 +132,7 @@ public class NewArrayOpTest {
         @Test
         public void canCreateNewArray() throws ClassNotFoundException {
             int size = 5;
-            VMTester.addHeapItem(mState, SIZE_REGISTER, size, "I");
+            VMTester.setRegisterMock(mState, SIZE_REGISTER, size, "I");
 
             String type = "[Ljava/lang/String;";
             buildInstruction22c(Opcode.NEW_ARRAY, type);
@@ -147,7 +147,7 @@ public class NewArrayOpTest {
         @Test
         public void nonExistantClassNameThrowsException() throws ClassNotFoundException {
             int size = 5;
-            VMTester.addHeapItem(mState, SIZE_REGISTER, size, "I");
+            VMTester.setRegisterMock(mState, SIZE_REGISTER, size, "I");
 
             String type = "Ldoes/not/123Exist;";
             buildInstruction22c(Opcode.NEW_ARRAY, type);

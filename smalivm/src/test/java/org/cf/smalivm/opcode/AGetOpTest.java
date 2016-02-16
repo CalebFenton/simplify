@@ -210,8 +210,8 @@ public class AGetOpTest {
             int[] arrayValue = null;
             int indexValue = 2;
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 
@@ -227,8 +227,8 @@ public class AGetOpTest {
             int[] arrayValue = new int[] { 5 };
             int indexValue = 2;
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.AGET);
 

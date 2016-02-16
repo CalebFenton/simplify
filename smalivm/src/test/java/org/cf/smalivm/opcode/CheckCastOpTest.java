@@ -92,7 +92,7 @@ public class CheckCastOpTest {
             String registerType = "Lmoneylol;";
             when(castTypeRef.getType()).thenReturn(castType);
             when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(true);
-            VMTester.addHeapItem(mState, ARG1_REGISTER, null, registerType);
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, null, registerType);
 
             op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
@@ -107,7 +107,7 @@ public class CheckCastOpTest {
             String registerType = "Lmoneylol;";
             when(castTypeRef.getType()).thenReturn(castType);
             when(classManager.isInstance(eq(registerType), eq(castType))).thenReturn(false);
-            VMTester.addHeapItem(mState, ARG1_REGISTER, new Object(), registerType);
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, new Object(), registerType);
 
             op = (CheckCastOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);

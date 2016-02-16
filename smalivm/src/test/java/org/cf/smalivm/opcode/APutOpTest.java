@@ -237,9 +237,9 @@ public class APutOpTest {
             int indexValue = 0;
             String value = "wont work";
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
@@ -256,9 +256,9 @@ public class APutOpTest {
             int indexValue = 2;
             int value = 0;
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, VALUE_REGISTER, value, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
@@ -275,9 +275,9 @@ public class APutOpTest {
             int indexValue = 2;
             String value = "wont work";
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
@@ -294,9 +294,9 @@ public class APutOpTest {
             int indexValue = 2;
             int value = 0;
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, VALUE_REGISTER, value, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
@@ -341,9 +341,9 @@ public class APutOpTest {
             int indexValue = 2;
             String value = "wont work";
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, VALUE_REGISTER, value, "Ljava/lang/String;");
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 
@@ -360,9 +360,9 @@ public class APutOpTest {
             int indexValue = 2;
             Object value = new UnknownValue();
 
-            VMTester.addHeapItem(mState, ARRAY_REGISTER, arrayValue, "[I");
-            VMTester.addHeapItem(mState, INDEX_REGISTER, indexValue, "I");
-            VMTester.addHeapItem(mState, VALUE_REGISTER, value, "I");
+            VMTester.setRegisterMock(mState, ARRAY_REGISTER, arrayValue, "[I");
+            VMTester.setRegisterMock(mState, INDEX_REGISTER, indexValue, "I");
+            VMTester.setRegisterMock(mState, VALUE_REGISTER, value, "I");
 
             when(instruction.getOpcode()).thenReturn(Opcode.APUT);
 

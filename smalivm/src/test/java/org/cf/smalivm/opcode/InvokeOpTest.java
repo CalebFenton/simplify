@@ -78,6 +78,48 @@ public class InvokeOpTest {
 
             VMTester.test(CLASS_NAME, "invokeStringBuilderAppendWithLong()V", initial, expected);
         }
+
+        @Test
+        public void intValueCorrectlyCoaxedToBoolean() {
+            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/lang/LinkedList;", 1, 1, "I", 2, 0, "I");
+            expected.setRegisters(0, Boolean.TRUE, "Ljava/lang/Boolean;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyCoaxedToShort() {
+            initial.setRegisters(0, new LinkedList<Short>(), "Ljava/lang/LinkedList;", 1, 5, "I", 2, 0, "I");
+            expected.setRegisters(0, Short.valueOf((short) 5), "Ljava/lang/Short;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyCoaxedToCharacter() {
+            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/lang/LinkedList;", 1, (int) 'a', "I", 2, 0, "I");
+            expected.setRegisters(0, Character.valueOf('a'), "Ljava/lang/Character;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyCoaxedToNull() {
+            // If Dalvik sees an I type with a value of 0 as an argument for an object parameter type, it's null
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 0, "I", 2, 0, "I");
+            expected.setRegisters(0, null, "Ljava/lang/Integer;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
+
+        @Test
+        public void intValueCorrectlyNotCoaxedToNull() {
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 5, "Ljava/lang/Integer;",
+                            2, 0, "I");
+            expected.setRegisters(0, 5, "Ljava/lang/Integer;");
+
+            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
+        }
     }
 
     public static class InvokeStatic {
@@ -332,15 +374,15 @@ public class InvokeOpTest {
         private static final String METHOD_CLASS = "Lsome/class;";
         private static final String METHOD_NAME = "someMethod";
         private static final String METHOD_RETURN = "V";
-        private static final String METHOD_DESCRIPTOR = METHOD_CLASS + "->" + METHOD_NAME + "(I)" + METHOD_RETURN;
+        private static final String METHOD_SIGNATURE = METHOD_CLASS + "->" + METHOD_NAME + "(I)" + METHOD_RETURN;
         private static final String[] METHOD_PARAMS = { "I" };
 
         MethodReference methodRef;
         private TIntObjectMap<MethodLocation> addressToLocation;
         private ClassManager classManager;
-
         private ExecutionContext ectx;
         private BuilderInstruction instruction;
+        private Configuration configuration;
         private MethodLocation location;
         private MethodState mState;
         private ExecutionNode node;
@@ -351,15 +393,14 @@ public class InvokeOpTest {
         @Test
         public void hasExpectedToString() {
             int value = 0;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value, "I");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value, "I");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value, "I");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value, "I");
 
             instruction = buildInstruction35c(Opcode.INVOKE_STATIC);
-
             op = (InvokeOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, ectx);
 
-            String expected = "invoke-static {r" + ARG1_REGISTER + "}, " + METHOD_DESCRIPTOR;
+            String expected = "invoke-static {r" + ARG1_REGISTER + "}, " + METHOD_SIGNATURE;
             assertEquals(expected, op.toString());
         }
 
@@ -369,11 +410,11 @@ public class InvokeOpTest {
 
             classManager = mock(ClassManager.class);
             when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
-            when(classManager.isFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
-            when(classManager.isSafeFrameworkClass(METHOD_DESCRIPTOR)).thenReturn(false);
+            when(classManager.isFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
+            when(classManager.isSafeFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
             when(vm.getClassManager()).thenReturn(classManager);
 
-            Configuration configuration = mock(Configuration.class);
+            configuration = mock(Configuration.class);
             when(vm.getConfiguration()).thenReturn(configuration);
 
             ectx = mock(ExecutionContext.class);

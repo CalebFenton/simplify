@@ -331,8 +331,8 @@ public class IfOpTest {
         @Test
         public void hasExpectedToStringValue() {
             int value = 0;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value, "D");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value, "D");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value, "D");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value, "D");
 
             instruction = buildInstruction22t(Opcode.IF_GE, 0);
             op = (IfOp) opFactory.create(location, addressToLocation, vm);

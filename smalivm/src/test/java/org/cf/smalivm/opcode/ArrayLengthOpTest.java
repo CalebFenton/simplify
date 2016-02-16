@@ -144,7 +144,7 @@ public class ArrayLengthOpTest {
 
         @Test
         public void nullArrayThrowsExpectedException() {
-            VMTester.addHeapItem(mState, ARG1_REGISTER, null, "[I");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, null, "[I");
 
             op = (ArrayLengthOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);

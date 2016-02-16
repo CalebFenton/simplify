@@ -103,7 +103,8 @@ public class InvokeOp extends ExecutionContextOp {
             if (classManager.isLocalMethod(targetMethod)) {
                 if (classManager.isFrameworkClass(targetMethod) && !classManager.isSafeFrameworkClass(targetMethod)) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Not executing unsafe local method: {}. Assuming maxiumum ambiguity.", targetMethod);
+                        log.debug("Not executing unsafe framework method: {}. Assuming maxiumum ambiguity.",
+                                        targetMethod);
                     }
                     assumeMaximumUnknown(callerMethodState);
                     return;

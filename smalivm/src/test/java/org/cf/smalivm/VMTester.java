@@ -41,7 +41,7 @@ public class VMTester {
 
     private static ClassManager classManager;
 
-    public static void addHeapItem(MethodState mState, int register, Object value, String type) {
+    public static void setRegisterMock(MethodState mState, int register, Object value, String type) {
         HeapItem item = mock(HeapItem.class);
         when(item.getValue()).thenReturn(value);
         if ("I".equals(type) && value instanceof Number) {

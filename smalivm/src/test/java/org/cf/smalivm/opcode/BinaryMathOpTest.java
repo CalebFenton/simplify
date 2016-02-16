@@ -869,8 +869,8 @@ public class BinaryMathOpTest {
             double value1 = 1586.2D;
             double value2 = 2536.9D;
             double expected = value1 / value2;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "D");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "D");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "D");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "D");
 
             buildInstruction12x(Opcode.DIV_DOUBLE);
             op = opFactory.create(location, addressToLocation, vm);
@@ -884,8 +884,8 @@ public class BinaryMathOpTest {
             float value1 = 1120403456.43F;
             float value2 = 1149239296.32F;
             float expected = value1 / value2;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "F");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "F");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "F");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "F");
 
             buildInstruction12x(Opcode.DIV_FLOAT);
             op = opFactory.create(location, addressToLocation, vm);
@@ -899,7 +899,7 @@ public class BinaryMathOpTest {
             int value1 = 10;
             int value2 = 4;
             int expected = value1 / value2;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "I");
 
             buildInstruction22s(Opcode.DIV_INT, value2);
             op = opFactory.create(location, addressToLocation, vm);
@@ -912,7 +912,7 @@ public class BinaryMathOpTest {
         public void integerDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
             int value1 = 10;
             int value2 = 0;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "I");
 
             buildInstruction22s(Opcode.DIV_INT_LIT16, value2);
             op = opFactory.create(location, addressToLocation, vm);
@@ -926,7 +926,7 @@ public class BinaryMathOpTest {
         public void integerModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
             int value1 = 10;
             int value2 = 0;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "I");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "I");
 
             buildInstruction22s(Opcode.REM_INT_LIT16, value2);
             op = opFactory.create(location, addressToLocation, vm);
@@ -940,8 +940,8 @@ public class BinaryMathOpTest {
         public void longDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
             long value1 = 1120403456L;
             long value2 = 0L;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "J");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "J");
 
             buildInstruction23x(Opcode.DIV_LONG);
             op = opFactory.create(location, addressToLocation, vm);
@@ -956,8 +956,8 @@ public class BinaryMathOpTest {
             long value1 = 1120403456L;
             long value2 = 1149239296L;
             long expected = value1 / value2; // 0 since long division drops decimal value
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "J");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "J");
 
             buildInstruction23x(Opcode.DIV_LONG);
             op = opFactory.create(location, addressToLocation, vm);
@@ -971,8 +971,8 @@ public class BinaryMathOpTest {
         public void longModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
             long value1 = 1120403456L;
             long value2 = 0L;
-            VMTester.addHeapItem(mState, ARG1_REGISTER, value1, "J");
-            VMTester.addHeapItem(mState, ARG2_REGISTER, value2, "J");
+            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "J");
+            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "J");
 
             buildInstruction23x(Opcode.REM_LONG);
             op = opFactory.create(location, addressToLocation, vm);
