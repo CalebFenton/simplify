@@ -407,7 +407,6 @@ public class InvokeOpTest {
 
             instruction = buildInstruction35c(Opcode.INVOKE_STATIC);
             op = (InvokeOp) opFactory.create(location, addressToLocation, vm);
-            op.execute(node, ectx);
 
             String expected = "invoke-static {r" + ARG1_REGISTER + "}, " + METHOD_SIGNATURE;
             assertEquals(expected, op.toString());
