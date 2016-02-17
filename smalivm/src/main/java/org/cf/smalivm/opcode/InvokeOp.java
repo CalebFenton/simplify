@@ -27,6 +27,7 @@ import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.iface.ClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,15 +35,15 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private final boolean isStatic;
-
     private final String methodSignature;
     private final int[] parameterRegisters;
     private final List<String> parameterTypes;
+    private final String[] analyzedParameterTypes;
     private final String returnType;
-    private SideEffect.Level sideEffectLevel;
     private final VirtualMachine vm;
     private final ClassManager classManager;
+    private final boolean isStatic;
+    private SideEffect.Level sideEffectLevel;
 
     InvokeOp(MethodLocation location, MethodLocation child, String methodSignature, String returnType,
                     int[] parameterRegisters, List<String> parameterTypes, VirtualMachine vm, boolean isStatic) {
@@ -52,6 +53,7 @@ public class InvokeOp extends ExecutionContextOp {
         this.returnType = returnType;
         this.parameterRegisters = parameterRegisters;
         this.parameterTypes = parameterTypes;
+        analyzedParameterTypes = new String[parameterTypes.size()];
         this.vm = vm;
         classManager = vm.getClassManager();
         this.isStatic = isStatic;
@@ -76,6 +78,8 @@ public class InvokeOp extends ExecutionContextOp {
             }
             return;
         }
+
+        analyzeParameterTypes(callerMethodState);
 
         String targetMethod = methodSignature;
         if (getName().startsWith("invoke-virtual")) { // -virtual/range
@@ -179,60 +183,71 @@ public class InvokeOp extends ExecutionContextOp {
         return true;
     }
 
-    private void assignCalleeMethodArguments(MethodState callerState, MethodState calleeState) {
-        int parameterRegister = calleeState.getParameterStart();
+    private void analyzeParameterTypes(MethodState callerState) {
+        /*
+         * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear:
+         * const/4 v0,0x0 (could be true, (int)0, or (short)0, null, etc.)
+         * If a more restrictive type is given in the method signature, prefer that, for example:
+         * method argument is an int but signature declares it as boolean, so switch it to boolean
+         * However, if the type is less specific, such as a super class or interface, do not use the less specific
+         * type. For example:
+         * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
+         */
         for (int i = 0; i < parameterRegisters.length; i++) {
             int callerRegister = parameterRegisters[i];
             HeapItem item = callerState.readRegister(callerRegister);
-
-            /*
-             * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear:
-             * const/4 v0,0x0 (could be true, (int)0, or (short)0, null, etc.)
-             * If a more restrictive type is given in the method signature, prefer that, for example:
-             * method argument is an int but signature declares it as boolean, so switch it to boolean
-             * However, if the type is less specific, such as a super class or interface, do not use the less specific
-             * type. For example:
-             * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
-             */
             String parameterType = parameterTypes.get(i);
-            Object value = item.getValue();
             String type;
             if (item.isPrimitive()) {
                 type = parameterType;
-                boolean hasNullByteValue = !item.isUnknown() && value instanceof Number && item.getIntegerValue() == 0;
-                if (hasNullByteValue && item.getType().equals("I") && ClassNameUtils.isObject(parameterType)) {
-                    value = null;
-                } else {
-                    value = Utils.castToPrimitive(value, type);
-                }
             } else {
-                if (getAncestors(item.getComponentBase()).contains(parameterType)) {
+                String baseType = item.getComponentBase();
+                Set<String> ancestorNames = getAncestorNames(baseType, new HashSet<String>());
+                if (ancestorNames.contains(parameterType)) {
                     type = item.getType();
                 } else {
                     type = parameterType;
                 }
             }
-
-            HeapItem parameterItem = new HeapItem(value, type);
-            calleeState.assignParameter(parameterRegister, parameterItem);
-            parameterRegister += Utils.getRegisterSize(type);
+            analyzedParameterTypes[i] = type;
         }
     }
 
-    private void assumeMaximumUnknown(MethodState mState) {
+    private void assignCalleeMethodArguments(MethodState callerState, MethodState calleeState) {
+        int parameterRegister = calleeState.getParameterStart();
+        for (int i = 0; i < parameterRegisters.length; i++) {
+            int callerRegister = parameterRegisters[i];
+            HeapItem item = callerState.readRegister(callerRegister);
+            String parameterType = analyzedParameterTypes[i];
+            Object value = item.getValue();
+            if (item.isPrimitive() && !item.isUnknown()) {
+                boolean hasNullByteValue = item.getType().equals("I") && value instanceof Number && item
+                                .getIntegerValue() == 0;
+                if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
+                    value = null;
+                } else {
+                    // An I type may actually be a S, B, C, etc. Pass the cast type to simplify things.
+                    value = Utils.castToPrimitive(value, parameterType);
+                }
+            }
+            HeapItem parameterItem = new HeapItem(value, parameterType);
+            calleeState.assignParameter(parameterRegister, parameterItem);
+            parameterRegister += Utils.getRegisterSize(parameterType);
+        }
+    }
+
+    private void assumeMaximumUnknown(MethodState callerMethodState) {
         // TODO: add option to mark all class states unknown instead of just method state
         for (int i = 0; i < parameterTypes.size(); i++) {
-            // Always prefer explicit type over implied from heap item.
-            // I.e. "const/4 v0, 0x0" can mean null, 0x1 can be true, etc.
-            String type = parameterTypes.get(i);
             int register = parameterRegisters[i];
-            HeapItem item = mState.readRegister(register);
+            HeapItem item = callerMethodState.readRegister(register);
             Object value = item.getValue();
             if (null == value) {
                 // Nulls don't mutate.
                 continue;
             }
 
+            String type = analyzedParameterTypes[i];
             boolean isInitializing = methodSignature.contains(";-><init>(");
             if (!isInitializing) {
                 // May be immutable type, but if this is the initializer, internal state would be changing.
@@ -257,12 +272,12 @@ public class InvokeOp extends ExecutionContextOp {
                 log.debug("{} is mutable and passed into unresolvable method execution, making Unknown", type);
             }
 
-            mState.pokeRegister(register, item);
+            callerMethodState.pokeRegister(register, item);
         }
 
         if (!"V".equals(returnType)) {
             HeapItem item = HeapItem.newUnknown(returnType);
-            mState.assignResultRegister(item);
+            callerMethodState.assignResultRegister(item);
         }
     }
 
@@ -386,67 +401,89 @@ public class InvokeOp extends ExecutionContextOp {
         callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
     }
 
-    private Set<String> getAncestors(String className) {
-        Set<String> getAncestors = new HashSet<String>();
-        String binaryName = ClassNameUtils.internalToBinary(className);
-        Class<?> klazz;
-        try {
-            klazz = vm.getClassLoader().loadClass(binaryName);
-        } catch (ClassNotFoundException e) {
-            log.error("Error loading class " + className, e);
-            return getAncestors;
-        }
-        for (Class<?> interfaceClass : klazz.getInterfaces()) {
-            String internalName = ClassNameUtils.toInternal(interfaceClass);
-            getAncestors.addAll(getAncestors(internalName));
-            getAncestors.add(internalName);
-        }
-        if (klazz.getSuperclass() != null) {
-            String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
-            getAncestors.addAll(getAncestors(internalName));
-            getAncestors.add(internalName);
+    private Set<String> getAncestorNames(String className, Set<String> ancestorNames) {
+        if (ancestorNames.contains(className)) {
+            return new HashSet<String>();
         }
 
-        return getAncestors;
+        if (classManager.isLocalClass(className)) {
+            // Prefer class manager to avoid having to load the class which fails for java.lang.* classes which are
+            // unique to Android, among other complexities.
+            ClassDef klazz = classManager.getClass(className);
+            for (String interfaceName : klazz.getInterfaces()) {
+                ancestorNames.add(interfaceName);
+                getAncestorNames(interfaceName, ancestorNames);
+            }
+            String superName = klazz.getSuperclass();
+            if (superName != null) {
+                ancestorNames.add(superName);
+                getAncestorNames(superName, ancestorNames);
+            }
+        } else {
+            String binaryName = ClassNameUtils.internalToBinary(className);
+            Class<?> klazz;
+            try {
+                klazz = vm.getClassLoader().loadClass(binaryName);
+            } catch (ClassNotFoundException e) {
+                log.error("Error loading class " + className, e);
+                return ancestorNames;
+            }
+            for (Class<?> interfaceClass : klazz.getInterfaces()) {
+                String internalName = ClassNameUtils.toInternal(interfaceClass);
+                ancestorNames.add(internalName);
+                getAncestorNames(internalName, ancestorNames);
+            }
+            if (klazz.getSuperclass() != null) {
+                String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
+                ancestorNames.add(internalName);
+                getAncestorNames(internalName, ancestorNames);
+            }
+        }
+
+        return ancestorNames;
     }
 
-    /*
-     * A method may not be declared in the type given by the method invocation. This method searches super and interface
-     * hierarchy returns a method descriptor from the first class which implements the method. The method descriptor
-     * points to the implementing class.
-     */
     private @Nullable String resolveVirtualMethod(Object virtualTarget) {
+        /*
+         * A method may not be declared in the type given by the method invocation. This method searches super and
+         * interface
+         * hierarchy returns a method descriptor from the first class which implements the method. The method descriptor
+         * points to the implementing class.
+         */
         String virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
         String descriptor = methodSignature.split("->")[1];
-        String targetMethod = resolveVirtualMethod(virtualType, descriptor, new HashSet<String>(4));
+        String methodName = descriptor.split("\\(")[0];
+        String targetMethod = resolveVirtualMethod(methodName, descriptor, parameterTypes, virtualType,
+                        new HashSet<String>(4));
 
         return targetMethod != null ? targetMethod : methodSignature;
     }
 
-    private @Nullable String resolveVirtualMethod(String className, String descriptor, Set<String> visited) {
+    private @Nullable String resolveVirtualMethod(String methodName, String descriptor, List<String> parameterTypes,
+                    String className, Set<String> visited) {
         String signature = new StringBuilder(className).append("->").append(descriptor).toString();
         boolean isLocalMethod = classManager.isLocalMethod(signature);
         if (isLocalMethod && classManager.methodHasImplementation(signature)) {
             return signature;
         }
 
-        if (vm.getConfiguration().isSafe(signature) && doesNonLocalMethodExist(className, descriptor)) {
+        if (vm.getConfiguration().isSafe(signature) && doesNonLocalMethodExist(methodName, descriptor, parameterTypes,
+                        className, signature)) {
             return signature;
         }
 
         if (!classManager.isLocalClass(className)) {
-            // Can't trace any further up.
-            // Note: already checked if this is white-listed Java API
+            // Can't trace any further up and already checked if white-listed Java API
             return null;
         }
 
-        Set<String> parents = getAncestors(className);
-        for (String parent : parents) {
-            if (visited.contains(parent)) {
+        Set<String> ancestorNames = getAncestorNames(className, new HashSet<String>());
+        for (String ancestorName : ancestorNames) {
+            if (visited.contains(ancestorName)) {
                 continue;
             }
             visited.add(className);
-            String target = resolveVirtualMethod(parent, descriptor, visited);
+            String target = resolveVirtualMethod(methodName, descriptor, parameterTypes, ancestorName, visited);
             if (null != target) {
                 return target;
             }
@@ -455,7 +492,8 @@ public class InvokeOp extends ExecutionContextOp {
         return null;
     }
 
-    private static boolean doesNonLocalMethodExist(String className, String descriptor) {
+    private static boolean doesNonLocalMethodExist(String methodName, String descriptor, List<String> paramList,
+                    String className, String signature) {
         Class<?> klazz = null;
         try {
             klazz = Class.forName(ClassNameUtils.internalToBinary(className));
@@ -463,9 +501,6 @@ public class InvokeOp extends ExecutionContextOp {
             return false;
         }
 
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(descriptor);
-        List<String> paramList = Utils.getParameterTypes(sb.toString());
         Class<?>[] params = new Class<?>[paramList.size()];
         for (int i = 0; i < paramList.size(); i++) {
             String paramName = paramList.get(i);
@@ -480,7 +515,6 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        String methodName = descriptor.split("\\(")[0];
         try {
             klazz.getMethod(methodName, params);
         } catch (NoSuchMethodException e) {
