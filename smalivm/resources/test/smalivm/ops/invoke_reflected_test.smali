@@ -9,7 +9,6 @@
   return-void
 .end method
 
-
 .method public static invokeBooleanValueOf()V
   .locals 1
 
