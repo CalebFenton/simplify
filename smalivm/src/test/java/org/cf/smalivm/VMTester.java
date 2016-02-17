@@ -29,6 +29,7 @@ import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.smali.ClassManagerFactory;
 import org.cf.smalivm.smali.Dexifier;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -49,6 +50,7 @@ public class VMTester {
         } else if (value instanceof UnknownValue) {
             when(item.isUnknown()).thenReturn(true);
         }
+        when(item.getComponentBase()).thenReturn(ClassNameUtils.getComponentBase(type));
         when(item.getType()).thenReturn(type);
         when(mState.readRegister(eq(register))).thenReturn(item);
     }
