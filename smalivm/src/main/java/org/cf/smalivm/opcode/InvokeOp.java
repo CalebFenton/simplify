@@ -72,7 +72,7 @@ public class InvokeOp extends ExecutionContextOp {
         if (methodSignature.equals("Ljava/lang/Object;-><init>()V")) {
             // Object init is a special little snow flake
             try {
-                executeObjectInit(callerMethodState);
+                executeLocalObjectInit(callerMethodState);
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
                 log.error("Unexpected real exception initializing Object", e);
             }
@@ -197,11 +197,11 @@ public class InvokeOp extends ExecutionContextOp {
             int callerRegister = parameterRegisters[i];
             HeapItem item = callerState.readRegister(callerRegister);
             String parameterType = parameterTypes.get(i);
+            String baseType = item.getComponentBase();
             String type;
-            if (item.isPrimitive()) {
+            if (item.isPrimitive() || ClassNameUtils.isPrimitive(baseType)) {
                 type = parameterType;
             } else {
-                String baseType = item.getComponentBase();
                 Set<String> ancestorNames = getAncestorNames(baseType, new HashSet<String>());
                 if (ancestorNames.contains(parameterType)) {
                     type = item.getType();
@@ -345,6 +345,17 @@ public class InvokeOp extends ExecutionContextOp {
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
+    private void executeLocalObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
+                    InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        int instanceRegister = parameterRegisters[0];
+        HeapItem instanceItem = callerMethodState.peekRegister(instanceRegister);
+        String binaryName = ClassNameUtils.internalToBinary(instanceItem.getType());
+        Class<?> klazz = vm.getClassLoader().loadClass(binaryName);
+        Object newInstance = ObjectInstantiator.newInstance(klazz);
+        HeapItem newInstanceItem = new HeapItem(newInstance, instanceItem.getType());
+        callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
+    }
+
     private void executeNonLocalMethod(String methodDescriptor, MethodState callerMethodState,
                     ExecutionContext calleeContext, ExecutionNode node) {
         if (MethodEmulator.canEmulate(methodDescriptor)) {
@@ -390,17 +401,6 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private void executeObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
-                    InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        int instanceRegister = parameterRegisters[0];
-        HeapItem instanceItem = callerMethodState.peekRegister(instanceRegister);
-        String binaryName = ClassNameUtils.internalToBinary(instanceItem.getType());
-        Class<?> klazz = vm.getClassLoader().loadClass(binaryName);
-        Object newInstance = ObjectInstantiator.newInstance(klazz);
-        HeapItem newInstanceItem = new HeapItem(newInstance, instanceItem.getType());
-        callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
-    }
-
     private Set<String> getAncestorNames(String className, Set<String> ancestorNames) {
         if (ancestorNames.contains(className)) {
             return new HashSet<String>();
@@ -411,13 +411,13 @@ public class InvokeOp extends ExecutionContextOp {
             // unique to Android, among other complexities.
             ClassDef klazz = classManager.getClass(className);
             for (String interfaceName : klazz.getInterfaces()) {
-                ancestorNames.add(interfaceName);
                 getAncestorNames(interfaceName, ancestorNames);
+                ancestorNames.add(interfaceName);
             }
             String superName = klazz.getSuperclass();
             if (superName != null) {
-                ancestorNames.add(superName);
                 getAncestorNames(superName, ancestorNames);
+                ancestorNames.add(superName);
             }
         } else {
             String binaryName = ClassNameUtils.internalToBinary(className);
@@ -430,13 +430,13 @@ public class InvokeOp extends ExecutionContextOp {
             }
             for (Class<?> interfaceClass : klazz.getInterfaces()) {
                 String internalName = ClassNameUtils.toInternal(interfaceClass);
-                ancestorNames.add(internalName);
                 getAncestorNames(internalName, ancestorNames);
+                ancestorNames.add(internalName);
             }
             if (klazz.getSuperclass() != null) {
                 String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
-                ancestorNames.add(internalName);
                 getAncestorNames(internalName, ancestorNames);
+                ancestorNames.add(internalName);
             }
         }
 

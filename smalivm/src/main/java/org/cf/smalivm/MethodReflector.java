@@ -109,6 +109,14 @@ public class MethodReflector {
         }
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder("Reflector{");
+        sb.append(methodDescriptor).append(", static=").append(isStatic).append("}");
+
+        return sb.toString();
+    }
+
     private InvocationArguments getArguments(MethodState mState) throws ClassNotFoundException {
         int offset = 0;
         if (!isStatic) {
