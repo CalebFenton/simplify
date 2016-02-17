@@ -290,9 +290,9 @@ public class ClassNameUtils {
      * @return true if class is primitive, otherwise false
      */
     public static boolean isPrimitive(String className) {
-        String baseClass = getComponentBase(toFormat(className, TypeFormat.INTERNAL));
+        String internalName = toFormat(className, TypeFormat.INTERNAL);
 
-        return internalPrimitiveToBinaryName.containsKey(baseClass);
+        return internalPrimitiveToBinaryName.containsKey(internalName);
     }
 
     /**

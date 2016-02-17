@@ -1,4 +1,4 @@
-package org.cf.smalivm.util;
+package org.cf.util;
 
 import static org.junit.Assert.assertEquals;
 
@@ -49,8 +49,10 @@ public class ClassNameUtilsTest {
         internalNameToIsPrimitive.put("J", true);
         internalNameToIsPrimitive.put("B", true);
         internalNameToIsPrimitive.put("V", true);
-        internalNameToIsPrimitive.put("[I", true);
-        internalNameToIsPrimitive.put("[[I", true);
+
+        // Arrays are mutable objects, not primitives
+        internalNameToIsPrimitive.put("[I", false);
+        internalNameToIsPrimitive.put("[[I", false);
 
         internalPrimitiveToWrapperClass = new HashMap<String, Class<?>>();
         internalPrimitiveToWrapperClass.put("I", Integer.class);
