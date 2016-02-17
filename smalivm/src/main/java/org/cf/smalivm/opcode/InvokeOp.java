@@ -27,7 +27,6 @@ import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.iface.ClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -202,7 +201,7 @@ public class InvokeOp extends ExecutionContextOp {
             if (item.isPrimitive() || ClassNameUtils.isPrimitive(baseType)) {
                 type = parameterType;
             } else {
-                Set<String> ancestorNames = getAncestorNames(baseType, new HashSet<String>());
+                Set<String> ancestorNames = vm.getAncestorEnumerator().enumerate(baseType);
                 if (ancestorNames.contains(parameterType)) {
                     type = item.getType();
                 } else {
@@ -401,48 +400,6 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private Set<String> getAncestorNames(String className, Set<String> ancestorNames) {
-        if (ancestorNames.contains(className)) {
-            return new HashSet<String>();
-        }
-
-        if (classManager.isLocalClass(className)) {
-            // Prefer class manager to avoid having to load the class which fails for java.lang.* classes which are
-            // unique to Android, among other complexities.
-            ClassDef klazz = classManager.getClass(className);
-            for (String interfaceName : klazz.getInterfaces()) {
-                getAncestorNames(interfaceName, ancestorNames);
-                ancestorNames.add(interfaceName);
-            }
-            String superName = klazz.getSuperclass();
-            if (superName != null) {
-                getAncestorNames(superName, ancestorNames);
-                ancestorNames.add(superName);
-            }
-        } else {
-            String binaryName = ClassNameUtils.internalToBinary(className);
-            Class<?> klazz;
-            try {
-                klazz = vm.getClassLoader().loadClass(binaryName);
-            } catch (ClassNotFoundException e) {
-                log.error("Error loading class " + className, e);
-                return ancestorNames;
-            }
-            for (Class<?> interfaceClass : klazz.getInterfaces()) {
-                String internalName = ClassNameUtils.toInternal(interfaceClass);
-                getAncestorNames(internalName, ancestorNames);
-                ancestorNames.add(internalName);
-            }
-            if (klazz.getSuperclass() != null) {
-                String internalName = ClassNameUtils.toInternal(klazz.getSuperclass());
-                getAncestorNames(internalName, ancestorNames);
-                ancestorNames.add(internalName);
-            }
-        }
-
-        return ancestorNames;
-    }
-
     private @Nullable String resolveVirtualMethod(Object virtualTarget) {
         /*
          * A method may not be declared in the type given by the method invocation. This method searches super and
@@ -477,7 +434,7 @@ public class InvokeOp extends ExecutionContextOp {
             return null;
         }
 
-        Set<String> ancestorNames = getAncestorNames(className, new HashSet<String>());
+        Set<String> ancestorNames = vm.getAncestorEnumerator().enumerate(className);
         for (String ancestorName : ancestorNames) {
             if (visited.contains(ancestorName)) {
                 continue;

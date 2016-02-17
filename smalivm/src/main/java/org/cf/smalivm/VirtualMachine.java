@@ -18,6 +18,7 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.smali.AncestorEnumerator;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.smali.SmaliClassLoader;
 import org.cf.util.Utils;
@@ -30,12 +31,13 @@ public class VirtualMachine {
 
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
 
-    private final SmaliClassLoader classLoader;
     private final ClassManager classManager;
-    private final Configuration configuration;
+    private final SmaliClassLoader classLoader;
     private final MethodExecutor methodExecutor;
     private final Map<BuilderMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
+    private final Configuration configuration;
+    private final AncestorEnumerator ancestorEnumerator;
 
     VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
                     int maxExecutionTime) {
@@ -46,6 +48,128 @@ public class VirtualMachine {
         methodToTemplateExecutionGraph = new HashMap<BuilderMethod, ExecutionGraph>();
         staticFieldAccessor = new StaticFieldAccessor(this);
         configuration = Configuration.instance();
+        ancestorEnumerator = new AncestorEnumerator(classManager, classLoader);
+    }
+
+    public ExecutionGraph execute(String methodSignature) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+        if (!classManager.methodHasImplementation(methodSignature)) {
+            return null;
+        }
+        ExecutionContext ectx = spawnRootExecutionContext(methodSignature);
+
+        return execute(methodSignature, ectx);
+    }
+
+    public ExecutionGraph execute(String methodSignature, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+        return execute(methodSignature, ectx, null, null);
+    }
+
+    public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext,
+                    ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+        if (callerContext != null) {
+            inheritClassStates(callerContext, calleeContext);
+        }
+
+        String className = getClassNameFromMethodSignature(methodSignature);
+        calleeContext.staticallyInitializeClassIfNecessary(className);
+
+        ExecutionGraph graph = spawnInstructionGraph(methodSignature);
+        ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
+        rootNode.setContext(calleeContext);
+        graph.addNode(rootNode);
+
+        ExecutionGraph execution = methodExecutor.execute(graph);
+        if ((execution != null) && (callerContext != null)) {
+            collapseMultiverse(methodSignature, graph, callerContext, parameterRegisters);
+        }
+
+        return execution;
+    }
+
+    public AncestorEnumerator getAncestorEnumerator() {
+        return ancestorEnumerator;
+    }
+
+    public ClassLoader getClassLoader() {
+        return classLoader;
+    }
+
+    public ClassManager getClassManager() {
+        return classManager;
+    }
+
+    public Configuration getConfiguration() {
+        return configuration;
+    }
+
+    public StaticFieldAccessor getStaticFieldAccessor() {
+        return staticFieldAccessor;
+    }
+
+    public ClassState getTemplateClassState(ExecutionContext ectx, String className) {
+        List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
+        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
+        for (String fieldNameAndType : fieldNameAndTypes) {
+            String type = fieldNameAndType.split(":")[1];
+            cState.pokeField(fieldNameAndType, HeapItem.newUnknown(type));
+        }
+
+        return cState;
+    }
+
+    public boolean shouldTreatAsLocal(String classDescriptor) {
+        // Prefer to reflect methods, even if local. It's faster and less prone to error than emulating ourselves.
+        return classManager.isLocalClass(classDescriptor) && !getConfiguration().isSafe(classDescriptor);
+    }
+
+    public ExecutionGraph spawnInstructionGraph(String methodSignature) {
+        BuilderMethod method = classManager.getMethod(methodSignature);
+        if (!methodToTemplateExecutionGraph.containsKey(method)) {
+            updateInstructionGraph(methodSignature);
+        }
+        ExecutionGraph graph = methodToTemplateExecutionGraph.get(method);
+        ExecutionGraph spawn = new ExecutionGraph(graph);
+
+        return spawn;
+    }
+
+    public ExecutionContext spawnRootExecutionContext(String methodSignature) {
+        return spawnRootExecutionContext(methodSignature, null, 0);
+    }
+
+    public ExecutionContext spawnRootExecutionContext(String methodSignature, @Nullable ExecutionContext callerContext,
+                    int callerAddress) {
+        if (!classManager.isLocalMethod(methodSignature)) {
+            throw new IllegalArgumentException("Method does not exist: " + methodSignature);
+        }
+
+        if (!classManager.methodHasImplementation(methodSignature)) {
+            // Native or abstract methods have no implementation. Shouldn't be executing them.
+            throw new IllegalArgumentException("No implementation for " + methodSignature);
+        }
+
+        ExecutionContext spawnedContext = new ExecutionContext(this, methodSignature);
+        String className = getClassNameFromMethodSignature(methodSignature);
+        ClassState templateClassState = getTemplateClassState(spawnedContext, className);
+        spawnedContext.setClassState(className, templateClassState);
+
+        MethodState templateMethodState = getTemplateMethodState(spawnedContext);
+        spawnedContext.setMethodState(templateMethodState);
+
+        if (callerContext != null) {
+            spawnedContext.registerCaller(callerContext, callerAddress);
+        }
+
+        return spawnedContext;
+    }
+
+    public void updateInstructionGraph(String methodSignature) {
+        BuilderMethod method = classManager.getMethod(methodSignature);
+        ExecutionGraph graph = new ExecutionGraph(this, method);
+        methodToTemplateExecutionGraph.put(method, graph);
     }
 
     /*
@@ -143,123 +267,6 @@ public class VirtualMachine {
             SideEffect.Level level = parent.getClassSideEffectLevel(className);
             child.initializeClass(className, toClassState, level);
         }
-    }
-
-    public ExecutionGraph execute(String methodSignature) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-                    MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        if (!classManager.methodHasImplementation(methodSignature)) {
-            return null;
-        }
-        ExecutionContext ectx = spawnRootExecutionContext(methodSignature);
-
-        return execute(methodSignature, ectx);
-    }
-
-    public ExecutionGraph execute(String methodSignature, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
-                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        return execute(methodSignature, ectx, null, null);
-    }
-
-    public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext,
-                    ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
-                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        if (callerContext != null) {
-            inheritClassStates(callerContext, calleeContext);
-        }
-
-        String className = getClassNameFromMethodSignature(methodSignature);
-        calleeContext.staticallyInitializeClassIfNecessary(className);
-
-        ExecutionGraph graph = spawnInstructionGraph(methodSignature);
-        ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
-        rootNode.setContext(calleeContext);
-        graph.addNode(rootNode);
-
-        ExecutionGraph execution = methodExecutor.execute(graph);
-        if ((execution != null) && (callerContext != null)) {
-            collapseMultiverse(methodSignature, graph, callerContext, parameterRegisters);
-        }
-
-        return execution;
-    }
-
-    public ClassLoader getClassLoader() {
-        return classLoader;
-    }
-
-    public ClassManager getClassManager() {
-        return classManager;
-    }
-
-    public Configuration getConfiguration() {
-        return configuration;
-    }
-
-    public StaticFieldAccessor getStaticFieldAccessor() {
-        return staticFieldAccessor;
-    }
-
-    public ClassState getTemplateClassState(ExecutionContext ectx, String className) {
-        List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
-        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
-        for (String fieldNameAndType : fieldNameAndTypes) {
-            String type = fieldNameAndType.split(":")[1];
-            cState.pokeField(fieldNameAndType, HeapItem.newUnknown(type));
-        }
-
-        return cState;
-    }
-
-    public boolean shouldTreatAsLocal(String classDescriptor) {
-        // Prefer to reflect methods, even if local. It's faster and less prone to error than emulating ourselves.
-        return classManager.isLocalClass(classDescriptor) && !getConfiguration().isSafe(classDescriptor);
-    }
-
-    public ExecutionGraph spawnInstructionGraph(String methodSignature) {
-        BuilderMethod method = classManager.getMethod(methodSignature);
-        if (!methodToTemplateExecutionGraph.containsKey(method)) {
-            updateInstructionGraph(methodSignature);
-        }
-        ExecutionGraph graph = methodToTemplateExecutionGraph.get(method);
-        ExecutionGraph spawn = new ExecutionGraph(graph);
-
-        return spawn;
-    }
-
-    public ExecutionContext spawnRootExecutionContext(String methodSignature) {
-        return spawnRootExecutionContext(methodSignature, null, 0);
-    }
-
-    public ExecutionContext spawnRootExecutionContext(String methodSignature,
-                    @Nullable ExecutionContext callerContext, int callerAddress) {
-        if (!classManager.isLocalMethod(methodSignature)) {
-            throw new IllegalArgumentException("Method does not exist: " + methodSignature);
-        }
-
-        if (!classManager.methodHasImplementation(methodSignature)) {
-            // Native or abstract methods have no implementation. Shouldn't be executing them.
-            throw new IllegalArgumentException("No implementation for " + methodSignature);
-        }
-
-        ExecutionContext spawnedContext = new ExecutionContext(this, methodSignature);
-        String className = getClassNameFromMethodSignature(methodSignature);
-        ClassState templateClassState = getTemplateClassState(spawnedContext, className);
-        spawnedContext.setClassState(className, templateClassState);
-
-        MethodState templateMethodState = getTemplateMethodState(spawnedContext);
-        spawnedContext.setMethodState(templateMethodState);
-
-        if (callerContext != null) {
-            spawnedContext.registerCaller(callerContext, callerAddress);
-        }
-
-        return spawnedContext;
-    }
-
-    public void updateInstructionGraph(String methodSignature) {
-        BuilderMethod method = classManager.getMethod(methodSignature);
-        ExecutionGraph graph = new ExecutionGraph(this, method);
-        methodToTemplateExecutionGraph.put(method, graph);
     }
 
     private static String getClassNameFromMethodSignature(String methodSignature) {
