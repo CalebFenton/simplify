@@ -106,33 +106,32 @@ public class ClassNameUtils {
     }
 
     /**
-     * Get the base component of an array of any dimension. Works with binary and internal formats.
+     * Get the base component of an array of any dimension. Works with binary, internal, and source formats.
      * 
      * For example,
      * "[[B" becomes "B"
      * "[[Ljava.lang.Object;" becomes "Ljava.lang.Object;"
+     * "java.lang.Object[][]" becomes "java.lang.Object"
      * 
      * @param className
      * @return base component class
      */
     public static String getComponentBase(String className) {
-        return className.replace("[", "");
+        return className.replace("[", "").replace("]", "");
     }
 
-    // Similar to Array.getComponentType
-    // works with internal and binary
     /**
-     * Similar to Array.getComponentType(). Works with binary and internal formats.
+     * Similar to Array.getComponentType(). Works with binary, internal, and source formats.
      * 
      * @param className
      * @return component class
      */
     public static String getComponentType(String className) {
-        return className.replaceFirst("\\[", "");
+        return className.replaceFirst("\\[\\]?", "");
     }
 
     /**
-     * Get the dimension count or rank. Works with binary and internal formats.
+     * Get the dimension count or rank. Works with binary, internal, and source formats.
      * 
      * @param className
      * @return dimension count
@@ -168,12 +167,12 @@ public class ClassNameUtils {
      * Get the internal format primitive class name for a given primitive wrapper.
      * 
      * @param className
-     * @return primitive class name or null if not found
+     * @return internal format primitive class name or null if not found
      */
     public static @Nullable String getPrimitive(String className) {
-        String internalName = toFormat(className, TypeFormat.INTERNAL);
-        String wrapperName = internalPrimitiveToWrapper.inverse().get(getComponentBase(internalName));
-        if (null == wrapperName) {
+        String internalName = toFormat(className, TypeFormat.SOURCE);
+        String primitiveName = internalPrimitiveToWrapper.inverse().get(getComponentBase(internalName));
+        if (null == primitiveName) {
             return null;
         }
 
@@ -183,19 +182,19 @@ public class ClassNameUtils {
             for (int i = 0; i < dimensionCount; i++) {
                 sb.append('[');
             }
-            sb.append('L').append(wrapperName).append(';');
+            sb.append(primitiveName);
 
             return sb.toString();
         }
 
-        return wrapperName;
+        return primitiveName;
     }
 
     /**
      * Get the class for a primitive className in the internal format.
      * 
      * @param className
-     * @return primitive class or null if not found
+     * @return internal format primitive class or null if not found
      */
     public static Class<?> getPrimitiveClass(String className) {
         return internalPrimitiveToClass.get(className);

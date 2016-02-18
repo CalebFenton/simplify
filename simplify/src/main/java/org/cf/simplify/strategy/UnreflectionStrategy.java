@@ -123,7 +123,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
             if (availableRegisters.size() < parameterRegisterCount) {
                 // Add some more locals to this method
-                String methodDescriptor = manipulator.getMethodDescriptor();
+                String methodDescriptor = manipulator.getMethodSignature();
                 BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
                 int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                 int registerCount = oldRegisterCount + invokeRegisterCount;
@@ -161,7 +161,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 if (registers.size() < invokeRegisterCount) {
                     // Couldn't find enough contiguous. Expand locals and use registers at the end.
                     registers.clear();
-                    String methodDescriptor = manipulator.getMethodDescriptor();
+                    String methodDescriptor = manipulator.getMethodSignature();
                     BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
                     int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                     int registerCount = oldRegisterCount + invokeRegisterCount;
@@ -264,6 +264,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             return false;
         }
 
+        // Examine parent since maybe the method is not safe and invoke op will assume everything mutates to unknown.
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int methodRegister = parameterRegisters[0];
         int[] parentAddresses = manipulator.getParentAddresses(address);
@@ -278,7 +279,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             return false;
         }
 
-        String className = manipulator.getMethodDescriptor().split("->")[0];
+        String className = manipulator.getMethodSignature().split("->")[0];
         Method method = (Method) methodValue;
         int methodAccessFlags = method.getModifiers();
         String declaringClass = ClassNameUtils.toInternal(method.getDeclaringClass());

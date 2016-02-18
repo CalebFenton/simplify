@@ -43,7 +43,7 @@ public class ConstantPropigationStrategyTest {
         }
 
         @Test
-        public void aGetIsConstable() {
+        public void canConstantizeAGet() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0,
                             new int[] { 0, 7 }, "[I", 1, 1, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(7, 0);
@@ -61,7 +61,7 @@ public class ConstantPropigationStrategyTest {
         }
 
         @Test
-        public void testNonDeterministicallyExecuteConstableOpConstantizesToExpectedInstruction() {
+        public void nonDeterministicallyExecuteConstableOpConstantizesToExpectedInstruction() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(
                             "nonDeterministicallyStaticGetIntegerMaxValue(I)V", 1, new UnknownValue(), "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
@@ -70,7 +70,7 @@ public class ConstantPropigationStrategyTest {
         }
 
         @Test
-        public void testSGetIsConstable() {
+        public void canConstantizeSGet() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph("getStaticIntegerMaxValue()V");
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 

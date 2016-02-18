@@ -96,8 +96,8 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
             return false;
         }
 
-        String valueType = consensus.getType();
-        if (!constantBuilder.canConstantizeType(valueType)) {
+        String type = consensus.getType();
+        if (!constantBuilder.canConstantizeType(type)) {
             return false;
         }
 

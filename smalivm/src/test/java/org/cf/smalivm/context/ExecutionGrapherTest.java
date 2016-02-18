@@ -33,7 +33,7 @@ public class ExecutionGrapherTest {
 
         ExecutionGraph graph = mock(ExecutionGraph.class);
         when(graph.getRoot()).thenReturn(root);
-        when(graph.getMethodDescriptor()).thenReturn(METHOD_DESCRIPTOR);
+        when(graph.getMethodSignature()).thenReturn(METHOD_DESCRIPTOR);
         when(graph.getNodeIndex(root)).thenReturn(0);
         when(graph.getNodeIndex(child)).thenReturn(0);
         String digraph = ExecutionGrapher.graph(graph);

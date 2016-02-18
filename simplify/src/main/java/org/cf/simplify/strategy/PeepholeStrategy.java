@@ -259,7 +259,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             Instruction35c instr = (Instruction35c) original;
             int instanceRegister = instr.getRegisterC();
             HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
-            BuilderInstruction replacement = ConstantBuilder.buildConstant(item.getValue(), item.getUnboxedValueType(),
+            BuilderInstruction replacement = ConstantBuilder.buildConstant(item.getValue(), item.getUnboxedType(),
                             instanceRegister, manipulator.getDexBuilder());
             if (log.isDebugEnabled()) {
                 log.debug("Peeping string init @{} {}", address, manipulator.getOp(address));
@@ -301,7 +301,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
                 // this implies it's acting on a parameter register
                 // look at freshly spawned execution context type
                 ExecutionContext ectx = manipulator.getVM()
-                                .spawnRootExecutionContext(manipulator.getMethodDescriptor());
+                                .spawnRootExecutionContext(manipulator.getMethodSignature());
                 HeapItem item = ectx.getMethodState().peekRegister(registerA);
                 preCastType = item.getType();
             }

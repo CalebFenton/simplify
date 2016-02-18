@@ -286,7 +286,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    public String getMethodDescriptor() {
+    public String getMethodSignature() {
         return methodDescriptor;
     }
 

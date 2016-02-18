@@ -52,6 +52,12 @@ public class ConstantBuilder implements Dependancy {
         return ConstantizableTypes.contains(type);
     }
 
+    public boolean canConstantizeType(Class<?> klazz) {
+        String type = ClassNameUtils.toInternal(klazz);
+
+        return ConstantizableTypes.contains(type);
+    }
+
     public static BuilderInstruction buildConstant(boolean value, int register) {
         int literal = value ? 1 : 0;
 
@@ -188,7 +194,7 @@ public class ConstantBuilder implements Dependancy {
         OneRegisterInstruction instruction = (OneRegisterInstruction) manipulator.getInstruction(address);
         int register = instruction.getRegisterA();
         HeapItem item = manipulator.getRegisterConsensus(address, register);
-        BuilderInstruction constant = buildConstant(item.getValue(), item.getUnboxedValueType(), register, dexBuilder);
+        BuilderInstruction constant = buildConstant(item.getValue(), item.getUnboxedType(), register, dexBuilder);
 
         return constant;
     }

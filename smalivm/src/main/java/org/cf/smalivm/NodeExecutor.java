@@ -18,7 +18,7 @@ public class NodeExecutor {
 
     public NodeExecutor(ExecutionGraph graph, ClassManager classManager) {
         this.graph = graph;
-        String methodDescriptor = graph.getMethodDescriptor();
+        String methodDescriptor = graph.getMethodSignature();
         exceptionResolver = new ExceptionHandlerAddressResolver(classManager, methodDescriptor);
     }
 

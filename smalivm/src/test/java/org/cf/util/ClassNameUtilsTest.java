@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
-import org.cf.util.ClassNameUtils;
 import org.cf.util.ClassNameUtils.TypeFormat;
 import org.junit.Test;
 
@@ -68,7 +67,7 @@ public class ClassNameUtilsTest {
     }
 
     @Test
-    public void binaryToInternalTest() {
+    public void canConvertBinaryToInternal() {
         for (Entry<String, String> entry : internalNameToBinaryName.entrySet()) {
             String className = entry.getValue();
             String expected = entry.getKey();
@@ -79,29 +78,122 @@ public class ClassNameUtilsTest {
     }
 
     @Test
-    public void getComponentBaseTest() {
-        String internalName = "[[[[[[Lsome/class;";
-        String internalBase = "Lsome/class;";
+    public void canConvertInternalToBinary() {
+        for (Entry<String, String> entry : internalNameToBinaryName.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue();
+            String actual = ClassNameUtils.internalToBinary(className);
 
-        assertEquals(internalBase, ClassNameUtils.getComponentBase(internalName));
-
-        String binaryName = "[[[Lsome.class;";
-        String binaryBase = "Lsome.class;";
-
-        assertEquals(binaryBase, ClassNameUtils.getComponentBase(binaryName));
+            assertEquals(expected, actual);
+        }
     }
 
     @Test
-    public void getComponentTypeTest() {
-        String internalName = "[[[[[[Lsome/class;";
-        String internalComponent = "[[[[[Lsome/class;";
+    public void canConvertInternalToSource() {
+        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue();
+            String actual = ClassNameUtils.internalToSource(className);
 
-        assertEquals(internalComponent, ClassNameUtils.getComponentType(internalName));
+            assertEquals(expected, actual);
+        }
+    }
 
-        String binaryName = "[[[Lsome.class;";
-        String binaryComponent = "[[Lsome.class;";
+    @Test
+    public void canConvertSourceToBinary() {
+        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
+            String className = entry.getValue();
+            String expected = internalNameToBinaryName.get(entry.getKey());
+            String actual = ClassNameUtils.sourceToBinary(className);
 
-        assertEquals(binaryComponent, ClassNameUtils.getComponentType(binaryName));
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void canConvertSurceToInternal() {
+        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
+            String className = entry.getValue();
+            String expected = entry.getKey();
+            String actual = ClassNameUtils.sourceToInternal(className);
+
+            assertEquals(expected, actual);
+        }
+    }
+
+    @Test
+    public void canDetermineIsPrimitive() {
+        for (Entry<String, Boolean> entry : internalNameToIsPrimitive.entrySet()) {
+            String className = entry.getKey();
+            boolean expected = entry.getValue();
+            boolean actual = ClassNameUtils.isPrimitive(className);
+
+            assertEquals("class: " + className, expected, actual);
+        }
+    }
+
+    @Test
+    public void canGetComponentBase() {
+        String componentBase;
+
+        componentBase = ClassNameUtils.getComponentBase("[[[[[[Lsome/class;");
+        assertEquals("Lsome/class;", componentBase);
+
+        componentBase = ClassNameUtils.getComponentBase("[[[Lsome.class;");
+        assertEquals("Lsome.class;", componentBase);
+
+        componentBase = ClassNameUtils.getComponentBase("some.class[][][]");
+        assertEquals("some.class", componentBase);
+    }
+
+    @Test
+    public void canGetComponentType() {
+        String componentType;
+
+        componentType = ClassNameUtils.getComponentType("[[[[[[Lsome/class;");
+        assertEquals("[[[[[Lsome/class;", componentType);
+
+        componentType = ClassNameUtils.getComponentType("[[[Lsome.class;");
+        assertEquals("[[Lsome.class;", componentType);
+
+        componentType = ClassNameUtils.getComponentType("some.class[][][]");
+        assertEquals("some.class[][]", componentType);
+    }
+
+    @Test
+    public void canGetPackageName() {
+        assertEquals("some.package", ClassNameUtils.getPackageName("Lsome/package/Class;"));
+        assertEquals("", ClassNameUtils.getPackageName("LSomeClass;"));
+        assertEquals("", ClassNameUtils.getPackageName("SomeClass"));
+        assertEquals("", ClassNameUtils.getPackageName("SomeClass[]"));
+        assertEquals("", ClassNameUtils.getPackageName("[LSomeClass;"));
+    }
+
+    @Test
+    public void canGetPrimitive() {
+        String primitive;
+        primitive = ClassNameUtils.getPrimitive("Ljava/lang/Long;");
+        assertEquals("J", primitive);
+
+        primitive = ClassNameUtils.getPrimitive("Ljava.lang.Long;");
+        assertEquals("J", primitive);
+
+        primitive = ClassNameUtils.getPrimitive("java.lang.Long");
+        assertEquals("J", primitive);
+
+        primitive = ClassNameUtils.getPrimitive("[[[Ljava.lang.Integer;");
+        assertEquals("[[[I", primitive);
+    }
+
+    @Test
+    public void canGetPrimitiveWrapper() {
+        for (Entry<String, Class<?>> entry : internalPrimitiveToWrapperClass.entrySet()) {
+            String className = entry.getKey();
+            String expected = entry.getValue().getName();
+            String actual = ClassNameUtils.getWrapper(className);
+
+            assertEquals(expected, actual);
+        }
     }
 
     @Test
@@ -123,78 +215,9 @@ public class ClassNameUtilsTest {
     }
 
     @Test
-    public void getPackageNameTest() {
-        assertEquals("some.package", ClassNameUtils.getPackageName("Lsome/package/Class;"));
-        assertEquals("", ClassNameUtils.getPackageName("LSomeClass;"));
-        assertEquals("", ClassNameUtils.getPackageName("SomeClass"));
-        assertEquals("", ClassNameUtils.getPackageName("SomeClass[]"));
-        assertEquals("", ClassNameUtils.getPackageName("[LSomeClass;"));
-    }
-
-    @Test
-    public void getWrapperTest() {
-        for (Entry<String, Class<?>> entry : internalPrimitiveToWrapperClass.entrySet()) {
-            String className = entry.getKey();
-            String expected = entry.getValue().getName();
-            String actual = ClassNameUtils.getWrapper(className);
-
-            assertEquals(expected, actual);
-        }
-    }
-
-    @Test
-    public void internalToBinaryTest() {
-        for (Entry<String, String> entry : internalNameToBinaryName.entrySet()) {
-            String className = entry.getKey();
-            String expected = entry.getValue();
-            String actual = ClassNameUtils.internalToBinary(className);
-
-            assertEquals(expected, actual);
-        }
-    }
-
-    @Test
-    public void internalToSourceTest() {
-        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
-            String className = entry.getKey();
-            String expected = entry.getValue();
-            String actual = ClassNameUtils.internalToSource(className);
-
-            assertEquals(expected, actual);
-        }
-    }
-
-    @Test
-    public void isPrimitiveTest() {
-        for (Entry<String, Boolean> entry : internalNameToIsPrimitive.entrySet()) {
-            String className = entry.getKey();
-            boolean expected = entry.getValue();
-            boolean actual = ClassNameUtils.isPrimitive(className);
-
-            assertEquals("class: " + className, expected, actual);
-        }
-    }
-
-    @Test
-    public void sourceToBinaryTest() {
-        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
-            String className = entry.getValue();
-            String expected = internalNameToBinaryName.get(entry.getKey());
-            String actual = ClassNameUtils.sourceToBinary(className);
-
-            assertEquals(expected, actual);
-        }
-    }
-
-    @Test
-    public void sourceToInternalTest() {
-        for (Entry<String, String> entry : internalNameToSourceName.entrySet()) {
-            String className = entry.getValue();
-            String expected = entry.getKey();
-            String actual = ClassNameUtils.sourceToInternal(className);
-
-            assertEquals(expected, actual);
-        }
+    public void getDimensionCountWithSourceFormat() {
+        int actual = ClassNameUtils.getDimensionCount("java.lang.Object[][][]");
+        assertEquals(3, actual);
     }
 
     @Test

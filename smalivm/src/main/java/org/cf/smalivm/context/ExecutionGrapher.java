@@ -12,7 +12,7 @@ public class ExecutionGrapher {
         StringBuilder sb = new StringBuilder("digraph {\n");
         getGraph(node, graph, sb, new ArrayList<ExecutionNode>());
         sb.append("labelloc=\"t\"\n");
-        sb.append("label=\"").append(graph.getMethodDescriptor()).append("\";\n");
+        sb.append("label=\"").append(graph.getMethodSignature()).append("\";\n");
         sb.append('}');
 
         return sb.toString();

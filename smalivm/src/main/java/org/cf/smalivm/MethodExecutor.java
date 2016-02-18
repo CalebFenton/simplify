@@ -41,7 +41,7 @@ public class MethodExecutor {
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
                     MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
-        String methodDescriptor = graph.getMethodDescriptor();
+        String methodDescriptor = graph.getMethodSignature();
         ExecutionNode node = graph.getRoot();
         int callDepth = node.getCallDepth();
         log.info("Executing {}, depth={}", methodDescriptor, callDepth);

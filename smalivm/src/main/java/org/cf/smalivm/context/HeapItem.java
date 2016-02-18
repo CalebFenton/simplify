@@ -73,8 +73,8 @@ public class HeapItem {
         return type;
     }
 
-    public String getUnboxedValueType() {
-        String unboxedType = ClassNameUtils.getPrimitive(getType());
+    public String getUnboxedType() {
+        String unboxedType = ClassNameUtils.getPrimitive(type);
         if (unboxedType == null) {
             unboxedType = type;
         }
@@ -82,8 +82,22 @@ public class HeapItem {
         return unboxedType;
     }
 
+    public String getUnboxedValueType() {
+        String valueType = getValueType();
+        String unboxedType = ClassNameUtils.getPrimitive(valueType);
+        if (unboxedType == null) {
+            unboxedType = valueType;
+        }
+
+        return unboxedType;
+    }
+
     public @Nullable Object getValue() {
         return value;
+    }
+
+    public String getValueType() {
+        return ClassNameUtils.toInternal(getValue().getClass());
     }
 
     @Override
