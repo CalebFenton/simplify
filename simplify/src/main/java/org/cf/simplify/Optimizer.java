@@ -28,7 +28,7 @@ public class Optimizer {
     private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
     private final ExecutionGraphManipulator manipulator;
-    private final String methodDescriptor;
+    private final String methodSignature;
     private final List<OptimizationStrategy> reoptimizeStrategies;
     private final List<OptimizationStrategy> reexecuteStrategies;
     private final List<OptimizationStrategy> allStrategies;
@@ -39,7 +39,7 @@ public class Optimizer {
 
     public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder,
                     SimplifyOptions opts) {
-        methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
+        methodSignature = ReferenceUtil.getMethodDescriptor(method);
         manipulator = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
 
         reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
@@ -49,9 +49,11 @@ public class Optimizer {
         reoptimizeStrategies.add(new ConstantPropigationStrategy(manipulator));
         reoptimizeStrategies.add(new PeepholeStrategy(manipulator));
 
-        // Some strategies may alter semantics. E.g. it's possible to remove method reflection without knowing the
-        // result of the reflected method call. This leaves method states in a weird way, i.e. move-result has unknown
-        // values. In these cases, re-execute the method to establish semantics.
+        /*
+         * Some strategies may alter semantics. It's possible to remove method reflection without knowing the
+         * result of the reflected method call. This leaves method states in a weird way, i.e. move-result has unknown
+         * values. In these cases, re-execute the method to re-establish semantics.
+         */
         reexecuteStrategies = new LinkedList<OptimizationStrategy>();
         reexecuteStrategies.add(new UnreflectionStrategy(manipulator));
 
@@ -62,8 +64,23 @@ public class Optimizer {
         optimizationCounts = new HashMap<String, Integer>();
     }
 
+    public String getOptimizationCounts() {
+        StringBuilder sb = new StringBuilder("Optimizations:\n");
+        sb.append(buildOptimizationCounts(optimizationCounts));
+
+        return sb.toString();
+    }
+
+    public boolean madeChanges() {
+        return madeAnyChanges;
+    }
+
+    public boolean shouldReexecute() {
+        return shouldReexecute;
+    }
+
     public void simplify(int maxPasses) {
-        System.out.println("Simplifying: " + methodDescriptor);
+        System.out.println("Simplifying: " + methodSignature);
 
         int pass = 0;
         madeAnyChanges = false;
@@ -82,14 +99,6 @@ public class Optimizer {
         } while (madeChange && pass < maxPasses);
 
         updateOptimizationCounts();
-    }
-
-    public boolean madeChanges() {
-        return madeAnyChanges;
-    }
-
-    public boolean shouldReexecute() {
-        return shouldReexecute;
     }
 
     private void updateOptimizationCounts() {
@@ -115,15 +124,8 @@ public class Optimizer {
         }
     }
 
-    public String getOptimizationCounts() {
-        StringBuilder sb = new StringBuilder("Optimizations: ");
-        sb.append(buildOptimizationCounts(optimizationCounts));
-
-        return sb.toString();
-    }
-
     public static String getTotalOptimizationCounts() {
-        StringBuilder sb = new StringBuilder("Total optimizations: ");
+        StringBuilder sb = new StringBuilder("Total optimizations:\n");
         sb.append(buildOptimizationCounts(totalOptimizationCounts));
 
         return sb.toString();
@@ -135,10 +137,10 @@ public class Optimizer {
 
         StringBuilder sb = new StringBuilder();
         for (String key : keys) {
-            sb.append(key).append('=').append(counts.get(key)).append(", ");
+            sb.append('\t').append(key).append(" = ").append(counts.get(key)).append("\n");
         }
         if (sb.length() > 1) {
-            sb.setLength(sb.length() - 2);
+            sb.setLength(sb.length() - 1);
         }
 
         return sb;

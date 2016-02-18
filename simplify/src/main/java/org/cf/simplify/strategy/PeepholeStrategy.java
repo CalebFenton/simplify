@@ -59,8 +59,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
     @Override
     public Map<String, Integer> getOptimizationCounts() {
         Map<String, Integer> counts = new HashMap<String, Integer>();
-        counts.put("peeps", peepCount);
-        counts.put("constantIf", constantIfCount);
+        counts.put("peephole optmizations", peepCount);
+        counts.put("constantized ifs", constantIfCount);
 
         return counts;
     }

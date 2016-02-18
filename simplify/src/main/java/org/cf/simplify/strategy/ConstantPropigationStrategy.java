@@ -36,7 +36,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
     @Override
     public Map<String, Integer> getOptimizationCounts() {
         Map<String, Integer> counts = new HashMap<String, Integer>();
-        counts.put("constants", constantCount);
+        counts.put("constantized ops", constantCount);
 
         return counts;
     }

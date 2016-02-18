@@ -53,14 +53,14 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> result = new HashMap<String, Integer>();
-        result.put("unvisited", unvisitedCount);
-        result.put("unusedAssignment", unusedAssignmentCount);
-        result.put("unusedResult", unusedResultCount);
-        result.put("uselessBranch", uselessBranchCount);
-        result.put("nops", nopCount);
+        Map<String, Integer> counts = new HashMap<String, Integer>();
+        counts.put("dead ops removed", unvisitedCount);
+        counts.put("unused assignments removed", unusedAssignmentCount);
+        counts.put("unused results removed", unusedResultCount);
+        counts.put("useless gotos removed", uselessBranchCount);
+        counts.put("nops removed", nopCount);
 
-        return result;
+        return counts;
     }
 
     @Override
