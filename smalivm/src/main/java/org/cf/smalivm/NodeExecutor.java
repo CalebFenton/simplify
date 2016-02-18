@@ -25,7 +25,7 @@ public class NodeExecutor {
     public void execute(ExecutionNode node) throws UnhandledVirtualException {
         if (log.isDebugEnabled()) {
             Op op = node.getOp();
-            log.debug("Handling @{}:{}\nContext before:\n{}", op.getAddress(), op, node.getContext());
+            log.debug("Handling @{}: {}\nContext before:\n{}", op.getAddress(), op, node.getContext());
         }
 
         try {

@@ -24,18 +24,6 @@ public class ExecutionContext {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
 
-    private final VirtualMachine vm;
-    private final TMap<String, ClassStatus> classNameToStatus;
-    private final Heap heap;
-
-    private MethodState mState;
-    private ExecutionContext parent;
-    private String methodSignature;
-
-    private ExecutionContext callerContext;
-    private int callerAddress;
-    private int callDepth;
-
     private static class ClassStatus {
 
         private boolean isInitialized;
@@ -63,6 +51,17 @@ public class ExecutionContext {
             isInitialized = true;
         }
     }
+
+    private final VirtualMachine vm;
+    private final TMap<String, ClassStatus> classNameToStatus;
+    private final Heap heap;
+    private MethodState mState;
+    private ExecutionContext parent;
+    private String methodSignature;
+    private ExecutionContext callerContext;
+    private int callerAddress;
+
+    private int callDepth;
 
     public ExecutionContext(VirtualMachine vm, String methodSignature) {
         this.vm = vm;
@@ -97,10 +96,6 @@ public class ExecutionContext {
         return ancestor.classNameToStatus.get(className).getSideEffectLevel();
     }
 
-    Heap getHeap() {
-        return heap;
-    }
-
     public Set<String> getInitializedClasses() {
         Set<String> classes = new HashSet<String>();
         for (Entry<String, ClassStatus> entry : classNameToStatus.entrySet()) {
@@ -118,6 +113,10 @@ public class ExecutionContext {
 
     public MethodState getMethodState() {
         return mState;
+    }
+
+    public ExecutionContext getParent() {
+        return parent;
     }
 
     public void initializeClass(String className, ClassState cState, SideEffect.Level level) {
@@ -172,6 +171,21 @@ public class ExecutionContext {
 
     public void setMethodState(MethodState mState) {
         this.mState = mState;
+    }
+
+    public void setParent(ExecutionContext parent) {
+        setShallowParent(parent);
+
+        MethodState childMethodState = parent.getMethodState().getChild(this);
+        setMethodState(childMethodState);
+    }
+
+    public void setShallowParent(ExecutionContext parent) {
+        assert parent.getMethodState() != null;
+
+        this.parent = parent;
+        callDepth = parent.getCallDepth();
+        getHeap().setParent(parent.getHeap());
     }
 
     public ExecutionContext spawnChild() {
@@ -232,7 +246,7 @@ public class ExecutionContext {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         if (mState != null) {
-            sb.append("Method state: ").append(mState.toString());
+            sb.append(methodSignature).append(" State: ").append(mState.toString());
         }
         if (sb.length() > 0) {
             sb.append('\n');
@@ -250,6 +264,15 @@ public class ExecutionContext {
         return sb.toString();
     }
 
+    Heap getHeap() {
+        return heap;
+    }
+
+    void setClassSideEffectLevel(String className, SideEffect.Level level) {
+        peekClassState(className);
+        classNameToStatus.get(className).setSideEffectLevel(level);
+    }
+
     private ExecutionContext getAncestorWithClassName(String className) {
         ExecutionContext ancestor = this;
         do {
@@ -265,30 +288,6 @@ public class ExecutionContext {
     }
 
     private void setClassInitialized(String className, SideEffect.Level level) {
-        peekClassState(className);
-        classNameToStatus.get(className).setSideEffectLevel(level);
-    }
-
-    public void setParent(ExecutionContext parent) {
-        setShallowParent(parent);
-
-        MethodState childMethodState = parent.getMethodState().getChild(this);
-        setMethodState(childMethodState);
-    }
-
-    public void setShallowParent(ExecutionContext parent) {
-        assert parent.getMethodState() != null;
-
-        this.parent = parent;
-        callDepth = parent.getCallDepth();
-        getHeap().setParent(parent.getHeap());
-    }
-
-    public ExecutionContext getParent() {
-        return parent;
-    }
-
-    void setClassSideEffectLevel(String className, SideEffect.Level level) {
         peekClassState(className);
         classNameToStatus.get(className).setSideEffectLevel(level);
     }

@@ -21,7 +21,6 @@ public class ExecutionNode {
 
     private final List<ExecutionNode> children;
     private Op op;
-
     private ExecutionContext ectx;
     private ExecutionNode parent;
     private Set<VirtualException> exceptions;
@@ -162,7 +161,13 @@ public class ExecutionNode {
 
     @Override
     public String toString() {
-        return op.toString();
+        StringBuilder sb = new StringBuilder("ExecutionNode{");
+        if (this.ectx != null) {
+            sb.append("signature=").append(ectx.getMethodSignature()).append(", ");
+        }
+        sb.append("op=").append(op.toString()).append('}');
+
+        return sb.toString();
     }
 
     private void addChild(ExecutionNode child) {
