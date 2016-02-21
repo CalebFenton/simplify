@@ -29,10 +29,10 @@ Hygene
   move sideeffect out of op and into node
     op shared between all nodes at address, should record sideeffect per execution
 
-  replace all methodDescriptors internally with methodreferences
+  replace all methodDescriptors / methodSignature internally with methodreferences
     reduce string duplication and parsing (split)
 
-  smalivm shouldn't require grove
+  smalivm shouldn't require trove
     remove arrays and regular lists / sets instead
     primitive unboxing probably isn't that bad
 
@@ -61,6 +61,10 @@ Android class lifecycle initialization
 
   simplify 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
   ArrayLists are initialized in onCreate, but since that's not known, everything fails
+
+  MethodVisitor interface
+  SimpleMethodVisitor - executes each method in arbitrary order
+  AndroidLifecycleAwareMethodVisitor
 
 
 Emulate / spoof stack traces - requires call stack in context or similar
@@ -155,8 +159,6 @@ consider unit testing
 catch unhandled virtual exceptions in invokeop
 set THOSE as the exceptions, clear children, return
 make notes saying that just because eomething is unhandled doesn't mean if there's an actual context for a method instead of just starting it at the root then it might be a handled exception
-
-Cloner is not aware of many immutable classes. The problem is this is a micro optimization that has no obvious, clear way around. You need to give it class objects to ignore as immutable, which aren't available without a VM with a SmaliClassLoader that knows where the classes are.
 
 
 Success stories:
