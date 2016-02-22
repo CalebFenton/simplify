@@ -2,9 +2,10 @@ package org.cf.simplify.strategy;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.Dependancy;
@@ -46,8 +47,7 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         madeChanges = false;
 
         List<Integer> addresses = getValidAddresses();
-        Collections.sort(addresses);
-        Collections.reverse(addresses);
+        Collections.sort(addresses, Collections.reverseOrder());
         for (int address : addresses) {
             madeChanges = true;
             BuilderInstruction original = manipulator.getInstruction(address);
@@ -64,15 +64,14 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return madeChanges;
     }
 
-    private List<Integer> getValidAddresses() {
-        List<Integer> addresses = new LinkedList<Integer>();
-        for (int address : manipulator.getAddresses()) {
-            if (canConstantizeAddress(address)) {
-                addresses.add(address);
-            }
+    protected void getDependancies() {
+        if (constantBuilder == null) {
+            constantBuilder = new ConstantBuilder();
         }
+    }
 
-        return addresses;
+    protected void setDependancies(Dependancy dependancy) {
+        constantBuilder = (ConstantBuilder) dependancy;
     }
 
     private boolean canConstantizeAddress(int address) {
@@ -104,14 +103,9 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return true;
     }
 
-    protected void getDependancies() {
-        if (constantBuilder == null) {
-            constantBuilder = new ConstantBuilder();
-        }
-    }
-
-    protected void setDependancies(Dependancy dependancy) {
-        constantBuilder = (ConstantBuilder) dependancy;
+    private List<Integer> getValidAddresses() {
+        return IntStream.of(manipulator.getAddresses()).boxed().filter(a -> canConstantizeAddress(a))
+                        .collect(Collectors.toList());
     }
 
 }

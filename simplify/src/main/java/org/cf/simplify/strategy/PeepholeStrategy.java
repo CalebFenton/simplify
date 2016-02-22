@@ -1,16 +1,14 @@
 package org.cf.simplify.strategy;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.list.linked.TIntLinkedList;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
-
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
@@ -47,7 +45,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
     private final ExecutionGraphManipulator manipulator;
     private int peepCount;
     private int constantIfCount;
-    private TIntList addresses;
+    private List<Integer> addresses;
     private boolean madeChanges;
 
     public PeepholeStrategy(ExecutionGraphManipulator manipulator) {
@@ -99,6 +97,50 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return constClassInstruction;
     }
 
+    boolean canPeepCheckCast(int address) {
+        Op op = manipulator.getOp(address);
+        if (!op.toString().startsWith("check-cast")) {
+            return false;
+        }
+
+        BuilderInstruction21c original = (BuilderInstruction21c) manipulator.getInstruction(address);
+        int registerA = original.getRegisterA();
+
+        // Heap item at address would have been recast. Need to examine parents.
+        // Also, don't care about values. Just collecting types.
+        Set<String> ancestorTypes = new HashSet<String>();
+        for (int parentAddress : manipulator.getParentAddresses(address)) {
+            for (HeapItem item : manipulator.getRegisterItems(parentAddress, registerA)) {
+                ancestorTypes.add(item.getType());
+            }
+        }
+
+        if (ancestorTypes.size() > 1) {
+            // More than one type. At least one item was cast.
+            return false;
+        }
+
+        String preCastType;
+        if (ancestorTypes.size() > 0) {
+            preCastType = ancestorTypes.toArray(new String[1])[0];
+        } else {
+            // check-cast is first op with no parents
+            // this implies it's acting on a parameter register
+            // look at freshly spawned execution context type
+            ExecutionContext ectx = manipulator.getVM().spawnRootExecutionContext(manipulator.getMethodSignature());
+            HeapItem item = ectx.getMethodState().peekRegister(registerA);
+            preCastType = item.getType();
+        }
+
+        String referenceType = ReferenceUtil.getReferenceString(original.getReference());
+        if (!preCastType.equals(referenceType)) {
+            // Item was cast to new type
+            return false;
+        }
+
+        return true;
+    }
+
     boolean canPeepClassForName(int address) {
         Op op = manipulator.getOp(address);
         if (!(op instanceof InvokeOp)) {
@@ -122,25 +164,36 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return true;
     }
 
-    TIntList getValidAddresses(ExecutionGraphManipulator manipulator) {
-        TIntList addresses = new TIntLinkedList();
-        for (int address : manipulator.getAddresses()) {
-            if (manipulator.wasAddressReached(address)) {
-                addresses.add(address);
-            }
+    boolean canPeepStringInit(int address) {
+        BuilderInstruction original = manipulator.getInstruction(address);
+        if (!(original instanceof Instruction35c)) {
+            // Not an invoke direct
+            return false;
         }
 
-        return addresses;
+        Instruction35c instr = (Instruction35c) original;
+        MethodReference methodReference = (MethodReference) instr.getReference();
+        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
+        if (!methodDescriptor.startsWith("Ljava/lang/String;-><init>(")) {
+            return false;
+        }
+
+        int instanceRegister = instr.getRegisterC();
+        HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
+        if (!(item.getValue() instanceof String)) {
+            return false;
+        }
+
+        return true;
     }
 
-    void peepClassForName() {
-        TIntList peepAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            if (canPeepClassForName(address)) {
-                peepAddresses.add(address);
-            }
-        }
+    List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {
+        return IntStream.of(manipulator.getAddresses()).boxed().filter(a -> manipulator.wasAddressReached(a))
+                        .collect(Collectors.toList());
+    }
 
+    void peepCheckCast() {
+        List<Integer> peepAddresses = addresses.stream().filter(a -> canPeepCheckCast(a)).collect(Collectors.toList());
         if (0 == peepAddresses.size()) {
             return;
         }
@@ -148,9 +201,25 @@ public class PeepholeStrategy implements OptimizationStrategy {
         madeChanges = true;
         peepCount += peepAddresses.size();
 
-        peepAddresses.sort();
-        peepAddresses.reverse();
-        for (int address : peepAddresses.toArray()) {
+        Collections.sort(peepAddresses, Collections.reverseOrder());
+        for (int address : peepAddresses) {
+            log.debug("Removing useless check-cast @{} {}", address, manipulator.getOp(address));
+            manipulator.removeInstruction(address);
+        }
+    }
+
+    void peepClassForName() {
+        List<Integer> peepAddresses = addresses.stream().filter(a -> canPeepClassForName(a))
+                        .collect(Collectors.toList());
+        if (0 == peepAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
+        peepCount += peepAddresses.size();
+
+        Collections.sort(peepAddresses, Collections.reverseOrder());
+        for (int address : peepAddresses) {
             BuilderInstruction original = manipulator.getInstruction(address);
             int nextAddress = address + original.getCodeUnits();
             if (addresses.contains(nextAddress)) {
@@ -167,9 +236,9 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     void peepConstantPredicate() {
-        TIntList peepAddresses = new TIntArrayList();
-        TIntSet nextAddresses = new TIntHashSet();
-        for (int address : addresses.toArray()) {
+        List<Integer> peepAddresses = new LinkedList<Integer>();
+        Set<Integer> nextAddresses = new HashSet<Integer>();
+        for (int address : addresses) {
             BuilderInstruction original = manipulator.getInstruction(address);
             if (!(original instanceof Instruction22t || original instanceof Instruction21t)) {
                 continue;
@@ -201,9 +270,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
         madeChanges = true;
         constantIfCount += peepAddresses.size();
 
-        peepAddresses.sort();
-        peepAddresses.reverse();
-        for (int address : peepAddresses.toArray()) {
+        Collections.sort(peepAddresses, Collections.reverseOrder());
+        for (int address : peepAddresses) {
             BuilderInstruction replacement;
             if (nextAddresses.contains(address)) {
                 replacement = new BuilderInstruction10x(Opcode.NOP);
@@ -214,37 +282,14 @@ public class PeepholeStrategy implements OptimizationStrategy {
             }
 
             if (log.isDebugEnabled()) {
-                log.debug("Peeping constant predicate @{} {}", address, manipulator.getOp(address));
+                log.debug("Constantizing if @{} {}", address, manipulator.getOp(address));
             }
             manipulator.replaceInstruction(address, replacement);
         }
     }
 
     void peepStringInit() {
-        TIntList peepAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            BuilderInstruction original = manipulator.getInstruction(address);
-            if (!(original instanceof Instruction35c)) {
-                // Not an invoke direct
-                continue;
-            }
-
-            Instruction35c instr = (Instruction35c) original;
-            MethodReference methodReference = (MethodReference) instr.getReference();
-            String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
-            if (!methodDescriptor.startsWith("Ljava/lang/String;-><init>(")) {
-                continue;
-            }
-
-            int instanceRegister = instr.getRegisterC();
-            HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
-            if (!(item.getValue() instanceof String)) {
-                // Not UnknownValue
-                continue;
-            }
-            peepAddresses.add(address);
-        }
-
+        List<Integer> peepAddresses = addresses.stream().filter(a -> canPeepStringInit(a)).collect(Collectors.toList());
         if (0 == peepAddresses.size()) {
             return;
         }
@@ -252,9 +297,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
         madeChanges = true;
         peepCount += peepAddresses.size();
 
-        peepAddresses.sort();
-        peepAddresses.reverse();
-        for (int address : peepAddresses.toArray()) {
+        Collections.sort(peepAddresses, Collections.reverseOrder());
+        for (int address : peepAddresses) {
             BuilderInstruction original = manipulator.getInstruction(address);
             Instruction35c instr = (Instruction35c) original;
             int instanceRegister = instr.getRegisterC();
@@ -265,68 +309,6 @@ public class PeepholeStrategy implements OptimizationStrategy {
                 log.debug("Peeping string init @{} {}", address, manipulator.getOp(address));
             }
             manipulator.replaceInstruction(address, replacement);
-        }
-    }
-
-    void peepCheckCast() {
-        TIntList peepAddresses = new TIntArrayList();
-        for (int address : addresses.toArray()) {
-            Op op = manipulator.getOp(address);
-            if (!op.toString().startsWith("check-cast")) {
-                continue;
-            }
-
-            BuilderInstruction21c original = (BuilderInstruction21c) manipulator.getInstruction(address);
-            int registerA = original.getRegisterA();
-
-            // Heap item at address would have been recast. Need to examine parents.
-            // Also, don't care about values. Just collecting types.
-            Set<String> ancestorTypes = new HashSet<String>();
-            for (int parentAddress : manipulator.getParentAddresses(address)) {
-                for (HeapItem item : manipulator.getRegisterItems(parentAddress, registerA)) {
-                    ancestorTypes.add(item.getType());
-                }
-            }
-
-            if (ancestorTypes.size() > 1) {
-                // More than one type. At least one item was cast.
-                continue;
-            }
-
-            String preCastType;
-            if (ancestorTypes.size() > 0) {
-                preCastType = ancestorTypes.toArray(new String[1])[0];
-            } else {
-                // check-cast is first op with no parents
-                // this implies it's acting on a parameter register
-                // look at freshly spawned execution context type
-                ExecutionContext ectx = manipulator.getVM()
-                                .spawnRootExecutionContext(manipulator.getMethodSignature());
-                HeapItem item = ectx.getMethodState().peekRegister(registerA);
-                preCastType = item.getType();
-            }
-
-            String referenceType = ReferenceUtil.getReferenceString(original.getReference());
-            if (!preCastType.equals(referenceType)) {
-                // Item was cast to new type
-                continue;
-            }
-
-            peepAddresses.add(address);
-        }
-
-        if (0 == peepAddresses.size()) {
-            return;
-        }
-
-        madeChanges = true;
-        peepCount += peepAddresses.size();
-
-        peepAddresses.sort();
-        peepAddresses.reverse();
-        for (int address : peepAddresses.toArray()) {
-            log.debug("Removing useless check-cast @{} {}", address, manipulator.getOp(address));
-            manipulator.removeInstruction(address);
         }
     }
 

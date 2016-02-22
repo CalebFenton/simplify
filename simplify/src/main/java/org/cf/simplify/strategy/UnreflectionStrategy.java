@@ -1,16 +1,16 @@
 package org.cf.simplify.strategy;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
@@ -48,8 +48,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(UnreflectionStrategy.class.getSimpleName());
 
-    private static final String MethodInvokeSignature = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
-    private static final String FieldGetSignature = "Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String METHOD_INVOKE_SIGNATURE = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String FIELD_GET_SIGNATURE = "Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;";
 
     private final ExecutionGraphManipulator manipulator;
     private int unreflectedMethodCount;
@@ -98,7 +98,6 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
-        // assert methodValue instanceof Method;
         assert !(parametersValue instanceof UnknownValue);
 
         Method method = (Method) methodValue;
@@ -114,29 +113,31 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         boolean isRange = 5 < parameterRegisterCount;
         List<Integer> registers = new LinkedList<Integer>();
         if (invokeRegisterCount > 0) {
-            TIntList availableRegisters = new TIntArrayList(manipulator.getAvailableRegisters(address));
-            availableRegisters.sort();
+            List<Integer> availableRegisters1 = IntStream.of(manipulator.getAvailableRegisters(address)).boxed()
+                            .sorted().collect(Collectors.toList());
+
             if (parametersValue instanceof Object[] && 0 < ((Object[]) parametersValue).length) {
                 // Not just an empty array, so will need to pull values out later.
-                availableRegisters.remove(parametersRegister);
+                availableRegisters1.remove((Integer) parametersRegister);
             }
 
-            if (availableRegisters.size() < parameterRegisterCount) {
+            if (availableRegisters1.size() < parameterRegisterCount) {
                 // Add some more locals to this method
                 String methodDescriptor = manipulator.getMethodSignature();
                 BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
                 int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                 int registerCount = oldRegisterCount + invokeRegisterCount;
                 setRegisterCount(builderMethod, registerCount);
-                availableRegisters.clear();
-                for (int register = oldRegisterCount; register < registerCount; register++) {
-                    availableRegisters.add(register);
+
+                availableRegisters1.clear();
+                for (Integer register = oldRegisterCount; register < registerCount; register++) {
+                    availableRegisters1.add(register);
                 }
             }
 
-            int[] fourBitRegisters = getFourBitValues(availableRegisters);
+            Integer[] fourBitRegisters = getFourBitValues(availableRegisters1);
             if (fourBitRegisters.length < parameterRegisterCount) {
-                // invoke/range doesn't need all registers to be <4 bits
+                // Not enough four bit registers, use invoke/range since not all registers need be < 4 bits
                 isRange = true;
             }
 
@@ -146,12 +147,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 }
             } else {
                 // Either find contiguous available or make them available
-                for (int i = 0; i < availableRegisters.size() && registers.size() < invokeRegisterCount; i++) {
-                    int register = availableRegisters.get(i);
+                for (int i = 0; i < availableRegisters1.size() && registers.size() < invokeRegisterCount; i++) {
+                    Integer register = availableRegisters1.get(i);
                     registers.add(register);
 
-                    if (i + 1 < availableRegisters.size()) {
-                        int nextRegister = availableRegisters.get(i + 1);
+                    if (i + 1 < availableRegisters1.size()) {
+                        Integer nextRegister = availableRegisters1.get(i + 1);
                         if (nextRegister - register != 1) {
                             registers.clear();
                         }
@@ -166,7 +167,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                     int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                     int registerCount = oldRegisterCount + invokeRegisterCount;
                     setRegisterCount(builderMethod, registerCount);
-                    for (int register = oldRegisterCount; register < registerCount; register++) {
+                    for (Integer register = oldRegisterCount; register < registerCount; register++) {
                         registers.add(register);
                     }
                 }
@@ -174,7 +175,6 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         }
 
         List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
-
         if (!isStatic && isRange) {
             int instanceRegister = registers.get(0);
             BuilderInstruction move = new BuilderInstruction32x(Opcode.MOVE_OBJECT_16, instanceRegister, targetRegister);
@@ -218,7 +218,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         BuilderInstruction instruction = manipulator.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
         String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!methodSignature.equals(FieldGetSignature)) {
+        if (!methodSignature.equals(FIELD_GET_SIGNATURE)) {
             return false;
         }
 
@@ -260,7 +260,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         BuilderInstruction instruction = manipulator.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
         String methodSignature = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!methodSignature.equals(MethodInvokeSignature)) {
+        if (!methodSignature.equals(METHOD_INVOKE_SIGNATURE)) {
             return false;
         }
 
@@ -448,23 +448,19 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private void replaceMethodInvoke() {
-        TIntList invokeAddresses = new TIntArrayList();
-        for (int address : addresses) {
-            if (canReplaceMethodInvoke(address)) {
-                invokeAddresses.add(address);
-            }
-        }
+        int[] invokeAddresses = Arrays.stream(addresses).filter(a -> canReplaceMethodInvoke(a)).sorted().toArray();
 
-        if (0 == invokeAddresses.size()) {
+        int count = invokeAddresses.length;
+        if (count == 0) {
             return;
         }
 
         madeChanges = true;
-        unreflectedMethodCount += invokeAddresses.size();
+        unreflectedMethodCount += count;
 
-        invokeAddresses.sort();
-        invokeAddresses.reverse();
-        for (int address : invokeAddresses.toArray()) {
+        for (int i = count - 1; i >= 0; i--) {
+            // Always replace in reverse order to avoid changing addresses
+            int address = invokeAddresses[i];
             List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
             try {
                 replacements = buildMethodInvokeReplacement(address);
@@ -519,16 +515,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return op;
     }
 
-    private static int[] getFourBitValues(TIntList values) {
-        List<Integer> fourBitValues = new LinkedList<Integer>();
-        for (int i = 0; i < values.size(); i++) {
-            int value = values.get(i);
-            if (value <= 0b1111) { // you don't see this literal format every day
-                fourBitValues.add(value);
-            }
-        }
-
-        return Ints.toArray(fourBitValues);
+    private static Integer[] getFourBitValues(List<Integer> values) {
+        return values.stream().filter(v -> v <= 0b1111).toArray(size -> new Integer[size]);
     }
 
     private static void setRegisterCount(BuilderMethod method, int registerCount) throws Exception {

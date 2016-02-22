@@ -2,10 +2,7 @@ package org.cf.simplify;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.map.TIntObjectMap;
-import gnu.trove.set.TIntSet;
-import gnu.trove.set.hash.TIntHashSet;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -106,32 +103,29 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         addInstruction(getLocation(address), newInstruction);
     }
 
+    private int getRegisterCount(int address) {
+        return getNodePile(address).get(0).getContext().getMethodState().getRegisterCount();
+    }
+
     public int[] getAvailableRegisters(int address) {
-        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildren(address));
-        ExecutionNode node = stack.peek();
-        if (null == node) {
-            // Edge case.
-            assert getTemplateNode(address).getOp() instanceof ReturnOp || getTemplateNode(address).getOp() instanceof ReturnVoidOp;
-            MethodState mState = getNodePile(address).get(0).getContext().getMethodState();
-            TIntList available = new TIntLinkedList();
-            // They're all available!
-            for (int i = 0; i < mState.getRegisterCount(); i++) {
-                available.add(i);
-            }
-
-            return available.toArray();
-        }
-
-        int[] registers = new int[node.getContext().getMethodState().getRegisterCount()];
+        int[] registers = new int[getRegisterCount(address)];
         for (int i = 0; i < registers.length; i++) {
             registers[i] = i;
         }
-        TIntSet registersRead = new TIntHashSet();
-        TIntSet registersAssigned = new TIntHashSet();
+
+        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>(getChildren(address));
+        ExecutionNode node = stack.peek();
+        if (null == node) {
+            // No children. All registers available!
+            assert getTemplateNode(address).getOp() instanceof ReturnOp || getTemplateNode(address).getOp() instanceof ReturnVoidOp;
+            return registers;
+        }
+
+        Set<Integer> registersRead = new HashSet<Integer>();
+        Set<Integer> registersAssigned = new HashSet<Integer>();
         while ((node = stack.poll()) != null) {
-            // TODO: easy - determine if dalvik allows you to overwrite the "this" register for instance methods
             MethodState mState = node.getContext().getMethodState();
-            for (int register : registers) {
+            for (Integer register : registers) {
                 if (registersRead.contains(register) || registersAssigned.contains(register)) {
                     continue;
                 }
@@ -151,15 +145,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             stack.addAll(node.getChildren());
         }
 
-        TIntList available = new TIntLinkedList();
-        for (int register : registers) {
-            if (registersRead.contains(register)) {
-                continue;
-            }
-            available.add(register);
-        }
-
-        return available.toArray();
+        return Arrays.stream(registers).filter(r -> !registersRead.contains(r)).toArray();
     }
 
     public List<ExecutionNode> getChildren(int address) {
