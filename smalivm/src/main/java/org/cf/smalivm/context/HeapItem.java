@@ -33,22 +33,6 @@ public class HeapItem {
         type = other.getType();
     }
 
-    public double asDouble() {
-        return Utils.getDoubleValue(getValue());
-    }
-
-    public float asFloat() {
-        return Utils.getFloatValue(getValue());
-    }
-
-    public int asInteger() {
-        return Utils.getIntegerValue(getValue());
-    }
-
-    public long asLong() {
-        return Utils.getLongValue(getValue());
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (obj == null) {
@@ -67,6 +51,22 @@ public class HeapItem {
 
     public String getComponentBase() {
         return ClassNameUtils.getComponentBase(getType());
+    }
+
+    public double asDouble() {
+        return Utils.getDoubleValue(getValue());
+    }
+
+    public float asFloat() {
+        return Utils.getFloatValue(getValue());
+    }
+
+    public int asInteger() {
+        return Utils.getIntegerValue(getValue());
+    }
+
+    public long asLong() {
+        return Utils.getLongValue(getValue());
     }
 
     public String getType() {

@@ -46,42 +46,15 @@ public class MethodReflector {
 
     }
 
-    public void reflect(MethodState calleeContext) {
+    public void reflect(MethodState mState) {
         if (log.isDebugEnabled()) {
-            log.debug("Reflecting {} with context:\n{}", virtualMethod, calleeContext);
+            log.debug("Reflecting {} with context:\n{}", virtualMethod, mState);
         }
 
-        Object resultValue = null;
+        Object returnValue = null;
         try {
-            // TODO: easy - add tests for array class method reflecting
-            Class<?> klazz = Class.forName(virtualMethod.getBinaryClassName());
-            InvocationArguments invocationArgs = getArguments(calleeContext);
-            Object[] args = invocationArgs.getArgs();
-            Class<?>[] parameterTypes = invocationArgs.getParameterTypes();
-            if (virtualMethod.isStatic()) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Reflecting {}, clazz={} args={}", virtualMethod, klazz, Arrays.toString(args));
-                }
-                resultValue = MethodUtils
-                                .invokeStaticMethod(klazz, virtualMethod.getMethodName(), args, parameterTypes);
-            } else {
-                if ("<init>".equals(virtualMethod.getMethodName())) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Reflecting {}, class={} args={}", virtualMethod, klazz, Arrays.toString(args));
-                    }
-                    resultValue = ConstructorUtils.invokeConstructor(klazz, args);
-                    calleeContext.assignParameter(0, new HeapItem(resultValue, virtualMethod.getClassName()));
-                } else {
-                    HeapItem targetItem = calleeContext.peekRegister(0);
-                    if (log.isDebugEnabled()) {
-                        log.debug("Reflecting {}, target={} args={}", virtualMethod, targetItem, Arrays.toString(args));
-                    }
-                    resultValue = MethodUtils.invokeMethod(targetItem.getValue(), virtualMethod.getMethodName(), args,
-                                    parameterTypes);
-                }
-            }
+            returnValue = invoke(mState);
         } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-            resultValue = new UnknownValue();
             if (log.isWarnEnabled()) {
                 log.warn("Failed to reflect {}: {}", virtualMethod, e.getMessage());
             }
@@ -89,11 +62,13 @@ public class MethodReflector {
             if (log.isDebugEnabled()) {
                 log.debug("Stack trace:", e);
             }
+
+            returnValue = new UnknownValue();
         }
 
         if (!virtualMethod.returnsVoid()) {
-            HeapItem resultItem = new HeapItem(resultValue, virtualMethod.getReturnType());
-            calleeContext.assignReturnRegister(resultItem);
+            HeapItem returnItem = new HeapItem(returnValue, virtualMethod.getReturnType());
+            mState.assignReturnRegister(returnItem);
         }
     }
 
@@ -138,6 +113,38 @@ public class MethodReflector {
         }
 
         return new InvocationArguments(args, parameterTypes);
+    }
+
+    private Object invoke(MethodState mState) throws ClassNotFoundException, NoSuchMethodException,
+                    IllegalAccessException, InvocationTargetException, InstantiationException {
+        Object returnValue;
+        Class<?> klazz = Class.forName(virtualMethod.getBinaryClassName());
+        InvocationArguments invocationArgs = getArguments(mState);
+        Object[] args = invocationArgs.getArgs();
+        Class<?>[] parameterTypes = invocationArgs.getParameterTypes();
+        if (virtualMethod.isStatic()) {
+            if (log.isDebugEnabled()) {
+                log.debug("Reflecting {}, clazz={} args={}", virtualMethod, klazz, Arrays.toString(args));
+            }
+            returnValue = MethodUtils.invokeStaticMethod(klazz, virtualMethod.getMethodName(), args, parameterTypes);
+        } else {
+            if ("<init>".equals(virtualMethod.getMethodName())) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Reflecting {}, class={} args={}", virtualMethod, klazz, Arrays.toString(args));
+                }
+                returnValue = ConstructorUtils.invokeConstructor(klazz, args);
+                mState.assignParameter(0, new HeapItem(returnValue, virtualMethod.getClassName()));
+            } else {
+                HeapItem targetItem = mState.peekRegister(0);
+                if (log.isDebugEnabled()) {
+                    log.debug("Reflecting {}, target={} args={}", virtualMethod, targetItem, Arrays.toString(args));
+                }
+                returnValue = MethodUtils.invokeMethod(targetItem.getValue(), virtualMethod.getMethodName(), args,
+                                parameterTypes);
+            }
+        }
+
+        return returnValue;
     }
 
 }
