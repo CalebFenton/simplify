@@ -7,6 +7,8 @@ import gnu.trove.map.TIntObjectMap;
 import java.util.List;
 
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.reference.MethodFactory;
+import org.cf.smalivm.reference.VirtualMethod;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -25,19 +27,22 @@ public class InvokeOpFactory implements OpFactory {
         MethodLocation child = Utils.getNextLocation(location, addressToLocation);
         BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         String opName = instruction.getOpcode().name;
-
         MethodReference methodReference = (MethodReference) ((ReferenceInstruction) instruction).getReference();
-        String methodDescriptor = ReferenceUtil.getMethodDescriptor(methodReference);
-
+        String methodSignature = ReferenceUtil.getMethodDescriptor(methodReference);
         int[] registers = buildRegisters(location.getInstruction());
-        String returnType = methodReference.getReturnType();
-        boolean isStatic = opName.contains("-static");
-        ClassManager classManager = vm.getClassManager();
-        List<String> parameterTypes = getParameterTypes(methodDescriptor, isStatic, classManager);
-        int[] parameterRegisters = buildParameterRegisters(parameterTypes, registers);
 
-        return new InvokeOp(location, child, methodDescriptor, returnType, parameterRegisters, parameterTypes, vm,
-                        isStatic);
+        VirtualMethod virtualMethod;
+        ClassManager classManager = vm.getClassManager();
+        if (classManager.isLocalMethod(methodSignature)) {
+            virtualMethod = classManager.getMethod(methodSignature);
+        } else {
+            boolean isStatic = opName.contains("-static");
+            MethodFactory methodFactory = classManager.getMethodFactory();
+            virtualMethod = methodFactory.build(methodSignature, isStatic);
+        }
+        int[] parameterRegisters = buildParameterRegisters(virtualMethod.getParameterTypes(), registers);
+
+        return new InvokeOp(location, child, virtualMethod, parameterRegisters, vm);
     }
 
     private int[] buildParameterRegisters(List<String> parameterTypes, int[] registers) {
@@ -52,24 +57,6 @@ public class InvokeOpFactory implements OpFactory {
         }
 
         return parameterRegisters.toArray();
-    }
-
-    private static List<String> getParameterTypes(String methodDescriptor, boolean isStatic, ClassManager classManager) {
-        List<String> parameterTypes = null;
-        if (classManager.isLocalMethod(methodDescriptor) && !classManager.isFrameworkClass(methodDescriptor) || classManager
-                        .isSafeFrameworkClass(methodDescriptor)) {
-            parameterTypes = classManager.getParameterTypes(methodDescriptor);
-        }
-
-        if (parameterTypes == null) {
-            // Possibly a framework class, but the method was not found.
-            parameterTypes = Utils.getParameterTypes(methodDescriptor);
-            if (!isStatic) {
-                parameterTypes.add(0, methodDescriptor.split("->")[0]);
-            }
-        }
-
-        return parameterTypes;
     }
 
     private static int[] buildRegisters(Instruction instr) {

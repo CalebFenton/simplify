@@ -152,7 +152,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             }
 
             if (op.getName().startsWith("invoke-direct")) {
-                if (manipulator.getMethodSignature().contains(";-><init>(")) {
+                if (manipulator.getMethod().getSignature().contains(";-><init>(")) {
                     // Can't remove init method without breaking the object
                     ExecutionNode node = manipulator.getNodePile(address).get(0);
                     ExecutionContext ectx = node.getContext();

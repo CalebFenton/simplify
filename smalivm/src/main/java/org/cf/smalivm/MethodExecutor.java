@@ -13,6 +13,7 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.ClassManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,12 +42,12 @@ public class MethodExecutor {
     ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
                     MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
-        String methodDescriptor = graph.getMethodSignature();
+        LocalMethod localMethod = graph.getMethod();
         ExecutionNode node = graph.getRoot();
         int callDepth = node.getCallDepth();
-        log.info("Executing {}, depth={}", methodDescriptor, callDepth);
+        log.info("Executing {}, depth={}", localMethod, callDepth);
         if (node.getCallDepth() > getMaxCallDepth()) {
-            throw new MaxCallDepthExceeded(methodDescriptor);
+            throw new MaxCallDepthExceeded(localMethod.getSignature());
         }
 
         if (callDepth == 0) {
@@ -60,36 +61,36 @@ public class MethodExecutor {
         long endTime = System.currentTimeMillis() + (maxExecutionTime * 1000);
         while ((node = stack.poll()) != null) {
             totalVisits += 1;
-            checkMaxVisits(node, methodDescriptor, addressToVisitCount);
+            checkMaxVisits(node, localMethod, addressToVisitCount);
 
             nodeExecutor.execute(node);
             stack.addAll(node.getChildren());
-            checkMaxExecutionTime(endTime, methodDescriptor);
+            checkMaxExecutionTime(endTime, localMethod);
         }
 
         return graph;
     }
 
-    private void checkMaxExecutionTime(long endTime, String methodDescriptor) throws MaxExecutionTimeExceeded {
+    private void checkMaxExecutionTime(long endTime, LocalMethod localMethod) throws MaxExecutionTimeExceeded {
         if (maxExecutionTime == 0) {
             return;
         }
 
         if (System.currentTimeMillis() >= endTime) {
-            throw new MaxExecutionTimeExceeded(methodDescriptor);
+            throw new MaxExecutionTimeExceeded(localMethod.getSignature());
         }
     }
 
-    private void checkMaxVisits(ExecutionNode node, String methodDescriptor, TIntIntMap addressToVisitCount)
+    private void checkMaxVisits(ExecutionNode node, LocalMethod localMethod, TIntIntMap addressToVisitCount)
                     throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
         if (totalVisits > getMaxMethodVisits()) {
-            throw new MaxMethodVisitsExceeded(node, methodDescriptor);
+            throw new MaxMethodVisitsExceeded(node, localMethod.getSignature());
         }
 
         int address = node.getAddress();
         int visitCount = addressToVisitCount.get(address);
         if (visitCount > getMaxAddressVisits()) {
-            throw new MaxAddressVisitsExceeded(node, methodDescriptor);
+            throw new MaxAddressVisitsExceeded(node, localMethod.getSignature());
         }
         boolean adjusted = addressToVisitCount.adjustValue(address, 1);
         if (!adjusted) {

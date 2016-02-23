@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.ClassManager;
 import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -21,7 +22,7 @@ public class ExceptionHandlerAddressResolverTest {
     private static final String EXCEPTION1 = "Ljava/lang/Exception";
     private static final String EXCEPTION2 = "Ljava/lang/RuntimeException;";
     private static final String EXCEPTION3 = "Ljava/lang/NullPointerException;";
-    private static final String METHOD = "someMethod";
+    private static LocalMethod METHOD;
 
     private List<BuilderTryBlock> tryBlocks;
     private ClassManager classManager;
@@ -35,7 +36,9 @@ public class ExceptionHandlerAddressResolverTest {
         when(classManager.getClassAncestors(EXCEPTION3)).thenReturn(new HashSet<String>(Arrays.asList(EXCEPTION2)));
         when(classManager.getClassAncestors(EXCEPTION2)).thenReturn(new HashSet<String>(Arrays.asList(EXCEPTION1)));
         when(classManager.getClassAncestors(EXCEPTION1)).thenReturn(new HashSet<String>());
-        when(classManager.getTryBlocks(METHOD)).thenReturn(tryBlocks);
+
+        METHOD = mock(LocalMethod.class);
+        when(METHOD.getTryBlocks()).thenReturn(tryBlocks);
     }
 
     private static BuilderTryBlock buildTryBlock(int startAddress, int codeUnits,

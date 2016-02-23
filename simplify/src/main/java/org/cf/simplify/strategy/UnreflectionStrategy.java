@@ -16,6 +16,7 @@ import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
@@ -123,8 +124,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
             if (availableRegisters1.size() < parameterRegisterCount) {
                 // Add some more locals to this method
-                String methodDescriptor = manipulator.getMethodSignature();
-                BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
+                LocalMethod localMethod = manipulator.getMethod();
+                BuilderMethod builderMethod = localMethod.getMethodDefinition();
                 int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                 int registerCount = oldRegisterCount + invokeRegisterCount;
                 setRegisterCount(builderMethod, registerCount);
@@ -162,8 +163,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 if (registers.size() < invokeRegisterCount) {
                     // Couldn't find enough contiguous. Expand locals and use registers at the end.
                     registers.clear();
-                    String methodDescriptor = manipulator.getMethodSignature();
-                    BuilderMethod builderMethod = manipulator.getVM().getClassManager().getMethod(methodDescriptor);
+                    BuilderMethod builderMethod = manipulator.getMethod().getMethodDefinition();
                     int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                     int registerCount = oldRegisterCount + invokeRegisterCount;
                     setRegisterCount(builderMethod, registerCount);
@@ -279,7 +279,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             return false;
         }
 
-        String className = manipulator.getMethodSignature().split("->")[0];
+        String className = manipulator.getMethod().getClassName();
         Method method = (Method) methodValue;
         int methodAccessFlags = method.getModifiers();
         String declaringClass = ClassNameUtils.toInternal(method.getDeclaringClass());
@@ -461,14 +461,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         for (int i = count - 1; i >= 0; i--) {
             // Always replace in reverse order to avoid changing addresses
             int address = invokeAddresses[i];
-            List<BuilderInstruction> replacements = new LinkedList<BuilderInstruction>();
             try {
-                replacements = buildMethodInvokeReplacement(address);
+                List<BuilderInstruction> replacements = buildMethodInvokeReplacement(address);
+                manipulator.replaceInstruction(address, replacements);
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("Unable to unreflect method invocation @" + address, e);
             }
-
-            manipulator.replaceInstruction(address, replacements);
         }
     }
 

@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.builder.BuilderTryBlock;
@@ -17,9 +18,9 @@ public class ExceptionHandlerAddressResolver {
     private final ClassManager classManager;
     private final List<BuilderTryBlock> tryBlocks;
 
-    ExceptionHandlerAddressResolver(ClassManager classManager, String methodDescriptor) {
+    ExceptionHandlerAddressResolver(ClassManager classManager, LocalMethod localMethod) {
         this.classManager = classManager;
-        tryBlocks = classManager.getTryBlocks(methodDescriptor);
+        tryBlocks = localMethod.getTryBlocks();
     }
 
     int resolve(Exception ex, int address) {

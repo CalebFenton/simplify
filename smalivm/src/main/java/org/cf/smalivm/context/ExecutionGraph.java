@@ -23,12 +23,11 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
+import org.cf.smalivm.reference.LocalMethod;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
-import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,13 +78,13 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addresses.toArray();
     }
 
-    private final String methodDescriptor;
+    private final LocalMethod localMethod;
     private final int[] terminatingAddresses;
     protected final Map<MethodLocation, List<ExecutionNode>> locationToNodePile;
     protected final TIntObjectMap<MethodLocation> addressToLocation;
 
     public ExecutionGraph(ExecutionGraph other) {
-        methodDescriptor = other.methodDescriptor;
+        localMethod = other.localMethod;
         locationToNodePile = new HashMap<MethodLocation, List<ExecutionNode>>();
         for (MethodLocation location : other.locationToNodePile.keySet()) {
             List<ExecutionNode> otherNodePile = other.locationToNodePile.get(location);
@@ -100,15 +99,15 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public ExecutionGraph(ExecutionGraph other, boolean wrap) {
+        localMethod = other.localMethod;
         locationToNodePile = other.locationToNodePile;
-        methodDescriptor = other.methodDescriptor;
         terminatingAddresses = other.terminatingAddresses;
         addressToLocation = other.addressToLocation;
     }
 
-    public ExecutionGraph(VirtualMachine vm, BuilderMethod method) {
-        methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-        MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
+    public ExecutionGraph(VirtualMachine vm, LocalMethod localMethod) {
+        this.localMethod = localMethod;
+        MutableMethodImplementation implementation = localMethod.getImplementation();
         addressToLocation = buildAddressToLocation(implementation);
         locationToNodePile = buildLocationToNodePile(vm, addressToLocation);
         List<BuilderInstruction> instructions = implementation.getInstructions();
@@ -286,8 +285,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return result;
     }
 
-    public String getMethodSignature() {
-        return methodDescriptor;
+    public LocalMethod getMethod() {
+        return localMethod;
     }
 
     public int getNodeCount() {

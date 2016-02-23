@@ -23,7 +23,10 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.reference.LocalMethod;
+import org.cf.smalivm.reference.VirtualMethod;
 import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -34,28 +37,22 @@ public class InvokeOp extends ExecutionContextOp {
 
     private static final Logger log = LoggerFactory.getLogger(InvokeOp.class.getSimpleName());
 
-    private final String methodSignature;
+    private final VirtualMethod virtualMethod;
     private final int[] parameterRegisters;
-    private final List<String> parameterTypes;
     private final String[] analyzedParameterTypes;
-    private final String returnType;
     private final VirtualMachine vm;
     private final ClassManager classManager;
-    private final boolean isStatic;
     private SideEffect.Level sideEffectLevel;
 
-    InvokeOp(MethodLocation location, MethodLocation child, String methodSignature, String returnType,
-                    int[] parameterRegisters, List<String> parameterTypes, VirtualMachine vm, boolean isStatic) {
+    InvokeOp(MethodLocation location, MethodLocation child, VirtualMethod virtualMethod, int[] parameterRegisters,
+                    VirtualMachine vm) {
         super(location, child);
 
-        this.methodSignature = methodSignature;
-        this.returnType = returnType;
+        this.virtualMethod = virtualMethod;
         this.parameterRegisters = parameterRegisters;
-        this.parameterTypes = parameterTypes;
-        analyzedParameterTypes = new String[parameterTypes.size()];
+        analyzedParameterTypes = new String[virtualMethod.getParameterTypes().size()];
         this.vm = vm;
         classManager = vm.getClassManager();
-        this.isStatic = isStatic;
         sideEffectLevel = SideEffect.Level.STRONG;
     }
 
@@ -68,8 +65,8 @@ public class InvokeOp extends ExecutionContextOp {
         // With this mapping, stack traces can be reconstructed.
 
         MethodState callerMethodState = ectx.getMethodState();
-        if (methodSignature.equals("Ljava/lang/Object;-><init>()V")) {
-            // Object init is a special little snow flake
+        if (virtualMethod.getSignature().equals("Ljava/lang/Object;-><init>()V")) {
+            // Object.<init> is a special little snow flake
             try {
                 executeLocalObjectInit(callerMethodState);
             } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
@@ -80,60 +77,61 @@ public class InvokeOp extends ExecutionContextOp {
 
         analyzeParameterTypes(callerMethodState);
 
-        String targetMethod = methodSignature;
+        String targetSignature = virtualMethod.getSignature();
         if (getName().startsWith("invoke-virtual")) { // -virtual/range
             // Resolve what the actual virtual target is because method call may be to interface or abstract class.
             int targetRegister = parameterRegisters[0];
             HeapItem item = ectx.getMethodState().peekRegister(targetRegister);
-            targetMethod = resolveVirtualMethod(item.getValue());
+            targetSignature = resolveVirtualMethod(item.getValue());
         }
 
         // Try to reflect or emulate before using local class.
-        if (vm.getConfiguration().isSafe(targetMethod) || MethodEmulator.canEmulate(targetMethod)) {
+        if (vm.getConfiguration().isSafe(targetSignature) || MethodEmulator.canEmulate(targetSignature)) {
             ExecutionContext calleeContext = buildNonLocalCalleeContext(ectx);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
-            if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetMethod)) {
-                executeNonLocalMethod(targetMethod, callerMethodState, calleeContext, node);
+            if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetSignature)) {
+                executeNonLocalMethod(targetSignature, callerMethodState, calleeContext, node);
                 return;
             } else {
                 if (log.isTraceEnabled()) {
-                    log.trace("Not emulating / reflecting {} because all args not known.", targetMethod);
+                    log.trace("Not emulating / reflecting {} because all args not known.", targetSignature);
                 }
                 assumeMaximumUnknown(callerMethodState);
-            }
-        } else {
-            // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
-            if (classManager.isLocalMethod(targetMethod)) {
-                if (classManager.isFrameworkClass(targetMethod) && !classManager.isSafeFrameworkClass(targetMethod)) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Not executing unsafe framework method: {}. Assuming maxiumum ambiguity.",
-                                        targetMethod);
-                    }
-                    assumeMaximumUnknown(callerMethodState);
-                    return;
-                }
-
-                if (!classManager.methodHasImplementation(targetMethod)) {
-                    if (log.isWarnEnabled()) {
-                        if (!classManager.isNativeMethod(targetMethod)) {
-                            log.warn("Attempting to execute local method without implementation: {}. Assuming maxiumum ambiguity.",
-                                            targetMethod);
-                        } else {
-                            log.warn("Cannot execute local native method: {}. Assuming maxiumum ambiguity.",
-                                            targetMethod);
-                        }
-                    }
-                    assumeMaximumUnknown(callerMethodState);
-                    return;
-                }
-
-                ExecutionContext calleeContext = buildLocalCalleeContext(ectx, targetMethod);
-                executeLocalMethod(targetMethod, ectx, calleeContext);
-            } else {
-                log.debug("Unknown method: {}. Assuming maximum ambiguity.", targetMethod);
-                assumeMaximumUnknown(callerMethodState);
+                return;
             }
         }
+
+        // This assumes if reflection or emulation fails, not worth it to try possibly cached framework classes.
+        if (!classManager.isLocalMethod(targetSignature)) {
+            log.debug("Unknown method: {}. Assuming maximum ambiguity.", targetSignature);
+            assumeMaximumUnknown(callerMethodState);
+            return;
+        }
+
+        LocalMethod localMethod = classManager.getMethod(targetSignature);
+        if (classManager.isFrameworkClass(targetSignature) && !classManager.isSafeFrameworkClass(targetSignature)) {
+            if (log.isDebugEnabled()) {
+                log.debug("Not executing unsafe framework method: {}. Assuming maxiumum ambiguity.", targetSignature);
+            }
+            assumeMaximumUnknown(callerMethodState);
+            return;
+        }
+
+        if (!localMethod.hasImplementation()) {
+            if (log.isWarnEnabled()) {
+                if (!localMethod.isNative()) {
+                    log.warn("Attempting to execute local method without implementation: {}. Assuming maxiumum ambiguity.",
+                                    targetSignature);
+                } else {
+                    log.warn("Cannot execute local native method: {}. Assuming maxiumum ambiguity.", targetSignature);
+                }
+            }
+            assumeMaximumUnknown(callerMethodState);
+            return;
+        }
+
+        ExecutionContext calleeContext = buildLocalCalleeContext(ectx, localMethod);
+        executeLocalMethod(targetSignature, ectx, calleeContext);
     }
 
     public int[] getParameterRegisters() {
@@ -141,7 +139,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     public String getReturnType() {
-        return returnType;
+        return virtualMethod.getReturnType();
     }
 
     @Override
@@ -164,7 +162,7 @@ public class InvokeOp extends ExecutionContextOp {
                 sb.setLength(sb.length() - 2);
             }
         }
-        sb.append("}, ").append(methodSignature);
+        sb.append("}, ").append(virtualMethod);
 
         return sb.toString();
     }
@@ -192,6 +190,7 @@ public class InvokeOp extends ExecutionContextOp {
          * type. For example:
          * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
          */
+        List<String> parameterTypes = virtualMethod.getParameterTypes();
         for (int i = 0; i < parameterRegisters.length; i++) {
             int callerRegister = parameterRegisters[i];
             HeapItem item = callerState.readRegister(callerRegister);
@@ -237,7 +236,7 @@ public class InvokeOp extends ExecutionContextOp {
 
     private void assumeMaximumUnknown(MethodState callerMethodState) {
         // TODO: add option to mark all class states unknown instead of just method state
-        for (int i = 0; i < parameterTypes.size(); i++) {
+        for (int i = 0; i < virtualMethod.getParameterTypes().size(); i++) {
             int register = parameterRegisters[i];
             HeapItem item = callerMethodState.readRegister(register);
             Object value = item.getValue();
@@ -247,7 +246,7 @@ public class InvokeOp extends ExecutionContextOp {
             }
 
             String type = analyzedParameterTypes[i];
-            boolean isInitializing = methodSignature.contains(";-><init>(");
+            boolean isInitializing = virtualMethod.getSignature().contains(";-><init>(");
             if (!isInitializing) {
                 // May be immutable type, but if this is the initializer, internal state would be changing.
                 if (vm.getConfiguration().isImmutable(type)) {
@@ -274,14 +273,14 @@ public class InvokeOp extends ExecutionContextOp {
             callerMethodState.pokeRegister(register, item);
         }
 
-        if (!"V".equals(returnType)) {
-            HeapItem item = HeapItem.newUnknown(returnType);
+        if (!virtualMethod.returnsVoid()) {
+            HeapItem item = HeapItem.newUnknown(virtualMethod.getReturnType());
             callerMethodState.assignResultRegister(item);
         }
     }
 
-    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext, String methodSignature) {
-        ExecutionContext calleeContext = vm.spawnRootExecutionContext(methodSignature, callerContext, getAddress());
+    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext, LocalMethod localMethod) {
+        ExecutionContext calleeContext = vm.spawnRootExecutionContext(localMethod, callerContext, getAddress());
         MethodState callerMethodState = callerContext.getMethodState();
         MethodState calleeMethodState = calleeContext.getMethodState();
         assignCalleeMethodArguments(callerMethodState, calleeMethodState);
@@ -292,11 +291,11 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private ExecutionContext buildNonLocalCalleeContext(ExecutionContext callerContext) {
-        ExecutionContext calleeContext = new ExecutionContext(vm, methodSignature);
-        int parameterSize = Utils.getRegisterSize(parameterTypes);
+        ExecutionContext calleeContext = new ExecutionContext(vm, virtualMethod);
+        int parameterSize = virtualMethod.getParameterSize();
         int registerCount = parameterSize;
-        MethodState calleeMethodState = new MethodState(calleeContext, registerCount, parameterTypes.size(),
-                        parameterSize);
+        MethodState calleeMethodState = new MethodState(calleeContext, registerCount, virtualMethod.getParameterTypes()
+                        .size(), parameterSize);
         assignCalleeMethodArguments(callerContext.getMethodState(), calleeMethodState);
         calleeContext.setMethodState(calleeMethodState);
         calleeContext.registerCaller(callerContext, getAddress());
@@ -328,7 +327,7 @@ public class InvokeOp extends ExecutionContextOp {
             return;
         }
 
-        if (!returnType.equals("V")) {
+        if (!virtualMethod.getReturnType().equals("V")) {
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
         } else {
@@ -369,14 +368,14 @@ public class InvokeOp extends ExecutionContextOp {
         } else if (vm.getConfiguration().isSafe(methodDescriptor)) {
             assert allArgumentsKnown(calleeContext.getMethodState());
 
-            MethodReflector reflector = new MethodReflector(vm, methodDescriptor, returnType, parameterTypes, isStatic);
+            MethodReflector reflector = new MethodReflector(vm, virtualMethod);
             reflector.reflect(calleeContext.getMethodState()); // playa play
 
             // Only safe, non-side-effect methods are allowed to be reflected.
             sideEffectLevel = SideEffect.Level.NONE;
         }
 
-        if (!isStatic) {
+        if (!virtualMethod.isStatic()) {
             // This is virtual and the instance reference may have been initialized or mutated.
             HeapItem originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0]);
             HeapItem newInstanceItem = calleeContext.getMethodState().peekParameter(0);
@@ -394,7 +393,7 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        if (!"V".equals(returnType)) {
+        if (!virtualMethod.returnsVoid()) {
             HeapItem returnItem = calleeContext.getMethodState().readReturnRegister();
             callerMethodState.assignResultRegister(returnItem);
         }
@@ -407,21 +406,30 @@ public class InvokeOp extends ExecutionContextOp {
          * hierarchy returns a method descriptor from the first class which implements the method. The method descriptor
          * points to the implementing class.
          */
-        String virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
-        String descriptor = methodSignature.split("->")[1];
-        String methodName = descriptor.split("\\(")[0];
-        String targetMethod = resolveVirtualMethod(methodName, descriptor, parameterTypes, virtualType,
-                        new HashSet<String>(4));
+        String virtualType;
+        if (virtualTarget instanceof UninitializedInstance) {
+            UninitializedInstance instance = (UninitializedInstance) virtualTarget;
+            virtualType = instance.getName();
+        } else {
+            virtualType = ClassNameUtils.toInternal(virtualTarget.getClass());
+        }
+        String descriptor = virtualMethod.getDescriptor();
+        String methodName = virtualMethod.getMethodName();
+        String targetMethod = resolveVirtualMethod(methodName, descriptor, virtualMethod.getParameterTypes(),
+                        virtualType, new HashSet<String>(4));
 
-        return targetMethod != null ? targetMethod : methodSignature;
+        return targetMethod != null ? targetMethod : virtualMethod.getSignature();
     }
 
     private @Nullable String resolveVirtualMethod(String methodName, String descriptor, List<String> parameterTypes,
                     String className, Set<String> visited) {
         String signature = new StringBuilder(className).append("->").append(descriptor).toString();
         boolean isLocalMethod = classManager.isLocalMethod(signature);
-        if (isLocalMethod && classManager.methodHasImplementation(signature)) {
-            return signature;
+        if (isLocalMethod) {
+            LocalMethod localMethod = classManager.getMethod(signature);
+            if (localMethod.hasImplementation()) {
+                return signature;
+            }
         }
 
         if (vm.getConfiguration().isSafe(signature) && doesNonLocalMethodExist(methodName, descriptor, parameterTypes,

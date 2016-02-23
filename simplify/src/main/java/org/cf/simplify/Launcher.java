@@ -27,8 +27,8 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.ClassManager;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
 import org.jf.util.ConsoleUtil;
@@ -86,34 +86,33 @@ public class Launcher {
     private int executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
-        Set<String> methodDescriptors = classManager.getMethodSignatures(className);
-        filterMethods(methodDescriptors, opts.getIncludeFilter(), opts.getExcludeFilter());
+        Set<LocalMethod> localMethods = classManager.getMethods(className);
+        filterMethods(localMethods, opts.getIncludeFilter(), opts.getExcludeFilter());
         if (!opts.includeSupportLibrary()) {
-            filterSupportLibrary(methodDescriptors);
+            filterSupportLibrary(localMethods);
         }
 
-        for (String methodDescriptor : methodDescriptors) {
+        for (LocalMethod localMethod : localMethods) {
             boolean shouldReexecute = false;
             do {
-                System.out.println("Executing: " + methodDescriptor);
+                System.out.println("Executing: " + localMethod);
                 ExecutionGraph graph = null;
                 try {
-                    graph = vm.execute(methodDescriptor);
+                    graph = vm.execute(localMethod);
                 } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
                     System.err.println("Aborting execution: " + e);
                 }
 
                 if (null == graph) {
-                    System.out.println("Skipping " + methodDescriptor);
+                    System.out.println("Skipping " + localMethod);
                     break;
                 }
 
-                BuilderMethod method = classManager.getMethod(methodDescriptor);
-                Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
+                Optimizer optimizer = new Optimizer(graph, localMethod, vm, dexBuilder, opts);
                 optimizer.simplify(opts.getMaxOptimizationPasses());
                 if (optimizer.madeChanges()) {
                     // Optimizer changed the implementation. Re-build graph to include changes.
-                    vm.updateInstructionGraph(methodDescriptor);
+                    vm.updateInstructionGraph(localMethod);
                 }
                 System.out.println(optimizer.getOptimizationCounts());
 
@@ -121,12 +120,12 @@ public class Launcher {
             } while (shouldReexecute);
         }
 
-        return methodDescriptors.size();
+        return localMethods.size();
     }
 
-    private static void filterMethods(Collection<String> methodDescriptors, Pattern positive, Pattern negative) {
-        for (Iterator<String> it = methodDescriptors.iterator(); it.hasNext();) {
-            String name = it.next();
+    private static void filterMethods(Collection<LocalMethod> localMethods, Pattern positive, Pattern negative) {
+        for (Iterator<LocalMethod> it = localMethods.iterator(); it.hasNext();) {
+            String name = it.next().getSignature();
             if (positive != null && !positive.matcher(name).find()) {
                 it.remove();
             } else if (negative != null && negative.matcher(name).find()) {
@@ -135,9 +134,9 @@ public class Launcher {
         }
     }
 
-    private static void filterSupportLibrary(Collection<String> methodDescriptors) {
-        for (Iterator<String> it = methodDescriptors.iterator(); it.hasNext();) {
-            String name = it.next();
+    private static void filterSupportLibrary(Collection<LocalMethod> localMethods) {
+        for (Iterator<LocalMethod> it = localMethods.iterator(); it.hasNext();) {
+            String name = it.next().getSignature();
             if (SUPPORT_LIBRARY_PATTERN.matcher(name).find()) {
                 it.remove();
             }

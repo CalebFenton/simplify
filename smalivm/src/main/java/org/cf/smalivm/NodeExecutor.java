@@ -18,8 +18,7 @@ public class NodeExecutor {
 
     public NodeExecutor(ExecutionGraph graph, ClassManager classManager) {
         this.graph = graph;
-        String methodDescriptor = graph.getMethodSignature();
-        exceptionResolver = new ExceptionHandlerAddressResolver(classManager, methodDescriptor);
+        exceptionResolver = new ExceptionHandlerAddressResolver(classManager, graph.getMethod());
     }
 
     public void execute(ExecutionNode node) throws UnhandledVirtualException {

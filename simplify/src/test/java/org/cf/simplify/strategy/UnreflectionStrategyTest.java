@@ -11,10 +11,11 @@ import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.reference.LocalMethod;
+import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -386,9 +387,10 @@ public class UnreflectionStrategyTest {
         }
     }
 
-    private static void testRegisterCount(ExecutionGraphManipulator manipulator, String methodSignature,
+    private static void testRegisterCount(ExecutionGraphManipulator manipulator, String methodDescriptor,
                     int expectedRegisterCount) {
-        BuilderMethod method = manipulator.getVM().getClassManager().getMethod(CLASS_NAME, methodSignature);
+        ClassManager classManager = manipulator.getVM().getClassManager();
+        LocalMethod method = classManager.getMethod(CLASS_NAME, methodDescriptor);
         int actualRegisterCount = method.getImplementation().getRegisterCount();
 
         assertEquals(expectedRegisterCount, actualRegisterCount);

@@ -14,8 +14,7 @@ import org.cf.simplify.strategy.PeepholeStrategy;
 import org.cf.simplify.strategy.UnreflectionStrategy;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
-import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.cf.smalivm.reference.LocalMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +27,7 @@ public class Optimizer {
     private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
     private final ExecutionGraphManipulator manipulator;
-    private final String methodSignature;
+    private final LocalMethod localMethod;
     private final List<OptimizationStrategy> reoptimizeStrategies;
     private final List<OptimizationStrategy> reexecuteStrategies;
     private final List<OptimizationStrategy> allStrategies;
@@ -37,10 +36,10 @@ public class Optimizer {
     private boolean shouldReexecute;
     private Map<String, Integer> optimizationCounts;
 
-    public Optimizer(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm, DexBuilder dexBuilder,
+    public Optimizer(ExecutionGraph graph, LocalMethod localMethod, VirtualMachine vm, DexBuilder dexBuilder,
                     SimplifyOptions opts) {
-        methodSignature = ReferenceUtil.getMethodDescriptor(method);
-        manipulator = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
+        manipulator = new ExecutionGraphManipulator(graph, localMethod, vm, dexBuilder);
+        this.localMethod = localMethod;
 
         reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
@@ -80,7 +79,7 @@ public class Optimizer {
     }
 
     public void simplify(int maxPasses) {
-        System.out.println("Simplifying: " + methodSignature);
+        System.out.println("Simplifying: " + localMethod);
 
         int pass = 0;
         madeAnyChanges = false;

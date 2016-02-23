@@ -8,6 +8,7 @@ import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.reference.VirtualMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
@@ -38,64 +39,51 @@ public class MethodReflector {
 
     }
 
-    private final String classNameInternal;
-    private final String classNameBinary;
-    private final boolean isStatic;
-    private final String methodDescriptor;
-    private final String methodName;
-    private final List<String> parameterTypeNames;
-    private final String returnType;
+    private final VirtualMethod virtualMethod;
 
-    public MethodReflector(VirtualMachine vm, String methodDescriptor, String returnType, List<String> parameterTypes,
-                    boolean isStatic) {
-        this.methodDescriptor = methodDescriptor;
-        this.returnType = returnType;
-        this.parameterTypeNames = parameterTypes;
-        this.isStatic = isStatic;
+    public MethodReflector(VirtualMachine vm, VirtualMethod virtualMethod) {
+        this.virtualMethod = virtualMethod;
 
-        String[] parts = methodDescriptor.split("->");
-        classNameInternal = parts[0];
-        classNameBinary = classNameInternal.replaceAll("/", ".").substring(1, classNameInternal.length() - 1);
-        methodName = parts[1].substring(0, parts[1].indexOf("("));
     }
 
     public void reflect(MethodState calleeContext) {
         if (log.isDebugEnabled()) {
-            log.debug("Reflecting {} with context:\n{}", methodDescriptor, calleeContext);
+            log.debug("Reflecting {} with context:\n{}", virtualMethod, calleeContext);
         }
 
         Object resultValue = null;
         try {
             // TODO: easy - add tests for array class method reflecting
-            Class<?> klazz = Class.forName(classNameBinary);
+            Class<?> klazz = Class.forName(virtualMethod.getBinaryClassName());
             InvocationArguments invocationArgs = getArguments(calleeContext);
             Object[] args = invocationArgs.getArgs();
             Class<?>[] parameterTypes = invocationArgs.getParameterTypes();
-            if (isStatic) {
+            if (virtualMethod.isStatic()) {
                 if (log.isDebugEnabled()) {
-                    log.debug("Reflecting {}, clazz={} args={}", methodDescriptor, klazz, Arrays.toString(args));
+                    log.debug("Reflecting {}, clazz={} args={}", virtualMethod, klazz, Arrays.toString(args));
                 }
-                resultValue = MethodUtils.invokeStaticMethod(klazz, methodName, args, parameterTypes);
+                resultValue = MethodUtils
+                                .invokeStaticMethod(klazz, virtualMethod.getMethodName(), args, parameterTypes);
             } else {
-                if ("<init>".equals(methodName)) {
+                if ("<init>".equals(virtualMethod.getMethodName())) {
                     if (log.isDebugEnabled()) {
-                        log.debug("Reflecting {}, class={} args={}", methodDescriptor, klazz, Arrays.toString(args));
+                        log.debug("Reflecting {}, class={} args={}", virtualMethod, klazz, Arrays.toString(args));
                     }
                     resultValue = ConstructorUtils.invokeConstructor(klazz, args);
-                    calleeContext.assignParameter(0, new HeapItem(resultValue, classNameInternal));
+                    calleeContext.assignParameter(0, new HeapItem(resultValue, virtualMethod.getClassName()));
                 } else {
                     HeapItem targetItem = calleeContext.peekRegister(0);
                     if (log.isDebugEnabled()) {
-                        log.debug("Reflecting {}, target={} args={}", methodDescriptor, targetItem,
-                                        Arrays.toString(args));
+                        log.debug("Reflecting {}, target={} args={}", virtualMethod, targetItem, Arrays.toString(args));
                     }
-                    resultValue = MethodUtils.invokeMethod(targetItem.getValue(), methodName, args, parameterTypes);
+                    resultValue = MethodUtils.invokeMethod(targetItem.getValue(), virtualMethod.getMethodName(), args,
+                                    parameterTypes);
                 }
             }
         } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             resultValue = new UnknownValue();
             if (log.isWarnEnabled()) {
-                log.warn("Failed to reflect {}: {}", methodDescriptor, e.getMessage());
+                log.warn("Failed to reflect {}: {}", virtualMethod, e.getMessage());
             }
 
             if (log.isDebugEnabled()) {
@@ -103,27 +91,28 @@ public class MethodReflector {
             }
         }
 
-        if (!"V".equals(returnType)) {
-            HeapItem resultItem = new HeapItem(resultValue, returnType);
+        if (!virtualMethod.returnsVoid()) {
+            HeapItem resultItem = new HeapItem(resultValue, virtualMethod.getReturnType());
             calleeContext.assignReturnRegister(resultItem);
         }
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("Reflector{");
-        sb.append(methodDescriptor).append(", static=").append(isStatic).append("}");
+        StringBuilder sb = new StringBuilder("MethodReflector{");
+        sb.append(virtualMethod).append(", static=").append(virtualMethod.isStatic()).append("}");
 
         return sb.toString();
     }
 
     private InvocationArguments getArguments(MethodState mState) throws ClassNotFoundException {
         int offset = 0;
-        if (!isStatic) {
+        if (!virtualMethod.isStatic()) {
             // First element in context will be instance reference if non-static method.
             offset = 1;
         }
 
+        List<String> parameterTypeNames = virtualMethod.getParameterTypes();
         int size = parameterTypeNames.size() - offset;
         Object[] args = new Object[size];
         Class<?>[] parameterTypes = new Class<?>[size];

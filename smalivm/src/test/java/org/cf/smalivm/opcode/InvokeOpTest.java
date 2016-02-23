@@ -22,6 +22,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.reference.MethodFactory;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
@@ -416,7 +417,9 @@ public class InvokeOpTest {
         public void setUp() {
             vm = mock(VirtualMachine.class);
 
+            MethodFactory methodFactory = new MethodFactory();
             classManager = mock(ClassManager.class);
+            when(classManager.getMethodFactory()).thenReturn(methodFactory);
             when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
             when(classManager.isFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
             when(classManager.isSafeFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);

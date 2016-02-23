@@ -30,13 +30,6 @@ public class ClassManagerTest {
     }
 
     @Test
-    public void testCanUnderstandNativeMethods() throws UnknownAncestors {
-        boolean isNative = manager.isNativeMethod("Lnative_method_class;->nativeMethod()V");
-
-        assertTrue(isNative);
-    }
-
-    @Test
     public void testChildIsInstanceOfGrandParent() throws UnknownAncestors {
         boolean isInstance = manager.isInstance(CHILD_CLASS, GRANDPARENT_CLASS);
 

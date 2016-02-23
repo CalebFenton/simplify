@@ -39,13 +39,12 @@ import org.cf.smalivm.opcode.OpCreator;
 import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.smalivm.opcode.ReturnVoidOp;
 import org.cf.smalivm.opcode.SwitchPayloadOp;
+import org.cf.smalivm.reference.LocalMethod;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
-import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,25 +58,25 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
 
     private final DexBuilder dexBuilder;
     private final MutableMethodImplementation implementation;
-    private final BuilderMethod method;
+    private final LocalMethod localMethod;
     private final VirtualMachine vm;
     private final Set<MethodLocation> recreateLocations;
     private final List<MethodLocation> reexecuteLocations;
-    private OpCreator opCreator;
+    private final OpCreator opCreator;
     private boolean recreateOrReexecute;
 
-    public ExecutionGraphManipulator(ExecutionGraph graph, BuilderMethod method, VirtualMachine vm,
+    public ExecutionGraphManipulator(ExecutionGraph graph, LocalMethod localMethod, VirtualMachine vm,
                     DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;
-        this.method = method;
-        implementation = (MutableMethodImplementation) method.getImplementation();
+        this.localMethod = localMethod;
+        implementation = localMethod.getImplementation();
         this.vm = vm;
         opCreator = getOpCreator(vm, addressToLocation);
         recreateLocations = new HashSet<MethodLocation>();
 
-        // When many ops are added, such as when unreflecting, need to execute in order to ensure
+        // When ops are added, such as when unreflecting, need to execute in order to ensure
         // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
         reexecuteLocations = new LinkedList<MethodLocation>();
         recreateOrReexecute = true;
@@ -287,8 +286,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
                 recreateLocations.add(shiftedParent.getOp().getLocation());
             } else {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
-                String methodDescriptor = ReferenceUtil.getMethodDescriptor(method);
-                newContext = vm.spawnRootExecutionContext(methodDescriptor);
+                newContext = vm.spawnRootExecutionContext(localMethod);
                 newNode.setContext(newContext);
             }
             reparentNode(shiftedNode, newNode);

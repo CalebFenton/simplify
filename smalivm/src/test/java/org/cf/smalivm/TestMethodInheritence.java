@@ -7,8 +7,10 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 
 @RunWith(Enclosed.class)
@@ -58,6 +60,9 @@ public class TestMethodInheritence {
 
         private static final String CLASS_NAME = "Lparent_class;";
 
+        @Rule
+        public final ExpectedException exception = ExpectedException.none();
+
         private VirtualMachine vm;
 
         @Before
@@ -68,9 +73,8 @@ public class TestMethodInheritence {
         @Test
         public void executingAbstractMethodReturnsNull() throws VirtualMachineException {
             String methodName = "abstractMethod()Ljava/lang/String;";
-            ExecutionGraph graph = vm.execute(CLASS_NAME + "->" + methodName);
-
-            assertEquals(null, graph);
+            exception.expect(IllegalArgumentException.class);
+            vm.execute(CLASS_NAME + "->" + methodName);
         }
     }
 

@@ -25,6 +25,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.VirtualMachineException;
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.smali.ClassManagerFactory;
 import org.cf.smalivm.smali.Dexifier;
@@ -55,25 +56,24 @@ public class VMTester {
         when(mState.readRegister(eq(register))).thenReturn(item);
     }
 
-    public static ExecutionGraph execute(String className, String methodSignature) {
-        return execute(className, methodSignature, new VMState());
+    public static ExecutionGraph execute(String className, String methodDescriptor) {
+        return execute(className, methodDescriptor, new VMState());
     }
 
-    public static ExecutionGraph execute(String className, String methodSignature, VMState state) {
-        VirtualMachine vm = spawnVM();
-        return execute(vm, className, methodSignature, state);
+    public static ExecutionGraph execute(String className, String methodDescriptor, VMState state) {
+        return execute(spawnVM(), className, methodDescriptor, state);
     }
 
-    public static ExecutionGraph execute(VirtualMachine vm, String className, String methodSignature) {
-        return execute(vm, className, methodSignature, new VMState());
+    public static ExecutionGraph execute(VirtualMachine vm, String className, String methodDescriptor) {
+        return execute(vm, className, methodDescriptor, new VMState());
     }
 
-    public static ExecutionGraph execute(VirtualMachine vm, String className, String methodSignature, VMState state) {
-        String methodDescriptor = className + "->" + methodSignature;
-        ExecutionContext ectx = buildInitializedContext(vm, methodDescriptor, state);
+    public static ExecutionGraph execute(VirtualMachine vm, String className, String methodDescriptor, VMState state) {
+        String methodSignature = className + "->" + methodDescriptor;
+        ExecutionContext ectx = buildInitializedContext(vm, methodSignature, state);
         ExecutionGraph graph = null;
         try {
-            graph = vm.execute(methodDescriptor, ectx);
+            graph = vm.execute(methodSignature, ectx);
         } catch (VirtualMachineException e) {
             e.printStackTrace();
         }
@@ -169,8 +169,9 @@ public class VMTester {
         verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 
-    private static ExecutionContext buildInitializedContext(VirtualMachine vm, String methodDescriptor, VMState state) {
-        ExecutionContext ectx = vm.spawnRootExecutionContext(methodDescriptor);
+    private static ExecutionContext buildInitializedContext(VirtualMachine vm, String methodSignature, VMState state) {
+        LocalMethod localMethod = vm.getClassManager().getMethod(methodSignature);
+        ExecutionContext ectx = vm.spawnRootExecutionContext(localMethod);
         int registerCount = ectx.getMethodState().getRegisterCount();
         setupMethodState(ectx, state.getRegisters(), registerCount);
         setupClassStates(ectx, state.getFields());

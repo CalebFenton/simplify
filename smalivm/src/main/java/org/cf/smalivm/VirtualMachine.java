@@ -18,12 +18,11 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.AncestorEnumerator;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.smali.SmaliClassLoader;
 import org.cf.util.Utils;
-import org.jf.dexlib2.iface.MethodImplementation;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +33,7 @@ public class VirtualMachine {
     private final ClassManager classManager;
     private final SmaliClassLoader classLoader;
     private final MethodExecutor methodExecutor;
-    private final Map<BuilderMethod, ExecutionGraph> methodToTemplateExecutionGraph;
+    private final Map<LocalMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
     private final Configuration configuration;
     private final AncestorEnumerator ancestorEnumerator;
@@ -45,7 +44,7 @@ public class VirtualMachine {
         classLoader = new SmaliClassLoader(classManager);
         methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits,
                         maxExecutionTime);
-        methodToTemplateExecutionGraph = new HashMap<BuilderMethod, ExecutionGraph>();
+        methodToTemplateExecutionGraph = new HashMap<LocalMethod, ExecutionGraph>();
         staticFieldAccessor = new StaticFieldAccessor(this);
         configuration = Configuration.instance();
         ancestorEnumerator = new AncestorEnumerator(classManager, classLoader);
@@ -53,12 +52,16 @@ public class VirtualMachine {
 
     public ExecutionGraph execute(String methodSignature) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
                     MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        if (!classManager.methodHasImplementation(methodSignature)) {
-            return null;
-        }
-        ExecutionContext ectx = spawnRootExecutionContext(methodSignature);
+        LocalMethod localMethod = classManager.getMethod(methodSignature);
 
-        return execute(methodSignature, ectx);
+        return execute(localMethod);
+    }
+
+    public ExecutionGraph execute(LocalMethod localMethod) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
+                    MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+        ExecutionContext ectx = spawnRootExecutionContext(localMethod);
+
+        return execute(localMethod, ectx, null, null);
     }
 
     public ExecutionGraph execute(String methodSignature, ExecutionContext ectx) throws MaxAddressVisitsExceeded,
@@ -69,21 +72,33 @@ public class VirtualMachine {
     public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext,
                     ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+        LocalMethod localMethod = classManager.getMethod(methodSignature);
+
+        return execute(localMethod, calleeContext, callerContext, parameterRegisters);
+    }
+
+    public ExecutionGraph execute(LocalMethod localMethod, ExecutionContext calleeContext,
+                    ExecutionContext callerContext, int[] parameterRegisters) throws MaxAddressVisitsExceeded,
+                    MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+        if (!localMethod.hasImplementation()) {
+            return null;
+        }
+
         if (callerContext != null) {
             inheritClassStates(callerContext, calleeContext);
         }
 
-        String className = getClassNameFromMethodSignature(methodSignature);
+        String className = localMethod.getClassName();
         calleeContext.staticallyInitializeClassIfNecessary(className);
 
-        ExecutionGraph graph = spawnInstructionGraph(methodSignature);
+        ExecutionGraph graph = spawnInstructionGraph(localMethod);
         ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 
         ExecutionGraph execution = methodExecutor.execute(graph);
         if ((execution != null) && (callerContext != null)) {
-            collapseMultiverse(methodSignature, graph, callerContext, parameterRegisters);
+            collapseMultiverse(localMethod, graph, callerContext, parameterRegisters);
         }
 
         return execution;
@@ -125,34 +140,34 @@ public class VirtualMachine {
         return classManager.isLocalClass(classDescriptor) && !getConfiguration().isSafe(classDescriptor);
     }
 
-    public ExecutionGraph spawnInstructionGraph(String methodSignature) {
-        BuilderMethod method = classManager.getMethod(methodSignature);
-        if (!methodToTemplateExecutionGraph.containsKey(method)) {
-            updateInstructionGraph(methodSignature);
+    public ExecutionGraph spawnInstructionGraph(LocalMethod localMethod) {
+        if (!methodToTemplateExecutionGraph.containsKey(localMethod)) {
+            updateInstructionGraph(localMethod);
         }
-        ExecutionGraph graph = methodToTemplateExecutionGraph.get(method);
+        ExecutionGraph graph = methodToTemplateExecutionGraph.get(localMethod);
         ExecutionGraph spawn = new ExecutionGraph(graph);
 
         return spawn;
     }
 
     public ExecutionContext spawnRootExecutionContext(String methodSignature) {
-        return spawnRootExecutionContext(methodSignature, null, 0);
+        return spawnRootExecutionContext(classManager.getMethod(methodSignature));
     }
 
-    public ExecutionContext spawnRootExecutionContext(String methodSignature, @Nullable ExecutionContext callerContext,
-                    int callerAddress) {
-        if (!classManager.isLocalMethod(methodSignature)) {
-            throw new IllegalArgumentException("Method does not exist: " + methodSignature);
-        }
+    public ExecutionContext spawnRootExecutionContext(LocalMethod localMethod) {
+        return spawnRootExecutionContext(localMethod, null, 0);
+    }
 
-        if (!classManager.methodHasImplementation(methodSignature)) {
+    public ExecutionContext spawnRootExecutionContext(LocalMethod localMethod,
+                    @Nullable ExecutionContext callerContext, int callerAddress) {
+
+        if (!localMethod.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
-            throw new IllegalArgumentException("No implementation for " + methodSignature);
+            throw new IllegalArgumentException("No implementation for " + localMethod);
         }
 
-        ExecutionContext spawnedContext = new ExecutionContext(this, methodSignature);
-        String className = getClassNameFromMethodSignature(methodSignature);
+        ExecutionContext spawnedContext = new ExecutionContext(this, localMethod);
+        String className = localMethod.getClassName();
         ClassState templateClassState = getTemplateClassState(spawnedContext, className);
         spawnedContext.setClassState(className, templateClassState);
 
@@ -166,21 +181,20 @@ public class VirtualMachine {
         return spawnedContext;
     }
 
-    public void updateInstructionGraph(String methodSignature) {
-        BuilderMethod method = classManager.getMethod(methodSignature);
-        ExecutionGraph graph = new ExecutionGraph(this, method);
-        methodToTemplateExecutionGraph.put(method, graph);
+    public void updateInstructionGraph(LocalMethod localMethod) {
+        ExecutionGraph graph = new ExecutionGraph(this, localMethod);
+        methodToTemplateExecutionGraph.put(localMethod, graph);
     }
 
     /*
      * Get consensus for method and class states and merge them into callerContext.
      */
-    private void collapseMultiverse(String methodSignature, ExecutionGraph graph, ExecutionContext callerContext,
+    private void collapseMultiverse(LocalMethod localMethod, ExecutionGraph graph, ExecutionContext callerContext,
                     int[] parameterRegisters) {
         int[] terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
             MethodState mState = callerContext.getMethodState();
-            List<String> parameterTypes = classManager.getParameterTypes(methodSignature);
+            List<String> parameterTypes = localMethod.getParameterTypes();
             int parameterRegister = graph.getNodePile(0).get(0).getContext().getMethodState().getParameterStart();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
                 String type = parameterTypes.get(parameterIndex);
@@ -232,11 +246,9 @@ public class VirtualMachine {
     }
 
     private MethodState getTemplateMethodState(ExecutionContext ectx) {
-        String methodSignature = ectx.getMethodSignature();
-        BuilderMethod method = classManager.getMethod(methodSignature);
-        MethodImplementation implementation = method.getImplementation();
-        int registerCount = implementation.getRegisterCount();
-        List<String> parameterTypes = classManager.getParameterTypes(methodSignature);
+        LocalMethod localMethod = ectx.getMethod();
+        int registerCount = localMethod.getRegisterCount();
+        List<String> parameterTypes = localMethod.getParameterTypes();
         int parameterSize = Utils.getRegisterSize(parameterTypes);
         MethodState mState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
         int firstParameter = mState.getParameterStart();

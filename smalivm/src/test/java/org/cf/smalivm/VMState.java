@@ -38,10 +38,6 @@ public class VMState {
         classNameToFieldDescriptorToItem.get(className).put(fieldDescriptor, item);
     }
 
-    public void setRegister(Integer register, HeapItem item) {
-        registerToItem.put(register, item);
-    }
-
     public void setFields(String className, Object... params) {
         for (int i = 0; i < params.length; i += 2) {
             String fieldDescriptor = (String) params[i];
@@ -49,6 +45,10 @@ public class VMState {
             HeapItem item = new HeapItem(params[i + 1], type);
             setField(className, fieldDescriptor, item);
         }
+    }
+
+    public void setRegister(Integer register, HeapItem item) {
+        registerToItem.put(register, item);
     }
 
     public void setRegisters(Object... params) {

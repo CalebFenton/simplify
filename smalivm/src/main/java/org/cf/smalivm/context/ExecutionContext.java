@@ -14,6 +14,8 @@ import org.cf.smalivm.exception.MaxCallDepthExceeded;
 import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
 import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
 import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.reference.LocalMethod;
+import org.cf.smalivm.reference.VirtualMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,17 +57,16 @@ public class ExecutionContext {
     private final VirtualMachine vm;
     private final TMap<String, ClassStatus> classNameToStatus;
     private final Heap heap;
+    private final VirtualMethod virtualMethod;
     private MethodState mState;
     private ExecutionContext parent;
-    private String methodSignature;
     private ExecutionContext callerContext;
     private int callerAddress;
-
     private int callDepth;
 
-    public ExecutionContext(VirtualMachine vm, String methodSignature) {
+    public ExecutionContext(VirtualMachine vm, VirtualMethod virtualMethod) {
         this.vm = vm;
-        this.methodSignature = methodSignature;
+        this.virtualMethod = virtualMethod;
         Cloner cloner = ClonerFactory.build(vm);
         heap = new Heap(cloner);
         callDepth = 0;
@@ -108,7 +109,12 @@ public class ExecutionContext {
     }
 
     public String getMethodSignature() {
-        return methodSignature;
+        return virtualMethod.getSignature();
+    }
+
+    public LocalMethod getMethod() {
+        // Bit of a hack. This should only be called when constructed with a LocalMethod.
+        return (LocalMethod) virtualMethod;
     }
 
     public MethodState getMethodState() {
@@ -189,7 +195,7 @@ public class ExecutionContext {
     }
 
     public ExecutionContext spawnChild() {
-        ExecutionContext child = new ExecutionContext(vm, getMethodSignature());
+        ExecutionContext child = new ExecutionContext(vm, virtualMethod);
         child.setParent(this);
 
         return child;
@@ -208,45 +214,46 @@ public class ExecutionContext {
         }
 
         String clinitSignature = className + "-><clinit>()V";
-        if (vm.getClassManager().isLocalMethod(clinitSignature)) {
-            // TODO: determine what the call stack actually is when the vm clinit's a class
-            // this assumes the call stack is empty
-            ExecutionContext initContext = vm.spawnRootExecutionContext(clinitSignature);
-
-            ClassState cState = initContext.peekClassState(className);
-            initContext.initializeClass(className, cState, SideEffect.Level.NONE);
-
-            ExecutionGraph graph = null;
-            try {
-                graph = vm.execute(clinitSignature, initContext, this, null);
-            } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
-                log.warn(e.toString());
-            } catch (UnhandledVirtualException e) {
-                // TODO: handle this properly by bubbling up the exception
-                if (log.isWarnEnabled()) {
-                    log.warn(e.toString());
-                }
-            }
-
-            SideEffect.Level sideEffectLevel;
-            if (graph == null) {
-                // Error executing. Assume the worst.
-                sideEffectLevel = SideEffect.Level.STRONG;
-            } else {
-                sideEffectLevel = graph.getHighestSideEffectLevel();
-            }
-            setClassSideEffectLevel(className, sideEffectLevel);
-        } else {
+        LocalMethod localMethod = vm.getClassManager().getMethod(clinitSignature);
+        if (localMethod == null) {
             // No static initializer for this class.
             setClassInitialized(className, SideEffect.Level.NONE);
+            return;
         }
+
+        // TODO: determine what the call stack actually is when the vm clinit's a class
+        // this assumes the call stack is empty
+        ExecutionContext initContext = vm.spawnRootExecutionContext(localMethod);
+        ClassState cState = initContext.peekClassState(className);
+        initContext.initializeClass(className, cState, SideEffect.Level.NONE);
+
+        ExecutionGraph graph = null;
+        try {
+            graph = vm.execute(clinitSignature, initContext, this, null);
+        } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
+            log.warn(e.toString());
+        } catch (UnhandledVirtualException e) {
+            // TODO: handle this properly by bubbling up the exception
+            if (log.isWarnEnabled()) {
+                log.warn(e.toString());
+            }
+        }
+
+        SideEffect.Level sideEffectLevel;
+        if (graph == null) {
+            // Error executing. Assume the worst.
+            sideEffectLevel = SideEffect.Level.STRONG;
+        } else {
+            sideEffectLevel = graph.getHighestSideEffectLevel();
+        }
+        setClassSideEffectLevel(className, sideEffectLevel);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         if (mState != null) {
-            sb.append(methodSignature).append(" State: ").append(mState.toString());
+            sb.append(virtualMethod.getSignature()).append(" State: ").append(mState.toString());
         }
         if (sb.length() > 0) {
             sb.append('\n');

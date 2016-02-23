@@ -31,10 +31,6 @@ public class ExecutionNode {
         children = new ArrayList<ExecutionNode>(other.getChildren());
     }
 
-    public void setOp(Op op) {
-        this.op = op;
-    }
-
     public ExecutionNode(Op op) {
         this.op = op;
         children = new ArrayList<ExecutionNode>(op.getChildren().length);
@@ -66,10 +62,6 @@ public class ExecutionNode {
         if (exceptions == null) {
             setExceptions(op.getExceptions());
         }
-    }
-
-    public void setChildLocations(MethodLocation... childLocations) {
-        this.childLocations = childLocations;
     }
 
     public int getAddress() {
@@ -114,16 +106,13 @@ public class ExecutionNode {
         rebuildChildLocationsFromChildren();
     }
 
-    private void rebuildChildLocationsFromChildren() {
-        childLocations = new MethodLocation[children.size()];
-        for (int i = 0; i < childLocations.length; i++) {
-            childLocations[i] = children.get(i).getOp().getLocation();
-        }
-    }
-
     public void replaceChild(ExecutionNode oldChild, ExecutionNode newChild) {
         removeChild(oldChild);
         newChild.setParent(this);
+    }
+
+    public void setChildLocations(MethodLocation... childLocations) {
+        this.childLocations = childLocations;
     }
 
     public void setContext(ExecutionContext ectx) {
@@ -141,6 +130,10 @@ public class ExecutionNode {
 
     public void setMethodState(MethodState mState) {
         ectx.setMethodState(mState);
+    }
+
+    public void setOp(Op op) {
+        this.op = op;
     }
 
     public void setParent(@Nonnull ExecutionNode parent) {
@@ -173,5 +166,12 @@ public class ExecutionNode {
     private void addChild(ExecutionNode child) {
         children.add(child);
         rebuildChildLocationsFromChildren();
+    }
+
+    private void rebuildChildLocationsFromChildren() {
+        childLocations = new MethodLocation[children.size()];
+        for (int i = 0; i < childLocations.length; i++) {
+            childLocations[i] = children.get(i).getOp().getLocation();
+        }
     }
 }

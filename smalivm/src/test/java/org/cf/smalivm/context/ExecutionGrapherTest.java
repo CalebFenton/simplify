@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.cf.smalivm.reference.LocalMethod;
 import org.junit.Test;
 
 public class ExecutionGrapherTest {
@@ -15,7 +16,7 @@ public class ExecutionGrapherTest {
 
     private static final String CHILD_NODE_STR = "child node";
     private static final String CHILD_STATE_STR = "child state";
-    private static final String METHOD_DESCRIPTOR = "Lclass;->method()V";
+    private static final String METHOD_SIGNATURE = "Lclass;->method()V";
 
     private static final int ROOT_ADDRESS = 1;
     private static final String ROOT_NODE_STR = "root node";
@@ -31,9 +32,12 @@ public class ExecutionGrapherTest {
         children.add(child);
         when(root.getChildren()).thenReturn(children);
 
+        LocalMethod localMethod = mock(LocalMethod.class);
+        when(localMethod.toString()).thenReturn(METHOD_SIGNATURE);
+
         ExecutionGraph graph = mock(ExecutionGraph.class);
         when(graph.getRoot()).thenReturn(root);
-        when(graph.getMethodSignature()).thenReturn(METHOD_DESCRIPTOR);
+        when(graph.getMethod()).thenReturn(localMethod);
         when(graph.getNodeIndex(root)).thenReturn(0);
         when(graph.getNodeIndex(child)).thenReturn(0);
         String digraph = ExecutionGrapher.graph(graph);
@@ -44,7 +48,7 @@ public class ExecutionGrapherTest {
         sb.append("\"@").append(CHILD_ADDRESS).append(".0 :: ").append(CHILD_NODE_STR).append('\n');
         sb.append(CHILD_STATE_STR).append("\"\n");
         sb.append("labelloc=\"t\"\n");
-        sb.append("label=\"").append(METHOD_DESCRIPTOR).append("\";");
+        sb.append("label=\"").append(METHOD_SIGNATURE).append("\";");
         sb.append("\n}");
 
         String expected = sb.toString();
