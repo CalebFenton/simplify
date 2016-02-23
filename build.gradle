@@ -1,6 +1,6 @@
 apply plugin: 'idea'
 
-version = '1.0.0-M1'
+version = '1.0.0'
 def jarVersion = version
 
 buildscript {
@@ -99,5 +99,5 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.7'
+    gradleVersion = '2.11'
 }
