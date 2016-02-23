@@ -66,7 +66,7 @@ public class APutOp extends MethodStateOp {
                     return;
                 }
 
-                int index = indexItem.getIntegerValue();
+                int index = indexItem.asInteger();
                 if (index >= Array.getLength(array)) {
                     node.setException(new VirtualException(ArrayIndexOutOfBoundsException.class));
                     node.clearChildren();

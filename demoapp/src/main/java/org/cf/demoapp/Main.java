@@ -37,14 +37,13 @@ public class Main {
 
     private static void executeParameterLogicWithKnownParameter(int parameterValue) throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        String methodDescriptor = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
-
-        ExecutionContext ectx = vm.spawnRootExecutionContext(methodDescriptor);
+        String methodSignature = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
+        ExecutionContext ectx = vm.spawnRootExecutionContext(methodSignature);
         MethodState mState = ectx.getMethodState();
         // This method has 4 locals (r0, r1, r2, r3). It's virtual so p0 (r4) is 'this' reference.
         // First method parameter starts at r5, or parameter start + 1.
         mState.assignParameter(mState.getParameterStart() + 1, parameterValue, "I");
-        ExecutionGraph graph = vm.execute(methodDescriptor, ectx);
+        ExecutionGraph graph = vm.execute(methodSignature, ectx);
 
         HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
         System.out.println("With context, returns: " + item);
@@ -52,11 +51,11 @@ public class Main {
 
     private static void executeParameterLogicWithUnknownParameter() throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        String methodDescriptor = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
+        String methodSignature = "Lorg/cf/demosmali/Main;->parameterLogic(I)I";
 
         // Execute with ambiguous / unknown parameters.
         // You should see two prints, indicating it took both execution paths.
-        ExecutionGraph graph = vm.execute(methodDescriptor);
+        ExecutionGraph graph = vm.execute(methodSignature);
 
         // Get the return value consensus over all possible execution paths.
         // Because some values are not known, there are multiple execution paths.
@@ -67,13 +66,13 @@ public class Main {
 
     private static void executePrintParameter(int parameterValue) throws MaxAddressVisitsExceeded,
                     MaxCallDepthExceeded, MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
-        String methodDescriptor = "Lorg/cf/demosmali/Main;->printParameter(I)V";
+        String methodSignature = "Lorg/cf/demosmali/Main;->printParameter(I)V";
 
         // Execute method with some context
-        ExecutionContext ectx = vm.spawnRootExecutionContext(methodDescriptor);
+        ExecutionContext ectx = vm.spawnRootExecutionContext(methodSignature);
         MethodState mState = ectx.getMethodState();
         mState.assignParameter(3, parameterValue, "I");
-        vm.execute(methodDescriptor, ectx);
+        vm.execute(methodSignature, ectx);
     }
 
 }

@@ -47,7 +47,7 @@ public class VMTester {
         HeapItem item = mock(HeapItem.class);
         when(item.getValue()).thenReturn(value);
         if ("I".equals(type) && value instanceof Number) {
-            when(item.getIntegerValue()).thenReturn((Integer) value);
+            when(item.asInteger()).thenReturn((Integer) value);
         } else if (value instanceof UnknownValue) {
             when(item.isUnknown()).thenReturn(true);
         }

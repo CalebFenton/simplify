@@ -54,7 +54,7 @@ public class AGetOp extends MethodStateOp {
                     return;
                 }
 
-                int index = indexItem.getIntegerValue();
+                int index = indexItem.asInteger();
                 String innerType = arrayItem.getType().replaceFirst("\\[", "");
                 if (index >= Array.getLength(array)) {
                     VirtualException exception = new VirtualException(ArrayIndexOutOfBoundsException.class);

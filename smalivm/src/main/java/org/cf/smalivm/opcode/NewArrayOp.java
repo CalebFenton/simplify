@@ -51,7 +51,7 @@ public class NewArrayOp extends MethodStateOp {
         if (lengthItem.isUnknown()) {
             instance = new UnknownValue();
         } else {
-            int length = lengthItem.getIntegerValue();
+            int length = lengthItem.asInteger();
             try {
                 // Dalvik does not statically initialize classes with new-array
                 instance = Utils.buildArray(arrayType, length, classLoader);

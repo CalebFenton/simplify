@@ -23,49 +23,6 @@ class Heap {
         this.cloner = cloner;
     }
 
-    private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
-        Heap current = child;
-        Set<String> reassigned = new HashSet<String>();
-        while (current != ancestor) {
-            reassigned.addAll(current.keySet());
-            current = current.getParent();
-        }
-
-        return reassigned;
-    }
-
-    private Set<String> keySet() {
-        // Note: mutating this directly alters keytoHeapItem's keys
-        return keyToHeapItem.keySet();
-    }
-
-    void setParent(Heap parent) {
-        this.parent = parent;
-    }
-
-    protected Heap getParent() {
-        return parent;
-    }
-
-    HeapItem get(String heapId, int register) {
-        String key = buildKey(heapId, register);
-
-        return get(key);
-    }
-
-    private Heap getAncestorWithKey(String key) {
-        Heap ancestor = this;
-        do {
-            if (ancestor.hasKey(key)) {
-                break;
-            }
-
-            ancestor = ancestor.getParent();
-        } while (ancestor != null);
-
-        return ancestor;
-    }
-
     HeapItem get(String key) {
         if (hasKey(key)) {
             return keyToHeapItem.get(key);
@@ -106,18 +63,18 @@ class Heap {
         return cloneItem;
     }
 
-    private HeapItem cloneItem(HeapItem original) {
-        Object cloneValue = cloner.deepClone(original.getValue());
-        HeapItem clone = new HeapItem(cloneValue, original.getType());
+    HeapItem get(String heapId, int register) {
+        String key = buildKey(heapId, register);
 
-        return clone;
+        return get(key);
     }
 
-    private String buildKey(String heapId, int register) {
-        StringBuilder sb = new StringBuilder(heapId);
-        sb.append(':').append(register);
+    Map<String, HeapItem> getKeyToItem() {
+        return keyToHeapItem;
+    }
 
-        return sb.toString();
+    boolean hasKey(String key) {
+        return keyToHeapItem.containsKey(key);
     }
 
     boolean hasRegister(String heapId, int register) {
@@ -126,22 +83,10 @@ class Heap {
         return hasKey(key);
     }
 
-    boolean hasKey(String key) {
-        return keyToHeapItem.containsKey(key);
-    }
-
     void remove(String heapId, int register) {
         String key = buildKey(heapId, register);
 
         remove(key);
-    }
-
-    private void remove(String key) {
-        keyToHeapItem.remove(key);
-    }
-
-    void set(String heapId, int register, Object value, String type) {
-        set(heapId, register, new HeapItem(value, type));
     }
 
     void set(String heapId, int register, HeapItem item) {
@@ -149,17 +94,12 @@ class Heap {
         set(key, item);
     }
 
-    private void set(String key, HeapItem item) {
-        keyToHeapItem.put(key, item);
+    void set(String heapId, int register, Object value, String type) {
+        set(heapId, register, new HeapItem(value, type));
     }
 
-    Map<String, HeapItem> getKeyToItem() {
-        return keyToHeapItem;
-    }
-
-    void update(String heapId, int register, HeapItem item) {
-        String key = buildKey(heapId, register);
-        update(key, item);
+    void setParent(Heap parent) {
+        this.parent = parent;
     }
 
     void update(String key, HeapItem item) {
@@ -176,6 +116,66 @@ class Heap {
                 set(currentKey, item);
             }
         }
+    }
+
+    void update(String heapId, int register, HeapItem item) {
+        String key = buildKey(heapId, register);
+        update(key, item);
+    }
+
+    protected Heap getParent() {
+        return parent;
+    }
+
+    private String buildKey(String heapId, int register) {
+        StringBuilder sb = new StringBuilder(heapId);
+        sb.append(':').append(register);
+
+        return sb.toString();
+    }
+
+    private HeapItem cloneItem(HeapItem original) {
+        Object cloneValue = cloner.deepClone(original.getValue());
+        HeapItem clone = new HeapItem(cloneValue, original.getType());
+
+        return clone;
+    }
+
+    private Heap getAncestorWithKey(String key) {
+        Heap ancestor = this;
+        do {
+            if (ancestor.hasKey(key)) {
+                break;
+            }
+
+            ancestor = ancestor.getParent();
+        } while (ancestor != null);
+
+        return ancestor;
+    }
+
+    private Set<String> keySet() {
+        // Note: mutating this directly alters keytoHeapItem's keys
+        return keyToHeapItem.keySet();
+    }
+
+    private void remove(String key) {
+        keyToHeapItem.remove(key);
+    }
+
+    private void set(String key, HeapItem item) {
+        keyToHeapItem.put(key, item);
+    }
+
+    private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
+        Heap current = child;
+        Set<String> reassigned = new HashSet<String>();
+        while (current != ancestor) {
+            reassigned.addAll(current.keySet());
+            current = current.getParent();
+        }
+
+        return reassigned;
     }
 
 }

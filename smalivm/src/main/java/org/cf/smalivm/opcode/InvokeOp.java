@@ -220,7 +220,7 @@ public class InvokeOp extends ExecutionContextOp {
             Object value = item.getValue();
             if (item.isPrimitive() && !item.isUnknown()) {
                 boolean hasNullByteValue = item.getType().equals("I") && value instanceof Number && item
-                                .getIntegerValue() == 0;
+                                .asInteger() == 0;
                 if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
                     value = null;
                 } else {
