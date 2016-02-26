@@ -97,7 +97,3 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
         })
     }
 }
-
-task wrapper(type: Wrapper) {
-    gradleVersion = '2.11'
-}
