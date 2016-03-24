@@ -17,8 +17,6 @@ Simplify uses a virtual machine to execute an app and understand what it does. T
 </p>
 </section>
 
-Bitcoin: 133bmAUshC5VxntCcusWJdT8Sq3BFsaGce
-
 There are three parts to the project:
 
 1. **smalivm**: Creates a context sensitive control flow graph of a method by executing each instruction. The value of all classes and registers is recorded at every execution of every instruction. It doesn't need to know the arguments for a method to execute it as it handles unknown values. Also, it executes every possible path. For example, if an `if` could be `true` or `false` because it references an unknown value, it assumes both could happen and executes both paths.
