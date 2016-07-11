@@ -1,5 +1,9 @@
 # IDEA SCRATCH PAD
 
+why is cloner not static -takes up a lot of space
+
+indexitem type could be interned
+
 Debugger
   next / previous(!)
   show local code

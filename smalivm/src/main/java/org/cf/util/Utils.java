@@ -68,8 +68,6 @@ public class Utils {
     }
 
     public static Object castToPrimitive(Object value, String targetType) {
-        // TODO: add tests for this + confirm dalvik works this way
-
         // Type information is not always available beyond "const" because Dalvik handles multiple types like integers.
         // This is to make easier the casting of that number to the correct type.
         if (value instanceof Number) {

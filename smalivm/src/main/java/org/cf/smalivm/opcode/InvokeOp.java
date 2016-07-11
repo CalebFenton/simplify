@@ -111,7 +111,7 @@ public class InvokeOp extends ExecutionContextOp {
         LocalMethod localMethod = classManager.getMethod(targetSignature);
         if (classManager.isFrameworkClass(targetSignature) && !classManager.isSafeFrameworkClass(targetSignature)) {
             if (log.isDebugEnabled()) {
-                log.debug("Not executing unsafe framework method: {}. Assuming maxiumum ambiguity.", targetSignature);
+                log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", targetSignature);
             }
             assumeMaximumUnknown(callerMethodState);
             return;
@@ -120,10 +120,13 @@ public class InvokeOp extends ExecutionContextOp {
         if (!localMethod.hasImplementation()) {
             if (log.isWarnEnabled()) {
                 if (!localMethod.isNative()) {
-                    log.warn("Attempting to execute local method without implementation: {}. Assuming maxiumum ambiguity.",
+                    // This can happen if a method returns an object which implements an interface
+                    // but the object is unknown, so the real type of the invocation target
+                    // can't be determined. That's why this is a warning and not an error.
+                    log.warn("Attempting to execute local native method without implementation: {}. Assuming maximum ambiguity.",
                                     targetSignature);
                 } else {
-                    log.warn("Cannot execute local native method: {}. Assuming maxiumum ambiguity.", targetSignature);
+                    log.warn("Cannot execute local native method: {}. Assuming maximum ambiguity.", targetSignature);
                 }
             }
             assumeMaximumUnknown(callerMethodState);

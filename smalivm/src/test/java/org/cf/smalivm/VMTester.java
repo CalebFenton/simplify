@@ -251,8 +251,6 @@ public class VMTester {
             assertEquals(expected.toString(), consensus.toString());
         } else if (expectedValue.getClass().isArray()) {
             assertEquals(expected.getType(), consensus.getType());
-
-            // TODO: why does an array of local instances equal an array of actual instances?
             assertEquals(expectedValue.getClass(), consensusValue.getClass());
 
             if (expectedValue instanceof Object[] && consensusValue instanceof Object[])
