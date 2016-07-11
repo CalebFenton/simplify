@@ -42,7 +42,7 @@ public class APutOp extends MethodStateOp {
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
 
-        boolean throwsStoreException = throwsArrayStoreException(classManager, arrayItem.getType(), valueItem.getType());
+        boolean throwsStoreException = throwsArrayStoreException(classManager, arrayItem.getType(), valueItem);
         if (throwsStoreException) {
             String storeType = ClassNameUtils.internalToBinary(valueItem.getType());
             node.setException(new VirtualException(ArrayStoreException.class, storeType));
@@ -107,6 +107,9 @@ public class APutOp extends MethodStateOp {
                     value = (char) intValue.intValue();
                 } else if (opName.endsWith("-short")) {
                     value = intValue.shortValue();
+                } else if (opName.endsWith("-object") && intValue == 0) {
+                    // const/4 v0, 0x0 is null
+                    value = null;
                 }
             }
         }
@@ -118,12 +121,20 @@ public class APutOp extends MethodStateOp {
         return ClassNameUtils.isPrimitive(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
     }
 
-    private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, String valueType) {
+    private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, HeapItem valueItem) {
         String arrayComponentType = ClassNameUtils.getComponentType(arrayType);
+        String valueType = valueItem.getType();
         // These types are all represented identically in bytecode: Z B C S I
         if (isOverloadedPrimitiveType(valueType) && isOverloadedPrimitiveType(arrayComponentType)) {
             // TODO: figure out what dalvik actually does when you try to aput 0x2 into [B
             // also try to find other edge cases, like Integer.MAX_VALUE in [S
+            return false;
+        }
+
+        if (!valueItem.isUnknown() && valueType.equals("I") && valueItem.asInteger() == 0
+                && !ClassNameUtils.isPrimitive(arrayComponentType)) {
+            // This is some ugly because Dalvik represents null as const/4 0x0
+            // If it looks like that's what is happening, consider it null
             return false;
         }
 

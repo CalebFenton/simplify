@@ -142,6 +142,20 @@ public class APutOpTest {
         }
 
         @Test
+        public void canPutConstZeroNullObject() {
+            String valueType = "I";
+            String arrayType = "[" + valueType;
+            Object[] array = new String[1];
+            int index = 0;
+            int value = 0;
+
+            initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
+            expected.setRegisters(0, new String[] { null }, arrayType);
+
+            VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
+        }
+
+        @Test
         public void canPutShort() {
             Short value = 0x42;
             initial.setRegisters(0, new short[1], "[S", 1, 0, "I", 2, value, "S");
