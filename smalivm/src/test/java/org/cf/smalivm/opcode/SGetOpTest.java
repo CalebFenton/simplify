@@ -22,11 +22,25 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticBooleanLiteral() {
+        expected.setRegisters(0, true, "Z");
+
+        VMTester.test(CLASS_NAME, "getStaticBooleanLiteral()V", initial, expected);
+    }
+
+    @Test
     public void getStaticByte() {
         initial.setFields(CLASS_NAME, "myByte:B", (byte) 0xf);
         expected.setRegisters(0, (byte) 0xf, "B");
 
         VMTester.test(CLASS_NAME, "getStaticByte()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticByteLiteral() {
+        expected.setRegisters(0, (byte) 0xf, "B");
+
+        VMTester.test(CLASS_NAME, "getStaticByteLiteral()V", initial, expected);
     }
 
     @Test
@@ -38,11 +52,25 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticCharLiteral() {
+        expected.setRegisters(0, 'x', "C");
+
+        VMTester.test(CLASS_NAME, "getStaticCharLiteral()V", initial, expected);
+    }
+
+    @Test
     public void getStaticInt() {
         initial.setFields(CLASS_NAME, "myInt:I", 0x42);
         expected.setRegisters(0, 0x42, "I");
 
         VMTester.test(CLASS_NAME, "getStaticInt()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticIntLiteral() {
+        expected.setRegisters(0, 0x42, "I");
+
+        VMTester.test(CLASS_NAME, "getStaticIntLiteral()V", initial, expected);
     }
 
     @Test
@@ -54,11 +82,46 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticStringLiteral() {
+        expected.setRegisters(0, "life, what's life?", "Ljava/lang/String;");
+
+        VMTester.test(CLASS_NAME, "getStaticStringLiteral()V", initial, expected);
+    }
+
+    @Test
     public void getStaticShort() {
         initial.setFields(CLASS_NAME, "myShort:S", (short) 0x100);
         expected.setRegisters(0, (short) 0x100, "S");
 
         VMTester.test(CLASS_NAME, "getStaticShort()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticShortLiteral() {
+        expected.setRegisters(0, (short) 0x100, "S");
+
+        VMTester.test(CLASS_NAME, "getStaticShortLiteral()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticLongLiteral() {
+        expected.setRegisters(0, 0xFFFFFFFFFL, "L");
+
+        VMTester.test(CLASS_NAME, "getStaticLongLiteral()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticDoubleLiteral() {
+        expected.setRegisters(0, 10000000000D, "D");
+
+        VMTester.test(CLASS_NAME, "getStaticDoubleLiteral()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticFloatLiteral() {
+        expected.setRegisters(0, 1.1F, "F");
+
+        VMTester.test(CLASS_NAME, "getStaticFloatLiteral()V", initial, expected);
     }
 
     @Test

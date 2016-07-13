@@ -22,7 +22,20 @@ import org.cf.smalivm.reference.LocalMethod;
 import org.cf.smalivm.smali.AncestorEnumerator;
 import org.cf.smalivm.smali.ClassManager;
 import org.cf.smalivm.smali.SmaliClassLoader;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
+import org.jf.dexlib2.ValueType;
+import org.jf.dexlib2.iface.value.BooleanEncodedValue;
+import org.jf.dexlib2.iface.value.ByteEncodedValue;
+import org.jf.dexlib2.iface.value.CharEncodedValue;
+import org.jf.dexlib2.iface.value.DoubleEncodedValue;
+import org.jf.dexlib2.iface.value.FloatEncodedValue;
+import org.jf.dexlib2.iface.value.IntEncodedValue;
+import org.jf.dexlib2.iface.value.LongEncodedValue;
+import org.jf.dexlib2.iface.value.ShortEncodedValue;
+import org.jf.dexlib2.iface.value.StringEncodedValue;
+import org.jf.dexlib2.writer.builder.BuilderEncodedValues;
+import org.jf.dexlib2.writer.builder.BuilderField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -127,9 +140,45 @@ public class VirtualMachine {
     public ClassState getTemplateClassState(ExecutionContext ectx, String className) {
         List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
         ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
-        for (String fieldNameAndType : fieldNameAndTypes) {
-            String type = fieldNameAndType.split(":")[1];
-            cState.pokeField(fieldNameAndType, HeapItem.newUnknown(type));
+        for ( BuilderField field : classManager.getFields(className)) {
+            String type = field.getType();
+            String fieldNameAndType = field.getName() + ":" + type;
+            Object value = null;
+            BuilderEncodedValues.BuilderEncodedValue bev = field.getInitialValue();
+            if ( bev != null ) {
+                // I *believe* these are the only types which can be literals
+                switch (bev.getValueType()) {
+                    case ValueType.BYTE:
+                        value = ((ByteEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.SHORT:
+                        value = ((ShortEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.CHAR:
+                        value = ((CharEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.INT:
+                        value = ((IntEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.LONG:
+                        value = ((LongEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.FLOAT:
+                        value = ((FloatEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.DOUBLE:
+                        value = ((DoubleEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.STRING:
+                        value = ((StringEncodedValue) bev).getValue();
+                        break;
+                    case ValueType.BOOLEAN:
+                        value = ((BooleanEncodedValue) bev).getValue();
+                        break;
+                }
+            }
+
+            cState.pokeField(fieldNameAndType, new HeapItem(value, type));
         }
 
         return cState;

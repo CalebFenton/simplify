@@ -212,8 +212,8 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeReturnUninitializedFieldDoesNotReturnNull() {
-            expected.setRegisters(MethodState.ResultRegister, new UnknownValue(), "Ljava/lang/String;");
+        public void testInvokeReturnUninitializedFieldReturnsNull() {
+            expected.setRegisters(MethodState.ResultRegister, null, "Ljava/lang/String;");
 
             VMTester.test(CLASS_NAME, "invokeReturnUninitializedField()V", expected);
         }
@@ -223,7 +223,7 @@ public class InvokeOpTest {
             ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeReturnVoid()V");
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ResultRegister);
 
-            assertNull(consensus);
+            assertNull("Consensus should be null", consensus);
         }
 
         @Test
