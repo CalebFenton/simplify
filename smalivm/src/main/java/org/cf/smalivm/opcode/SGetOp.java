@@ -30,7 +30,10 @@ public class SGetOp extends ExecutionContextOp {
     public void execute(ExecutionNode node, ExecutionContext ectx) {
         HeapItem item = vm.getStaticFieldAccessor().getField(ectx, fieldDescriptor);
         if (item.isUnknown()) {
-            log.warn("Accessing unknown static member {}. This implies class hasn't been initialized as it would during normal execution and may lead to errors.", fieldDescriptor);
+            log.warn("Accessing unknown static member {}. Class hasn't been initialized as it" +
+                    "would during real execution, and this may lead to errors. Perhaps you are" +
+                    "executing methods out of order or need to specify additional class state?",
+                    fieldDescriptor);
         }
         MethodState mState = ectx.getMethodState();
         mState.assignRegister(destRegister, item);

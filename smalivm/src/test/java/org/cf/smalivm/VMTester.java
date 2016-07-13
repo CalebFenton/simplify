@@ -122,7 +122,7 @@ public class VMTester {
     }
 
     public static void testState(ExecutionGraph graph, VMState expectedState) {
-        assertNotNull(graph);
+        assertNotNull("Graph is null, failed to execute method", graph);
 
         testRegisterState(graph, expectedState.getRegisters());
         testClassState(graph, expectedState.getFields());
@@ -241,7 +241,7 @@ public class VMTester {
         Object consensusValue = consensus.getValue();
 
         if (expectedValue != null) {
-            assertNotNull(consensusValue);
+            assertNotNull("No consensus for value", consensusValue);
         }
 
         if (expectedValue == null) {

@@ -128,9 +128,8 @@ public class ClassManager {
     public List<String> getFieldNameAndTypes(String className) {
         dexifyClassIfNecessary(className);
 
-        Set<String> ancestors = getClassAncestors(className);
-
         List<String> fieldNameAndTypes = new LinkedList<String>();
+        Set<String> ancestors = getClassAncestors(className);
         for (String ancestor : ancestors) {
             fieldNameAndTypes.addAll(classNameToFieldDescriptors.get(ancestor));
         }
@@ -372,6 +371,9 @@ public class ClassManager {
         }
 
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
+        if (smaliFile == null) {
+            throw new RuntimeException("Smali file for class definition of " + className + " does not exist.");
+        }
         BuilderClassDef classDef;
         try {
             boolean isFramework = smaliFileFactory.isFrameworkClass(className);
