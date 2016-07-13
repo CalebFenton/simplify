@@ -137,52 +137,6 @@ public class VirtualMachine {
         return staticFieldAccessor;
     }
 
-    public ClassState getTemplateClassState(ExecutionContext ectx, String className) {
-        List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
-        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
-        for ( BuilderField field : classManager.getFields(className)) {
-            String type = field.getType();
-            String fieldNameAndType = field.getName() + ":" + type;
-            Object value = null;
-            BuilderEncodedValues.BuilderEncodedValue bev = field.getInitialValue();
-            if ( bev != null ) {
-                // I *believe* these are the only types which can be literals
-                switch (bev.getValueType()) {
-                    case ValueType.BYTE:
-                        value = ((ByteEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.SHORT:
-                        value = ((ShortEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.CHAR:
-                        value = ((CharEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.INT:
-                        value = ((IntEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.LONG:
-                        value = ((LongEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.FLOAT:
-                        value = ((FloatEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.DOUBLE:
-                        value = ((DoubleEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.STRING:
-                        value = ((StringEncodedValue) bev).getValue();
-                        break;
-                    case ValueType.BOOLEAN:
-                        value = ((BooleanEncodedValue) bev).getValue();
-                        break;
-                }
-            }
-
-            cState.pokeField(fieldNameAndType, new HeapItem(value, type));
-        }
-
-        return cState;
-    }
 
     public boolean shouldTreatAsLocal(String classDescriptor) {
         // Prefer to reflect methods, even if local. It's faster and less prone to error than emulating ourselves.
@@ -217,10 +171,10 @@ public class VirtualMachine {
 
         ExecutionContext spawnedContext = new ExecutionContext(this, localMethod);
         String className = localMethod.getClassName();
-        ClassState templateClassState = getTemplateClassState(spawnedContext, className);
+        ClassState templateClassState = TemplateStateFactory.forClass(spawnedContext, className, classManager);
         spawnedContext.setClassState(className, templateClassState);
 
-        MethodState templateMethodState = getTemplateMethodState(spawnedContext);
+        MethodState templateMethodState = TemplateStateFactory.forMethod(spawnedContext);
         spawnedContext.setMethodState(templateMethodState);
 
         if (callerContext != null) {
@@ -292,25 +246,6 @@ public class VirtualMachine {
                 cState.pokeField(fieldNameAndType, item);
             }
         }
-    }
-
-    private MethodState getTemplateMethodState(ExecutionContext ectx) {
-        LocalMethod localMethod = ectx.getMethod();
-        int registerCount = localMethod.getRegisterCount();
-        List<String> parameterTypes = localMethod.getParameterTypes();
-        int parameterSize = Utils.getRegisterSize(parameterTypes);
-        MethodState mState = new MethodState(ectx, registerCount, parameterTypes.size(), parameterSize);
-        int firstParameter = mState.getParameterStart();
-        int parameterRegister = firstParameter;
-
-        // Assume all input values are unknown.
-        for (String type : parameterTypes) {
-            HeapItem item = HeapItem.newUnknown(type);
-            mState.assignParameter(parameterRegister, item);
-            parameterRegister += Utils.getRegisterSize(type);
-        }
-
-        return mState;
     }
 
     private void inheritClassStates(ExecutionContext parent, ExecutionContext child) {

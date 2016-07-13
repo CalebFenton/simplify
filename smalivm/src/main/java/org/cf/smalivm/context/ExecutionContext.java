@@ -8,6 +8,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.TemplateStateFactory;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
 import org.cf.smalivm.exception.MaxCallDepthExceeded;
@@ -142,7 +143,7 @@ public class ExecutionContext {
     public ClassState peekClassState(String className) {
         ExecutionContext ancestor = getAncestorWithClassName(className);
         if (ancestor == null) {
-            ClassState templateClassState = vm.getTemplateClassState(this, className);
+            ClassState templateClassState = TemplateStateFactory.forClass(this, className, this.vm.getClassManager());
             setClassState(className, templateClassState);
 
             return templateClassState;

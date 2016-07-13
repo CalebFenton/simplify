@@ -15,7 +15,9 @@
 .field public static myCharLiteral:C = 'x'
 .field public static myShort:S
 .field public static myShortLiteral:S = 0x100S
+.field public static myDouble:D
 .field public static myDoubleLiteral:D = 10000000000D
+.field public static myFloat:F
 .field public static myFloatLiteral:F = 1.1F
 
 .field public static final myFinalInt:I
@@ -32,7 +34,7 @@
     return-void
 .end method
 
-.method public static getStaticWide()V
+.method public static getStaticLong()V
     .locals 1
     sget-wide v0, Lsget_test;->myLong:J
     return-void
@@ -44,7 +46,7 @@
     return-void
 .end method
 
-.method public static getStaticObject()V
+.method public static getStaticString()V
     .locals 1
     sget-object v0, Lsget_test;->myString:Ljava/lang/String;
     return-void
@@ -104,9 +106,21 @@
     return-void
 .end method
 
+.method public static getStaticDouble()V
+    .locals 1
+    sget-wide v0, Lsget_test;->myDouble:D
+    return-void
+.end method
+
 .method public static getStaticDoubleLiteral()V
     .locals 1
     sget-wide v0, Lsget_test;->myDoubleLiteral:D
+    return-void
+.end method
+
+.method public static getStaticFloat()V
+    .locals 1
+    sget-wide v0, Lsget_test;->myFloat:F
     return-void
 .end method
 

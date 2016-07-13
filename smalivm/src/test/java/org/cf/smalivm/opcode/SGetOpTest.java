@@ -22,6 +22,13 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticBooleanUninitialized() {
+        expected.setRegisters(0, false, "Z");
+
+        VMTester.test(CLASS_NAME, "getStaticBoolean()V", initial, expected);
+    }
+
+    @Test
     public void getStaticBooleanLiteral() {
         expected.setRegisters(0, true, "Z");
 
@@ -32,6 +39,13 @@ public class SGetOpTest {
     public void getStaticByte() {
         initial.setFields(CLASS_NAME, "myByte:B", (byte) 0xf);
         expected.setRegisters(0, (byte) 0xf, "B");
+
+        VMTester.test(CLASS_NAME, "getStaticByte()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticByteUninitialized() {
+        expected.setRegisters(0, (byte) 0, "B");
 
         VMTester.test(CLASS_NAME, "getStaticByte()V", initial, expected);
     }
@@ -52,6 +66,13 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticCharUninitialized() {
+        expected.setRegisters(0, (char) '\0', "C");
+
+        VMTester.test(CLASS_NAME, "getStaticChar()V", initial, expected);
+    }
+
+    @Test
     public void getStaticCharLiteral() {
         expected.setRegisters(0, 'x', "C");
 
@@ -67,6 +88,13 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticIntUninitialized() {
+        expected.setRegisters(0, 0, "I");
+
+        VMTester.test(CLASS_NAME, "getStaticInt()V", initial, expected);
+    }
+
+    @Test
     public void getStaticIntLiteral() {
         expected.setRegisters(0, 0x42, "I");
 
@@ -74,11 +102,18 @@ public class SGetOpTest {
     }
 
     @Test
-    public void getStaticObject() {
+    public void getStaticString() {
         initial.setFields(CLASS_NAME, "myString:Ljava/lang/String;", "They tried and died.");
         expected.setRegisters(0, "They tried and died.", "Ljava/lang/String;");
 
-        VMTester.test(CLASS_NAME, "getStaticObject()V", initial, expected);
+        VMTester.test(CLASS_NAME, "getStaticString()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticStringUninitialized() {
+        expected.setRegisters(0, null, "Ljava/lang/String;");
+
+        VMTester.test(CLASS_NAME, "getStaticString()V", initial, expected);
     }
 
     @Test
@@ -97,10 +132,32 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticShortUninitialized() {
+        expected.setRegisters(0, (short) 0, "S");
+
+        VMTester.test(CLASS_NAME, "getStaticShort()V", initial, expected);
+    }
+
+    @Test
     public void getStaticShortLiteral() {
         expected.setRegisters(0, (short) 0x100, "S");
 
         VMTester.test(CLASS_NAME, "getStaticShortLiteral()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticLong() {
+        initial.setFields(CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);
+        expected.setRegisters(0, 0xFFFFFFFFFL, "J");
+
+        VMTester.test(CLASS_NAME, "getStaticLong()V", initial, expected);
+    }
+
+    @Test
+    public void getStaticLongUninitialized() {
+        expected.setRegisters(0, 0L, "J");
+
+        VMTester.test(CLASS_NAME, "getStaticLong()V", initial, expected);
     }
 
     @Test
@@ -111,11 +168,26 @@ public class SGetOpTest {
     }
 
     @Test
+    public void getStaticDoubleUninitialized() {
+        expected.setRegisters(0, 0D, "D");
+
+        VMTester.test(CLASS_NAME, "getStaticDouble()V", initial, expected);
+    }
+
+    @Test
     public void getStaticDoubleLiteral() {
         expected.setRegisters(0, 10000000000D, "D");
 
         VMTester.test(CLASS_NAME, "getStaticDoubleLiteral()V", initial, expected);
     }
+
+    @Test
+    public void getStaticFloatUninitialized() {
+        expected.setRegisters(0, 0F, "F");
+
+        VMTester.test(CLASS_NAME, "getStaticFloat()V", initial, expected);
+    }
+
 
     @Test
     public void getStaticFloatLiteral() {
@@ -136,14 +208,6 @@ public class SGetOpTest {
         expected.setRegisters(0, Integer.MAX_VALUE, "I");
 
         VMTester.test(CLASS_NAME, "getStaticWhitelistedClassField()V", expected);
-    }
-
-    @Test
-    public void getStaticWide() {
-        initial.setFields(CLASS_NAME, "myLong:J", 0xFFFFFFFFFL);
-        expected.setRegisters(0, 0xFFFFFFFFFL, "J");
-
-        VMTester.test(CLASS_NAME, "getStaticWide()V", initial, expected);
     }
 
     @Before
