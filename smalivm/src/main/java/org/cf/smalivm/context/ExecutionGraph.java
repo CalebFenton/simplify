@@ -63,15 +63,18 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         TIntList addresses = new TIntLinkedList();
         for (BuilderInstruction instruction : instructions) {
             int address = instruction.getLocation().getCodeAddress();
-            /*
-             * Array payload is a weird pseudo instruction. We treat it like a normal one but perhaps a better way would
-             * be to make it easier for operations to execute other operations, perhaps looking up by address. This
-             * would eliminate the need for MethodState.pseudoInstructionReturnAddress.
-             */
             Opcode op = instruction.getOpcode();
-            if (op.canContinue() || (op == Opcode.ARRAY_PAYLOAD) || op.name.startsWith("goto")) {
-                continue;
+            switch (op) {
+                case RETURN_VOID:
+                case RETURN:
+                case RETURN_WIDE:
+                case RETURN_OBJECT:
+                case THROW:
+                    break;
+                default:
+                    continue;
             }
+
             addresses.add(address);
         }
 
@@ -103,6 +106,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         locationToNodePile = other.locationToNodePile;
         terminatingAddresses = other.terminatingAddresses;
         addressToLocation = other.addressToLocation;
+    }
+
+    public int[] getTerminatingAddresses() {
+        return terminatingAddresses;
     }
 
     public ExecutionGraph(VirtualMachine vm, LocalMethod localMethod) {

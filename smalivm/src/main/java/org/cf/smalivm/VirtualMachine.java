@@ -143,6 +143,14 @@ public class VirtualMachine {
         return classManager.isLocalClass(classDescriptor) && !getConfiguration().isSafe(classDescriptor);
     }
 
+    public ExecutionGraph spawnInstructionGraph(String className, String methodDescriptor){
+        return spawnInstructionGraph(classManager.getMethod(className, methodDescriptor));
+    }
+
+    public ExecutionGraph spawnInstructionGraph(String methodSignature){
+        return spawnInstructionGraph(classManager.getMethod(methodSignature));
+    }
+
     public ExecutionGraph spawnInstructionGraph(LocalMethod localMethod) {
         if (!methodToTemplateExecutionGraph.containsKey(localMethod)) {
             updateInstructionGraph(localMethod);
