@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -142,10 +143,15 @@ public class ClassManager {
      * @param className
      * @return fields for given class
      */
-    public Collection<BuilderField> getFields(String className) {
+    public List<BuilderField> getFields(String className) {
         BuilderClassDef classDef = getClass(className);
 
-        return classDef.getFields();
+        // These are introduced during debugging.
+        List<BuilderField> fields = classDef.getFields().stream()
+                .filter(field -> !field.getName().startsWith("shadow$_"))
+                .collect(Collectors.toList());
+
+        return fields;
     }
 
     /**
@@ -330,7 +336,7 @@ public class ClassManager {
 
     private void addFieldDescriptors(BuilderClassDef classDef) {
         String className = ReferenceUtil.getReferenceString(classDef);
-        Collection<BuilderField> fields = classDef.getFields();
+        List<BuilderField> fields = getFields(className);
         List<String> fieldDescriptors = new LinkedList<String>();
         for (BuilderField field : fields) {
             String fieldSignature = ReferenceUtil.getFieldDescriptor(field);

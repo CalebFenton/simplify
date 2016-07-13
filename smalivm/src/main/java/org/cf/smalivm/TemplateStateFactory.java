@@ -47,11 +47,13 @@ public class TemplateStateFactory {
     }
 
     public static ClassState forClass(ExecutionContext ectx, String className, ClassManager classManager) {
-        List<String> fieldNameAndTypes = classManager.getFieldNameAndTypes(className);
-        ClassState cState = new ClassState(ectx, className, fieldNameAndTypes.size());
+        List<BuilderField> fields = classManager.getFields(className);
+        ClassState cState = new ClassState(ectx, className, fields.size());
         for (BuilderField field : classManager.getFields(className)) {
             String type = field.getType();
-            String fieldNameAndType = field.getName() + ":" + type;
+            StringBuilder sb = new StringBuilder(field.getName());
+            sb.append(':').append(type);
+            String fieldNameAndType = sb.toString();
             Object value = null;
             BuilderEncodedValues.BuilderEncodedValue bev = field.getInitialValue();
             if (bev != null) {
