@@ -3,9 +3,9 @@ package org.cf.smalivm;
 import java.io.File;
 import java.io.IOException;
 
-import org.cf.smalivm.smali.ClassManager;
-import org.cf.smalivm.smali.ClassManagerFactory;
-import org.cf.smalivm.smali.Dexifier;
+import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerFactory;
+import org.cf.smalivm.dex.Dexifier;
 
 public class VirtualMachineFactory {
 

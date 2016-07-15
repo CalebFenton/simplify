@@ -3,7 +3,7 @@ package org.cf.simplify;
 import java.io.IOException;
 
 import org.cf.smalivm.VirtualMachineFactory;
-import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.UnhandledVirtualException;
 
 public class Main {
 

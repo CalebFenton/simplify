@@ -1,18 +1,20 @@
 package org.cf.smalivm.opcode;
 
-import java.lang.reflect.Array;
-
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.exception.UnknownAncestors;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.dex.CommonTypes;
+import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.VirtualArray;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Array;
 
 public class APutOp extends MethodStateOp {
 
@@ -23,8 +25,8 @@ public class APutOp extends MethodStateOp {
     private final int indexRegister;
     private final ClassManager classManager;
 
-    public APutOp(MethodLocation location, MethodLocation child, int putRegister, int arrayRegister, int indexRegister,
-                    ClassManager classManager) {
+    APutOp(MethodLocation location, MethodLocation child, int putRegister, int arrayRegister, int indexRegister,
+           ClassManager classManager) {
         super(location, child);
 
         valueRegister = putRegister;
@@ -36,13 +38,76 @@ public class APutOp extends MethodStateOp {
         addException(new VirtualException(NullPointerException.class));
     }
 
+    private static Object castValue(String opName, Object value) {
+        if (value instanceof Number) {
+            if (opName.endsWith("-boolean")) {
+                // Booleans are represented by integer literals; need to convert
+                Integer intValue = Utils.getIntegerValue(value);
+                value = intValue == 1;
+            } else {
+                Integer intValue = Utils.getIntegerValue(value);
+                if (opName.endsWith("-byte")) {
+                    value = intValue.byteValue();
+                } else if (opName.endsWith("-char")) {
+                    // Characters, like boolean, are represented by integers
+                    value = (char) intValue.intValue();
+                } else if (opName.endsWith("-short")) {
+                    value = intValue.shortValue();
+                } else if (opName.endsWith("-object") && intValue == 0) {
+                    // const/4 v0, 0x0 is null
+                    value = null;
+                }
+            }
+        }
+
+        return value;
+    }
+
+    private static boolean isOverloadedPrimitiveType(String type) {
+        return ClassNameUtils.isPrimitive(type) && !(CommonTypes.FLOAT.equals(type) || CommonTypes.DOUBLE.equals
+                (type) ||
+                CommonTypes.LONG.equals(type));
+    }
+
+    private static boolean throwsArrayStoreException(HeapItem arrayItem, HeapItem valueItem, ClassManager
+            classManager) {
+        VirtualGeneric valueType = classManager.getVirtualType(valueItem.getType());
+        VirtualArray arrayType = (VirtualArray) classManager.getVirtualType(arrayItem.getType());
+        VirtualGeneric arrayComponentType = arrayType.getComponentType();
+
+        if (arrayComponentType.instanceOf(valueType)) {
+            return false;
+        }
+
+        // Types: Z B C S I are all represented identically in bytecode (e.g. const/4)
+        String valueTypeName = valueType.getName();
+        String arrayComponentTypeName = arrayComponentType.getName();
+        if (isOverloadedPrimitiveType(valueTypeName) && isOverloadedPrimitiveType(arrayComponentTypeName)) {
+            // Trying to store something that looks like one type into another type, but they're compatible.
+            // For example, a method returns Z, which is actually either 0x1 or 0x0 and is then storing it in an int
+            // array.
+            // TODO: figure out what dalvik actually does when you try to aput 0x2 into [B
+            // also try to find other edge cases, like Integer.MAX_VALUE in [S
+            return false;
+        }
+
+        // Trying to store a known value of 0 and a primitive type of integer into an array of object reference.
+        // This is how Dalvik does null.
+        // TODO: see what happens when Dalvik makes a Z and uses as null, might want to consider other types
+        boolean storingNull = (!valueItem.isUnknown() && valueTypeName.equals(CommonTypes.INTEGER) && valueItem
+                .asInteger() == 0 &&
+                !ClassNameUtils.isPrimitive(arrayComponentTypeName));
+
+        return !storingNull;
+    }
+
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem valueItem = mState.readRegister(valueRegister);
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
 
-        boolean throwsStoreException = throwsArrayStoreException(classManager, arrayItem.getType(), valueItem);
+        boolean throwsStoreException = throwsArrayStoreException(arrayItem, valueItem, classManager);
         if (throwsStoreException) {
             String storeType = ClassNameUtils.internalToBinary(valueItem.getType());
             node.setException(new VirtualException(ArrayStoreException.class, storeType));
@@ -84,68 +149,7 @@ public class APutOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
-
-        return sb.toString();
-    }
-
-    private static Object castValue(String opName, Object value) {
-        if (value instanceof Number) {
-            if (opName.endsWith("-wide")) {
-                // No need to cast anything
-            } else if (opName.endsWith("-boolean")) {
-                // Booleans are represented by integer literals, so need to convert
-                Integer intValue = Utils.getIntegerValue(value);
-                value = intValue == 1 ? true : false;
-            } else {
-                Integer intValue = Utils.getIntegerValue(value);
-                if (opName.endsWith("-byte")) {
-                    value = intValue.byteValue();
-                } else if (opName.endsWith("-char")) {
-                    // Characters, like boolean, are represented by integers
-                    value = (char) intValue.intValue();
-                } else if (opName.endsWith("-short")) {
-                    value = intValue.shortValue();
-                } else if (opName.endsWith("-object") && intValue == 0) {
-                    // const/4 v0, 0x0 is null
-                    value = null;
-                }
-            }
-        }
-
-        return value;
-    }
-
-    private static boolean isOverloadedPrimitiveType(String type) {
-        return ClassNameUtils.isPrimitive(type) && !("F".equals(type) || "D".equals(type) || "J".equals(type));
-    }
-
-    private static boolean throwsArrayStoreException(ClassManager classManager, String arrayType, HeapItem valueItem) {
-        String arrayComponentType = ClassNameUtils.getComponentType(arrayType);
-        String valueType = valueItem.getType();
-        // These types are all represented identically in bytecode: Z B C S I
-        if (isOverloadedPrimitiveType(valueType) && isOverloadedPrimitiveType(arrayComponentType)) {
-            // TODO: figure out what dalvik actually does when you try to aput 0x2 into [B
-            // also try to find other edge cases, like Integer.MAX_VALUE in [S
-            return false;
-        }
-
-        if (!valueItem.isUnknown() && valueType.equals("I") && valueItem.asInteger() == 0
-                && !ClassNameUtils.isPrimitive(arrayComponentType)) {
-            // This is some ugly because Dalvik represents null as const/4 0x0
-            // If it looks like that's what is happening, consider it null
-            return false;
-        }
-
-        try {
-            return !classManager.isInstance(valueType, arrayComponentType);
-        } catch (UnknownAncestors e) {
-            if (log.isWarnEnabled()) {
-                log.warn("Unknown ancestors for either {} or {}", valueType, arrayComponentType);
-            }
-            return true;
-        }
+        return getName() + " r" + valueRegister + ", r" + arrayRegister + ", r" + indexRegister;
     }
 
 }

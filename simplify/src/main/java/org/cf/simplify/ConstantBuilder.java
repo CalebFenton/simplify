@@ -169,7 +169,7 @@ public class ConstantBuilder implements Dependancy {
         } else if (type.equals("F")) {
             constant = buildConstant(Utils.getFloatValue(value), register);
         } else if (type.equals("D")) {
-            // const op has no notion of actual type, just wide/narrow and bits
+            // const op has no notion of actual class, just wide/narrow and bits
             // must coax correct value when needed
             constant = buildConstant(Utils.getDoubleValue(value), register);
         } else if (type.equals("Ljava/lang/String;")) {
@@ -182,7 +182,7 @@ public class ConstantBuilder implements Dependancy {
             constant = new BuilderInstruction21c(Opcode.CONST_CLASS, register, typeRef);
         } else {
             if (log.isWarnEnabled()) {
-                log.warn("Unrecognized constant type: {} for value: {}. This will cause failures.", type, value);
+                log.warn("Unrecognized constant class: {} for value: {}. This will cause failures.", type, value);
             }
         }
 

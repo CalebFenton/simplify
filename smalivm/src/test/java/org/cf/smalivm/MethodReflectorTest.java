@@ -1,5 +1,6 @@
 package org.cf.smalivm;
 
+import org.cf.smalivm.dex.CommonTypes;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -19,7 +20,7 @@ public class MethodReflectorTest {
     public void canCastIntegerToByte() {
         byte value = 6;
         initial.setRegisters(0, value, "B");
-        expected.setRegisters(0, Byte.valueOf(value), "Ljava/lang/Byte;");
+        expected.setRegisters(0, value, CommonTypes.BYTE_OBJ);
 
         VMTester.test(CLASS_NAME, "byteValueOfByte()V", initial, expected);
     }
@@ -28,7 +29,7 @@ public class MethodReflectorTest {
     public void canInitBooleanWithBoolean() {
         boolean value = true;
         initial.setRegisters(1, value, "Z");
-        expected.setRegisters(0, Boolean.valueOf(value), "Ljava/lang/Boolean;");
+        expected.setRegisters(0, value, CommonTypes.BOOLEAN_OBJ);
 
         VMTester.test(CLASS_NAME, "initBooleanWithBoolean()V", initial, expected);
     }
@@ -37,7 +38,7 @@ public class MethodReflectorTest {
     public void canInitCharacterWithChar() {
         char value = 'a';
         initial.setRegisters(1, value, "C");
-        expected.setRegisters(0, Character.valueOf(value), "Ljava/lang/Character;");
+        expected.setRegisters(0, value, CommonTypes.CHARACTER_OBJ);
 
         VMTester.test(CLASS_NAME, "initCharacterWithChar()V", initial, expected);
     }
@@ -46,14 +47,14 @@ public class MethodReflectorTest {
     public void canGetShortValueOfShort() {
         short value = 5;
         initial.setRegisters(0, value, "S");
-        expected.setRegisters(0, Short.valueOf(value), "Ljava/lang/Short;");
+        expected.setRegisters(0, value, CommonTypes.SHORT_OBJ);
 
         VMTester.test(CLASS_NAME, "shortValueOfShort()V", initial, expected);
     }
 
     @Test
     public void handlesNullArgumentProperly() throws NoSuchMethodException, SecurityException {
-        initial.setRegisters(0, System.class, "Ljava/lang/Class;", 1, "currentTimeMillis", "Ljava/lang/String;", 2, 0,
+        initial.setRegisters(0, System.class, CommonTypes.CLASS, 1, "currentTimeMillis", CommonTypes.STRING, 2, 0,
                         "I");
         expected.setRegisters(0, System.class.getMethod("currentTimeMillis", (Class<?>[]) null),
                         "Ljava/lang/reflect/Method;");

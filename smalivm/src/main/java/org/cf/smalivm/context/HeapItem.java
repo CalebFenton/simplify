@@ -1,9 +1,7 @@
 package org.cf.smalivm.context;
 
-import java.lang.reflect.Array;
-import java.util.Arrays;
-
-import javax.annotation.Nullable;
+import com.rits.cloning.Cloner;
+import com.rits.cloning.ObjenesisInstantiationStrategy;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -12,8 +10,10 @@ import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 
-import com.rits.cloning.Cloner;
-import com.rits.cloning.ObjenesisInstantiationStrategy;
+import java.lang.reflect.Array;
+import java.util.Arrays;
+
+import javax.annotation.Nullable;
 
 public class HeapItem {
 
@@ -33,24 +33,8 @@ public class HeapItem {
         type = other.getType();
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == null) {
-            return false;
-        }
-        if (obj == this) {
-            return true;
-        }
-        if (obj.getClass() != getClass()) {
-            return false;
-        }
-        HeapItem rhs = (HeapItem) obj;
-
-        return new EqualsBuilder().append(getType(), rhs.getType()).append(getValue(), rhs.getValue()).isEquals();
-    }
-
-    public String getComponentBase() {
-        return ClassNameUtils.getComponentBase(getType());
+    public static HeapItem newUnknown(String type) {
+        return new HeapItem(new UnknownValue(), type);
     }
 
     public double asDouble() {
@@ -67,6 +51,10 @@ public class HeapItem {
 
     public long asLong() {
         return Utils.getLongValue(getValue());
+    }
+
+    public String getComponentBase() {
+        return ClassNameUtils.getComponentBase(getType());
     }
 
     public String getType() {
@@ -92,7 +80,9 @@ public class HeapItem {
         return unboxedType;
     }
 
-    public @Nullable Object getValue() {
+    public
+    @Nullable
+    Object getValue() {
         return value;
     }
 
@@ -105,28 +95,20 @@ public class HeapItem {
         return new HashCodeBuilder(123, 51).append(getType()).append(getValue()).hashCode();
     }
 
-    public boolean isImmutable() {
-        return Configuration.instance().isImmutable(getType());
-    }
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (obj == this) {
+            return true;
+        }
+        if (obj.getClass() != getClass()) {
+            return false;
+        }
+        HeapItem rhs = (HeapItem) obj;
 
-    public boolean isObject() {
-        return ClassNameUtils.isObject(getType());
-    }
-
-    public boolean isPrimitive() {
-        return ClassNameUtils.isPrimitive(getType());
-    }
-
-    public boolean isPrimitiveOrWrapper() {
-        return ClassNameUtils.isPrimitiveOrWrapper(getType());
-    }
-
-    public boolean isPrimitiveWrapper() {
-        return ClassNameUtils.isWrapper(getType());
-    }
-
-    public boolean isUnknown() {
-        return getValue() instanceof UnknownValue;
+        return new EqualsBuilder().append(getType(), rhs.getType()).append(getValue(), rhs.getValue()).isEquals();
     }
 
     @Override
@@ -158,12 +140,36 @@ public class HeapItem {
         return sb.toString();
     }
 
-    public boolean valueIdentity(HeapItem other) {
-        return getValue() == other.getValue();
+    public boolean isImmutable() {
+        return Configuration.instance().isImmutable(getType());
     }
 
-    public static HeapItem newUnknown(String type) {
-        return new HeapItem(new UnknownValue(), type);
+    public boolean isNull() {
+        return getValue() == null;
+    }
+
+    public boolean isObject() {
+        return ClassNameUtils.isObject(getType());
+    }
+
+    public boolean isPrimitive() {
+        return ClassNameUtils.isPrimitive(getType());
+    }
+
+    public boolean isPrimitiveOrWrapper() {
+        return ClassNameUtils.isPrimitiveOrWrapper(getType());
+    }
+
+    public boolean isPrimitiveWrapper() {
+        return ClassNameUtils.isWrapper(getType());
+    }
+
+    public boolean isUnknown() {
+        return getValue() instanceof UnknownValue;
+    }
+
+    public boolean valueIdentity(HeapItem other) {
+        return getValue() == other.getValue();
     }
 
 }

@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.regex.Pattern;
 
-import org.cf.smalivm.smali.Dexifier;
+import org.cf.smalivm.dex.Dexifier;
 
 public class SimplifyOptions implements Serializable {
 
@@ -53,7 +53,7 @@ public class SimplifyOptions implements Serializable {
         } else if (Arrays.equals(PK_ZIP_MAGIC, buf)) {
             return InputType.ZIP;
         } else {
-            throw new RuntimeException("Unknown input file type. Magic: " + Arrays.toString(buf));
+            throw new RuntimeException("Unknown input file type; magic: " + Arrays.toString(buf));
         }
     }
 

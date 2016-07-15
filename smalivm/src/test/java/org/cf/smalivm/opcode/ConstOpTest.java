@@ -16,6 +16,7 @@ import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -62,7 +63,7 @@ public class ConstOpTest {
         public void canConstClassLocal() throws ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
             Class<?> expectedClass = vm.getClassLoader().loadClass(ClassNameUtils.internalToBinary(CLASS_NAME));
-            expected.setRegisters(0, expectedClass, "Ljava/lang/Class;");
+            expected.setRegisters(0, expectedClass, CommonTypes.CLASS);
             ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "constClassLocal()V");
 
             VMTester.testState(graph, expected);
@@ -70,7 +71,7 @@ public class ConstOpTest {
 
         @Test
         public void canConstClassRemote() {
-            expected.setRegisters(0, Object.class, "Ljava/lang/Class;");
+            expected.setRegisters(0, Object.class, CommonTypes.CLASS);
 
             VMTester.test(CLASS_NAME, "constClassRemote()V", expected);
         }
@@ -163,7 +164,7 @@ public class ConstOpTest {
             op.execute(node, mState);
 
             Class<?> expected = String.class;
-            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("Ljava/lang/Class;"));
+            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq(CommonTypes.CLASS));
         }
 
         @Test
@@ -173,7 +174,7 @@ public class ConstOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            // TODO: ClassUtils.getClass returns exceptions with "/", but Class.forName uses "."
+            // TODO: ClassUtils.getDeclaringClass returns exceptions with "/", but Class.forName uses "."
             // should make object which handles getting classes for dependency injection
             VirtualException expectedException = new VirtualException(ClassNotFoundException.class, "does/not/123Exist");
             VMTester.verifyExceptionHandling(expectedException, node, mState);

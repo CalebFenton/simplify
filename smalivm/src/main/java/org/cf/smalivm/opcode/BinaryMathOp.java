@@ -17,7 +17,7 @@ public class BinaryMathOp extends MethodStateOp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(BinaryMathOp.class.getSimpleName());
 
-    private static enum MathOperandType {
+    private enum MathOperandType {
         DOUBLE("D"), FLOAT("F"), INT("I"), LONG("J"), ;
 
         private final String type;
@@ -31,7 +31,7 @@ public class BinaryMathOp extends MethodStateOp {
         }
     };
 
-    private static enum MathOperator {
+    private enum MathOperator {
         ADD, AND, DIV, MUL, OR, REM, RSUB, SHL, SHR, SUB, USHR, XOR,
     };
 
@@ -140,7 +140,7 @@ public class BinaryMathOp extends MethodStateOp {
             result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
             break;
         default:
-            throw new RuntimeException("Unknown math operand type!");
+            throw new RuntimeException("Unknown math operand virtual!");
         }
 
         return result;

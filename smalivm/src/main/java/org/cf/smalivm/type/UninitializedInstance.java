@@ -3,12 +3,15 @@ package org.cf.smalivm.type;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
-public class UninitializedInstance implements LocalType {
+public class UninitializedInstance extends Instance {
 
-    private final String smaliType;
+    public UninitializedInstance(VirtualGeneric type) {
+        super(type);
+    }
 
-    public UninitializedInstance(String smaliType) {
-        this.smaliType = smaliType;
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(337, 97).append(getType()).hashCode();
     }
 
     @Override
@@ -22,22 +25,12 @@ public class UninitializedInstance implements LocalType {
         }
         UninitializedInstance rhs = (UninitializedInstance) other;
 
-        return new EqualsBuilder().append(smaliType, rhs.getName()).isEquals();
-    }
-
-    @Override
-    public int hashCode() {
-        return new HashCodeBuilder(337, 97).append(getName()).hashCode();
-    }
-
-    @Override
-    public String getName() {
-        return smaliType;
+        return new EqualsBuilder().append(getType(), rhs.getType()).isEquals();
     }
 
     @Override
     public String toString() {
-        return new StringBuilder("Uninitialized ").append(smaliType).toString();
+        return "Uninitialized " + getType();
     }
 
 }

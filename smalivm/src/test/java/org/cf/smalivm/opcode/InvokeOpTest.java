@@ -1,17 +1,7 @@
 package org.cf.smalivm.opcode;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
-import java.util.LinkedList;
-import java.util.List;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
@@ -22,10 +12,12 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.reference.MethodFactory;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.dex.CommonTypes;
+import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -33,9 +25,23 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
+
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RunWith(Enclosed.class)
 public class InvokeOpTest {
@@ -49,7 +55,7 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyCoaxedToBoolean() {
-            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/lang/LinkedList;", 1, 1, "I", 2, 0, "I");
+            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/util/LinkedList;", 1, 1, "I", 2, 0, "I");
             expected.setRegisters(0, 1, "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -57,7 +63,8 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyCoaxedToCharacter() {
-            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/lang/LinkedList;", 1, (int) 'a', "I", 2, 0, "I");
+            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/util/LinkedList;", 1, (int) 'a', "I", 2, 0,
+                    "I");
             expected.setRegisters(0, (int) 'a', "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -65,9 +72,9 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyCoaxedToNull() {
-            // If Dalvik sees an I type with a value of 0 as an argument for an object parameter type, it's null
+            // If Dalvik sees an I type with a value of 0 as an argument for an object parameter class, it's null
             // There is no check-cast in addToListAndGet so result value is either null or an integer
-            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 0, "I", 2, 0, "I");
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/util/LinkedList;", 1, 0, "I", 2, 0, "I");
             expected.setRegisters(0, null, "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -75,7 +82,7 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyCoaxedToShort() {
-            initial.setRegisters(0, new LinkedList<Short>(), "Ljava/lang/LinkedList;", 1, 5, "I", 2, 0, "I");
+            initial.setRegisters(0, new LinkedList<Short>(), "Ljava/util/LinkedList;", 1, 5, "I", 2, 0, "I");
             expected.setRegisters(0, 5, "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -83,8 +90,8 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyNotCoaxedToNull() {
-            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/lang/LinkedList;", 1, 5, "Ljava/lang/Integer;",
-                            2, 0, "I");
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/util/LinkedList;", 1, 5, "Ljava/lang/Integer;", 2,
+                    0, "I");
             expected.setRegisters(0, 5, "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -106,8 +113,10 @@ public class InvokeOpTest {
 
         @Test
         public void testInitStringWithByteArrayWithUnknownParameter() {
-            initial.setRegisters(0, new UninitializedInstance("Ljava/lang/String;"), "Ljava/lang/String;", 1,
-                            new UnknownValue(), "[B");
+            VirtualMachine vm = VMTester.spawnVM(true);
+            VirtualClass instanceType = vm.getClassManager().getVirtualClass("Ljava/lang/String;");
+            initial.setRegisters(0, new UninitializedInstance(instanceType), "Ljava/lang/String;", 1,
+                    new UnknownValue(), "[B");
             expected.setRegisters(0, new UnknownValue(), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
 
             VMTester.test(CLASS_NAME, "initStringWithByteArray()V", initial, expected);
@@ -116,7 +125,7 @@ public class InvokeOpTest {
         @Test
         public void testInvokeLongValueOfWithLongGetsCorrectParameters() {
             initial.setRegisters(0, 0x1000L, "J");
-            expected.setRegisters(0, new Long(0x1000L), "J");
+            expected.setRegisters(0, 0x1000L, "J");
 
             VMTester.test(CLASS_NAME, "invokeLongValueOf()V", initial, expected);
         }
@@ -157,15 +166,16 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeMutateStaticClassFieldNonDeterministicallyPropigatesUnknown() {
+        public void testInvokeMutateStaticClassFieldNonDeterministicallyPropagatesUnknown() {
             initial.setFields(CLASS_NAME, "mutable:[I", new int[] { 3, 3, 3 });
+            initial.setRegisters(0, new UnknownValue(), "I");
             expected.setFields(CLASS_NAME, "mutable:[I", new UnknownValue());
 
-            VMTester.test(CLASS_NAME, "invokeMutateStaticClassFieldNonDeterministically()V", initial, expected);
+            VMTester.test(CLASS_NAME, "invokeMutateStaticClassField2()V", initial, expected);
         }
 
         @Test
-        public void testInvokeMutateStaticClassFieldPropigatesChanges() {
+        public void testInvokeMutateStaticClassFieldPropagatesChanges() {
             initial.setFields(CLASS_NAME, "mutable:[I", new int[] { 3, 3, 3 });
             expected.setFields(CLASS_NAME, "mutable:[I", new int[] { 0, 3, 3 });
 
@@ -186,14 +196,6 @@ public class InvokeOpTest {
             expected.setRegisters(0, "not mutated", "Ljava/lang/String;");
 
             VMTester.test(CLASS_NAME, "invokeMutateString()V", initial, expected);
-        }
-
-        @Test
-        public void testInvokeNonExistantMethodWithTwoArrayParametersWithUnknownParameterMutatesAllParameters() {
-            initial.setRegisters(0, new int[] { 3, 5, 7 }, "[I", 1, new UnknownValue(), "[I");
-            expected.setRegisters(0, new UnknownValue(), "[I", 1, new UnknownValue(), "[I");
-
-            VMTester.test(CLASS_NAME, "invokeNonExistantMethodWithTwoArrayParameters()V", initial, expected);
         }
 
         @Test
@@ -232,7 +234,7 @@ public class InvokeOpTest {
             expected.setRegisters(0, new int[] { 0x0 }, "[I", 1, 0, "I");
 
             VMTester.test(CLASS_NAME, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
-                            expected);
+                    expected);
         }
 
         @Test
@@ -241,14 +243,15 @@ public class InvokeOpTest {
             expected.setRegisters(0, new UnknownValue(), "[I", 1, new UnknownValue(), "I");
 
             VMTester.test(CLASS_NAME, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
-                            expected);
+                    expected);
         }
 
         @Test
-        public void testNonDeterministicallyInitializedClassHasUnknownFieldValues() {
+        public void testPossiblyUninitializedClassHasUnknownFieldValues() {
+            initial.setRegisters(0, new UnknownValue(), "I");
             expected.setFields(CLASS_WITH_STATIC_INIT, "string:Ljava/lang/String;", new UnknownValue());
 
-            VMTester.test(CLASS_NAME, "nonDeterministicallyInitializeClassWithStaticInit()V", expected);
+            VMTester.test(CLASS_NAME, "initializeClassIfArgumentIsZero(I)V", initial, expected);
         }
     }
 
@@ -262,17 +265,18 @@ public class InvokeOpTest {
 
         @Test
         public void instanceInitializerWorksAsExpected() throws InstantiationException, IllegalAccessException,
-                        ClassNotFoundException {
-            initial.setRegisters(0, new UninitializedInstance(CLASS_NAME), CLASS_NAME);
+                                                                                ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM(true);
-            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            VirtualClass instanceType = vm.getClassManager().getVirtualClass(CLASS_NAME);
+            initial.setRegisters(0, new UninitializedInstance(instanceType), CLASS_NAME);
+            Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "<init>()V", initial);
 
-            // Can't simply put localInstance in the expected state because mutable objects get cloned.
-            // The object reference at consensus would be different than the initial reference.
+            // Can't simply put instance in the expected state because mutable objects get cloned.
+            // The object parse at consensus would be different than the initial parse.
             HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
             assertEquals(CLASS_NAME, consensus.getType());
-            assertEquals(localClass, consensus.getValue().getClass());
+            assertEquals(virtualClass, consensus.getValue().getClass());
         }
 
         @Before
@@ -284,49 +288,50 @@ public class InvokeOpTest {
         @Test
         public void testInvokeGetComponentTypeOnPrimitiveArrayReturnsExpectedValue() {
             initial.setRegisters(0, new int[0], "[I");
-            expected.setRegisters(MethodState.ResultRegister, int.class, "Ljava/lang/Class;");
+            expected.setRegisters(MethodState.ResultRegister, int.class, CommonTypes.CLASS);
 
             VMTester.test(CLASS_NAME, "invokeGetComponentType()V", initial, expected);
         }
 
         @Test
         public void testInvokeReturnIntReturnsInt() throws InstantiationException, IllegalAccessException,
-                        ClassNotFoundException {
+                                                                           ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
-            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
-            Object localInstance = localClass.newInstance();
-            initial.setRegisters(0, localInstance, CLASS_NAME);
+            Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object instance = virtualClass.newInstance();
+            initial.setRegisters(0, instance, CLASS_NAME);
             expected.setRegisters(MethodState.ResultRegister, 0x7, "I");
 
             VMTester.test(CLASS_NAME, "invokeReturnInt()V", initial, expected);
         }
 
         @Test
-        public void testInvokeReturnParameterReturnsParameter() throws InstantiationException, IllegalAccessException,
-                        ClassNotFoundException {
+        public void testInvokeReturnParameterReturnsParameter() throws InstantiationException,
+                                                                                       IllegalAccessException,
+                                                                                       ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
-            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
-            Object localInstance = localClass.newInstance();
-            initial.setRegisters(0, localInstance, CLASS_NAME, 1, 0x5, "I");
+            Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object instance = virtualClass.newInstance();
+            initial.setRegisters(0, instance, CLASS_NAME, 1, 0x5, "I");
             expected.setRegisters(1, 0x5, "I", MethodState.ResultRegister, 0x5, "I");
 
             ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "invokeReturnParameter()V", initial);
             VMTester.testState(graph, expected);
 
-            // Can't simply put localInstance in the expected state because mutable objects get cloned.
-            // The object reference at consensus would be different than the initial reference.
+            // Can't simply put instance in the expected state because mutable objects get cloned.
+            // The object parse at consensus would be different than the initial parse.
             HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
             assertEquals(CLASS_NAME, consensus.getType());
-            assertEquals(localClass, consensus.getValue().getClass());
+            assertEquals(virtualClass, consensus.getValue().getClass());
         }
 
         @Test
         public void testInvokeReturnVoidReturnsVoid() throws InstantiationException, IllegalAccessException,
-                        ClassNotFoundException {
+                                                                             ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM(true);
-            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
-            Object localInstance = localClass.newInstance();
-            initial.setRegisters(0, localInstance, CLASS_NAME);
+            Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object instance = virtualClass.newInstance();
+            initial.setRegisters(0, instance, CLASS_NAME);
             ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeReturnVoid()V", initial);
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ResultRegister);
 
@@ -335,12 +340,12 @@ public class InvokeOpTest {
 
         @Test
         public void testInvokeVirtualManyParametersThrowsNoExceptions() throws InstantiationException,
-                        IllegalAccessException, ClassNotFoundException {
+                                                                                               IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
-            Class<?> localClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
-            Object localInstance = localClass.newInstance();
-            initial.setRegisters(0, localInstance, CLASS_NAME, 1, 0x100L, "J", 3, 0x200L, "J", 5, 0x300L, "J", 7, 0x3,
-                            "I");
+            Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object instance = virtualClass.newInstance();
+            initial.setRegisters(0, instance, CLASS_NAME, 1, 0x100L, "J", 3, 0x200L, "J", 5, 0x300L, "J", 7, 0x3,
+                    "I");
             expected.setRegisters(MethodState.ResultRegister, 0x3, "I");
 
             VMTester.test(CLASS_NAME, "invokeRangeManyParameters()V", initial, expected);
@@ -351,6 +356,9 @@ public class InvokeOpTest {
 
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
+        @Rule
+        public ExpectedException thrown = ExpectedException.none();
+
         private VMState initial;
 
         @Before
@@ -358,21 +366,14 @@ public class InvokeOpTest {
             initial = new VMState();
         }
 
+        //WithTwoArrayParametersWithUnknownParameterMutatesAllParameters
         @Test
-        public void testInvokeNonExistantMethodWithTwoArrayParametersWithUnknownParameterMutatesAllParameters() {
-            initial.setRegisters(0, new int[] { 0 }, "[I", 1, new int[] { 0 }, "[I");
-            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeNonExistantMethodWithTwoArrayParameters()V",
-                            initial);
-            List<ExecutionNode> invokeNodes = graph.getNodePile(0);
-            assertEquals(1, invokeNodes.size());
+        public void testInvokeNonExistentMethodThrowsException() {
+            thrown.expect(RuntimeException.class);
+            thrown.expectMessage("Can't find Smali file containing Lim_not_your_friend_buddy;");
 
-            MethodState mState = invokeNodes.get(0).getContext().getMethodState();
-            assertTrue(mState.wasRegisterRead(0));
-            assertTrue(mState.wasRegisterRead(1));
-            assertTrue(mState.wasRegisterAssigned(0));
-            assertTrue(mState.wasRegisterAssigned(1));
+            VMTester.execute(CLASS_NAME, "invokeNonExistentMethod()V");
         }
-
     }
 
     public static class UnitTest {
@@ -385,7 +386,7 @@ public class InvokeOpTest {
         private static final String METHOD_NAME = "someMethod";
         private static final String METHOD_RETURN = "V";
         private static final String METHOD_SIGNATURE = METHOD_CLASS + "->" + METHOD_NAME + "(I)" + METHOD_RETURN;
-        private static final String[] METHOD_PARAMS = { "I" };
+        private static final String[] METHOD_PARAM_TYPE_NAMES = { "I" };
 
         MethodReference methodRef;
         private TIntObjectMap<MethodLocation> addressToLocation;
@@ -417,44 +418,51 @@ public class InvokeOpTest {
         public void setUp() {
             vm = mock(VirtualMachine.class);
 
-            MethodFactory methodFactory = new MethodFactory();
             classManager = mock(ClassManager.class);
-            when(classManager.getMethodFactory()).thenReturn(methodFactory);
-            when(classManager.isLocalClass(METHOD_CLASS)).thenReturn(true);
+            when(vm.getClassManager()).thenReturn(classManager);
             when(classManager.isFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
             when(classManager.isSafeFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
-            when(vm.getClassManager()).thenReturn(classManager);
 
+            VirtualClass methodClass = mock(VirtualClass.class);
+            when(classManager.getVirtualClass(eq(METHOD_CLASS))).thenReturn(methodClass);
+
+            VirtualMethod method = mock(VirtualMethod.class);
+            when(method.getName()).thenReturn(METHOD_SIGNATURE);
+            when(method.toString()).thenCallRealMethod();
+            String descriptor = METHOD_SIGNATURE.split("->")[1];
+            when(methodClass.getMethod(eq(descriptor))).thenReturn(method);
+            when(method.getSignature()).thenReturn(METHOD_SIGNATURE);
+            List<String> params = new LinkedList<String>();
+            Collections.addAll(params, METHOD_PARAM_TYPE_NAMES);
+            when(method.getParameterTypeNames()).thenReturn(params);
             configuration = mock(Configuration.class);
             when(vm.getConfiguration()).thenReturn(configuration);
 
+            node = mock(ExecutionNode.class);
             ectx = mock(ExecutionContext.class);
+            when(node.getContext()).thenReturn(ectx);
+
             mState = mock(MethodState.class);
             when(ectx.getMethodState()).thenReturn(mState);
-            node = mock(ExecutionNode.class);
-            when(node.getContext()).thenReturn(ectx);
+
             location = mock(MethodLocation.class);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
+
+            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation.put(ADDRESS, location);
 
             methodRef = mock(MethodReference.class);
             when(methodRef.getDefiningClass()).thenReturn(METHOD_CLASS);
             when(methodRef.getName()).thenReturn(METHOD_NAME);
-            List<String> params = new LinkedList<String>();
-            for (String param : METHOD_PARAMS) {
-                params.add(param);
-            }
             doReturn(params).when(methodRef).getParameterTypes();
             when(methodRef.getReturnType()).thenReturn(METHOD_RETURN);
-
-            addressToLocation = new TIntObjectHashMap<MethodLocation>();
-            addressToLocation.put(ADDRESS, location);
 
             opFactory = new InvokeOpFactory();
         }
 
         private BuilderInstruction35c buildInstruction35c(Opcode opcode) {
-            BuilderInstruction35c instruction = mock(BuilderInstruction35c.class,
-                            withSettings().extraInterfaces(Instruction35c.class));
+            BuilderInstruction35c instruction =
+                    mock(BuilderInstruction35c.class, withSettings().extraInterfaces(Instruction35c.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);

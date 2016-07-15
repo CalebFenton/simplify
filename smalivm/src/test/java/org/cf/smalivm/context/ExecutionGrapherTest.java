@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.cf.smalivm.reference.LocalMethod;
+import org.cf.smalivm.type.VirtualMethod;
 import org.junit.Test;
 
 public class ExecutionGrapherTest {
@@ -32,7 +32,7 @@ public class ExecutionGrapherTest {
         children.add(child);
         when(root.getChildren()).thenReturn(children);
 
-        LocalMethod localMethod = mock(LocalMethod.class);
+        VirtualMethod localMethod = mock(VirtualMethod.class);
         when(localMethod.toString()).thenReturn(METHOD_SIGNATURE);
 
         ExecutionGraph graph = mock(ExecutionGraph.class);

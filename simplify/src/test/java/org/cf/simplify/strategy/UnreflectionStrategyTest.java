@@ -3,16 +3,16 @@ package org.cf.simplify.strategy;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.reference.LocalMethod;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
@@ -113,7 +113,7 @@ public class UnreflectionStrategyTest {
                         "invoke-virtual {r0, r1, r2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
                         "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
-        private static final Method METHOD = getMethod(CLASS, "privateInstanceOneParameter", Object.class);
+        private static final java.lang.reflect.Method METHOD = getMethod(CLASS, "privateInstanceOneParameter", Object.class);
         private static final UnknownValue UNKNOWN_METHOD = new UnknownValue();
 
         @Test
@@ -137,7 +137,7 @@ public class UnreflectionStrategyTest {
 
     public static class MethodUnreflectionWithInterfaceMethod {
 
-        private static final Method METHOD = getMethod(List.class, "isEmpty", new Class<?>[0]);
+        private static final java.lang.reflect.Method METHOD = getMethod(List.class, "isEmpty", new Class<?>[0]);
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
@@ -162,7 +162,7 @@ public class UnreflectionStrategyTest {
                         "invoke-direct {r1}, Lunreflection_strategy_test;->privateInstanceNoParameters()V",
                         "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
                         "return-void", };
-        private static final Method METHOD = getMethod(CLASS, "privateInstanceNoParameters");
+        private static final java.lang.reflect.Method METHOD = getMethod(CLASS, "privateInstanceNoParameters");
 
         @Test
         public void testOptimizesToExpectedLinesWith3LocalsAnd0Available() {
@@ -185,7 +185,7 @@ public class UnreflectionStrategyTest {
 
     public static class MethodUnreflectionWithPrivateStaticMethod {
 
-        private static final Method METHOD = getMethod(CLASS, "privateStaticFourParameters", int.class, int.class,
+        private static final java.lang.reflect.Method METHOD = getMethod(CLASS, "privateStaticFourParameters", int.class, int.class,
                         int.class, int.class);
 
         @Test
@@ -265,7 +265,7 @@ public class UnreflectionStrategyTest {
                         "check-cast r9, Ljava/lang/Integer;",
                         "invoke-virtual/range {r3 .. r9}, Lunreflection_strategy_test;->publicInstanceSixParameters(IIIIII)V", };
 
-        private static final Method METHOD = getMethod(CLASS, "publicInstanceSixParameters", new Class<?>[] {
+        private static final java.lang.reflect.Method METHOD = getMethod(CLASS, "publicInstanceSixParameters", new Class<?>[] {
                         int.class, int.class, int.class, int.class, int.class, int.class, });
 
         @Test
@@ -297,7 +297,7 @@ public class UnreflectionStrategyTest {
 
     public static class MethodUnreflectionWithZeroParameters {
 
-        private static final Method METHOD = getMethod(System.class, "gc", new Class<?>[0]);
+        private static final java.lang.reflect.Method METHOD = getMethod(System.class, "gc", new Class<?>[0]);
 
         @Test
         public void testMethodWithNoParametersOptimizesEvenWithNoRegistersAvailable() {
@@ -356,7 +356,7 @@ public class UnreflectionStrategyTest {
 
     }
 
-    private static Method getMethod(Class<?> klazz, String methodName, Class<?>... parameterTypes) {
+    private static java.lang.reflect.Method getMethod(Class<?> klazz, String methodName, Class<?>... parameterTypes) {
         try {
             return klazz.getDeclaredMethod(methodName, parameterTypes);
         } catch (NoSuchMethodException | SecurityException e) {
@@ -390,7 +390,7 @@ public class UnreflectionStrategyTest {
     private static void testRegisterCount(ExecutionGraphManipulator manipulator, String methodDescriptor,
                     int expectedRegisterCount) {
         ClassManager classManager = manipulator.getVM().getClassManager();
-        LocalMethod method = classManager.getMethod(CLASS_NAME, methodDescriptor);
+        VirtualMethod method = classManager.getMethod(CLASS_NAME, methodDescriptor);
         int actualRegisterCount = method.getImplementation().getRegisterCount();
 
         assertEquals(expectedRegisterCount, actualRegisterCount);
@@ -399,6 +399,18 @@ public class UnreflectionStrategyTest {
     private static void testSmali(ExecutionGraphManipulator manipulator, String[] expectedLines) {
         String actualLines[] = manipulator.toSmali().split("\n");
 
+        StringBuilder sb = new StringBuilder();
+        for ( String actual : actualLines) {
+            sb.append(actual).append('\n');
+        }
+        System.out.println(sb.toString());
+
+
+         sb = new StringBuilder();
+        for ( String actual : expectedLines) {
+            sb.append(actual).append('\n');
+        }
+        System.out.println(sb.toString());
         assertArrayEquals(expectedLines, actualLines);
     }
 

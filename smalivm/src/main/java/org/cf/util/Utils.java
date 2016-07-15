@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -20,6 +21,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -69,7 +71,7 @@ public class Utils {
 
     public static Object castToPrimitive(Object value, String targetType) {
         // Type information is not always available beyond "const" because Dalvik handles multiple types like integers.
-        // This is to make easier the casting of that number to the correct type.
+        // This is to make easier the casting of that number to the correct virtual.
         if (value instanceof Number) {
             Number castValue = (Number) value;
             if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {
@@ -140,7 +142,7 @@ public class Utils {
     }
 
     public static Double getDoubleValue(Object obj) {
-        Double doubleValue = (Double) castToPrimitive(obj, "Ljava/lang/Double;");
+        Double doubleValue = (Double) castToPrimitive(obj, CommonTypes.DOUBLE_OBJ);
 
         return doubleValue;
     }
@@ -159,7 +161,7 @@ public class Utils {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        } else if (file.getAbsolutePath().toLowerCase().endsWith(".smali")) {
+        } else if (file.getAbsolutePath().toLowerCase().endsWith(".local")) {
             files.add(file);
         }
 
@@ -167,13 +169,13 @@ public class Utils {
     }
 
     public static Float getFloatValue(Object obj) {
-        Float floatValue = (Float) castToPrimitive(obj, "Ljava/lang/Float;");
+        Float floatValue = (Float) castToPrimitive(obj, CommonTypes.FLOAT_OBJ);
 
         return floatValue;
     }
 
     public static Integer getIntegerValue(Object obj) {
-        Integer intValue = (Integer) castToPrimitive(obj, "Ljava/lang/Integer;");
+        Integer intValue = (Integer) castToPrimitive(obj, CommonTypes.INTEGER_OBJ);
 
         return intValue;
     }
@@ -188,7 +190,7 @@ public class Utils {
     }
 
     public static Long getLongValue(Object obj) {
-        Long longValue = (Long) castToPrimitive(obj, "Ljava/lang/Long;");
+        Long longValue = (Long) castToPrimitive(obj, CommonTypes.LONG_OBJ);
 
         return longValue;
     }
@@ -204,7 +206,7 @@ public class Utils {
     /**
      * Determine parameter types by parsing the method descriptor.
      * Note: For local methods, there's ClassManager#getParameterTypes.
-     * 
+     *
      * @param methodDescriptor
      * @return list of parameter types in internal form
      */
@@ -240,19 +242,16 @@ public class Utils {
     }
 
     public static int getRegisterSize(String typeName) {
-        return "J".equals(typeName) || "D".equals(typeName) ? 2 : 1;
+        return CommonTypes.LONG.equals(typeName) || CommonTypes.DOUBLE.equals(typeName)
+                ? 2 : 1;
     }
 
-    public static Set<String> getTypes(HeapItem item) {
-        Set<String> types = new HashSet<String>();
-        String declaredType = item.getType();
-        types.add(declaredType);
+    public static Set<String> getDeclaredAndValueTypeNames(HeapItem item) {
+        Set<String> types = new HashSet<String>(3);
+        types.add(item.getType());
 
         Object value = item.getValue();
-        if (value instanceof UnknownValue) {
-            // Can't imply type from value
-        } else if (value != null) {
-            // All other value classes should be the actual classes
+        if (!item.isUnknown() && value != null) {
             types.add(ClassNameUtils.toInternal(value.getClass()));
         }
 

@@ -52,6 +52,7 @@ public class VMState {
     }
 
     public void setRegisters(Object... params) {
+        // register, value, type
         for (int i = 0; i < params.length; i += 3) {
             Integer register = (Integer) params[i];
             String type = (String) params[i + 2];

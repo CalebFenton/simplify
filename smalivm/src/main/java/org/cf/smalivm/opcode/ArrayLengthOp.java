@@ -43,7 +43,7 @@ public class ArrayLengthOp extends MethodStateOp {
                 node.clearChildren();
                 return;
             } else {
-                // Won't pass verifier if it's not an array type. Probably our fault, so error.
+                // Won't pass verifier if it's not an array virtual. Probably our fault, so error.
                 if (log.isErrorEnabled()) {
                     log.error("Unexpected non-array class: {}, {}", array.getClass(), array);
                 }

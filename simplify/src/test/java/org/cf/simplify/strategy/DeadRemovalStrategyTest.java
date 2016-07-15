@@ -10,7 +10,11 @@ import java.util.List;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
+import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.UninitializedInstance;
+import org.cf.smalivm.type.VirtualClass;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.junit.Test;
@@ -38,8 +42,13 @@ public class DeadRemovalStrategyTest {
 
     @Test
     public void doesNotDetectInstanceInitializer() {
+        VirtualMachine vm = VMTester.spawnVM(true);
+        VirtualClass virtualClass = vm.getClassManager().getVirtualClass(CLASS_NAME);
+        VMState initial = new VMState();
+        initial.setRegisters(0, new UninitializedInstance(virtualClass), CLASS_NAME);
+
         String methodName = "<init>()V";
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         strategy.perform();
 
@@ -64,7 +73,7 @@ public class DeadRemovalStrategyTest {
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         List<Integer> found = strategy.getDeadAddresses();
         Collections.sort(found);
-        List<Integer> expected = Arrays.asList(1);
+        List<Integer> expected = Collections.singletonList(1);
 
         assertEquals(expected, found);
     }
@@ -86,7 +95,7 @@ public class DeadRemovalStrategyTest {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         List<Integer> found = strategy.getDeadAssignmentAddresses();
-        List<Integer> expected = Arrays.asList(0);
+        List<Integer> expected = Collections.singletonList(0);
 
         assertEquals(expected, found);
     }
@@ -97,7 +106,7 @@ public class DeadRemovalStrategyTest {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         List<Integer> found = strategy.getDeadResultAddresses();
-        List<Integer> expected = Arrays.asList(1);
+        List<Integer> expected = Collections.singletonList(1);
 
         assertEquals(expected, found);
     }
@@ -131,7 +140,7 @@ public class DeadRemovalStrategyTest {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         List<Integer> found = strategy.getDeadAssignmentAddresses();
-        List<Integer> expected = Arrays.asList(0);
+        List<Integer> expected = Collections.singletonList(0);
 
         assertEquals(expected, found);
     }
@@ -153,7 +162,7 @@ public class DeadRemovalStrategyTest {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         List<Integer> found = strategy.getUselessBranchAddresses();
-        List<Integer> expected = Arrays.asList(0);
+        List<Integer> expected = Collections.singletonList(0);
 
         assertEquals(expected, found);
     }

@@ -1,7 +1,6 @@
 package org.cf.simplify.strategy;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,7 +15,7 @@ import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.reference.LocalMethod;
+import org.cf.smalivm.type.VirtualMethod;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
@@ -94,14 +93,14 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int targetRegister = parameterRegisters[1];
         int parametersRegister = parameterRegisters[2];
 
-        // As long as Method;->invoke is not emulated (it must never be white-listed as safe) current address will have
+        // As long as VirtualMethod;->invoke is not emulated (it must never be white-listed as safe) current address will have
         // all unknown values. Get details from parents.
         int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
         assert !(parametersValue instanceof UnknownValue);
 
-        Method method = (Method) methodValue;
+        java.lang.reflect.Method method = (java.lang.reflect.Method) methodValue;
         int methodAccessFlags = method.getModifiers();
         int classAccessFlags = method.getDeclaringClass().getModifiers();
         List<String> parameterTypes = ClassNameUtils.toInternal(method.getParameterTypes());
@@ -124,8 +123,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
             if (availableRegisters1.size() < parameterRegisterCount) {
                 // Add some more locals to this method
-                LocalMethod localMethod = manipulator.getMethod();
-                BuilderMethod builderMethod = localMethod.getMethodDefinition();
+                VirtualMethod virtualMethod = manipulator.getMethod();
+                BuilderMethod builderMethod = virtualMethod.getMethodDefinition();
                 int oldRegisterCount = builderMethod.getImplementation().getRegisterCount();
                 int registerCount = oldRegisterCount + invokeRegisterCount;
                 setRegisterCount(builderMethod, registerCount);
@@ -143,9 +142,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             }
 
             if (!isRange) {
-                for (int i = 0; i < parameterRegisterCount; i++) {
-                    registers.add(fourBitRegisters[i]);
-                }
+                registers.addAll(Arrays.asList(fourBitRegisters).subList(0, parameterRegisterCount));
             } else {
                 // Either find contiguous available or make them available
                 for (int i = 0; i < availableRegisters1.size() && registers.size() < invokeRegisterCount; i++) {
@@ -280,7 +277,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         }
 
         String className = manipulator.getMethod().getClassName();
-        Method method = (Method) methodValue;
+        java.lang.reflect.Method method = (java.lang.reflect.Method) methodValue;
         int methodAccessFlags = method.getModifiers();
         String declaringClass = ClassNameUtils.toInternal(method.getDeclaringClass());
 
@@ -353,7 +350,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         return replacement;
     }
 
-    private MethodReference buildMethodReference(Method method) {
+    private MethodReference buildMethodReference(java.lang.reflect.Method method) {
         String className = ClassNameUtils.toInternal(method.getDeclaringClass());
         String name = method.getName();
         List<String> parameterTypes = ClassNameUtils.toInternal(method.getParameterTypes());
@@ -376,7 +373,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                             register);
             String typeName = parameterTypes.get(index);
             if (ClassNameUtils.isPrimitive(typeName)) {
-                // check-cast expects a non-primitive type reference (afaik)
+                // check-cast expects a non-primitive type (afaik)
                 typeName = ClassNameUtils.binaryToInternal(ClassNameUtils.getWrapper(typeName));
             }
             BuilderTypeReference typeRef = manipulator.getDexBuilder().internTypeReference(typeName);

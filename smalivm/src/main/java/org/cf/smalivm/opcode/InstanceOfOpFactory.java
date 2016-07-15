@@ -3,6 +3,7 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c;
@@ -16,10 +17,10 @@ public class InstanceOfOpFactory implements OpFactory {
         Instruction22c instr = (Instruction22c) location.getInstruction();
         int destRegister = instr.getRegisterA();
         int arg1Register = instr.getRegisterB();
-        TypeReference typeRef = (TypeReference) instr.getReference();
-        String className = typeRef.getType();
+        TypeReference typeReference = (TypeReference) instr.getReference();
+        VirtualGeneric referenceType = vm.getClassManager().getVirtualType(typeReference);
 
-        return new InstanceOfOp(location, child, destRegister, arg1Register, className, vm);
+        return new InstanceOfOp(location, child, destRegister, arg1Register, referenceType, vm);
     }
 
 }

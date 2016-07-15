@@ -1,9 +1,14 @@
 package org.cf.smalivm.type;
 
-public class UnknownValue implements LocalType {
+public class UnknownValue extends Instance {
 
     public UnknownValue() {
+        super(null);
+    }
 
+    @Override
+    public int hashCode() {
+        return 0;
     }
 
     @Override
@@ -14,11 +19,6 @@ public class UnknownValue implements LocalType {
 
     @Override
     public String toString() {
-        return getName();
-    }
-
-    @Override
-    public String getName() {
         return "*unknown*";
     }
 

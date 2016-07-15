@@ -6,7 +6,10 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.VirtualField;
 import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.iface.reference.FieldReference;
+import org.jf.dexlib2.util.ReferenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,16 +18,18 @@ public class SPutOp extends ExecutionContextOp {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(SPutOp.class.getSimpleName());
 
-    private final String fieldDescriptor;
+    private final FieldReference fieldReference;
+    private final VirtualField actualField;
     private final int valueRegister;
     private final VirtualMachine vm;
 
-    public SPutOp(MethodLocation location, MethodLocation child, int valueRegister, String fieldDescriptor,
-                    VirtualMachine vm) {
+    public SPutOp(MethodLocation location, MethodLocation child, int valueRegister, FieldReference fieldReference,
+                  VirtualField actualField, VirtualMachine vm) {
         super(location, child);
 
+        this.fieldReference = fieldReference;
+        this.actualField = actualField;
         this.valueRegister = valueRegister;
-        this.fieldDescriptor = fieldDescriptor;
         this.vm = vm;
     }
 
@@ -33,7 +38,7 @@ public class SPutOp extends ExecutionContextOp {
         MethodState mState = ectx.getMethodState();
         HeapItem item = mState.readRegister(valueRegister);
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
-        vm.getStaticFieldAccessor().putField(ectx, fieldDescriptor, item);
+        vm.getStaticFieldAccessor().putField(ectx, actualField, item);
     }
 
     @Override
@@ -43,10 +48,7 @@ public class SPutOp extends ExecutionContextOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(valueRegister).append(", ").append(fieldDescriptor);
-
-        return sb.toString();
+        return getName() + " r" + valueRegister + ", " + ReferenceUtil.getFieldDescriptor(fieldReference);
     }
 
 }

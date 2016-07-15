@@ -5,7 +5,6 @@ import static org.junit.Assert.assertEquals;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.exception.VirtualMachineException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;

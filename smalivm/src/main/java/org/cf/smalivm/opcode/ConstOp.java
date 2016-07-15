@@ -4,12 +4,13 @@ import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConstOp extends MethodStateOp {
+class ConstOp extends MethodStateOp {
 
     static enum ConstantType {
         CLASS, NARROW, STRING, WIDE
@@ -108,24 +109,24 @@ public class ConstOp extends MethodStateOp {
         String type;
         switch (constantType) {
         case CLASS:
-            type = "Ljava/lang/Class;";
+            type = CommonTypes.CLASS;
             break;
         case NARROW:
-            type = "I";
+            type = CommonTypes.INTEGER;
             break;
         case STRING:
-            type = "Ljava/lang/String;";
+            type = CommonTypes.STRING;
             break;
         case WIDE:
             if ("const-wide".equals(getName())) {
-                type = "D";
+                type = CommonTypes.DOUBLE;
             } else {
-                type = "J";
+                type = CommonTypes.LONG;
             }
             break;
         default:
             if (log.isWarnEnabled()) {
-                log.warn("Unexpected constant type: {} (should never happen)", constantType);
+                log.warn("Unexpected constant virtual: {} (should never happen)", constantType);
             }
             type = "?";
         }

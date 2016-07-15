@@ -5,7 +5,6 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +29,7 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.VirtualMethod;
 import org.cf.smalivm.opcode.FillArrayDataPayloadOp;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.NewInstanceOp;
@@ -39,7 +39,6 @@ import org.cf.smalivm.opcode.OpCreator;
 import org.cf.smalivm.opcode.ReturnOp;
 import org.cf.smalivm.opcode.ReturnVoidOp;
 import org.cf.smalivm.opcode.SwitchPayloadOp;
-import org.cf.smalivm.reference.LocalMethod;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.Label;
@@ -58,20 +57,20 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
 
     private final DexBuilder dexBuilder;
     private final MutableMethodImplementation implementation;
-    private final LocalMethod localMethod;
+    private final VirtualMethod method;
     private final VirtualMachine vm;
     private final Set<MethodLocation> recreateLocations;
     private final List<MethodLocation> reexecuteLocations;
     private final OpCreator opCreator;
-    private boolean recreateOrReexecute;
+    private boolean recreateOrExecuteAgain;
 
-    public ExecutionGraphManipulator(ExecutionGraph graph, LocalMethod localMethod, VirtualMachine vm,
-                    DexBuilder dexBuilder) {
+    public ExecutionGraphManipulator(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm,
+                                     DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;
-        this.localMethod = localMethod;
-        implementation = localMethod.getImplementation();
+        this.method = method;
+        implementation = method.getImplementation();
         this.vm = vm;
         opCreator = getOpCreator(vm, addressToLocation);
         recreateLocations = new HashSet<MethodLocation>();
@@ -79,7 +78,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         // When ops are added, such as when unreflecting, need to execute in order to ensure
         // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
         reexecuteLocations = new LinkedList<MethodLocation>();
-        recreateOrReexecute = true;
+        recreateOrExecuteAgain = true;
     }
 
     public void addInstruction(MethodLocation location, BuilderInstruction instruction) {
@@ -88,7 +87,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         MethodLocation newLocation = instruction.getLocation();
         MethodLocation oldLocation = implementation.getInstructions().get(index + 1).getLocation();
         try {
-            Method m = MethodLocation.class.getDeclaredMethod("mergeInto", MethodLocation.class);
+            java.lang.reflect.Method m = MethodLocation.class.getDeclaredMethod("mergeInto", MethodLocation.class);
             m.setAccessible(true);
             m.invoke(oldLocation, newLocation);
         } catch (Exception e) {
@@ -216,14 +215,14 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     }
 
     public void replaceInstruction(int insertAddress, List<BuilderInstruction> instructions) {
-        recreateOrReexecute = false;
+        recreateOrExecuteAgain = false;
         int address = insertAddress;
         for (BuilderInstruction instruction : instructions) {
             addInstruction(address, instruction);
             address += instruction.getCodeUnits();
         }
         MethodLocation location = getLocation(address);
-        recreateOrReexecute = true;
+        recreateOrExecuteAgain = true;
         removeInstruction(location);
     }
 
@@ -268,7 +267,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             newNodePile.add(i, newNode);
 
             if (autoAddedPadding) {
-                // Padding of this type is never reached
+                // Padding of this class is never reached
                 break;
             }
             if (i == TEMPLATE_NODE_INDEX) {
@@ -286,7 +285,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
                 recreateLocations.add(shiftedParent.getOp().getLocation());
             } else {
                 assert METHOD_ROOT_ADDRESS == newLocation.getCodeAddress();
-                newContext = vm.spawnRootExecutionContext(localMethod);
+                newContext = vm.spawnRootContext(method);
                 newNode.setContext(newContext);
             }
             reparentNode(shiftedNode, newNode);
@@ -305,7 +304,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     }
 
     private void recreateAndExecute() {
-        if (!recreateOrReexecute) {
+        if (!recreateOrExecuteAgain) {
             return;
         }
 

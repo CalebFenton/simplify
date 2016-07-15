@@ -69,7 +69,7 @@ public class IfOp extends MethodStateOp {
         HeapItem lhsItem = mState.readRegister(register1);
         HeapItem rhsItem = compareToZero ? new HeapItem(0, "I") : mState.readRegister(register2);
 
-        // Ambiguous predicate. Follow both branches.
+        // Ambiguous predicate. Return to add both possible branches as children.
         if (lhsItem.isUnknown() || rhsItem.isUnknown()) {
             return;
         }

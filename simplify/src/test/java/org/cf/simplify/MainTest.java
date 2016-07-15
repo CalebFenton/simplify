@@ -7,7 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 
-import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.UnhandledVirtualException;
 import org.junit.Test;
 
 public class MainTest {

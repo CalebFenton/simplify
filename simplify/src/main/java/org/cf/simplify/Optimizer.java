@@ -14,7 +14,7 @@ import org.cf.simplify.strategy.PeepholeStrategy;
 import org.cf.simplify.strategy.UnreflectionStrategy;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.reference.LocalMethod;
+import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +27,7 @@ public class Optimizer {
     private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
 
     private final ExecutionGraphManipulator manipulator;
-    private final LocalMethod localMethod;
+    private final VirtualMethod method;
     private final List<OptimizationStrategy> reoptimizeStrategies;
     private final List<OptimizationStrategy> reexecuteStrategies;
     private final List<OptimizationStrategy> allStrategies;
@@ -36,10 +36,10 @@ public class Optimizer {
     private boolean shouldReexecute;
     private Map<String, Integer> optimizationCounts;
 
-    public Optimizer(ExecutionGraph graph, LocalMethod localMethod, VirtualMachine vm, DexBuilder dexBuilder,
-                    SimplifyOptions opts) {
-        manipulator = new ExecutionGraphManipulator(graph, localMethod, vm, dexBuilder);
-        this.localMethod = localMethod;
+    public Optimizer(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder,
+                     SimplifyOptions opts) {
+        manipulator = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
+        this.method = method;
 
         reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
@@ -79,7 +79,7 @@ public class Optimizer {
     }
 
     public void simplify(int maxPasses) {
-        System.out.println("Simplifying: " + localMethod);
+        System.out.println("Simplifying: " + method);
 
         int pass = 0;
         madeAnyChanges = false;
@@ -124,10 +124,7 @@ public class Optimizer {
     }
 
     public static String getTotalOptimizationCounts() {
-        StringBuilder sb = new StringBuilder("Total optimizations:\n");
-        sb.append(buildOptimizationCounts(totalOptimizationCounts));
-
-        return sb.toString();
+        return "Total optimizations:\n" + buildOptimizationCounts(totalOptimizationCounts);
     }
 
     private static StringBuilder buildOptimizationCounts(Map<String, Integer> counts) {

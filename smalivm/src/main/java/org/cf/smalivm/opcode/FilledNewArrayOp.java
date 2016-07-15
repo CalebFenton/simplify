@@ -26,7 +26,7 @@ public class FilledNewArrayOp extends MethodStateOp {
         /*
          * This populates a 1-dimensional integer array with values from the parameters. It does NOT create
          * n-dimensional arrays. It's usually used to create parameter for Arrays.newInstance(). If you use anything but
-         * [I as the type reference, the code fails verification and a few decompilers (not disassemblers) choke.
+         * [I as the virtual parse, the code fails verification and a few decompilers (not disassemblers) choke.
          */
         int[] dimensions = new int[dimensionRegisters.length];
         boolean foundUnknown = false;
@@ -44,7 +44,7 @@ public class FilledNewArrayOp extends MethodStateOp {
             } else {
                 if (!item.isUnknown()) {
                     if (log.isWarnEnabled()) {
-                        log.warn("Unexpected value type for " + toString() + ": " + item);
+                        log.warn("Unexpected value virtual for " + toString() + ": " + item);
                     }
                 }
 

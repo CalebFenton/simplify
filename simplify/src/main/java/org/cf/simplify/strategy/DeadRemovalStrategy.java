@@ -109,23 +109,23 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     List<Integer> getDeadAssignmentAddresses() {
-        return addresses.stream().filter(a -> isDeadAssignment(a)).collect(Collectors.toList());
+        return addresses.stream().filter(this::isDeadAssignment).collect(Collectors.toList());
     }
 
     List<Integer> getDeadResultAddresses() {
-        return addresses.stream().filter(a -> isDeadResult(a)).collect(Collectors.toList());
+        return addresses.stream().filter(this::isDeadResult).collect(Collectors.toList());
     }
 
     List<Integer> getImpotentMethodInvocations() {
-        return addresses.stream().filter(a -> isImpotentMethodInvocation(a)).collect(Collectors.toList());
+        return addresses.stream().filter(this::isImpotentMethodInvocation).collect(Collectors.toList());
     }
 
     List<Integer> getNopAddresses() {
-        return addresses.stream().filter(a -> isNop(a)).collect(Collectors.toList());
+        return addresses.stream().filter(this::isNop).collect(Collectors.toList());
     }
 
     List<Integer> getUselessBranchAddresses() {
-        return addresses.stream().filter(a -> isUselessBranch(a)).collect(Collectors.toList());
+        return addresses.stream().filter(this::isUselessBranch).collect(Collectors.toList());
     }
 
     List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {

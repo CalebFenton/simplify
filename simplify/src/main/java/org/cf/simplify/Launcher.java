@@ -20,15 +20,16 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineException;
 import org.cf.smalivm.VirtualMachineFactory;
 import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
-import org.cf.smalivm.exception.MaxCallDepthExceeded;
-import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
-import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
-import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.reference.LocalMethod;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.MaxAddressVisitsExceededException;
+import org.cf.smalivm.MaxCallDepthExceededException;
+import org.cf.smalivm.MaxExecutionTimeExceededException;
+import org.cf.smalivm.MaxMethodVisitsExceededException;
+import org.cf.smalivm.UnhandledVirtualException;
+import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.ClassManager;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
 import org.jf.util.ConsoleUtil;
@@ -86,45 +87,45 @@ public class Launcher {
     private int executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
-        Set<LocalMethod> localMethods = classManager.getMethods(className);
-        filterMethods(localMethods, opts.getIncludeFilter(), opts.getExcludeFilter());
+        Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();
+        filterMethods(methods, opts.getIncludeFilter(), opts.getExcludeFilter());
         if (!opts.includeSupportLibrary()) {
-            filterSupportLibrary(localMethods);
+            filterSupportLibrary(methods);
         }
 
-        for (LocalMethod localMethod : localMethods) {
-            boolean shouldReexecute = false;
+        for (VirtualMethod method : methods) {
+            boolean executeAgain = false;
             do {
-                System.out.println("Executing: " + localMethod);
+                System.out.println("Executing: " + method);
                 ExecutionGraph graph = null;
                 try {
-                    graph = vm.execute(localMethod);
-                } catch (MaxAddressVisitsExceeded | MaxCallDepthExceeded | MaxMethodVisitsExceeded | MaxExecutionTimeExceeded e) {
-                    System.err.println("Aborting execution: " + e);
+                    graph = vm.execute(method);
+                } catch (VirtualMachineException e) {
+                    System.err.println("Aborting execution; exception: " + e);
                 }
 
                 if (null == graph) {
-                    System.out.println("Skipping " + localMethod);
+                    System.out.println("Skipping " + method);
                     break;
                 }
 
-                Optimizer optimizer = new Optimizer(graph, localMethod, vm, dexBuilder, opts);
+                Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
                 optimizer.simplify(opts.getMaxOptimizationPasses());
                 if (optimizer.madeChanges()) {
                     // Optimizer changed the implementation. Re-build graph to include changes.
-                    vm.updateInstructionGraph(localMethod);
+                    vm.updateInstructionGraph(method);
                 }
                 System.out.println(optimizer.getOptimizationCounts());
 
-                shouldReexecute = optimizer.shouldReexecute();
-            } while (shouldReexecute);
+                executeAgain = optimizer.shouldReexecute();
+            } while (executeAgain);
         }
 
-        return localMethods.size();
+        return methods.size();
     }
 
-    private static void filterMethods(Collection<LocalMethod> localMethods, Pattern positive, Pattern negative) {
-        for (Iterator<LocalMethod> it = localMethods.iterator(); it.hasNext();) {
+    private static void filterMethods(Collection<VirtualMethod> localMethods, Pattern positive, Pattern negative) {
+        for (Iterator<VirtualMethod> it = localMethods.iterator(); it.hasNext();) {
             String name = it.next().getSignature();
             if (positive != null && !positive.matcher(name).find()) {
                 it.remove();
@@ -134,8 +135,8 @@ public class Launcher {
         }
     }
 
-    private static void filterSupportLibrary(Collection<LocalMethod> localMethods) {
-        for (Iterator<LocalMethod> it = localMethods.iterator(); it.hasNext();) {
+    private static void filterSupportLibrary(Collection<VirtualMethod> localMethods) {
+        for (Iterator<VirtualMethod> it = localMethods.iterator(); it.hasNext();) {
             String name = it.next().getSignature();
             if (SUPPORT_LIBRARY_PATTERN.matcher(name).find()) {
                 it.remove();

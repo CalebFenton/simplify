@@ -12,7 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.ClassManager;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;

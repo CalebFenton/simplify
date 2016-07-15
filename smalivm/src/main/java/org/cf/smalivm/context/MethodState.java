@@ -10,42 +10,39 @@ import org.slf4j.LoggerFactory;
 
 public class MethodState extends BaseState {
 
-    private static final Logger log = LoggerFactory.getLogger(MethodState.class.getSimpleName());
-
     public static final int ResultRegister = -1;
     public static final int ReturnRegister = -2;
     public static final int ReturnAddress = -3;
-
     public static final String MUTABLE_PARAMETER_HEAP = "mutable";
     // TODO: refactor ExecutionContext's method descriptor here, it saves having an extra string * n ops
     public static final String METHOD_HEAP = "method";
-
+    private static final Logger log = LoggerFactory.getLogger(MethodState.class.getSimpleName());
     private final int parameterCount;
     private final int parameterSize;
     private final TIntSet mutableParameters;
 
-    public MethodState(ExecutionContext ectx, int registerCount) {
-        this(ectx, registerCount, 0, 0);
+    public MethodState(ExecutionContext context, int registerCount) {
+        this(context, registerCount, 0, 0);
     }
 
-    public MethodState(ExecutionContext ectx, int registerCount, int parameterCount, int parameterSize) {
-        super(ectx, registerCount);
+    public MethodState(ExecutionContext context, int registerCount, int parameterCount, int parameterSize) {
+        super(context, registerCount);
 
         this.parameterCount = parameterCount;
         this.parameterSize = parameterSize;
         mutableParameters = new TIntHashSet(parameterCount);
     }
 
-    MethodState(MethodState other, ExecutionContext ectx) {
-        super(other, ectx);
+    MethodState(MethodState other, ExecutionContext context) {
+        super(other, context);
 
         this.parameterCount = other.parameterCount;
         this.parameterSize = other.parameterSize;
         mutableParameters = new TIntHashSet(other.mutableParameters);
     }
 
-    private MethodState(MethodState parent, ExecutionContext ectx, TIntSet mutableParameters) {
-        super(parent, ectx);
+    private MethodState(MethodState parent, ExecutionContext context, TIntSet mutableParameters) {
+        super(parent, context);
 
         this.parameterCount = parent.parameterCount;
         this.parameterSize = parent.parameterSize;
@@ -67,7 +64,7 @@ public class MethodState extends BaseState {
     }
 
     public void assignRegister(int register, HeapItem item) {
-        super.assignRegister(register, item, METHOD_HEAP);
+        assignRegister(register, item, METHOD_HEAP);
     }
 
     public void assignRegister(int register, Object value, String type) {
@@ -77,9 +74,6 @@ public class MethodState extends BaseState {
     /**
      * Identical to {@link #assignRegister(int, HeapItem)} but also updates any register with an identical value to that
      * stored in the target register with the new value.
-     *
-     * @param register
-     * @param item
      */
     public void assignRegisterAndUpdateIdentities(int register, HeapItem item) {
         super.assignRegisterAndUpdateIdentities(register, item, METHOD_HEAP);
@@ -135,13 +129,14 @@ public class MethodState extends BaseState {
                 if (getParent() != null && !getParent().hasRegister(register, METHOD_HEAP)) {
                     // ResultRegister can only be read by the instruction immediately after it's set.
                     // It's not in this instruction or its parent, so it effectively doesn't exist.
-                    // log.warn("Attempting to read result register but it's not in current or parent context! Returning null.");
+                    // log.warn("Attempting to read result register but it's not in current or parent context!
+                    // Returning null.");
                     return null;
                 }
 
             }
         }
-        return super.peekRegister(register, METHOD_HEAP);
+        return peekRegister(register, METHOD_HEAP);
     }
 
     public void pokeRegister(int register, HeapItem item) {
@@ -162,6 +157,15 @@ public class MethodState extends BaseState {
         return item;
     }
 
+    public HeapItem peekResultRegister() {
+        return peekRegister(ResultRegister);
+    }
+
+    public HeapItem peekReturnRegister() {
+        return peekRegister(ReturnRegister);
+    }
+
+    // TODO: easy shouldn't this be readRegister?
     public HeapItem readReturnRegister() {
         return peekRegister(ReturnRegister);
     }
@@ -186,11 +190,12 @@ public class MethodState extends BaseState {
             ctx.append('v').append(register);
             boolean isLocal = register < getParameterStart();
             if (!isLocal) {
-                ctx.append("(p").append(register - getParameterStart()).append(")");
+                ctx.append("(p").append(register - getParameterStart()).append(')');
             }
             HeapItem item = peekRegister(register);
             ctx.append(": ").append(item).append('\n');
 
+            register += Utils.getRegisterSize(item.getType());
             if (Utils.getRegisterSize(item.getType()) == 2) {
                 register += 1;
             }

@@ -14,20 +14,20 @@ class BaseState {
     private final TIntSet registersAssigned;
     private final TIntSet registersRead;
 
-    private final ExecutionContext ectx;
+    private final ExecutionContext context;
 
-    BaseState(BaseState parent, ExecutionContext ectx) {
+    BaseState(BaseState parent, ExecutionContext context) {
         registerCount = parent.registerCount;
         registersAssigned = new TIntHashSet();
         registersRead = new TIntHashSet();
-        this.ectx = ectx;
+        this.context = context;
     }
 
-    BaseState(ExecutionContext ectx) {
-        this(ectx, 0);
+    BaseState(ExecutionContext context) {
+        this(context, 0);
     }
 
-    BaseState(ExecutionContext ectx, int registerCount) {
+    BaseState(ExecutionContext context, int registerCount) {
         // The number of instances of contexts in memory could be very high. Allocate minimally.
         registersAssigned = new TIntHashSet();
         registersRead = new TIntHashSet();
@@ -35,7 +35,7 @@ class BaseState {
         // This is locals + parameters
         this.registerCount = registerCount;
 
-        this.ectx = ectx;
+        this.context = context;
     }
 
     public int getRegisterCount() {
@@ -62,15 +62,15 @@ class BaseState {
 
     void assignRegisterAndUpdateIdentities(int register, HeapItem item, String heapId) {
         registersAssigned.add(register);
-        ectx.getHeap().update(heapId, register, item);
+        context.getHeap().update(heapId, register, item);
     }
 
     ExecutionContext getExecutionContext() {
-        return ectx;
+        return context;
     }
 
     BaseState getParent() {
-        ExecutionContext parentContext = ectx.getParent();
+        ExecutionContext parentContext = context.getParent();
         MethodState parent = null;
         if (parentContext != null) {
             parent = parentContext.getMethodState();
@@ -80,11 +80,11 @@ class BaseState {
     }
 
     boolean hasRegister(int register, String heapId) {
-        return ectx.getHeap().hasRegister(heapId, register);
+        return context.getHeap().hasRegister(heapId, register);
     }
 
     HeapItem peekRegister(int register, String heapId) {
-        return ectx.getHeap().get(heapId, register);
+        return context.getHeap().get(heapId, register);
     }
 
     void pokeRegister(int register, HeapItem item, String heapId) {
@@ -99,7 +99,7 @@ class BaseState {
             log.trace(sb.toString());
         }
 
-        ectx.getHeap().set(heapId, register, item);
+        context.getHeap().set(heapId, register, item);
     }
 
     HeapItem readRegister(int register, String heapId) {
@@ -109,7 +109,7 @@ class BaseState {
     }
 
     void removeRegister(int register, String heapId) {
-        ectx.getHeap().remove(heapId, register);
+        context.getHeap().remove(heapId, register);
     }
 
     boolean wasRegisterRead(int register, String heapId) {
@@ -123,7 +123,7 @@ class BaseState {
         }
 
         /*
-         * Since multiple registers may hold the same object reference, need to examine other registers for identity.
+         * Since multiple registers may hold the same object class, need to examine other registers for identity.
          * However, result register must be excluded because move-result will always read and assign an identical object
          * every time it's executed.
          */

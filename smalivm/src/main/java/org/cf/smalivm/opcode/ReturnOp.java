@@ -28,10 +28,7 @@ public class ReturnOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register);
-
-        return sb.toString();
+        return getName() + " r" + register;
     }
 
 }

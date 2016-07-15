@@ -5,13 +5,8 @@ import gnu.trove.map.hash.TIntIntHashMap;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.exception.MaxAddressVisitsExceeded;
-import org.cf.smalivm.exception.MaxCallDepthExceeded;
-import org.cf.smalivm.exception.MaxExecutionTimeExceeded;
-import org.cf.smalivm.exception.MaxMethodVisitsExceeded;
-import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.reference.LocalMethod;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.ClassManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,15 +35,14 @@ public class MethodExecutor {
         totalVisits = 0;
     }
 
-    ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceeded, MaxCallDepthExceeded,
-            MaxMethodVisitsExceeded, UnhandledVirtualException, MaxExecutionTimeExceeded {
+    ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceededException, MaxCallDepthExceededException, MaxMethodVisitsExceededException, UnhandledVirtualException, MaxExecutionTimeExceededException {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
-        LocalMethod localMethod = graph.getMethod();
+        VirtualMethod method = graph.getMethod();
         ExecutionNode node = graph.getRoot();
         int callDepth = node.getCallDepth();
-        log.info("Executing {}, depth={}", localMethod, callDepth);
+        log.info("Executing {}, depth={}", method, callDepth);
         if (node.getCallDepth() > getMaxCallDepth()) {
-            throw new MaxCallDepthExceeded(localMethod.getSignature());
+            throw new MaxCallDepthExceededException(method.getSignature());
         }
 
         if (callDepth == 0) {
@@ -63,7 +57,7 @@ public class MethodExecutor {
         boolean warnedMultipleExecutionPaths = false;
         while ((node = stack.poll()) != null) {
             totalVisits += 1;
-            checkMaxVisits(node, localMethod, addressToVisitCount);
+            checkMaxVisits(node, method, addressToVisitCount);
 
             nodeExecutor.execute(node);
             if (node.getChildren().size() > 1 && !warnedMultipleExecutionPaths) {
@@ -73,36 +67,36 @@ public class MethodExecutor {
                         .collect(Collectors.joining(", "));
                 // This can lead to more ambiguity and it's not always obvious when this happens.
                 // Let the user know if they're listening.
-                log.debug("{} has multiple execution paths starting at {}: {}", localMethod, node, children);
+                log.debug("{} has multiple execution paths starting at {}: {}", method, node, children);
             }
 
             stack.addAll(node.getChildren());
-            checkMaxExecutionTime(endTime, localMethod);
+            checkMaxExecutionTime(endTime, method);
         }
 
         return graph;
     }
 
-    private void checkMaxExecutionTime(long endTime, LocalMethod localMethod) throws MaxExecutionTimeExceeded {
+    private void checkMaxExecutionTime(long endTime, VirtualMethod localMethod) throws MaxExecutionTimeExceededException {
         if (maxExecutionTime == 0) {
             return;
         }
 
         if (System.currentTimeMillis() >= endTime) {
-            throw new MaxExecutionTimeExceeded(localMethod.getSignature());
+            throw new MaxExecutionTimeExceededException(localMethod.getSignature());
         }
     }
 
-    private void checkMaxVisits(ExecutionNode node, LocalMethod localMethod, TIntIntMap addressToVisitCount)
-            throws MaxAddressVisitsExceeded, MaxMethodVisitsExceeded {
+    private void checkMaxVisits(ExecutionNode node, VirtualMethod localMethod, TIntIntMap addressToVisitCount)
+            throws MaxAddressVisitsExceededException, MaxMethodVisitsExceededException {
         if (totalVisits > getMaxMethodVisits()) {
-            throw new MaxMethodVisitsExceeded(node, localMethod.getSignature());
+            throw new MaxMethodVisitsExceededException(node, localMethod.getSignature());
         }
 
         int address = node.getAddress();
         int visitCount = addressToVisitCount.get(address);
         if (visitCount > getMaxAddressVisits()) {
-            throw new MaxAddressVisitsExceeded(node, localMethod.getSignature());
+            throw new MaxAddressVisitsExceededException(node, localMethod.getSignature());
         }
         boolean adjusted = addressToVisitCount.adjustValue(address, 1);
         if (!adjusted) {

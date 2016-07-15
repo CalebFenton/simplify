@@ -1,12 +1,5 @@
 package org.cf.smalivm.context;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
-import javax.annotation.Nonnull;
-
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.opcode.ExecutionContextOp;
 import org.cf.smalivm.opcode.MethodStateOp;
@@ -14,6 +7,13 @@ import org.cf.smalivm.opcode.Op;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import javax.annotation.Nonnull;
 
 public class ExecutionNode {
 
@@ -45,12 +45,12 @@ public class ExecutionNode {
     }
 
     public void execute() {
-        ExecutionContext ectx = getContext();
+        ExecutionContext context = getContext();
         if (op instanceof MethodStateOp) {
-            MethodState mState = ectx.getMethodState();
+            MethodState mState = context.getMethodState();
             ((MethodStateOp) op).execute(this, mState);
         } else if (op instanceof ExecutionContextOp) {
-            ((ExecutionContextOp) op).execute(this, ectx);
+            ((ExecutionContextOp) op).execute(this, context);
         }
 
         // Op didn't set children specifically. Pull in template values.
@@ -76,6 +76,10 @@ public class ExecutionNode {
         return childLocations;
     }
 
+    public void setChildLocations(MethodLocation... childLocations) {
+        this.childLocations = childLocations;
+    }
+
     public List<ExecutionNode> getChildren() {
         return children;
     }
@@ -84,16 +88,36 @@ public class ExecutionNode {
         return ectx;
     }
 
+    public void setContext(ExecutionContext ectx) {
+        this.ectx = ectx;
+    }
+
     public Set<VirtualException> getExceptions() {
         return exceptions;
+    }
+
+    public void setExceptions(Set<VirtualException> exceptions) {
+        this.exceptions = exceptions;
     }
 
     public Op getOp() {
         return op;
     }
 
+    public void setOp(Op op) {
+        this.op = op;
+    }
+
     public ExecutionNode getParent() {
         return parent;
+    }
+
+    public void setParent(@Nonnull ExecutionNode parent) {
+        // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
+        // Each execution of an instruction will have a new state.
+        this.parent = parent;
+        parent.addChild(this);
+        getContext().setParent(parent.getContext());
     }
 
     public boolean mayThrowException() {
@@ -111,37 +135,13 @@ public class ExecutionNode {
         newChild.setParent(this);
     }
 
-    public void setChildLocations(MethodLocation... childLocations) {
-        this.childLocations = childLocations;
-    }
-
-    public void setContext(ExecutionContext ectx) {
-        this.ectx = ectx;
-    }
-
     public void setException(VirtualException exception) {
         exceptions = new HashSet<VirtualException>();
         exceptions.add(exception);
     }
 
-    public void setExceptions(Set<VirtualException> exceptions) {
-        this.exceptions = exceptions;
-    }
-
     public void setMethodState(MethodState mState) {
         ectx.setMethodState(mState);
-    }
-
-    public void setOp(Op op) {
-        this.op = op;
-    }
-
-    public void setParent(@Nonnull ExecutionNode parent) {
-        // All nodes will have [0,1] parents since a node represents both an instruction and a context, or vm state.
-        // Each execution of an instruction will have a new state.
-        this.parent = parent;
-        parent.addChild(this);
-        getContext().setParent(parent.getContext());
     }
 
     public ExecutionNode spawnChild(Op childOp) {
@@ -156,7 +156,7 @@ public class ExecutionNode {
     public String toString() {
         StringBuilder sb = new StringBuilder("ExecutionNode{");
         if (this.ectx != null) {
-            sb.append("signature=").append(ectx.getMethodSignature()).append(", ");
+            sb.append("signature=").append(ectx.getMethod()).append(", ");
         }
         sb.append("op=").append(op.toString()).append('}');
 

@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import org.cf.smalivm.VirtualMachineFactory;
-import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.UnhandledVirtualException;
 import org.junit.Test;
 
 public class LauncherTest {

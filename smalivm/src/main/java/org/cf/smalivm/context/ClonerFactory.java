@@ -5,7 +5,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.smali.ClassManager;
+import org.cf.smalivm.type.ClassManager;
 import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +24,10 @@ public class ClonerFactory {
      * because classes are dynamically generated. If multiple virtual machines are used, any classes of instances that
      * were cloned in the first virtual machine will be cached. The second virtual machine will have a different class
      * loader and will dynamically generate different classes.
-     * 
+     *
      * The reason there is some ClassManager related caching is to speed up tests, i.e. to prevent having to read
      * configuration, create classes, and create a new cloner for every test.
-     * 
+     *
      * @param vm
      * @return
      */

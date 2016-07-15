@@ -42,8 +42,8 @@ class Heap {
 
         /*
          * Store *clone* of target value to preserve history. Also, pull down any mappings to the target value,
-         * excluding mappings which are no longer valid. E.g. peeking v0, and v0 and v1 both point to same object, pull
-         * down both mappings, but only if v1 was not reassigned between now and then.
+         * excluding mappings which are no longer valid. E.g. peeking v0 when v0 and v1 both reference the same object,
+         * pull down both mappings, but only if v1 was not reassigned between now and then.
          */
         HeapItem targetItem = ancestor.get(key);
         HeapItem cloneItem = cloneItem(targetItem);
@@ -105,7 +105,7 @@ class Heap {
     void update(String key, HeapItem item) {
         /*
          * When replacing an uninitialized instance with a new instance (e.g. when executing new-instance), need to
-         * update all registers that reference the uninitialized instance. This would be a lot easier if Dalvik's
+         * update all registers that parse the uninitialized instance. This would be a lot easier if Dalvik's
          * "new-instance" or Java's "new" instruction were available at compile time.
          */
 
@@ -128,10 +128,7 @@ class Heap {
     }
 
     private String buildKey(String heapId, int register) {
-        StringBuilder sb = new StringBuilder(heapId);
-        sb.append(':').append(register);
-
-        return sb.toString();
+        return heapId + ':' + register;
     }
 
     private HeapItem cloneItem(HeapItem original) {

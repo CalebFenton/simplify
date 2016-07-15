@@ -75,7 +75,7 @@ public class ClassNameUtils {
      * "java.lang.Object" becomes "Ljava/lang/Object;"
      * "int" becomes "I"
      * "[Z" becomes "[Z"
-     * 
+     *
      * @param binaryName
      * @return the class name in the internal format
      */
@@ -107,12 +107,12 @@ public class ClassNameUtils {
 
     /**
      * Get the base component of an array of any dimension. Works with binary, internal, and source formats.
-     * 
+     *
      * For example,
      * "[[B" becomes "B"
      * "[[Ljava.lang.Object;" becomes "Ljava.lang.Object;"
      * "java.lang.Object[][]" becomes "java.lang.Object"
-     * 
+     *
      * @param className
      * @return base component class
      */
@@ -122,7 +122,7 @@ public class ClassNameUtils {
 
     /**
      * Similar to Array.getComponentType(). Works with binary, internal, and source formats.
-     * 
+     *
      * @param className
      * @return component class
      */
@@ -132,7 +132,7 @@ public class ClassNameUtils {
 
     /**
      * Get the dimension count or rank. Works with binary, internal, and source formats.
-     * 
+     *
      * @param className
      * @return dimension count
      */
@@ -149,7 +149,7 @@ public class ClassNameUtils {
      * For example,
      * "Lorg/cf/Klazz" gives "org.cf"
      * "org.cf.Klazz" gives "org.cf"
-     * 
+     *
      * @param className
      * @return package name of class
      */
@@ -165,7 +165,7 @@ public class ClassNameUtils {
 
     /**
      * Get the internal format primitive class name for a given primitive wrapper.
-     * 
+     *
      * @param className
      * @return internal format primitive class name or null if not found
      */
@@ -192,7 +192,7 @@ public class ClassNameUtils {
 
     /**
      * Get the class for a primitive className in the internal format.
-     * 
+     *
      * @param className
      * @return internal format primitive class or null if not found
      */
@@ -202,7 +202,7 @@ public class ClassNameUtils {
 
     /**
      * Get the binary format wrapper class name for a given primitive.
-     * 
+     *
      * @param className
      * @return wrapper class name or null if not found
      */
@@ -229,7 +229,7 @@ public class ClassNameUtils {
 
     /**
      * Convert an internal class name format to binary format.
-     * 
+     *
      * @param internalName
      * @return binary format class name
      */
@@ -248,7 +248,7 @@ public class ClassNameUtils {
 
     /**
      * Convert an internal class name format to source format.
-     * 
+     *
      * @param internalName
      * @return source format class name
      */
@@ -272,11 +272,11 @@ public class ClassNameUtils {
     }
 
     /**
-     * Determines if the type is an object reference type. This could either be an object or an array. Works with
+     * Determines if the virtual is an object parse virtual. This could either be an object or an array. Works with
      * internal and binary formats.
-     * 
+     *
      * @param type
-     * @return true if type is object, false otherwise
+     * @return true if virtual is object, false otherwise
      */
     public static boolean isObject(String type) {
         return type.startsWith("L") || type.startsWith("[");
@@ -284,7 +284,7 @@ public class ClassNameUtils {
 
     /**
      * Works with all class formats.
-     * 
+     *
      * @param className
      * @return true if class is primitive, otherwise false
      */
@@ -296,7 +296,7 @@ public class ClassNameUtils {
 
     /**
      * Works with all class formats.
-     * 
+     *
      * @param className
      * @return true if class is primitive of wrapper, otherwise false
      */
@@ -306,7 +306,7 @@ public class ClassNameUtils {
 
     /**
      * Works with all class formats.
-     * 
+     *
      * @param className
      * @return true if class is primitive wrapper, otherwise false
      */
@@ -316,7 +316,7 @@ public class ClassNameUtils {
 
     /**
      * Convert source format class name to binary format.
-     * 
+     *
      * @param sourceName
      * @return binary format class name
      */
@@ -349,7 +349,7 @@ public class ClassNameUtils {
 
     /**
      * Convert source format class name to internal format.
-     * 
+     *
      * @param sourceName
      * @return internal format class name
      */
@@ -373,16 +373,16 @@ public class ClassNameUtils {
 
     /**
      * Converts a class name of arbitrary format into any other format.
-     * 
+     *
      * @param className
      * @param format
-     * @return class name of format type
+     * @return class name of format virtual
      */
     public static String toFormat(String className, TypeFormat format) {
         /*
          * https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.3.2
          * https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.2.1
-         * smali / internal = [Ljava/lang/Object; or Ljava/lang/Object;
+         * local / internal = [Ljava/lang/Object; or Ljava/lang/Object;
          * binary = [Ljava.lang.Object; or java.lang.Object
          * source = java.lang.Object[] or java.lang.Object
          */
@@ -428,7 +428,7 @@ public class ClassNameUtils {
 
     /**
      * Get the internal format class name for a given Java class.
-     * 
+     *
      * @param klazz
      * @return internal format class name
      */
@@ -438,7 +438,7 @@ public class ClassNameUtils {
 
     /**
      * Get the internal format class name for an array of Java classes.
-     * 
+     *
      * @param classes
      * @return list of internal format class names in the same order as arguments
      */

@@ -1,51 +1,56 @@
 package org.cf.smalivm.context;
 
-import gnu.trove.set.hash.THashSet;
-
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm.type.VirtualField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ClassState extends BaseState {
 
-    private static Logger log = LoggerFactory.getLogger(ClassState.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ClassState.class.getSimpleName());
 
-    private final String className;
-    private final THashSet<String> fieldNameAndTypes;
+    private final VirtualClass virtualClass;
 
-    public ClassState(ExecutionContext ectx, String className, int fieldCount) {
-        super(ectx, fieldCount);
+    public ClassState(VirtualClass virtualClass, ExecutionContext ectx) {
+        super(ectx, virtualClass.getFields().size());
 
-        fieldNameAndTypes = new THashSet<String>();
-        this.className = className;
+        this.virtualClass = virtualClass;
     }
 
-    private ClassState(ClassState parent, ExecutionContext childContext, THashSet<String> fieldNameAndTypes) {
-        super(childContext, fieldNameAndTypes.size());
-
-        this.fieldNameAndTypes = fieldNameAndTypes;
-        this.className = parent.className;
+    private ClassState(ClassState parent, ExecutionContext ectx) {
+        this(parent.virtualClass, ectx);
     }
 
-    public ClassState(ClassState other, ExecutionContext ectx) {
-        super(other, ectx);
-
-        fieldNameAndTypes = new THashSet<String>(other.fieldNameAndTypes);
-        className = other.className;
-    }
-
-    public void assignField(String fieldNameAndType, Object value) {
+    public void assignField(VirtualField field, Object value) {
         int register = 0;
-        String heapKey = getKey(fieldNameAndType);
-        String type = fieldNameAndType.split(":")[1];
+        String heapKey = getKey(field);
+        String type = field.getType();
         assignRegister(register, new HeapItem(value, type), heapKey);
     }
 
-    public void assignField(String fieldNameAndType, HeapItem item) {
+    public void assignField(VirtualField field, HeapItem item) {
         int register = 0;
-        String heapKey = getKey(fieldNameAndType);
+        String heapKey = getKey(field);
         assignRegister(register, item, heapKey);
+    }
+
+    public ClassState getChild(ExecutionContext childContext) {
+        return new ClassState(this, childContext);
+    }
+
+    private String getKey(VirtualField field) {
+        return field.toString();
+    }
+
+    public VirtualClass getVirtualClass() {
+        return virtualClass;
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder(1337, 13).append(virtualClass).hashCode();
     }
 
     @Override
@@ -59,53 +64,14 @@ public class ClassState extends BaseState {
         }
         ClassState other = (ClassState) obj;
 
-        return new EqualsBuilder().append(className, other.className)
-                        .append(fieldNameAndTypes, other.fieldNameAndTypes).isEquals();
-    }
-
-    @Override
-    public int hashCode() {
-        return new HashCodeBuilder(1337, 13).append(className).append(fieldNameAndTypes).hashCode();
-    }
-
-    public HeapItem peekField(String fieldNameAndType) {
-        int register = 0;
-        String heapKey = getKey(fieldNameAndType);
-        HeapItem fieldItem = peekRegister(register, heapKey);
-        if (fieldItem == null) {
-            log.error("Undefined field: {};->{} - returning unknown.", className, fieldNameAndType);
-            fieldItem = HeapItem.newUnknown(fieldNameAndType.split(":")[1]);
-        }
-
-        return fieldItem;
-    }
-
-    public void pokeField(String fieldNameAndType, Object value) {
-        int register = 0;
-        String heapKey = getKey(fieldNameAndType);
-        String type = fieldNameAndType.split(":")[1];
-        pokeRegister(register, new HeapItem(value, type), heapKey);
-    }
-
-    public void pokeField(String fieldNameAndType, HeapItem item) {
-        int register = 0;
-        String heapKey = getKey(fieldNameAndType);
-        pokeRegister(register, item, heapKey);
-    }
-
-    private String getKey(String fieldNameAndType) {
-        fieldNameAndTypes.add(fieldNameAndType);
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(fieldNameAndType);
-
-        return sb.toString();
+        return new EqualsBuilder().append(virtualClass, other.virtualClass).isEquals();
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("Fields:\n");
-        for (String fieldNameAndType : fieldNameAndTypes) {
-            sb.append(fieldNameAndType).append(" = ").append(peekField(fieldNameAndType)).append('\n');
+        for (VirtualField field : virtualClass.getFields()) {
+            sb.append(field).append(" = ").append(peekField(field)).append('\n');
         }
         sb.setLength(sb.length() - 1);
         sb.append('\n');
@@ -113,10 +79,29 @@ public class ClassState extends BaseState {
         return sb.toString();
     }
 
-    ClassState getChild(ExecutionContext childContext) {
-        ClassState child = new ClassState(this, childContext, fieldNameAndTypes);
+    public HeapItem peekField(VirtualField field) {
+        int register = 0;
+        String heapKey = getKey(field);
+        HeapItem fieldItem = peekRegister(register, heapKey);
+        if (fieldItem == null) {
+            log.error("Undefined field: {}; returning unknown", field);
+            fieldItem = HeapItem.newUnknown(field.getType());
+        }
 
-        return child;
+        return fieldItem;
+    }
+
+    public void pokeField(VirtualField field, Object value) {
+        int register = 0;
+        String heapKey = getKey(field);
+        String type = field.getType();
+        pokeRegister(register, new HeapItem(value, type), heapKey);
+    }
+
+    public void pokeField(VirtualField field, HeapItem item) {
+        int register = 0;
+        String heapKey = getKey(field);
+        pokeRegister(register, item, heapKey);
     }
 
 }

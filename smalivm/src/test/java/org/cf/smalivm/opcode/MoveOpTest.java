@@ -32,7 +32,7 @@ public class MoveOpTest {
     public void canMoveRegisterObject() {
         initial.setRegisters(0, new Object(), "Ljava/lang/Object;");
 
-        // Must invoke VM directly to ensure reference identity
+        // Must invoke VM directly to ensure parse identity
         ExecutionGraph graph = VMTester.execute(CLASS_NAME, "moveRegisterObject()V", initial);
         int[] addresses = graph.getConnectedTerminatingAddresses();
         assertTrue("Should terminate when expected: " + Arrays.toString(addresses) + " == {1}",

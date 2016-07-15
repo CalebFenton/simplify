@@ -6,38 +6,40 @@ import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.jf.dexlib2.builder.MethodLocation;
 
 public class NewInstanceOp extends ExecutionContextOp {
 
-    private final String className;
+    private final VirtualClass virtualClass;
     private final int destRegister;
     private final VirtualMachine vm;
     private SideEffect.Level sideEffectLevel;
 
-    NewInstanceOp(MethodLocation location, MethodLocation child, int destRegister, String className, VirtualMachine vm) {
+    NewInstanceOp(MethodLocation location, MethodLocation child, int destRegister, VirtualClass virtualClass,
+                  VirtualMachine vm) {
         super(location, child);
 
         this.destRegister = destRegister;
-        this.className = className;
+        this.virtualClass = virtualClass;
         this.vm = vm;
         sideEffectLevel = SideEffect.Level.STRONG;
     }
 
     @Override
     public void execute(ExecutionNode node, ExecutionContext ectx) {
-        Object instance = new UninitializedInstance(className);
-        if (vm.shouldTreatAsLocal(className)) {
-            // New-instance causes static initialization (but not new-array!)
-            ectx.readClassState(className); // access will initialize if necessary
-            sideEffectLevel = ectx.getClassSideEffectLevel(className);
-        } else if (vm.getConfiguration().isSafe(className)) {
+        Object instance = new UninitializedInstance(virtualClass);
+        if (vm.isSafe(virtualClass)) {
             sideEffectLevel = SideEffect.Level.NONE;
+        } else {
+            // New-instance causes static initialization (but not new-array!)
+            ectx.readClassState(virtualClass); // access will initialize if necessary
+            sideEffectLevel = ectx.getClassSideEffectLevel(virtualClass);
         }
 
         MethodState mState = ectx.getMethodState();
-        HeapItem instanceItem = new HeapItem(instance, className);
+        HeapItem instanceItem = new HeapItem(instance, virtualClass.getName());
         mState.assignRegister(destRegister, instanceItem);
     }
 
@@ -48,10 +50,7 @@ public class NewInstanceOp extends ExecutionContextOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", ").append(className);
-
-        return sb.toString();
+        return getName() + " r" + destRegister + ", " + virtualClass;
     }
 
 }

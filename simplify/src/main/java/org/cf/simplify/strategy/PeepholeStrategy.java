@@ -89,7 +89,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         String smaliClassName = ClassNameUtils.binaryToInternal(javaClassName);
         HeapItem klazz = manipulator.getRegisterConsensus(address, MethodState.ResultRegister);
         if (klazz == null) {
-            log.warn("Optimizing Class.forName of potentially non-existant class: {}", smaliClassName);
+            log.warn("Optimizing Class.forName of potentially non-existent class: {}", smaliClassName);
         }
         BuilderTypeReference classRef = manipulator.getDexBuilder().internTypeReference(smaliClassName);
         BuilderInstruction constClassInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, register, classRef);
@@ -116,7 +116,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         }
 
         if (ancestorTypes.size() > 1) {
-            // More than one type. At least one item was cast.
+            // More than one ancestor. At least one item was cast.
             return false;
         }
 
@@ -126,15 +126,15 @@ public class PeepholeStrategy implements OptimizationStrategy {
         } else {
             // check-cast is first op with no parents
             // this implies it's acting on a parameter register
-            // look at freshly spawned execution context type
-            ExecutionContext ectx = manipulator.getVM().spawnRootExecutionContext(manipulator.getMethod());
-            HeapItem item = ectx.getMethodState().peekRegister(registerA);
+            // look at freshly spawned execution context class
+            ExecutionContext context = manipulator.getVM().spawnRootContext(manipulator.getMethod());
+            HeapItem item = context.getMethodState().peekRegister(registerA);
             preCastType = item.getType();
         }
 
         String referenceType = ReferenceUtil.getReferenceString(original.getReference());
         if (!preCastType.equals(referenceType)) {
-            // Item was cast to new type
+            // Item was cast to new class
             return false;
         }
 

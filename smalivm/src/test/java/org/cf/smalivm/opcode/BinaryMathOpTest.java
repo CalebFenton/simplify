@@ -406,7 +406,7 @@ public class BinaryMathOpTest {
         }
 
         @Test
-        public void canDivIntWithCatchWithUnkownValueVisitsExceptionHandler() {
+        public void canDivIntWithCatchWithUnknownValueVisitsExceptionHandler() {
             initial.setRegisters(0, new UnknownValue(), "I", 1, 5, "I");
             int[] expected = new int[] { 0, 2, 3, 4 };
 
