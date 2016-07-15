@@ -67,3 +67,12 @@
 
     return-void
 .end method
+
+.method public static getsGrandparentField()I
+    .locals 1
+
+    sget v0, Lchild_class;->grandparentFieldLiteral:I
+
+    return v0
+.end method
+

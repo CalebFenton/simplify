@@ -128,7 +128,7 @@ public class UnreflectionStrategyTest {
         @Test
         public void testUnknownParametersOfPubilcMethodIsNotOptimized() {
             ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD,
-                            METHOD_TYPE, 1, 0, "I", 2, new UnknownValue(), "[Ljava/lang/Object");
+                            METHOD_TYPE, 1, 0, "I", 2, new UnknownValue(), "[Ljava/lang/Object;");
 
             testSmali(manipulator, EXPECTED_SHARED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);

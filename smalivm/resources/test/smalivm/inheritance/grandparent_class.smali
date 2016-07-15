@@ -3,6 +3,7 @@
 .implements Lgrandparent_interface;
 
 .field public static grandparentField:I
+.field public static grandparentFieldLiteral:I = 0x5
 
 # direct methods
 .method public constructor <init>()V
