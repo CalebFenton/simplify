@@ -341,9 +341,6 @@ public class InvokeOp extends ExecutionContextOp {
                                                                                       InvocationTargetException {
         int instanceRegister = parameterRegisters[0];
         HeapItem instanceItem = callerMethodState.peekRegister(instanceRegister);
-        if (instanceItem.getValue() instanceof UnknownValue) {
-            System.out.println("delme");
-        }
         UninitializedInstance uninitializedInstance = (UninitializedInstance) instanceItem.getValue();
         VirtualGeneric instanceType = uninitializedInstance.getType();
 

@@ -399,18 +399,6 @@ public class UnreflectionStrategyTest {
     private static void testSmali(ExecutionGraphManipulator manipulator, String[] expectedLines) {
         String actualLines[] = manipulator.toSmali().split("\n");
 
-        StringBuilder sb = new StringBuilder();
-        for ( String actual : actualLines) {
-            sb.append(actual).append('\n');
-        }
-        System.out.println(sb.toString());
-
-
-         sb = new StringBuilder();
-        for ( String actual : expectedLines) {
-            sb.append(actual).append('\n');
-        }
-        System.out.println(sb.toString());
         assertArrayEquals(expectedLines, actualLines);
     }
 
