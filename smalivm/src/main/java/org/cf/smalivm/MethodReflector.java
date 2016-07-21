@@ -90,7 +90,7 @@ public class MethodReflector {
         return returnValue;
     }
 
-    public void reflect(MethodState mState) {
+    public void reflect(MethodState mState) throws Exception {
         if (log.isDebugEnabled()) {
             log.debug("Reflecting {} with context:\n{}", method, mState);
         }
@@ -101,14 +101,14 @@ public class MethodReflector {
         } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException |
                 InstantiationException | IllegalAccessException | IllegalArgumentException |
                 InvocationTargetException e) {
-            e.printStackTrace();
+//            e.printStackTrace();
             if (log.isWarnEnabled()) {
                 log.warn("Failed to reflect {}: {}", method, e.getMessage());
             }
             if (log.isDebugEnabled()) {
                 log.debug("Stack trace:", e);
             }
-            returnValue = new UnknownValue();
+            throw e;
         }
 
         if (!method.returnsVoid()) {

@@ -80,6 +80,7 @@ public class NodeExecutor {
              * such as a null pointer.
              * TODO: This should be re-examined when ops set exceptions properly.
              */
+            e.printStackTrace();
             int childAddress = exceptionResolver.resolve(e, node.getAddress());
             if (childAddress <= 0) {
                 throw new RuntimeException("Real exception was thrown executing " + node +

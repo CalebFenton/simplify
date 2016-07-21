@@ -35,7 +35,7 @@ public class MethodExecutor {
         totalVisits = 0;
     }
 
-    ExecutionGraph execute(ExecutionGraph graph) throws MaxAddressVisitsExceededException, MaxCallDepthExceededException, MaxMethodVisitsExceededException, UnhandledVirtualException, MaxExecutionTimeExceededException {
+    ExecutionGraph execute(ExecutionGraph graph) throws VirtualMachineException {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         VirtualMethod method = graph.getMethod();
         ExecutionNode node = graph.getRoot();
@@ -59,6 +59,14 @@ public class MethodExecutor {
             totalVisits += 1;
             checkMaxVisits(node, method, addressToVisitCount);
 
+            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
+                                       "Ljava/lang/String;, op=invoke-static {r2, r3, r4}, Lffffff/uuuaaa;->b042204220422Т0422ТТ(Ljava/lang/String;CC)Ljava/lang/String;}")) {
+                System.out.println("gets no result");
+            }
+            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
+                                       "Ljava/lang/String;, op=move-result-object r0}")) {
+                System.out.println("moves null result");
+            }
             nodeExecutor.execute(node);
             if (node.getChildren().size() > 1 && !warnedMultipleExecutionPaths) {
                 warnedMultipleExecutionPaths = true;

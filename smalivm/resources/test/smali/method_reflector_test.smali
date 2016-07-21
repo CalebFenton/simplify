@@ -47,3 +47,17 @@
 
   return-void
 .end method
+
+.method public static stringLength()V
+  .locals 1
+
+  :try_start_1
+  invoke-virtual {v0}, Ljava/lang/String;->length()I
+  :try_end_1
+  .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
+
+  nop
+
+  :catch_1
+  return-void
+.end method

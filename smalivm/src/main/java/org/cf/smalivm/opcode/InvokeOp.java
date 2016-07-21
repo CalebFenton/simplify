@@ -4,6 +4,7 @@ import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.ObjectInstantiator;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.UnhandledVirtualException;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.VirtualMachineException;
 import org.cf.smalivm.context.ExecutionContext;
@@ -317,8 +318,8 @@ public class InvokeOp extends ExecutionContextOp {
 
             return;
         }
-
-        if (!method.getReturnType().equals("V")) {
+        
+        if (!method.getReturnType().equals(CommonTypes.VOID)) {
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
             callerContext.getMethodState().assignResultRegister(consensus);
         } else {
@@ -366,7 +367,14 @@ public class InvokeOp extends ExecutionContextOp {
             assert allArgumentsKnown(calleeContext.getMethodState());
 
             MethodReflector reflector = new MethodReflector(vm, method);
-            reflector.reflect(calleeContext.getMethodState()); // playa play
+            try {
+                reflector.reflect(calleeContext.getMethodState()); // playa play
+            } catch (Exception e) {
+                VirtualException exception = new VirtualException(e);
+                node.setException(exception);
+                node.clearChildren();
+                return;
+            }
 
             // Only safe, non-side-effect methods are allowed to be reflected.
             sideEffectLevel = SideEffect.Level.NONE;
@@ -405,7 +413,7 @@ public class InvokeOp extends ExecutionContextOp {
          * of the super class. This method searches ancestor hierarchy for the class which implements the method.
          */
         VirtualGeneric referenceType;
-        if (virtualReference instanceof UnknownValue) {
+        if (virtualReference == null || virtualReference instanceof UnknownValue) {
             return method;
         }
 

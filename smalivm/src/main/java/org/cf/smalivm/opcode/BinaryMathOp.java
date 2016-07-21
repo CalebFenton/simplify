@@ -183,8 +183,7 @@ public class BinaryMathOp extends MethodStateOp {
                     break;
             }
         } catch (ArithmeticException e) {
-            VirtualException exception = new VirtualException(ArithmeticException.class, e.getMessage());
-            return exception;
+            return new VirtualException(ArithmeticException.class, e.getMessage());
         }
 
         return result;

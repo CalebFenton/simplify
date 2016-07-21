@@ -53,12 +53,28 @@ public class MethodReflectorTest {
     }
 
     @Test
-    public void handlesNullArgumentProperly() throws NoSuchMethodException, SecurityException {
+    public void handlesNullArgument() throws NoSuchMethodException, SecurityException {
         initial.setRegisters(0, System.class, CommonTypes.CLASS, 1, "currentTimeMillis", CommonTypes.STRING, 2, 0, "I");
         expected.setRegisters(0, System.class.getMethod("currentTimeMillis", (Class<?>[]) null),
                 "Ljava/lang/reflect/Method;");
 
         VMTester.test(CLASS_NAME, "getClassMethod()V", initial, expected);
+    }
+
+    @Test
+    public void handlesException() throws NoSuchMethodException, SecurityException {
+        initial.setRegisters(0, null, CommonTypes.STRING);
+        int[] expected = new int[] {0, 4};
+
+        VMTester.testVisitation(CLASS_NAME, "stringLength()V", initial, expected);
+    }
+
+    @Test
+    public void handlesNoException() throws NoSuchMethodException, SecurityException {
+        initial.setRegisters(0, "four", CommonTypes.STRING);
+        int[] expected = new int[] {0, 3, 4};
+
+        VMTester.testVisitation(CLASS_NAME, "stringLength()V", initial, expected);
     }
 
 }

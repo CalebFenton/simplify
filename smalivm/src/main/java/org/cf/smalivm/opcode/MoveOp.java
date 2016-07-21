@@ -41,6 +41,7 @@ public class MoveOp extends MethodStateOp {
     public void execute(ExecutionNode node, MethodState mState) {
         switch (moveType) {
             case EXCEPTION:
+                // TODO: medium - get exception from parent node's exceptions
                 moveException(mState, toRegister);
                 break;
             case RESULT:
