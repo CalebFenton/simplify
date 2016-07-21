@@ -28,17 +28,17 @@ public class NewInstanceOp extends ExecutionContextOp {
     }
 
     @Override
-    public void execute(ExecutionNode node, ExecutionContext ectx) {
+    public void execute(ExecutionNode node, ExecutionContext context) {
         Object instance = new UninitializedInstance(virtualClass);
         if (vm.isSafe(virtualClass)) {
             sideEffectLevel = SideEffect.Level.NONE;
         } else {
             // New-instance causes static initialization (but not new-array!)
-            ectx.readClassState(virtualClass); // access will initialize if necessary
-            sideEffectLevel = ectx.getClassSideEffectLevel(virtualClass);
+            context.readClassState(virtualClass); // access will initialize if necessary
+            sideEffectLevel = context.getClassSideEffectLevel(virtualClass);
         }
 
-        MethodState mState = ectx.getMethodState();
+        MethodState mState = context.getMethodState();
         HeapItem instanceItem = new HeapItem(instance, virtualClass.getName());
         mState.assignRegister(destRegister, instanceItem);
     }

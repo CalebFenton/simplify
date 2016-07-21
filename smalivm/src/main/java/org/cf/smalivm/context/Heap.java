@@ -152,7 +152,7 @@ class Heap {
     }
 
     private Set<String> keySet() {
-        // Note: mutating this directly alters keytoHeapItem's keys
+        // Note: mutating this directly alters keyToHeapItem's keys
         return keyToHeapItem.keySet();
     }
 

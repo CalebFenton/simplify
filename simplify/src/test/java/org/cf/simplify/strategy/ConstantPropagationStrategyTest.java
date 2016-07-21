@@ -25,12 +25,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RunWith(Enclosed.class)
-public class ConstantPropigationStrategyTest {
+public class ConstantPropagationStrategyTest {
 
     private static final String CLASS_NAME = "Lconstant_propigation_strategy_test;";
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategyTest.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ConstantPropagationStrategyTest.class.getSimpleName());
 
     public static class KnownValues {
 
@@ -87,8 +87,8 @@ public class ConstantPropigationStrategyTest {
             BuilderInstruction instruction = mock(BuilderInstruction.class,
                             withSettings().extraInterfaces(OneRegisterInstruction.class));
 
-            ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(graph);
-            strategy.setDependancies(builder);
+            ConstantPropagationStrategy strategy = new ConstantPropagationStrategy(graph);
+            strategy.setDependencies(builder);
 
             when(graph.getAddresses()).thenReturn(new int[] { 1 });
             when(graph.getInstruction(1)).thenReturn(null).thenReturn(instruction);
@@ -175,7 +175,7 @@ public class ConstantPropigationStrategyTest {
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, VMState initial) {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
-        ConstantPropigationStrategy strategy = new ConstantPropigationStrategy(manipulator);
+        ConstantPropagationStrategy strategy = new ConstantPropagationStrategy(manipulator);
         strategy.perform();
 
         return manipulator;

@@ -138,7 +138,7 @@ public class ClassBuilder {
         } else if (method.getName().equals("<init>")) {
             visitInitStub(classDef, mv);
         } else {
-            visitMethodStub(method, mv);
+            visitMethodStub(mv);
         }
         // Do this at the end so ASM can calculate max stack and locals sizes
         mv.visitMaxs(0, 0);
@@ -268,7 +268,7 @@ public class ClassBuilder {
         }
     }
 
-    private void visitMethodStub(Method method, MethodVisitor mv) {
+    private void visitMethodStub(MethodVisitor mv) {
         mv.visitTypeInsn(Opcodes.NEW, "java/lang/RuntimeException");
         mv.visitInsn(Opcodes.DUP);
         mv.visitLdcInsn("Stub!");

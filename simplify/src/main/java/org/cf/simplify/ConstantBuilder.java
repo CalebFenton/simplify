@@ -29,7 +29,7 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConstantBuilder implements Dependancy {
+public class ConstantBuilder implements Dependency {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstantBuilder.class.getSimpleName());

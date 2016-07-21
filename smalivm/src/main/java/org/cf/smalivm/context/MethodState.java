@@ -76,7 +76,7 @@ public class MethodState extends BaseState {
      * stored in the target register with the new value.
      */
     public void assignRegisterAndUpdateIdentities(int register, HeapItem item) {
-        super.assignRegisterAndUpdateIdentities(register, item, METHOD_HEAP);
+        assignRegisterAndUpdateIdentities(register, item, METHOD_HEAP);
     }
 
     public void assignResultRegister(HeapItem item) {
@@ -140,7 +140,7 @@ public class MethodState extends BaseState {
     }
 
     public void pokeRegister(int register, HeapItem item) {
-        super.pokeRegister(register, item, METHOD_HEAP);
+        pokeRegister(register, item, METHOD_HEAP);
     }
 
     public void pokeRegister(int register, Object value, String type) {

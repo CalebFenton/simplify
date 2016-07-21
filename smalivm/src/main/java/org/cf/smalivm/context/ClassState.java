@@ -13,8 +13,8 @@ public class ClassState extends BaseState {
 
     private final VirtualClass virtualClass;
 
-    public ClassState(VirtualClass virtualClass, ExecutionContext ectx) {
-        super(ectx, virtualClass.getFields().size());
+    public ClassState(VirtualClass virtualClass, ExecutionContext context) {
+        super(context, virtualClass.getFields().size());
 
         this.virtualClass = virtualClass;
     }

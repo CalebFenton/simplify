@@ -155,8 +155,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 if (manipulator.getMethod().getSignature().contains(";-><init>(")) {
                     // Can't remove init method without breaking the object
                     ExecutionNode node = manipulator.getNodePile(address).get(0);
-                    ExecutionContext ectx = node.getContext();
-                    MethodState mState = ectx.getMethodState();
+                    ExecutionContext context = node.getContext();
+                    MethodState mState = context.getMethodState();
 
                     StringBuilder sb = new StringBuilder("invoke-direct {r");
                     sb.append(mState.getParameterStart() - 1); // p0 for instance method
@@ -203,8 +203,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         ExecutionNode node = manipulator.getNodePile(address).get(0);
-        ExecutionContext ectx = node.getContext();
-        if (ectx == null) {
+        ExecutionContext context = node.getContext();
+        if (context == null) {
             if (log.isWarnEnabled()) {
                 log.warn("Null execution context @{}. This shouldn't happen!", address);
             }
@@ -212,7 +212,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
             return false;
         }
 
-        MethodState mState = ectx.getMethodState();
+        MethodState mState = context.getMethodState();
         Set<Integer> assigned = getNormalRegistersAssigned(mState);
         if (assigned.isEmpty()) {
             // Has no assignments at all
@@ -273,8 +273,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         ExecutionNode node = manipulator.getNodePile(address).get(0);
-        ExecutionContext ectx = node.getContext();
-        MethodState mState = ectx.getMethodState();
+        ExecutionContext context = node.getContext();
+        MethodState mState = context.getMethodState();
         Set<Integer> assigned = getNormalRegistersAssigned(mState);
         if (0 < assigned.size()) {
             if (isAnyRegisterUsed(address, assigned, manipulator)) {

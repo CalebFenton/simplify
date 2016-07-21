@@ -84,7 +84,7 @@ public class Launcher {
         }
     }
 
-    private int executeClass(VirtualMachine vm, String className) throws UnhandledVirtualException {
+    private int executeClass(VirtualMachine vm, String className) {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
         Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();

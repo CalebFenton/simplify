@@ -21,7 +21,7 @@ public class ExecutionNode {
 
     private final List<ExecutionNode> children;
     private Op op;
-    private ExecutionContext ectx;
+    private ExecutionContext context;
     private ExecutionNode parent;
     private Set<VirtualException> exceptions;
     private MethodLocation[] childLocations;
@@ -69,7 +69,7 @@ public class ExecutionNode {
     }
 
     public int getCallDepth() {
-        return ectx.getCallDepth();
+        return context.getCallDepth();
     }
 
     public MethodLocation[] getChildLocations() {
@@ -85,11 +85,11 @@ public class ExecutionNode {
     }
 
     public ExecutionContext getContext() {
-        return ectx;
+        return context;
     }
 
-    public void setContext(ExecutionContext ectx) {
-        this.ectx = ectx;
+    public void setContext(ExecutionContext context) {
+        this.context = context;
     }
 
     public Set<VirtualException> getExceptions() {
@@ -141,12 +141,12 @@ public class ExecutionNode {
     }
 
     public void setMethodState(MethodState mState) {
-        ectx.setMethodState(mState);
+        context.setMethodState(mState);
     }
 
     public ExecutionNode spawnChild(Op childOp) {
         ExecutionNode child = new ExecutionNode(childOp);
-        child.setContext(ectx.spawnChild());
+        child.setContext(context.spawnChild());
         child.setParent(this);
 
         return child;
@@ -155,8 +155,8 @@ public class ExecutionNode {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("ExecutionNode{");
-        if (this.ectx != null) {
-            sb.append("signature=").append(ectx.getMethod()).append(", ");
+        if (this.context != null) {
+            sb.append("signature=").append(context.getMethod()).append(", ");
         }
         sb.append("op=").append(op.toString()).append('}');
 

@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.cf.simplify.ConstantBuilder;
-import org.cf.simplify.Dependancy;
+import org.cf.simplify.Dependency;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.opcode.Op;
@@ -17,10 +17,10 @@ import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ConstantPropigationStrategy implements OptimizationStrategy {
+public class ConstantPropagationStrategy implements OptimizationStrategy {
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ConstantPropigationStrategy.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(ConstantPropagationStrategy.class.getSimpleName());
 
     private final ExecutionGraphManipulator manipulator;
     private int constantCount;
@@ -28,8 +28,8 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
 
     protected ConstantBuilder constantBuilder;
 
-    public ConstantPropigationStrategy(ExecutionGraphManipulator manipulator) {
-        getDependancies();
+    public ConstantPropagationStrategy(ExecutionGraphManipulator manipulator) {
+        getDependencies();
         this.manipulator = manipulator;
         constantCount = 0;
     }
@@ -64,14 +64,14 @@ public class ConstantPropigationStrategy implements OptimizationStrategy {
         return madeChanges;
     }
 
-    protected void getDependancies() {
+    protected void getDependencies() {
         if (constantBuilder == null) {
             constantBuilder = new ConstantBuilder();
         }
     }
 
-    protected void setDependancies(Dependancy dependancy) {
-        constantBuilder = (ConstantBuilder) dependancy;
+    protected void setDependencies(Dependency dependency) {
+        constantBuilder = (ConstantBuilder) dependency;
     }
 
     private boolean canConstantizeAddress(int address) {

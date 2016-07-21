@@ -14,6 +14,6 @@ public abstract class ExecutionContextOp extends Op {
         super(location, children);
     }
 
-    public abstract void execute(ExecutionNode executionNode, ExecutionContext ectx);
+    public abstract void execute(ExecutionNode executionNode, ExecutionContext context);
 
 }

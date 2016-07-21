@@ -16,7 +16,7 @@ public class SPutOpFactory implements OpFactory {
     @Override
     public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm) {
         MethodLocation child = Utils.getNextLocation(location, addressToLocation);
-        Instruction21c instr = (Instruction21c) (BuilderInstruction) location.getInstruction();
+        Instruction21c instr = (Instruction21c) location.getInstruction();
         int destRegister = instr.getRegisterA();
         FieldReference fieldReference = (FieldReference) instr.getReference();
         VirtualClass fieldClass = vm.getClassManager().getVirtualClass(fieldReference.getDefiningClass());

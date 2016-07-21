@@ -31,8 +31,8 @@ public class IPutOp extends ExecutionContextOp {
     }
 
     @Override
-    public void execute(ExecutionNode node, ExecutionContext ectx) {
-        MethodState mState = ectx.getMethodState();
+    public void execute(ExecutionNode node, ExecutionContext context) {
+        MethodState mState = context.getMethodState();
         HeapItem valueItem = mState.readRegister(valueRegister);
         HeapItem instanceItem = mState.readRegister(instanceRegister);
 

@@ -4,8 +4,8 @@ import java.util.Map;
 
 public interface OptimizationStrategy {
 
-    public Map<String, Integer> getOptimizationCounts();
+    Map<String, Integer> getOptimizationCounts();
 
-    public boolean perform();
+    boolean perform();
 
 }

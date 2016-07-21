@@ -33,8 +33,8 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
     }
 
     @Override
-    public void execute(VirtualMachine vm, ExecutionContext ectx) {
-        MethodState mState = ectx.getMethodState();
+    public void execute(VirtualMachine vm, ExecutionContext context) {
+        MethodState mState = context.getMethodState();
         HeapItem fieldItem = mState.peekParameter(0);
         HeapItem instanceItem = mState.peekParameter(1);
         Field field = (Field) fieldItem.getValue();
@@ -42,7 +42,7 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
         int accessFlags = field.getModifiers();
         String fieldClassName = ClassNameUtils.toInternal(field.getDeclaringClass());
         if (!field.isAccessible()) {
-            VirtualClass callingClass = ectx.getCallerContext().getMethod().getDefiningClass();
+            VirtualClass callingClass = context.getCallerContext().getMethod().getDefiningClass();
             ClassManager classManager = vm.getClassManager();
             VirtualClass fieldClass = classManager.getVirtualClass(fieldClassName);
 
@@ -53,7 +53,7 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
         }
 
         Object instance = instanceItem.getValue();
-        HeapItem getItem = get(field, instance, fieldClassName, accessFlags, ectx, vm);
+        HeapItem getItem = get(field, instance, fieldClassName, accessFlags, context, vm);
         mState.assignReturnRegister(getItem);
     }
 
@@ -96,10 +96,10 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
         return true;
     }
 
-    private HeapItem get(Field field, Object instance, String className, int accessFlags, ExecutionContext ectx,
+    private HeapItem get(Field field, Object instance, String className, int accessFlags, ExecutionContext context,
                          VirtualMachine vm) {
         if (vm.getConfiguration().isSafe(className)) {
-            return getSafeField(field, instance, ectx);
+            return getSafeField(field, instance, context);
         } else {
             boolean isStatic = Modifier.isStatic(accessFlags);
             if (!isStatic) {
@@ -108,7 +108,7 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
                 return HeapItem.newUnknown(internalName);
             }
 
-            return getVirtualField(field, vm, ectx);
+            return getVirtualField(field, vm, context);
         }
     }
 

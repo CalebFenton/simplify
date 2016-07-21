@@ -18,22 +18,22 @@ public class StaticFieldAccessor {
         this.vm = vm;
     }
 
-    public HeapItem getField(ExecutionContext ectx, VirtualField field) {
+    public HeapItem getField(ExecutionContext context, VirtualField field) {
         if (isSafe(field)) {
-            return getSafeField(ectx, field);
+            return getSafeField(context, field);
         } else {
-            return getLocalField(ectx, field);
+            return getLocalField(context, field);
         }
     }
 
-    private HeapItem getLocalField(ExecutionContext ectx, VirtualField field) {
-        ClassState cState = ectx.readClassState(field.getDefiningClass());
+    private HeapItem getLocalField(ExecutionContext context, VirtualField field) {
+        ClassState cState = context.readClassState(field.getDefiningClass());
         HeapItem fieldItem = cState.peekField(field);
 
         return fieldItem;
     }
 
-    private HeapItem getSafeField(ExecutionContext ectx, VirtualField localField) {
+    private HeapItem getSafeField(ExecutionContext context, VirtualField localField) {
         String className = localField.getDefiningClass().getBinaryName();
         try {
             Class<?> klazz = Class.forName(className);
@@ -61,13 +61,13 @@ public class StaticFieldAccessor {
         return vm.isSafe(field.getDefiningClass());
     }
 
-    public void putField(ExecutionContext ectx, VirtualField field, HeapItem putItem) {
+    public void putField(ExecutionContext context, VirtualField field, HeapItem putItem) {
         if (isSafe(field)) {
             if (log.isWarnEnabled()) {
                 log.warn("Ignoring static assignment of non-local field: {} = {}", field, putItem);
             }
         } else {
-            ClassState cState = ectx.readClassState(field.getDefiningClass());
+            ClassState cState = context.readClassState(field.getDefiningClass());
             cState.assignField(field, putItem);
         }
     }

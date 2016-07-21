@@ -12,19 +12,13 @@ import org.slf4j.LoggerFactory;
 
 class ConstOp extends MethodStateOp {
 
-    static enum ConstantType {
-        CLASS, NARROW, STRING, WIDE
-    }
-
     private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
-
     private final ConstantType constantType;
     private final int destRegister;
     private final Object literal;
     private final ClassLoader classLoader;
-
     ConstOp(MethodLocation location, MethodLocation child, int destRegister, ConstantType constantType, Object literal,
-                    ClassLoader classLoader) {
+            ClassLoader classLoader) {
         super(location, child);
 
         this.destRegister = destRegister;
@@ -57,30 +51,30 @@ class ConstOp extends MethodStateOp {
         sb.append(" r").append(destRegister).append(", ");
         String val;
         switch (constantType) {
-        case CLASS:
-            sb.append(literal);
-            break;
-        case NARROW:
-            val = Integer.toString((int) literal, 16);
-            if (val.startsWith("-")) {
-                sb.append('-');
-                val = val.substring(1);
-            }
-            sb.append("0x").append(val);
-            break;
-        case STRING:
-            sb.append('"').append((String) literal).append('"');
-            break;
-        case WIDE:
-            val = Long.toString((long) literal, 16);
-            if (val.startsWith("-")) {
-                sb.append('-');
-                val = val.substring(1);
-            }
-            sb.append("0x").append(val);
-            break;
-        default:
-            break;
+            case CLASS:
+                sb.append(literal);
+                break;
+            case NARROW:
+                val = Integer.toString((int) literal, 16);
+                if (val.startsWith("-")) {
+                    sb.append('-');
+                    val = val.substring(1);
+                }
+                sb.append("0x").append(val);
+                break;
+            case STRING:
+                sb.append('"').append((String) literal).append('"');
+                break;
+            case WIDE:
+                val = Long.toString((long) literal, 16);
+                if (val.startsWith("-")) {
+                    sb.append('-');
+                    val = val.substring(1);
+                }
+                sb.append("0x").append(val);
+                break;
+            default:
+                break;
         }
 
         return sb.toString();
@@ -108,30 +102,34 @@ class ConstOp extends MethodStateOp {
         // types as "wide" (long, float). Logic elsewhere must infer actual types when necessary, such as by opcode.
         String type;
         switch (constantType) {
-        case CLASS:
-            type = CommonTypes.CLASS;
-            break;
-        case NARROW:
-            type = CommonTypes.INTEGER;
-            break;
-        case STRING:
-            type = CommonTypes.STRING;
-            break;
-        case WIDE:
-            if ("const-wide".equals(getName())) {
-                type = CommonTypes.DOUBLE;
-            } else {
-                type = CommonTypes.LONG;
-            }
-            break;
-        default:
-            if (log.isWarnEnabled()) {
-                log.warn("Unexpected constant virtual: {} (should never happen)", constantType);
-            }
-            type = "?";
+            case CLASS:
+                type = CommonTypes.CLASS;
+                break;
+            case NARROW:
+                type = CommonTypes.INTEGER;
+                break;
+            case STRING:
+                type = CommonTypes.STRING;
+                break;
+            case WIDE:
+                if ("const-wide".equals(getName())) {
+                    type = CommonTypes.DOUBLE;
+                } else {
+                    type = CommonTypes.LONG;
+                }
+                break;
+            default:
+                if (log.isWarnEnabled()) {
+                    log.warn("Unexpected constant virtual: {} (should never happen)", constantType);
+                }
+                type = "?";
         }
 
         return type;
+    }
+
+    enum ConstantType {
+        CLASS, NARROW, STRING, WIDE
     }
 
 }

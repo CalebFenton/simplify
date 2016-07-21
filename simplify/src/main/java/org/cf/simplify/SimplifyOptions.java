@@ -1,5 +1,7 @@
 package org.cf.simplify;
 
+import org.cf.smalivm.dex.Dexifier;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -7,17 +9,13 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.regex.Pattern;
 
-import org.cf.smalivm.dex.Dexifier;
-
 public class SimplifyOptions implements Serializable {
 
     private static final byte[] DEX_MAGIC = new byte[] { 0x64, 0x65, 0x78 };
-
-    private static final byte[] PK_ZIP_MAGIC = new byte[] { 0x50, 0x4b, 0x3 };;
-
+    private static final byte[] PK_ZIP_MAGIC = new byte[] { 0x50, 0x4b, 0x3 };
     private static final long serialVersionUID = -8592147369856820020L;
-    private Pattern excludeFilter;
 
+    private Pattern excludeFilter;
     private boolean help;
     private Pattern includeFilter;
     private boolean includeSupportLibrary;
@@ -35,78 +33,24 @@ public class SimplifyOptions implements Serializable {
     private boolean removeWeak = true;
     private int verbosity = 0;
 
-    private InputType determineInputType() throws IOException {
-        if (inFile.isDirectory()) {
-            return InputType.DIRECTORY;
-        }
-
-        FileInputStream fis = new FileInputStream(inFile);
-        byte[] buf = new byte[3];
-        try {
-            fis.read(buf);
-        } finally {
-            fis.close();
-        }
-
-        if (Arrays.equals(DEX_MAGIC, buf)) {
-            return InputType.DEX;
-        } else if (Arrays.equals(PK_ZIP_MAGIC, buf)) {
-            return InputType.ZIP;
-        } else {
-            throw new RuntimeException("Unknown input file type; magic: " + Arrays.toString(buf));
-        }
+    public Pattern getExcludeFilter() {
+        return excludeFilter;
     }
 
     protected void setExcludeFilter(Pattern excludeFilter) {
         this.excludeFilter = excludeFilter;
     }
 
+    public Pattern getIncludeFilter() {
+        return includeFilter;
+    }
+
     protected void setIncludeFilter(Pattern includeFilter) {
         this.includeFilter = includeFilter;
     }
 
-    protected void setIncludeSupportLibrary(boolean includeSupportLibrary) {
-        this.includeSupportLibrary = includeSupportLibrary;
-    }
-
-    protected void setIsHelp() {
-        help = true;
-    }
-
-    protected void setIsQuiet() {
-        quiet = true;
-    }
-
-    protected void setMaxAddressVisits(int maxAddressVisits) {
-        this.maxAddressVisits = maxAddressVisits;
-    }
-
-    protected void setMaxCallDepth(int maxCallDepth) {
-        this.maxCallDepth = maxCallDepth;
-    }
-
-    protected void setMaxExecutionTime(int maxExecutionTime) {
-        this.maxExecutionTime = maxExecutionTime;
-    }
-
-    protected void setMaxMethodVisits(int maxMethodVisits) {
-        this.maxMethodVisits = maxMethodVisits;
-    }
-
-    protected void setMaxOptimizationPasses(int maxOptimizationPasses) {
-        this.maxOptimizationPasses = maxOptimizationPasses;
-    }
-
-    protected void setOutputAPILevel(int outputAPILevel) {
-        this.outputAPILevel = outputAPILevel;
-    }
-
-    protected void setRemoveWeak(boolean removeWeak) {
-        this.removeWeak = removeWeak;
-    }
-
-    protected void setVerbosity(int verbosity) {
-        this.verbosity = verbosity;
+    public File getInFile() {
+        return inFile;
     }
 
     void setInFile(File inFile) {
@@ -116,6 +60,54 @@ public class SimplifyOptions implements Serializable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public int getMaxAddressVisits() {
+        return maxAddressVisits;
+    }
+
+    protected void setMaxAddressVisits(int maxAddressVisits) {
+        this.maxAddressVisits = maxAddressVisits;
+    }
+
+    public int getMaxCallDepth() {
+        return maxCallDepth;
+    }
+
+    protected void setMaxCallDepth(int maxCallDepth) {
+        this.maxCallDepth = maxCallDepth;
+    }
+
+    public int getMaxExecutionTime() {
+        return maxExecutionTime;
+    }
+
+    protected void setMaxExecutionTime(int maxExecutionTime) {
+        this.maxExecutionTime = maxExecutionTime;
+    }
+
+    public int getMaxMethodVisits() {
+        return maxMethodVisits;
+    }
+
+    protected void setMaxMethodVisits(int maxMethodVisits) {
+        this.maxMethodVisits = maxMethodVisits;
+    }
+
+    public int getMaxOptimizationPasses() {
+        return maxOptimizationPasses;
+    }
+
+    protected void setMaxOptimizationPasses(int maxOptimizationPasses) {
+        this.maxOptimizationPasses = maxOptimizationPasses;
+    }
+
+    public File getOutDexFile() {
+        return outDexFile;
+    }
+
+    public File getOutFile() {
+        return outFile;
     }
 
     void setOutFile(File outFile) {
@@ -132,52 +124,20 @@ public class SimplifyOptions implements Serializable {
         }
     }
 
-    public Pattern getExcludeFilter() {
-        return excludeFilter;
-    }
-
-    public Pattern getIncludeFilter() {
-        return includeFilter;
-    }
-
-    public File getInFile() {
-        return inFile;
-    }
-
-    public int getMaxAddressVisits() {
-        return maxAddressVisits;
-    }
-
-    public int getMaxCallDepth() {
-        return maxCallDepth;
-    }
-
-    public int getMaxExecutionTime() {
-        return maxExecutionTime;
-    }
-
-    public int getMaxMethodVisits() {
-        return maxMethodVisits;
-    }
-
-    public int getMaxOptimizationPasses() {
-        return maxOptimizationPasses;
-    }
-
-    public File getOutDexFile() {
-        return outDexFile;
-    }
-
-    public File getOutFile() {
-        return outFile;
-    }
-
     public int getOutputAPILevel() {
         return outputAPILevel;
     }
 
+    protected void setOutputAPILevel(int outputAPILevel) {
+        this.outputAPILevel = outputAPILevel;
+    }
+
     public int getVerbosity() {
         return verbosity;
+    }
+
+    protected void setVerbosity(int verbosity) {
+        this.verbosity = verbosity;
     }
 
     public boolean includeSupportLibrary() {
@@ -204,6 +164,10 @@ public class SimplifyOptions implements Serializable {
         return removeWeak;
     }
 
+    protected void setRemoveWeak(boolean removeWeak) {
+        this.removeWeak = removeWeak;
+    }
+
     public boolean isZip() {
         return InputType.ZIP.equals(inputType);
     }
@@ -226,7 +190,41 @@ public class SimplifyOptions implements Serializable {
         return sb.toString().trim();
     }
 
-    private static enum InputType {
+    protected void setIncludeSupportLibrary(boolean includeSupportLibrary) {
+        this.includeSupportLibrary = includeSupportLibrary;
+    }
+
+    protected void setIsHelp() {
+        help = true;
+    }
+
+    protected void setIsQuiet() {
+        quiet = true;
+    }
+
+    private InputType determineInputType() throws IOException {
+        if (inFile.isDirectory()) {
+            return InputType.DIRECTORY;
+        }
+
+        FileInputStream fis = new FileInputStream(inFile);
+        byte[] buf = new byte[3];
+        try {
+            fis.read(buf);
+        } finally {
+            fis.close();
+        }
+
+        if (Arrays.equals(DEX_MAGIC, buf)) {
+            return InputType.DEX;
+        } else if (Arrays.equals(PK_ZIP_MAGIC, buf)) {
+            return InputType.ZIP;
+        } else {
+            throw new RuntimeException("Unknown input file type; magic: " + Arrays.toString(buf));
+        }
+    }
+
+    private enum InputType {
         DEX, DIRECTORY, ZIP
     }
 

@@ -70,7 +70,7 @@ public class VirtualMachine {
     public ExecutionGraph execute(String methodSignature) throws VirtualMachineException {
         VirtualMethod method = classManager.getMethod(methodSignature);
         if (method == null) {
-            throw new RuntimeException("Method does not exist: " + method);
+            throw new RuntimeException("Method signature not found: " + methodSignature);
         }
 
         return execute(method);
@@ -81,21 +81,18 @@ public class VirtualMachine {
     }
 
     public ExecutionGraph execute(VirtualMethod method) throws VirtualMachineException {
-        if (method == null) {
-            throw new RuntimeException("Method does not exist: " + method);
-        }
-        ExecutionContext ectx = spawnRootContext(method);
+        ExecutionContext context = spawnRootContext(method);
 
-        return execute(method, ectx, null, null);
+        return execute(method, context, null, null);
     }
 
     public ExecutionGraph execute(String className, String methodDescriptor,
-                                  ExecutionContext ectx) throws VirtualMachineException {
-        return execute(className + "->" + methodDescriptor, ectx, null, null);
+                                  ExecutionContext context) throws VirtualMachineException {
+        return execute(className + "->" + methodDescriptor, context, null, null);
     }
 
-    public ExecutionGraph execute(String methodSignature, ExecutionContext ectx) throws VirtualMachineException {
-        return execute(methodSignature, ectx, null, null);
+    public ExecutionGraph execute(String methodSignature, ExecutionContext context) throws VirtualMachineException {
+        return execute(methodSignature, context, null, null);
     }
 
     public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext,
@@ -103,7 +100,7 @@ public class VirtualMachine {
                                   int[] parameterRegisters) throws VirtualMachineException {
         VirtualMethod virtualMethod = classManager.getMethod(methodSignature);
         if (virtualMethod == null) {
-            throw new RuntimeException("VirtualMethod does not exist: " + methodSignature);
+            throw new RuntimeException("Method signature not found: " + methodSignature);
         }
 
         return execute(virtualMethod, calleeContext, callerContext, parameterRegisters);
@@ -246,8 +243,8 @@ public class VirtualMachine {
             hasOneInitialization:
             if (!isInitializedInCaller) {
                 // Not initialized in caller, but maybe initialized in callee multiverse.
-                for (ExecutionContext ectx : terminatingContexts) {
-                    if (ectx.isClassInitialized(virtualClass)) {
+                for (ExecutionContext context : terminatingContexts) {
+                    if (context.isClassInitialized(virtualClass)) {
                         break hasOneInitialization;
                     }
                 }

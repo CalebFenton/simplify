@@ -24,6 +24,7 @@ public class java_io_PrintStream_println implements MethodStateMethod, UnknownVa
         System.out.println(valueStr);
     }
 
+    @Override
     public SideEffect.Level getSideEffectLevel() {
         // Do not optimize this away.
         return SideEffect.Level.STRONG;
@@ -31,7 +32,7 @@ public class java_io_PrintStream_println implements MethodStateMethod, UnknownVa
 
     @Override
     public Set<VirtualException> getExceptions() {
-        return new HashSet<VirtualException>();
+        return new HashSet<>();
     }
 
 }

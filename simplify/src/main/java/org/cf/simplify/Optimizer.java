@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.cf.simplify.strategy.ConstantPropigationStrategy;
+import org.cf.simplify.strategy.ConstantPropagationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
 import org.cf.simplify.strategy.OptimizationStrategy;
 import org.cf.simplify.strategy.PeepholeStrategy;
@@ -45,7 +45,7 @@ public class Optimizer {
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         strategy.setRemoveWeak(opts.isRemoveWeak());
         reoptimizeStrategies.add(strategy);
-        reoptimizeStrategies.add(new ConstantPropigationStrategy(manipulator));
+        reoptimizeStrategies.add(new ConstantPropagationStrategy(manipulator));
         reoptimizeStrategies.add(new PeepholeStrategy(manipulator));
 
         /*

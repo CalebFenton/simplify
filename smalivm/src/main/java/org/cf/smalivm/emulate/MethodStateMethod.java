@@ -5,6 +5,6 @@ import org.cf.smalivm.context.MethodState;
 
 public interface MethodStateMethod extends EmulatedMethod {
 
-    public void execute(VirtualMachine vm, MethodState mState) throws Exception;
+    void execute(VirtualMachine vm, MethodState mState);
 
 }

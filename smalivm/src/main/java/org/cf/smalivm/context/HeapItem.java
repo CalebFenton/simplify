@@ -18,14 +18,15 @@ import javax.annotation.Nullable;
 public class HeapItem {
 
     // private static final Cloner cloner = new Cloner();
-    private final Cloner cloner = new Cloner(new ObjenesisInstantiationStrategy());
+    private static final Cloner cloner = new Cloner(new ObjenesisInstantiationStrategy());
+    //private final Cloner cloner = new Cloner(new ObjenesisInstantiationStrategy());
 
     private String type;
     private Object value;
 
     public HeapItem(Object value, String type) {
         this.value = value;
-        this.type = type;
+        this.type = type.intern();
     }
 
     HeapItem(HeapItem other) {

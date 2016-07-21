@@ -52,7 +52,7 @@ class UnimplementedOp extends MethodStateOp {
         if (registerA >= 0) {
             sb.append(" r").append(registerA);
         }
-        sb.append(" (unimplmented)");
+        sb.append(" (unimplemented)");
 
         return sb.toString();
     }

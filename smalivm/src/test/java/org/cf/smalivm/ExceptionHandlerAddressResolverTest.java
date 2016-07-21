@@ -42,11 +42,11 @@ public class ExceptionHandlerAddressResolverTest {
         return handler;
     }
 
-    private static BuilderTryBlock buildTryBlock(int startAddress, int codeUnits, List<? extends
-                                                                                               BuilderExceptionHandler> handlers) {
+    private static BuilderTryBlock buildTryBlock(int startAddress, int codeUnits,
+                                                 List<? extends BuilderExceptionHandler> handlers) {
         BuilderTryBlock tryBlock = mock(BuilderTryBlock.class);
-        when(tryBlock.getStartCodeAddress()).thenReturn(0);
-        when(tryBlock.getCodeUnitCount()).thenReturn(10);
+        when(tryBlock.getStartCodeAddress()).thenReturn(startAddress);
+        when(tryBlock.getCodeUnitCount()).thenReturn(codeUnits);
         doReturn(handlers).when(tryBlock).getExceptionHandlers();
 
         return tryBlock;

@@ -7,8 +7,8 @@ import org.cf.smalivm.VirtualException;
 
 public interface EmulatedMethod {
 
-    public Level getSideEffectLevel();
+    Level getSideEffectLevel();
 
-    public Set<VirtualException> getExceptions();
+    Set<VirtualException> getExceptions();
 
 }

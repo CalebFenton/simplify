@@ -7,6 +7,6 @@ import org.jf.dexlib2.builder.MethodLocation;
 
 public interface OpFactory {
 
-    public Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm);
+    Op create(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation, VirtualMachine vm);
 
 }

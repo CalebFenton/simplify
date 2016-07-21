@@ -53,14 +53,14 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     @Override
-    public void execute(ExecutionNode node, ExecutionContext ectx) {
+    public void execute(ExecutionNode node, ExecutionContext context) {
         // TODO: In order to get working call stacks, refactor this to delegate most of the work to MethodExecutor.
         // This will remove InvokeOp as a weirdly complex op, and probably allow some methods to be made protected.
         // It also keeps things clear with method execution delegated to the class with the same name.
         // MethodExecutor can maintain a mapping such that calleeContext -> (callerContext, caller address)
         // With this mapping, stack traces can be reconstructed.
 
-        MethodState callerMethodState = ectx.getMethodState();
+        MethodState callerMethodState = context.getMethodState();
         if (method.getSignature().equals(CommonTypes.OBJECT + "-><init>()V")) {
             // Object.<init> is a special little snow flake
             try {
@@ -78,7 +78,7 @@ public class InvokeOp extends ExecutionContextOp {
         VirtualMethod targetMethod = method;
         if (getName().startsWith("invoke-virtual") && !method.isFinal()) {
             int targetRegister = parameterRegisters[0];
-            HeapItem item = ectx.getMethodState().peekRegister(targetRegister);
+            HeapItem item = context.getMethodState().peekRegister(targetRegister);
             targetMethod = resolveTargetMethod(item.getValue());
         }
         // Shouldn't reference method member now. Should use targetMethod for everything.
@@ -86,7 +86,7 @@ public class InvokeOp extends ExecutionContextOp {
 
         // Try to reflect or emulate before executing local method.
         if (vm.getConfiguration().isSafe(targetSignature) || MethodEmulator.canEmulate(targetSignature)) {
-            ExecutionContext calleeContext = buildNonLocalCalleeContext(ectx);
+            ExecutionContext calleeContext = buildNonLocalCalleeContext(context);
             boolean allArgumentsKnown = allArgumentsKnown(calleeContext.getMethodState());
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetSignature)) {
                 executeNonLocalMethod(targetSignature, callerMethodState, calleeContext, node);
@@ -124,8 +124,8 @@ public class InvokeOp extends ExecutionContextOp {
             return;
         }
 
-        ExecutionContext calleeContext = buildLocalCalleeContext(ectx, targetMethod);
-        executeLocalMethod(targetSignature, ectx, calleeContext);
+        ExecutionContext calleeContext = buildLocalCalleeContext(context, targetMethod);
+        executeLocalMethod(targetSignature, context, calleeContext);
     }
 
     public int[] getParameterRegisters() {

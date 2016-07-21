@@ -205,8 +205,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<HeapItem> items = new HashSet<HeapItem>(nodePile.size());
         for (ExecutionNode node : nodePile) {
-            ExecutionContext ectx = node.getContext();
-            ClassState cState = ectx.peekClassState(field.getDefiningClass());
+            ExecutionContext context = node.getContext();
+            ClassState cState = context.peekClassState(field.getDefiningClass());
             HeapItem item = cState.peekField(field);
             items.add(item);
         }

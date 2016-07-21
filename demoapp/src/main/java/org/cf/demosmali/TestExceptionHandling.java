@@ -11,7 +11,7 @@ public class TestExceptionHandling {
     }
 
     public void testCasting() {
-        Object o = Integer.valueOf(5);
+        Object o = 5;
         int x = (int) o;
         System.out.println(x);
     }

@@ -26,7 +26,7 @@ public class IfOpFactory implements OpFactory {
         } else if (opName.contains("-gt")) {
             result = IfType.GREATER;
         } else if (opName.contains("-ge")) {
-            result = IfType.GREATOR_OR_EQUAL;
+            result = IfType.GREATER_OR_EQUAL;
         }
 
         return result;

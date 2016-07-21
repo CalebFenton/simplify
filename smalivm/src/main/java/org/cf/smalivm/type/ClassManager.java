@@ -34,7 +34,7 @@ public class ClassManager {
     // Use separate DexBuilder to intern framework classes to avoid including in output dex
     private final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
 
-    ClassManager(DexBuilder dexBuilder) throws IOException {
+    ClassManager(DexBuilder dexBuilder) {
         this(dexBuilder, false);
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles());
     }
@@ -50,36 +50,6 @@ public class ClassManager {
     ClassManager(DexBuilder dexBuilder, File smaliPath) throws IOException {
         this(dexBuilder, false);
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath));
-    }
-
-    private void cacheSmaliFiles(Set<SmaliFile> smaliFiles) {
-        for (SmaliFile smaliFile : smaliFiles) {
-            classNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
-        }
-    }
-
-    private void dexifyClassIfNecessary(String className) {
-        if (classNameToVirtualClass.containsKey(className)) {
-            return;
-        }
-
-        SmaliFile smaliFile = classNameToSmaliFile.get(className);
-        if (smaliFile == null) {
-            throw new RuntimeException("Can't find Smali file containing " + className);
-        }
-        BuilderClassDef classDef;
-        try {
-            boolean isFramework = smaliFileFactory.isFrameworkClass(className);
-            InputStream is = smaliFile.open();
-            DexBuilder builder = isFramework ? frameworkDexBuilder : dexBuilder;
-            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, builder);
-            is.close();
-        } catch (Exception e) {
-            throw new RuntimeException("Error while loading class definition: " + className, e);
-        }
-
-        VirtualClass localClass = new VirtualClass(classDef);
-        classNameToVirtualClass.put(className, localClass);
     }
 
     /**
@@ -112,10 +82,6 @@ public class ClassManager {
         }
 
         return classNames;
-    }
-
-    DexBuilder getFrameworkDexBuilder() {
-        return frameworkDexBuilder;
     }
 
     public Collection<VirtualClass> getLoadedClasses() {
@@ -184,14 +150,44 @@ public class ClassManager {
         return smaliFileFactory.isFrameworkClass(className);
     }
 
-    public boolean isLocalClass(String className) {
-        return classNameToSmaliFile.containsKey(className);
-    }
-
     public boolean isSafeFrameworkClass(String typeName) {
         String className = typeName.split("->")[0];
 
         return smaliFileFactory.isSafeFrameworkClass(className);
+    }
+
+    DexBuilder getFrameworkDexBuilder() {
+        return frameworkDexBuilder;
+    }
+
+    private void cacheSmaliFiles(Set<SmaliFile> smaliFiles) {
+        for (SmaliFile smaliFile : smaliFiles) {
+            classNameToSmaliFile.put(smaliFile.getClassName(), smaliFile);
+        }
+    }
+
+    private void dexifyClassIfNecessary(String className) {
+        if (classNameToVirtualClass.containsKey(className)) {
+            return;
+        }
+
+        SmaliFile smaliFile = classNameToSmaliFile.get(className);
+        if (smaliFile == null) {
+            throw new RuntimeException("Can't find Smali file containing " + className);
+        }
+        BuilderClassDef classDef;
+        try {
+            boolean isFramework = smaliFileFactory.isFrameworkClass(className);
+            InputStream is = smaliFile.open();
+            DexBuilder builder = isFramework ? frameworkDexBuilder : dexBuilder;
+            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, builder);
+            is.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error while loading class definition: " + className, e);
+        }
+
+        VirtualClass localClass = new VirtualClass(classDef);
+        classNameToVirtualClass.put(className, localClass);
     }
 
 }

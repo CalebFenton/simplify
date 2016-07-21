@@ -1,14 +1,14 @@
 package org.cf.util;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
-
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 
 public class ClassNameUtils {
 
@@ -64,10 +64,6 @@ public class ClassNameUtils {
         binaryNameToType.put("void", Void.TYPE);
     }
 
-    public static enum TypeFormat {
-        BINARY, INTERNAL, SOURCE
-    }
-
     /**
      * Convert a class name in binary format into a class name in the internal or Smali format.
      * For example,
@@ -76,7 +72,6 @@ public class ClassNameUtils {
      * "int" becomes "I"
      * "[Z" becomes "[Z"
      *
-     * @param binaryName
      * @return the class name in the internal format
      */
     public static String binaryToInternal(String binaryName) {
@@ -113,7 +108,6 @@ public class ClassNameUtils {
      * "[[Ljava.lang.Object;" becomes "Ljava.lang.Object;"
      * "java.lang.Object[][]" becomes "java.lang.Object"
      *
-     * @param className
      * @return base component class
      */
     public static String getComponentBase(String className) {
@@ -123,7 +117,6 @@ public class ClassNameUtils {
     /**
      * Similar to Array.getComponentType(). Works with binary, internal, and source formats.
      *
-     * @param className
      * @return component class
      */
     public static String getComponentType(String className) {
@@ -133,7 +126,6 @@ public class ClassNameUtils {
     /**
      * Get the dimension count or rank. Works with binary, internal, and source formats.
      *
-     * @param className
      * @return dimension count
      */
     public static int getDimensionCount(String className) {
@@ -150,7 +142,6 @@ public class ClassNameUtils {
      * "Lorg/cf/Klazz" gives "org.cf"
      * "org.cf.Klazz" gives "org.cf"
      *
-     * @param className
      * @return package name of class
      */
     public static String getPackageName(String className) {
@@ -166,10 +157,11 @@ public class ClassNameUtils {
     /**
      * Get the internal format primitive class name for a given primitive wrapper.
      *
-     * @param className
      * @return internal format primitive class name or null if not found
      */
-    public static @Nullable String getPrimitive(String className) {
+    public static
+    @Nullable
+    String getPrimitive(String className) {
         String internalName = toFormat(className, TypeFormat.SOURCE);
         String primitiveName = internalPrimitiveToWrapper.inverse().get(getComponentBase(internalName));
         if (null == primitiveName) {
@@ -193,7 +185,6 @@ public class ClassNameUtils {
     /**
      * Get the class for a primitive className in the internal format.
      *
-     * @param className
      * @return internal format primitive class or null if not found
      */
     public static Class<?> getPrimitiveClass(String className) {
@@ -203,10 +194,11 @@ public class ClassNameUtils {
     /**
      * Get the binary format wrapper class name for a given primitive.
      *
-     * @param className
      * @return wrapper class name or null if not found
      */
-    public static @Nullable String getWrapper(String className) {
+    public static
+    @Nullable
+    String getWrapper(String className) {
         String internalName = toFormat(className, TypeFormat.INTERNAL);
         String wrapperName = internalPrimitiveToWrapper.get(getComponentBase(internalName));
         if (null == wrapperName) {
@@ -230,7 +222,6 @@ public class ClassNameUtils {
     /**
      * Convert an internal class name format to binary format.
      *
-     * @param internalName
      * @return binary format class name
      */
     public static String internalToBinary(String internalName) {
@@ -249,7 +240,6 @@ public class ClassNameUtils {
     /**
      * Convert an internal class name format to source format.
      *
-     * @param internalName
      * @return source format class name
      */
     public static String internalToSource(String internalName) {
@@ -275,7 +265,6 @@ public class ClassNameUtils {
      * Determines if the virtual is an object parse virtual. This could either be an object or an array. Works with
      * internal and binary formats.
      *
-     * @param type
      * @return true if virtual is object, false otherwise
      */
     public static boolean isObject(String type) {
@@ -285,7 +274,6 @@ public class ClassNameUtils {
     /**
      * Works with all class formats.
      *
-     * @param className
      * @return true if class is primitive, otherwise false
      */
     public static boolean isPrimitive(String className) {
@@ -297,7 +285,6 @@ public class ClassNameUtils {
     /**
      * Works with all class formats.
      *
-     * @param className
      * @return true if class is primitive of wrapper, otherwise false
      */
     public static boolean isPrimitiveOrWrapper(String className) {
@@ -307,7 +294,6 @@ public class ClassNameUtils {
     /**
      * Works with all class formats.
      *
-     * @param className
      * @return true if class is primitive wrapper, otherwise false
      */
     public static boolean isWrapper(String className) {
@@ -317,7 +303,6 @@ public class ClassNameUtils {
     /**
      * Convert source format class name to binary format.
      *
-     * @param sourceName
      * @return binary format class name
      */
     public static String sourceToBinary(String sourceName) {
@@ -350,7 +335,6 @@ public class ClassNameUtils {
     /**
      * Convert source format class name to internal format.
      *
-     * @param sourceName
      * @return internal format class name
      */
     public static String sourceToInternal(String sourceName) {
@@ -374,8 +358,6 @@ public class ClassNameUtils {
     /**
      * Converts a class name of arbitrary format into any other format.
      *
-     * @param className
-     * @param format
      * @return class name of format virtual
      */
     public static String toFormat(String className, TypeFormat format) {
@@ -391,34 +373,34 @@ public class ClassNameUtils {
         if (baseName.contains("/") || internalPrimitiveToBinaryName.containsKey(baseName)) {
             // Internal / Smali format, e.g. [Ljava/lang/Object;, I, J, [Z
             switch (format) {
-            case INTERNAL:
-                return className;
-            case BINARY:
-                return internalToBinary(className);
-            case SOURCE:
-                return internalToSource(className);
+                case INTERNAL:
+                    return className;
+                case BINARY:
+                    return internalToBinary(className);
+                case SOURCE:
+                    return internalToSource(className);
             }
         } else {
             if (className.endsWith(";")) {
                 // Binary format, e.g. [Ljava.lang.Object;, java.lang.Object, int, long, [Z
                 switch (format) {
-                case INTERNAL:
-                    return binaryToInternal(className);
-                case BINARY:
-                    return className;
-                case SOURCE:
-                    return internalToSource(binaryToInternal(className));
+                    case INTERNAL:
+                        return binaryToInternal(className);
+                    case BINARY:
+                        return className;
+                    case SOURCE:
+                        return internalToSource(binaryToInternal(className));
                 }
             } else {
                 // Source format, e.g. java.lang.Object[], java.lang.Object, int, long, boolean[]
                 // E.g. int, long, boolean
                 switch (format) {
-                case INTERNAL:
-                    return sourceToInternal(className);
-                case BINARY:
-                    return sourceToBinary(className);
-                case SOURCE:
-                    return className;
+                    case INTERNAL:
+                        return sourceToInternal(className);
+                    case BINARY:
+                        return sourceToBinary(className);
+                    case SOURCE:
+                        return className;
                 }
             }
         }
@@ -429,7 +411,6 @@ public class ClassNameUtils {
     /**
      * Get the internal format class name for a given Java class.
      *
-     * @param klazz
      * @return internal format class name
      */
     public static String toInternal(Class<?> klazz) {
@@ -439,7 +420,6 @@ public class ClassNameUtils {
     /**
      * Get the internal format class name for an array of Java classes.
      *
-     * @param classes
      * @return list of internal format class names in the same order as arguments
      */
     public static List<String> toInternal(Class<?>... classes) {
@@ -468,6 +448,10 @@ public class ClassNameUtils {
         sb.append(className);
 
         return sb.toString();
+    }
+
+    public enum TypeFormat {
+        BINARY, INTERNAL, SOURCE
     }
 
 }

@@ -89,7 +89,7 @@ public class Utils {
             } else if ("C".equals(targetType) || "Ljava/lang/Character;".equals(targetType)) {
                 return (char) castValue.intValue();
             } else if ("Z".equals(targetType) || "Ljava/lang/Boolean;".equals(targetType)) {
-                return castValue.intValue() != 0 ? true : false;
+                return castValue.intValue() != 0;
             }
         } else if (value instanceof Boolean) {
             Boolean castValue = (Boolean) value;
@@ -106,7 +106,7 @@ public class Utils {
             Character castValue = (Character) value;
             Integer intValue = (int) castValue;
             if ("Z".equals(targetType) || "Ljava/lang/Boolean;".equals(targetType)) {
-                return (int) castValue != 0 ? true : false;
+                return (int) castValue != 0;
             } else if ("B".equals(targetType) || "Ljava/lang/Byte;".equals(targetType)) {
                 return intValue.byteValue();
             } else if ("I".equals(targetType) || "Ljava/lang/Integer;".equals(targetType)) {
@@ -180,7 +180,7 @@ public class Utils {
         return intValue;
     }
 
-    public static final MethodLocation[] getLocations(BuilderInstruction... instructions) {
+    public static MethodLocation[] getLocations(BuilderInstruction... instructions) {
         MethodLocation[] locations = new MethodLocation[instructions.length];
         for (int i = 0; i < locations.length; i++) {
             locations[i] = instructions[i].getLocation();

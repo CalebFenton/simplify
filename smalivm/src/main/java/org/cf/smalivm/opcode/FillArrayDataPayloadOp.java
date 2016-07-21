@@ -24,7 +24,7 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         if (klazz == byte.class) {
             value = number.byteValue();
             if (expectedClass == boolean.class) {
-                value = (byte) value == 1 ? true : false;
+                value = (byte) value == 1;
             }
         } else if (klazz == short.class) {
             value = number.shortValue();

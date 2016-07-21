@@ -16,13 +16,13 @@ public class MethodEmulator {
     private static final Logger log = LoggerFactory.getLogger(MethodEmulator.class.getSimpleName());
 
     private final VirtualMachine vm;
-    private final ExecutionContext ectx;
+    private final ExecutionContext context;
     private final String methodDescriptor;
     private final EmulatedMethod method;
 
-    public MethodEmulator(VirtualMachine vm, ExecutionContext ectx, String methodDescriptor) {
+    public MethodEmulator(VirtualMachine vm, ExecutionContext context, String methodDescriptor) {
         this.vm = vm;
-        this.ectx = ectx;
+        this.context = context;
         this.methodDescriptor = methodDescriptor;
         method = getMethod(methodDescriptor);
     }
@@ -68,9 +68,9 @@ public class MethodEmulator {
     public void emulate() {
         try {
             if (method instanceof MethodStateMethod) {
-                ((MethodStateMethod) method).execute(vm, ectx.getMethodState());
+                ((MethodStateMethod) method).execute(vm, context.getMethodState());
             } else {
-                ((ExecutionContextMethod) method).execute(vm, ectx);
+                ((ExecutionContextMethod) method).execute(vm, context);
             }
         } catch (Exception e) {
             if (log.isWarnEnabled()) {

@@ -30,8 +30,8 @@ class java_lang_Class_forName implements ExecutionContextMethod {
     }
 
     @Override
-    public void execute(VirtualMachine vm, ExecutionContext ectx) {
-        MethodState mState = ectx.getMethodState();
+    public void execute(VirtualMachine vm, ExecutionContext context) {
+        MethodState mState = context.getMethodState();
         String binaryClassName = (String) mState.peekParameter(0).getValue();
         String className = ClassNameUtils.binaryToInternal(binaryClassName);
 
@@ -54,9 +54,9 @@ class java_lang_Class_forName implements ExecutionContextMethod {
                 } catch (RuntimeException e) {
                     throw new ClassNotFoundException();
                 }
-                if (!ectx.isClassInitialized(virtualClass) && !className.equals("Lorg/cf/obfuscated/Reflection;")) {
-                    ectx.staticallyInitializeClassIfNecessary(virtualClass);
-                    level = ectx.getClassSideEffectLevel(virtualClass);
+                if (!context.isClassInitialized(virtualClass) && !className.equals("Lorg/cf/obfuscated/Reflection;")) {
+                    context.staticallyInitializeClassIfNecessary(virtualClass);
+                    level = context.getClassSideEffectLevel(virtualClass);
                 }
             }
             mState.assignReturnRegister(value, RETURN_TYPE);

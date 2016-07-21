@@ -10,42 +10,10 @@ import org.slf4j.LoggerFactory;
 
 public class IfOp extends MethodStateOp {
 
-    static enum IfType {
-        EQUAL, GREATER, GREATOR_OR_EQUAL, LESS, LESS_OR_EQUAL, NOT_EQUAL
-    }
-
     private static final Logger log = LoggerFactory.getLogger(IfOp.class.getSimpleName());
-
-    private static boolean isTrue(IfType ifType, int cmp) {
-        boolean isTrue = false;
-        switch (ifType) {
-        case EQUAL:
-            isTrue = cmp == 0;
-            break;
-        case GREATER:
-            isTrue = cmp == 1;
-            break;
-        case GREATOR_OR_EQUAL:
-            isTrue = cmp >= 0;
-            break;
-        case LESS:
-            isTrue = cmp == -1;
-            break;
-        case LESS_OR_EQUAL:
-            isTrue = cmp <= 0;
-            break;
-        case NOT_EQUAL:
-            isTrue = cmp != 0;
-            break;
-        }
-
-        return isTrue;
-    }
-
     private final IfType ifType;
     private final int register1;
     private final MethodLocation target;
-
     private boolean compareToZero;
     private int register2;
 
@@ -56,12 +24,37 @@ public class IfOp extends MethodStateOp {
         this.register1 = register1;
         compareToZero = true;
     }
-
     IfOp(MethodLocation location, MethodLocation child, IfType ifType, MethodLocation target, int register1,
-                    int register2) {
+         int register2) {
         this(location, child, ifType, target, register1);
         this.register2 = register2;
         compareToZero = false;
+    }
+
+    private static boolean isTrue(IfType ifType, int cmp) {
+        boolean isTrue = false;
+        switch (ifType) {
+            case EQUAL:
+                isTrue = cmp == 0;
+                break;
+            case GREATER:
+                isTrue = cmp == 1;
+                break;
+            case GREATER_OR_EQUAL:
+                isTrue = cmp >= 0;
+                break;
+            case LESS:
+                isTrue = cmp == -1;
+                break;
+            case LESS_OR_EQUAL:
+                isTrue = cmp <= 0;
+                break;
+            case NOT_EQUAL:
+                isTrue = cmp != 0;
+                break;
+        }
+
+        return isTrue;
     }
 
     @Override
@@ -81,13 +74,15 @@ public class IfOp extends MethodStateOp {
             if (lhs == null) {
                 // if-*z ops are used to check for null refs
                 cmp = 0;
-            } else if ((lhs instanceof Number || lhs instanceof Boolean || lhs instanceof Character) && (rhs instanceof Number || rhs instanceof Boolean || rhs instanceof Character)) {
+            } else if ((lhs instanceof Number || lhs instanceof Boolean || lhs instanceof Character) &&
+                       (rhs instanceof Number || rhs instanceof Boolean || rhs instanceof Character)) {
                 Integer aIntValue = Utils.getIntegerValue(lhs);
                 cmp = aIntValue.compareTo((Integer) rhs);
             } else {
                 cmp = lhs == rhs ? 0 : 1;
             }
-        } else if ((lhs instanceof Number || lhs instanceof Boolean || lhs instanceof Character) && (rhs instanceof Number || rhs instanceof Boolean || rhs instanceof Character)) {
+        } else if ((lhs instanceof Number || lhs instanceof Boolean || lhs instanceof Character) &&
+                   (rhs instanceof Number || rhs instanceof Boolean || rhs instanceof Character)) {
             Integer aIntValue = Utils.getIntegerValue(lhs);
             Integer bIntValue = Utils.getIntegerValue(rhs);
             cmp = aIntValue.compareTo(bIntValue);
@@ -113,6 +108,10 @@ public class IfOp extends MethodStateOp {
         sb.append(", #").append(target.getCodeAddress());
 
         return sb.toString();
+    }
+
+    enum IfType {
+        EQUAL, GREATER, GREATER_OR_EQUAL, LESS, LESS_OR_EQUAL, NOT_EQUAL
     }
 
 }

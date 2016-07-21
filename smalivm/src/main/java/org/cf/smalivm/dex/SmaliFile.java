@@ -76,7 +76,7 @@ public class SmaliFile {
         return isSafeFramework;
     }
 
-    public InputStream open() throws URISyntaxException, IOException {
+    public InputStream open() throws IOException {
         if (isResource) {
             return SmaliFile.class.getClassLoader().getResourceAsStream(getPath());
         } else {
