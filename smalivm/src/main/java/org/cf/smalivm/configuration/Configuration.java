@@ -41,21 +41,21 @@ public class Configuration {
      * Safe classes are Java API classes which are safe to instantiate, load, and statically initialize. Safe methods
      * are methods of Java classes which are safe to execute. Only classes and methods which can have no possible side
      * effects outside of SmaliVM should be configured as safe.
-     * 
-     * @param typeDescriptor
+     *
+     * @param typeSignature
      * @return
      */
-    public boolean isSafe(String typeDescriptor) {
-        String[] parts = typeDescriptor.split("->");
+    public boolean isSafe(String typeSignature) {
+        String[] parts = typeSignature.split("->");
         String className = parts[0];
 
-        if (safeClasses.contains(className) && !unsafeMethods.contains(typeDescriptor)) {
+        if (safeClasses.contains(className) && !unsafeMethods.contains(typeSignature)) {
             return true;
         }
 
         if (parts.length > 1) {
             // It's a method name
-            if (safeMethods.contains(typeDescriptor)) {
+            if (safeMethods.contains(typeSignature)) {
                 return true;
             }
         }

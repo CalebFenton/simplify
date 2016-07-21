@@ -66,8 +66,7 @@ public class InvokeOp extends ExecutionContextOp {
             // Object.<init> is a special little snow flake
             try {
                 executeLocalObjectInit(callerMethodState);
-            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
-                                             IllegalArgumentException | InvocationTargetException e) {
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
                 log.error("Unexpected real exception initializing Object", e);
             }
             return;
@@ -101,7 +100,8 @@ public class InvokeOp extends ExecutionContextOp {
             }
         }
 
-        if (classManager.isFrameworkClass(targetSignature) && !classManager.isSafeFrameworkClass(targetSignature)) {
+        if (classManager.isFrameworkClass(targetMethod.getDefiningClass()) &&
+            !classManager.isSafeFrameworkClass(targetMethod.getDefiningClass())) {
             if (log.isDebugEnabled()) {
                 log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", targetSignature);
             }
@@ -353,11 +353,7 @@ public class InvokeOp extends ExecutionContextOp {
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
-    private void executeLocalObjectInit(MethodState callerMethodState) throws ClassNotFoundException,
-                                                                                      InstantiationException,
-                                                                                      IllegalAccessException,
-                                                                                      IllegalArgumentException,
-                                                                                      InvocationTargetException {
+    private void executeLocalObjectInit(MethodState callerMethodState) throws ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
         int instanceRegister = parameterRegisters[0];
         HeapItem instanceItem = callerMethodState.peekRegister(instanceRegister);
         UninitializedInstance uninitializedInstance = (UninitializedInstance) instanceItem.getValue();

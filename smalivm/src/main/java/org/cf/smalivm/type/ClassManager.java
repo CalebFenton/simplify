@@ -138,22 +138,18 @@ public class ClassManager {
         }
     }
 
-    public VirtualGeneric getVirtualType(String typeName) {
-        TypeReference typeReference = getFrameworkDexBuilder().internTypeReference(typeName);
+    public VirtualGeneric getVirtualType(String typeSignature) {
+        TypeReference typeReference = getFrameworkDexBuilder().internTypeReference(typeSignature);
 
         return getVirtualType(typeReference);
     }
 
-    public boolean isFrameworkClass(String typeName) {
-        String className = typeName.split("->")[0];
-
-        return smaliFileFactory.isFrameworkClass(className);
+    public boolean isFrameworkClass(VirtualClass virtualClass) {
+        return smaliFileFactory.isFrameworkClass(virtualClass.getName());
     }
 
-    public boolean isSafeFrameworkClass(String typeName) {
-        String className = typeName.split("->")[0];
-
-        return smaliFileFactory.isSafeFrameworkClass(className);
+    public boolean isSafeFrameworkClass(VirtualClass virtualClass) {
+        return smaliFileFactory.isSafeFrameworkClass(virtualClass.getName());
     }
 
     DexBuilder getFrameworkDexBuilder() {
