@@ -1,10 +1,8 @@
-Simplify
-========
+# Simplify
 
 [![Build Status](https://travis-ci.org/CalebFenton/simplify.svg?branch=master)](https://travis-ci.org/CalebFenton/simplify) [![Coverage Status](https://img.shields.io/coveralls/CalebFenton/simplify.svg)](https://coveralls.io/r/CalebFenton/simplify) [![Coverity Scan Build Status](https://img.shields.io/coverity/scan/7022.svg)](https://scan.coverity.com/projects/calebfenton-simplify)
 
-Generic Android Deobfuscator
-----------------------------
+## Generic Android Deobfuscator
 
 Simplify uses a virtual machine to execute an app and understand what it does. Then, it applies optimizations to create code that behaves identically but is easier for a human to understand. It is a _generic_ deobfuscator because it doesn't need any special configuration or code for different types of obfuscation.
 
@@ -23,9 +21,29 @@ There are three parts to the project:
 2. **simplify**: Takes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and  specific peephole optimizations.
 3. **demoapp**: Contains simple, heavily commented examples of how to use **smalivm**.
 
+## Usage
 
-Building
---------
+```
+usage: java -jar simplify.jar <input> [options]
+deobfuscates a dalvik executable
+ -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after include-types
+ -h,--help                       Display this message
+    --include-support            Attempt to execute and optimize classes in Android support library packages, default: false
+ -it,--include-types <pattern>   Limit execution to classes and methods which include REGEX, eg: ";->targetMethod\("
+    --max-address-visits <N>     Give up executing a method after visiting the same address N times, limits loops, default: 10000
+    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method chains, default:
+                                 50
+    --max-execution-time <N>     Give up executing a method after N seconds, default: 300
+    --max-method-vists <N>       Give up executing a method after executing N instructions in that method, default: 1000000
+    --max-passes <N>             Do not run optimizers on a method more than N times, default: 100
+ -o,--output <file>              Output simplified input to FILE
+    --output-api-level <LEVEL>   Set output DEX API compatibility to LEVEL, default: 15
+ -q,--quiet                      Be quiet
+    --remove-weak                Remove code even if there are weak side effects, default: true
+ -v,--verbose <LEVEL>            Set verbosity to LEVEL, default: 0
+```
+
+## Building
 
 Because this project contains submodules, either clone with `--recursive`:
 
@@ -43,8 +61,8 @@ The Simplify jar will be in `simplify/build/libs/simplify.jar`
 
 You can test it's working with: `java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example`
 
-Troubleshooting
----------------
+## Troubleshooting
+
 
 Simplify is in early stages of development. If you encounter a failure, try these recommendations, in order:
 
@@ -53,20 +71,20 @@ Simplify is in early stages of development. If you encounter a failure, try thes
 3. Try with `-v` or `-v 2` and report the issue with the logs.
 4. Try again, but do not break eye contact. Simpify can sense fear.
 
-Reporting Issues
-----------------
+## Reporting Issues
 
 1. If possible, include a link the APK or DEX. If you can't share the sample, please include either the SHA1 or MD5 checksum.
 2. Include the full command used.
 3. *Optional*: Include verbose logs.
 
-Contributing
-------------
+## Contributing
+
 Just submit a pull request. We can review and talk through it there.
 
-Optimization Example
---------------------
+## Optimization Example
+
 ### Before Optimization
+
 ```smali
 .method public static test1()I
     .locals 2
@@ -85,6 +103,7 @@ Optimization Example
 All this does is `v0 = 1`.
 
 ### After Constant Propagation
+
 ```smali
 .method public static test1()I
     .locals 2
@@ -106,7 +125,8 @@ The `move-result v0` is replaced with `const/4 v0, 0x1`. This is because there i
 * strings - `const-string`
 * classes - `const-class`
 
-###After Dead Code Removal
+### After Dead Code Removal
+
 ```smali
 .method public static test1()I
     .locals 2
