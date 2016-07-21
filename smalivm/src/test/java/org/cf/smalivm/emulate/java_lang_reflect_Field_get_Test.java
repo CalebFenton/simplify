@@ -3,7 +3,6 @@ package org.cf.smalivm.emulate;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -38,14 +37,15 @@ public class java_lang_reflect_Field_get_Test {
     private static VirtualMachine vm = null;
 
     private static void spawnVM() {
-        if ( vm == null) {
+        if (vm == null) {
             // Confession: no idea why but if we don't tell classmanager to perform an expensive recache of classes,
             // it doesn't think the dummy class exists.
             vm = VMTester.spawnVM(true);
         }
     }
+
     private static void testPositiveCase(String fieldName, String callingMethodSignature, Object fieldValue,
-                                        String fieldType, boolean setAccessible) throws Exception {
+                                         String fieldType, boolean setAccessible) throws Exception {
         spawnVM();
         ExecutionContext context = buildContext(vm);
         test(vm, context, fieldName, callingMethodSignature, setAccessible);
@@ -61,7 +61,7 @@ public class java_lang_reflect_Field_get_Test {
     }
 
     private static void testPositiveCase(String fieldName, String callingMethodSignature, Object fieldValue,
-                                        String fieldType) throws Exception {
+                                         String fieldType) throws Exception {
         testPositiveCase(fieldName, callingMethodSignature, fieldValue, fieldType, false);
     }
 

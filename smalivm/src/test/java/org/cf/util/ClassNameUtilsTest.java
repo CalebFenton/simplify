@@ -1,14 +1,14 @@
 package org.cf.util;
 
-import static org.junit.Assert.assertEquals;
+import org.cf.util.ClassNameUtils.TypeFormat;
+import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
-import org.cf.util.ClassNameUtils.TypeFormat;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
 public class ClassNameUtilsTest {
 

@@ -1,11 +1,5 @@
 package org.cf.simplify.strategy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
-
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
@@ -24,6 +18,12 @@ import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
+
 @RunWith(Enclosed.class)
 public class ConstantPropagationStrategyTest {
 
@@ -31,6 +31,57 @@ public class ConstantPropagationStrategyTest {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstantPropagationStrategyTest.class.getSimpleName());
+
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
+        VMState initial = new VMState();
+        if (args.length > 0) {
+            initial.setRegisters(args);
+        }
+
+        return getOptimizedGraph(methodName, initial);
+    }
+
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, VMState initial) {
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+        ConstantPropagationStrategy strategy = new ConstantPropagationStrategy(manipulator);
+        strategy.perform();
+
+        return manipulator;
+    }
+
+    private static void testEquals(BuilderInstruction expected, ExecutionGraphManipulator manipulator, int address) {
+        BuilderInstruction actual = manipulator.getInstruction(address);
+
+        assertEquals(expected.getOpcode(), actual.getOpcode());
+
+        if (expected instanceof OneRegisterInstruction) {
+            int expectedRegister = ((OneRegisterInstruction) expected).getRegisterA();
+            int actualRegister = ((OneRegisterInstruction) actual).getRegisterA();
+
+            assertEquals(expectedRegister, actualRegister);
+        }
+
+        if (expected instanceof NarrowLiteralInstruction) {
+            int expectedLiteral = ((NarrowLiteralInstruction) expected).getNarrowLiteral();
+            int actualLiteral = ((NarrowLiteralInstruction) actual).getNarrowLiteral();
+
+            assertEquals(expectedLiteral, actualLiteral);
+        }
+
+        if (expected instanceof WideLiteralInstruction) {
+            long expectedLiteral = ((WideLiteralInstruction) expected).getWideLiteral();
+            long actualLiteral = ((WideLiteralInstruction) actual).getWideLiteral();
+
+            assertEquals(expectedLiteral, actualLiteral);
+        }
+
+        if (expected instanceof ReferenceInstruction) {
+            Reference expectedRef = ((ReferenceInstruction) expected).getReference();
+            Reference actualRef = ((ReferenceInstruction) actual).getReference();
+
+            assertEquals(expectedRef, actualRef);
+        }
+    }
 
     public static class KnownValues {
 
@@ -44,8 +95,8 @@ public class ConstantPropagationStrategyTest {
 
         @Test
         public void canConstantizeAGet() {
-            ExecutionGraphManipulator manipulator = getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0,
-                            new int[] { 0, 7 }, "[I", 1, 1, "I");
+            ExecutionGraphManipulator manipulator =
+                    getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0, new int[] { 0, 7 }, "[I", 1, 1, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(7, 0);
 
             testEquals(expected, manipulator, 0);
@@ -62,8 +113,8 @@ public class ConstantPropagationStrategyTest {
 
         @Test
         public void nonDeterministicallyExecuteConstableOpConstantizesToExpectedInstruction() {
-            ExecutionGraphManipulator manipulator = getOptimizedGraph(
-                            "nonDeterministicallyStaticGetIntegerMaxValue(I)V", 1, new UnknownValue(), "I");
+            ExecutionGraphManipulator manipulator =
+                    getOptimizedGraph("nonDeterministicallyStaticGetIntegerMaxValue(I)V", 1, new UnknownValue(), "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(Integer.MAX_VALUE, 0);
 
             testEquals(expected, manipulator, 2);
@@ -84,8 +135,8 @@ public class ConstantPropagationStrategyTest {
         public void constantizablesHandlesNull() {
             ExecutionGraphManipulator graph = mock(ExecutionGraphManipulator.class);
             ConstantBuilder builder = mock(ConstantBuilder.class);
-            BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(OneRegisterInstruction.class));
+            BuilderInstruction instruction =
+                    mock(BuilderInstruction.class, withSettings().extraInterfaces(OneRegisterInstruction.class));
 
             ConstantPropagationStrategy strategy = new ConstantPropagationStrategy(graph);
             strategy.setDependencies(builder);
@@ -161,57 +212,6 @@ public class ConstantPropagationStrategyTest {
             ExecutionGraphManipulator after = getOptimizedGraph(methodName, initial);
 
             testEquals(before.getInstruction(0), after, 0);
-        }
-    }
-
-    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
-        VMState initial = new VMState();
-        if (args.length > 0) {
-            initial.setRegisters(args);
-        }
-
-        return getOptimizedGraph(methodName, initial);
-    }
-
-    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, VMState initial) {
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
-        ConstantPropagationStrategy strategy = new ConstantPropagationStrategy(manipulator);
-        strategy.perform();
-
-        return manipulator;
-    }
-
-    private static void testEquals(BuilderInstruction expected, ExecutionGraphManipulator manipulator, int address) {
-        BuilderInstruction actual = manipulator.getInstruction(address);
-
-        assertEquals(expected.getOpcode(), actual.getOpcode());
-
-        if (expected instanceof OneRegisterInstruction) {
-            int expectedRegister = ((OneRegisterInstruction) expected).getRegisterA();
-            int actualRegister = ((OneRegisterInstruction) actual).getRegisterA();
-
-            assertEquals(expectedRegister, actualRegister);
-        }
-
-        if (expected instanceof NarrowLiteralInstruction) {
-            int expectedLiteral = ((NarrowLiteralInstruction) expected).getNarrowLiteral();
-            int actualLiteral = ((NarrowLiteralInstruction) actual).getNarrowLiteral();
-
-            assertEquals(expectedLiteral, actualLiteral);
-        }
-
-        if (expected instanceof WideLiteralInstruction) {
-            long expectedLiteral = ((WideLiteralInstruction) expected).getWideLiteral();
-            long actualLiteral = ((WideLiteralInstruction) actual).getWideLiteral();
-
-            assertEquals(expectedLiteral, actualLiteral);
-        }
-
-        if (expected instanceof ReferenceInstruction) {
-            Reference expectedRef = ((ReferenceInstruction) expected).getReference();
-            Reference actualRef = ((ReferenceInstruction) actual).getReference();
-
-            assertEquals(expectedRef, actualRef);
         }
     }
 

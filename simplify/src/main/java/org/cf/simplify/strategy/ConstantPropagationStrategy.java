@@ -1,12 +1,5 @@
 package org.cf.simplify.strategy;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.Dependency;
 import org.cf.simplify.ExecutionGraphManipulator;
@@ -17,16 +10,22 @@ import org.jf.dexlib2.iface.instruction.OneRegisterInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 public class ConstantPropagationStrategy implements OptimizationStrategy {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ConstantPropagationStrategy.class.getSimpleName());
 
     private final ExecutionGraphManipulator manipulator;
+    protected ConstantBuilder constantBuilder;
     private int constantCount;
     private boolean madeChanges;
-
-    protected ConstantBuilder constantBuilder;
 
     public ConstantPropagationStrategy(ExecutionGraphManipulator manipulator) {
         getDependencies();
@@ -105,7 +104,7 @@ public class ConstantPropagationStrategy implements OptimizationStrategy {
 
     private List<Integer> getValidAddresses() {
         return IntStream.of(manipulator.getAddresses()).boxed().filter(a -> canConstantizeAddress(a))
-                        .collect(Collectors.toList());
+                       .collect(Collectors.toList());
     }
 
 }

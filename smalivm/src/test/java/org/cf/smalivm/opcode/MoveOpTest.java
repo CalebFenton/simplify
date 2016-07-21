@@ -1,10 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-
-import java.util.Arrays;
-
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -13,6 +8,11 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Arrays;
+
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 public class MoveOpTest {
 
@@ -36,7 +36,7 @@ public class MoveOpTest {
         ExecutionGraph graph = VMTester.execute(CLASS_NAME, "moveRegisterObject()V", initial);
         int[] addresses = graph.getConnectedTerminatingAddresses();
         assertTrue("Should terminate when expected: " + Arrays.toString(addresses) + " == {1}",
-                        Arrays.equals(addresses, new int[] { 1 }));
+                Arrays.equals(addresses, new int[] { 1 }));
 
         HeapItem register0 = graph.getRegisterConsensus(1, 0);
         HeapItem register1 = graph.getRegisterConsensus(1, 1);

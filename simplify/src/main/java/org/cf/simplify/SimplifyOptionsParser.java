@@ -1,7 +1,6 @@
 package org.cf.simplify;
 
-import java.io.File;
-import java.util.regex.Pattern;
+import com.google.common.io.Files;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -10,7 +9,8 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import com.google.common.io.Files;
+import java.io.File;
+import java.util.regex.Pattern;
 
 public class SimplifyOptionsParser {
 
@@ -36,52 +36,52 @@ public class SimplifyOptionsParser {
         for (Option opt : cmd.getOptions()) {
             String val = opt.getValue();
             switch (opt.getLongOpt()) {
-            case "output":
-                simplifyOpts.setOutFile(new File(val));
-                break;
-            case "include-types":
-                simplifyOpts.setIncludeFilter(Pattern.compile(val));
-                break;
-            case "exclude-types":
-                simplifyOpts.setExcludeFilter(Pattern.compile(val));
-                break;
-            case "max-execution-time":
-                simplifyOpts.setMaxExecutionTime(Integer.parseInt(val));
-                break;
-            case "max-address-visits":
-                simplifyOpts.setMaxAddressVisits(Integer.parseInt(val));
-                break;
-            case "max-call-depth":
-                simplifyOpts.setMaxCallDepth(Integer.parseInt(val));
-                break;
-            case "max-method-vists":
-                simplifyOpts.setMaxMethodVisits(Integer.parseInt(val));
-                break;
-            case "include-support":
-                simplifyOpts.setIncludeSupportLibrary(Boolean.parseBoolean(val));
-                break;
-            case "remove-weak":
-                simplifyOpts.setRemoveWeak(Boolean.parseBoolean(val));
-                break;
-            case "max-passes":
-                simplifyOpts.setMaxOptimizationPasses(Integer.parseInt(val));
-                break;
-            case "output-api-level":
-                simplifyOpts.setOutputAPILevel(Integer.parseInt(val));
-                break;
-            case "help":
-                simplifyOpts.setIsHelp();
-                break;
-            case "quiet":
-                simplifyOpts.setIsQuiet();
-                break;
-            case "verbose":
-                if (val == null) {
-                    simplifyOpts.setVerbosity(1);
-                } else {
-                    simplifyOpts.setVerbosity(Integer.parseInt(val));
-                }
-                break;
+                case "output":
+                    simplifyOpts.setOutFile(new File(val));
+                    break;
+                case "include-types":
+                    simplifyOpts.setIncludeFilter(Pattern.compile(val));
+                    break;
+                case "exclude-types":
+                    simplifyOpts.setExcludeFilter(Pattern.compile(val));
+                    break;
+                case "max-execution-time":
+                    simplifyOpts.setMaxExecutionTime(Integer.parseInt(val));
+                    break;
+                case "max-address-visits":
+                    simplifyOpts.setMaxAddressVisits(Integer.parseInt(val));
+                    break;
+                case "max-call-depth":
+                    simplifyOpts.setMaxCallDepth(Integer.parseInt(val));
+                    break;
+                case "max-method-vists":
+                    simplifyOpts.setMaxMethodVisits(Integer.parseInt(val));
+                    break;
+                case "include-support":
+                    simplifyOpts.setIncludeSupportLibrary(Boolean.parseBoolean(val));
+                    break;
+                case "remove-weak":
+                    simplifyOpts.setRemoveWeak(Boolean.parseBoolean(val));
+                    break;
+                case "max-passes":
+                    simplifyOpts.setMaxOptimizationPasses(Integer.parseInt(val));
+                    break;
+                case "output-api-level":
+                    simplifyOpts.setOutputAPILevel(Integer.parseInt(val));
+                    break;
+                case "help":
+                    simplifyOpts.setIsHelp();
+                    break;
+                case "quiet":
+                    simplifyOpts.setIsQuiet();
+                    break;
+                case "verbose":
+                    if (val == null) {
+                        simplifyOpts.setVerbosity(1);
+                    } else {
+                        simplifyOpts.setVerbosity(Integer.parseInt(val));
+                    }
+                    break;
             }
         }
 
@@ -114,74 +114,53 @@ public class SimplifyOptionsParser {
     private static Options buildOptions(SimplifyOptions simplifyOpts) {
         Options options = new Options();
 
-        Option outputOption = Option.builder("o").longOpt("output").hasArg().argName("file")
-                        .desc("Output simplified input to FILE").build();
+        Option outputOption =
+                Option.builder("o").longOpt("output").hasArg().argName("file").desc("Output simplified input to FILE")
+                        .build();
 
         // Execution
         Option includeTypesOption = Option.builder("it").longOpt("include-types").hasArg().argName("pattern")
-                        .desc("Limit execution to classes and methods which include REGEX, eg: \";->targetMethod\\(\"")
-                        .build();
+                                            .desc("Limit execution to classes and methods which include REGEX, eg: " +
+                                                  "\";->targetMethod\\(\"")
+                                            .build();
 
-        Option excludeTypesOption = Option
-                        .builder("et")
-                        .longOpt("exclude-types")
-                        .hasArg()
-                        .argName("pattern")
-                        .desc("Exclude classes and methods which include REGEX, eg: \"com/android\", applied after include-types")
-                        .build();
+        Option excludeTypesOption = Option.builder("et").longOpt("exclude-types").hasArg().argName("pattern")
+                                            .desc("Exclude classes and methods which include REGEX, eg: " +
+                                                  "\"com/android\", applied after include-types")
+                                            .build();
 
-        Option maxExecutionTimeOption = Option
-                        .builder()
-                        .longOpt("max-execution-time")
-                        .hasArg()
-                        .argName("N")
-                        .desc("Give up executing a method after N seconds, default: " + simplifyOpts
-                                        .getMaxExecutionTime()).build();
+        Option maxExecutionTimeOption = Option.builder().longOpt("max-execution-time").hasArg().argName("N")
+                                                .desc("Give up executing a method after N seconds, default: " +
+                                                      simplifyOpts.getMaxExecutionTime()).build();
 
-        Option maxAddressVisitsOption = Option
-                        .builder()
-                        .longOpt("max-address-visits")
-                        .hasArg()
-                        .argName("N")
-                        .desc("Give up executing a method after visiting the same address N times, limits loops, default: " + simplifyOpts
-                                        .getMaxAddressVisits()).build();
+        Option maxAddressVisitsOption = Option.builder().longOpt("max-address-visits").hasArg().argName("N")
+                                                .desc("Give up executing a method after visiting the same address N " +
+                                                      "times, limits loops, default: " +
+                                                      simplifyOpts.getMaxAddressVisits()).build();
 
-        Option maxCallDepthOption = Option
-                        .builder()
-                        .longOpt("max-call-depth")
-                        .hasArg()
-                        .argName("N")
-                        .desc("Do not call methods after reaching a call depth of N, limits recursion and long method chains, default: " + simplifyOpts
-                                        .getMaxCallDepth()).build();
+        Option maxCallDepthOption = Option.builder().longOpt("max-call-depth").hasArg().argName("N")
+                                            .desc("Do not call methods after reaching a call depth of N, limits " +
+                                                  "recursion and long method chains, default: " +
+                                                  simplifyOpts.getMaxCallDepth()).build();
 
-        Option maxMethodVisitsOption = Option
-                        .builder()
-                        .longOpt("max-method-vists")
-                        .hasArg()
-                        .argName("N")
-                        .desc("Give up executing a method after executing N instructions in that method, default: " + simplifyOpts
-                                        .getMaxMethodVisits()).build();
+        Option maxMethodVisitsOption = Option.builder().longOpt("max-method-vists").hasArg().argName("N")
+                                               .desc("Give up executing a method after executing N instructions in " +
+                                                     "that method, default: " +
+                                                     simplifyOpts.getMaxMethodVisits()).build();
 
-        Option includeSupportOption = Option
-                        .builder()
-                        .longOpt("include-support")
-                        .desc("Attempt to execute and optimize classes in Android support library packages, default: " + simplifyOpts
-                                        .includeSupportLibrary()).build();
+        Option includeSupportOption = Option.builder().longOpt("include-support")
+                                              .desc("Attempt to execute and optimize classes in Android support " +
+                                                    "library packages, default: " +
+                                                    simplifyOpts.includeSupportLibrary()).build();
 
         // Optimization
-        Option removeWeakOption = Option
-                        .builder()
-                        .longOpt("remove-weak")
-                        .desc("Remove code even if there are weak side effects, default: " + simplifyOpts
-                                        .isRemoveWeak()).build();
+        Option removeWeakOption = Option.builder().longOpt("remove-weak")
+                                          .desc("Remove code even if there are weak side effects, default: " +
+                                                simplifyOpts.isRemoveWeak()).build();
 
-        Option maxPassesOption = Option
-                        .builder()
-                        .longOpt("max-passes")
-                        .hasArg()
-                        .argName("N")
-                        .desc("Do not run optimizers on a method more than N times, default: " + simplifyOpts
-                                        .getMaxOptimizationPasses()).build();
+        Option maxPassesOption = Option.builder().longOpt("max-passes").hasArg().argName("N")
+                                         .desc("Do not run optimizers on a method more than N times, default: " +
+                                               simplifyOpts.getMaxOptimizationPasses()).build();
 
         // --exclude-strategy=strat,strat2
         Option excludeStrategiesOption;
@@ -191,20 +170,16 @@ public class SimplifyOptionsParser {
         Option graphOption;
 
         // Misc
-        Option outputAPILevelOption = Option
-                        .builder()
-                        .longOpt("output-api-level")
-                        .hasArg()
-                        .argName("LEVEL")
-                        .desc("Set output DEX API compatibility to LEVEL, default: " + simplifyOpts.getOutputAPILevel())
-                        .build();
+        Option outputAPILevelOption = Option.builder().longOpt("output-api-level").hasArg().argName("LEVEL")
+                                              .desc("Set output DEX API compatibility to LEVEL, default: " +
+                                                    simplifyOpts.getOutputAPILevel()).build();
 
         Option helpOption = Option.builder("h").longOpt("help").desc("Display this message").build();
 
         Option quietOption = Option.builder("q").longOpt("quiet").desc("Be quiet").build();
 
         Option verboseOption = Option.builder("v").longOpt("verbose").hasArg().optionalArg(true).argName("LEVEL")
-                        .desc("Set verbosity to LEVEL, default: " + simplifyOpts.getVerbosity()).build();
+                                       .desc("Set verbosity to LEVEL, default: " + simplifyOpts.getVerbosity()).build();
 
         options.addOption(outputOption);
         options.addOption(includeTypesOption);

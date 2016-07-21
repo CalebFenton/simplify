@@ -1,12 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
@@ -33,6 +26,14 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.runners.MockitoJUnitRunner;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RunWith(Enclosed.class)
 public class FilledNewArrayTest {
@@ -64,7 +65,7 @@ public class FilledNewArrayTest {
         public void testNewArrayRangeWithIntegerParametersCreatesArrayWithExpectedContents() {
             int[] elements = new int[] { 2, 3, 5, 7, 11, 13 };
             initial.setRegisters(0, elements[0], "I", 1, elements[1], "I", 2, elements[2], "I", 3, elements[3], "I", 4,
-                            elements[4], "I", 5, elements[5], "I");
+                    elements[4], "I", 5, elements[5], "I");
             expected.setRegisters(MethodState.ResultRegister, elements, "[I");
 
             VMTester.test(CLASS_NAME, "filledNewArrayRange()V", initial, expected);
@@ -137,10 +138,8 @@ public class FilledNewArrayTest {
             when(itemG.isUnknown()).thenReturn(false);
 
             location = mock(MethodLocation.class);
-            instruction = mock(
-                            BuilderInstruction.class,
-                            withSettings().extraInterfaces(Instruction35c.class, VariableRegisterInstruction.class,
-                                            ReferenceInstruction.class));
+            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction35c.class,
+                    VariableRegisterInstruction.class, ReferenceInstruction.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);
@@ -217,32 +216,32 @@ public class FilledNewArrayTest {
             when(instruction.getOpcode()).thenReturn(Opcode.FILLED_NEW_ARRAY);
             when(((VariableRegisterInstruction) instruction).getRegisterCount()).thenReturn(values.length);
             switch (values.length) {
-            case 5:
-                when(itemG.getValue()).thenReturn(values[4]);
-            case 4:
-                when(itemF.getValue()).thenReturn(values[3]);
-            case 3:
-                when(itemE.getValue()).thenReturn(values[2]);
-            case 2:
-                when(itemD.getValue()).thenReturn(values[1]);
-            case 1:
-                when(itemC.getValue()).thenReturn(values[0]);
+                case 5:
+                    when(itemG.getValue()).thenReturn(values[4]);
+                case 4:
+                    when(itemF.getValue()).thenReturn(values[3]);
+                case 3:
+                    when(itemE.getValue()).thenReturn(values[2]);
+                case 2:
+                    when(itemD.getValue()).thenReturn(values[1]);
+                case 1:
+                    when(itemC.getValue()).thenReturn(values[0]);
             }
 
             op = (FilledNewArrayOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
             switch (values.length) {
-            case 5:
-                verify(mState, times(1)).readRegister(eq(REGISTER_G));
-            case 4:
-                verify(mState, times(1)).readRegister(eq(REGISTER_F));
-            case 3:
-                verify(mState, times(1)).readRegister(eq(REGISTER_E));
-            case 2:
-                verify(mState, times(1)).readRegister(eq(REGISTER_D));
-            case 1:
-                verify(mState, times(1)).readRegister(eq(REGISTER_C));
+                case 5:
+                    verify(mState, times(1)).readRegister(eq(REGISTER_G));
+                case 4:
+                    verify(mState, times(1)).readRegister(eq(REGISTER_F));
+                case 3:
+                    verify(mState, times(1)).readRegister(eq(REGISTER_E));
+                case 2:
+                    verify(mState, times(1)).readRegister(eq(REGISTER_D));
+                case 1:
+                    verify(mState, times(1)).readRegister(eq(REGISTER_C));
             }
 
             int[] expected = new int[values.length];
@@ -276,10 +275,8 @@ public class FilledNewArrayTest {
             mState = mock(MethodState.class);
 
             location = mock(MethodLocation.class);
-            instruction = mock(
-                            BuilderInstruction.class,
-                            withSettings().extraInterfaces(Instruction3rc.class, VariableRegisterInstruction.class,
-                                            ReferenceInstruction.class, RegisterRangeInstruction.class));
+            instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction3rc.class,
+                    VariableRegisterInstruction.class, ReferenceInstruction.class, RegisterRangeInstruction.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);

@@ -1,12 +1,5 @@
 package org.cf.simplify.strategy;
 
-import static org.junit.Assert.assertEquals;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
@@ -21,12 +14,31 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+
 public class DeadRemovalStrategyTest {
 
     private static final String CLASS_NAME = "Ldead_removal_strategy_test;";
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategyTest.class.getSimpleName());
+
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
+        VMState initial = new VMState();
+        if (args.length > 0) {
+            initial.setRegisters(args);
+        }
+        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
+        strategy.perform();
+
+        return manipulator;
+    }
 
     @Test
     public void doesNotDetectAssignmentReassignedInOnlyOneMultiverse() {
@@ -114,8 +126,7 @@ public class DeadRemovalStrategyTest {
     @Test
     public void detectsMoveResultWithUnusedAssignment() {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME,
-                        "moveResult()Ljava/lang/String;", MethodState.ResultRegister, "some string",
-                        "Ljava/lang/String;");
+                "moveResult()Ljava/lang/String;", MethodState.ResultRegister, "some string", "Ljava/lang/String;");
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         List<Integer> found = strategy.getDeadAssignmentAddresses();
         List<Integer> expected = Arrays.asList(3, 7);
@@ -165,18 +176,6 @@ public class DeadRemovalStrategyTest {
         List<Integer> expected = Collections.singletonList(0);
 
         assertEquals(expected, found);
-    }
-
-    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
-        VMState initial = new VMState();
-        if (args.length > 0) {
-            initial.setRegisters(args);
-        }
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
-        DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
-        strategy.perform();
-
-        return manipulator;
     }
 
 }

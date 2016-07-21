@@ -14,9 +14,9 @@ public class MethodState extends BaseState {
     public static final int ReturnRegister = -2;
     public static final int ReturnAddress = -3;
     public static final String MUTABLE_PARAMETER_HEAP = "mutable";
-    // TODO: refactor ExecutionContext's method descriptor here, it saves having an extra string * n ops
     public static final String METHOD_HEAP = "method";
     private static final Logger log = LoggerFactory.getLogger(MethodState.class.getSimpleName());
+
     private final int parameterCount;
     private final int parameterSize;
     private final TIntSet mutableParameters;
@@ -165,9 +165,8 @@ public class MethodState extends BaseState {
         return peekRegister(ReturnRegister);
     }
 
-    // TODO: easy shouldn't this be readRegister?
     public HeapItem readReturnRegister() {
-        return peekRegister(ReturnRegister);
+        return readRegister(ReturnRegister);
     }
 
     public void setPseudoInstructionReturnLocation(MethodLocation location) {

@@ -1,9 +1,9 @@
 package org.cf.smalivm;
 
+import org.cf.smalivm.context.HeapItem;
+
 import java.util.HashMap;
 import java.util.Map;
-
-import org.cf.smalivm.context.HeapItem;
 
 public class VMState {
 
@@ -31,6 +31,16 @@ public class VMState {
         return registerToItem;
     }
 
+    public void setRegisters(Object... params) {
+        // register, value, type
+        for (int i = 0; i < params.length; i += 3) {
+            Integer register = (Integer) params[i];
+            String type = (String) params[i + 2];
+            HeapItem item = new HeapItem(params[i + 1], type);
+            setRegister(register, item);
+        }
+    }
+
     public void setField(String className, String fieldDescriptor, HeapItem item) {
         if (!classNameToFieldDescriptorToItem.containsKey(className)) {
             classNameToFieldDescriptorToItem.put(className, new HashMap<String, HeapItem>());
@@ -49,16 +59,6 @@ public class VMState {
 
     public void setRegister(Integer register, HeapItem item) {
         registerToItem.put(register, item);
-    }
-
-    public void setRegisters(Object... params) {
-        // register, value, type
-        for (int i = 0; i < params.length; i += 3) {
-            Integer register = (Integer) params[i];
-            String type = (String) params[i + 2];
-            HeapItem item = new HeapItem(params[i + 1], type);
-            setRegister(register, item);
-        }
     }
 
 }

@@ -1,14 +1,14 @@
 package org.cf.simplify;
 
+import org.cf.smalivm.UnhandledVirtualException;
+import org.junit.Test;
+
+import java.io.IOException;
+
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-
-import java.io.IOException;
-
-import org.cf.smalivm.UnhandledVirtualException;
-import org.junit.Test;
 
 public class MainTest {
 

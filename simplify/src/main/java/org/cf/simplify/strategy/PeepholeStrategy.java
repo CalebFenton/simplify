@@ -1,15 +1,5 @@
 package org.cf.simplify.strategy;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.context.ExecutionContext;
@@ -36,11 +26,22 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 public class PeepholeStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(PeepholeStrategy.class.getSimpleName());
 
-    private static final String ClassForNameSignature = "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
+    private static final String ClassForNameSignature =
+            "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
 
     private final ExecutionGraphManipulator manipulator;
     private int peepCount;
@@ -189,7 +190,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {
         return IntStream.of(manipulator.getAddresses()).boxed().filter(a -> manipulator.wasAddressReached(a))
-                        .collect(Collectors.toList());
+                       .collect(Collectors.toList());
     }
 
     void peepCheckCast() {
@@ -209,8 +210,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     void peepClassForName() {
-        List<Integer> peepAddresses = addresses.stream().filter(a -> canPeepClassForName(a))
-                        .collect(Collectors.toList());
+        List<Integer> peepAddresses =
+                addresses.stream().filter(a -> canPeepClassForName(a)).collect(Collectors.toList());
         if (0 == peepAddresses.size()) {
             return;
         }
@@ -304,7 +305,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
             int instanceRegister = instr.getRegisterC();
             HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
             BuilderInstruction replacement = ConstantBuilder.buildConstant(item.getValue(), item.getUnboxedType(),
-                            instanceRegister, manipulator.getDexBuilder());
+                    instanceRegister, manipulator.getDexBuilder());
             if (log.isDebugEnabled()) {
                 log.debug("Peeping string init @{} {}", address, manipulator.getOp(address));
             }

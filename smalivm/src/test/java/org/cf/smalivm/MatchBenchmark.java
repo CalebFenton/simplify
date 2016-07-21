@@ -1,14 +1,14 @@
 package org.cf.smalivm;
 
-import java.math.BigInteger;
-import java.util.Random;
-import java.util.regex.Pattern;
-
 import org.junit.BeforeClass;
 import org.perfidix.annotation.BeforeBenchClass;
 import org.perfidix.annotation.BeforeEachRun;
 import org.perfidix.annotation.Bench;
 import org.perfidix.annotation.BenchClass;
+
+import java.math.BigInteger;
+import java.util.Random;
+import java.util.regex.Pattern;
 
 @BenchClass(runs = 10)
 public class MatchBenchmark {

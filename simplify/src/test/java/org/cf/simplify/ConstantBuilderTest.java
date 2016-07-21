@@ -1,10 +1,5 @@
 package org.cf.simplify;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
-
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.util.ClassNameUtils;
@@ -32,8 +27,61 @@ import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
+
 @RunWith(Enclosed.class)
 public class ConstantBuilderTest {
+
+    @SuppressWarnings("unused")
+    private static final Logger log = LoggerFactory.getLogger(ConstantBuilderTest.class.getSimpleName());
+    private static final int REGISTER = 0;
+
+    private static ExecutionGraphManipulator getMockedGraph(int address, HeapItem value) {
+        ExecutionGraphManipulator manipulator = mock(ExecutionGraphManipulator.class);
+        BuilderInstruction instruction =
+                mock(BuilderInstruction.class, withSettings().extraInterfaces(OneRegisterInstruction.class));
+        when(((OneRegisterInstruction) instruction).getRegisterA()).thenReturn(REGISTER);
+        when(manipulator.getRegisterConsensus(address, REGISTER)).thenReturn(value);
+        when(manipulator.getInstruction(address)).thenReturn(instruction);
+
+        return manipulator;
+    }
+
+    private static void testEquals(Instruction expectedInstr, Instruction actualInstr) {
+        assertEquals(expectedInstr.getOpcode(), actualInstr.getOpcode());
+
+        if (expectedInstr instanceof OneRegisterInstruction) {
+            OneRegisterInstruction expected = (OneRegisterInstruction) expectedInstr;
+            OneRegisterInstruction actual = (OneRegisterInstruction) actualInstr;
+
+            assertEquals(expected.getRegisterA(), actual.getRegisterA());
+        }
+
+        if (expectedInstr instanceof NarrowLiteralInstruction) {
+            NarrowLiteralInstruction expected = (NarrowLiteralInstruction) expectedInstr;
+            NarrowLiteralInstruction actual = (NarrowLiteralInstruction) actualInstr;
+
+            assertEquals(expected.getNarrowLiteral(), actual.getNarrowLiteral());
+        }
+
+        if (expectedInstr instanceof WideLiteralInstruction) {
+            WideLiteralInstruction expected = (WideLiteralInstruction) expectedInstr;
+            WideLiteralInstruction actual = (WideLiteralInstruction) actualInstr;
+
+            assertEquals(expected.getWideLiteral(), actual.getWideLiteral());
+        }
+
+        if (expectedInstr instanceof ReferenceInstruction) {
+            ReferenceInstruction expected = (ReferenceInstruction) expectedInstr;
+            ReferenceInstruction actual = (ReferenceInstruction) actualInstr;
+
+            assertEquals(expected.getReferenceType(), actual.getReferenceType());
+            assertEquals(expected.getReference(), actual.getReference());
+        }
+    }
 
     public static class BuildBoolean {
 
@@ -328,55 +376,6 @@ public class ConstantBuilderTest {
             testEquals(expected, actual);
         }
 
-    }
-
-    @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(ConstantBuilderTest.class.getSimpleName());
-
-    private static final int REGISTER = 0;
-
-    private static ExecutionGraphManipulator getMockedGraph(int address, HeapItem value) {
-        ExecutionGraphManipulator manipulator = mock(ExecutionGraphManipulator.class);
-        BuilderInstruction instruction = mock(BuilderInstruction.class,
-                        withSettings().extraInterfaces(OneRegisterInstruction.class));
-        when(((OneRegisterInstruction) instruction).getRegisterA()).thenReturn(REGISTER);
-        when(manipulator.getRegisterConsensus(address, REGISTER)).thenReturn(value);
-        when(manipulator.getInstruction(address)).thenReturn(instruction);
-
-        return manipulator;
-    }
-
-    private static void testEquals(Instruction expectedInstr, Instruction actualInstr) {
-        assertEquals(expectedInstr.getOpcode(), actualInstr.getOpcode());
-
-        if (expectedInstr instanceof OneRegisterInstruction) {
-            OneRegisterInstruction expected = (OneRegisterInstruction) expectedInstr;
-            OneRegisterInstruction actual = (OneRegisterInstruction) actualInstr;
-
-            assertEquals(expected.getRegisterA(), actual.getRegisterA());
-        }
-
-        if (expectedInstr instanceof NarrowLiteralInstruction) {
-            NarrowLiteralInstruction expected = (NarrowLiteralInstruction) expectedInstr;
-            NarrowLiteralInstruction actual = (NarrowLiteralInstruction) actualInstr;
-
-            assertEquals(expected.getNarrowLiteral(), actual.getNarrowLiteral());
-        }
-
-        if (expectedInstr instanceof WideLiteralInstruction) {
-            WideLiteralInstruction expected = (WideLiteralInstruction) expectedInstr;
-            WideLiteralInstruction actual = (WideLiteralInstruction) actualInstr;
-
-            assertEquals(expected.getWideLiteral(), actual.getWideLiteral());
-        }
-
-        if (expectedInstr instanceof ReferenceInstruction) {
-            ReferenceInstruction expected = (ReferenceInstruction) expectedInstr;
-            ReferenceInstruction actual = (ReferenceInstruction) actualInstr;
-
-            assertEquals(expected.getReferenceType(), actual.getReferenceType());
-            assertEquals(expected.getReference(), actual.getReference());
-        }
     }
 
 }

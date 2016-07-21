@@ -344,8 +344,7 @@ public class InvokeOpTest {
             VirtualMachine vm = VMTester.spawnVM();
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();
-            initial.setRegisters(0, instance, CLASS_NAME, 1, 0x100L, "J", 3, 0x200L, "J", 5, 0x300L, "J", 7, 0x3,
-                    "I");
+            initial.setRegisters(0, instance, CLASS_NAME, 1, 0x100L, "J", 3, 0x200L, "J", 5, 0x300L, "J", 7, 0x3, "I");
             expected.setRegisters(MethodState.ResultRegister, 0x3, "I");
 
             VMTester.test(CLASS_NAME, "invokeRangeManyParameters()V", initial, expected);

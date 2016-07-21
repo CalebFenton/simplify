@@ -1,8 +1,8 @@
 package org.cf.smalivm;
 
-import static org.junit.Assert.fail;
-
 import org.junit.Before;
+
+import static org.junit.Assert.fail;
 
 // These are not the tests you're looking for. *hand waving*
 public class VirtualMachineTest {

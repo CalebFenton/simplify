@@ -1,22 +1,13 @@
 package org.cf.simplify.strategy;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import com.google.common.primitives.Ints;
 
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.opcode.InvokeOp;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.type.VirtualMethod;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
@@ -41,15 +32,26 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.primitives.Ints;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class UnreflectionStrategy implements OptimizationStrategy {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(UnreflectionStrategy.class.getSimpleName());
 
-    private static final String METHOD_INVOKE_SIGNATURE = "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
-    private static final String FIELD_GET_SIGNATURE = "Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String METHOD_INVOKE_SIGNATURE =
+            "Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;";
+    private static final String FIELD_GET_SIGNATURE =
+            "Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;";
 
     private final ExecutionGraphManipulator manipulator;
     private int unreflectedMethodCount;
@@ -61,6 +63,60 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         this.manipulator = manipulator;
         unreflectedMethodCount = 0;
         unreflectedFieldCount = 0;
+    }
+
+    static Opcode getGetOpcode(String type, boolean isStatic) {
+        Opcode op;
+        if (isStatic) {
+            if (ClassNameUtils.isPrimitive(type)) {
+                if ("J".equals(type) || "D".equals(type)) {
+                    op = Opcode.SGET_WIDE;
+                } else if ("Z".equals(type)) {
+                    op = Opcode.SGET_BOOLEAN;
+                } else if ("B".equals(type)) {
+                    op = Opcode.SGET_BYTE;
+                } else if ("C".equals(type)) {
+                    op = Opcode.SGET_CHAR;
+                } else if ("S".equals(type)) {
+                    op = Opcode.SGET_SHORT;
+                } else {
+                    op = Opcode.SGET;
+                }
+            } else {
+                op = Opcode.SGET_OBJECT;
+            }
+        } else {
+            if (ClassNameUtils.isPrimitive(type)) {
+                if ("J".equals(type) || "D".equals(type)) {
+                    op = Opcode.IGET_WIDE;
+                } else if ("Z".equals(type)) {
+                    op = Opcode.IGET_BOOLEAN;
+                } else if ("B".equals(type)) {
+                    op = Opcode.IGET_BYTE;
+                } else if ("C".equals(type)) {
+                    op = Opcode.IGET_CHAR;
+                } else if ("S".equals(type)) {
+                    op = Opcode.IGET_SHORT;
+                } else {
+                    op = Opcode.IGET;
+                }
+            } else {
+                op = Opcode.IGET_OBJECT;
+            }
+        }
+
+        return op;
+    }
+
+    private static Integer[] getFourBitValues(List<Integer> values) {
+        return values.stream().filter(v -> v <= 0b1111).toArray(size -> new Integer[size]);
+    }
+
+    private static void setRegisterCount(BuilderMethod method, int registerCount) throws Exception {
+        MethodImplementation implementation = method.getImplementation();
+        Field f = implementation.getClass().getDeclaredField("registerCount");
+        f.setAccessible(true); // hack the planet
+        f.set(implementation, Integer.valueOf(registerCount));
     }
 
     @Override
@@ -93,7 +149,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int targetRegister = parameterRegisters[1];
         int parametersRegister = parameterRegisters[2];
 
-        // As long as VirtualMethod;->invoke is not emulated (it must never be white-listed as safe) current address will have
+        // As long as VirtualMethod;->invoke is not emulated (it must never be white-listed as safe) current address
+        // will have
         // all unknown values. Get details from parents.
         int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
@@ -113,8 +170,9 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         boolean isRange = 5 < parameterRegisterCount;
         List<Integer> registers = new LinkedList<Integer>();
         if (invokeRegisterCount > 0) {
-            List<Integer> availableRegisters1 = IntStream.of(manipulator.getAvailableRegisters(address)).boxed()
-                            .sorted().collect(Collectors.toList());
+            List<Integer> availableRegisters1 =
+                    IntStream.of(manipulator.getAvailableRegisters(address)).boxed().sorted()
+                            .collect(Collectors.toList());
 
             if (parametersValue instanceof Object[] && 0 < ((Object[]) parametersValue).length) {
                 // Not just an empty array, so will need to pull values out later.
@@ -174,11 +232,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
         if (!isStatic && isRange) {
             int instanceRegister = registers.get(0);
-            BuilderInstruction move = new BuilderInstruction32x(Opcode.MOVE_OBJECT_16, instanceRegister, targetRegister);
+            BuilderInstruction move =
+                    new BuilderInstruction32x(Opcode.MOVE_OBJECT_16, instanceRegister, targetRegister);
             instructions.add(move);
 
-            instructions.addAll(getArrayAccessorInstructions(parametersRegister,
-                            registers.subList(1, registers.size()), parameterTypes));
+            instructions.addAll(getArrayAccessorInstructions(parametersRegister, registers.subList(1, registers.size()),
+                    parameterTypes));
         } else {
             instructions.addAll(getArrayAccessorInstructions(parametersRegister, registers, parameterTypes));
         }
@@ -195,10 +254,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
             if (isStatic) {
                 invoke = new BuilderInstruction35c(invokeOp, invokeRegisterCount, registers.get(0), registers.get(1),
-                                registers.get(2), registers.get(3), registers.get(4), methodRef);
+                                                          registers.get(2), registers.get(3), registers.get(4),
+                                                          methodRef);
             } else {
                 invoke = new BuilderInstruction35c(invokeOp, invokeRegisterCount, targetRegister, registers.get(0),
-                                registers.get(1), registers.get(2), registers.get(3), methodRef);
+                                                          registers.get(1), registers.get(2), registers.get(3),
+                                                          methodRef);
             }
         }
         instructions.add(invoke);
@@ -321,8 +382,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         String type = parts[1];
 
         boolean isStatic = false;
-        BuilderField builderField = manipulator.getDexBuilder().internField(className, fieldName, type,
-                        field.getModifiers(), null, null);
+        BuilderField builderField =
+                manipulator.getDexBuilder().internField(className, fieldName, type, field.getModifiers(), null, null);
         FieldReference fieldRef = manipulator.getDexBuilder().internFieldReference(builderField);
 
         isStatic = Modifier.isStatic(field.getModifiers());
@@ -356,21 +417,21 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         List<String> parameterTypes = ClassNameUtils.toInternal(method.getParameterTypes());
         String returnType = ClassNameUtils.toInternal(method.getReturnType());
 
-        ImmutableMethodReference immutableMethodRef = new ImmutableMethodReference(className, name, parameterTypes,
-                        returnType);
+        ImmutableMethodReference immutableMethodRef =
+                new ImmutableMethodReference(className, name, parameterTypes, returnType);
         MethodReference methodRef = manipulator.getDexBuilder().internMethodReference(immutableMethodRef);
 
         return methodRef;
     }
 
     private List<BuilderInstruction> getArrayAccessorInstructions(int arrayRegister, List<Integer> registers,
-                    List<String> parameterTypes) {
+                                                                  List<String> parameterTypes) {
         List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
         for (int index = 0; index < parameterTypes.size(); index++) {
             int register = registers.get(index);
             BuilderInstruction constInstruction = ConstantBuilder.buildConstant(index, register);
-            BuilderInstruction arrayGet = new BuilderInstruction23x(Opcode.AGET_OBJECT, register, arrayRegister,
-                            register);
+            BuilderInstruction arrayGet =
+                    new BuilderInstruction23x(Opcode.AGET_OBJECT, register, arrayRegister, register);
             String typeName = parameterTypes.get(index);
             if (ClassNameUtils.isPrimitive(typeName)) {
                 // check-cast expects a non-primitive type (afaik)
@@ -465,60 +526,6 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                 log.error("Unable to unreflect method invocation @" + address, e);
             }
         }
-    }
-
-    static Opcode getGetOpcode(String type, boolean isStatic) {
-        Opcode op;
-        if (isStatic) {
-            if (ClassNameUtils.isPrimitive(type)) {
-                if ("J".equals(type) || "D".equals(type)) {
-                    op = Opcode.SGET_WIDE;
-                } else if ("Z".equals(type)) {
-                    op = Opcode.SGET_BOOLEAN;
-                } else if ("B".equals(type)) {
-                    op = Opcode.SGET_BYTE;
-                } else if ("C".equals(type)) {
-                    op = Opcode.SGET_CHAR;
-                } else if ("S".equals(type)) {
-                    op = Opcode.SGET_SHORT;
-                } else {
-                    op = Opcode.SGET;
-                }
-            } else {
-                op = Opcode.SGET_OBJECT;
-            }
-        } else {
-            if (ClassNameUtils.isPrimitive(type)) {
-                if ("J".equals(type) || "D".equals(type)) {
-                    op = Opcode.IGET_WIDE;
-                } else if ("Z".equals(type)) {
-                    op = Opcode.IGET_BOOLEAN;
-                } else if ("B".equals(type)) {
-                    op = Opcode.IGET_BYTE;
-                } else if ("C".equals(type)) {
-                    op = Opcode.IGET_CHAR;
-                } else if ("S".equals(type)) {
-                    op = Opcode.IGET_SHORT;
-                } else {
-                    op = Opcode.IGET;
-                }
-            } else {
-                op = Opcode.IGET_OBJECT;
-            }
-        }
-
-        return op;
-    }
-
-    private static Integer[] getFourBitValues(List<Integer> values) {
-        return values.stream().filter(v -> v <= 0b1111).toArray(size -> new Integer[size]);
-    }
-
-    private static void setRegisterCount(BuilderMethod method, int registerCount) throws Exception {
-        MethodImplementation implementation = method.getImplementation();
-        Field f = implementation.getClass().getDeclaredField("registerCount");
-        f.setAccessible(true); // hack the planet
-        f.set(implementation, Integer.valueOf(registerCount));
     }
 
 }

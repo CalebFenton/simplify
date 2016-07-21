@@ -1,16 +1,7 @@
 package org.cf.smalivm.opcode;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.AdditionalMatchers.aryEq;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
-import java.lang.reflect.Array;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
@@ -32,6 +23,16 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+
+import java.lang.reflect.Array;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.AdditionalMatchers.aryEq;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(Enclosed.class)
 public class NewArrayOpTest {
@@ -155,7 +156,8 @@ public class NewArrayOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ClassNotFoundException.class, "does.not.123Exist");
+            VirtualException expectedException =
+                    new VirtualException(ClassNotFoundException.class, "does.not.123Exist");
             VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 

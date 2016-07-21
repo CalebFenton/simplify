@@ -1,9 +1,9 @@
 package org.cf.smalivm.context;
 
-import static org.junit.Assert.assertEquals;
-
 import org.cf.smalivm.VMTester;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class MethodStateTest {
 

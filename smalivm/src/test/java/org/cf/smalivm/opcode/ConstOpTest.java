@@ -1,10 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
@@ -28,6 +23,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @RunWith(Enclosed.class)
 public class ConstOpTest {
@@ -86,7 +87,7 @@ public class ConstOpTest {
         @Test
         public void canConstString() {
             expected.setRegisters(0, "When I need to identify rebels, I look for men with principles.",
-                            "Ljava/lang/String;");
+                    "Ljava/lang/String;");
 
             VMTester.test(CLASS_NAME, "constString()V", expected);
         }
@@ -94,8 +95,8 @@ public class ConstOpTest {
         @Test
         public void canConstStringJumbo() {
             expected.setRegisters(0,
-                            "When I need to identify JUMBO rebels, I look for JUMBO men with JUMBO principles.",
-                            "Ljava/lang/String;");
+                    "When I need to identify JUMBO rebels, I look for JUMBO men with JUMBO principles.",
+                    "Ljava/lang/String;");
 
             VMTester.test(CLASS_NAME, "constStringJumbo()V", expected);
         }
@@ -176,7 +177,8 @@ public class ConstOpTest {
 
             // TODO: ClassUtils.getDeclaringClass returns exceptions with "/", but Class.forName uses "."
             // should make object which handles getting classes for dependency injection
-            VirtualException expectedException = new VirtualException(ClassNotFoundException.class, "does/not/123Exist");
+            VirtualException expectedException =
+                    new VirtualException(ClassNotFoundException.class, "does/not/123Exist");
             VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 

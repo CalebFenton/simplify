@@ -28,8 +28,7 @@ public class TestFieldInheritance {
     }
 
     @Test
-    public void parentInitializedAndAccessible() throws
-            VirtualMachineException {
+    public void parentInitializedAndAccessible() throws VirtualMachineException {
         VirtualMethod method = childClass.getMethod("stubMethod()V");
         ExecutionGraph graph = vm.execute(method);
 
@@ -48,8 +47,7 @@ public class TestFieldInheritance {
     }
 
     @Test
-    public void grandparentInitializedAndAccessible()
-            throws VirtualMachineException {
+    public void grandparentInitializedAndAccessible() throws VirtualMachineException {
         VirtualMethod method = childClass.getMethod("stubMethod()V");
         ExecutionGraph graph = vm.execute(method);
 
@@ -72,9 +70,7 @@ public class TestFieldInheritance {
     }
 
     @Test
-    public void
-    grandparentInitializedIncludingLiteralFieldsAndAccessible() throws
-            VirtualMachineException {
+    public void grandparentInitializedIncludingLiteralFieldsAndAccessible() throws VirtualMachineException {
         VirtualMethod method = childClass.getMethod("stubMethod()V");
         ExecutionGraph graph = vm.execute(method);
 

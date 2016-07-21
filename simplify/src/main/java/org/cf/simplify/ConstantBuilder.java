@@ -1,9 +1,5 @@
 package org.cf.simplify;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.opcode.AGetOp;
 import org.cf.smalivm.opcode.BinaryMathOp;
@@ -29,6 +25,10 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
 public class ConstantBuilder implements Dependency {
 
     @SuppressWarnings("unused")
@@ -38,25 +38,13 @@ public class ConstantBuilder implements Dependency {
     private static final String LAST_48_BITS_ZERO = "000000000000000000000000000000000000000000000000";
 
     // Don't include ReturnOp.class. It adds a constant which is then removed as dead, and the optimizers keep running.
-    private static final Set<Class<?>> ConstantizableOps = new HashSet<Class<?>>(Arrays.asList(BinaryMathOp.class,
-                    UnaryMathOp.class, MoveOp.class, SGetOp.class, AGetOp.class));
+    private static final Set<Class<?>> ConstantizableOps =
+            new HashSet<Class<?>>(Arrays.asList(BinaryMathOp.class, UnaryMathOp.class, MoveOp.class, SGetOp.class,
+                    AGetOp.class));
 
-    private static final Set<String> ConstantizableTypes = new HashSet<String>(Arrays.asList("I", "Z", "B", "S", "C",
-                    "J", "F", "D", "Ljava/lang/String;", "Ljava/lang/Class;"));
-
-    public boolean canConstantizeOp(Op op) {
-        return ConstantizableOps.contains(op.getClass());
-    }
-
-    public boolean canConstantizeType(String type) {
-        return ConstantizableTypes.contains(type);
-    }
-
-    public boolean canConstantizeType(Class<?> klazz) {
-        String type = ClassNameUtils.toInternal(klazz);
-
-        return ConstantizableTypes.contains(type);
-    }
+    private static final Set<String> ConstantizableTypes =
+            new HashSet<String>(Arrays.asList("I", "Z", "B", "S", "C", "J", "F", "D", "Ljava/lang/String;",
+                    "Ljava/lang/Class;"));
 
     public static BuilderInstruction buildConstant(boolean value, int register) {
         int literal = value ? 1 : 0;
@@ -197,6 +185,20 @@ public class ConstantBuilder implements Dependency {
         BuilderInstruction constant = buildConstant(item.getValue(), item.getUnboxedType(), register, dexBuilder);
 
         return constant;
+    }
+
+    public boolean canConstantizeOp(Op op) {
+        return ConstantizableOps.contains(op.getClass());
+    }
+
+    public boolean canConstantizeType(String type) {
+        return ConstantizableTypes.contains(type);
+    }
+
+    public boolean canConstantizeType(Class<?> klazz) {
+        String type = ClassNameUtils.toInternal(klazz);
+
+        return ConstantizableTypes.contains(type);
     }
 
 }

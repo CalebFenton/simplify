@@ -1,17 +1,5 @@
 package org.cf.smalivm.emulate;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import java.util.HashSet;
-import java.util.Set;
-
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
@@ -27,18 +15,28 @@ import org.cf.smalivm.type.VirtualClass;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 public class java_lang_Class_forName_Test {
 
+    private static final Class<?> OBJECT_CLASS = Object.class;
+    private static final Class<?> STRING_CLASS = String.class;
     private VirtualMachine vm;
     private ClassManager classManager;
     private SmaliClassLoader classLoader;
     private ExecutionContextMethod method;
     private MethodState mState;
     private ExecutionContext context;
-
-    private static final Class<?> OBJECT_CLASS = Object.class;
-    private static final Class<?> STRING_CLASS = String.class;
-
     private Configuration configuration;
 
     @Before
@@ -58,16 +56,6 @@ public class java_lang_Class_forName_Test {
         when(context.getMethodState()).thenReturn(mState);
 
         method = new java_lang_Class_forName();
-    }
-
-    private VirtualClass setupClass(String className, boolean isSafe, SideEffect.Level level) {
-        VirtualClass virtualClass = mock(VirtualClass.class);
-        when(classManager.getVirtualClass(className)).thenReturn(virtualClass);
-        when(virtualClass.getName()).thenReturn(className);
-        when(configuration.isSafe(className)).thenReturn(isSafe);
-        when(context.getClassSideEffectLevel(virtualClass)).thenReturn(level);
-
-        return virtualClass;
     }
 
     @Test
@@ -141,6 +129,16 @@ public class java_lang_Class_forName_Test {
         assertEquals(expectedExceptions, method.getExceptions());
         verify(mState, times(0)).assignReturnRegister(any(UnknownValue.class), eq(CommonTypes.CLASS));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
+    }
+
+    private VirtualClass setupClass(String className, boolean isSafe, SideEffect.Level level) {
+        VirtualClass virtualClass = mock(VirtualClass.class);
+        when(classManager.getVirtualClass(className)).thenReturn(virtualClass);
+        when(virtualClass.getName()).thenReturn(className);
+        when(configuration.isSafe(className)).thenReturn(isSafe);
+        when(context.getClassSideEffectLevel(virtualClass)).thenReturn(level);
+
+        return virtualClass;
     }
 
 }

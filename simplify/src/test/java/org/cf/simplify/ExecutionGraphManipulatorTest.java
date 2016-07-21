@@ -1,14 +1,5 @@
 package org.cf.simplify;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
-
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -25,11 +16,74 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.jf.dexlib2.writer.io.FileDataStore;
 import org.junit.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 public class ExecutionGraphManipulatorTest {
 
     private static final String CLASS_NAME = "Lexecution_graph_manipulator_test;";
 
     private ExecutionGraphManipulator manipulator;
+
+    private static void test(Object[][] expected, ExecutionGraphManipulator manipulator) {
+        for (Object[] ex : expected) {
+            int address = (Integer) ex[0];
+            BuilderInstruction actualInstruction = manipulator.getInstruction(address);
+            Opcode expectedOpcode = (Opcode) ex[1];
+            assertEquals(expectedOpcode, actualInstruction.getOpcode());
+
+            Object[][][] exChildren = (Object[][][]) ex[2];
+            List<ExecutionNode> actualNodePile = manipulator.getNodePile(address);
+            assertEquals(expectedOpcode.name + " @" + address + " node pile size", exChildren.length,
+                    actualNodePile.size());
+            for (int i = 0; i < exChildren.length; i++) {
+                ExecutionNode actualNode = actualNodePile.get(i);
+                List<ExecutionNode> childNodes = actualNode.getChildren();
+                BuilderInstruction[] children = new BuilderInstruction[childNodes.size()];
+                for (int j = 0; j < children.length; j++) {
+                    children[j] = childNodes.get(j).getOp().getInstruction();
+                }
+
+                assertEquals(expectedOpcode.name + " @" + address + " children size", exChildren[i].length,
+                        children.length);
+                for (int j = 0; j < exChildren[i].length; j++) {
+                    assertEquals(expectedOpcode.name + " @" + address + " child address", (int) exChildren[i][j][0],
+                            children[j].getLocation().getCodeAddress());
+                    assertEquals(expectedOpcode.name + " @" + address + " child opcode", exChildren[i][j][1],
+                            children[j].getOpcode());
+                }
+            }
+        }
+    }
+
+    private static void testHeritage(ExecutionGraphManipulator manipulator, int address) {
+        ExecutionNode template = manipulator.getTemplateNode(address);
+        assertEquals(0, template.getChildren().size());
+        assertNotNull(template.getOp().getChildren());
+
+        ExecutionNode node = manipulator.getNodePile(address).get(0);
+        assertEquals(template.getOp(), node.getOp());
+
+        List<ExecutionNode> children = node.getChildren();
+        assertEquals(1, children.size());
+
+        MethodLocation[] childLocations = node.getChildLocations();
+        assertEquals(1, childLocations.length);
+
+        ExecutionNode child = node.getChildren().get(0);
+        assertEquals(node, child.getParent());
+        assertEquals(node.getContext(), child.getContext().getParent());
+
+        Op childOp = child.getOp();
+        assertEquals(childOp.getLocation(), childLocations[0]);
+        assertEquals(childOp.getLocation(), node.getOp().getChildren()[0]);
+    }
 
     @Test
     public void testAddingInstructionModifiesStateCorrectly() {
@@ -241,7 +295,7 @@ public class ExecutionGraphManipulatorTest {
 
     @Test
     public void testEmptyingATryBlockWithTwoHandlersWhichCreatesNullStartAndEndLocationsIsRemovedWithoutIncident()
-                    throws IOException {
+            throws IOException {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "tryBlockWithTwoCatches()V");
         assertEquals(2, manipulator.getTryBlocks().size());
 
@@ -321,60 +375,6 @@ public class ExecutionGraphManipulatorTest {
         assertEquals(1, manipulator.getInstruction(3).getLocation().getLabels().size());
         manipulator.replaceInstruction(3, addition);
         assertEquals(1, manipulator.getInstruction(3).getLocation().getLabels().size());
-    }
-
-    private static void test(Object[][] expected, ExecutionGraphManipulator manipulator) {
-        for (Object[] ex : expected) {
-            int address = (Integer) ex[0];
-            BuilderInstruction actualInstruction = manipulator.getInstruction(address);
-            Opcode expectedOpcode = (Opcode) ex[1];
-            assertEquals(expectedOpcode, actualInstruction.getOpcode());
-
-            Object[][][] exChildren = (Object[][][]) ex[2];
-            List<ExecutionNode> actualNodePile = manipulator.getNodePile(address);
-            assertEquals(expectedOpcode.name + " @" + address + " node pile size", exChildren.length,
-                            actualNodePile.size());
-            for (int i = 0; i < exChildren.length; i++) {
-                ExecutionNode actualNode = actualNodePile.get(i);
-                List<ExecutionNode> childNodes = actualNode.getChildren();
-                BuilderInstruction[] children = new BuilderInstruction[childNodes.size()];
-                for (int j = 0; j < children.length; j++) {
-                    children[j] = childNodes.get(j).getOp().getInstruction();
-                }
-
-                assertEquals(expectedOpcode.name + " @" + address + " children size", exChildren[i].length,
-                                children.length);
-                for (int j = 0; j < exChildren[i].length; j++) {
-                    assertEquals(expectedOpcode.name + " @" + address + " child address", (int) exChildren[i][j][0],
-                                    children[j].getLocation().getCodeAddress());
-                    assertEquals(expectedOpcode.name + " @" + address + " child opcode", exChildren[i][j][1],
-                                    children[j].getOpcode());
-                }
-            }
-        }
-    }
-
-    private static void testHeritage(ExecutionGraphManipulator manipulator, int address) {
-        ExecutionNode template = manipulator.getTemplateNode(address);
-        assertEquals(0, template.getChildren().size());
-        assertNotNull(template.getOp().getChildren());
-
-        ExecutionNode node = manipulator.getNodePile(address).get(0);
-        assertEquals(template.getOp(), node.getOp());
-
-        List<ExecutionNode> children = node.getChildren();
-        assertEquals(1, children.size());
-
-        MethodLocation[] childLocations = node.getChildLocations();
-        assertEquals(1, childLocations.length);
-
-        ExecutionNode child = node.getChildren().get(0);
-        assertEquals(node, child.getParent());
-        assertEquals(node.getContext(), child.getContext().getParent());
-
-        Op childOp = child.getOp();
-        assertEquals(childOp.getLocation(), childLocations[0]);
-        assertEquals(childOp.getLocation(), node.getOp().getChildren()[0]);
     }
 
 }

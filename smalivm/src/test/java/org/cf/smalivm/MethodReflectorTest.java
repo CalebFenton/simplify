@@ -54,10 +54,9 @@ public class MethodReflectorTest {
 
     @Test
     public void handlesNullArgumentProperly() throws NoSuchMethodException, SecurityException {
-        initial.setRegisters(0, System.class, CommonTypes.CLASS, 1, "currentTimeMillis", CommonTypes.STRING, 2, 0,
-                        "I");
+        initial.setRegisters(0, System.class, CommonTypes.CLASS, 1, "currentTimeMillis", CommonTypes.STRING, 2, 0, "I");
         expected.setRegisters(0, System.class.getMethod("currentTimeMillis", (Class<?>[]) null),
-                        "Ljava/lang/reflect/Method;");
+                "Ljava/lang/reflect/Method;");
 
         VMTester.test(CLASS_NAME, "getClassMethod()V", initial, expected);
     }

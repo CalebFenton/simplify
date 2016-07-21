@@ -1,16 +1,12 @@
 # IDEA SCRATCH PAD
 
-* fixed literals
-* fixed class inheritence
-* fixed instanceof
+* Added handling of static field literal initialization
+* Improved looking up of inherited fields
+* Improved correctness for `instance-of` and `check-cast` ops
+* Improved correctness for `java.lang.reflect.Field.get()` emulated method
 
-delete unknownancestry
 
 test how the array clone method is handled
-
-search for "virtual" and replace with class
-search for "Ljava" etc and replace with common object
-search for virtualClass and replace with virtualClass
 
 run instance-of tests
 can you do primitive instanceof primitive?
@@ -20,14 +16,7 @@ can you get length property?
 
 invoke-virtual {v2}, [Ljava/lang/String;->clone()Ljava/lang/Object;
 
-getBaseType
-getDimensions
-
-test can get fields from framework class that's the parent of a local class
-
 heapitem types can be interned
-
-make opfactories package proviate / protected
 
 type tests
         // all arrays are of type Object
@@ -38,23 +27,6 @@ checklist:
 comments on every class
 comments for public methods
 test coverage
-delete types (except unknown)
-
-replace classnameutils with localclass stuff
-
-Add / fix tests for:
-  sgetop
-    unknown classes should throw errors - should always be able to assume a class is present
-    Lsgetop_parent_test;
-      get a field that's clinit'ed
-      get a field literal
-  sputop
-    same as sgetop
-  field get
-    similar to sgetop
-    get a field of a class which is actually defined in a parent
-    may need to mock another class
-    then fix field get since it's a little weird
 
 
 MethodExecutor, right before node is executed:
@@ -70,17 +42,6 @@ and there are TWO exception children (the same address), that's probably a bug
     e.g. v0 = null, invoke string.length on v0
 
 2.) method reflector should bubble up exceptions as virtual exceptions
-
-
-add program help to readme
-
-MethodState.assignParameter should take relative register not absolute
-
-why is cloner not static -takes up a lot of space
-
-indexitem type could be interned
-
-refactor vm stuff into vm package
 
 
 Learn how to do proper java documentation and document smalivm classes
@@ -211,8 +172,6 @@ invoke-static {v1}, Ldoes/not/exist;->howdy(Ljava/lang/Integer;)V
 
 assumeMaxUnknown for invokeop wont work for LocalInstance.isInitialized == false, add tests
 boolean isInitializing = methodDescriptor.contains(";-><init>(") && ((value instanceof UninitializedInstance));
-
-LocalTypes should not need to contain what kind of type they are?
 
 test aput for non-Number values, e.g. boolean and character into an int array, but see if dalvik handles it properly first
 

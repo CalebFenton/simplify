@@ -1,15 +1,5 @@
 package org.cf.simplify.strategy;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ExecutionContext;
@@ -27,6 +17,16 @@ import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class DeadRemovalStrategy implements OptimizationStrategy {
 
@@ -49,6 +49,108 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         unvisitedCount = 0;
         unusedResultCount = 0;
         nopCount = 0;
+    }
+
+    private static Set<Integer> getExceptionHandlerAddresses(ExecutionGraphManipulator manipulator) {
+        int[] allAddresses = manipulator.getAddresses();
+        Arrays.sort(allAddresses);
+        int highestAddress = allAddresses[allAddresses.length - 1];
+        Set<Integer> handlerAddresses = new HashSet<Integer>();
+        List<BuilderTryBlock> tryBlocks = manipulator.getTryBlocks();
+        for (BuilderTryBlock tryBlock : tryBlocks) {
+            List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
+            for (BuilderExceptionHandler handler : handlers) {
+                int address = handler.getHandlerCodeAddress();
+                BuilderInstruction instruction = manipulator.getInstruction(address);
+                while (address < highestAddress) {
+                    // Add all instructions until return, goto, etc.
+                    handlerAddresses.add(address);
+                    address += instruction.getCodeUnits();
+                    instruction = manipulator.getInstruction(address);
+                    if (!instruction.getOpcode().canContinue()) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        return handlerAddresses;
+    }
+
+    private static Set<Integer> getNormalRegistersAssigned(MethodState mState) {
+        Set<Integer> assigned = new HashSet<Integer>();
+        for (int register : mState.getRegistersAssigned()) {
+            if (register < 0) {
+                continue;
+            }
+            assigned.add(register);
+        }
+
+        for (int i = 0; i < mState.getParameterCount(); i++) {
+            int parameterRegister = mState.getParameterStart() + i;
+            assigned.remove(parameterRegister);
+        }
+
+        return assigned;
+    }
+
+    private static boolean isAnyRegisterUsed(int address, Set<Integer> registers, ExecutionGraphManipulator graph) {
+        List<ExecutionNode> children = graph.getChildren(address);
+        for (ExecutionNode child : children) {
+            Set<Integer> newRegisters = new HashSet<Integer>(registers);
+            if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isAnyRegisterUsed(int address, Set<Integer> usedRegisters, ExecutionGraphManipulator graph,
+                                             ExecutionNode node) {
+        ExecutionNode current = node;
+        for (; ; ) {
+            MethodState mState = current.getContext().getMethodState();
+            for (int register : usedRegisters) {
+                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
+                // Read check must come first because this still counts as a usage.
+                if (mState.wasRegisterRead(register)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r{} read after {} @{}, {}", register, address, current.getAddress(),
+                                current.getOp());
+                    }
+
+                    return true;
+                }
+                // aput mutates an object. Assignment isn't "reassignment" like it is with other ops
+                else if (mState.wasRegisterAssigned(register) && !(current.getOp() instanceof APutOp)) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("r{} assigned after {} @{}, {}", register, address, current.getAddress(),
+                                current.getOp());
+                    }
+
+                    usedRegisters.remove(register);
+                }
+            }
+
+            if (usedRegisters.isEmpty()) {
+                return false;
+            }
+
+            List<ExecutionNode> children = current.getChildren();
+            if (children.size() == 1) {
+                current = children.get(0);
+            } else {
+                for (ExecutionNode child : children) {
+                    Set<Integer> newRegisters = new HashSet<Integer>(usedRegisters);
+                    if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
     }
 
     @Override
@@ -321,107 +423,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         return true;
-    }
-
-    private static Set<Integer> getExceptionHandlerAddresses(ExecutionGraphManipulator manipulator) {
-        int[] allAddresses = manipulator.getAddresses();
-        Arrays.sort(allAddresses);
-        int highestAddress = allAddresses[allAddresses.length - 1];
-        Set<Integer> handlerAddresses = new HashSet<Integer>();
-        List<BuilderTryBlock> tryBlocks = manipulator.getTryBlocks();
-        for (BuilderTryBlock tryBlock : tryBlocks) {
-            List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
-            for (BuilderExceptionHandler handler : handlers) {
-                int address = handler.getHandlerCodeAddress();
-                BuilderInstruction instruction = manipulator.getInstruction(address);
-                while (address < highestAddress) {
-                    // Add all instructions until return, goto, etc.
-                    handlerAddresses.add(address);
-                    address += instruction.getCodeUnits();
-                    instruction = manipulator.getInstruction(address);
-                    if (!instruction.getOpcode().canContinue()) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        return handlerAddresses;
-    }
-
-    private static Set<Integer> getNormalRegistersAssigned(MethodState mState) {
-        Set<Integer> assigned = new HashSet<Integer>();
-        for (int register : mState.getRegistersAssigned()) {
-            if (register < 0) {
-                continue;
-            }
-            assigned.add(register);
-        }
-
-        for (int i = 0; i < mState.getParameterCount(); i++) {
-            int parameterRegister = mState.getParameterStart() + i;
-            assigned.remove(parameterRegister);
-        }
-
-        return assigned;
-    }
-
-    private static boolean isAnyRegisterUsed(int address, Set<Integer> registers, ExecutionGraphManipulator graph) {
-        List<ExecutionNode> children = graph.getChildren(address);
-        for (ExecutionNode child : children) {
-            Set<Integer> newRegisters = new HashSet<Integer>(registers);
-            if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static boolean isAnyRegisterUsed(int address, Set<Integer> usedRegisters, ExecutionGraphManipulator graph,
-                    ExecutionNode node) {
-        ExecutionNode current = node;
-        for (;;) {
-            MethodState mState = current.getContext().getMethodState();
-            for (int register : usedRegisters) {
-                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
-                // Read check must come first because this still counts as a usage.
-                if (mState.wasRegisterRead(register)) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("r{} read after {} @{}, {}", register, address, current.getAddress(), current.getOp());
-                    }
-
-                    return true;
-                }
-                // aput mutates an object. Assignment isn't "reassignment" like it is with other ops
-                else if (mState.wasRegisterAssigned(register) && !(current.getOp() instanceof APutOp)) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("r{} assigned after {} @{}, {}", register, address, current.getAddress(),
-                                        current.getOp());
-                    }
-
-                    usedRegisters.remove(register);
-                }
-            }
-
-            if (usedRegisters.isEmpty()) {
-                return false;
-            }
-
-            List<ExecutionNode> children = current.getChildren();
-            if (children.size() == 1) {
-                current = children.get(0);
-            } else {
-                for (ExecutionNode child : children) {
-                    Set<Integer> newRegisters = new HashSet<Integer>(usedRegisters);
-                    if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        }
     }
 
 }

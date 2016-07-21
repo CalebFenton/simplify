@@ -44,16 +44,6 @@ public class VMTester {
 
     private static ClassManager classManager;
 
-    private static ExecutionContext buildInitializedContext(VirtualMachine vm, String methodSignature, VMState state) {
-        VirtualMethod localMethod = vm.getClassManager().getMethod(methodSignature);
-        ExecutionContext ectx = vm.spawnRootContext(localMethod);
-        int registerCount = ectx.getMethodState().getRegisterCount();
-        setupMethodState(ectx, state.getRegisters(), registerCount);
-        setupClassStates(ectx, vm, state.getFields());
-
-        return ectx;
-    }
-
     public static ExecutionGraph execute(String className, String methodDescriptor) {
         return execute(className, methodDescriptor, new VMState());
     }
@@ -100,36 +90,6 @@ public class VMTester {
         when(mState.readRegister(eq(register))).thenReturn(item);
     }
 
-    private static void setupClassStates(ExecutionContext ectx, VirtualMachine vm, Map<String, Map<String, HeapItem>>
-            classNameToFieldDescriptorToItem) {
-        ClassManager classManager = vm.getClassManager();
-        for (Entry<String, Map<String, HeapItem>> entry : classNameToFieldDescriptorToItem.entrySet()) {
-            String className = entry.getKey();
-            VirtualClass virtualClass = classManager.getVirtualClass(className);
-            Map<String, HeapItem> fieldDescriptorToItem = entry.getValue();
-            ClassState cState = ectx.peekClassState(virtualClass);
-            for (Entry<String, HeapItem> fieldNameAndTypeToItem : fieldDescriptorToItem.entrySet()) {
-                String fieldNameAndType = fieldNameAndTypeToItem.getKey();
-                String fieldName = fieldNameAndType.split(":")[0];
-                VirtualField field = virtualClass.getField(fieldName);
-                HeapItem item = fieldNameAndTypeToItem.getValue();
-                cState.pokeField(field, item);
-            }
-            ectx.initializeClass(cState, SideEffect.Level.NONE);
-        }
-    }
-
-    private static void setupMethodState(ExecutionContext ectx, Map<Integer, HeapItem> registerToItem, int
-            registerCount) {
-        MethodState mState = new MethodState(ectx, registerCount);
-        for (Entry<Integer, HeapItem> entry : registerToItem.entrySet()) {
-            Integer register = entry.getKey();
-            HeapItem item = entry.getValue();
-            mState.assignRegister(register, item);
-        }
-        ectx.setMethodState(mState);
-    }
-
     public static VirtualMachine spawnVM() {
         return spawnVM(false);
     }
@@ -159,10 +119,98 @@ public class VMTester {
         test(className, methodSignature, new VMState(), expectedState);
     }
 
-    private static void testClassState(ExecutionGraph graph, Map<String, Map<String, HeapItem>>
-            classNameToFieldDescriptorToItem) {
-        for (Entry<String, Map<String, HeapItem>> fieldDescriptorMapEntry : classNameToFieldDescriptorToItem.entrySet
-                ()) {
+    public static void testState(ExecutionGraph graph, VMState expectedState) {
+        assertNotNull("Graph is null. Failed to execute method.", graph);
+
+        testRegisterState(graph, expectedState.getRegisters());
+        testClassState(graph, expectedState.getFields());
+    }
+
+    public static void testVisitation(String className, String methodSignature, int[] expectedAddresses) {
+        testVisitation(className, methodSignature, new VMState(), expectedAddresses);
+    }
+
+    public static void testVisitation(String className, String methodSignature, VMState initialState,
+                                      int[] expectedAddresses) {
+        ExecutionGraph graph = VMTester.execute(className, methodSignature, initialState);
+        testVisitation(graph, expectedAddresses);
+    }
+
+    public static void testVisitation(ExecutionGraph graph, int[] expectedAddresses) {
+        int[] addresses = graph.getAddresses();
+        List<Integer> visitedAddresses = new LinkedList<Integer>();
+        for (int address : addresses) {
+            if (graph.wasAddressReached(address)) {
+                visitedAddresses.add(address);
+            }
+        }
+        int[] actualAddresses = Ints.toArray(visitedAddresses);
+        Arrays.sort(expectedAddresses);
+        Arrays.sort(actualAddresses);
+
+        assertArrayEquals(expectedAddresses, actualAddresses);
+    }
+
+    public static void verifyExceptionHandling(Set<VirtualException> expectedExceptions, ExecutionNode node,
+                                               MethodState mState) {
+        verify(node).setExceptions(eq(expectedExceptions));
+        verify(node).clearChildren();
+        verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
+        verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+    }
+
+    public static void verifyExceptionHandling(VirtualException expectedException, ExecutionNode node,
+                                               MethodState mState) {
+        verify(node).setException(eq(expectedException));
+        verify(node).clearChildren();
+        verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
+        verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
+    }
+
+    private static ExecutionContext buildInitializedContext(VirtualMachine vm, String methodSignature, VMState state) {
+        VirtualMethod localMethod = vm.getClassManager().getMethod(methodSignature);
+        ExecutionContext ectx = vm.spawnRootContext(localMethod);
+        int registerCount = ectx.getMethodState().getRegisterCount();
+        setupMethodState(ectx, state.getRegisters(), registerCount);
+        setupClassStates(ectx, vm, state.getFields());
+
+        return ectx;
+    }
+
+    private static void setupClassStates(ExecutionContext ectx, VirtualMachine vm,
+                                         Map<String, Map<String, HeapItem>> classNameToFieldDescriptorToItem) {
+        ClassManager classManager = vm.getClassManager();
+        for (Entry<String, Map<String, HeapItem>> entry : classNameToFieldDescriptorToItem.entrySet()) {
+            String className = entry.getKey();
+            VirtualClass virtualClass = classManager.getVirtualClass(className);
+            Map<String, HeapItem> fieldDescriptorToItem = entry.getValue();
+            ClassState cState = ectx.peekClassState(virtualClass);
+            for (Entry<String, HeapItem> fieldNameAndTypeToItem : fieldDescriptorToItem.entrySet()) {
+                String fieldNameAndType = fieldNameAndTypeToItem.getKey();
+                String fieldName = fieldNameAndType.split(":")[0];
+                VirtualField field = virtualClass.getField(fieldName);
+                HeapItem item = fieldNameAndTypeToItem.getValue();
+                cState.pokeField(field, item);
+            }
+            ectx.initializeClass(cState, SideEffect.Level.NONE);
+        }
+    }
+
+    private static void setupMethodState(ExecutionContext ectx, Map<Integer, HeapItem> registerToItem,
+                                         int registerCount) {
+        MethodState mState = new MethodState(ectx, registerCount);
+        for (Entry<Integer, HeapItem> entry : registerToItem.entrySet()) {
+            Integer register = entry.getKey();
+            HeapItem item = entry.getValue();
+            mState.assignRegister(register, item);
+        }
+        ectx.setMethodState(mState);
+    }
+
+    private static void testClassState(ExecutionGraph graph,
+                                       Map<String, Map<String, HeapItem>> classNameToFieldDescriptorToItem) {
+        for (Entry<String, Map<String, HeapItem>> fieldDescriptorMapEntry : classNameToFieldDescriptorToItem
+                                                                                    .entrySet()) {
             String className = fieldDescriptorMapEntry.getKey();
             VirtualClass virtualClass = graph.getVM().getClassManager().getVirtualClass(className);
             Map<String, HeapItem> fieldDescriptorToItem = fieldDescriptorMapEntry.getValue();
@@ -194,13 +242,6 @@ public class VMTester {
         }
     }
 
-    public static void testState(ExecutionGraph graph, VMState expectedState) {
-        assertNotNull("Graph is null. Failed to execute method.", graph);
-
-        testRegisterState(graph, expectedState.getRegisters());
-        testClassState(graph, expectedState.getFields());
-    }
-
     private static void testValueEquals(HeapItem expected, HeapItem consensus) {
         Object expectedValue = expected.getValue();
         Object consensusValue = consensus.getValue();
@@ -218,25 +259,25 @@ public class VMTester {
             assertEquals(expected.getType(), consensus.getType());
             assertEquals(expectedValue.getClass(), consensusValue.getClass());
 
-            if (expectedValue instanceof Object[] && consensusValue instanceof Object[])
+            if (expectedValue instanceof Object[] && consensusValue instanceof Object[]) {
                 assertArrayEquals((Object[]) expectedValue, (Object[]) consensusValue);
-            else if (expectedValue instanceof byte[] && consensusValue instanceof byte[])
+            } else if (expectedValue instanceof byte[] && consensusValue instanceof byte[]) {
                 assertArrayEquals((byte[]) expectedValue, (byte[]) consensusValue);
-            else if (expectedValue instanceof short[] && consensusValue instanceof short[])
+            } else if (expectedValue instanceof short[] && consensusValue instanceof short[]) {
                 assertArrayEquals((short[]) expectedValue, (short[]) consensusValue);
-            else if (expectedValue instanceof int[] && consensusValue instanceof int[])
+            } else if (expectedValue instanceof int[] && consensusValue instanceof int[]) {
                 assertArrayEquals((int[]) expectedValue, (int[]) consensusValue);
-            else if (expectedValue instanceof long[] && consensusValue instanceof long[])
+            } else if (expectedValue instanceof long[] && consensusValue instanceof long[]) {
                 assertArrayEquals((long[]) expectedValue, (long[]) consensusValue);
-            else if (expectedValue instanceof char[] && consensusValue instanceof char[])
+            } else if (expectedValue instanceof char[] && consensusValue instanceof char[]) {
                 assertArrayEquals((char[]) expectedValue, (char[]) consensusValue);
-            else if (expectedValue instanceof float[] && consensusValue instanceof float[])
+            } else if (expectedValue instanceof float[] && consensusValue instanceof float[]) {
                 assertArrayEquals((float[]) expectedValue, (float[]) consensusValue, 0.001F);
-            else if (expectedValue instanceof double[] && consensusValue instanceof double[])
+            } else if (expectedValue instanceof double[] && consensusValue instanceof double[]) {
                 assertArrayEquals((double[]) expectedValue, (double[]) consensusValue, 0.001);
-            else if (expectedValue instanceof boolean[] && consensusValue instanceof boolean[])
+            } else if (expectedValue instanceof boolean[] && consensusValue instanceof boolean[]) {
                 assertArrayEquals((boolean[]) expectedValue, (boolean[]) consensusValue);
-            else {
+            } else {
                 assertEquals(expectedValue, consensusValue);
             }
         } else if (expectedValue instanceof StringBuilder) {
@@ -244,47 +285,6 @@ public class VMTester {
         } else {
             assertEquals(expectedValue, consensusValue);
         }
-    }
-
-    public static void testVisitation(String className, String methodSignature, int[] expectedAddresses) {
-        testVisitation(className, methodSignature, new VMState(), expectedAddresses);
-    }
-
-    public static void testVisitation(String className, String methodSignature, VMState initialState, int[]
-            expectedAddresses) {
-        ExecutionGraph graph = VMTester.execute(className, methodSignature, initialState);
-        testVisitation(graph, expectedAddresses);
-    }
-
-    public static void testVisitation(ExecutionGraph graph, int[] expectedAddresses) {
-        int[] addresses = graph.getAddresses();
-        List<Integer> visitedAddresses = new LinkedList<Integer>();
-        for (int address : addresses) {
-            if (graph.wasAddressReached(address)) {
-                visitedAddresses.add(address);
-            }
-        }
-        int[] actualAddresses = Ints.toArray(visitedAddresses);
-        Arrays.sort(expectedAddresses);
-        Arrays.sort(actualAddresses);
-
-        assertArrayEquals(expectedAddresses, actualAddresses);
-    }
-
-    public static void verifyExceptionHandling(Set<VirtualException> expectedExceptions, ExecutionNode node,
-                                               MethodState mState) {
-        verify(node).setExceptions(eq(expectedExceptions));
-        verify(node).clearChildren();
-        verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
-        verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
-    }
-
-    public static void verifyExceptionHandling(VirtualException expectedException, ExecutionNode node, MethodState
-            mState) {
-        verify(node).setException(eq(expectedException));
-        verify(node).clearChildren();
-        verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
-        verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 
 }

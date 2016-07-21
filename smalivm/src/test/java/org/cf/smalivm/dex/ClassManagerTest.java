@@ -1,14 +1,10 @@
 package org.cf.smalivm.dex;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.junit.BeforeClass;
+
+import java.io.IOException;
 
 public class ClassManagerTest {
 

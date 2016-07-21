@@ -11,12 +11,10 @@ import org.junit.rules.ExpectedException;
 public class SGetOpTest {
 
     private static final String CLASS_NAME = "Lsget_test;";
-
-    private VMState expected;
-    private VMState initial;
-
     @Rule
     public ExpectedException thrown = ExpectedException.none();
+    private VMState expected;
+    private VMState initial;
 
     @Test
     public void getStaticBoolean() {

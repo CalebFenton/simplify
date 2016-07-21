@@ -1,13 +1,7 @@
 package org.cf.smalivm.opcode;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
-import java.util.HashSet;
-import java.util.Set;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
@@ -25,6 +19,13 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RunWith(Enclosed.class)
 public class ArrayLengthOpTest {
@@ -149,8 +150,8 @@ public class ArrayLengthOpTest {
             op = (ArrayLengthOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(NullPointerException.class,
-                            "Attempt to get length of null array");
+            VirtualException expectedException =
+                    new VirtualException(NullPointerException.class, "Attempt to get length of null array");
             Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
             expectedExceptions.add(expectedException);
             VMTester.verifyExceptionHandling(expectedExceptions, node, mState);
@@ -164,7 +165,7 @@ public class ArrayLengthOpTest {
 
             location = mock(MethodLocation.class);
             instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
+                    withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);

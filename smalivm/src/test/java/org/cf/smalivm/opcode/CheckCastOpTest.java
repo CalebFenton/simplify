@@ -110,8 +110,8 @@ public class CheckCastOpTest {
             VMTester.setRegisterMock(mState, ARG1_REGISTER, new Object(), registerTypeName);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ClassCastException.class, "moneylol cannot be "
-                    + "cast to lolmoney");
+            VirtualException expectedException =
+                    new VirtualException(ClassCastException.class, "moneylol cannot be " + "cast to lolmoney");
             VMTester.verifyExceptionHandling(expectedException, node, mState);
         }
 
@@ -138,8 +138,8 @@ public class CheckCastOpTest {
             when(classManager.getVirtualType(castTypeRef)).thenReturn(castType);
 
             location = mock(MethodLocation.class);
-            BuilderInstruction instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces
-                    (OneRegisterInstruction.class, ReferenceInstruction.class, Instruction21c.class));
+            BuilderInstruction instruction = mock(BuilderInstruction.class, withSettings().extraInterfaces(
+                    OneRegisterInstruction.class, ReferenceInstruction.class, Instruction21c.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
             when(instruction.getLocation()).thenReturn(location);

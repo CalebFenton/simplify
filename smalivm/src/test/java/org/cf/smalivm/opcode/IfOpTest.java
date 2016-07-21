@@ -1,9 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
@@ -22,6 +18,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RunWith(Enclosed.class)
 public class IfOpTest {
@@ -356,8 +357,8 @@ public class IfOpTest {
         }
 
         private BuilderInstruction buildInstruction22t(Opcode opcode, int offset) {
-            BuilderInstruction instruction = mock(BuilderInstruction.class,
-                            withSettings().extraInterfaces(Instruction22t.class));
+            BuilderInstruction instruction =
+                    mock(BuilderInstruction.class, withSettings().extraInterfaces(Instruction22t.class));
             when(location.getInstruction()).thenReturn(instruction);
             when(instruction.getLocation()).thenReturn(location);
             when(instruction.getCodeUnits()).thenReturn(0);

@@ -1,14 +1,14 @@
 package org.cf.smalivm.context;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.cf.smalivm.type.VirtualMethod;
+import org.junit.Test;
 
 import java.util.LinkedList;
 import java.util.List;
 
-import org.cf.smalivm.type.VirtualMethod;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class ExecutionGrapherTest {
 
@@ -21,6 +21,21 @@ public class ExecutionGrapherTest {
     private static final int ROOT_ADDRESS = 1;
     private static final String ROOT_NODE_STR = "root node";
     private static final String ROOT_STATE_STR = "root state";
+
+    private static ExecutionNode buildNode(int address, String nodeString, String stateString) {
+        ExecutionNode node = mock(ExecutionNode.class);
+        when(node.getAddress()).thenReturn(address);
+        when(node.toString()).thenReturn(nodeString);
+
+        MethodState state = mock(MethodState.class);
+        when(state.toString()).thenReturn(stateString);
+        ExecutionContext context = mock(ExecutionContext.class);
+        when(context.getMethodState()).thenReturn(state);
+
+        when(node.getContext()).thenReturn(context);
+
+        return node;
+    }
 
     @Test
     public void testHasExpectedGraph() {
@@ -53,21 +68,6 @@ public class ExecutionGrapherTest {
 
         String expected = sb.toString();
         assertEquals(expected, digraph);
-    }
-
-    private static ExecutionNode buildNode(int address, String nodeString, String stateString) {
-        ExecutionNode node = mock(ExecutionNode.class);
-        when(node.getAddress()).thenReturn(address);
-        when(node.toString()).thenReturn(nodeString);
-
-        MethodState state = mock(MethodState.class);
-        when(state.toString()).thenReturn(stateString);
-        ExecutionContext context = mock(ExecutionContext.class);
-        when(context.getMethodState()).thenReturn(state);
-
-        when(node.getContext()).thenReturn(context);
-
-        return node;
     }
 
 }

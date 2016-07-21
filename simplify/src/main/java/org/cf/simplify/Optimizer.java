@@ -1,12 +1,5 @@
 package org.cf.simplify;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
 import org.cf.simplify.strategy.ConstantPropagationStrategy;
 import org.cf.simplify.strategy.DeadRemovalStrategy;
 import org.cf.simplify.strategy.OptimizationStrategy;
@@ -18,6 +11,13 @@ import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class Optimizer {
 
@@ -61,6 +61,25 @@ public class Optimizer {
         allStrategies.addAll(reexecuteStrategies);
 
         optimizationCounts = new HashMap<String, Integer>();
+    }
+
+    public static String getTotalOptimizationCounts() {
+        return "Total optimizations:\n" + buildOptimizationCounts(totalOptimizationCounts);
+    }
+
+    private static StringBuilder buildOptimizationCounts(Map<String, Integer> counts) {
+        List<String> keys = new LinkedList<String>(counts.keySet());
+        Collections.sort(keys);
+
+        StringBuilder sb = new StringBuilder();
+        for (String key : keys) {
+            sb.append('\t').append(key).append(" = ").append(counts.get(key)).append("\n");
+        }
+        if (sb.length() > 1) {
+            sb.setLength(sb.length() - 1);
+        }
+
+        return sb;
     }
 
     public String getOptimizationCounts() {
@@ -121,25 +140,6 @@ public class Optimizer {
                 totalOptimizationCounts.put(key, totalCount);
             }
         }
-    }
-
-    public static String getTotalOptimizationCounts() {
-        return "Total optimizations:\n" + buildOptimizationCounts(totalOptimizationCounts);
-    }
-
-    private static StringBuilder buildOptimizationCounts(Map<String, Integer> counts) {
-        List<String> keys = new LinkedList<String>(counts.keySet());
-        Collections.sort(keys);
-
-        StringBuilder sb = new StringBuilder();
-        for (String key : keys) {
-            sb.append('\t').append(key).append(" = ").append(counts.get(key)).append("\n");
-        }
-        if (sb.length() > 1) {
-            sb.setLength(sb.length() - 1);
-        }
-
-        return sb;
     }
 
 }

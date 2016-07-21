@@ -1,20 +1,21 @@
 package org.cf.util;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Random;
 
 import org.jf.dexlib2.writer.builder.BuilderTypeList;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Random;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class UtilsTest {
 
