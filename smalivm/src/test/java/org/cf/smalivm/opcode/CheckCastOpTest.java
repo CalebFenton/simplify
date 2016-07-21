@@ -3,7 +3,6 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import org.cf.smalivm.UnknownAncestorsException;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
@@ -94,7 +93,7 @@ public class CheckCastOpTest {
         private VirtualClass castType;
 
         @Test
-        public void nullValueWithCastableTypeThrowsNoExceptionAndIsConverted() throws UnknownAncestorsException {
+        public void nullValueWithCastableTypeThrowsNoExceptionAndIsConverted() {
             when(registerType.instanceOf(castType)).thenReturn(true);
 
             VMTester.setRegisterMock(mState, ARG1_REGISTER, null, registerTypeName);
@@ -105,7 +104,7 @@ public class CheckCastOpTest {
         }
 
         @Test
-        public void objectNotOfCastTypeThrowsClassCastException() throws UnknownAncestorsException {
+        public void objectNotOfCastTypeThrowsClassCastException() {
             when(registerType.instanceOf(castType)).thenReturn(false);
 
             VMTester.setRegisterMock(mState, ARG1_REGISTER, new Object(), registerTypeName);

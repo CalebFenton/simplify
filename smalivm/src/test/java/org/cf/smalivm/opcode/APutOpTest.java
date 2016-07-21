@@ -3,7 +3,6 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import org.cf.smalivm.UnknownAncestorsException;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualException;
@@ -328,7 +327,7 @@ public class APutOpTest {
         }
 
         @Before
-        public void setUp() throws UnknownAncestorsException {
+        public void setUp() {
             vm = mock(VirtualMachine.class);
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
