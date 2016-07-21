@@ -41,7 +41,7 @@ public class SGetOp extends ExecutionContextOp {
             log.warn("Accessing unknown static member and class hasn't been initialized as it " +
                      "would during actual execution. This can lead to errors. Perhaps you are" +
                      "executing methods out of order or need to specify additional class state?\n" +
-                     "referenced={}, actual={}", fieldReference.toString(), actualField);
+                     "referenced={}, actual={}", ReferenceUtil.getFieldDescriptor(fieldReference), actualField);
         }
         MethodState mState = context.getMethodState();
         mState.assignRegister(destRegister, item);
