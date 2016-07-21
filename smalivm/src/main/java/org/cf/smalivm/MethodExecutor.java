@@ -59,19 +59,19 @@ public class MethodExecutor {
             totalVisits += 1;
             checkMaxVisits(node, method, addressToVisitCount);
 
-            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
-                                       "Ljava/lang/String;, op=invoke-static {r2, r3, r4}, Lffffff/uuuaaa;->b042204220422Т0422ТТ(Ljava/lang/String;CC)Ljava/lang/String;}")) {
-                System.out.println("gets no result");
-            }
-            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
-                                       "Ljava/lang/String;, op=move-result-object r0}")) {
-                System.out.println("moves null result");
-            }
+//            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
+//                                       "Ljava/lang/String;, op=invoke-static {r2, r3, r4}, Lffffff/uuuaaa;->b042204220422Т0422ТТ(Ljava/lang/String;CC)Ljava/lang/String;}")) {
+//                System.out.println("gets no result");
+//            }
+//            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
+//                                       "Ljava/lang/String;, op=move-result-object r0}")) {
+//                System.out.println("moves null result");
+//            }
             nodeExecutor.execute(node);
             if (node.getChildren().size() > 1 && !warnedMultipleExecutionPaths) {
                 warnedMultipleExecutionPaths = true;
                 String children = node.getChildren().stream()
-                        .map(child -> child.toString())
+                        .map(ExecutionNode::toString)
                         .collect(Collectors.joining(", "));
                 // This can lead to more ambiguity and it's not always obvious when this happens.
                 // Let the user know if they're listening.

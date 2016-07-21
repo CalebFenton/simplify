@@ -58,10 +58,10 @@ public class VMTester {
 
     public static ExecutionGraph execute(VirtualMachine vm, String className, String methodDescriptor, VMState state) {
         String methodSignature = className + "->" + methodDescriptor;
-        ExecutionContext ectx = buildInitializedContext(vm, methodSignature, state);
+        ExecutionContext context = buildInitializedContext(vm, methodSignature, state);
         ExecutionGraph graph = null;
         try {
-            graph = vm.execute(methodSignature, ectx);
+            graph = vm.execute(methodSignature, context);
         } catch (VirtualMachineException e) {
             e.printStackTrace();
         }

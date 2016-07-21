@@ -5,6 +5,7 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionContext;
@@ -252,6 +253,35 @@ public class InvokeOpTest {
             expected.setFields(CLASS_WITH_STATIC_INIT, "string:Ljava/lang/String;", new UnknownValue());
 
             VMTester.test(CLASS_NAME, "initializeClassIfArgumentIsZero(I)V", initial, expected);
+        }
+
+        @Test
+        public void alwaysThrownExceptionIsBubbledUp() {
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeMethodWhichThrowsNullPointerException()V");
+
+            int[] expectedAddresses = new int[] { 0, 4, 5 };
+            VMTester.testVisitation(graph, expectedAddresses);
+
+            String exceptionClass = "Ljava/lang/NullPointerException;";
+            VirtualException exception = new VirtualException(exceptionClass, null);
+            expected.setRegisters(MethodState.ThrowRegister, exception, exceptionClass, 0, exception, exceptionClass);
+            VMTester.testState(graph, expected);
+        }
+
+        @Test
+        public void sometimesThrownExceptionExecutesExceptionalAndNormalExecutionPaths() {
+            initial.setRegisters(0, new UnknownValue(), "I");
+            ExecutionGraph graph =
+                    VMTester.execute(CLASS_NAME, "invokeMethodWhichMayThrowNullPointerException()V", initial);
+
+            int[] expectedAddresses = new int[] { 0, 3, 4, 5 };
+            VMTester.testVisitation(graph, expectedAddresses);
+
+            String exceptionClass = "Ljava/lang/NullPointerException;";
+            // Unknown type for register 0 because could be I or exceptionClass
+            expected.setRegisters(MethodState.ThrowRegister, new UnknownValue(), exceptionClass, 0, new UnknownValue(),
+                    "?");
+            VMTester.testState(graph, expected);
         }
     }
 

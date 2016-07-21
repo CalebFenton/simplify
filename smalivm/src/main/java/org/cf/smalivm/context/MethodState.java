@@ -3,6 +3,7 @@ package org.cf.smalivm.context;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
+import org.cf.smalivm.VirtualException;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
@@ -12,11 +13,13 @@ public class MethodState extends BaseState {
 
     public static final int ResultRegister = -1;
     public static final int ReturnRegister = -2;
-    public static final int ReturnAddress = -3;
+    public static final int ReturnAddressRegister = -3;
+    public static final int ThrowRegister = -4;
+    public static final int ExceptionRegister = -5;
+
     public static final String MUTABLE_PARAMETER_HEAP = "mutable";
     public static final String METHOD_HEAP = "method";
     private static final Logger log = LoggerFactory.getLogger(MethodState.class.getSimpleName());
-
     private final int parameterCount;
     private final int parameterSize;
     private final TIntSet mutableParameters;
@@ -47,6 +50,11 @@ public class MethodState extends BaseState {
         this.parameterCount = parent.parameterCount;
         this.parameterSize = parent.parameterSize;
         this.mutableParameters = parent.mutableParameters;
+    }
+
+    public void assignExceptionRegister(VirtualException exception) {
+        HeapItem item = new HeapItem(exception, exception.getExceptionClass());
+        pokeRegister(ExceptionRegister, item, METHOD_HEAP);
     }
 
     public void assignParameter(int parameterRegister, HeapItem item) {
@@ -95,6 +103,10 @@ public class MethodState extends BaseState {
         pokeRegister(ReturnRegister, new HeapItem(value, type), METHOD_HEAP);
     }
 
+    public void assignThrowRegister(HeapItem item) {
+        pokeRegister(ThrowRegister, item, METHOD_HEAP);
+    }
+
     public int getParameterCount() {
         return parameterCount;
     }
@@ -109,7 +121,11 @@ public class MethodState extends BaseState {
     }
 
     public MethodLocation getPseudoInstructionReturnInstruction() {
-        return (MethodLocation) peekRegister(ReturnAddress).getValue();
+        return (MethodLocation) peekRegister(ReturnAddressRegister).getValue();
+    }
+
+    public HeapItem peekExceptionRegister() {
+        return peekRegister(ExceptionRegister);
     }
 
     public HeapItem peekParameter(int parameterRegister) {
@@ -139,6 +155,18 @@ public class MethodState extends BaseState {
         return peekRegister(register, METHOD_HEAP);
     }
 
+    public HeapItem peekResultRegister() {
+        return peekRegister(ResultRegister);
+    }
+
+    public HeapItem peekReturnRegister() {
+        return peekRegister(ReturnRegister);
+    }
+
+    public HeapItem peekThrowRegister() {
+        return peekRegister(ThrowRegister);
+    }
+
     public void pokeRegister(int register, HeapItem item) {
         pokeRegister(register, item, METHOD_HEAP);
     }
@@ -157,21 +185,13 @@ public class MethodState extends BaseState {
         return item;
     }
 
-    public HeapItem peekResultRegister() {
-        return peekRegister(ResultRegister);
-    }
-
-    public HeapItem peekReturnRegister() {
-        return peekRegister(ReturnRegister);
-    }
-
     public HeapItem readReturnRegister() {
         return readRegister(ReturnRegister);
     }
 
     public void setPseudoInstructionReturnLocation(MethodLocation location) {
         // Pseudo instructions like array-data-payload need return addresses.
-        pokeRegister(ReturnAddress, location, METHOD_HEAP);
+        pokeRegister(ReturnAddressRegister, location, METHOD_HEAP);
     }
 
     @Override

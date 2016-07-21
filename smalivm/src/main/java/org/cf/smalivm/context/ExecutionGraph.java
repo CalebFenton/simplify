@@ -9,8 +9,8 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
-import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -90,12 +90,16 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addressToLocation;
     }
 
+    protected static OpCreator getOpCreator(VirtualMachine vm, TIntObjectMap<MethodLocation> addressToLocation) {
+        return new OpCreator(vm, addressToLocation);
+    }
+
     private static Map<MethodLocation, List<ExecutionNode>> buildLocationToNodePile(VirtualMachine vm,
                                                                                     TIntObjectMap<MethodLocation>
                                                                                             addressToLocation) {
         OpCreator opCreator = getOpCreator(vm, addressToLocation);
-        Map<MethodLocation, List<ExecutionNode>> locationToNodePile = new HashMap<MethodLocation,
-                List<ExecutionNode>>();
+        Map<MethodLocation, List<ExecutionNode>> locationToNodePile =
+                new HashMap<MethodLocation, List<ExecutionNode>>();
         for (MethodLocation location : addressToLocation.values(new MethodLocation[addressToLocation.size()])) {
             Op op = opCreator.create(location);
             ExecutionNode node = new ExecutionNode(op);
@@ -131,10 +135,6 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addresses.toArray();
     }
 
-    protected static OpCreator getOpCreator(VirtualMachine vm, TIntObjectMap<MethodLocation> addressToLocation) {
-        return new OpCreator(vm, addressToLocation);
-    }
-
     public void addNode(ExecutionNode node) {
         MethodLocation location = node.getOp().getInstruction().getLocation();
         locationToNodePile.get(location).add(node);
@@ -163,10 +163,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public int[] getConnectedTerminatingAddresses() {
-        int maxSize = terminatingAddresses.length;
         TIntList addresses = new TIntLinkedList();
-        for (int i = 0; i < maxSize; i++) {
-            int address = terminatingAddresses[i];
+        for (int address : terminatingAddresses) {
             if (wasAddressReached(address)) {
                 addresses.add(address);
             }
@@ -298,23 +296,11 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return totalSize - templateCount;
     }
 
-    protected int getNodeIndex(ExecutionNode node) {
-        return getNodePile(node.getAddress()).indexOf(node);
-    }
-
     public List<ExecutionNode> getNodePile(int address) {
         List<ExecutionNode> nodePile = getNodePileByAddress(address);
         nodePile = nodePile.subList(1, nodePile.size()); // exclude template
 
         return nodePile;
-    }
-
-    private
-    @Nullable
-    List<ExecutionNode> getNodePileByAddress(int address) {
-        MethodLocation location = addressToLocation.get(address);
-
-        return locationToNodePile.get(location);
     }
 
     public
@@ -325,8 +311,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getRegisterConsensus(int address, int register) {
-
-        return getRegisterConsensus(new int[]{address}, register);
+        return getRegisterConsensus(new int[] { address }, register);
     }
 
     public
@@ -335,17 +320,27 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         Set<HeapItem> items = new HashSet<HeapItem>();
         for (int address : addresses) {
             items.addAll(getRegisterItems(address, register));
-            if (items.size() == 0) {
-                // TODO: hack for throw not implemented correctly
-                continue;
-            }
-
             // Size may be 0 if there was an exception
             if (items.size() != 1) {
                 log.trace("No consensus for register #{}, returning Unknown.", register);
-                HeapItem item = items.toArray(new HeapItem[items.size()])[0];
+                Set<String> types = new HashSet<>();
+                String type = null;
+                for (HeapItem item : items) {
+                    if ( item == null ) {
+                        // Register was never assigned for this execution path
+                        // This can happen in short methods with branching
+                        continue;
+                    }
+                    type = item.getType();
+                    types.add(type);
+                }
 
-                return HeapItem.newUnknown(item.getType());
+                if (types.size() > 1) {
+                    log.warn("Consensus has multiple types! Returning unknown type.");
+                    type = "?";
+                }
+
+                return HeapItem.newUnknown(type);
             }
         }
 
@@ -416,7 +411,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getTerminatingFieldConsensus(VirtualField field) {
-        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[]{field});
+        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[] { field });
 
         return items.get(field);
     }
@@ -435,7 +430,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     public
     @Nonnull
     HeapItem getTerminatingRegisterConsensus(int register) {
-        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[]{register});
+        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[] { register });
 
         return items.get(register);
     }
@@ -474,6 +469,18 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         return nodePile.size() > 1;
+    }
+
+    protected int getNodeIndex(ExecutionNode node) {
+        return getNodePile(node.getAddress()).indexOf(node);
+    }
+
+    private
+    @Nullable
+    List<ExecutionNode> getNodePileByAddress(int address) {
+        MethodLocation location = addressToLocation.get(address);
+
+        return locationToNodePile.get(location);
     }
 
 }

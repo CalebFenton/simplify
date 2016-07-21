@@ -20,10 +20,12 @@ public class NodeExecutor {
         exceptionResolver = new ExceptionHandlerAddressResolver(classManager, graph.getMethod());
     }
 
-    private static void spawnChild(ExecutionGraph graph, ExecutionNode parentNode, int childAddress) {
+    private static ExecutionNode spawnChild(ExecutionGraph graph, ExecutionNode parentNode, int childAddress) {
         Op childOp = graph.getTemplateNode(childAddress).getOp();
         ExecutionNode childNode = parentNode.spawnChild(childOp);
         graph.addNode(childNode);
+
+        return childNode;
     }
 
     private static void spawnChildren(ExecutionGraph graph, ExecutionNode parentNode) {
@@ -44,7 +46,10 @@ public class NodeExecutor {
                 }
 
                 int childAddress = exceptionResolver.resolve(exception, node.getAddress());
-                if (childAddress == -1) {
+                if (childAddress >= 0) {
+                    ExecutionNode childNode = spawnChild(graph, node, childAddress);
+                    childNode.getContext().getMethodState().assignExceptionRegister(exception);
+                } else {
                     if (node.getChildLocations().length == 0) {
                         if (log.isErrorEnabled()) {
                             // No children, probably a real exception
@@ -58,8 +63,6 @@ public class NodeExecutor {
                             log.trace("{} possible unhandled virtual exception: {}", node, exception);
                         }
                     }
-                } else {
-                    spawnChild(graph, node, childAddress);
                 }
             }
         }
@@ -84,11 +87,11 @@ public class NodeExecutor {
             int childAddress = exceptionResolver.resolve(e, node.getAddress());
             if (childAddress <= 0) {
                 throw new RuntimeException("Real exception was thrown executing " + node +
-                        " and was not handled. This could be a bug in smalivm.\nException:", e);
+                                           " and was not handled. This could be a bug in smalivm.\nException:", e);
             } else {
                 if (log.isWarnEnabled()) {
                     log.warn("{} threw a real exception but was caught by an exception handler. It's not possible to " +
-                            "" + "know if it's a bug in target code or in smalivm. Exception: {}", node, e);
+                             "" + "know if it's a bug in target code or in smalivm. Exception: {}", node, e);
 
                 }
             }

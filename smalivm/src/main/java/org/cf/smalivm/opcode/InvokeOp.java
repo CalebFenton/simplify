@@ -126,7 +126,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         ExecutionContext calleeContext = buildLocalCalleeContext(context, targetMethod);
-        executeLocalMethod(targetSignature, context, calleeContext);
+        executeLocalMethod(targetSignature, context, calleeContext, node);
     }
 
     public int[] getParameterRegisters() {
@@ -300,14 +300,14 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     private void executeLocalMethod(String methodSignature, ExecutionContext callerContext,
-                                    ExecutionContext calleeContext) {
+                                    ExecutionContext calleeContext, ExecutionNode node) {
         ExecutionGraph graph = null;
         try {
             graph = vm.execute(methodSignature, calleeContext, callerContext, parameterRegisters);
         } catch (VirtualMachineException e) {
             log.warn(e.toString());
             if (e instanceof UnhandledVirtualException) {
-                // TODO: handle this properly by bubbling up the exception
+                // TODO: determine if this is likely a bug exception or a VirtualException
             }
         }
 
@@ -318,20 +318,38 @@ public class InvokeOp extends ExecutionContextOp {
 
             return;
         }
-        
-        if (!method.getReturnType().equals(CommonTypes.VOID)) {
-            HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
-            callerContext.getMethodState().assignResultRegister(consensus);
-        } else {
-            if (methodSignature.contains(";-><init>(")) {
-                // This was a call to a local parent <init> method
-                int calleeInstanceRegister = calleeContext.getMethodState().getParameterStart();
-                HeapItem newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister);
-                int instanceRegister = parameterRegisters[0];
-                callerContext.getMethodState().assignRegisterAndUpdateIdentities(instanceRegister, newInstance);
+
+        // TODO: handle graph having a throw register on the terminating address
+        boolean hasOneNonThrow = false;
+        for (int endAddress : graph.getConnectedTerminatingAddresses()) {
+            Op endOp = graph.getTemplateNode(endAddress).getOp();
+            if (endOp instanceof ThrowOp) {
+                // At least one result of executing the method threw an exception
+                HeapItem exceptionItem = graph.getRegisterConsensus(endAddress, MethodState.ThrowRegister);
+                VirtualException exception = (VirtualException) exceptionItem.getValue();
+                addException(exception);
+            } else {
+                hasOneNonThrow = true;
             }
         }
 
+        if (!hasOneNonThrow) {
+            // Everything was an exception; don't go execute any normal children
+            node.clearChildren();
+        } else {
+            if (!method.getReturnType().equals(CommonTypes.VOID)) {
+                HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+                callerContext.getMethodState().assignResultRegister(consensus);
+            } else {
+                if (methodSignature.contains(";-><init>(")) {
+                    // This was a call to a local parent <init> method
+                    int calleeInstanceRegister = calleeContext.getMethodState().getParameterStart();
+                    HeapItem newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister);
+                    int instanceRegister = parameterRegisters[0];
+                    callerContext.getMethodState().assignRegisterAndUpdateIdentities(instanceRegister, newInstance);
+                }
+            }
+        }
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 

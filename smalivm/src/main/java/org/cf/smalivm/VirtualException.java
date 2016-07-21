@@ -31,7 +31,7 @@ public class VirtualException {
         this(exception.getClass(), exception.getMessage());
     }
 
-    String getExceptionClass() {
+    public String getExceptionClass() {
         return exceptionClass;
     }
 
@@ -76,10 +76,7 @@ public class VirtualException {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(getExceptionClass()).append(' ').append(getMessage());
-
-        return sb.toString();
+        return getExceptionClass() + ' ' + getMessage();
     }
 
 }

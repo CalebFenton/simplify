@@ -23,8 +23,8 @@ public class MoveOp extends MethodStateOp {
     }
 
     private static void moveException(MethodState mState, int toRegister) {
-        String type = "Ljava/lang/Exception;";
-        mState.assignRegister(toRegister, HeapItem.newUnknown(type));
+        HeapItem exception = mState.peekExceptionRegister();
+        mState.assignRegister(toRegister, exception);
     }
 
     private static void moveRegister(MethodState mState, int toRegister, int fromRegister) {
@@ -41,7 +41,6 @@ public class MoveOp extends MethodStateOp {
     public void execute(ExecutionNode node, MethodState mState) {
         switch (moveType) {
             case EXCEPTION:
-                // TODO: medium - get exception from parent node's exceptions
                 moveException(mState, toRegister);
                 break;
             case RESULT:

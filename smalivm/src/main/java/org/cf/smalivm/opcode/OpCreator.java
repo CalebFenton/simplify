@@ -323,7 +323,7 @@ public final class OpCreator {
             break;
 
         case THROW:
-            // TODO: https://github.com/CalebFenton/simplify/issues/8
+            opFactory = new ThrowOpFactory();
             break;
         }
 

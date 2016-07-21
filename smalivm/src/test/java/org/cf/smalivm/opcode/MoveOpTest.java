@@ -2,10 +2,10 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -23,9 +23,11 @@ public class MoveOpTest {
 
     @Test
     public void canMoveException() {
-        expected.setRegisters(0, new UnknownValue(), "Ljava/lang/Exception;");
+        VirtualException exception = new VirtualException("Ljava/lang/Exception;");
+        initial.setRegisters(MethodState.ExceptionRegister, exception, "Ljava/lang/Exception;");
+        expected.setRegisters(0, exception, "Ljava/lang/Exception;");
 
-        VMTester.test(CLASS_NAME, "moveException()V", expected);
+        VMTester.test(CLASS_NAME, "moveException()V", initial, expected);
     }
 
     @Test
