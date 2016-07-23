@@ -449,11 +449,11 @@ public class InvokeOpTest {
 
             classManager = mock(ClassManager.class);
             when(vm.getClassManager()).thenReturn(classManager);
-            when(classManager.isFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
-            when(classManager.isSafeFrameworkClass(METHOD_SIGNATURE)).thenReturn(false);
 
             VirtualClass methodClass = mock(VirtualClass.class);
             when(classManager.getVirtualClass(eq(METHOD_CLASS))).thenReturn(methodClass);
+            when(classManager.isFrameworkClass(methodClass)).thenReturn(false);
+            when(classManager.isSafeFrameworkClass(methodClass)).thenReturn(false);
 
             VirtualMethod method = mock(VirtualMethod.class);
             when(method.getName()).thenReturn(METHOD_SIGNATURE);
