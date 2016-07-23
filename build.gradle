@@ -73,16 +73,6 @@ coveralls {
     sourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs).files.absolutePath
 }
 
-task testy {
-    ext.targetProjects = subprojects - project(':demoapp')
-    files(ext.targetProjects.sourceSets.main.java).each {File file ->
-    //    println file
-    }
-    files(ext.targetProjects.sourceSets.main.output.classesDir).each {File file ->
-       println file
-    }
-}
-
 task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
     ext.targetProjects = subprojects - project(':demoapp')
 
