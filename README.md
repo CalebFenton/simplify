@@ -4,7 +4,7 @@
 
 ## Generic Android Deobfuscator
 
-Simplify uses a virtual machine to execute an app and understand what it does. Then, it applies optimizations to create code that behaves identically but is easier for a human to understand. It is a _generic_ deobfuscator because it doesn't need any special configuration or code for different types of obfuscation.
+Simplify emulates an app to understand what it does. Then, it applies various optimizations to create code that behaves identically but is easier for a human to understand. It's a _generic_ deobfuscator because it doesn't matter how the obfuscation works.
 
 ### Before and After
 
@@ -17,9 +17,9 @@ Simplify uses a virtual machine to execute an app and understand what it does. T
 
 There are three parts to the project:
 
-1. **smalivm**: Creates a context sensitive control flow graph of a method by executing each instruction. The value of all classes and registers is recorded at every execution of every instruction. It doesn't need to know the arguments for a method to execute it as it handles unknown values. Also, it executes every possible path. For example, if an `if` could be `true` or `false` because it references an unknown value, it assumes both could happen and executes both paths.
-2. **simplify**: Takes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and  specific peephole optimizations.
-3. **demoapp**: Contains simple, heavily commented examples of how to use **smalivm**.
+1. **smalivm**: Virtual machine library which can execute Android apps. It can execute a method and create a graph which contains every possible execution path and register or class value for every instruction. It'll execute even when it doesn't know the value of something such as a network response from a server. If it encounters an `if` and doesn't know the values of the conditional, it assumes either branch could happen and executes both paths.
+2. **simplify**: Takes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and specific peephole optimizations. The optimizations are fairly simple, but when applied together over and over again, it can decrypt strings and greatly simplify code.
+3. **demoapp**: Contains simple, heavily commented examples of how to use **smalivm**. It's a good place to start to understand how to use smalivm.
 
 ## Usage
 
@@ -45,24 +45,33 @@ deobfuscates a dalvik executable
 
 ## Building
 
-Because this project contains submodules, either clone with `--recursive`:
+Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
-`git clone --recursive https://github.com/CalebFenton/simplify.git`
+```
+git clone --recursive https://github.com/CalebFenton/simplify.git
+```
 
 Or update submodules at any time with:
 
-`git submodule update --init --recursive`
+```
+git submodule update --init --recursive
+```
 
 Then, to build a single jar:
 
-`./gradlew fatjar`
+```
+./gradlew fatjar
+````
 
 The Simplify jar will be in `simplify/build/libs/simplify.jar`
 
-You can test it's working with: `java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example`
+You can test it's working by simplifying the obfuscated-example app:
+
+```
+java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
+```
 
 ## Troubleshooting
-
 
 Simplify is in early stages of development. If you encounter a failure, try these recommendations, in order:
 
@@ -79,7 +88,7 @@ Simplify is in early stages of development. If you encounter a failure, try thes
 
 ## Contributing
 
-Just submit a pull request. We can review and talk through it there.
+Just submit a pull request. We can review and talk through it there. Feel free to ask any questions in issues.
 
 ## Optimization Example
 
@@ -137,16 +146,20 @@ The `move-result v0` is replaced with `const/4 v0, 0x1`. This is because there i
 .end method
 ```
 
-Because the code above `const/4 v0, 0x1` does not affect state outside of the method (no side-effects) it can be removed without changing behavior. If there was a method call that wrote something to the file system or network, it couldn't be removed because it affects state outside the method. Or if `test()I` took a mutable argument, such as a `LinkedList`, any instructions that accessed it couldn't be considered dead.
+Because the code above `const/4 v0, 0x1` does not affect state outside of the method (no side-effects), it can be removed without changing behavior. If there was a method call that wrote something to the file system or network, it couldn't be removed because it affects state outside the method. Or if `test()I` took a mutable argument, such as a `LinkedList`, any instructions that accessed it couldn't be considered dead.
 
 Some other examples of dead code:
 
 * unreferenced assignments - assigning registers and not using them
 * unreached / unreachable instructions - `if (false) { dead_code(); }`
 
+# License
 
-Related Works
--------------
+This tool is available under a dual license: a commercial one suitable for closed source projects and a GPL license that can be used in open source software.
+
+Depending on your needs, you must choose one of them and follow its policies. A detail of the policies and agreements for each license type are available in the [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) and [LICENSE.GPL](LICENSE.GPL) files.
+
+# Related Works
 
 * [Guillot, Yoann, and Alexandre Gazet. "Automatic Binary Deobfuscation." Journal in Computer Virology 6.3 (2010): 261-76](http://metasm.cr0.org/docs/sstic09-metasm-jcv.pdf)
 * [Unicorn - The ultimate CPU emulator](http://www.unicorn-engine.org/)
