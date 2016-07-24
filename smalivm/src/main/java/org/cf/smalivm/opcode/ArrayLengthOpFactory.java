@@ -16,7 +16,7 @@ public class ArrayLengthOpFactory implements OpFactory {
         int destRegister = instr.getRegisterA();
         int arrayRegister = instr.getRegisterB();
 
-        return new ArrayLengthOp(location, child, destRegister, arrayRegister);
+        return new ArrayLengthOp(location, child, destRegister, arrayRegister, vm.getExceptionFactory());
     }
 
 }

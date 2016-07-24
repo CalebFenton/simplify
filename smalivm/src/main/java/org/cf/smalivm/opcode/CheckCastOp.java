@@ -1,7 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.VirtualException;
-import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -19,14 +18,16 @@ public class CheckCastOp extends MethodStateOp {
 
     private final VirtualGeneric castType;
     private final int targetRegister;
-    private final VirtualMachine vm;
+    private final ClassManager classManager;
+    private final ExceptionFactory exceptionFactory;
 
     CheckCastOp(MethodLocation location, MethodLocation child, int targetRegister, VirtualGeneric castType,
-                VirtualMachine vm) {
+                ClassManager classManager, ExceptionFactory exceptionFactory) {
         super(location, child);
         this.targetRegister = targetRegister;
         this.castType = castType;
-        this.vm = vm;
+        this.classManager = classManager;
+        this.exceptionFactory = exceptionFactory;
     }
 
     private static boolean isInstance(HeapItem item, VirtualGeneric referenceType, ClassManager classManager) {
@@ -53,20 +54,20 @@ public class CheckCastOp extends MethodStateOp {
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem item = mState.readRegister(targetRegister);
-        ClassManager classManager = vm.getClassManager();
         boolean isInstance = isInstance(item, castType, classManager);
         if (isInstance) {
             node.clearExceptions();
             mState.assignRegister(targetRegister, item.getValue(), castType.getName());
         } else {
             // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
-            String error = ClassNameUtils.internalToBinary(item.getType()) + " cannot be cast to " + castType
-                    .getBinaryName();
-            VirtualException exception = new VirtualException(ClassCastException.class, error);
+            String error =
+                    ClassNameUtils.internalToBinary(item.getType()) + " cannot be cast to " + castType.getBinaryName();
+            Throwable exception = exceptionFactory.build(this, ClassCastException.class, error);
             node.setException(exception);
 
             if (!item.isUnknown()) {
-                // Had all virtual information, so exception is certain.
+                // Exception is certain to happen since we had all class information
+                // exception is certain.
                 node.clearChildren();
             }
         }

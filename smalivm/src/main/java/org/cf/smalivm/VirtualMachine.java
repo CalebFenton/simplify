@@ -32,6 +32,7 @@ public class VirtualMachine {
     private final Map<VirtualMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
     private final Configuration configuration;
+    private final ExceptionFactory exceptionFactory;
 
     VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
                    int maxExecutionTime) {
@@ -42,6 +43,7 @@ public class VirtualMachine {
         methodToTemplateExecutionGraph = new HashMap<VirtualMethod, ExecutionGraph>();
         staticFieldAccessor = new StaticFieldAccessor(this);
         configuration = Configuration.instance();
+        exceptionFactory = new ExceptionFactory(this);
     }
 
     private static String getClassNameFromMethodSignature(String methodSignature) {
@@ -153,11 +155,11 @@ public class VirtualMachine {
         return getConfiguration().isSafe(virtualClass.toString());
     }
 
-    public ExecutionGraph spawnInstructionGraph(VirtualMethod virtualMethod) {
-        if (!methodToTemplateExecutionGraph.containsKey(virtualMethod)) {
-            updateInstructionGraph(virtualMethod);
+    public ExecutionGraph spawnInstructionGraph(VirtualMethod method) {
+        if (!methodToTemplateExecutionGraph.containsKey(method)) {
+            updateInstructionGraph(method);
         }
-        ExecutionGraph graph = methodToTemplateExecutionGraph.get(virtualMethod);
+        ExecutionGraph graph = methodToTemplateExecutionGraph.get(method);
 
         return new ExecutionGraph(graph);
     }
@@ -205,9 +207,13 @@ public class VirtualMachine {
         return spawnedContext;
     }
 
-    public void updateInstructionGraph(VirtualMethod virtualMethod) {
-        ExecutionGraph graph = new ExecutionGraph(this, virtualMethod);
-        methodToTemplateExecutionGraph.put(virtualMethod, graph);
+    public void updateInstructionGraph(VirtualMethod method) {
+        ExecutionGraph graph = new ExecutionGraph(this, method);
+        methodToTemplateExecutionGraph.put(method, graph);
+    }
+
+    public ExceptionFactory getExceptionFactory() {
+        return exceptionFactory;
     }
 
     /*

@@ -1,12 +1,12 @@
 package org.cf.smalivm.emulate;
 
-import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.StaticFieldAccessor;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
@@ -17,23 +17,13 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.HashSet;
-import java.util.Set;
 
-class java_lang_reflect_Field_get implements ExecutionContextMethod {
+class java_lang_reflect_Field_get extends ExecutionContextMethod {
 
     private static final Logger log = LoggerFactory.getLogger(java_lang_reflect_Field_get.class.getSimpleName());
 
-    private final Set<VirtualException> exceptions;
-    private SideEffect.Level level;
-
-    java_lang_reflect_Field_get() {
-        exceptions = new HashSet<VirtualException>();
-        level = SideEffect.Level.NONE;
-    }
-
     @Override
-    public void execute(VirtualMachine vm, ExecutionContext context) {
+    public void execute(VirtualMachine vm, Op op, ExecutionContext context) {
         MethodState mState = context.getMethodState();
         HeapItem fieldItem = mState.peekParameter(0);
         HeapItem instanceItem = mState.peekParameter(1);
@@ -46,28 +36,19 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
             ClassManager classManager = vm.getClassManager();
             VirtualClass fieldClass = classManager.getVirtualClass(fieldClassName);
 
-            boolean hasAccess = checkAccess(callingClass, fieldClass, accessFlags);
+            boolean hasAccess = checkAccess(callingClass, fieldClass, accessFlags, op, vm.getExceptionFactory());
             if (!hasAccess) {
                 return;
             }
         }
 
         Object instance = instanceItem.getValue();
-        HeapItem getItem = get(field, instance, fieldClassName, accessFlags, context, vm);
+        HeapItem getItem = get(field, instance, fieldClassName, accessFlags, context, vm, op);
         mState.assignReturnRegister(getItem);
     }
 
-    @Override
-    public SideEffect.Level getSideEffectLevel() {
-        return level;
-    }
-
-    @Override
-    public Set<VirtualException> getExceptions() {
-        return exceptions;
-    }
-
-    private boolean checkAccess(VirtualClass callingClass, VirtualClass fieldClass, int accessFlags) {
+    private boolean checkAccess(VirtualClass callingClass, VirtualClass fieldClass, int accessFlags, Op op,
+                                ExceptionFactory exceptionFactory) {
         boolean isPublic = Modifier.isPublic(accessFlags);
         if (isPublic) {
             return true;
@@ -88,7 +69,8 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
             (isPackagePrivate && !callingClass.isSamePackageOf(fieldClass))) {
             String error = callingClass.getBinaryName() + " can't access a member of " + fieldClass.getBinaryName() +
                            " with modifiers \"" + Modifier.toString(accessFlags) + "\"";
-            setException(new VirtualException(IllegalAccessException.class, error));
+            Throwable exception = exceptionFactory.build(op, IllegalAccessException.class, error);
+            setException(exception);
 
             return false;
         }
@@ -97,9 +79,9 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
     }
 
     private HeapItem get(Field field, Object instance, String className, int accessFlags, ExecutionContext context,
-                         VirtualMachine vm) {
+                         VirtualMachine vm, Op op) {
         if (vm.getConfiguration().isSafe(className)) {
-            return getSafeField(field, instance, context);
+            return getSafeField(field, instance, context, op, vm.getExceptionFactory());
         } else {
             boolean isStatic = Modifier.isStatic(accessFlags);
             if (!isStatic) {
@@ -112,7 +94,8 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
         }
     }
 
-    private HeapItem getSafeField(Field field, Object instance, ExecutionContext context) {
+    private HeapItem getSafeField(Field field, Object instance, ExecutionContext context, Op op,
+                                  ExceptionFactory exceptionFactory) {
         HeapItem item = null;
         try {
             Object getObject = field.get(instance);
@@ -123,7 +106,9 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
             VirtualMethod callingMethod = context.getCallerContext().getMethod();
             VirtualClass callingClass = callingMethod.getDefiningClass();
             message = message.replace(java_lang_reflect_Field_get.class.getName(), callingClass.getBinaryName());
-            setException(new VirtualException(e.getClass(), message));
+
+            Throwable exception = exceptionFactory.build(op, e.getClass(), message);
+            setException(exception);
         }
 
         return item;
@@ -136,10 +121,6 @@ class java_lang_reflect_Field_get implements ExecutionContextMethod {
         StaticFieldAccessor accessor = vm.getStaticFieldAccessor();
 
         return accessor.getField(context, virtualField);
-    }
-
-    private void setException(VirtualException exception) {
-        exceptions.add(exception);
     }
 
 }

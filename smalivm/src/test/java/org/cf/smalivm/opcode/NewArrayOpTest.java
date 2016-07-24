@@ -156,9 +156,7 @@ public class NewArrayOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException =
-                    new VirtualException(ClassNotFoundException.class, "does.not.123Exist");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ClassNotFoundException.class, "does.not.123Exist", node, mState);
         }
 
         @Before

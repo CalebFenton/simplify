@@ -17,7 +17,8 @@ public class APutOpFactory implements OpFactory {
         int arrayRegister = instr.getRegisterB();
         int indexRegister = instr.getRegisterC();
 
-        return new APutOp(location, child, putRegister, arrayRegister, indexRegister, vm.getClassManager());
+        return new APutOp(location, child, putRegister, arrayRegister, indexRegister, vm.getClassManager(),
+                                 vm.getExceptionFactory());
     }
 
 }

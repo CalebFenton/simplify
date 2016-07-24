@@ -1,11 +1,9 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
@@ -22,9 +20,8 @@ public class NewArrayOp extends MethodStateOp {
     private final ClassLoader classLoader;
 
     NewArrayOp(MethodLocation location, MethodLocation child, int destRegister, int lengthRegister, String arrayType,
-                    ClassLoader classLoader) {
+               ClassLoader classLoader) {
         super(location, child);
-
         this.destRegister = destRegister;
         this.lengthRegister = lengthRegister;
         this.arrayType = arrayType;
@@ -35,8 +32,8 @@ public class NewArrayOp extends MethodStateOp {
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem lengthItem = mState.readRegister(lengthRegister);
         Object instance = buildInstance(lengthItem);
-        if (instance instanceof VirtualException) {
-            node.setException((VirtualException) instance);
+        if (instance instanceof Throwable) {
+            node.setException((Throwable) instance);
             node.clearChildren();
             return;
         } else {
@@ -44,6 +41,11 @@ public class NewArrayOp extends MethodStateOp {
         }
 
         mState.assignRegister(destRegister, instance, arrayType);
+    }
+
+    @Override
+    public String toString() {
+        return getName() + " r" + destRegister + ", r" + lengthRegister + ", " + arrayType;
     }
 
     private Object buildInstance(HeapItem lengthItem) {
@@ -56,21 +58,11 @@ public class NewArrayOp extends MethodStateOp {
                 // Dalvik does not statically initialize classes with new-array
                 instance = Utils.buildArray(arrayType, length, classLoader);
             } catch (ClassNotFoundException e) {
-                String binaryName = ClassNameUtils.internalToBinary(arrayType);
-                String baseName = ClassNameUtils.getComponentBase(binaryName);
-                instance = new VirtualException(e.getClass(), baseName);
+                return e;
             }
         }
 
         return instance;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(lengthRegister).append(", ").append(arrayType);
-
-        return sb.toString();
     }
 
 }

@@ -1,7 +1,6 @@
 package org.cf.smalivm.emulate;
 
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -21,7 +20,6 @@ import java.util.Set;
 
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 @RunWith(Enclosed.class)
 public class java_lang_reflect_Field_get_Test {
@@ -31,7 +29,7 @@ public class java_lang_reflect_Field_get_Test {
 
     private static final Object PUBLIC_STATIC_VALUE = 0x10;
     private static final Object PROTECTED_STATIC_VALUE = 0x11;
-    private static final Object PACKAGEPRIVATE_STATIC_VALUE = 0x12;
+    private static final Object PACKAGE_PRIVATE_STATIC_VALUE = 0x12;
     private static final Object PRIVATE_STATIC_VALUE = 0x13;
 
     private static VirtualMachine vm = null;
@@ -70,16 +68,17 @@ public class java_lang_reflect_Field_get_Test {
         ExecutionContext context = buildContext(vm);
         ExecutionContextMethod fieldGet = test(vm, context, fieldName, callingMethodSignature, false);
 
-        Set<VirtualException> exceptions = fieldGet.getExceptions();
+        Set<Throwable> exceptions = fieldGet.getExceptions();
         assertEquals("Should have one exception", 1, exceptions.size());
 
         VirtualClass callingClass = context.getCallerContext().getMethod().getDefiningClass();
         VirtualField field = context.getMethod().getDefiningClass().getField(fieldName);
         String error = callingClass.getBinaryName() + " can't access a member of " + DUMMY_CLASS_NAME_BINARY +
                        " with modifiers \"" + Modifier.toString(field.getField().getAccessFlags()) + "\"";
-        VirtualException expectedException = new VirtualException(IllegalAccessException.class, error);
 
-        assertTrue("Should contain expected exception", exceptions.contains(expectedException));
+        Throwable actualException = exceptions.iterator().next();
+        assertEquals(IllegalAccessException.class, actualException.getClass());
+        assertEquals(error, actualException.getMessage());
     }
 
     private static ExecutionContext buildContext(VirtualMachine vm) {
@@ -114,7 +113,7 @@ public class java_lang_reflect_Field_get_Test {
         methodState.pokeRegister(1, instanceItem);
 
         ExecutionContextMethod fieldGet = new java_lang_reflect_Field_get();
-        fieldGet.execute(vm, context);
+        fieldGet.execute(vm, null, context);
 
         return fieldGet;
     }
@@ -155,7 +154,7 @@ public class java_lang_reflect_Field_get_Test {
 
         @Test
         public void canGetPackagePrivateStaticField() throws Exception {
-            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGEPRIVATE_STATIC_VALUE, "I");
+            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGE_PRIVATE_STATIC_VALUE, "I");
         }
 
 
@@ -201,7 +200,7 @@ public class java_lang_reflect_Field_get_Test {
 
         @Test
         public void canGetPackagePrivateStaticField() throws Exception {
-            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGEPRIVATE_STATIC_VALUE, "I");
+            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGE_PRIVATE_STATIC_VALUE, "I");
         }
 
         @Test
@@ -261,7 +260,7 @@ public class java_lang_reflect_Field_get_Test {
 
         @Test
         public void canGetGetPackagePrivateStaticFieldIfSetAccessible() throws Exception {
-            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGEPRIVATE_STATIC_VALUE, "I", true);
+            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGE_PRIVATE_STATIC_VALUE, "I", true);
         }
 
         @Test
@@ -326,7 +325,7 @@ public class java_lang_reflect_Field_get_Test {
 
         @Test
         public void canGetPackagePrivateStaticField() throws Exception {
-            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGEPRIVATE_STATIC_VALUE, "I");
+            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGE_PRIVATE_STATIC_VALUE, "I");
         }
 
         @Test
@@ -401,7 +400,7 @@ public class java_lang_reflect_Field_get_Test {
 
         @Test
         public void canGetPackagePrivateStaticFieldIfSetAccessible() throws Exception {
-            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGEPRIVATE_STATIC_VALUE, "I", true);
+            testPositiveCase("packagePrivateStaticField", METHOD_SIGNATURE, PACKAGE_PRIVATE_STATIC_VALUE, "I", true);
         }
 
         @Test

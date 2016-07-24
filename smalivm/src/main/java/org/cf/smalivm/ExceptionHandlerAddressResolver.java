@@ -80,7 +80,7 @@ public class ExceptionHandlerAddressResolver {
         return resolve(vex.getExceptionClass(), address);
     }
 
-    int resolve(Exception ex, int address) {
+    int resolve(Throwable ex, int address) {
         String className = ClassNameUtils.binaryToInternal(ex.getClass().getName());
 
         return resolve(className, address);

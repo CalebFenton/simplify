@@ -19,7 +19,7 @@ public class CheckCastOpFactory implements OpFactory {
         TypeReference reference = (TypeReference) instr.getReference();
         VirtualGeneric referenceType = vm.getClassManager().getVirtualType(reference);
 
-        return new CheckCastOp(location, child, targetRegister, referenceType, vm);
+        return new CheckCastOp(location, child, targetRegister, referenceType, vm.getClassManager(), vm.getExceptionFactory());
     }
 
 }

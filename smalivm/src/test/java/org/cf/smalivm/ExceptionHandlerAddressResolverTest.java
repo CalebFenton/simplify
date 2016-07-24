@@ -9,6 +9,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -54,7 +55,6 @@ public class ExceptionHandlerAddressResolverTest {
 
     @Before
     public void setUp() {
-
         vex = mock(VirtualException.class);
         tryBlocks = new LinkedList<BuilderTryBlock>();
 
@@ -63,9 +63,9 @@ public class ExceptionHandlerAddressResolverTest {
         exceptionClass3 = mockException("Ljava/lang/NullPointerException;");
         when(exceptionClass1.getAncestors()).thenReturn(new HashSet<VirtualClass>(0));
         Set<VirtualClass> ancestors;
-        ancestors = new HashSet<VirtualClass>(Arrays.asList(exceptionClass1));
+        ancestors = new HashSet<VirtualClass>(Collections.singletonList(exceptionClass1));
         when(exceptionClass2.getAncestors()).thenReturn(ancestors);
-        ancestors = new HashSet<VirtualClass>(Arrays.asList(exceptionClass2));
+        ancestors = new HashSet<VirtualClass>(Collections.singletonList(exceptionClass2));
         when(exceptionClass3.getAncestors()).thenReturn(ancestors);
 
         classManager = mock(ClassManager.class);

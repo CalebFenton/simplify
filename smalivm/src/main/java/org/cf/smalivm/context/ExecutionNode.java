@@ -1,6 +1,5 @@
 package org.cf.smalivm.context;
 
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.opcode.ExecutionContextOp;
 import org.cf.smalivm.opcode.MethodStateOp;
 import org.cf.smalivm.opcode.Op;
@@ -23,7 +22,7 @@ public class ExecutionNode {
     private Op op;
     private ExecutionContext context;
     private ExecutionNode parent;
-    private Set<VirtualException> exceptions;
+    private Set<Throwable> exceptions;
     private MethodLocation[] childLocations;
 
     public ExecutionNode(ExecutionNode other) {
@@ -41,7 +40,7 @@ public class ExecutionNode {
     }
 
     public void clearExceptions() {
-        exceptions = new HashSet<VirtualException>();
+        exceptions = new HashSet<Throwable>();
     }
 
     public void execute() {
@@ -49,16 +48,16 @@ public class ExecutionNode {
         if (op instanceof MethodStateOp) {
             MethodState mState = context.getMethodState();
             ((MethodStateOp) op).execute(this, mState);
-        } else if (op instanceof ExecutionContextOp) {
+        } else {
             ((ExecutionContextOp) op).execute(this, context);
         }
 
-        // Op didn't set children specifically. Pull in template values.
+        // Op didn't set children; pull in template values.
         if (childLocations == null) {
             setChildLocations(op.getChildren());
         }
 
-        // Op didn't set exceptions specifically. Pull in template values.
+        // Op didn't set exceptions; pull in template values.
         if (exceptions == null) {
             setExceptions(op.getExceptions());
         }
@@ -92,11 +91,11 @@ public class ExecutionNode {
         this.context = context;
     }
 
-    public Set<VirtualException> getExceptions() {
+    public Set<Throwable> getExceptions() {
         return exceptions;
     }
 
-    public void setExceptions(Set<VirtualException> exceptions) {
+    public void setExceptions(Set<Throwable> exceptions) {
         this.exceptions = exceptions;
     }
 
@@ -135,8 +134,8 @@ public class ExecutionNode {
         newChild.setParent(this);
     }
 
-    public void setException(VirtualException exception) {
-        exceptions = new HashSet<VirtualException>();
+    public void setException(Throwable exception) {
+        exceptions = new HashSet<Throwable>();
         exceptions.add(exception);
     }
 

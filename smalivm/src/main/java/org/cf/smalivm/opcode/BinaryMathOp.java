@@ -1,9 +1,10 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.VirtualException;
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -20,14 +21,14 @@ public class BinaryMathOp extends MethodStateOp {
     private final int destRegister;
     private final MathOperandType mathOperandType;
     private final MathOperator mathOperator;
+    private final ExceptionFactory exceptionFactory;
     private int arg2Register;
     private boolean hasLiteral;
     private int narrowLiteral;
 
     BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, int otherValue,
-                 boolean hasLiteral) {
-        this(location, child, destRegister, arg1Register);
-
+                 boolean hasLiteral, ExceptionFactory exceptionFactory) {
+        this(location, child, destRegister, arg1Register, exceptionFactory);
         this.hasLiteral = hasLiteral;
         if (hasLiteral) {
             narrowLiteral = otherValue;
@@ -36,15 +37,16 @@ public class BinaryMathOp extends MethodStateOp {
         }
     }
 
-    private BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register) {
+    private BinaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register,
+                         ExceptionFactory exceptionFactory) {
         super(location, child);
-
         this.destRegister = destRegister;
         this.arg1Register = arg1Register;
         mathOperator = getMathOp(getName());
         mathOperandType = getMathOperandType(getName());
+        this.exceptionFactory = exceptionFactory;
 
-        addException(new VirtualException(ArithmeticException.class, "/ by zero"));
+        addException(exceptionFactory.build(this, ArithmeticException.class, "/ by zero"));
     }
 
     @SuppressWarnings("incomplete-switch")
@@ -137,7 +139,7 @@ public class BinaryMathOp extends MethodStateOp {
                     break;
             }
         } catch (ArithmeticException e) {
-            return new VirtualException(e);
+            return e;
         }
 
         return result;
@@ -183,7 +185,7 @@ public class BinaryMathOp extends MethodStateOp {
                     break;
             }
         } catch (ArithmeticException e) {
-            return new VirtualException(ArithmeticException.class, e.getMessage());
+            return e;
         }
 
         return result;
@@ -239,8 +241,9 @@ public class BinaryMathOp extends MethodStateOp {
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem lhsItem = mState.readRegister(arg1Register);
         HeapItem rhsItem = null;
+
         if (hasLiteral) {
-            rhsItem = new HeapItem(narrowLiteral, "I");
+            rhsItem = new HeapItem(narrowLiteral, CommonTypes.INTEGER);
         } else {
             rhsItem = mState.readRegister(arg2Register);
         }
@@ -248,8 +251,9 @@ public class BinaryMathOp extends MethodStateOp {
         Object result = null;
         if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
             result = getResult(lhsItem.getValue(), rhsItem.getValue());
-            if (result instanceof VirtualException) {
-                node.setException((VirtualException) result);
+            if (result instanceof Throwable) {
+                Throwable exception = (Throwable) result;
+                node.setException(exception);
                 node.clearChildren();
                 return;
             } else {
@@ -310,14 +314,14 @@ public class BinaryMathOp extends MethodStateOp {
                 result = doDoubleOperation(mathOperator, (Double) lhs, (Double) rhs);
                 break;
             default:
-                throw new RuntimeException("Unknown math operand virtual!");
+                throw new RuntimeException("Unknown math operand class!");
         }
 
         return result;
     }
 
     private enum MathOperandType {
-        DOUBLE("D"), FLOAT("F"), INT("I"), LONG("J"),;
+        DOUBLE(CommonTypes.DOUBLE), FLOAT(CommonTypes.FLOAT), INT(CommonTypes.INTEGER), LONG(CommonTypes.LONG),;
 
         private final String type;
 

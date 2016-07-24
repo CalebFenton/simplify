@@ -17,7 +17,7 @@ public class AGetOpFactory implements OpFactory {
         int arrayRegister = instr.getRegisterB();
         int indexRegister = instr.getRegisterC();
 
-        return new AGetOp(location, child, valueRegister, arrayRegister, indexRegister);
+        return new AGetOp(location, child, valueRegister, arrayRegister, indexRegister, vm.getExceptionFactory());
     }
 
 }

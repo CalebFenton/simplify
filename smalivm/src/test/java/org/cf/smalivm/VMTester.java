@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import com.google.common.primitives.Ints;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -19,6 +20,7 @@ import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.DexBuilder;
+import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -151,17 +153,25 @@ public class VMTester {
         assertArrayEquals(expectedAddresses, actualAddresses);
     }
 
-    public static void verifyExceptionHandling(Set<VirtualException> expectedExceptions, ExecutionNode node,
-                                               MethodState mState) {
+    public static void verifyExceptionHandling(Set<Throwable> expectedExceptions,
+                                               ExecutionNode node, MethodState mState) {
         verify(node).setExceptions(eq(expectedExceptions));
         verify(node).clearChildren();
         verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
         verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 
-    public static void verifyExceptionHandling(VirtualException expectedException, ExecutionNode node,
+    public static void verifyExceptionHandling(Class<? extends Throwable> exceptionClass, ExecutionNode node,
                                                MethodState mState) {
-        verify(node).setException(eq(expectedException));
+        verifyExceptionHandling(exceptionClass, null, node, mState);
+    }
+
+    public static void verifyExceptionHandling(Class<? extends Throwable> exceptionClass, String message,
+                                               ExecutionNode node, MethodState mState) {
+        ArgumentCaptor<Throwable> argument = ArgumentCaptor.forClass(Throwable.class);
+        verify(node).setException(argument.capture());
+        assertEquals(exceptionClass, argument.getValue().getClass());
+        assertEquals(message, argument.getValue().getMessage());
         verify(node).clearChildren();
         verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
         verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
@@ -202,7 +212,7 @@ public class VMTester {
         for (Entry<Integer, HeapItem> entry : registerToItem.entrySet()) {
             Integer register = entry.getKey();
             HeapItem item = entry.getValue();
-            mState.assignRegister(register, item);
+            mState.pokeRegister(register, item);
         }
         ectx.setMethodState(mState);
     }

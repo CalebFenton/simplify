@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode;
 
-import org.cf.smalivm.VirtualException;
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -24,18 +24,19 @@ public class APutOp extends MethodStateOp {
     private final int arrayRegister;
     private final int indexRegister;
     private final ClassManager classManager;
+    private final ExceptionFactory exceptionFactory;
 
     APutOp(MethodLocation location, MethodLocation child, int putRegister, int arrayRegister, int indexRegister,
-           ClassManager classManager) {
+           ClassManager classManager, ExceptionFactory exceptionFactory) {
         super(location, child);
-
         valueRegister = putRegister;
         this.arrayRegister = arrayRegister;
         this.indexRegister = indexRegister;
         this.classManager = classManager;
+        this.exceptionFactory = exceptionFactory;
 
-        addException(new VirtualException(ArrayIndexOutOfBoundsException.class));
-        addException(new VirtualException(NullPointerException.class));
+        addException(exceptionFactory.build(this, NullPointerException.class));
+        addException(exceptionFactory.build(this, ArrayIndexOutOfBoundsException.class));
     }
 
     private static Object castValue(String opName, Object value) {
@@ -64,13 +65,12 @@ public class APutOp extends MethodStateOp {
     }
 
     private static boolean isOverloadedPrimitiveType(String type) {
-        return ClassNameUtils.isPrimitive(type) && !(CommonTypes.FLOAT.equals(type) || CommonTypes.DOUBLE.equals
-                (type) ||
-                CommonTypes.LONG.equals(type));
+        return ClassNameUtils.isPrimitive(type) &&
+               !(CommonTypes.FLOAT.equals(type) || CommonTypes.DOUBLE.equals(type) || CommonTypes.LONG.equals(type));
     }
 
-    private static boolean throwsArrayStoreException(HeapItem arrayItem, HeapItem valueItem, ClassManager
-            classManager) {
+    private static boolean throwsArrayStoreException(HeapItem arrayItem, HeapItem valueItem,
+                                                     ClassManager classManager) {
         VirtualGeneric valueType = classManager.getVirtualType(valueItem.getType());
         VirtualArray arrayType = (VirtualArray) classManager.getVirtualType(arrayItem.getType());
         VirtualGeneric arrayComponentType = arrayType.getComponentType();
@@ -94,9 +94,9 @@ public class APutOp extends MethodStateOp {
         // Trying to store a known value of 0 and a primitive type of integer into an array of object reference.
         // This is how Dalvik does null.
         // TODO: see what happens when Dalvik makes a Z and uses as null, might want to consider other types
-        boolean storingNull = (!valueItem.isUnknown() && valueTypeName.equals(CommonTypes.INTEGER) && valueItem
-                .asInteger() == 0 &&
-                !ClassNameUtils.isPrimitive(arrayComponentTypeName));
+        boolean storingNull =
+                (!valueItem.isUnknown() && valueTypeName.equals(CommonTypes.INTEGER) && valueItem.asInteger() == 0 &&
+                 !ClassNameUtils.isPrimitive(arrayComponentTypeName));
 
         return !storingNull;
     }
@@ -110,7 +110,8 @@ public class APutOp extends MethodStateOp {
         boolean throwsStoreException = throwsArrayStoreException(arrayItem, valueItem, classManager);
         if (throwsStoreException) {
             String storeType = ClassNameUtils.internalToBinary(valueItem.getType());
-            node.setException(new VirtualException(ArrayStoreException.class, storeType));
+            Throwable exception = exceptionFactory.build(this, ArrayStoreException.class, storeType);
+            node.setException(exception);
             node.clearChildren();
             return;
         }
@@ -126,14 +127,16 @@ public class APutOp extends MethodStateOp {
             } else {
                 Object array = arrayItem.getValue();
                 if (null == array) {
-                    node.setException(new VirtualException(NullPointerException.class));
+                    Throwable exception = exceptionFactory.build(this, NullPointerException.class);
+                    node.setException(exception);
                     node.clearChildren();
                     return;
                 }
 
                 int index = indexItem.asInteger();
                 if (index >= Array.getLength(array)) {
-                    node.setException(new VirtualException(ArrayIndexOutOfBoundsException.class));
+                    Throwable exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException.class);
+                    node.setException(exception);
                     node.clearChildren();
                     return;
                 } else {

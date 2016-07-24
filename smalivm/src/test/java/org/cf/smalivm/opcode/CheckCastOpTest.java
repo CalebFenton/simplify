@@ -5,7 +5,6 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
@@ -110,9 +109,8 @@ public class CheckCastOpTest {
             VMTester.setRegisterMock(mState, ARG1_REGISTER, new Object(), registerTypeName);
             op.execute(node, mState);
 
-            VirtualException expectedException =
-                    new VirtualException(ClassCastException.class, "moneylol cannot be " + "cast to lolmoney");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ClassCastException.class, "moneylol cannot be " + "cast to lolmoney", node,
+                    mState);
         }
 
         @Before

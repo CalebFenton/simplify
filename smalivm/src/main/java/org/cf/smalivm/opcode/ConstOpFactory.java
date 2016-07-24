@@ -46,7 +46,8 @@ public class ConstOpFactory implements OpFactory {
             constantType = ConstantType.NARROW;
         }
 
-        return new ConstOp(location, child, destRegister, constantType, literal, vm.getClassLoader());
+        return new ConstOp(location, child, destRegister, constantType, literal, vm.getClassLoader(),
+                                  vm.getExceptionFactory());
     }
 
 }

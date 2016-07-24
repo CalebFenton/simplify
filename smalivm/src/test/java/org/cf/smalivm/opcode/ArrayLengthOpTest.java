@@ -150,11 +150,7 @@ public class ArrayLengthOpTest {
             op = (ArrayLengthOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException =
-                    new VirtualException(NullPointerException.class, "Attempt to get length of null array");
-            Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
-            expectedExceptions.add(expectedException);
-            VMTester.verifyExceptionHandling(expectedExceptions, node, mState);
+            VMTester.verifyExceptionHandling(op.getExceptions(), node, mState);
         }
 
         @Before

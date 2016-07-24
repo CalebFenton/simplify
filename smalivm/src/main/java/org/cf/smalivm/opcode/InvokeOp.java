@@ -4,7 +4,6 @@ import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.ObjectInstantiator;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.UnhandledVirtualException;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.VirtualMachineException;
 import org.cf.smalivm.context.ExecutionContext;
@@ -44,7 +43,6 @@ public class InvokeOp extends ExecutionContextOp {
     InvokeOp(MethodLocation location, MethodLocation child, VirtualMethod method, int[] parameterRegisters,
              VirtualMachine vm) {
         super(location, child);
-
         this.method = method;
         this.parameterRegisters = parameterRegisters;
         analyzedParameterTypes = new String[method.getParameterTypeNames().size()];
@@ -326,7 +324,7 @@ public class InvokeOp extends ExecutionContextOp {
             if (endOp instanceof ThrowOp) {
                 // At least one result of executing the method threw an exception
                 HeapItem exceptionItem = graph.getRegisterConsensus(endAddress, MethodState.ThrowRegister);
-                VirtualException exception = (VirtualException) exceptionItem.getValue();
+                Throwable exception = (Throwable) exceptionItem.getValue();
                 addException(exception);
             } else {
                 hasOneNonThrow = true;
@@ -370,7 +368,7 @@ public class InvokeOp extends ExecutionContextOp {
                                        ExecutionContext calleeContext, ExecutionNode node) {
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             MethodEmulator emulator = new MethodEmulator(vm, calleeContext, methodDescriptor);
-            emulator.emulate();
+            emulator.emulate(this);
             sideEffectLevel = emulator.getSideEffectLevel();
             if (emulator.getExceptions().size() > 0) {
                 node.clearChildren();
@@ -384,8 +382,7 @@ public class InvokeOp extends ExecutionContextOp {
             try {
                 reflector.reflect(calleeContext.getMethodState()); // playa play
             } catch (Exception e) {
-                VirtualException exception = new VirtualException(e);
-                node.setException(exception);
+                node.setException(e);
                 node.clearChildren();
                 return;
             }

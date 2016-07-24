@@ -1,41 +1,29 @@
 package org.cf.smalivm.emulate;
 
-import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
+import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashSet;
-import java.util.Set;
-
-class java_lang_Class_forName implements ExecutionContextMethod {
+class java_lang_Class_forName extends ExecutionContextMethod {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_forName.class.getSimpleName());
 
     private static final String RETURN_TYPE = CommonTypes.CLASS;
 
-    private final Set<VirtualException> exceptions;
-    private SideEffect.Level level;
-
-    java_lang_Class_forName() {
-        exceptions = new HashSet<VirtualException>();
-        level = SideEffect.Level.NONE;
-    }
-
     @Override
-    public void execute(VirtualMachine vm, ExecutionContext context) {
+    public void execute(VirtualMachine vm, Op op, ExecutionContext context) {
         MethodState mState = context.getMethodState();
         String binaryClassName = (String) mState.peekParameter(0).getValue();
         String className = ClassNameUtils.binaryToInternal(binaryClassName);
 
-        Class value = null;
+        Class<?> value = null;
         try {
             if (vm.getConfiguration().isSafe(className)) {
                 value = Class.forName(binaryClassName);
@@ -61,22 +49,9 @@ class java_lang_Class_forName implements ExecutionContextMethod {
             }
             mState.assignReturnRegister(value, RETURN_TYPE);
         } catch (ClassNotFoundException e) {
-            setException(new VirtualException(ClassNotFoundException.class, binaryClassName));
+            Throwable exception = vm.getExceptionFactory().build(op, ClassNotFoundException.class, binaryClassName);
+            setException(exception);
         }
-    }
-
-    @Override
-    public SideEffect.Level getSideEffectLevel() {
-        return level;
-    }
-
-    @Override
-    public Set<VirtualException> getExceptions() {
-        return exceptions;
-    }
-
-    private void setException(VirtualException exception) {
-        exceptions.add(exception);
     }
 
 }

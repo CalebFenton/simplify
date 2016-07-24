@@ -3,9 +3,9 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
@@ -919,8 +919,7 @@ public class BinaryMathOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArithmeticException.class, "/ by zero", node, mState);
         }
 
         @Test
@@ -933,8 +932,7 @@ public class BinaryMathOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArithmeticException.class, "/ by zero", node, mState);
         }
 
         @Test
@@ -948,8 +946,7 @@ public class BinaryMathOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArithmeticException.class, "/ by zero", node, mState);
         }
 
         @Test
@@ -979,8 +976,7 @@ public class BinaryMathOpTest {
             op = opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArithmeticException.class, "/ by zero");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArithmeticException.class, "/ by zero", node, mState);
         }
 
         @Before
@@ -990,6 +986,9 @@ public class BinaryMathOpTest {
             node = mock(ExecutionNode.class);
             location = mock(MethodLocation.class);
             when(location.getCodeAddress()).thenReturn(ADDRESS);
+
+            ExceptionFactory exceptionFactory = mock(ExceptionFactory.class);
+            when(vm.getExceptionFactory()).thenReturn(exceptionFactory);
 
             addressToLocation = new TIntObjectHashMap<MethodLocation>();
             addressToLocation.put(ADDRESS, location);

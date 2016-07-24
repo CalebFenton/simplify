@@ -1,7 +1,7 @@
 package org.cf.smalivm.emulate;
 
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionContext;
@@ -9,14 +9,12 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.dex.SmaliClassLoader;
+import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
@@ -38,6 +36,8 @@ public class java_lang_Class_forName_Test {
     private MethodState mState;
     private ExecutionContext context;
     private Configuration configuration;
+    private Op op;
+    private ExceptionFactory exceptionFactory;
 
     @Before
     public void setUp() throws ClassNotFoundException {
@@ -56,6 +56,10 @@ public class java_lang_Class_forName_Test {
         when(context.getMethodState()).thenReturn(mState);
 
         method = new java_lang_Class_forName();
+
+        op = mock(Op.class);
+        exceptionFactory = mock(ExceptionFactory.class);
+        when(vm.getExceptionFactory()).thenReturn(exceptionFactory);
     }
 
     @Test
@@ -68,7 +72,7 @@ public class java_lang_Class_forName_Test {
         HeapItem item = new HeapItem(binaryClassName, CommonTypes.STRING);
         when(mState.peekParameter(0)).thenReturn(item);
 
-        method.execute(vm, context);
+        method.execute(vm, op, context);
 
         verify(mState, times(1)).assignReturnRegister(eq(STRING_CLASS), eq(CommonTypes.CLASS));
         assertEquals(level, method.getSideEffectLevel());
@@ -85,7 +89,7 @@ public class java_lang_Class_forName_Test {
         HeapItem item = new HeapItem(binaryClassName, CommonTypes.STRING);
         when(mState.peekParameter(0)).thenReturn(item);
 
-        method.execute(vm, context);
+        method.execute(vm, op, context);
 
         verify(mState, times(1)).assignReturnRegister(eq(OBJECT_CLASS), eq(CommonTypes.CLASS));
         verify(context, times(1)).staticallyInitializeClassIfNecessary(virtualClass);
@@ -93,7 +97,7 @@ public class java_lang_Class_forName_Test {
     }
 
     @Test
-    public void testStrongSideEffectsClassNameReturnsClassAndHasStrongSideEffects() throws Exception {
+    public void strongSideEffectsClassNameReturnsClassAndHasStrongSideEffects() throws Exception {
         String className = "Lstrong/Class;";
         SideEffect.Level level = SideEffect.Level.STRONG;
         VirtualClass virtualClass = setupClass(className, false, level);
@@ -103,7 +107,7 @@ public class java_lang_Class_forName_Test {
         HeapItem item = new HeapItem(binaryClassName, CommonTypes.STRING);
         when(mState.peekParameter(0)).thenReturn(item);
 
-        method.execute(vm, context);
+        method.execute(vm, op, context);
 
         verify(mState, times(1)).assignReturnRegister(eq(OBJECT_CLASS), eq(CommonTypes.CLASS));
         verify(context, times(1)).staticallyInitializeClassIfNecessary(virtualClass);
@@ -111,22 +115,25 @@ public class java_lang_Class_forName_Test {
     }
 
     @Test
-    public void testUnknownClassNameThrowsExceptionAndAssignsNothing() throws Exception {
+    public void unknownClassNameThrowsExceptionAndAssignsNothing() throws Exception {
         String className = "Lunknown/Class;";
         SideEffect.Level level = SideEffect.Level.NONE;
         VirtualClass virtualClass = setupClass(className, false, level);
 
-        String binaryClassName = "unknown.Class";
-        HeapItem item = new HeapItem(binaryClassName, CommonTypes.STRING);
+        String binaryName = "unknown.Class";
+        HeapItem item = new HeapItem(binaryName, CommonTypes.STRING);
         when(mState.peekParameter(0)).thenReturn(item);
-
         when(classManager.getVirtualClass(className)).thenThrow(new RuntimeException());
+        Throwable exception = mock(Throwable.class);
+        when(exceptionFactory.build(eq(op), eq(ClassNotFoundException.class), eq(binaryName))).thenReturn(exception);
 
-        method.execute(vm, context);
+        method.execute(vm, op, context);
 
-        Set<VirtualException> expectedExceptions = new HashSet<VirtualException>();
-        expectedExceptions.add(new VirtualException(ClassNotFoundException.class, binaryClassName));
-        assertEquals(expectedExceptions, method.getExceptions());
+        assertEquals(1, method.getExceptions().size());
+
+        Throwable actualException = method.getExceptions().iterator().next();
+        assertEquals(exception, actualException);
+
         verify(mState, times(0)).assignReturnRegister(any(UnknownValue.class), eq(CommonTypes.CLASS));
         assertEquals(SideEffect.Level.NONE, method.getSideEffectLevel());
     }

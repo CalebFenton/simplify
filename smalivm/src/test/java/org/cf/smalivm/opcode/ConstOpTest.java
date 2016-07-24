@@ -177,9 +177,7 @@ public class ConstOpTest {
 
             // TODO: ClassUtils.getDeclaringClass returns exceptions with "/", but Class.forName uses "."
             // should make object which handles getting classes for dependency injection
-            VirtualException expectedException =
-                    new VirtualException(ClassNotFoundException.class, "does/not/123Exist");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ClassNotFoundException.class, "does/not/123Exist", node, mState);
         }
 
         @Before

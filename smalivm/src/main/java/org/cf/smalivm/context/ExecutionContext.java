@@ -234,7 +234,7 @@ public class ExecutionContext {
             // Too many will trash the heap
             for (VirtualClass virtualClass : initializedClasses) {
                 ClassState cState = classToStatus.get(virtualClass).getClassState();
-                sb.append("VirtualClass state: ").append(virtualClass).append(' ').append(cState);
+                sb.append("Class state: ").append(virtualClass).append(' ').append(cState);
             }
         }
 

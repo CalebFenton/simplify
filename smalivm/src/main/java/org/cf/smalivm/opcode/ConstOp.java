@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.cf.smalivm.VirtualException;
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
@@ -17,25 +17,25 @@ class ConstOp extends MethodStateOp {
     private final int destRegister;
     private final Object literal;
     private final ClassLoader classLoader;
-    ConstOp(MethodLocation location, MethodLocation child, int destRegister, ConstantType constantType, Object literal,
-            ClassLoader classLoader) {
-        super(location, child);
 
+    ConstOp(MethodLocation location, MethodLocation child, int destRegister, ConstantType constantType, Object literal,
+            ClassLoader classLoader, ExceptionFactory exceptionFactory) {
+        super(location, child);
         this.destRegister = destRegister;
         this.constantType = constantType;
         this.literal = literal;
         this.classLoader = classLoader;
 
         if (ConstantType.CLASS.equals(constantType)) {
-            addException(new VirtualException(ClassNotFoundException.class, (String) literal));
+            addException(exceptionFactory.build(this, ClassNotFoundException.class, (String) literal));
         }
     }
 
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         Object constant = buildConstant();
-        if (constant instanceof VirtualException) {
-            node.setException((VirtualException) constant);
+        if (constant instanceof Throwable) {
+            node.setException((Throwable) constant);
             node.clearChildren();
             return;
         } else {
@@ -88,7 +88,7 @@ class ConstOp extends MethodStateOp {
                 String binaryClassName = ClassNameUtils.internalToBinary(className);
                 constant = ClassUtils.getClass(classLoader, binaryClassName);
             } catch (ClassNotFoundException e) {
-                return new VirtualException(e);
+                return e;
             }
         } else {
             constant = literal;
@@ -120,9 +120,9 @@ class ConstOp extends MethodStateOp {
                 break;
             default:
                 if (log.isWarnEnabled()) {
-                    log.warn("Unexpected constant virtual: {} (should never happen)", constantType);
+                    log.warn("Unexpected constant class (should never happen): {}", constantType);
                 }
-                type = "?";
+                type = CommonTypes.UNKNOWN;
         }
 
         return type;

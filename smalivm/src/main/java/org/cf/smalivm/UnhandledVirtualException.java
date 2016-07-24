@@ -4,19 +4,16 @@ public class UnhandledVirtualException extends VirtualMachineException {
 
     private static final long serialVersionUID = 7055493085764845808L;
 
-    private final VirtualException exception;
+    private final Throwable exception;
 
-    public UnhandledVirtualException(VirtualException exception) {
-        super(exception.toString());
+    public UnhandledVirtualException(Throwable exception) {
+        super(exception.getMessage());
         this.exception = exception;
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Unhandled virtual exception: ").append(exception);
-
-        return sb.toString();
+        return "Unhandled virtual exception: " + exception;
     }
 
 }

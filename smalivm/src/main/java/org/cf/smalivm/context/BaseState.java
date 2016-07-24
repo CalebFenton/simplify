@@ -56,7 +56,6 @@ class BaseState {
 
     void assignRegister(int register, HeapItem item, String heapId) {
         registersAssigned.add(register);
-
         pokeRegister(register, item, heapId);
     }
 

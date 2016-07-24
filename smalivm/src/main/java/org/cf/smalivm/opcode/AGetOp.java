@@ -1,14 +1,15 @@
 package org.cf.smalivm.opcode;
 
-import java.lang.reflect.Array;
-
-import org.cf.smalivm.VirtualException;
+import org.cf.smalivm.ExceptionFactory;
+import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Array;
 
 public class AGetOp extends MethodStateOp {
 
@@ -17,23 +18,36 @@ public class AGetOp extends MethodStateOp {
     private final int valueRegister;
     private final int arrayRegister;
     private final int indexRegister;
+    private final ExceptionFactory exceptionFactory;
 
-    AGetOp(MethodLocation location, MethodLocation child, int valueRegister, int arrayRegister, int indexRegister) {
+    AGetOp(MethodLocation location, MethodLocation child, int valueRegister, int arrayRegister, int indexRegister,
+           ExceptionFactory exceptionFactory) {
         super(location, child);
-
         this.valueRegister = valueRegister;
         this.arrayRegister = arrayRegister;
         this.indexRegister = indexRegister;
+        this.exceptionFactory = exceptionFactory;
 
-        addException(new VirtualException(NullPointerException.class));
-        addException(new VirtualException(ArrayIndexOutOfBoundsException.class));
+        addException(exceptionFactory.build(this, NullPointerException.class));
+        addException(exceptionFactory.build(this, ArrayIndexOutOfBoundsException.class));
+    }
+
+    private static String getUnknownArrayInnerType(HeapItem array) {
+        String outerType = array.getType();
+        String result = null;
+        if ("?".equals(outerType)) {
+            result = "?";
+        } else {
+            result = outerType.replaceFirst("\\[", "");
+        }
+
+        return result;
     }
 
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem arrayItem = mState.readRegister(arrayRegister);
         HeapItem indexItem = mState.readRegister(indexRegister);
-
         HeapItem getItem;
         if (arrayItem.isUnknown()) {
             String innerType = getUnknownArrayInnerType(arrayItem);
@@ -48,7 +62,7 @@ public class AGetOp extends MethodStateOp {
                 node.clearExceptions();
 
                 if (null == array) {
-                    VirtualException exception = new VirtualException(NullPointerException.class);
+                    Throwable exception = exceptionFactory.build(this, NullPointerException.class);
                     node.setException(exception);
                     node.clearChildren();
                     return;
@@ -57,14 +71,14 @@ public class AGetOp extends MethodStateOp {
                 int index = indexItem.asInteger();
                 String innerType = arrayItem.getType().replaceFirst("\\[", "");
                 if (index >= Array.getLength(array)) {
-                    VirtualException exception = new VirtualException(ArrayIndexOutOfBoundsException.class);
+                    Throwable exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException.class);
                     node.setException(exception);
                     node.clearChildren();
                     return;
                 } else {
                     Object value = Array.get(array, index);
                     getItem = new HeapItem(value, innerType);
-                    // node.clearExceptions();
+                    node.clearExceptions();
                 }
             }
         }
@@ -73,22 +87,7 @@ public class AGetOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(valueRegister).append(", r").append(arrayRegister).append(", r").append(indexRegister);
-
-        return sb.toString();
-    }
-
-    private static String getUnknownArrayInnerType(HeapItem array) {
-        String outerType = array.getType();
-        String result = null;
-        if ("?".equals(outerType)) {
-            result = "?";
-        } else {
-            result = outerType.replaceFirst("\\[", "");
-        }
-
-        return result;
+        return getName() + " r" + valueRegister + ", r" + arrayRegister + ", r" + indexRegister;
     }
 
 }

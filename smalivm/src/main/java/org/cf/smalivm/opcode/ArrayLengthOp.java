@@ -1,15 +1,16 @@
 package org.cf.smalivm.opcode;
 
-import java.lang.reflect.Array;
-
-import org.cf.smalivm.VirtualException;
+import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Array;
 
 public class ArrayLengthOp extends MethodStateOp {
 
@@ -18,13 +19,13 @@ public class ArrayLengthOp extends MethodStateOp {
     private final int arrayRegister;
     private final int destRegister;
 
-    ArrayLengthOp(MethodLocation location, MethodLocation child, int valueRegister, int arrayRegister) {
+    ArrayLengthOp(MethodLocation location, MethodLocation child, int destRegister, int arrayRegister,
+                  ExceptionFactory exceptionFactory) {
         super(location, child);
-
-        destRegister = valueRegister;
+        this.destRegister = destRegister;
         this.arrayRegister = arrayRegister;
 
-        addException(new VirtualException(NullPointerException.class, "Attempt to get length of null array"));
+        addException(exceptionFactory.build(this, NullPointerException.class, "Attempt to get length of null array"));
     }
 
     @Override
@@ -39,25 +40,21 @@ public class ArrayLengthOp extends MethodStateOp {
             node.clearExceptions();
         } else {
             if (array == null) {
-                node.setExceptions(getExceptions());
                 node.clearChildren();
                 return;
             } else {
-                // Won't pass verifier if it's not an array virtual. Probably our fault, so error.
+                // Won't pass DEX verifier if it's not an array class. Probably our fault, so error.
                 if (log.isErrorEnabled()) {
                     log.error("Unexpected non-array class: {}, {}", array.getClass(), array);
                 }
             }
         }
-        mState.assignRegister(destRegister, lengthValue, "I");
+        mState.assignRegister(destRegister, lengthValue, CommonTypes.INTEGER);
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(arrayRegister);
-
-        return sb.toString();
+        return getName() + " r" + destRegister + ", r" + arrayRegister;
     }
 
 }

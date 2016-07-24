@@ -3,10 +3,12 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
+import junit.framework.TestCase;
+
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -29,6 +31,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -224,6 +227,51 @@ public class APutOpTest {
             VMTester.test(CLASS_NAME, "put()V", initial, expected);
         }
 
+        @Test
+        public void nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            initial.setRegisters(0, null, "[I", 1, 0, "I", 2, 0, "I");
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "putWithCatch()V", initial);
+
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            TestCase.assertEquals(item.getValue().getClass(), NullPointerException.class);
+            TestCase.assertEquals(item.getType(), "Ljava/lang/NullPointerException;");
+
+            assertFalse(graph.wasAddressReached(2));
+
+            MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
+            TestCase.assertEquals(0, mState.getRegistersAssigned().length);
+        }
+
+        @Test
+        public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            initial.setRegisters(0, new int[5], "[I", 1, 10, "I", 2, 0, "I");
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "putWithCatch()V", initial);
+
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            TestCase.assertEquals(item.getValue().getClass(), ArrayIndexOutOfBoundsException.class);
+            TestCase.assertEquals(item.getType(), "Ljava/lang/ArrayIndexOutOfBoundsException;");
+
+            assertFalse(graph.wasAddressReached(2));
+
+            MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
+            TestCase.assertEquals(0, mState.getRegistersAssigned().length);
+        }
+
+        @Test
+        public void incompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+            initial.setRegisters(0, new int[5], "[I", 1, 10, "I", 2, "wrong type", "Ljava/lang/String;");
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "putWithCatch()V", initial);
+
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            TestCase.assertEquals(item.getValue().getClass(), ArrayStoreException.class);
+            TestCase.assertEquals(item.getType(), "Ljava/lang/ArrayStoreException;");
+
+            assertFalse(graph.wasAddressReached(2));
+
+            MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
+            TestCase.assertEquals(0, mState.getRegistersAssigned().length);
+        }
+
         @Before
         public void setUp() {
             initial = new VMState();
@@ -264,8 +312,7 @@ public class APutOpTest {
             op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArrayStoreException.class, "java.lang.String", node, mState);
         }
 
         @Test
@@ -283,13 +330,11 @@ public class APutOpTest {
             op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(NullPointerException.class);
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(NullPointerException.class, node, mState);
         }
 
         @Test
-        public void
-        outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters() {
+        public void outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters() {
             int[] arrayValue = new int[] { 5 };
             int indexValue = 2;
             String value = "wont work";
@@ -303,8 +348,7 @@ public class APutOpTest {
             op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArrayStoreException.class, "java.lang.String", node, mState);
         }
 
         @Test
@@ -322,8 +366,7 @@ public class APutOpTest {
             op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArrayIndexOutOfBoundsException.class);
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArrayIndexOutOfBoundsException.class, node, mState);
         }
 
         @Before
@@ -384,8 +427,7 @@ public class APutOpTest {
             op = (APutOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            VirtualException expectedException = new VirtualException(ArrayStoreException.class, "java.lang.String");
-            VMTester.verifyExceptionHandling(expectedException, node, mState);
+            VMTester.verifyExceptionHandling(ArrayStoreException.class, "java.lang.String", node, mState);
         }
 
         @Test

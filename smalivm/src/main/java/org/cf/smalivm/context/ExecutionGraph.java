@@ -44,6 +44,10 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     private final VirtualMethod method;
     private final int[] terminatingAddresses;
 
+    public String toString() {
+        return "ExecutionGraph{" + method + "}";
+    }
+
     public ExecutionGraph(ExecutionGraph other) {
         method = other.method;
         locationToNodePile = new HashMap<MethodLocation, List<ExecutionNode>>();

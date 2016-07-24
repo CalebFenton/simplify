@@ -3,7 +3,7 @@ package org.cf.smalivm.context;
 import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
-import org.cf.smalivm.VirtualException;
+import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
@@ -52,8 +52,9 @@ public class MethodState extends BaseState {
         this.mutableParameters = parent.mutableParameters;
     }
 
-    public void assignExceptionRegister(VirtualException exception) {
-        HeapItem item = new HeapItem(exception, exception.getExceptionClass());
+    public void assignExceptionRegister(Throwable exception) {
+        String className = ClassNameUtils.toInternal(exception.getClass());
+        HeapItem item = new HeapItem(exception, className);
         pokeRegister(ExceptionRegister, item, METHOD_HEAP);
     }
 

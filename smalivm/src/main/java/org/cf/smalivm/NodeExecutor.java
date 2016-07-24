@@ -40,7 +40,7 @@ public class NodeExecutor {
                                                ExceptionHandlerAddressResolver exceptionResolver) throws
             UnhandledVirtualException {
         if (node.mayThrowException()) {
-            for (VirtualException exception : node.getExceptions()) {
+            for (Throwable exception : node.getExceptions()) {
                 if (log.isTraceEnabled()) {
                     log.trace("{} may throw virtual exception: {}", node, exception);
                 }
