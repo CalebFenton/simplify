@@ -5,7 +5,6 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionContext;
@@ -19,12 +18,14 @@ import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction35c;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -259,13 +260,16 @@ public class InvokeOpTest {
         public void alwaysThrownExceptionIsBubbledUp() {
             ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeMethodWhichThrowsNullPointerException()V");
 
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            Class<?> exceptionClass = NullPointerException.class;
+            Assert.assertEquals(exceptionClass, item.getValue().getClass());
+            Assert.assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
+
             int[] expectedAddresses = new int[] { 0, 4, 5 };
             VMTester.testVisitation(graph, expectedAddresses);
 
-            String exceptionClass = "Ljava/lang/NullPointerException;";
-            VirtualException exception = new VirtualException(exceptionClass, null);
-            expected.setRegisters(MethodState.ThrowRegister, exception, exceptionClass, 0, exception, exceptionClass);
-            VMTester.testState(graph, expected);
+            HeapItem throwItem = graph.getTerminatingRegisterConsensus(MethodState.ThrowRegister);
+            assertEquals(item, throwItem);
         }
 
         @Test
@@ -294,8 +298,7 @@ public class InvokeOpTest {
         private VMState initial;
 
         @Test
-        public void instanceInitializerWorksAsExpected() throws InstantiationException, IllegalAccessException,
-                                                                                ClassNotFoundException {
+        public void instanceInitializerWorksAsExpected() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM(true);
             VirtualClass instanceType = vm.getClassManager().getVirtualClass(CLASS_NAME);
             initial.setRegisters(0, new UninitializedInstance(instanceType), CLASS_NAME);
@@ -324,8 +327,7 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeReturnIntReturnsInt() throws InstantiationException, IllegalAccessException,
-                                                                           ClassNotFoundException {
+        public void testInvokeReturnIntReturnsInt() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();
@@ -336,9 +338,7 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeReturnParameterReturnsParameter() throws InstantiationException,
-                                                                                       IllegalAccessException,
-                                                                                       ClassNotFoundException {
+        public void testInvokeReturnParameterReturnsParameter() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();
@@ -349,15 +349,14 @@ public class InvokeOpTest {
             VMTester.testState(graph, expected);
 
             // Can't simply put instance in the expected state because mutable objects get cloned.
-            // The object parse at consensus would be different than the initial parse.
+            // The object class at consensus would be different than the initial class.
             HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
             assertEquals(CLASS_NAME, consensus.getType());
-            assertEquals(virtualClass, consensus.getValue().getClass());
+            assertEquals(virtualClass.getName(), consensus.getValue().getClass().getName());
         }
 
         @Test
-        public void testInvokeReturnVoidReturnsVoid() throws InstantiationException, IllegalAccessException,
-                                                                             ClassNotFoundException {
+        public void testInvokeReturnVoidReturnsVoid() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM(true);
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();
@@ -369,8 +368,7 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void testInvokeVirtualManyParametersThrowsNoExceptions() throws InstantiationException,
-                                                                                               IllegalAccessException, ClassNotFoundException {
+        public void testInvokeVirtualManyParametersThrowsNoExceptions() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();

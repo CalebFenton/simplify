@@ -109,8 +109,17 @@
 .method public static constClassUnknown()V
     .locals 1
 
+    :try_start_0
     const-class v0, Lunknown/class;
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
 
+    nop
+
+    :return
     return-void
-.end method
 
+    :catch_0
+    move-exception v0
+    goto :return
+.end method

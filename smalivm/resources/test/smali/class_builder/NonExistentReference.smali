@@ -1,4 +1,4 @@
-.class public Lorg/cf/test/NonExistantReference;
+.class public Lorg/cf/test/NonExistentReference;
 .super Ljava/lang/Object;
 
 .method public static test()Ldoes/not/exist;

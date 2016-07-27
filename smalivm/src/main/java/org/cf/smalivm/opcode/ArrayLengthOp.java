@@ -35,18 +35,16 @@ public class ArrayLengthOp extends MethodStateOp {
         Object lengthValue = null;
         if (arrayItem.isUnknown()) {
             lengthValue = new UnknownValue();
-        } else if (array != null && array.getClass().isArray()) {
+        } else if (array == null) {
+            node.clearChildren();
+            return;
+        } else if (array.getClass().isArray()) {
             lengthValue = Array.getLength(array);
             node.clearExceptions();
         } else {
-            if (array == null) {
-                node.clearChildren();
-                return;
-            } else {
-                // Won't pass DEX verifier if it's not an array class. Probably our fault, so error.
-                if (log.isErrorEnabled()) {
-                    log.error("Unexpected non-array class: {}, {}", array.getClass(), array);
-                }
+            // Won't pass DEX verifier if it's not an array class. Probably our fault, so error.
+            if (log.isErrorEnabled()) {
+                log.error("Unexpected non-array class: {}, {}", array.getClass(), array);
             }
         }
         mState.assignRegister(destRegister, lengthValue, CommonTypes.INTEGER);

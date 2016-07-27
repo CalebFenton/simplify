@@ -1,9 +1,26 @@
 # IDEA SCRATCH PAD
 
-* Added handling of static field literal initialization
-* Improved looking up of inherited fields
+* Allow static initialization of fields using literals, e.g. `.field myInt:I = 0x42`
+* Fixed several problems with lookup of inherited fields
 * Improved correctness for `instance-of` and `check-cast` ops
 * Improved correctness for `java.lang.reflect.Field.get()` emulated method
+* Improved exception handling - implement `throw` and `move-exception`
+
+find all "?" and replace with common type unknkown
+
+Theory: all framework classes are OK to statically initialize and should be regardless of safety
+
+remove all virtual exceptions
+create an exceptionfactory
+  give it everything it needs to create exception and set stack trace
+
+// TODO: https://github.com/CalebFenton/simplify/issues/8
+add tests and feature for moving exception from parent op
+  move-exception op
+implement the throw op also
+  add some tests
+also fix invoke op for getting graph of invoked method
+  peekThrowRegister() see if it's null
 
 
 test how the array clone method is handled
@@ -16,12 +33,6 @@ can you get length property?
 
 invoke-virtual {v2}, [Ljava/lang/String;->clone()Ljava/lang/Object;
 
-heapitem types can be interned
-
-type tests
-        // all arrays are of type Object
-        // arrays of N dimension are of type Object N-1 dimension
-        // all arrays are of their exact same type
 
 checklist:
 comments on every class
@@ -200,11 +211,6 @@ consider unit testing
     exception
     current address
     try catch blocks
-
-
-catch unhandled virtual exceptions in invokeop
-set THOSE as the exceptions, clear children, return
-make notes saying that just because eomething is unhandled doesn't mean if there's an actual context for a method instead of just starting it at the root then it might be a handled exception
 
 
 Success stories:

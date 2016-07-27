@@ -10,6 +10,7 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
@@ -24,6 +25,8 @@ import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -136,85 +139,27 @@ public class ConstOpTest {
             VMTester.test(CLASS_NAME, "const16Negative()V", expected);
         }
 
-        @Before
-        public void setUp() {
-            expected = new VMState();
+        @Test
+        public void nonExistentClassNameThrowsException() {
+            testException("constClassUnknown()V", ClassNotFoundException.class);
         }
 
-    }
+        private static void testException(String methodDescriptor, Class<?> exceptionClass) {
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, methodDescriptor);
 
-    public static class UnitTest {
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(exceptionClass, item.getValue().getClass());
+            assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
 
-        private static final int ADDRESS = 0;
-        private static final int ARG1_REGISTER = 2;
+            assertFalse(graph.wasAddressReached(2));
 
-        private TIntObjectMap<MethodLocation> addressToLocation;
-        private Configuration configuration;
-        private MethodLocation location;
-        private MethodState mState;
-        private ExecutionNode node;
-        private ConstOp op;
-        private ConstOpFactory opFactory;
-        private VirtualMachine vm;
-
-        @Test
-        public void canConstClass() throws ClassNotFoundException {
-            String type = "Ljava/lang/String;";
-            buildInstruction21c(Opcode.CONST_CLASS, type);
-            op = opFactory.create(location, addressToLocation, vm);
-            op.execute(node, mState);
-
-            Class<?> expected = String.class;
-            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq(CommonTypes.CLASS));
-        }
-
-        @Test
-        public void nonExistantClassNameThrowsException() throws ClassNotFoundException {
-            String type = "Ldoes/not/123Exist;";
-            buildInstruction21c(Opcode.CONST_CLASS, type);
-            op = opFactory.create(location, addressToLocation, vm);
-            op.execute(node, mState);
-
-            // TODO: ClassUtils.getDeclaringClass returns exceptions with "/", but Class.forName uses "."
-            // should make object which handles getting classes for dependency injection
-            VMTester.verifyExceptionHandling(ClassNotFoundException.class, "does/not/123Exist", node, mState);
+            MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
+            assertEquals(0, mState.getRegistersAssigned().length);
         }
 
         @Before
         public void setUp() {
-            vm = mock(VirtualMachine.class);
-
-            configuration = mock(Configuration.class);
-            when(vm.getConfiguration()).thenReturn(configuration);
-
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-            location = mock(MethodLocation.class);
-            when(location.getCodeAddress()).thenReturn(ADDRESS);
-
-            addressToLocation = new TIntObjectHashMap<MethodLocation>();
-            addressToLocation.put(ADDRESS, location);
-
-            opFactory = new ConstOpFactory();
-        }
-
-        private BuilderInstruction21c buildInstruction21c(Opcode opcode, String type) {
-            BuilderInstruction21c instruction = mock(BuilderInstruction21c.class);
-            setupInstruction(instruction, opcode);
-
-            when(((Instruction21c) instruction).getRegisterA()).thenReturn(ARG1_REGISTER);
-            TypeReference reference = mock(TypeReference.class);
-            when(reference.getType()).thenReturn(type);
-            when(instruction.getReference()).thenReturn(reference);
-
-            return instruction;
-        }
-
-        private void setupInstruction(BuilderInstruction instruction, Opcode opcode) {
-            when(location.getInstruction()).thenReturn(instruction);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(opcode);
+            expected = new VMState();
         }
 
     }

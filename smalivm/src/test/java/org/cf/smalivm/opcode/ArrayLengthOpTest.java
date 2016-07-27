@@ -1,31 +1,19 @@
 package org.cf.smalivm.opcode;
 
-import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
-
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
-import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
-import org.jf.dexlib2.Opcode;
-import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction;
-import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
+import org.cf.util.ClassNameUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
+import static org.junit.Assert.assertFalse;
 
 @RunWith(Enclosed.class)
 public class ArrayLengthOpTest {
@@ -89,6 +77,22 @@ public class ArrayLengthOpTest {
         private VMState expected;
         private VMState initial;
 
+        private static void testException(String methodDescriptor, Class<?> exceptionClass, String exceptionMessage,
+                                          VMState initial) {
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial);
+
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            Assert.assertEquals(exceptionClass, item.getValue().getClass());
+            Assert.assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
+            Assert.assertEquals(exceptionMessage, ((Throwable) item.getValue()).getMessage());
+
+            assertFalse("Should not reach next instruction in non-exception execution path",
+                    graph.wasAddressReached(1));
+
+            MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
+            Assert.assertEquals(0, mState.getRegistersAssigned().length);
+        }
+
         @Test
         public void canGetLengthForEmptyIntArray() {
             initial.setRegisters(0, new int[] {}, "[I");
@@ -121,59 +125,17 @@ public class ArrayLengthOpTest {
             VMTester.test(CLASS_NAME, "getLength()V", initial, expected);
         }
 
+        @Test
+        public void nullArrayThrowsExpectedException() {
+            initial.setRegisters(0, null, "[S");
+            testException("getLengthWithCatch()V", NullPointerException.class, "Attempt to get length of null array",
+                    initial);
+        }
+
         @Before
         public void setUp() {
             initial = new VMState();
             expected = new VMState();
-        }
-    }
-
-    public static class UnitTest {
-
-        private static final int ADDRESS = 0;
-        private static final int ARG1_REGISTER = 2;
-        private static final int DEST_REGISTER = 0;
-
-        private TIntObjectMap<MethodLocation> addressToLocation;
-        private BuilderInstruction instruction;
-        private MethodLocation location;
-        private MethodState mState;
-        private ExecutionNode node;
-        private ArrayLengthOp op;
-        private ArrayLengthOpFactory opFactory;
-        private VirtualMachine vm;
-
-        @Test
-        public void nullArrayThrowsExpectedException() {
-            VMTester.setRegisterMock(mState, ARG1_REGISTER, null, "[I");
-
-            op = (ArrayLengthOp) opFactory.create(location, addressToLocation, vm);
-            op.execute(node, mState);
-
-            VMTester.verifyExceptionHandling(op.getExceptions(), node, mState);
-        }
-
-        @Before
-        public void setUp() {
-            vm = mock(VirtualMachine.class);
-            mState = mock(MethodState.class);
-            node = mock(ExecutionNode.class);
-
-            location = mock(MethodLocation.class);
-            instruction = mock(BuilderInstruction.class,
-                    withSettings().extraInterfaces(TwoRegisterInstruction.class, Instruction12x.class));
-            when(location.getInstruction()).thenReturn(instruction);
-            when(location.getCodeAddress()).thenReturn(ADDRESS);
-            when(instruction.getLocation()).thenReturn(location);
-            when(instruction.getCodeUnits()).thenReturn(0);
-            when(instruction.getOpcode()).thenReturn(Opcode.ARRAY_LENGTH);
-            when(((Instruction12x) instruction).getRegisterA()).thenReturn(DEST_REGISTER);
-            when(((Instruction12x) instruction).getRegisterB()).thenReturn(ARG1_REGISTER);
-
-            addressToLocation = new TIntObjectHashMap<MethodLocation>();
-            addressToLocation.put(ADDRESS, location);
-
-            opFactory = new ArrayLengthOpFactory();
         }
     }
 

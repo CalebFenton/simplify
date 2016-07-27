@@ -6,10 +6,11 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.util.ClassNameUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 public class AGetOpTest {
@@ -18,6 +19,20 @@ public class AGetOpTest {
 
     private VMState expected;
     private VMState initial;
+
+    private static void testException(String methodDescriptor, Class<?> exceptionClass, VMState initial) {
+        ExecutionGraph graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial);
+
+        HeapItem item = graph.getTerminatingRegisterConsensus(0);
+        Assert.assertEquals(exceptionClass, item.getValue().getClass());
+        Assert.assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
+
+        assertFalse("Should not reach next instruction in non-exception execution path",
+                graph.wasAddressReached(2));
+
+        MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
+        Assert.assertEquals(0, mState.getRegistersAssigned().length);
+    }
 
     @Test
     public void canGet() {
@@ -122,31 +137,13 @@ public class AGetOpTest {
     @Test
     public void nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, null, "[I", 1, 0, "I");
-        ExecutionGraph graph = VMTester.execute(CLASS_NAME, "getWithCatch()V", initial);
-
-        HeapItem item = graph.getTerminatingRegisterConsensus(0);
-        assertEquals(item.getValue().getClass(), NullPointerException.class);
-        assertEquals(item.getType(), "Ljava/lang/NullPointerException;");
-
-        assertFalse(graph.wasAddressReached(2));
-
-        MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
-        assertEquals(0, mState.getRegistersAssigned().length);
+        testException("getWithCatch()V", NullPointerException.class, initial);
     }
 
     @Test
     public void outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, new int[5], "[I", 1, 10, "I");
-        ExecutionGraph graph = VMTester.execute(CLASS_NAME, "getWithCatch()V", initial);
-
-        HeapItem item = graph.getTerminatingRegisterConsensus(0);
-        assertEquals(item.getValue().getClass(), ArrayIndexOutOfBoundsException.class);
-        assertEquals(item.getType(), "Ljava/lang/ArrayIndexOutOfBoundsException;");
-
-        assertFalse(graph.wasAddressReached(2));
-
-        MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
-        assertEquals(0, mState.getRegistersAssigned().length);
+        testException("getWithCatch()V", ArrayIndexOutOfBoundsException.class, initial);
     }
 
     @Before

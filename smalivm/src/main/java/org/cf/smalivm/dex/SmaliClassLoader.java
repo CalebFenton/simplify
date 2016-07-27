@@ -16,20 +16,32 @@ public class SmaliClassLoader extends ClassLoader {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliClassLoader.class.getSimpleName());
 
+    // This jar is produced by FrameworkJarBuilder so that framework classes don't have to be built with ASM
+    // every time they're needed. Instead, they can be loaded from here.
     private static final String FRAMEWORK_STUBS_JAR = "/framework/android-23.jar";
 
-    private static final Map<String, java.lang.Class> cachedClasses = new HashMap<String, java.lang.Class>();
+    private final Map<String, Class<?>> cachedClasses;
     private final ClassBuilder classBuilder;
     private final ClassManager classManager;
-//    private final URLClassLoader jarLoader;
+    private final URLClassLoader jarLoader;
 
     public SmaliClassLoader(ClassManager classManager) {
         super(SmaliClassLoader.class.getClassLoader());
-        // cachedClasses = new HashMap<String, VirtualClass<?>>();
+        cachedClasses = new HashMap<String, Class<?>>();
         URL jarURL = SmaliClassLoader.class.getResource(FRAMEWORK_STUBS_JAR);
-//        jarLoader = new URLClassLoader(new URL[]{jarURL});
+        jarLoader = new URLClassLoader(new URL[] { jarURL });
         this.classBuilder = new ClassBuilder();
         this.classManager = classManager;
+    }
+
+    private static String getPackageName(String className) {
+        int i = className.lastIndexOf('.');
+        if (i > 0) {
+            return className.substring(0, i);
+        } else {
+            // No package name, e.g. LsomeClass;
+            return null;
+        }
     }
 
     @Override
@@ -41,15 +53,15 @@ public class SmaliClassLoader extends ClassLoader {
 
         if (name.startsWith("java.")) {
             log.warn("Unable to load prohibited class name: {}\nThis error is likely the result of using a class " +
-                    "which references a java.* class only available on Android. There's no work-around at this time " +
-                    "since loading protected classes is a huge pain.", name);
+                     "which references a java.* class only available on Android. There's no work-around at this time " +
+                     "since loading protected classes is a huge pain.", name);
             throw new ClassNotFoundException(name);
         }
 
-        // try {
-        // return jarLoader.loadClass(name);
-        // } catch (ClassNotFoundException e) {
-        // }
+        try {
+            return jarLoader.loadClass(name);
+        } catch (ClassNotFoundException e) {
+        }
 
         Class klazz = cachedClasses.get(name);
         if (klazz != null) {
@@ -57,6 +69,10 @@ public class SmaliClassLoader extends ClassLoader {
         }
 
         String internalName = ClassNameUtils.binaryToInternal(name);
+        if (!classManager.getClassNames().contains(internalName)) {
+            throw new ClassNotFoundException(name);
+        }
+
         VirtualClass virtualClass = classManager.getVirtualClass(internalName);
         ClassDef classDef = virtualClass.getClassDef();
 
@@ -71,16 +87,6 @@ public class SmaliClassLoader extends ClassLoader {
         }
 
         return klazz;
-    }
-
-    private static String getPackageName(String className) {
-        int i = className.lastIndexOf('.');
-        if (i > 0) {
-            return className.substring(0, i);
-        } else {
-            // No package name, e.g. LsomeClass;
-            return null;
-        }
     }
 
 }

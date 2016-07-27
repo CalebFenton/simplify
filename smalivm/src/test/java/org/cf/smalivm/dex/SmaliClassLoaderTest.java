@@ -67,13 +67,12 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsClassThatReferencesNonExistantClassAndThrowsExceptionWhenVerifyingIt() throws
-            ClassNotFoundException {
-        String className = "org.cf.test.NonExistantReference";
+    public void loadsClassThatReferencesNonExistentClassAndThrowsExceptionWhenVerifyingIt() throws ClassNotFoundException {
+        String className = "org.cf.test.NonExistentReference";
         Class<?> klazz = classLoader.loadClass(className);
 
-        exception.expect(RuntimeException.class);
-        exception.expectMessage("Can't find Smali file containing Ldoes/not/exist;");
+        exception.expect(NoClassDefFoundError.class);
+        exception.expectMessage("does/not/exist");
         klazz.getMethods();
     }
 
@@ -176,19 +175,20 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void throwsExceptionWhenLoadingNonExistantAndReferencedClass() throws ClassNotFoundException {
-        String nonExistantClassName = "does.not.exist";
-        exception.expect(RuntimeException.class);
-        exception.expectMessage("Can't find Smali file containing Ldoes/not/exist;");
-        classLoader.loadClass(nonExistantClassName);
+    public void throwsExceptionWhenLoadingNonExistentAndReferencedClass() throws ClassNotFoundException {
+        String nonExistentClassName = "does.not.exist";
+        exception.expect(ClassNotFoundException.class);
+        exception.expectMessage(nonExistentClassName);
+        classLoader.loadClass(nonExistentClassName);
     }
 
+
     @Test
-    public void throwsExceptionWhenLoadingNonExistantAndUnreferencedClass() throws ClassNotFoundException {
-        String nonExistantClassName = "asdf";
-        exception.expect(RuntimeException.class);
-        exception.expectMessage("Can't find Smali file containing Lasdf;");
-        classLoader.loadClass(nonExistantClassName);
+    public void throwsExceptionWhenLoadingNonExistentAndUnreferencedClass() throws ClassNotFoundException {
+        String nonExistentClassName = "asdfasdf";
+        exception.expect(ClassNotFoundException.class);
+        exception.expectMessage(nonExistentClassName);
+        classLoader.loadClass(nonExistentClassName);
     }
 
     private void assertHasObjectMethods(Class<?> klazz) {
