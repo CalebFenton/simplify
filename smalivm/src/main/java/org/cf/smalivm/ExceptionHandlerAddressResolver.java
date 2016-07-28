@@ -70,14 +70,10 @@ public class ExceptionHandlerAddressResolver {
         return -1;
     }
 
-    private int resolve(String className, int address) {
+    int resolve(String className, int address) {
         VirtualClass exceptionClass = classManager.getVirtualClass(className);
 
         return resolve(exceptionClass, address);
-    }
-
-    int resolve(VirtualException vex, int address) {
-        return resolve(vex.getExceptionClass(), address);
     }
 
     int resolve(Throwable ex, int address) {

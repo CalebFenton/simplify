@@ -4,8 +4,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.VirtualException;
-import org.cf.smalivm.VirtualMachine;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
 

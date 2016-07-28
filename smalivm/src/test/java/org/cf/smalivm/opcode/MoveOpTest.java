@@ -2,7 +2,6 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -23,7 +22,7 @@ public class MoveOpTest {
 
     @Test
     public void canMoveException() {
-        VirtualException exception = new VirtualException("Ljava/lang/Exception;");
+        String exception = "any object would do";
         initial.setRegisters(MethodState.ExceptionRegister, exception, "Ljava/lang/Exception;");
         expected.setRegisters(0, exception, "Ljava/lang/Exception;");
 

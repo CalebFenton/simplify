@@ -1,25 +1,13 @@
 package org.cf.smalivm.opcode;
 
-import gnu.trove.map.TIntObjectMap;
-import gnu.trove.map.hash.TIntObjectHashMap;
-
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.cf.smalivm.VirtualException;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
-import org.jf.dexlib2.Opcode;
-import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
-import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
-import org.jf.dexlib2.iface.reference.TypeReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -29,9 +17,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @RunWith(Enclosed.class)
 public class ConstOpTest {

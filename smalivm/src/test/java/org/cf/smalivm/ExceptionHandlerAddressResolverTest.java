@@ -8,7 +8,6 @@ import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -29,7 +28,6 @@ public class ExceptionHandlerAddressResolverTest {
 
     private List<BuilderTryBlock> tryBlocks;
     private ClassManager classManager;
-    private VirtualException vex;
     private VirtualClass exceptionClass1;
     private VirtualClass exceptionClass2;
     private VirtualClass exceptionClass3;
@@ -55,7 +53,6 @@ public class ExceptionHandlerAddressResolverTest {
 
     @Before
     public void setUp() {
-        vex = mock(VirtualException.class);
         tryBlocks = new LinkedList<BuilderTryBlock>();
 
         exceptionClass1 = mockException("Ljava/lang/Exception");
@@ -86,8 +83,6 @@ public class ExceptionHandlerAddressResolverTest {
         int handlerCodeAddress1 = 20;
         int handlerCodeAddress2 = 30;
 
-        when(vex.getExceptionClass()).thenReturn(EXCEPTION3);
-
         List<BuilderExceptionHandler> handlers1 = new LinkedList<BuilderExceptionHandler>();
         handlers1.add(buildHandler(handlerCodeAddress1, exceptionClass1));
         tryBlocks.add(buildTryBlock(tryStartAddress1, tryCodeUnits, handlers1));
@@ -97,7 +92,7 @@ public class ExceptionHandlerAddressResolverTest {
         tryBlocks.add(buildTryBlock(tryStartAddress2, tryCodeUnits, handlers2));
 
         ExceptionHandlerAddressResolver exceptionResolver = new ExceptionHandlerAddressResolver(classManager, METHOD);
-        int actual = exceptionResolver.resolve(vex, currentAddress);
+        int actual = exceptionResolver.resolve(EXCEPTION3, currentAddress);
 
         assertEquals(handlerCodeAddress2, actual);
     }
@@ -111,9 +106,6 @@ public class ExceptionHandlerAddressResolverTest {
         int handlerCodeAddress1 = 20;
         int handlerCodeAddress2 = 30;
 
-        String name = exceptionClass1.getName();
-        when(vex.getExceptionClass()).thenReturn(name);
-
         List<BuilderExceptionHandler> handlers1 = new LinkedList<BuilderExceptionHandler>();
         handlers1.add(buildHandler(handlerCodeAddress1, exceptionClass1));
         tryBlocks.add(buildTryBlock(tryStartAddress1, tryCodeUnits, handlers1));
@@ -123,7 +115,8 @@ public class ExceptionHandlerAddressResolverTest {
         tryBlocks.add(buildTryBlock(tryStartAddress2, tryCodeUnits, handlers2));
 
         ExceptionHandlerAddressResolver exceptionResolver = new ExceptionHandlerAddressResolver(classManager, METHOD);
-        int actual = exceptionResolver.resolve(vex, currentAddress);
+        String name = exceptionClass1.getName();
+        int actual = exceptionResolver.resolve(name, currentAddress);
 
         assertEquals(handlerCodeAddress1, actual);
     }
@@ -135,15 +128,13 @@ public class ExceptionHandlerAddressResolverTest {
         int tryCodeUnits = 10;
         int handlerCodeAddress = 20;
 
-        String name = exceptionClass1.getName();
-        when(vex.getExceptionClass()).thenReturn(name);
-
         List<BuilderExceptionHandler> handlers = new LinkedList<BuilderExceptionHandler>();
         handlers.add(buildHandler(handlerCodeAddress, exceptionClass1));
         tryBlocks.add(buildTryBlock(tryStartAddress, tryCodeUnits, handlers));
 
         ExceptionHandlerAddressResolver exceptionResolver = new ExceptionHandlerAddressResolver(classManager, METHOD);
-        int actual = exceptionResolver.resolve(vex, currentAddress);
+        String name = exceptionClass1.getName();
+        int actual = exceptionResolver.resolve(name, currentAddress);
 
         assertEquals(handlerCodeAddress, actual);
     }

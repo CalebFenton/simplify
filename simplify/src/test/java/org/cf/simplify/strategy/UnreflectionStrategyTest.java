@@ -183,7 +183,7 @@ public class UnreflectionStrategyTest {
         }
 
         @Test
-        public void testUnknownParametersOfPubilcMethodIsNotOptimized() {
+        public void testUnknownParametersOfPublccMethodIsNotOptimized() {
             ExecutionGraphManipulator manipulator =
                     getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE, 1, 0, "I", 2,
                             new UnknownValue(), "[Ljava/lang/Object;");
