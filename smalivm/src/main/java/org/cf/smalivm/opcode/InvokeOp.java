@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -345,9 +346,15 @@ public class InvokeOp extends ExecutionContextOp {
             Op endOp = graph.getTemplateNode(endAddress).getOp();
             if (endOp instanceof ThrowOp) {
                 // At least one result of executing the method threw an exception
-                HeapItem exceptionItem = graph.getRegisterConsensus(endAddress, MethodState.ThrowRegister);
-                Throwable exception = (Throwable) exceptionItem.getValue();
-                addException(exception);
+                // TODO: add test used to just get consensus but would sometimes give multiple values
+                // which would make it return unknown which would throw an exception when casting to throwable
+                Set<HeapItem> items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister);
+                for (HeapItem item : items) {
+                    if (item.getValue() instanceof Throwable) {
+                        Throwable exception = (Throwable) item.getValue();
+                        addException(exception);
+                    }
+                }
             } else {
                 hasOneNonThrow = true;
             }
