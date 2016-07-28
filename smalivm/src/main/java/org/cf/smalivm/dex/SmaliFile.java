@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 public class SmaliFile {
 
@@ -36,7 +37,9 @@ public class SmaliFile {
         String className;
         try {
             Path myPath = Paths.get(inputFile.toURI());
-            String line = Files.lines(myPath).filter(s -> s.startsWith(".class ")).findFirst().get();
+            Stream<String> lines = Files.lines(myPath);
+            String line = lines.filter(s -> s.startsWith(".class ")).findFirst().get();
+            lines.close();
 
             if (null == line) {
                 throw new RuntimeException("Missing class directive in " + inputFile);

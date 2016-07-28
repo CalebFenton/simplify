@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -104,8 +105,10 @@ public class VirtualClass extends VirtualGeneric {
         if (fieldNameToField == null) {
             fieldNameToField = buildFieldsMap();
         }
+        List<VirtualField> fields = new LinkedList<>();
+        fields.addAll(fieldNameToField.values());
 
-        return fieldNameToField.values();
+        return fields;
     }
 
     @Override
@@ -131,8 +134,10 @@ public class VirtualClass extends VirtualGeneric {
         if (methodDescriptorToMethod == null) {
             methodDescriptorToMethod = buildMethodsMap();
         }
+        List<VirtualMethod> methods = new LinkedList<>();
+        methods.addAll(methodDescriptorToMethod.values());
 
-        return methodDescriptorToMethod.values();
+        return methods;
     }
 
     @Override
@@ -209,7 +214,7 @@ public class VirtualClass extends VirtualGeneric {
             methods.put(descriptor, virtualMethod);
         }
 
-        return methods;
+        return Collections.unmodifiableMap(methods);
     }
 
     private VirtualField getField0(String fieldName) {

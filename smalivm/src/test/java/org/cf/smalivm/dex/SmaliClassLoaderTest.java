@@ -111,6 +111,12 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
+    public void loadsClassWithIllegalFieldModifiers() throws Exception {
+        String className = "org.cf.test.IllegalFieldModifiers";
+        Class<?> klazz = classLoader.loadClass(className);
+    }
+
+    @Test
     public void loadsComplexClass() throws Exception {
         String className = "org.cf.test.ComplexClass";
         Class<?> klazz = classLoader.loadClass(className);

@@ -1,12 +1,5 @@
 package org.cf.smalivm.dex;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-
 import org.jf.dexlib2.iface.ClassDef;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.Field;
@@ -21,6 +14,13 @@ import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
 public class ClassBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(ClassBuilder.class.getSimpleName());
@@ -30,7 +30,7 @@ public class ClassBuilder {
 
         ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         visitClass(classDef, classWriter);
-        visitFields(classDef.getFields(), classWriter);
+        visitFields(classDef.getFields(), classWriter, classDef.getAccessFlags());
         if ((classDef.getAccessFlags() & Opcodes.ACC_ENUM) != 0) {
             visitEnumMethods(classDef, classDef.getFields(), classWriter);
         } else {
@@ -118,14 +118,26 @@ public class ClassBuilder {
         mv.visitEnd();
     }
 
-    private void visitFields(Iterable<? extends Field> fields, ClassWriter classWriter) {
+    private void visitFields(Iterable<? extends Field> fields, ClassWriter classWriter, int classAccessFlags) {
         for (Field field : fields) {
-            int access = field.getAccessFlags();
+            /*
+             * It's possible to declare a Smali interface with private fields. Android doesn't seem to mind, but
+             * the Java class loader will complain. To get around this, just set them public, which is what they
+             * should be anyway.
+             */
+            int fieldAccessFlags = field.getAccessFlags();
+            if ((classAccessFlags & Opcodes.ACC_INTERFACE) != 0) {
+                if ((fieldAccessFlags & Opcodes.ACC_PRIVATE) != 0) {
+                    fieldAccessFlags &= ~Opcodes.ACC_PRIVATE;
+                    fieldAccessFlags |= Opcodes.ACC_PUBLIC;
+                }
+            }
+
             String name = field.getName();
             String desc = field.getType();
             String signature = null;
             Object value = null;
-            classWriter.visitField(access, name, desc, signature, value);
+            classWriter.visitField(fieldAccessFlags, name, desc, signature, value);
         }
     }
 
@@ -154,8 +166,9 @@ public class ClassBuilder {
 
         // Set the fields for each enum value
         Stream<? extends Field> fieldsStream = StreamSupport.stream(fields.spliterator(), false);
-        List<String> fieldNames = fieldsStream.filter(f -> (f.getAccessFlags() & Opcodes.ACC_ENUM) != 0)
-                        .map(Field::getName).collect(Collectors.toList());
+        List<String> fieldNames =
+                fieldsStream.filter(f -> (f.getAccessFlags() & Opcodes.ACC_ENUM) != 0).map(Field::getName)
+                        .collect(Collectors.toList());
         fieldNames.add("$shadow_instance");
         int fieldCount = fieldNames.size();
         for (int i = 0; i < fieldCount; i++) {
@@ -197,8 +210,9 @@ public class ClassBuilder {
         mv.visitMaxs(0, 0);
         mv.visitEnd();
 
-        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values", "()[" + classDef.getType(),
-                        null, null);
+        mv = classWriter
+                     .visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values", "()[" + classDef.getType(), null,
+                             null);
         mv.visitCode();
         mv.visitFieldInsn(Opcodes.GETSTATIC, name, "$VALUES", "[" + classDef.getType());
         mv.visitInsn(Opcodes.DUP);
@@ -214,19 +228,19 @@ public class ClassBuilder {
         mv.visitInsn(Opcodes.ICONST_0);
         mv.visitVarInsn(Opcodes.ILOAD, 1);
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "arraycopy",
-                        "(Ljava/lang/Object;ILjava/lang/Object;II)V", false);
+                "(Ljava/lang/Object;ILjava/lang/Object;II)V", false);
         mv.visitVarInsn(Opcodes.ALOAD, 2);
         mv.visitInsn(Opcodes.ARETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();
 
         mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "valueOf",
-                        "(Ljava/lang/String;)" + classDef.getType(), null, null);
+                "(Ljava/lang/String;)" + classDef.getType(), null, null);
         mv.visitCode();
         mv.visitLdcInsn(Type.getType(classDef.getType()));
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Enum", "valueOf",
-                        "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;", false);
+                "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;", false);
         mv.visitTypeInsn(Opcodes.CHECKCAST, name);
         mv.visitInsn(Opcodes.ARETURN);
         mv.visitMaxs(0, 0);

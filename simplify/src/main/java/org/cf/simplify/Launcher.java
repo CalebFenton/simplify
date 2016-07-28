@@ -47,8 +47,8 @@ public class Launcher {
         this.vmFactory = vmFactory;
     }
 
-    private static void filterMethods(Collection<VirtualMethod> localMethods, Pattern positive, Pattern negative) {
-        for (Iterator<VirtualMethod> it = localMethods.iterator(); it.hasNext(); ) {
+    private static void filterMethods(Collection<VirtualMethod> methods, Pattern positive, Pattern negative) {
+        for (Iterator<VirtualMethod> it = methods.iterator(); it.hasNext(); ) {
             String name = it.next().getSignature();
             if (positive != null && !positive.matcher(name).find()) {
                 it.remove();
