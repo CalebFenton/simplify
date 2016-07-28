@@ -84,6 +84,9 @@ public class InvokeOpFactory implements OpFactory {
         VirtualGeneric type = vm.getClassManager().getVirtualType(className);
         String methodSignature = ReferenceUtil.getMethodDescriptor(methodReference);
         String methodDescriptor = methodSignature.split("->")[1];
+        if ( methodSignature.equals("Lkik/pikek/㢨㝘㧎/㜢䕓㹅䍄;->Go_Learn_Something(Ljava/lang/String;I)Ljava/lang/String;")) {
+            System.out.println("debug me");
+        }
         VirtualMethod method = type.getMethod(methodDescriptor);
         if ( method == null ) {
             System.out.println("null method: " + methodSignature);

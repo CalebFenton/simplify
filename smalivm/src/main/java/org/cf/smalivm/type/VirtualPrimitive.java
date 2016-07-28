@@ -2,6 +2,7 @@ package org.cf.smalivm.type;
 
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
 import java.util.Collection;
 import java.util.Collections;

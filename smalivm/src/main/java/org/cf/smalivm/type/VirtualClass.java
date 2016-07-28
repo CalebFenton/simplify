@@ -168,15 +168,18 @@ public class VirtualClass extends VirtualGeneric {
         return false;
     }
 
+    @Override
     public BuilderClassDef getClassDef() {
         return classDef;
     }
 
+    @Override
     public boolean isInnerClassOf(VirtualGeneric parentClass) {
         // TODO: easy - add tests
         return getBinaryName().startsWith(parentClass.getBinaryName() + "$");
     }
 
+    @Override
     public String getPackage() {
         String binaryName = getBinaryName();
         int lastDot = binaryName.lastIndexOf('.');
@@ -187,7 +190,8 @@ public class VirtualClass extends VirtualGeneric {
         return binaryName.substring(0, lastDot);
     }
 
-    public boolean isSamePackageOf(VirtualClass otherClass) {
+    @Override
+    public boolean isSamePackageOf(VirtualGeneric otherClass) {
         return getPackage().equals(otherClass.getPackage());
     }
 
@@ -210,7 +214,7 @@ public class VirtualClass extends VirtualGeneric {
         Map<String, VirtualMethod> methods = new HashMap<>();
         for (BuilderMethod method : getClassDef().getMethods()) {
             String descriptor = ReferenceUtil.getMethodDescriptor(method).split("->")[1];
-            VirtualMethod virtualMethod = new VirtualMethod(method, this);
+            VirtualMethod virtualMethod = new VirtualRealMethod(method, this);
             methods.put(descriptor, virtualMethod);
         }
 

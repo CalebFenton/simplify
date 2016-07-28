@@ -8,10 +8,17 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.VirtualMethod;
 
+import java.lang.reflect.Field;
+import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 public class Program {
 
     public static void main(String[] args) throws Exception {
-
         VirtualMachineFactory vmFactory = new VirtualMachineFactory(); // this is Java, so factory
         String dexOrSmali = "teddygh-smali/ffffff";
         VirtualMachine vm = vmFactory.build(dexOrSmali);
@@ -25,18 +32,11 @@ public class Program {
         mState.assignParameter(mState.getParameterStart() + 1, 0xf0, "C");
         mState.assignParameter(mState.getParameterStart() + 2, 0x2, "C");
         //mState.assignParameter(mState.getParameterStart() + 3, 0x3, "C");
+
         ExecutionGraph graph = vm.execute(methodSignature, ectx);
         HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
         System.out.println("With context, returns: " + item);
 
-
-        // all arrays are of type Object
-        // arrays of N dimension are of type Object N-1 dimension
-        // all arrays are of their exact same type
-
-        Class<?> klazz = Class.forName("[B");
-        System.out.println(klazz);
-        //System.out.println(o instanceof int);
     }
 
 }

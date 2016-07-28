@@ -132,11 +132,11 @@ public class ClassManager {
         return getVirtualType(typeReference);
     }
 
-    public boolean isFrameworkClass(VirtualClass virtualClass) {
+    public boolean isFrameworkClass(VirtualGeneric virtualClass) {
         return smaliFileFactory.isFrameworkClass(virtualClass.getName());
     }
 
-    public boolean isSafeFrameworkClass(VirtualClass virtualClass) {
+    public boolean isSafeFrameworkClass(VirtualGeneric virtualClass) {
         return smaliFileFactory.isSafeFrameworkClass(virtualClass.getName());
     }
 

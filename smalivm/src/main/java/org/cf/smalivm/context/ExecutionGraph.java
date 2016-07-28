@@ -11,6 +11,7 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -151,8 +152,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addresses;
     }
 
-    public Set<VirtualClass> getAllPossiblyInitializedClasses(int[] addresses) {
-        Set<VirtualClass> allClasses = new HashSet<>();
+    public Set<VirtualGeneric> getAllPossiblyInitializedClasses(int[] addresses) {
+        Set<VirtualGeneric> allClasses = new HashSet<>();
         for (int address : addresses) {
             List<ExecutionNode> pile = getNodePile(address);
             for (ExecutionNode node : pile) {
@@ -175,7 +176,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getFieldConsensus(int[] addresses, VirtualField field) {
-        VirtualClass virtualClass = field.getDefiningClass();
+        VirtualGeneric virtualClass = field.getDefiningClass();
         Set<HeapItem> items = new HashSet<>();
         for (int address : addresses) {
             // If the class wasn't initialized in one path, it's unknown
@@ -213,7 +214,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return items;
     }
 
-    public SideEffect.Level getHighestClassSideEffectLevel(VirtualClass virtualClass) {
+    public SideEffect.Level getHighestClassSideEffectLevel(VirtualGeneric virtualClass) {
         int[] addresses = getConnectedTerminatingAddresses();
         SideEffect.Level result = SideEffect.Level.NONE;
         for (int address : addresses) {
@@ -265,8 +266,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         int[] addresses = getConnectedTerminatingAddresses();
-        Set<VirtualClass> allClasses = getAllPossiblyInitializedClasses(addresses);
-        for (VirtualClass virtualClass : allClasses) {
+        Set<VirtualGeneric> allClasses = getAllPossiblyInitializedClasses(addresses);
+        for (VirtualGeneric virtualClass : allClasses) {
             SideEffect.Level level = getHighestClassSideEffectLevel(virtualClass);
             switch (level) {
                 case STRONG:

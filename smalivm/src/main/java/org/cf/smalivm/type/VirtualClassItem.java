@@ -5,9 +5,9 @@ import org.jf.dexlib2.iface.reference.Reference;
 public abstract class VirtualClassItem {
 
     private final Reference reference;
-    private final VirtualClass definingClass;
+    private final VirtualGeneric definingClass;
 
-    protected VirtualClassItem(Reference reference, VirtualClass definingClass) {
+    protected VirtualClassItem(Reference reference, VirtualGeneric definingClass) {
         this.reference = reference;
         this.definingClass = definingClass;
     }
@@ -20,7 +20,7 @@ public abstract class VirtualClassItem {
         return getDefiningClass().getName();
     }
 
-    public VirtualClass getDefiningClass() {
+    public VirtualGeneric getDefiningClass() {
         return definingClass;
     }
 

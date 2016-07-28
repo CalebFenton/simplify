@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -68,6 +69,13 @@ public class InvokeOp extends ExecutionContextOp {
                 log.error("Unexpected real exception initializing Object", e);
             }
             return;
+        } else {
+            String signature = method.getSignature();
+            if (signature.charAt(0) == '[' && method.getName().equals("clone")) {
+                // [Object;->clone()Ljava/lang/Object; is also a special snow flake
+                executeArrayClone(callerMethodState);
+                return;
+            }
         }
 
         analyzeParameterTypes(callerMethodState);
@@ -114,7 +122,7 @@ public class InvokeOp extends ExecutionContextOp {
                     // but the object is unknown, so the real virtual of the invocation target
                     // can't be determined. That's why this is a warning and not an error.
                     log.warn("Attempting to execute local native method without implementation: {}. Assuming maximum " +
-                             "" + "" + "ambiguity.", targetSignature);
+                             "ambiguity.", targetSignature);
                 } else {
                     log.warn("Cannot execute local native method: {}. Assuming maximum ambiguity.", targetSignature);
                 }
@@ -158,6 +166,20 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append("}, ").append(method);
 
         return sb.toString();
+    }
+
+    private void executeArrayClone(MethodState callerMethodState) {
+        int instanceRegister = parameterRegisters[0];
+        HeapItem arrayItem = callerMethodState.peekRegister(instanceRegister);
+        Method m = null;
+        try {
+            m = Object.class.getDeclaredMethod("clone");
+            m.setAccessible(true);
+            Object clone = m.invoke(arrayItem.getValue());
+            callerMethodState.assignResultRegister(clone, arrayItem.getType());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private boolean allArgumentsKnown(MethodState mState) {

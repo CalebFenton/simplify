@@ -8,6 +8,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -71,7 +72,7 @@ public class java_lang_reflect_Field_get_Test {
         Set<Throwable> exceptions = fieldGet.getExceptions();
         assertEquals("Should have one exception", 1, exceptions.size());
 
-        VirtualClass callingClass = context.getCallerContext().getMethod().getDefiningClass();
+        VirtualGeneric callingClass = context.getCallerContext().getMethod().getDefiningClass();
         VirtualField field = context.getMethod().getDefiningClass().getField(fieldName);
         String error = callingClass.getBinaryName() + " can't access a member of " + DUMMY_CLASS_NAME_BINARY +
                        " with modifiers \"" + Modifier.toString(field.getField().getAccessFlags()) + "\"";

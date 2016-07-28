@@ -10,6 +10,7 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
@@ -32,7 +33,7 @@ class java_lang_reflect_Field_get extends ExecutionContextMethod {
         int accessFlags = field.getModifiers();
         String fieldClassName = ClassNameUtils.toInternal(field.getDeclaringClass());
         if (!field.isAccessible()) {
-            VirtualClass callingClass = context.getCallerContext().getMethod().getDefiningClass();
+            VirtualGeneric callingClass = context.getCallerContext().getMethod().getDefiningClass();
             ClassManager classManager = vm.getClassManager();
             VirtualClass fieldClass = classManager.getVirtualClass(fieldClassName);
 
@@ -47,7 +48,7 @@ class java_lang_reflect_Field_get extends ExecutionContextMethod {
         mState.assignReturnRegister(getItem);
     }
 
-    private boolean checkAccess(VirtualClass callingClass, VirtualClass fieldClass, int accessFlags, Op op,
+    private boolean checkAccess(VirtualGeneric callingClass, VirtualGeneric fieldClass, int accessFlags, Op op,
                                 ExceptionFactory exceptionFactory) {
         boolean isPublic = Modifier.isPublic(accessFlags);
         if (isPublic) {
@@ -104,7 +105,7 @@ class java_lang_reflect_Field_get extends ExecutionContextMethod {
         } catch (IllegalArgumentException | IllegalAccessException e) {
             String message = e.getMessage();
             VirtualMethod callingMethod = context.getCallerContext().getMethod();
-            VirtualClass callingClass = callingMethod.getDefiningClass();
+            VirtualGeneric callingClass = callingMethod.getDefiningClass();
             message = message.replace(java_lang_reflect_Field_get.class.getName(), callingClass.getBinaryName());
 
             Throwable exception = exceptionFactory.build(op, e.getClass(), message);

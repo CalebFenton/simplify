@@ -11,6 +11,7 @@ import org.cf.smalivm.dex.SmaliClassLoader;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.Utils;
 import org.slf4j.Logger;
@@ -151,7 +152,7 @@ public class VirtualMachine {
         return staticFieldAccessor;
     }
 
-    public boolean isSafe(VirtualClass virtualClass) {
+    public boolean isSafe(VirtualGeneric virtualClass) {
         return getConfiguration().isSafe(virtualClass.toString());
     }
 

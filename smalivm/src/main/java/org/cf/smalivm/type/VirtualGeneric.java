@@ -3,6 +3,7 @@ package org.cf.smalivm.type;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.jf.dexlib2.iface.reference.TypeReference;
+import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,8 +27,6 @@ public abstract class VirtualGeneric {
         this.internalName = internalName;
         this.binaryName = binaryName;
         this.sourceName = sourceName;
-        //        methodDescriptorToMethod = new HashMap<String, VirtualMethod>(0);
-        //        fieldNameToField = new HashMap<String, VirtualField>(0);
     }
 
     static ClassManager getClassManager() {
@@ -39,6 +38,10 @@ public abstract class VirtualGeneric {
     }
 
     public abstract Set<? extends VirtualGeneric> getAncestors();
+
+    public String getPackage() {
+        return null;
+    }
 
     public String getBinaryName() {
         return binaryName;
@@ -70,6 +73,18 @@ public abstract class VirtualGeneric {
 
     public final TypeReference getTypeReference() {
         return typeReference;
+    }
+
+    public BuilderClassDef getClassDef() {
+        return null;
+    }
+
+    public boolean isInnerClassOf(VirtualGeneric other) {
+        return false;
+    }
+
+    public boolean isSamePackageOf(VirtualGeneric other) {
+        return false;
     }
 
     @Override

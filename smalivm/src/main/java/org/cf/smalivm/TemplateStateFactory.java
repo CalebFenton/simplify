@@ -7,6 +7,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
+import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.Utils;
 
@@ -38,7 +39,7 @@ public class TemplateStateFactory {
         return mState;
     }
 
-    public static ClassState forClass(ExecutionContext context, VirtualClass virtualClass) {
+    public static ClassState forClass(ExecutionContext context, VirtualGeneric virtualClass) {
         ClassState cState = new ClassState(virtualClass, context);
         for (VirtualField field : virtualClass.getFields()) {
             Object value = field.getInitialValue();

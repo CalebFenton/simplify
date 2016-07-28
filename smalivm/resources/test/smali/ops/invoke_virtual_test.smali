@@ -43,6 +43,15 @@
   return-void
 .end method
 
+.method public static invokeArrayClone()V
+  .locals 2
+
+  invoke-virtual {v0}, [I->clone()Ljava/lang/Object;
+  move-result-object v1
+
+  return-void
+.end method
+
 .method public static invokeRangeManyParameters()V
   .locals 8
 
