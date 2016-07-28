@@ -7,8 +7,8 @@ dependencies {
     compile project(':smalivm')
 
     // Logging
-    compile 'org.slf4j:slf4j-api:1.7.7'
-    compile 'org.slf4j:slf4j-nop:1.7.7'
+    compile depends.slf4j_api
+    compile depends.slf4j_nop
 
-    testCompile 'junit:junit:4.12-beta-3'
+    testCompile depends.junit
 }
