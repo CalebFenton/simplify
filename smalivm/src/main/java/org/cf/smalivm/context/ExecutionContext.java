@@ -168,6 +168,7 @@ public class ExecutionContext {
          * that are both static and final, and are initialized by a compile-time constant expression.
          */
         if (vm.isSafe(virtualClass) || isClassInitialized(virtualClass)) {
+            // Safe classes are OK to reflect to get fields. Don't need to also put them in VM.
             return;
         }
 

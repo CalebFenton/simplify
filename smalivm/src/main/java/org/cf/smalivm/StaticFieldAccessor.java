@@ -8,6 +8,8 @@ import org.cf.smalivm.type.VirtualField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
+
 public class StaticFieldAccessor {
 
     private static Logger log = LoggerFactory.getLogger(StaticFieldAccessor.class.getSimpleName());
@@ -28,23 +30,22 @@ public class StaticFieldAccessor {
 
     private HeapItem getLocalField(ExecutionContext context, VirtualField field) {
         ClassState cState = context.readClassState(field.getDefiningClass());
-        HeapItem fieldItem = cState.peekField(field);
 
-        return fieldItem;
+        return cState.peekField(field);
     }
 
-    private HeapItem getSafeField(ExecutionContext context, VirtualField localField) {
-        String className = localField.getDefiningClass().getBinaryName();
+    private HeapItem getSafeField(ExecutionContext context, VirtualField field) {
+        String className = field.getDefiningClass().getBinaryName();
         try {
             Class<?> klazz = Class.forName(className);
-            java.lang.reflect.Field field = FieldUtils.getField(klazz, localField.getName());
-            Object fieldValue = field.get(null);
+            Field realField = FieldUtils.getField(klazz, field.getName());
+            Object fieldValue = realField.get(null);
 
-            return new HeapItem(fieldValue, localField.getType());
+            return new HeapItem(fieldValue, field.getType());
         } catch (IllegalArgumentException | IllegalAccessException e) {
             // TODO: medium - throw these exceptions and handle them by setting correct virtual exceptions
             if (log.isWarnEnabled()) {
-                log.warn("Couldn't access field: {}", localField.toString());
+                log.warn("Couldn't access field: {}", field.toString());
             }
             if (log.isDebugEnabled()) {
                 log.debug("Stack trace:", e);
@@ -54,7 +55,7 @@ public class StaticFieldAccessor {
             log.warn("Could not find class : {}", className);
         }
 
-        return HeapItem.newUnknown(localField.getType());
+        return HeapItem.newUnknown(field.getType());
     }
 
     private boolean isSafe(VirtualField field) {

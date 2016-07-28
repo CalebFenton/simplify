@@ -2,7 +2,6 @@ package org.cf.smalivm;
 
 import com.google.common.primitives.Ints;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -153,8 +152,8 @@ public class VMTester {
         assertArrayEquals(expectedAddresses, actualAddresses);
     }
 
-    public static void verifyExceptionHandling(Set<Throwable> expectedExceptions,
-                                               ExecutionNode node, MethodState mState) {
+    public static void verifyExceptionHandling(Set<Throwable> expectedExceptions, ExecutionNode node,
+                                               MethodState mState) {
         verify(node).setExceptions(eq(expectedExceptions));
         verify(node).clearChildren();
         verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
@@ -178,23 +177,23 @@ public class VMTester {
     }
 
     private static ExecutionContext buildInitializedContext(VirtualMachine vm, String methodSignature, VMState state) {
-        VirtualMethod localMethod = vm.getClassManager().getMethod(methodSignature);
-        ExecutionContext ectx = vm.spawnRootContext(localMethod);
-        int registerCount = ectx.getMethodState().getRegisterCount();
-        setupMethodState(ectx, state.getRegisters(), registerCount);
-        setupClassStates(ectx, vm, state.getFields());
+        VirtualMethod method = vm.getClassManager().getMethod(methodSignature);
+        ExecutionContext context = vm.spawnRootContext(method);
+        int registerCount = context.getMethodState().getRegisterCount();
+        setupMethodState(context, state.getRegisters(), registerCount);
+        setupClassStates(context, vm, state.getFields());
 
-        return ectx;
+        return context;
     }
 
-    private static void setupClassStates(ExecutionContext ectx, VirtualMachine vm,
+    private static void setupClassStates(ExecutionContext context, VirtualMachine vm,
                                          Map<String, Map<String, HeapItem>> classNameToFieldDescriptorToItem) {
         ClassManager classManager = vm.getClassManager();
         for (Entry<String, Map<String, HeapItem>> entry : classNameToFieldDescriptorToItem.entrySet()) {
             String className = entry.getKey();
             VirtualClass virtualClass = classManager.getVirtualClass(className);
             Map<String, HeapItem> fieldDescriptorToItem = entry.getValue();
-            ClassState cState = ectx.peekClassState(virtualClass);
+            ClassState cState = context.peekClassState(virtualClass);
             for (Entry<String, HeapItem> fieldNameAndTypeToItem : fieldDescriptorToItem.entrySet()) {
                 String fieldNameAndType = fieldNameAndTypeToItem.getKey();
                 String fieldName = fieldNameAndType.split(":")[0];
@@ -202,19 +201,19 @@ public class VMTester {
                 HeapItem item = fieldNameAndTypeToItem.getValue();
                 cState.pokeField(field, item);
             }
-            ectx.initializeClass(cState, SideEffect.Level.NONE);
+            context.initializeClass(cState, SideEffect.Level.NONE);
         }
     }
 
-    private static void setupMethodState(ExecutionContext ectx, Map<Integer, HeapItem> registerToItem,
+    private static void setupMethodState(ExecutionContext context, Map<Integer, HeapItem> registerToItem,
                                          int registerCount) {
-        MethodState mState = new MethodState(ectx, registerCount);
+        MethodState mState = new MethodState(context, registerCount);
         for (Entry<Integer, HeapItem> entry : registerToItem.entrySet()) {
             Integer register = entry.getKey();
             HeapItem item = entry.getValue();
             mState.pokeRegister(register, item);
         }
-        ectx.setMethodState(mState);
+        context.setMethodState(mState);
     }
 
     private static void testClassState(ExecutionGraph graph,
