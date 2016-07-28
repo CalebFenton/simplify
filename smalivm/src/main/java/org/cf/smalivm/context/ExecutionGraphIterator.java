@@ -9,7 +9,7 @@ class ExecutionGraphIterator implements Iterator<ExecutionNode> {
     private final Deque<ExecutionNode> stack;
 
     ExecutionGraphIterator(ExecutionGraph graph) {
-        stack = new ArrayDeque<ExecutionNode>();
+        stack = new ArrayDeque<>();
         ExecutionNode rootNode = graph.getRoot();
 
         if (rootNode != null) {

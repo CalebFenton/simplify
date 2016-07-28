@@ -1,10 +1,10 @@
 package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.ExceptionFactory;
-import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,9 +34,9 @@ public class AGetOp extends MethodStateOp {
 
     private static String getUnknownArrayInnerType(HeapItem array) {
         String outerType = array.getType();
-        String result = null;
-        if ("?".equals(outerType)) {
-            result = "?";
+        String result;
+        if (CommonTypes.UNKNOWN.equals(outerType)) {
+            result = CommonTypes.UNKNOWN;
         } else {
             result = outerType.replaceFirst("\\[", "");
         }

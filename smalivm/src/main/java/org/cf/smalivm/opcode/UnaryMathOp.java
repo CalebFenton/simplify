@@ -8,6 +8,15 @@ import org.jf.dexlib2.builder.MethodLocation;
 
 public class UnaryMathOp extends MethodStateOp {
 
+    private final int destRegister;
+    private final int srcRegister;
+    UnaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int srcRegister) {
+        super(location, child);
+
+        this.destRegister = destRegister;
+        this.srcRegister = srcRegister;
+    }
+
     private static String getResultTypeName(String opName) {
         String[] parts = opName.split("-");
         String type = parts[parts.length - 1];
@@ -31,16 +40,6 @@ public class UnaryMathOp extends MethodStateOp {
         return resultType;
     }
 
-    private final int destRegister;
-    private final int srcRegister;
-
-    UnaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int srcRegister) {
-        super(location, child);
-
-        this.destRegister = destRegister;
-        this.srcRegister = srcRegister;
-    }
-
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem item = mState.readRegister(srcRegister);
@@ -57,10 +56,7 @@ public class UnaryMathOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(srcRegister);
-
-        return sb.toString();
+        return getName() + " r" + destRegister + ", r" + srcRegister;
     }
 
     private Object perform(Object value, String opName) {

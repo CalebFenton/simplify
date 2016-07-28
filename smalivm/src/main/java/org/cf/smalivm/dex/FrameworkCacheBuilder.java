@@ -42,7 +42,7 @@ public class FrameworkCacheBuilder {
     }
 
     public static String buildFrameworkCache(String resPath) throws Exception {
-        List<File> resFiles = new LinkedList<File>();
+        List<File> resFiles = new LinkedList<>();
         try {
             URL url = FrameworkCacheBuilder.class.getResource(resPath);
             File file = new File(url.toURI());

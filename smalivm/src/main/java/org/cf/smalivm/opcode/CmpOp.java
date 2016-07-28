@@ -49,17 +49,14 @@ public class CmpOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(destRegister).append(", r").append(lhsRegister).append(", r").append(rhsRegister);
-
-        return sb.toString();
+        return getName() + " r" + destRegister + ", r" + lhsRegister + ", r" + rhsRegister;
     }
 
     private int cmp(Number val1, Number val2) {
-        boolean arg1IsNan = val1 instanceof Float && ((Float) val1).isNaN() || val1 instanceof Double && ((Double) val1)
-                        .isNaN();
-        boolean arg2IsNan = val2 instanceof Float && ((Float) val2).isNaN() || val2 instanceof Double && ((Double) val2)
-                        .isNaN();
+        boolean arg1IsNan =
+                val1 instanceof Float && ((Float) val1).isNaN() || val1 instanceof Double && ((Double) val1).isNaN();
+        boolean arg2IsNan =
+                val2 instanceof Float && ((Float) val2).isNaN() || val2 instanceof Double && ((Double) val2).isNaN();
 
         int value = 0;
         if (arg1IsNan || arg2IsNan) {

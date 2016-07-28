@@ -48,7 +48,7 @@ public class VirtualClass extends VirtualGeneric {
     }
 
     private static Set<VirtualClass> getImmediateAncestors(VirtualClass virtualClass) {
-        List<String> parentNames = new LinkedList<String>();
+        List<String> parentNames = new LinkedList<>();
         BuilderClassDef classDef = virtualClass.getClassDef();
         parentNames.addAll(classDef.getInterfaces());
         if (classDef.getSuperclass() != null) {
@@ -65,7 +65,7 @@ public class VirtualClass extends VirtualGeneric {
             return ancestors;
         }
 
-        ancestors = new LinkedHashSet<VirtualClass>(3);
+        ancestors = new LinkedHashSet<>(3);
         getAncestors0(this, ancestors);
         ancestors.remove(this);
 
@@ -187,7 +187,7 @@ public class VirtualClass extends VirtualGeneric {
     }
 
     private Map<String, VirtualField> buildFieldsMap() {
-        Map<String, VirtualField> fields = new HashMap<String, VirtualField>();
+        Map<String, VirtualField> fields = new HashMap<>();
         for (BuilderField builderField : getClassDef().getFields()) {
             String name = builderField.getName();
             if (builderField.getName().startsWith("shadow$_")) {
@@ -202,7 +202,7 @@ public class VirtualClass extends VirtualGeneric {
     }
 
     private Map<String, VirtualMethod> buildMethodsMap() {
-        Map<String, VirtualMethod> methods = new HashMap<String, VirtualMethod>();
+        Map<String, VirtualMethod> methods = new HashMap<>();
         for (BuilderMethod method : getClassDef().getMethods()) {
             String descriptor = ReferenceUtil.getMethodDescriptor(method).split("->")[1];
             VirtualMethod virtualMethod = new VirtualMethod(method, this);

@@ -24,7 +24,7 @@ public class Optimizer {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(Optimizer.class.getSimpleName());
 
-    private static final Map<String, Integer> totalOptimizationCounts = new HashMap<String, Integer>();
+    private static final Map<String, Integer> totalOptimizationCounts = new HashMap<>();
 
     private final ExecutionGraphManipulator manipulator;
     private final VirtualMethod method;
@@ -41,7 +41,7 @@ public class Optimizer {
         manipulator = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
         this.method = method;
 
-        reoptimizeStrategies = new LinkedList<OptimizationStrategy>();
+        reoptimizeStrategies = new LinkedList<>();
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
         strategy.setRemoveWeak(opts.isRemoveWeak());
         reoptimizeStrategies.add(strategy);
@@ -53,14 +53,14 @@ public class Optimizer {
          * result of the reflected method call. This leaves method states in a weird way, i.e. move-result has unknown
          * values. In these cases, re-execute the method to re-establish semantics.
          */
-        reexecuteStrategies = new LinkedList<OptimizationStrategy>();
+        reexecuteStrategies = new LinkedList<>();
         reexecuteStrategies.add(new UnreflectionStrategy(manipulator));
 
-        allStrategies = new LinkedList<OptimizationStrategy>();
+        allStrategies = new LinkedList<>();
         allStrategies.addAll(reoptimizeStrategies);
         allStrategies.addAll(reexecuteStrategies);
 
-        optimizationCounts = new HashMap<String, Integer>();
+        optimizationCounts = new HashMap<>();
     }
 
     public static String getTotalOptimizationCounts() {
@@ -68,7 +68,7 @@ public class Optimizer {
     }
 
     private static StringBuilder buildOptimizationCounts(Map<String, Integer> counts) {
-        List<String> keys = new LinkedList<String>(counts.keySet());
+        List<String> keys = new LinkedList<>(counts.keySet());
         Collections.sort(keys);
 
         StringBuilder sb = new StringBuilder();

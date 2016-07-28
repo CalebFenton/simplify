@@ -19,7 +19,7 @@ class Heap {
     private Heap parent;
 
     Heap(Cloner cloner) {
-        keyToHeapItem = new HashMap<String, HeapItem>();
+        keyToHeapItem = new HashMap<>();
         this.cloner = cloner;
     }
 
@@ -166,7 +166,7 @@ class Heap {
 
     private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
         Heap current = child;
-        Set<String> reassigned = new HashSet<String>();
+        Set<String> reassigned = new HashSet<>();
         while (current != ancestor) {
             reassigned.addAll(current.keySet());
             current = current.getParent();

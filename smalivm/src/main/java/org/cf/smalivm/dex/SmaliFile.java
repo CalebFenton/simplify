@@ -8,7 +8,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,18 +33,10 @@ public class SmaliFile {
     }
 
     private static String getClassName(File inputFile) throws FileNotFoundException {
-        BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(inputFile));
-        String className = null;
+        String className;
         try {
-            InputStreamReader isr = new InputStreamReader(inputStream, "UTF-8");
-            BufferedReader br = new BufferedReader(isr);
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.trim().startsWith(".class")) {
-                    break;
-                }
-            }
-            br.close();
+            Path myPath = Paths.get(inputFile.toURI());
+            String line = Files.lines(myPath).filter(s -> s.startsWith(".class ")).findFirst().get();
 
             if (null == line) {
                 throw new RuntimeException("Missing class directive in " + inputFile);

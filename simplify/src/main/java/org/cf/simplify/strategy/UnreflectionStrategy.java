@@ -109,19 +109,19 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private static Integer[] getFourBitValues(List<Integer> values) {
-        return values.stream().filter(v -> v <= 0b1111).toArray(size -> new Integer[size]);
+        return values.stream().filter(v -> v <= 0b1111).toArray(Integer[]::new);
     }
 
     private static void setRegisterCount(BuilderMethod method, int registerCount) throws Exception {
         MethodImplementation implementation = method.getImplementation();
         Field f = implementation.getClass().getDeclaredField("registerCount");
         f.setAccessible(true); // hack the planet
-        f.set(implementation, Integer.valueOf(registerCount));
+        f.set(implementation, registerCount);
     }
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> result = new HashMap<String, Integer>();
+        Map<String, Integer> result = new HashMap<>();
         result.put("unreflected methods", unreflectedMethodCount);
         result.put("unreflected fields", unreflectedFieldCount);
 
@@ -168,7 +168,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int invokeRegisterCount = parameterRegisterCount + (isStatic ? 0 : 1);
 
         boolean isRange = 5 < parameterRegisterCount;
-        List<Integer> registers = new LinkedList<Integer>();
+        List<Integer> registers = new LinkedList<>();
         if (invokeRegisterCount > 0) {
             List<Integer> availableRegisters1 =
                     IntStream.of(manipulator.getAvailableRegisters(address)).boxed().sorted()
@@ -229,7 +229,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             }
         }
 
-        List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
+        List<BuilderInstruction> instructions = new LinkedList<>();
         if (!isStatic && isRange) {
             int instanceRegister = registers.get(0);
             BuilderInstruction move =
@@ -352,7 +352,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
     int[] getValidAddresses(ExecutionGraphManipulator manipulator) {
         int[] addresses = manipulator.getAddresses();
-        List<Integer> validAddresses = new LinkedList<Integer>();
+        List<Integer> validAddresses = new LinkedList<>();
         for (int address : addresses) {
             if (manipulator.wasAddressReached(address)) {
                 validAddresses.add(address);
@@ -381,7 +381,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         String fieldName = parts[0];
         String type = parts[1];
 
-        boolean isStatic = false;
+        boolean isStatic;
         BuilderField builderField =
                 manipulator.getDexBuilder().internField(className, fieldName, type, field.getModifiers(), null, null);
         FieldReference fieldRef = manipulator.getDexBuilder().internFieldReference(builderField);
@@ -401,7 +401,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
             destRegister = manipulator.getAvailableRegisters(address)[0];
         }
 
-        BuilderInstruction replacement = null;
+        BuilderInstruction replacement;
         if (isStatic) {
             replacement = new BuilderInstruction21c(newOp, destRegister, fieldRef);
         } else {
@@ -426,7 +426,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
     private List<BuilderInstruction> getArrayAccessorInstructions(int arrayRegister, List<Integer> registers,
                                                                   List<String> parameterTypes) {
-        List<BuilderInstruction> instructions = new LinkedList<BuilderInstruction>();
+        List<BuilderInstruction> instructions = new LinkedList<>();
         for (int index = 0; index < parameterTypes.size(); index++) {
             int register = registers.get(index);
             BuilderInstruction constInstruction = ConstantBuilder.buildConstant(index, register);
@@ -484,7 +484,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private void replaceFieldGet() {
-        List<Integer> getAddresses = new LinkedList<Integer>();
+        List<Integer> getAddresses = new LinkedList<>();
         for (int address : addresses) {
             if (canReplaceFieldGet(address)) {
                 getAddresses.add(address);
@@ -506,7 +506,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private void replaceMethodInvoke() {
-        int[] invokeAddresses = Arrays.stream(addresses).filter(a -> canReplaceMethodInvoke(a)).sorted().toArray();
+        int[] invokeAddresses = Arrays.stream(addresses).filter(this::canReplaceMethodInvoke).sorted().toArray();
 
         int count = invokeAddresses.length;
         if (count == 0) {

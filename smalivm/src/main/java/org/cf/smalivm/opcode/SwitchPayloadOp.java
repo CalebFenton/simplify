@@ -78,9 +78,9 @@ public class SwitchPayloadOp extends MethodStateOp {
 
     private List<MethodLocation> getTargets(int branchFromAddress, TIntIntMap targetKeyToOffset) {
         int[] offsets = targetKeyToOffset.values();
-        List<MethodLocation> targets = new LinkedList<MethodLocation>();
-        for (int i = 0; i < offsets.length; i++) {
-            int targetOffset = branchFromAddress + offsets[i];
+        List<MethodLocation> targets = new LinkedList<>();
+        for (int offset : offsets) {
+            int targetOffset = branchFromAddress + offset;
             targets.add(addressToLocation.get(targetOffset));
         }
 

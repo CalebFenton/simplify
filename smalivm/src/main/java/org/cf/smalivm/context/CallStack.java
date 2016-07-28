@@ -12,7 +12,7 @@ public class CallStack {
     private TIntList addressStack;
 
     CallStack() {
-        methodStack = new LinkedList<String>();
+        methodStack = new LinkedList<>();
         addressStack = new TIntLinkedList();
     }
 
@@ -22,7 +22,7 @@ public class CallStack {
     }
 
     CallStack(CallStack callerStack) {
-        this.methodStack = new LinkedList<String>(callerStack.methodStack);
+        this.methodStack = new LinkedList<>(callerStack.methodStack);
         this.addressStack = new TIntLinkedList(callerStack.addressStack);
     }
 

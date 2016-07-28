@@ -22,8 +22,8 @@ public class ConstOpFactory implements OpFactory {
         MethodLocation child = Utils.getNextLocation(location, addressToLocation);
         BuilderInstruction instruction = (BuilderInstruction) location.getInstruction();
         int destRegister = ((OneRegisterInstruction) instruction).getRegisterA();
-        ConstantType constantType = null;
-        Object literal = null;
+        ConstantType constantType;
+        Object literal;
         String opName = instruction.getOpcode().name;
         if (opName.matches("const-string(?:/jumbo)?")) {
             ReferenceInstruction instr = (ReferenceInstruction) location.getInstruction();
@@ -33,8 +33,7 @@ public class ConstOpFactory implements OpFactory {
             // Don't lookup the class here. Defer to actual execution to handle any possible exceptions.
             ReferenceInstruction instr = (ReferenceInstruction) location.getInstruction();
             Reference classRef = instr.getReference();
-            String className = ReferenceUtil.getReferenceString(classRef);
-            literal = className;
+            literal = ReferenceUtil.getReferenceString(classRef);
             constantType = ConstantType.CLASS;
         } else if (opName.contains("-wide")) {
             WideLiteralInstruction instr = (WideLiteralInstruction) location.getInstruction();

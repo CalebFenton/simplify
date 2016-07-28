@@ -23,10 +23,10 @@ public class Configuration {
     private final Set<String> unsafeMethods;
 
     private Configuration() {
-        safeClasses = new HashSet<String>(ConfigurationLoader.load(SAFE_CLASSES_PATH));
-        safeMethods = new HashSet<String>(ConfigurationLoader.load(SAFE_METHODS_PATH));
-        unsafeMethods = new HashSet<String>(ConfigurationLoader.load(UNSAFE_METHODS_PATH));
-        immutableClasses = new HashSet<String>(ConfigurationLoader.load(IMMUTABLE_CLASSES_PATH));
+        safeClasses = new HashSet<>(ConfigurationLoader.load(SAFE_CLASSES_PATH));
+        safeMethods = new HashSet<>(ConfigurationLoader.load(SAFE_METHODS_PATH));
+        unsafeMethods = new HashSet<>(ConfigurationLoader.load(UNSAFE_METHODS_PATH));
+        immutableClasses = new HashSet<>(ConfigurationLoader.load(IMMUTABLE_CLASSES_PATH));
     }
 
     public Set<String> getImmutableClasses() {

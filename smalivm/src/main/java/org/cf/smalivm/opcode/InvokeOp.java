@@ -187,18 +187,18 @@ public class InvokeOp extends ExecutionContextOp {
         for (int i = 0; i < parameterRegisters.length; i++) {
             int callerRegister = parameterRegisters[i];
             HeapItem item = callerState.readRegister(callerRegister);
-            String parameterType = parameterTypes.get(i);
+            String parameterTypeName = parameterTypes.get(i);
             String baseTypeName = item.getComponentBase();
             String type;
             if (item.isPrimitive() || ClassNameUtils.isPrimitive(baseTypeName)) {
-                type = parameterType;
+                type = parameterTypeName;
             } else {
-                //Set<String> ancestorNames = vm.getAncestorEnumerator().enumerate(baseType);
                 VirtualGeneric baseType = vm.getClassManager().getVirtualType(baseTypeName);
+                VirtualGeneric parameterType = vm.getClassManager().getVirtualType(parameterTypeName);
                 if (baseType.getAncestors().contains(parameterType)) {
                     type = item.getType();
                 } else {
-                    type = parameterType;
+                    type = parameterTypeName;
                 }
             }
             analyzedParameterTypes[i] = type;

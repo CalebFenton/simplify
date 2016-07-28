@@ -50,9 +50,7 @@ public class ClassBuilder {
     private String buildDescriptor(Method method) {
         StringBuilder sb = new StringBuilder();
         sb.append('(');
-        for (CharSequence parameterType : method.getParameterTypes()) {
-            sb.append(parameterType);
-        }
+        method.getParameterTypes().forEach(sb::append);
         sb.append(')');
         sb.append(method.getReturnType());
 
@@ -64,7 +62,7 @@ public class ClassBuilder {
             return null;
         }
 
-        Set<String> exceptionTypes = new HashSet<String>();
+        Set<String> exceptionTypes = new HashSet<>();
         for (TryBlock<? extends ExceptionHandler> tryBlock : method.getImplementation().getTryBlocks()) {
             for (ExceptionHandler handler : tryBlock.getExceptionHandlers()) {
                 String type = handler.getExceptionType();
@@ -83,7 +81,7 @@ public class ClassBuilder {
     private String[] buildInterfaces(ClassDef classDef) {
         List<String> interfaces = classDef.getInterfaces();
 
-        return interfaces.stream().map(s -> stripName(s)).toArray(size -> new String[interfaces.size()]);
+        return interfaces.stream().map(this::stripName).toArray(size -> new String[interfaces.size()]);
     }
 
     private String stripName(String internalName) {
@@ -157,7 +155,7 @@ public class ClassBuilder {
         // Set the fields for each enum value
         Stream<? extends Field> fieldsStream = StreamSupport.stream(fields.spliterator(), false);
         List<String> fieldNames = fieldsStream.filter(f -> (f.getAccessFlags() & Opcodes.ACC_ENUM) != 0)
-                        .map(f -> f.getName()).collect(Collectors.toList());
+                        .map(Field::getName).collect(Collectors.toList());
         fieldNames.add("$shadow_instance");
         int fieldCount = fieldNames.size();
         for (int i = 0; i < fieldCount; i++) {

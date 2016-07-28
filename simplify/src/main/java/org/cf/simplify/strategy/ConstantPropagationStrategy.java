@@ -35,7 +35,7 @@ public class ConstantPropagationStrategy implements OptimizationStrategy {
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> counts = new HashMap<String, Integer>();
+        Map<String, Integer> counts = new HashMap<>();
         counts.put("constantized ops", constantCount);
 
         return counts;
@@ -103,7 +103,7 @@ public class ConstantPropagationStrategy implements OptimizationStrategy {
     }
 
     private List<Integer> getValidAddresses() {
-        return IntStream.of(manipulator.getAddresses()).boxed().filter(a -> canConstantizeAddress(a))
+        return IntStream.of(manipulator.getAddresses()).boxed().filter(this::canConstantizeAddress)
                        .collect(Collectors.toList());
     }
 

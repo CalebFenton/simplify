@@ -31,10 +31,7 @@ public class FillArrayDataOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder(getName());
-        sb.append(" r").append(register).append(", #").append(getChildren()[0].getCodeAddress());
-
-        return sb.toString();
+        return getName() + " r" + register + ", #" + getChildren()[0].getCodeAddress();
     }
 
 }

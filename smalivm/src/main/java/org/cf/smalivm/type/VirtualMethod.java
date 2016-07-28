@@ -84,7 +84,7 @@ public class VirtualMethod extends VirtualClassItem {
     public List<BuilderTryBlock> getTryBlocks() {
         MutableMethodImplementation implementation = (MutableMethodImplementation) method.getImplementation();
         if (implementation == null) {
-            return new LinkedList<BuilderTryBlock>();
+            return new LinkedList<>();
         }
 
         return implementation.getTryBlocks();

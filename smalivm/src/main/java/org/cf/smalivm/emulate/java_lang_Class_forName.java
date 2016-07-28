@@ -23,7 +23,7 @@ class java_lang_Class_forName extends ExecutionContextMethod {
         String binaryClassName = (String) mState.peekParameter(0).getValue();
         String className = ClassNameUtils.binaryToInternal(binaryClassName);
 
-        Class<?> value = null;
+        Class<?> value;
         try {
             if (vm.getConfiguration().isSafe(className)) {
                 value = Class.forName(binaryClassName);
@@ -36,7 +36,7 @@ class java_lang_Class_forName extends ExecutionContextMethod {
                  * is loaded and only the local values are used.
                  * Note: this is done *after* trying to load the class in case there's an exception
                  */
-                VirtualClass virtualClass = null;
+                VirtualClass virtualClass;
                 try {
                     virtualClass = vm.getClassManager().getVirtualClass(className);
                 } catch (RuntimeException e) {

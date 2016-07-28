@@ -29,7 +29,7 @@ public class ClassNameUtils {
         internalPrimitiveToWrapper.put("C", Character.class.getName());
         internalPrimitiveToWrapper.put("V", Void.class.getName());
 
-        internalPrimitiveToClass = new HashMap<String, Class<?>>(8);
+        internalPrimitiveToClass = new HashMap<>(8);
         internalPrimitiveToClass.put("I", int.class);
         internalPrimitiveToClass.put("S", short.class);
         internalPrimitiveToClass.put("J", long.class);
@@ -52,7 +52,7 @@ public class ClassNameUtils {
         // Note: Void is not technically a primitive.
         internalPrimitiveToBinaryName.put("V", void.class.getName());
 
-        binaryNameToType = new HashMap<String, Class<?>>(9);
+        binaryNameToType = new HashMap<>(9);
         binaryNameToType.put("int", Integer.TYPE);
         binaryNameToType.put("short", Short.TYPE);
         binaryNameToType.put("long", Long.TYPE);
@@ -423,7 +423,7 @@ public class ClassNameUtils {
      * @return list of internal format class names in the same order as arguments
      */
     public static List<String> toInternal(Class<?>... classes) {
-        List<String> names = new LinkedList<String>();
+        List<String> names = new LinkedList<>();
         for (Class<?> klazz : classes) {
             names.add(toInternal(klazz));
         }

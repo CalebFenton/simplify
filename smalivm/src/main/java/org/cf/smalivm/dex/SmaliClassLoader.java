@@ -19,7 +19,6 @@ public class SmaliClassLoader extends ClassLoader {
     // This jar is produced by FrameworkJarBuilder so that framework classes don't have to be built with ASM
     // every time they're needed. Instead, they can be loaded from here.
     private static final String FRAMEWORK_STUBS_JAR = "/framework/android-23.jar";
-    private static final Map<String, Class<?>> cachedFrameworkClasses = new HashMap<String, Class<?>>();
 
     private final Map<String, Class<?>> cachedClasses;
     private final ClassBuilder classBuilder;
@@ -28,7 +27,7 @@ public class SmaliClassLoader extends ClassLoader {
 
     public SmaliClassLoader(ClassManager classManager) {
         super(SmaliClassLoader.class.getClassLoader());
-        cachedClasses = new HashMap<String, Class<?>>();
+        cachedClasses = new HashMap<>();
         URL jarURL = SmaliClassLoader.class.getResource(FRAMEWORK_STUBS_JAR);
         jarLoader = new URLClassLoader(new URL[] { jarURL });
         this.classBuilder = new ClassBuilder();
@@ -60,14 +59,8 @@ public class SmaliClassLoader extends ClassLoader {
         }
 
         Class<?> klazz;
-        klazz = cachedFrameworkClasses.get(name);
-        if ( klazz != null ) {
-            return klazz;
-        }
-
         try {
             klazz = jarLoader.loadClass(name);
-            cachedFrameworkClasses.put(name, klazz);
             return klazz;
         } catch (ClassNotFoundException e) {
         }

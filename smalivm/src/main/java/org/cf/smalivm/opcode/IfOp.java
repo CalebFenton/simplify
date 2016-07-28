@@ -24,6 +24,7 @@ public class IfOp extends MethodStateOp {
         this.register1 = register1;
         compareToZero = true;
     }
+
     IfOp(MethodLocation location, MethodLocation child, IfType ifType, MethodLocation target, int register1,
          int register2) {
         this(location, child, ifType, target, register1);
@@ -69,7 +70,7 @@ public class IfOp extends MethodStateOp {
 
         Object lhs = lhsItem.getValue();
         Object rhs = rhsItem.getValue();
-        int cmp = Integer.MIN_VALUE;
+        int cmp;
         if (compareToZero) {
             if (lhs == null) {
                 // if-*z ops are used to check for null refs

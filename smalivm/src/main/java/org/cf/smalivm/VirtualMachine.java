@@ -40,7 +40,7 @@ public class VirtualMachine {
         classLoader = new SmaliClassLoader(classManager);
         methodExecutor =
                 new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits, maxExecutionTime);
-        methodToTemplateExecutionGraph = new HashMap<VirtualMethod, ExecutionGraph>();
+        methodToTemplateExecutionGraph = new HashMap<>();
         staticFieldAccessor = new StaticFieldAccessor(this);
         configuration = Configuration.instance();
         exceptionFactory = new ExceptionFactory(this);

@@ -6,7 +6,6 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.util.Utils;
-import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c;
 import org.jf.dexlib2.iface.reference.FieldReference;

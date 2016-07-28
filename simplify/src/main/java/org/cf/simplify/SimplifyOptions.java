@@ -207,12 +207,9 @@ public class SimplifyOptions implements Serializable {
             return InputType.DIRECTORY;
         }
 
-        FileInputStream fis = new FileInputStream(inFile);
         byte[] buf = new byte[3];
-        try {
+        try (FileInputStream fis = new FileInputStream(inFile)) {
             fis.read(buf);
-        } finally {
-            fis.close();
         }
 
         if (Arrays.equals(DEX_MAGIC, buf)) {

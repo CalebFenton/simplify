@@ -44,7 +44,7 @@ public class ExecutionContext {
          * Since there's an ExecutionContext for each execution of each op and these maps are only populated when
          * they're needed (by pulling from ancestors), so be frugal with size.
          */
-        classToStatus = new HashMap<VirtualClass, ClassStatus>(0);
+        classToStatus = new HashMap<>(0);
     }
 
     public int getCallDepth() {

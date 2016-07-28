@@ -17,7 +17,7 @@ public class VirtualPrimitive extends VirtualGeneric {
 
     @Override
     public Set<VirtualPrimitive> getAncestors() {
-        return new HashSet<VirtualPrimitive>(0);
+        return new HashSet<>(0);
     }
 
     @Override

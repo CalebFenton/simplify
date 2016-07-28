@@ -57,7 +57,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> counts = new HashMap<String, Integer>();
+        Map<String, Integer> counts = new HashMap<>();
         counts.put("peephole optmizations", peepCount);
         counts.put("constantized ifs", constantIfCount);
 
@@ -109,11 +109,10 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         // Heap item at address would have been recast. Need to examine parents.
         // Also, don't care about values. Just collecting types.
-        Set<String> ancestorTypes = new HashSet<String>();
+        Set<String> ancestorTypes = new HashSet<>();
         for (int parentAddress : manipulator.getParentAddresses(address)) {
-            for (HeapItem item : manipulator.getRegisterItems(parentAddress, registerA)) {
-                ancestorTypes.add(item.getType());
-            }
+            ancestorTypes.addAll(manipulator.getRegisterItems(parentAddress, registerA).stream().map(HeapItem::getType)
+                                         .collect(Collectors.toList()));
         }
 
         if (ancestorTypes.size() > 1) {
@@ -189,12 +188,12 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {
-        return IntStream.of(manipulator.getAddresses()).boxed().filter(a -> manipulator.wasAddressReached(a))
+        return IntStream.of(manipulator.getAddresses()).boxed().filter(manipulator::wasAddressReached)
                        .collect(Collectors.toList());
     }
 
     void peepCheckCast() {
-        List<Integer> peepAddresses = addresses.stream().filter(a -> canPeepCheckCast(a)).collect(Collectors.toList());
+        List<Integer> peepAddresses = addresses.stream().filter(this::canPeepCheckCast).collect(Collectors.toList());
         if (0 == peepAddresses.size()) {
             return;
         }
@@ -211,7 +210,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     void peepClassForName() {
         List<Integer> peepAddresses =
-                addresses.stream().filter(a -> canPeepClassForName(a)).collect(Collectors.toList());
+                addresses.stream().filter(this::canPeepClassForName).collect(Collectors.toList());
         if (0 == peepAddresses.size()) {
             return;
         }
@@ -237,15 +236,15 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     void peepConstantPredicate() {
-        List<Integer> peepAddresses = new LinkedList<Integer>();
-        Set<Integer> nextAddresses = new HashSet<Integer>();
+        List<Integer> peepAddresses = new LinkedList<>();
+        Set<Integer> nextAddresses = new HashSet<>();
         for (int address : addresses) {
             BuilderInstruction original = manipulator.getInstruction(address);
             if (!(original instanceof Instruction22t || original instanceof Instruction21t)) {
                 continue;
             }
 
-            Set<ExecutionNode> children = new HashSet<ExecutionNode>();
+            Set<ExecutionNode> children = new HashSet<>();
             List<ExecutionNode> pile = manipulator.getNodePile(address);
             for (ExecutionNode node : pile) {
                 children.addAll(node.getChildren());
@@ -290,7 +289,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     void peepStringInit() {
-        List<Integer> peepAddresses = addresses.stream().filter(a -> canPeepStringInit(a)).collect(Collectors.toList());
+        List<Integer> peepAddresses = addresses.stream().filter(this::canPeepStringInit).collect(Collectors.toList());
         if (0 == peepAddresses.size()) {
             return;
         }

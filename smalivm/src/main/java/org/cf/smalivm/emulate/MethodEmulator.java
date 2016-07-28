@@ -14,8 +14,7 @@ import java.util.Set;
 public class MethodEmulator {
 
     private static final Logger log = LoggerFactory.getLogger(MethodEmulator.class.getSimpleName());
-    private static Map<String, Class<? extends EmulatedMethod>> emulatedMethods =
-            new HashMap<String, Class<? extends EmulatedMethod>>();
+    private static Map<String, Class<? extends EmulatedMethod>> emulatedMethods = new HashMap<>();
     static {
         addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", org_cf_simplify_Utils_breakpoint.class);
         addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", java_lang_Class_forName.class);

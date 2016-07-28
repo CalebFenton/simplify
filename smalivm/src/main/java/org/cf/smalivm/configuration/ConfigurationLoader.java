@@ -13,7 +13,7 @@ public class ConfigurationLoader {
 
     public static List<String> load(String path) {
         URL url = Resources.getResource(path);
-        List<String> lines = new LinkedList<String>();
+        List<String> lines = new LinkedList<>();
         try {
             lines = Resources.readLines(url, Charsets.UTF_8);
         } catch (IOException e) {

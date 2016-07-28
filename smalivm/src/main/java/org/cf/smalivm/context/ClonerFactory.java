@@ -17,7 +17,7 @@ public class ClonerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(ClonerFactory.class.getSimpleName());
 
-    private static final Map<ClassManager, Cloner> cache = new WeakHashMap<ClassManager, Cloner>();
+    private static final Map<ClassManager, Cloner> cache = new WeakHashMap<>();
 
     /**
      * This builds a fresh cloner. This is necessary because Cloner does some caching of classes which is a problem

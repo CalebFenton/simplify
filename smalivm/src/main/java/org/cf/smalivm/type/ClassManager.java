@@ -15,9 +15,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The class manager is responsible for loading Smali files into Dexlib2 objects and making them available.
@@ -42,8 +42,8 @@ public class ClassManager {
     private ClassManager(DexBuilder dexBuilder, boolean internalOnly) {
         this.dexBuilder = dexBuilder;
         smaliFileFactory = new SmaliFileFactory();
-        classNameToVirtualClass = new HashMap<String, VirtualClass>();
-        classNameToSmaliFile = new HashMap<String, SmaliFile>();
+        classNameToVirtualClass = new HashMap<>();
+        classNameToSmaliFile = new HashMap<>();
         VirtualGeneric.setClassManager(this);
     }
 
@@ -74,14 +74,8 @@ public class ClassManager {
      * @return all framework class names
      */
     public Set<String> getFrameworkClassNames() {
-        Set<String> classNames = new HashSet<String>();
-        for (String className : classNameToSmaliFile.keySet()) {
-            if (smaliFileFactory.isFrameworkClass(className)) {
-                classNames.add(className);
-            }
-        }
-
-        return classNames;
+        return classNameToSmaliFile.keySet().stream().filter(smaliFileFactory::isFrameworkClass)
+                       .collect(Collectors.toSet());
     }
 
     public Collection<VirtualClass> getLoadedClasses() {
@@ -108,14 +102,8 @@ public class ClassManager {
      * @return all local class names which are not part of the framework
      */
     public Set<String> getNonFrameworkClassNames() {
-        Set<String> classNames = new HashSet<String>();
-        for (String className : classNameToSmaliFile.keySet()) {
-            if (!smaliFileFactory.isFrameworkClass(className)) {
-                classNames.add(className);
-            }
-        }
-
-        return classNames;
+        return classNameToSmaliFile.keySet().stream().filter(className -> !smaliFileFactory.isFrameworkClass(className))
+                       .collect(Collectors.toSet());
     }
 
     public VirtualClass getVirtualClass(String className) {

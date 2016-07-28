@@ -19,8 +19,8 @@ public class ClassState extends BaseState {
         this.virtualClass = virtualClass;
     }
 
-    private ClassState(ClassState parent, ExecutionContext ectx) {
-        this(parent.virtualClass, ectx);
+    private ClassState(ClassState parent, ExecutionContext context) {
+        this(parent.virtualClass, context);
     }
 
     public void assignField(VirtualField field, Object value) {

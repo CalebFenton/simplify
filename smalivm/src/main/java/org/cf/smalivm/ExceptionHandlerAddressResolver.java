@@ -30,7 +30,7 @@ public class ExceptionHandlerAddressResolver {
      * parent, and so on. If catchAll is true, it'll look for catch-all exception handlers.
      */
     private int findHandlerCodeAddress(VirtualClass exceptionClass, int address, boolean catchAll) {
-        List<VirtualClass> lineage = new LinkedList<VirtualClass>();
+        List<VirtualClass> lineage = new LinkedList<>();
         lineage.add(exceptionClass);
         lineage.addAll(exceptionClass.getAncestors());
 

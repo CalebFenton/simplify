@@ -27,12 +27,12 @@ public class ExecutionNode {
 
     public ExecutionNode(ExecutionNode other) {
         op = other.op;
-        children = new ArrayList<ExecutionNode>(other.getChildren());
+        children = new ArrayList<>(other.getChildren());
     }
 
     public ExecutionNode(Op op) {
         this.op = op;
-        children = new ArrayList<ExecutionNode>(op.getChildren().length);
+        children = new ArrayList<>(op.getChildren().length);
     }
 
     public void clearChildren() {
@@ -40,7 +40,7 @@ public class ExecutionNode {
     }
 
     public void clearExceptions() {
-        exceptions = new HashSet<Throwable>();
+        exceptions = new HashSet<>();
     }
 
     public void execute() {
@@ -135,7 +135,7 @@ public class ExecutionNode {
     }
 
     public void setException(Throwable exception) {
-        exceptions = new HashSet<Throwable>();
+        exceptions = new HashSet<>();
         exceptions.add(exception);
     }
 

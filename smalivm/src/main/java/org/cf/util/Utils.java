@@ -4,12 +4,19 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
+import org.apache.commons.lang3.ClassUtils;
+import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.dex.CommonTypes;
+import org.jf.dexlib2.builder.BuilderInstruction;
+import org.jf.dexlib2.builder.MethodLocation;
+import org.jf.dexlib2.writer.builder.BuilderTypeList;
+import org.jf.dexlib2.writer.builder.BuilderTypeReference;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -18,15 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.commons.lang3.ClassUtils;
-import org.cf.smalivm.context.HeapItem;
-import org.cf.smalivm.dex.CommonTypes;
-import org.cf.smalivm.type.UnknownValue;
-import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.writer.builder.BuilderTypeList;
-import org.jf.dexlib2.writer.builder.BuilderTypeReference;
+import java.util.stream.Collectors;
 
 public class Utils {
 
@@ -38,8 +37,8 @@ public class Utils {
         return buildArray(internalName, length, Utils.class.getClassLoader());
     }
 
-    public static Object buildArray(String internalName, int length, ClassLoader classLoader)
-                    throws ClassNotFoundException {
+    public static Object buildArray(String internalName, int length,
+                                    ClassLoader classLoader) throws ClassNotFoundException {
         String baseClassName = ClassNameUtils.getComponentBase(internalName);
         String binaryName = ClassNameUtils.internalToBinary(baseClassName);
 
@@ -52,21 +51,14 @@ public class Utils {
     }
 
     public static List<String> builderTypeListToTypeNames(BuilderTypeList typeList) {
-        List<String> typeNames = new LinkedList<String>();
-        for (BuilderTypeReference type : typeList) {
-            typeNames.add(type.getType());
-        }
-
-        return typeNames;
+        return typeList.stream().map(BuilderTypeReference::getType).collect(Collectors.toCollection(LinkedList::new));
     }
 
     public static String buildFieldDescriptor(Field field) {
         String className = ClassNameUtils.toInternal(field.getDeclaringClass());
         String typeName = ClassNameUtils.toInternal(field.getType());
-        StringBuilder sb = new StringBuilder(className);
-        sb.append("->").append(field.getName()).append(':').append(typeName);
 
-        return sb.toString();
+        return className + "->" + field.getName() + ':' + typeName;
     }
 
     public static Object castToPrimitive(Object value, String targetType) {
@@ -148,7 +140,7 @@ public class Utils {
     }
 
     public static List<File> getFilesWithSmaliExtension(File file) {
-        final List<File> files = new LinkedList<File>();
+        final List<File> files = new LinkedList<>();
         if (file.isDirectory()) {
             try {
                 java.nio.file.Files.walk(file.toPath()).forEach(filePath -> {
@@ -196,7 +188,7 @@ public class Utils {
     }
 
     public static MethodLocation getNextLocation(MethodLocation location,
-                    TIntObjectMap<MethodLocation> addressToLocation) {
+                                                 TIntObjectMap<MethodLocation> addressToLocation) {
         int address = location.getCodeAddress();
         int nextAddress = address + location.getInstruction().getCodeUnits();
 
@@ -207,12 +199,11 @@ public class Utils {
      * Determine parameter types by parsing the method descriptor.
      * Note: For local methods, there's ClassManager#getParameterTypes.
      *
-     * @param methodDescriptor
      * @return list of parameter types in internal form
      */
     public static List<String> getParameterTypes(String methodDescriptor) {
         Matcher m = PARAMETER_ISOLATOR.matcher(methodDescriptor);
-        List<String> result = new ArrayList<String>();
+        List<String> result = new ArrayList<>();
         if (m.find()) {
             String params = m.group();
             m = PARAMETER_INDIVIDUATOR.matcher(params);
@@ -242,12 +233,11 @@ public class Utils {
     }
 
     public static int getRegisterSize(String typeName) {
-        return CommonTypes.LONG.equals(typeName) || CommonTypes.DOUBLE.equals(typeName)
-                ? 2 : 1;
+        return CommonTypes.LONG.equals(typeName) || CommonTypes.DOUBLE.equals(typeName) ? 2 : 1;
     }
 
     public static Set<String> getDeclaredAndValueTypeNames(HeapItem item) {
-        Set<String> types = new HashSet<String>(3);
+        Set<String> types = new HashSet<>(3);
         types.add(item.getType());
 
         Object value = item.getValue();

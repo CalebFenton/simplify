@@ -54,7 +54,7 @@ public class SimplifyOptionsParser {
                 case "max-call-depth":
                     simplifyOpts.setMaxCallDepth(Integer.parseInt(val));
                     break;
-                case "max-method-vists":
+                case "max-method-visits":
                     simplifyOpts.setMaxMethodVisits(Integer.parseInt(val));
                     break;
                 case "include-support":
@@ -121,13 +121,11 @@ public class SimplifyOptionsParser {
         // Execution
         Option includeTypesOption = Option.builder("it").longOpt("include-types").hasArg().argName("pattern")
                                             .desc("Limit execution to classes and methods which include REGEX, eg: " +
-                                                  "\";->targetMethod\\(\"")
-                                            .build();
+                                                  "\";->targetMethod\\(\"").build();
 
         Option excludeTypesOption = Option.builder("et").longOpt("exclude-types").hasArg().argName("pattern")
                                             .desc("Exclude classes and methods which include REGEX, eg: " +
-                                                  "\"com/android\", applied after include-types")
-                                            .build();
+                                                  "\"com/android\", applied after include-types").build();
 
         Option maxExecutionTimeOption = Option.builder().longOpt("max-execution-time").hasArg().argName("N")
                                                 .desc("Give up executing a method after N seconds, default: " +
@@ -143,10 +141,10 @@ public class SimplifyOptionsParser {
                                                   "recursion and long method chains, default: " +
                                                   simplifyOpts.getMaxCallDepth()).build();
 
-        Option maxMethodVisitsOption = Option.builder().longOpt("max-method-vists").hasArg().argName("N")
+        Option maxMethodVisitsOption = Option.builder().longOpt("max-method-visits").hasArg().argName("N")
                                                .desc("Give up executing a method after executing N instructions in " +
-                                                     "that method, default: " +
-                                                     simplifyOpts.getMaxMethodVisits()).build();
+                                                     "that method, default: " + simplifyOpts.getMaxMethodVisits())
+                                               .build();
 
         Option includeSupportOption = Option.builder().longOpt("include-support")
                                               .desc("Attempt to execute and optimize classes in Android support " +

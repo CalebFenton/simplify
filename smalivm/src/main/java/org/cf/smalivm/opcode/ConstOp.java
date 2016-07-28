@@ -81,7 +81,7 @@ class ConstOp extends MethodStateOp {
     }
 
     private Object buildConstant() {
-        Object constant = null;
+        Object constant;
         if (ConstantType.CLASS == constantType) {
             String className = (String) literal;
             try {

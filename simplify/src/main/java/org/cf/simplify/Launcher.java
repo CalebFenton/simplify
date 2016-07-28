@@ -109,19 +109,16 @@ public class Launcher {
     }
 
     private static void updateZip(File zip, File entry, String entryName) throws IOException {
-        Map<String, String> env = new HashMap<String, String>();
+        Map<String, String> env = new HashMap<>();
         String uriPath = "jar:file:" + zip.getAbsolutePath();
         URI uri = URI.create(uriPath);
-        FileSystem fs = FileSystems.newFileSystem(uri, env);
-        try {
+        try (FileSystem fs = FileSystems.newFileSystem(uri, env)) {
             fs.provider().checkAccess(fs.getPath(entryName), AccessMode.READ);
             Path target = fs.getPath(entryName);
             Path source = entry.toPath();
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw e;
-        } finally {
-            fs.close();
         }
     }
 
@@ -181,7 +178,7 @@ public class Launcher {
         }
 
         for (VirtualMethod method : methods) {
-            boolean executeAgain = false;
+            boolean executeAgain;
             do {
                 System.out.println("Executing: " + method);
                 ExecutionGraph graph = null;

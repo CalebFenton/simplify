@@ -55,7 +55,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         int[] allAddresses = manipulator.getAddresses();
         Arrays.sort(allAddresses);
         int highestAddress = allAddresses[allAddresses.length - 1];
-        Set<Integer> handlerAddresses = new HashSet<Integer>();
+        Set<Integer> handlerAddresses = new HashSet<>();
         List<BuilderTryBlock> tryBlocks = manipulator.getTryBlocks();
         for (BuilderTryBlock tryBlock : tryBlocks) {
             List<? extends BuilderExceptionHandler> handlers = tryBlock.getExceptionHandlers();
@@ -78,7 +78,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     private static Set<Integer> getNormalRegistersAssigned(MethodState mState) {
-        Set<Integer> assigned = new HashSet<Integer>();
+        Set<Integer> assigned = new HashSet<>();
         for (int register : mState.getRegistersAssigned()) {
             if (register < 0) {
                 continue;
@@ -97,7 +97,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     private static boolean isAnyRegisterUsed(int address, Set<Integer> registers, ExecutionGraphManipulator graph) {
         List<ExecutionNode> children = graph.getChildren(address);
         for (ExecutionNode child : children) {
-            Set<Integer> newRegisters = new HashSet<Integer>(registers);
+            Set<Integer> newRegisters = new HashSet<>(registers);
             if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
                 return true;
             }
@@ -142,7 +142,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
                 current = children.get(0);
             } else {
                 for (ExecutionNode child : children) {
-                    Set<Integer> newRegisters = new HashSet<Integer>(usedRegisters);
+                    Set<Integer> newRegisters = new HashSet<>(usedRegisters);
                     if (isAnyRegisterUsed(address, newRegisters, graph, child)) {
                         return true;
                     }
@@ -155,7 +155,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     @Override
     public Map<String, Integer> getOptimizationCounts() {
-        Map<String, Integer> counts = new HashMap<String, Integer>();
+        Map<String, Integer> counts = new HashMap<>();
         counts.put("dead ops removed", unvisitedCount);
         counts.put("unused assignments removed", unusedAssignmentCount);
         counts.put("unused results removed", unusedResultCount);
@@ -170,7 +170,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         // Updated addresses each time because they change outside of this method.
         addresses = getValidAddresses(manipulator);
 
-        Set<Integer> removeSet = new HashSet<Integer>();
+        Set<Integer> removeSet = new HashSet<>();
         List<Integer> removeAddresses;
         removeAddresses = getDeadAddresses();
         unvisitedCount += removeAddresses.size();
@@ -192,7 +192,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         nopCount += removeAddresses.size();
         removeSet.addAll(removeAddresses);
 
-        List<Integer> deadAddresses = new LinkedList<Integer>(removeSet);
+        List<Integer> deadAddresses = new LinkedList<>(removeSet);
         if (deadAddresses.size() > 0) {
             manipulator.removeInstructions(deadAddresses);
         }
@@ -207,7 +207,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     }
 
     List<Integer> getDeadAddresses() {
-        return addresses.stream().filter(a -> isDead(a)).collect(Collectors.toList());
+        return addresses.stream().filter(this::isDead).collect(Collectors.toList());
     }
 
     List<Integer> getDeadAssignmentAddresses() {
@@ -232,7 +232,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {
         List<Integer> validAddresses = IntStream.of(manipulator.getAddresses()).boxed().collect(Collectors.toList());
-        List<Integer> invalidAddresses = new LinkedList<Integer>();
+        List<Integer> invalidAddresses = new LinkedList<>();
 
         // Should never remove the last op. It's either return, goto, or an array payload.
         invalidAddresses.add(validAddresses.get(validAddresses.size() - 1));

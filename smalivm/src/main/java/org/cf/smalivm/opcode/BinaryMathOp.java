@@ -21,7 +21,6 @@ public class BinaryMathOp extends MethodStateOp {
     private final int destRegister;
     private final MathOperandType mathOperandType;
     private final MathOperator mathOperator;
-    private final ExceptionFactory exceptionFactory;
     private int arg2Register;
     private boolean hasLiteral;
     private int narrowLiteral;
@@ -44,7 +43,6 @@ public class BinaryMathOp extends MethodStateOp {
         this.arg1Register = arg1Register;
         mathOperator = getMathOp(getName());
         mathOperandType = getMathOperandType(getName());
-        this.exceptionFactory = exceptionFactory;
 
         addException(exceptionFactory.build(this, ArithmeticException.class, "/ by zero"));
     }
@@ -240,8 +238,7 @@ public class BinaryMathOp extends MethodStateOp {
     @Override
     public void execute(ExecutionNode node, MethodState mState) {
         HeapItem lhsItem = mState.readRegister(arg1Register);
-        HeapItem rhsItem = null;
-
+        HeapItem rhsItem;
         if (hasLiteral) {
             rhsItem = new HeapItem(narrowLiteral, CommonTypes.INTEGER);
         } else {
@@ -291,7 +288,7 @@ public class BinaryMathOp extends MethodStateOp {
     private
     @Nonnull
     Object getResult(Object lhs, Object rhs) {
-        Object result = null;
+        Object result;
         switch (mathOperandType) {
             case INT:
                 lhs = Utils.getIntegerValue(lhs);

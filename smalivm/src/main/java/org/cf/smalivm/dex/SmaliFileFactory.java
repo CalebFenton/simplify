@@ -45,7 +45,7 @@ public class SmaliFileFactory {
     public Set<SmaliFile> getSmaliFiles() {
         cacheFramework();
 
-        Set<SmaliFile> smaliFiles = new HashSet<SmaliFile>();
+        Set<SmaliFile> smaliFiles = new HashSet<>();
         smaliFiles.addAll(frameworkClassNameToSmaliFile.values());
 
         return smaliFiles;
@@ -67,10 +67,10 @@ public class SmaliFileFactory {
     }
 
     private static Map<String, SmaliFile> parseFramework() {
-        Map<String, SmaliFile> frameworkFiles = new HashMap<String, SmaliFile>();
+        Map<String, SmaliFile> frameworkFiles = new HashMap<>();
         // framework_classes.cfg is built by FrameworkCacheBuilder
         List<String> frameworkClassesCfg = ConfigurationLoader.load("framework_classes.cfg");
-        Set<String> safeFrameworkClasses = new HashSet<String>(ConfigurationLoader.load("safe_framework_classes.cfg"));
+        Set<String> safeFrameworkClasses = new HashSet<>(ConfigurationLoader.load("safe_framework_classes.cfg"));
         for (String line : frameworkClassesCfg) {
             String[] parts = line.split(":");
             String className = parts[0];
@@ -103,11 +103,8 @@ public class SmaliFileFactory {
 
     public boolean isSafeFrameworkClass(String className) {
         SmaliFile smaliFile = frameworkClassNameToSmaliFile.get(className);
-        if (null == smaliFile) {
-            return false;
-        }
 
-        return smaliFile.isSafeFrameworkClass();
+        return null != smaliFile && smaliFile.isSafeFrameworkClass();
     }
 
 }

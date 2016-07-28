@@ -4,7 +4,6 @@ import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
@@ -22,6 +21,36 @@ public class MethodReflector {
 
     public MethodReflector(VirtualMachine vm, VirtualMethod method) {
         this.method = method;
+    }
+
+    public void reflect(MethodState mState) throws Exception {
+        if (log.isDebugEnabled()) {
+            log.debug("Reflecting {} with context:\n{}", method, mState);
+        }
+
+        Object returnValue;
+        try {
+            returnValue = invoke(mState);
+        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            //            e.printStackTrace();
+            if (log.isWarnEnabled()) {
+                log.warn("Failed to reflect {}: {}", method, e.getMessage());
+            }
+            if (log.isDebugEnabled()) {
+                log.debug("Stack trace:", e);
+            }
+            throw e;
+        }
+
+        if (!method.returnsVoid()) {
+            HeapItem returnItem = new HeapItem(returnValue, method.getReturnType());
+            mState.assignReturnRegister(returnItem);
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "MethodReflector{" + method + ", static=" + method.isStatic() + "}";
     }
 
     private InvocationArguments getArguments(MethodState mState) throws ClassNotFoundException {
@@ -59,8 +88,7 @@ public class MethodReflector {
         return new InvocationArguments(args, parameterTypes);
     }
 
-    private Object invoke(MethodState mState) throws ClassNotFoundException, NoSuchMethodException,
-            IllegalAccessException, InvocationTargetException, InstantiationException {
+    private Object invoke(MethodState mState) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Object returnValue;
         Class<?> klazz = Class.forName(method.getBinaryClassName());
         InvocationArguments invocationArgs = getArguments(mState);
@@ -88,38 +116,6 @@ public class MethodReflector {
         }
 
         return returnValue;
-    }
-
-    public void reflect(MethodState mState) throws Exception {
-        if (log.isDebugEnabled()) {
-            log.debug("Reflecting {} with context:\n{}", method, mState);
-        }
-
-        Object returnValue = null;
-        try {
-            returnValue = invoke(mState);
-        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException |
-                InstantiationException | IllegalAccessException | IllegalArgumentException |
-                InvocationTargetException e) {
-//            e.printStackTrace();
-            if (log.isWarnEnabled()) {
-                log.warn("Failed to reflect {}: {}", method, e.getMessage());
-            }
-            if (log.isDebugEnabled()) {
-                log.debug("Stack trace:", e);
-            }
-            throw e;
-        }
-
-        if (!method.returnsVoid()) {
-            HeapItem returnItem = new HeapItem(returnValue, method.getReturnType());
-            mState.assignReturnRegister(returnItem);
-        }
-    }
-
-    @Override
-    public String toString() {
-        return "MethodReflector{" + method + ", static=" + method.isStatic() + "}";
     }
 
     private class InvocationArguments {

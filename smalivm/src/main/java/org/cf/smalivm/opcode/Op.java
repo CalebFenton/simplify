@@ -20,7 +20,7 @@ public abstract class Op {
     Op(MethodLocation location, MethodLocation[] children) {
         this.location = location;
         this.children = children;
-        exceptions = new HashSet<Throwable>();
+        exceptions = new HashSet<>();
     }
 
     public final int getAddress() {

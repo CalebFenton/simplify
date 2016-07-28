@@ -39,7 +39,7 @@ public class Dexifier {
         if (file.isDirectory()) {
             smaliFiles = Utils.getFilesWithSmaliExtension(file);
         } else {
-            smaliFiles = new ArrayList<File>();
+            smaliFiles = new ArrayList<>();
             smaliFiles.add(file);
         }
 
@@ -48,7 +48,7 @@ public class Dexifier {
 
     public static List<BuilderClassDef> dexifySmaliFiles(List<File> smaliFiles, DexBuilder dexBuilder) throws
             Exception {
-        List<BuilderClassDef> result = new ArrayList<BuilderClassDef>();
+        List<BuilderClassDef> result = new ArrayList<>();
         for (File smaliFile : smaliFiles) {
             result.add(dexifySmaliFile(smaliFile, dexBuilder));
         }

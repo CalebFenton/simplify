@@ -51,7 +51,7 @@ public class MethodExecutor {
         }
 
         NodeExecutor nodeExecutor = new NodeExecutor(graph, classManager);
-        Deque<ExecutionNode> stack = new ArrayDeque<ExecutionNode>();
+        Deque<ExecutionNode> stack = new ArrayDeque<>();
         stack.push(node);
         long endTime = System.currentTimeMillis() + (maxExecutionTime * 1000);
         boolean warnedMultipleExecutionPaths = false;

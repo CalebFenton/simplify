@@ -34,7 +34,7 @@ public class VirtualArray extends VirtualGeneric {
         if (ancestors != null) {
             return ancestors;
         }
-        ancestors = new LinkedHashSet<VirtualGeneric>();
+        ancestors = new LinkedHashSet<>();
 
         TypeReference typeReference = getTypeReference();
         String baseType = ClassNameUtils.getComponentBase(typeReference.getType());
