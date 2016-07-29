@@ -9,7 +9,7 @@ env:
 before_install:
 - chmod +x gradlew
 script:
-- "./gradlew test --info"
+- "./gradlew test --debug --stacktrace"
 after_success:
 - "./gradlew jacocoTestReport coveralls"
 sudo: false
