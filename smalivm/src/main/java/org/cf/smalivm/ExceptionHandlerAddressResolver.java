@@ -21,6 +21,28 @@ public class ExceptionHandlerAddressResolver {
         tryBlocks = localMethod.getTryBlocks();
     }
 
+    int resolve(String className, int address) {
+        VirtualClass exceptionClass = classManager.getVirtualClass(className);
+
+        return resolve(exceptionClass, address);
+    }
+
+    int resolve(Throwable ex, int address) {
+        String className = ClassNameUtils.binaryToInternal(ex.getClass().getName());
+
+        return resolve(className, address);
+    }
+
+    int resolve(VirtualClass exceptionClass, int address) {
+        int handlerAddress = findHandlerCodeAddress(exceptionClass, address, false);
+        if (handlerAddress != -1) {
+            return handlerAddress;
+        }
+
+        handlerAddress = findHandlerCodeAddress(exceptionClass, address, true);
+        return handlerAddress;
+    }
+
     /*
      * Given an exception type and an address in code, this will try and find the correct exception handler. This is
      * complicated by the fact that handlers may overlap. There may be 6 overlapping exception handlers over one
@@ -68,28 +90,6 @@ public class ExceptionHandlerAddressResolver {
         }
 
         return -1;
-    }
-
-    int resolve(String className, int address) {
-        VirtualClass exceptionClass = classManager.getVirtualClass(className);
-
-        return resolve(exceptionClass, address);
-    }
-
-    int resolve(Throwable ex, int address) {
-        String className = ClassNameUtils.binaryToInternal(ex.getClass().getName());
-
-        return resolve(className, address);
-    }
-
-    private int resolve(VirtualClass exceptionClass, int address) {
-        int handlerAddress = findHandlerCodeAddress(exceptionClass, address, false);
-        if (handlerAddress != -1) {
-            return handlerAddress;
-        }
-
-        handlerAddress = findHandlerCodeAddress(exceptionClass, address, true);
-        return handlerAddress;
     }
 
 }

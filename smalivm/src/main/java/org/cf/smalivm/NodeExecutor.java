@@ -37,8 +37,7 @@ public class NodeExecutor {
     }
 
     private static void spawnExceptionChildren(ExecutionGraph graph, ExecutionNode node,
-                                               ExceptionHandlerAddressResolver exceptionResolver) throws
-            UnhandledVirtualException {
+                                               ExceptionHandlerAddressResolver exceptionResolver) throws UnhandledVirtualException {
         if (node.mayThrowException()) {
             for (Throwable exception : node.getExceptions()) {
                 if (log.isTraceEnabled()) {
