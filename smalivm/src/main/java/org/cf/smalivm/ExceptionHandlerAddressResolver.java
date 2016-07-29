@@ -61,7 +61,7 @@ public class ExceptionHandlerAddressResolver {
             for (TryBlock<? extends ExceptionHandler> tryBlock : tryBlocks) {
                 int startAddress = tryBlock.getStartCodeAddress();
                 int endAddress = tryBlock.getStartCodeAddress() + tryBlock.getCodeUnitCount();
-                boolean inTryBlock = (address >= startAddress && address <= endAddress);
+                boolean inTryBlock = (address >= startAddress && address < endAddress);
                 if (!inTryBlock) {
                     continue;
                 }

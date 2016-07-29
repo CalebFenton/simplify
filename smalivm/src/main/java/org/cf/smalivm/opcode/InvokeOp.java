@@ -346,21 +346,13 @@ public class InvokeOp extends ExecutionContextOp {
             if (endOp instanceof ThrowOp) {
                 // At least one execution path leads to throwing an exception.
 
-                /*
-                 * Since not all throwables are instantiated, the actual register value may be Unknown
-                 */
-                // create an exception class
-                // in another method, instantiate and throw that exception
-                // make sure it's handled properly
-                // move to exception handling subfolder
-                // also, find all jvm exceptions and add to safe
-                // also, remove testexceptionstate from vmtester
                 Set<HeapItem> items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister);
                 for (HeapItem item : items) {
                     if (item.getValue() instanceof Throwable) {
                         Throwable exception = (Throwable) item.getValue();
                         addException(exception);
                     } else {
+                        // probably an UninitializedInstance
                         if (log.isWarnEnabled()) {
                             log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
                                      "likely an input class and may need to be white listed to execute properly.");
