@@ -10,6 +10,7 @@ env:
     - TERM=dumb
   global:
     - GRADLE_OPTS="-Xms128m"
+  global:
     secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
 
 before_install:
