@@ -392,7 +392,7 @@ public class InvokeOpTest {
         @Test
         public void invokeNonExistentMethodThrowsException() {
             thrown.expect(RuntimeException.class);
-            thrown.expectMessage("Can't find Smali file containing Lim_not_your_friend_buddy;");
+            thrown.expectMessage("Can't find Smali file for Lim_not_your_friend_buddy;");
 
             VMTester.execute(CLASS_NAME, "invokeNonExistentMethod()V");
         }

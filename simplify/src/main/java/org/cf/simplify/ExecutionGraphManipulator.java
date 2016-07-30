@@ -93,7 +93,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
             m.setAccessible(true);
             m.invoke(oldLocation, newLocation);
         } catch (Exception e) {
-            log.error("Error invoking MethodLocation#mergeInto(). Wrong dexlib version?", e);
+            log.error("Error invoking MethodLocation.mergeInto(). Wrong dexlib version?", e);
         }
 
         rebuildGraph();

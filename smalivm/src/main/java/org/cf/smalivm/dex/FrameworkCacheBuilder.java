@@ -57,7 +57,7 @@ public class FrameworkCacheBuilder {
             String absPath = resFile.getAbsolutePath();
             String path = absPath.substring(absPath.lastIndexOf(FRAMEWORK_SMALI_PATH));
             InputStream is = FrameworkCacheBuilder.class.getResourceAsStream(path);
-            BuilderClassDef classDef = Dexifier.dexifySmaliFile(path, is, dexBuilder);
+            BuilderClassDef classDef = SmaliParser.parse(path, is, dexBuilder);
             sb.append(ReferenceUtil.getReferenceString(classDef));
             sb.append(':').append(path.substring(1)).append('\n');
         }

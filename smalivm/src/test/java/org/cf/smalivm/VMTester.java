@@ -8,7 +8,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.dex.Dexifier;
+import org.cf.smalivm.dex.SmaliParser;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.UnknownValue;
@@ -75,7 +75,7 @@ public class VMTester {
     }
 
     public static DexBuilder getDexBuilder() {
-        return DexBuilder.makeDexBuilder(Opcodes.forApi(Dexifier.DEFAULT_API_LEVEL));
+        return DexBuilder.makeDexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
     }
 
     public static void setRegisterMock(MethodState mState, int register, Object value, String type) {

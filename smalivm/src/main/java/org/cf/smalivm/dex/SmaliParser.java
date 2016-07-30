@@ -1,6 +1,7 @@
 package org.cf.smalivm.dex;
 
 import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
@@ -17,24 +18,26 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Dexifier {
+public class SmaliParser {
 
     public static final int DEFAULT_API_LEVEL = 15;
 
-    private static final Logger log = LoggerFactory.getLogger(Dexifier.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(SmaliParser.class.getSimpleName());
 
-    public static List<BuilderClassDef> dexifySmaliFiles(String path) throws Exception {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(Dexifier.DEFAULT_API_LEVEL));
+    public static List<BuilderClassDef> parse(String path) throws Exception {
+        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
 
-        return dexifySmaliFiles(new File(path), dexBuilder);
+        return parseFiles(new File(path), dexBuilder);
     }
 
-    public static List<BuilderClassDef> dexifySmaliFiles(File file, DexBuilder dexBuilder) throws Exception {
+    public static List<BuilderClassDef> parseFiles(File file, DexBuilder dexBuilder) throws Exception {
         List<File> smaliFiles;
         if (file.isDirectory()) {
             smaliFiles = Utils.getFilesWithSmaliExtension(file);
@@ -43,30 +46,26 @@ public class Dexifier {
             smaliFiles.add(file);
         }
 
-        return dexifySmaliFiles(smaliFiles, dexBuilder);
+        return parseFiles(smaliFiles, dexBuilder);
     }
 
-    public static List<BuilderClassDef> dexifySmaliFiles(List<File> smaliFiles, DexBuilder dexBuilder) throws
-            Exception {
+    public static List<BuilderClassDef> parseFiles(List<File> smaliFiles, DexBuilder dexBuilder) throws Exception {
         List<BuilderClassDef> result = new ArrayList<>();
         for (File smaliFile : smaliFiles) {
-            result.add(dexifySmaliFile(smaliFile, dexBuilder));
+            result.add(parse(smaliFile, dexBuilder));
         }
 
         return result;
     }
 
-    public static BuilderClassDef dexifySmaliFile(File smaliFile, DexBuilder dexBuilder) throws Exception {
-        if (log.isInfoEnabled()) {
-            log.info("Dexifying: {}", smaliFile);
-        }
-
-        return dexifySmaliFile(smaliFile.getAbsolutePath(), new FileInputStream(smaliFile), dexBuilder);
+    public static BuilderClassDef parse(File smaliFile,
+                                        DexBuilder dexBuilder) throws FileNotFoundException, UnsupportedEncodingException, RecognitionException {
+        return parse(smaliFile.getAbsolutePath(), new FileInputStream(smaliFile), dexBuilder);
     }
 
-    public static BuilderClassDef dexifySmaliFile(String filePath, InputStream is, DexBuilder dexBuilder) throws
-            Exception {
-        File smaliFile = new File(filePath);
+    public static BuilderClassDef parse(String path, InputStream is,
+                                        DexBuilder dexBuilder) throws UnsupportedEncodingException, RecognitionException {
+        File smaliFile = new File(path);
         InputStreamReader reader = new InputStreamReader(is, "UTF-8");
         LexerErrorInterface lexer = new smaliFlexLexer(reader);
         ((smaliFlexLexer) lexer).setSourceFile(smaliFile);
@@ -95,8 +94,8 @@ public class Dexifier {
         return classDef;
     }
 
-    public static List<BuilderClassDef> dexifySmaliFiles(String path, DexBuilder dexBuilder) throws Exception {
-        return dexifySmaliFiles(new File(path), dexBuilder);
+    public static List<BuilderClassDef> parse(String path, DexBuilder dexBuilder) throws Exception {
+        return parseFiles(new File(path), dexBuilder);
     }
 
 }

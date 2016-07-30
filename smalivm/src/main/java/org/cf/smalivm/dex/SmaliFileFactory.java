@@ -18,8 +18,43 @@ public class SmaliFileFactory {
     private static final Logger log = LoggerFactory.getLogger(SmaliFileFactory.class.getSimpleName());
     private static Map<String, SmaliFile> frameworkClassNameToSmaliFile;
 
+    private static synchronized void cacheFramework() {
+        if (frameworkClassNameToSmaliFile != null) {
+            return;
+        }
+
+        long startTime = System.currentTimeMillis();
+        frameworkClassNameToSmaliFile = parseFramework();
+
+        if (log.isDebugEnabled()) {
+            long endTime = System.currentTimeMillis();
+            // assuming time has not gone backwards
+            long totalTime = endTime - startTime;
+            log.debug("Cached {} framework classes in {} seconds.", frameworkClassNameToSmaliFile.size(),
+                    totalTime / 1000);
+        }
+    }
+
+    private static Map<String, SmaliFile> parseFramework() {
+        Map<String, SmaliFile> frameworkFiles = new HashMap<>();
+        // framework_classes.cfg is built by FrameworkCacheBuilder
+        List<String> frameworkClassesCfg = ConfigurationLoader.load("framework_classes.cfg");
+        Set<String> safeFrameworkClasses = new HashSet<>(ConfigurationLoader.load("safe_framework_classes.cfg"));
+        for (String line : frameworkClassesCfg) {
+            String[] parts = line.split(":");
+            String className = parts[0];
+            String path = parts[1];
+            SmaliFile smaliFile = new SmaliFile(path, className);
+            smaliFile.setIsResource(true);
+            smaliFile.setIsSafeFramework(safeFrameworkClasses.contains(className));
+            frameworkFiles.put(smaliFile.getClassName(), smaliFile);
+        }
+
+        return frameworkFiles;
+    }
+
     public Set<SmaliFile> getSmaliFiles(File file) throws IOException {
-        return getSmaliFiles(new File[]{file});
+        return getSmaliFiles(new File[] { file });
     }
 
     public Set<SmaliFile> getSmaliFiles(File[] files) throws IOException {
@@ -51,45 +86,12 @@ public class SmaliFileFactory {
         return smaliFiles;
     }
 
-    private static synchronized void cacheFramework() {
-        if (frameworkClassNameToSmaliFile != null) {
-            return;
-        }
-
-        long startTime = System.currentTimeMillis();
-        frameworkClassNameToSmaliFile = parseFramework();
-
-        if (log.isDebugEnabled()) {
-            long endTime = System.currentTimeMillis();
-            long totalTime = endTime - startTime; // assuming time has not gone backwards
-            log.debug("Cached {} framework classes in {} ms.", frameworkClassNameToSmaliFile.size(), totalTime);
-        }
-    }
-
-    private static Map<String, SmaliFile> parseFramework() {
-        Map<String, SmaliFile> frameworkFiles = new HashMap<>();
-        // framework_classes.cfg is built by FrameworkCacheBuilder
-        List<String> frameworkClassesCfg = ConfigurationLoader.load("framework_classes.cfg");
-        Set<String> safeFrameworkClasses = new HashSet<>(ConfigurationLoader.load("safe_framework_classes.cfg"));
-        for (String line : frameworkClassesCfg) {
-            String[] parts = line.split(":");
-            String className = parts[0];
-            String path = parts[1];
-            SmaliFile smaliFile = new SmaliFile(path, className);
-            smaliFile.setIsResource(true);
-            smaliFile.setIsSafeFramework(safeFrameworkClasses.contains(className));
-            frameworkFiles.put(smaliFile.getClassName(), smaliFile);
-        }
-
-        return frameworkFiles;
-    }
-
     public boolean isFrameworkClass(String className) {
         return frameworkClassNameToSmaliFile.containsKey(className);
     }
 
     public Set<SmaliFile> getSmaliFiles(String path) throws IOException {
-        return getSmaliFiles(new String[]{path});
+        return getSmaliFiles(new String[] { path });
     }
 
     public Set<SmaliFile> getSmaliFiles(String[] paths) throws IOException {

@@ -1,6 +1,6 @@
 package org.cf.simplify;
 
-import org.cf.smalivm.dex.Dexifier;
+import org.cf.smalivm.dex.SmaliParser;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,7 +28,7 @@ public class SimplifyOptions implements Serializable {
     private int maxOptimizationPasses = 100;
     private File outDexFile;
     private File outFile;
-    private int outputAPILevel = Dexifier.DEFAULT_API_LEVEL;
+    private int outputAPILevel = SmaliParser.DEFAULT_API_LEVEL;
     private boolean quiet;
     private boolean removeWeak = true;
     private int verbosity = 0;

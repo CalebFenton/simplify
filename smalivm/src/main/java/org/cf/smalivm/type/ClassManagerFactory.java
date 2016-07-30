@@ -40,7 +40,7 @@ public class ClassManagerFactory {
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain parse library classes.
+     * Create a ClassManager with no input Smali classes. It will only contain input library classes.
      */
     public ClassManager build(DexBuilder dexBuilder) throws IOException {
         return new ClassManager(dexBuilder);

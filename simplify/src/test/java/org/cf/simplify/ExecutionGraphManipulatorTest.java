@@ -86,7 +86,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testAddingInstructionModifiesStateCorrectly() {
+    public void addingInstructionModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.NOP, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
@@ -109,7 +109,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testAddingInstructionThatCausesNopPaddingToBeAddedModifiesStateCorrectly() {
+    public void addingInstructionThatCausesNopPaddingToBeAddedModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
@@ -135,7 +135,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testAddingManyNopsAfterGotoModifiesStateCorrectly() {
+    public void addingManyNopsAfterGotoModifiesStateCorrectly() {
         int nops_to_insert = 127;
 
         Object[][] expected = new Object[3 + nops_to_insert][];
@@ -161,7 +161,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testAddingThenRemovingManyNopsAfterGotoModifiesStateCorrectly() {
+    public void addingThenRemovingManyNopsAfterGotoModifiesStateCorrectly() {
         Object[][] expected = new Object[3][];
         expected[0] = new Object[] { 0, Opcode.GOTO_16, new Object[][][] { { { 3, Opcode.RETURN_VOID } } } };
         expected[1] = new Object[] { 2, Opcode.NOP, new Object[0][0][0] };
@@ -191,7 +191,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testHasEveryRegisterAvailableAtEveryAddress() {
+    public void hasEveryRegisterAvailableAtEveryAddress() {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
         int[] addresses = manipulator.getAddresses();
         for (int address : addresses) {
@@ -202,7 +202,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testHasExpectedBasicProperties() {
+    public void hasExpectedBasicProperties() {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "verySimple()V");
 
         int[] expectedAddresses = new int[] { 0, 1, 2, 3, 4, 5, };
@@ -211,7 +211,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testRemoveInstructionThatCausesNopPaddingToBeRemovedAndHasParentWhichWModifiesStateCorrectly() {
+    public void removeInstructionThatCausesNopPaddingToBeRemovedAndHasParentWhichWModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.NEW_ARRAY } } } },
@@ -231,7 +231,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testRemoveInstructionWithNoParentModifiesStateCorrectly() {
+    public void removeInstructionWithNoParentModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_4, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
@@ -250,7 +250,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testRemoveInstructionWithParentModifiesStateCorrectly() {
+    public void removeInstructionWithParentModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_4, new Object[][][] { { { 1, Opcode.CONST_4 } } } },
@@ -280,7 +280,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testReplaceInstructionExecutesNewNodeCorrectly() {
+    public void replaceInstructionExecutesNewNodeCorrectly() {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "constantPredicate()I");
 
         BuilderInstruction returnVoid = manipulator.getNodePile(4).get(0).getOp().getInstruction();
@@ -294,7 +294,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testEmptyingATryBlockWithTwoHandlersWhichCreatesNullStartAndEndLocationsIsRemovedWithoutIncident()
+    public void emptyingATryBlockWithTwoHandlersWhichCreatesNullStartAndEndLocationsIsRemovedWithoutIncident()
             throws IOException {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "tryBlockWithTwoCatches()V");
         assertEquals(2, manipulator.getTryBlocks().size());
@@ -310,7 +310,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testReplacingInstructionWithDifferentOpcodeWidthModifiesStateCorrectly() {
+    public void replacingInstructionWithDifferentOpcodeWidthModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_16, new Object[][][] { { { 2, Opcode.CONST_4 } } } },
@@ -333,7 +333,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testReplaceInstructionWithMultipleModifiesStateCorrectly() {
+    public void replaceInstructionWithMultipleModifiesStateCorrectly() {
         //@formatter:off
         Object[][] expected = new Object[][] {
                         { 0, Opcode.CONST_4, new Object[][][] { { { 1, Opcode.CONST_16 } } } },
@@ -368,7 +368,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void testReplacingInstructionGetsLabelsAtInsertionAddress() {
+    public void replacingInstructionGetsLabelsAtInsertionAddress() {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "hasLabelOnConstantizableOp(I)I");
         BuilderInstruction addition = new BuilderInstruction11n(Opcode.CONST_4, 0, 2);
 

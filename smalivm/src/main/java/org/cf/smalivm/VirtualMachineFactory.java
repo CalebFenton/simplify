@@ -5,7 +5,7 @@ import java.io.IOException;
 
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
-import org.cf.smalivm.dex.Dexifier;
+import org.cf.smalivm.dex.SmaliParser;
 
 public class VirtualMachineFactory {
 
@@ -33,7 +33,7 @@ public class VirtualMachineFactory {
     }
 
     public VirtualMachine build(String smaliPath) throws IOException {
-        return build(smaliPath, Dexifier.DEFAULT_API_LEVEL);
+        return build(smaliPath, SmaliParser.DEFAULT_API_LEVEL);
     }
 
     public VirtualMachine build(String smaliPath, int outputAPILevel) throws IOException {

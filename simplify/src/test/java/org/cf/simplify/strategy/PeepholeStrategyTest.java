@@ -62,17 +62,17 @@ public class PeepholeStrategyTest {
         private static final String METHOD_NAME = "classForName()V";
 
         @Test
-        public void testInvokeClassForNameForKnownClassIsReplaced() {
+        public void invokeClassForNameForKnownClassIsReplaced() {
             testForExpectedInstruction("java.lang.String", "Ljava/lang/String;");
         }
 
         @Test
-        public void testInvokeClassForNameForLocalClassIsReplaced() {
+        public void invokeClassForNameForLocalClassIsReplaced() {
             testForExpectedInstruction("peephole_strategy_test", "Lpeephole_strategy_test;");
         }
 
         @Test
-        public void testInvokeClassForNameForUnknownValueIsNotReplaced() {
+        public void invokeClassForNameForUnknownValueIsNotReplaced() {
             ExecutionGraphManipulator manipulator =
                     getOptimizedGraph(METHOD_NAME, 0, new UnknownValue(), "Ljava/lang/String;");
             Instruction35c instruction = (Instruction35c) manipulator.getInstruction(ADDRESS);

@@ -1,8 +1,8 @@
 package org.cf.smalivm.type;
 
-import org.cf.smalivm.dex.Dexifier;
 import org.cf.smalivm.dex.SmaliFile;
 import org.cf.smalivm.dex.SmaliFileFactory;
+import org.cf.smalivm.dex.SmaliParser;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
@@ -26,7 +26,7 @@ public class ClassManager {
 
     private static final Logger log = LoggerFactory.getLogger(ClassManager.class.getSimpleName());
 
-    private final HashMap<String, VirtualClass> classNameToVirtualClass;
+    private final HashMap<String, VirtualClass> classNameToClass;
     private final Map<String, SmaliFile> classNameToSmaliFile;
 
     private final SmaliFileFactory smaliFileFactory;
@@ -42,7 +42,7 @@ public class ClassManager {
     private ClassManager(DexBuilder dexBuilder, boolean internalOnly) {
         this.dexBuilder = dexBuilder;
         smaliFileFactory = new SmaliFileFactory();
-        classNameToVirtualClass = new HashMap<>();
+        classNameToClass = new HashMap<>();
         classNameToSmaliFile = new HashMap<>();
         VirtualGeneric.setClassManager(this);
     }
@@ -79,7 +79,7 @@ public class ClassManager {
     }
 
     public Collection<VirtualClass> getLoadedClasses() {
-        return classNameToVirtualClass.values();
+        return classNameToClass.values();
     }
 
     public VirtualMethod getMethod(String methodSignature) {
@@ -114,9 +114,9 @@ public class ClassManager {
         char first = typeReference.charAt(0);
         if (first == 'L') {
             String className = typeReference.getType();
-            dexifyClassIfNecessary(className);
+            parseClassIfNecessary(className);
 
-            return classNameToVirtualClass.get(className);
+            return classNameToClass.get(className);
         } else if (first == '[') {
             return new VirtualArray(typeReference);
         } else if (ClassNameUtils.isPrimitive(typeReference.getType())) {
@@ -150,28 +150,35 @@ public class ClassManager {
         }
     }
 
-    private void dexifyClassIfNecessary(String className) {
-        if (classNameToVirtualClass.containsKey(className)) {
+    private BuilderClassDef parseClass(String className, DexBuilder builder) {
+        SmaliFile smaliFile = classNameToSmaliFile.get(className);
+        BuilderClassDef classDef;
+        try {
+            InputStream is = smaliFile.open();
+            classDef = SmaliParser.parse(smaliFile.getPath(), is, builder);
+            is.close();
+        } catch (Exception e) {
+            throw new RuntimeException("Error loading class definition: " + className, e);
+        }
+
+        return classDef;
+    }
+
+    private void parseClassIfNecessary(String className) {
+        if (classNameToClass.containsKey(className)) {
             return;
         }
 
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
         if (smaliFile == null) {
-            throw new RuntimeException("Can't find Smali file containing " + className);
-        }
-        BuilderClassDef classDef;
-        try {
-            boolean isFramework = smaliFileFactory.isFrameworkClass(className);
-            InputStream is = smaliFile.open();
-            DexBuilder builder = isFramework ? frameworkDexBuilder : dexBuilder;
-            classDef = Dexifier.dexifySmaliFile(smaliFile.getPath(), is, builder);
-            is.close();
-        } catch (Exception e) {
-            throw new RuntimeException("Error while loading class definition: " + className, e);
+            throw new RuntimeException("Can't find Smali file for " + className);
         }
 
-        VirtualClass localClass = new VirtualClass(classDef);
-        classNameToVirtualClass.put(className, localClass);
+        boolean isFramework = smaliFileFactory.isFrameworkClass(className);
+        DexBuilder builder = isFramework ? frameworkDexBuilder : dexBuilder;
+        BuilderClassDef classDef = parseClass(className, builder);
+        VirtualClass virtualClass = new VirtualClass(classDef);
+        classNameToClass.put(className, virtualClass);
     }
 
 }

@@ -21,7 +21,7 @@ public class OptimizerTester {
 
     public static ExecutionGraphManipulator getGraphManipulator(String className, String methodDescriptor,
                                                                 VMState initial) {
-        // Force class reloading because implementations change (hopefully!)
+        // Force reloading of classes since implementations in class definitions may have changed
         VirtualMachine vm = VMTester.spawnVM(true);
 
         return getGraphManipulator(vm, className, methodDescriptor, initial);
@@ -32,10 +32,10 @@ public class OptimizerTester {
         ExecutionGraph graph = VMTester.execute(vm, className, methodDescriptor, initial);
 
         String methodSignature = className + "->" + methodDescriptor;
-        VirtualMethod localMethod = vm.getClassManager().getMethod(methodSignature);
+        VirtualMethod method = vm.getClassManager().getMethod(methodSignature);
         DexBuilder dexBuilder = VMTester.getDexBuilder();
 
-        return new ExecutionGraphManipulator(graph, localMethod, vm, dexBuilder);
+        return new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
     }
 
 }

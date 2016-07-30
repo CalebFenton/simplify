@@ -203,7 +203,7 @@ public class SGetOpTest {
         expected.setRegisters(0, new UnknownValue(), "I");
 
         thrown.expect(RuntimeException.class);
-        thrown.expectMessage("Can't find Smali file containing Lsome/unknown/classzzzzz;");
+        thrown.expectMessage("Can't find Smali file for Lsome/unknown/classzzzzz;");
 
         VMTester.test(CLASS_NAME, "getStaticUnknownClassField()V", expected);
     }
