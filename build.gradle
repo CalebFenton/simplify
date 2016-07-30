@@ -58,9 +58,13 @@ subprojects {
          ]
     }
 
+    tasks.withType(JavaCompile) {
+        options.fork = true
+        options.incremental = true
+    }
+
     tasks.withType(Test) {
         //maxParallelForks = Runtime.runtime.availableProcessors()
-        //maxHeapSize = "3G"
     }
 
     // This is just to show off API usage. No tests needed.
@@ -76,7 +80,8 @@ subprojects {
 }
 
 coveralls {
-    sourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs).files.absolutePath
+    ext.targetProjects = subprojects - project(':demoapp')
+    sourceDirs = files(ext.targetProjects.sourceSets.main.allJava.srcDirs).files.absolutePath
 }
 
 task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
@@ -102,25 +107,19 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
             it.exists()
         })
     }
-
-    // afterEvaluate {
-    //     classDirectories = files(classDirectories.files.collect {
-    //         fileTree(dir: it, exclude: 'com/blah/**')
-    //     })
-    // }
 }
 
-// Encourage Travis to not kill the build because out of emory
+// Encourage Travis to not kill the build because out of emory:
 // https://discuss.gradle.org/t/travis-ci-org-gradle-launcher-daemon-client-daemondisappearedexception-gradle-build-daemon-disappeared-unexpectedly-it-may-have-been-killed-or-may-have-crashed/13106/3
+// TravisCI sometimes doesn't give you all the memory it should:
+// https://github.com/urho3d/Urho3D/issues/651
 if (System.env.TRAVIS == 'true') {
   allprojects {
-    tasks.withType(GroovyCompile) {
-      groovyOptions.fork = false
-    }
     tasks.withType(Test) {
-      maxParallelForks = 1
-      minHeapSize = '128m'
-      maxHeapSize = '3g'
+        jvmArgs '-XX:MaxPermSize=256m'
+        maxParallelForks = 1
+        minHeapSize = '128m'
+        maxHeapSize = '2g'
     }
   }
 }

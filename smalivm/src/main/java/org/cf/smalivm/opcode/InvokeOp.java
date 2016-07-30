@@ -471,12 +471,6 @@ public class InvokeOp extends ExecutionContextOp {
         if (targetMethod != null && targetMethod.hasImplementation()) {
             return targetMethod;
         }
-        //        for (VirtualGeneric ancestor : referenceType.getAncestors()) {
-        //            targetMethod = referenceType.getMethod(method.getDescriptor());
-        //            if (targetMethod != null && targetMethod.hasImplementation()) {
-        //                return targetMethod;
-        //            }
-        //        }
 
         return method;
     }

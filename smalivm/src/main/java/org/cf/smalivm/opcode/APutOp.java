@@ -116,8 +116,6 @@ public class APutOp extends MethodStateOp {
             return;
         }
 
-        // TODO: exceptions should probably have string context
-        // TODO: with unknown values, all exceptions may be raised, but can probably limit by looking at item types
         if (arrayItem.isUnknown()) {
             // Do nothing.
         } else {

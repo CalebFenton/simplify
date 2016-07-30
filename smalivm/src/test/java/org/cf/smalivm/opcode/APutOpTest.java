@@ -11,16 +11,14 @@ import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
 
 import java.util.Set;
+import java.util.function.IntFunction;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-@RunWith(Enclosed.class)
 public class APutOpTest {
 
     private static final String CLASS_NAME = "Laput_test;";
@@ -237,9 +235,6 @@ public class APutOpTest {
         testException("putWithCatch()V", ArrayStoreException.class, initial);
     }
 
-    //outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters
-    //unknownArrayWithIncompatibleTypeThrowsArrayStoreExceptionAndHasNoChildrenAndAssignsNoRegisters
-    //unknownValueItemMakesArrayUnknownAndDoesNotClearExceptions
     @Test
     public void outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, new int[5], "[I", 1, 10, "I", 2, "wrong type", "Ljava/lang/String;");
@@ -267,8 +262,9 @@ public class APutOpTest {
         Set<Throwable> exceptions = putNode.getExceptions();
         assertEquals(2, exceptions.size());
 
-        Class<?>[] exceptionClasses = exceptions.stream().map(Throwable::getClass).toArray(size -> new Class<?>[size]);
-        assertArrayEquals(new Class<?>[] { NullPointerException.class, ArrayIndexOutOfBoundsException.class, },
+        Class<?>[] exceptionClasses =
+                exceptions.stream().map(Throwable::getClass).toArray((IntFunction<Class<?>[]>) Class[]::new);
+        assertArrayEquals(new Class<?>[] { ArrayIndexOutOfBoundsException.class, NullPointerException.class, },
                 exceptionClasses);
 
         HeapItem item = graph.getTerminatingRegisterConsensus(0);
