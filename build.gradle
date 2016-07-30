@@ -109,3 +109,17 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
     //     })
     // }
 }
+
+// Encourage Travis to not kill the build because out of emory
+// https://discuss.gradle.org/t/travis-ci-org-gradle-launcher-daemon-client-daemondisappearedexception-gradle-build-daemon-disappeared-unexpectedly-it-may-have-been-killed-or-may-have-crashed/13106/3
+if (System.env.TRAVIS == 'true') {
+  allprojects {
+    tasks.withType(GroovyCompile) {
+      groovyOptions.fork = false
+    }
+    tasks.withType(Test) {
+      maxParallelForks = 2
+      minHeapSize = '128m'
+    }
+  }
+}

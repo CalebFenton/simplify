@@ -3,28 +3,29 @@ language: java
 dist: trusty
 
 jdk:
-- oraclejdk8
+  - oraclejdk8
 
 env:
   matrix:
-  - TERM=dumb
+    - TERM=dumb
   global:
+    - GRADLE_OPTS="-Xms128m"
     secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
 
 before_install:
-- chmod +x gradlew
+  - chmod +x gradlew
 
 script:
-- "./gradlew test --debug --stacktrace"
+  - "./gradlew test"
 
 after_success:
-- "./gradlew jacocoTestReport coveralls"
+  - "./gradlew jacocoTestReport coveralls"
 
 sudo: false
 
 cache:
   directories:
-  - "$HOME/.gradle"
+    - "$HOME/.gradle"
 
 addons:
   coverity_scan:
