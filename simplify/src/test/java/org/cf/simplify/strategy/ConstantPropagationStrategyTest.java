@@ -132,7 +132,7 @@ public class ConstantPropagationStrategyTest {
     public static class UnitTests {
 
         @Test
-        public void constantizablesHandlesNull() {
+        public void constantizableHandlesNull() {
             ExecutionGraphManipulator graph = mock(ExecutionGraphManipulator.class);
             ConstantBuilder builder = mock(ConstantBuilder.class);
             BuilderInstruction instruction =
@@ -165,7 +165,7 @@ public class ConstantPropagationStrategyTest {
         }
 
         @Test
-        public void testAddInt2AddrDoesNotConstantize() {
+        public void canNotConstantizeAddInt2Addr() {
             String methodName = "addInt2Addr()V";
             initial.setRegisters(0, new UnknownValue(), "I");
             ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
@@ -175,7 +175,7 @@ public class ConstantPropagationStrategyTest {
         }
 
         @Test
-        public void testAGetWithUnknownArrayDoesNotConstantize() {
+        public void canNotConstantizeAGetWithUnknownArray() {
             String methodName = "arrayGetFromV0AtV1ToV0()V";
             initial.setRegisters(0, new UnknownValue(), "[I", 1, 0, "I");
             ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
@@ -185,7 +185,7 @@ public class ConstantPropagationStrategyTest {
         }
 
         @Test
-        public void testAGetWithUnknownIndexDoesNotConstantize() {
+        public void canNotConstantizeAGetWithUnknownIndex() {
             String methodName = "arrayGetFromV0AtV1ToV0()V";
             initial.setRegisters(0, new int[] { 0, 7 }, "[I", 1, new UnknownValue(), "I");
             ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
@@ -195,7 +195,7 @@ public class ConstantPropagationStrategyTest {
         }
 
         @Test
-        public void testIntegerValueOfDoesNotConstantize() {
+        public void canNotConstantizeIntegerValueOf() {
             String methodName = "integerValueOf()Ljava/lang/Integer;";
             initial.setRegisters(0, 1, "I");
             ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
@@ -205,7 +205,7 @@ public class ConstantPropagationStrategyTest {
         }
 
         @Test
-        public void testMoveOpDoesNotConstantize() {
+        public void canNotConstantizeMoveOp() {
             String methodName = "moveV0IntoV1()V";
             initial.setRegisters(0, new UnknownValue(), "I");
             ExecutionGraphManipulator before = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);

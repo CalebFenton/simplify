@@ -58,6 +58,11 @@ subprojects {
          ]
     }
 
+    tasks.withType(Test) {
+        //maxParallelForks = Runtime.runtime.availableProcessors()
+        //maxHeapSize = "3G"
+    }
+
     // This is just to show off API usage. No tests needed.
     if (!project.name.equals("demoapp")) {
         jacocoTestReport {
