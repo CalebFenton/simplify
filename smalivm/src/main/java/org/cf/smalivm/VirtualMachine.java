@@ -188,7 +188,6 @@ public class VirtualMachine {
 
     public ExecutionContext spawnRootContext(VirtualMethod method, @Nullable ExecutionContext callerContext,
                                              int callerAddress) {
-
         if (!method.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
             throw new IllegalArgumentException("No implementation for " + method);
@@ -218,13 +217,15 @@ public class VirtualMachine {
     }
 
     /*
-     * Get the consensus of method and class states from graph and merge them into callerContext.
+     * Get the consensus of mutable objects of method and class states of called context and merge them into
+     * the context of the caller. In other words, reflect changes to objects that happen in the called method back
+     * into the caller method.
      */
     private void collapseMultiverse(VirtualMethod calledMethod, ExecutionGraph graph, ExecutionContext callerContext,
                                     int[] parameterRegisters) {
         int[] terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
-            MethodState mState = callerContext.getMethodState();
+            MethodState callerMethodStae = callerContext.getMethodState();
             List<String> parameterTypes = calledMethod.getParameterTypeNames();
             int parameterRegister = graph.getNodePile(0).get(0).getContext().getMethodState().getParameterStart();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
@@ -235,7 +236,7 @@ public class VirtualMachine {
 
                 HeapItem item = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
                 int register = parameterRegisters[parameterIndex];
-                mState.assignRegister(register, item);
+                callerMethodStae.assignRegister(register, item);
 
                 parameterRegister += Utils.getRegisterSize(type);
             }
@@ -256,7 +257,7 @@ public class VirtualMachine {
                     }
                 }
 
-                // VirtualClass was never initialized. Nothing to merge.
+                // Class was never initialized in called method. Nothing to merge into caller method.
                 continue;
             }
 
@@ -266,7 +267,7 @@ public class VirtualMachine {
                 cState = callerContext.peekClassState(virtualClass);
             } else {
                 /*
-                 * VirtualClass is initialized in the graph but not in callerContext.
+                 * Class is initialized in the graph but not in callerContext.
                  * It must have been initialized during execution that produced the graph.
                  */
                 cState = new ClassState(virtualClass, callerContext);
@@ -276,7 +277,11 @@ public class VirtualMachine {
 
             for (VirtualField field : virtualClass.getFields()) {
                 HeapItem item = graph.getFieldConsensus(terminatingAddresses, field);
-                cState.pokeField(field, item);
+                if (item.isPrimitive()) {
+                    cState.pokeField(field, item);
+                } else {
+                    cState.updateIdentities(field, item);
+                }
             }
         }
     }
@@ -291,6 +296,7 @@ public class VirtualMachine {
             ClassState toClassState = fromClassState.getChild(childContext);
             for (VirtualField field : fromClassState.getVirtualClass().getFields()) {
                 HeapItem item = fromClassState.peekField(field);
+                // TODO: should update field here?
                 toClassState.pokeField(field, item);
             }
             SideEffect.Level level = parentContext.getClassSideEffectLevel(virtualClass);

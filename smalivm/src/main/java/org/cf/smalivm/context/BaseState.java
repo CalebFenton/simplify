@@ -64,7 +64,11 @@ class BaseState {
         context.getHeap().update(heapId, register, item);
     }
 
-    ExecutionContext getExecutionContext() {
+    void updateKey(String key, HeapItem item) {
+        context.getHeap().update(key, item);
+    }
+
+    ExecutionContext getContext() {
         return context;
     }
 

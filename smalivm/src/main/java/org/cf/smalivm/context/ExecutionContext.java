@@ -186,11 +186,10 @@ public class ExecutionContext {
         VirtualMethod method = virtualClass.getMethod("<clinit>()V");
         if (method == null) {
             /*
-             * VirtualClass has no static initializer, but still need to peek and set the class state to set any fields
+             * Class has no static initializer, but still need to peek and set the class state to set any fields
              * with literal values. E.g.
              * .field public static myInt:I = 0x4
              */
-            //setClassInitialized(className, SideEffect.Level.NONE);
             ClassState cState = peekClassState(virtualClass);
             initializeClass(cState, SideEffect.Level.NONE);
             return;

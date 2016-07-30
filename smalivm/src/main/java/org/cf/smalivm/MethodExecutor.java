@@ -5,8 +5,8 @@ import gnu.trove.map.hash.TIntIntHashMap;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.type.VirtualMethod;
 import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.VirtualMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,20 +59,11 @@ public class MethodExecutor {
             totalVisits += 1;
             checkMaxVisits(node, method, addressToVisitCount);
 
-//            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
-//                                       "Ljava/lang/String;, op=invoke-static {r2, r3, r4}, Lffffff/uuuaaa;->b042204220422Т0422ТТ(Ljava/lang/String;CC)Ljava/lang/String;}")) {
-//                System.out.println("gets no result");
-//            }
-//            if (node.toString().equals("ExecutionNode{signature=Lffffff/uuuaaa;->bТТ0422Т0422ТТ(Ljava/lang/String;CC)" +
-//                                       "Ljava/lang/String;, op=move-result-object r0}")) {
-//                System.out.println("moves null result");
-//            }
             nodeExecutor.execute(node);
             if (node.getChildren().size() > 1 && !warnedMultipleExecutionPaths) {
                 warnedMultipleExecutionPaths = true;
-                String children = node.getChildren().stream()
-                        .map(ExecutionNode::toString)
-                        .collect(Collectors.joining(", "));
+                String children =
+                        node.getChildren().stream().map(ExecutionNode::toString).collect(Collectors.joining(", "));
                 // This can lead to more ambiguity and it's not always obvious when this happens.
                 // Let the user know if they're listening.
                 log.debug("{} has multiple execution paths starting at {}: {}", method, node, children);
@@ -85,7 +76,8 @@ public class MethodExecutor {
         return graph;
     }
 
-    private void checkMaxExecutionTime(long endTime, VirtualMethod localMethod) throws MaxExecutionTimeExceededException {
+    private void checkMaxExecutionTime(long endTime,
+                                       VirtualMethod localMethod) throws MaxExecutionTimeExceededException {
         if (maxExecutionTime == 0) {
             return;
         }
@@ -95,8 +87,8 @@ public class MethodExecutor {
         }
     }
 
-    private void checkMaxVisits(ExecutionNode node, VirtualMethod localMethod, TIntIntMap addressToVisitCount)
-            throws MaxAddressVisitsExceededException, MaxMethodVisitsExceededException {
+    private void checkMaxVisits(ExecutionNode node, VirtualMethod localMethod,
+                                TIntIntMap addressToVisitCount) throws MaxAddressVisitsExceededException, MaxMethodVisitsExceededException {
         if (totalVisits > getMaxMethodVisits()) {
             throw new MaxMethodVisitsExceededException(node, localMethod.getSignature());
         }

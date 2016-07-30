@@ -111,7 +111,8 @@ public class MethodReflector {
                 if (log.isDebugEnabled()) {
                     log.debug("Reflecting {}, target={} args={}", method, targetItem, Arrays.toString(args));
                 }
-                returnValue = MethodUtils.invokeMethod(targetItem.getValue(), method.getName(), args, parameterTypes);
+                Object value = targetItem.getValue();
+                returnValue = MethodUtils.invokeMethod(value, method.getName(), args, parameterTypes);
             }
         }
 

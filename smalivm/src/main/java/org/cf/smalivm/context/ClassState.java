@@ -2,7 +2,6 @@ package org.cf.smalivm.context;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualGeneric;
 import org.slf4j.Logger;
@@ -26,23 +25,19 @@ public class ClassState extends BaseState {
 
     public void assignField(VirtualField field, Object value) {
         int register = 0;
-        String heapKey = getKey(field);
+        String heapId = getHeapId(field);
         String type = field.getType();
-        assignRegister(register, new HeapItem(value, type), heapKey);
+        assignRegister(register, new HeapItem(value, type), heapId);
     }
 
     public void assignField(VirtualField field, HeapItem item) {
         int register = 0;
-        String heapKey = getKey(field);
-        assignRegister(register, item, heapKey);
+        String heapId = getHeapId(field);
+        assignRegister(register, item, heapId);
     }
 
     public ClassState getChild(ExecutionContext childContext) {
         return new ClassState(this, childContext);
-    }
-
-    private String getKey(VirtualField field) {
-        return field.toString();
     }
 
     public VirtualGeneric getVirtualClass() {
@@ -82,8 +77,8 @@ public class ClassState extends BaseState {
 
     public HeapItem peekField(VirtualField field) {
         int register = 0;
-        String heapKey = getKey(field);
-        HeapItem fieldItem = peekRegister(register, heapKey);
+        String heapId = getHeapId(field);
+        HeapItem fieldItem = peekRegister(register, heapId);
         if (fieldItem == null) {
             log.error("Undefined field: {}; returning unknown", field);
             fieldItem = HeapItem.newUnknown(field.getType());
@@ -94,15 +89,25 @@ public class ClassState extends BaseState {
 
     public void pokeField(VirtualField field, Object value) {
         int register = 0;
-        String heapKey = getKey(field);
+        String heapId = getHeapId(field);
         String type = field.getType();
-        pokeRegister(register, new HeapItem(value, type), heapKey);
+        pokeRegister(register, new HeapItem(value, type), heapId);
     }
 
     public void pokeField(VirtualField field, HeapItem item) {
         int register = 0;
-        String heapKey = getKey(field);
-        pokeRegister(register, item, heapKey);
+        String heapId = getHeapId(field);
+        pokeRegister(register, item, heapId);
     }
 
+    public void updateIdentities(VirtualField field, HeapItem item) {
+        int register = 0;
+        String heapId = getHeapId(field);
+        String heapKey = heapId + ":" + register;
+        updateKey(heapKey, item);
+    }
+
+    private String getHeapId(VirtualField field) {
+        return field.toString();
+    }
 }

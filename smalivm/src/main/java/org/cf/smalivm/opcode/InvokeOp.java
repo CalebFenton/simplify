@@ -100,7 +100,7 @@ public class InvokeOp extends ExecutionContextOp {
                 return;
             } else {
                 if (log.isTraceEnabled()) {
-                    log.trace("Not emulating / reflecting {} because all args not known.", targetSignature);
+                    log.trace("Not emulating / reflecting {}; not all arguments are known", targetSignature);
                 }
                 assumeMaximumUnknown(callerMethodState);
                 return;
@@ -296,8 +296,8 @@ public class InvokeOp extends ExecutionContextOp {
         }
     }
 
-    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext, VirtualMethod localMethod) {
-        ExecutionContext calleeContext = vm.spawnRootContext(localMethod, callerContext, getAddress());
+    private ExecutionContext buildLocalCalleeContext(ExecutionContext callerContext, VirtualMethod method) {
+        ExecutionContext calleeContext = vm.spawnRootContext(method, callerContext, getAddress());
         MethodState callerMethodState = callerContext.getMethodState();
         MethodState calleeMethodState = calleeContext.getMethodState();
         assignCalleeMethodArguments(callerMethodState, calleeMethodState);
@@ -409,8 +409,6 @@ public class InvokeOp extends ExecutionContextOp {
                 return;
             }
         } else if (vm.getConfiguration().isSafe(methodDescriptor)) {
-            assert allArgumentsKnown(calleeContext.getMethodState());
-
             MethodReflector reflector = new MethodReflector(vm, method);
             try {
                 reflector.reflect(calleeContext.getMethodState()); // playa play

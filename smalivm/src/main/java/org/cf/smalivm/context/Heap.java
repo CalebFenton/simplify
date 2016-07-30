@@ -1,14 +1,14 @@
 package org.cf.smalivm.context;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import com.rits.cloning.Cloner;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.rits.cloning.Cloner;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 class Heap {
 
@@ -23,6 +23,17 @@ class Heap {
         this.cloner = cloner;
     }
 
+    private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
+        Heap current = child;
+        Set<String> reassigned = new HashSet<>();
+        while (current != ancestor) {
+            reassigned.addAll(current.keySet());
+            current = current.getParent();
+        }
+
+        return reassigned;
+    }
+
     HeapItem get(String key) {
         if (hasKey(key)) {
             return keyToHeapItem.get(key);
@@ -34,7 +45,7 @@ class Heap {
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
             if (log.isTraceEnabled()) {
-                log.trace("Undefined value for " + key + " Possibly a mistake!", new Exception());
+                log.trace("Undefined value for " + key + "; possibly a mistake!", new Exception());
             }
 
             return null;
@@ -98,22 +109,20 @@ class Heap {
         set(heapId, register, new HeapItem(value, type));
     }
 
-    void setParent(Heap parent) {
-        this.parent = parent;
-    }
-
-    void update(String key, HeapItem item) {
+    void update(String key, HeapItem updatedItem) {
         /*
          * When replacing an uninitialized instance with a new instance (e.g. when executing new-instance), need to
-         * update all registers that parse the uninitialized instance. This would be a lot easier if Dalvik's
-         * "new-instance" or Java's "new" instruction were available at compile time.
+         * update all registers that reference the uninitialized instance to also point at the new item.
          */
-
         HeapItem oldItem = get(key);
-        for (String currentKey : keySet()) {
-            HeapItem currentValue = get(currentKey);
-            if (oldItem.getValue() == currentValue.getValue()) {
-                set(currentKey, item);
+        if (oldItem == null || oldItem.getValue() == null) {
+            set(key, updatedItem);
+        } else {
+            for (String currentKey : keySet()) {
+                HeapItem currentItem = get(currentKey);
+                if (oldItem.getValue() == currentItem.getValue()) {
+                    set(currentKey, updatedItem);
+                }
             }
         }
     }
@@ -127,15 +136,18 @@ class Heap {
         return parent;
     }
 
+    void setParent(Heap parent) {
+        this.parent = parent;
+    }
+
     private String buildKey(String heapId, int register) {
         return heapId + ':' + register;
     }
 
     private HeapItem cloneItem(HeapItem original) {
         Object cloneValue = cloner.deepClone(original.getValue());
-        HeapItem clone = new HeapItem(cloneValue, original.getType());
 
-        return clone;
+        return new HeapItem(cloneValue, original.getType());
     }
 
     private Heap getAncestorWithKey(String key) {
@@ -162,17 +174,6 @@ class Heap {
 
     private void set(String key, HeapItem item) {
         keyToHeapItem.put(key, item);
-    }
-
-    private static Set<String> getReassignedKeysBetweenChildAndAncestor(Heap child, Heap ancestor) {
-        Heap current = child;
-        Set<String> reassigned = new HashSet<>();
-        while (current != ancestor) {
-            reassigned.addAll(current.keySet());
-            current = current.getParent();
-        }
-
-        return reassigned;
     }
 
 }

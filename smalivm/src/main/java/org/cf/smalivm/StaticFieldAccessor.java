@@ -64,6 +64,7 @@ public class StaticFieldAccessor {
 
     public void putField(ExecutionContext context, VirtualField field, HeapItem putItem) {
         if (isSafe(field)) {
+            // TODO: consider enabling this, is it safe?
             if (log.isWarnEnabled()) {
                 log.warn("Ignoring static assignment of non-local field: {} = {}", field, putItem);
             }

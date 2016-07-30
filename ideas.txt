@@ -1,18 +1,15 @@
 # IDEA SCRATCH PAD
 
 * Allow static initialization of fields using literals, e.g. `.field myInt:I = 0x42`
-* Fixed several problems with lookup of inherited fields
+* Fixed several problems with looking up inherited fields
+* Better merging of states from called methods
+* Better exception handling - implement `throw` and `move-exception`
 * Improved correctness for `instance-of` and `check-cast` ops
 * Improved correctness for `java.lang.reflect.Field.get()` emulated method
-* Improved exception handling - implement `throw` and `move-exception`
+
 
 find all "?" and replace with common type unknkown
 
-Theory: all framework classes are OK to statically initialize and should be regardless of safety
-
-remove all virtual exceptions
-create an exceptionfactory
-  give it everything it needs to create exception and set stack trace
 
 // TODO: https://github.com/CalebFenton/simplify/issues/8
 add tests and feature for moving exception from parent op
@@ -23,21 +20,11 @@ also fix invoke op for getting graph of invoked method
   peekThrowRegister() see if it's null
 
 
-test how the array clone method is handled
-
 run instance-of tests
 can you do primitive instanceof primitive?
   primitive instance of object? (probably)
 
-can you get length property?
-
-invoke-virtual {v2}, [Ljava/lang/String;->clone()Ljava/lang/Object;
-
-
-checklist:
-comments on every class
-comments for public methods
-test coverage
+implement array length property
 
 
 MethodExecutor, right before node is executed:
@@ -46,16 +33,14 @@ MethodExecutor, right before node is executed:
       System.out.println("watch this pls");
   }
 
-1.) something weird happens and ambiguity creeps in when this String.length invocation works on a null
+something weird happens and ambiguity creeps in when this String.length invocation works on a null
 and there are TWO exception children (the same address), that's probably a bug
   maybe add test:
     test exception handling: should only have one single child with a null pointer
     e.g. v0 = null, invoke string.length on v0
 
-2.) method reflector should bubble up exceptions as virtual exceptions
 
-
-Learn how to do proper java documentation and document smalivm classes
+proper java documentation and document smalivm classes
   class manager documentation should say when it works with local and non-local classes
 
 
