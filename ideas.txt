@@ -73,9 +73,6 @@ Hygene
   move sideeffect out of op and into node
     op shared between all nodes at address, should record sideeffect per execution
 
-  replace all methodDescriptors / methodSignature internally with methodreferences
-    reduce string duplication and parsing (split)
-
   smalivm shouldn't require trove
     remove arrays and regular lists / sets instead
     primitive unboxing probably isn't that bad
@@ -190,7 +187,6 @@ unhandled exception + finally test
 handled exception + finally test
   throw exception, handle it, make sure finally value set
 
-
 consider unit testing
   exceptionhandlerresolver - build unit with public method to resolve addresses given an
     exception
@@ -200,5 +196,5 @@ consider unit testing
 
 Success stories:
   * java -jar build/libs/simplify.jar sandbox/6247332 -it 'Configs;-><clinit>'
-  * java -Xmx6g -jar build/libs/simplify.jar sandbox/7958300/smali -it '/smv;'
+  * java -Xmx6g -jar build/libs/simplify.jar sandbox/e99dd3229dc9ff70f6e768342ca27d984e796f1a -it '/smv;'
   * java -jar build/libs/simplify.jar sandbox/8748278/ -it Acgt -v

@@ -1,6 +1,6 @@
 language: java
 
-dist: trusty
+#dist: trusty
 
 jdk:
   - oraclejdk8
@@ -16,7 +16,7 @@ before_install:
   - chmod +x gradlew
 
 script:
-  - "free -m && ./gradlew test --debug"
+  - "free -m && ./gradlew test --info"
 
 after_success:
   - "./gradlew jacocoTestReport coveralls"
