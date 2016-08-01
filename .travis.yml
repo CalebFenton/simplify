@@ -16,7 +16,7 @@ before_install:
   - chmod +x gradlew
 
 script:
-  - "free -m && ./gradlew test --info"
+  - "free -m && ./gradlew test"
 
 after_success:
   - "./gradlew jacocoTestReport coveralls"
