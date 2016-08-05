@@ -351,9 +351,6 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     public Object getRegisterConsensusValue(int address, int register) {
         HeapItem item = getRegisterConsensus(address, register);
-        if (null == item) {
-            return null;
-        }
 
         return item.getValue();
     }

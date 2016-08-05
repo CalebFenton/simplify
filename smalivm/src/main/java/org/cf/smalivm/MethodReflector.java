@@ -119,7 +119,7 @@ public class MethodReflector {
         return returnValue;
     }
 
-    private class InvocationArguments {
+    private static class InvocationArguments {
 
         private Object[] args;
         private Class<?>[] parameterTypes;

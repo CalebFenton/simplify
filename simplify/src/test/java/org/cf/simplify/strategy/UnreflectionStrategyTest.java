@@ -100,9 +100,9 @@ public class UnreflectionStrategyTest {
         private static final String STATIC_FIELD_TYPE = "Ljava/lang/Object;";
 
         @Test
-        public void testInstanceFieldWithMoveResultOptimizesAsExpected() {
+        public void instanceFieldWithMoveResultOptimizesAsExpected() {
             ExecutionGraphManipulator manipulator =
-                    getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, CLASS, "Ljava/lang/Class;", 1, INSTANCE_FIELD_NAME,
+                     getOptimizedGraph(METHOD_WITH_MOVE_RESULT, 0, CLASS, "Ljava/lang/Class;", 1, INSTANCE_FIELD_NAME,
                             "Ljava/lang/String;", 2, null, "Ljava/lang/Object;");
             String[] endLines = new String[] {
                     "iget r0, r2, " + CLASS_NAME + "->" + INSTANCE_FIELD_NAME + ":" + INSTANCE_FIELD_TYPE,

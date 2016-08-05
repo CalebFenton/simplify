@@ -328,7 +328,9 @@ public class InvokeOp extends ExecutionContextOp {
         } catch (VirtualMachineException e) {
             log.warn(e.toString());
             if (e instanceof UnhandledVirtualException) {
-                // TODO: determine if this is likely a bug exception or a VirtualException
+                // An exception was thrown and there was no exception handler to catch it. It's not clear at this point
+                // if the fault is in smalivm code or the app code.
+                // TODO: bubble this up to the calling method
             }
         }
 

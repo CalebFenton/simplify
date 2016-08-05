@@ -3,11 +3,14 @@ package org.cf.smalivm.type;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.reference.TypeReference;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /*
@@ -16,13 +19,14 @@ import java.util.Set;
  */
 public class VirtualArray extends VirtualGeneric {
 
-    private final int rank;
+    private final int dimensionRank;
     private Set<VirtualGeneric> ancestors;
+    private Map<String, VirtualArrayMethod> methodDescriptorToMethod;
 
     VirtualArray(TypeReference typeReference) {
         super(typeReference, typeReference.getType(), ClassNameUtils.internalToBinary(typeReference.getType()),
                 ClassNameUtils.internalToSource(typeReference.getType()));
-        rank = ClassNameUtils.getDimensionCount(typeReference.getType());
+        dimensionRank = ClassNameUtils.getDimensionCount(typeReference.getType());
     }
 
     private static String buildRankString(int rank) {
@@ -48,7 +52,7 @@ public class VirtualArray extends VirtualGeneric {
             // Primitives have no ancestors. They're primordial. THEY ARE ETERNAL. ALL ONE OR NONE!
             ClassManager classManager = getClassManager();
             VirtualClass baseClass = classManager.getVirtualClass(baseType);
-            String rankString = buildRankString(rank);
+            String rankString = buildRankString(dimensionRank);
 
             // All ancestors of the base type with the same dimension rank
             for (VirtualClass baseAncestor : baseClass.getAncestors()) {
@@ -60,7 +64,7 @@ public class VirtualArray extends VirtualGeneric {
         // All arrays are an instance of an Object
         // http://docs.oracle.com/javase/specs/jls/se8/html/jls-4.html#jls-4.3.1
         // Also, [[[String is an instance of [[Object and [Object
-        for (int i = rank - 1; i >= 0; i--) {
+        for (int i = dimensionRank - 1; i >= 0; i--) {
             String objectType = buildRankString(i) + CommonTypes.OBJECT;
             VirtualGeneric ancestor = classManager.getVirtualType(objectType);
             ancestors.add(ancestor);
@@ -70,32 +74,43 @@ public class VirtualArray extends VirtualGeneric {
     }
 
     @Override
-    public Collection<VirtualField> getFields() {
-        // todo length:I
-        return Collections.emptyList();
+    public VirtualField getField(String fieldName) {
+        return null;
     }
 
     @Override
-    public Collection<VirtualMethod> getMethods() {
-        // todo clone()Ljava/lang/Object;
+    public Collection<VirtualField> getFields() {
+        // someArray[].length is actually handled by array-length op
         return Collections.emptyList();
     }
 
     @Override
     public VirtualMethod getMethod(String methodDescriptor) {
-        if (methodDescriptor.equals("clone()Ljava/lang/Object;")) {
-            String stringRef = getName() + "->" + methodDescriptor;
-            TypeReference reference = classManager.getFrameworkDexBuilder().internTypeReference(stringRef);
-
-            return new VirtualArrayMethod(reference, this);
+        VirtualMethod method = getMethod0(methodDescriptor);
+        if (method != null) {
+            return method;
+        }
+        for (VirtualGeneric ancestor : getAncestors()) {
+            if (ancestor instanceof VirtualArray) {
+                method = ((VirtualArray) ancestor).getMethod0(methodDescriptor);
+                if (method != null) {
+                    return method;
+                }
+            }
         }
 
         return null;
     }
 
     @Override
-    public VirtualField getField(String fieldName) {
-        return null;
+    public Collection<VirtualMethod> getMethods() {
+        if (methodDescriptorToMethod == null) {
+            methodDescriptorToMethod = buildMethodsMap();
+        }
+        List<VirtualMethod> methods = new LinkedList<>();
+        methods.addAll(methodDescriptorToMethod.values());
+
+        return methods;
     }
 
     @Override
@@ -132,6 +147,26 @@ public class VirtualArray extends VirtualGeneric {
         String componentType = ClassNameUtils.getComponentType(getName());
 
         return classManager.getVirtualType(componentType);
+    }
+
+    private VirtualArrayMethod getMethod0(String methodDescriptor) {
+        if (methodDescriptorToMethod == null) {
+            methodDescriptorToMethod = buildMethodsMap();
+        }
+
+        return methodDescriptorToMethod.get(methodDescriptor);
+    }
+
+    private Map<String, VirtualArrayMethod> buildMethodsMap() {
+        Map<String, VirtualArrayMethod> methods = new HashMap<>(2);
+        String methodDescriptor = "clone()Ljava/lang/Object;";
+        String methodSignature = getName() + "->" + methodDescriptor;
+        TypeReference reference = classManager.getFrameworkDexBuilder().internTypeReference(methodSignature);
+
+        VirtualArrayMethod method = new VirtualArrayMethod(reference, this);
+        methods.put(methodDescriptor, method);
+
+        return methods;
     }
 
 }

@@ -12,12 +12,13 @@ import org.cf.util.ClassNameUtils;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.Set;
-import java.util.function.IntFunction;
+import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class APutOpTest {
 
@@ -262,10 +263,9 @@ public class APutOpTest {
         Set<Throwable> exceptions = putNode.getExceptions();
         assertEquals(2, exceptions.size());
 
-        Class<?>[] exceptionClasses =
-                exceptions.stream().map(Throwable::getClass).toArray((IntFunction<Class<?>[]>) Class[]::new);
-        assertArrayEquals(new Class<?>[] { ArrayIndexOutOfBoundsException.class, NullPointerException.class, },
-                exceptionClasses);
+        List<Class<?>> exceptionClasses = exceptions.stream().map(Throwable::getClass).collect(Collectors.toList());
+        assertTrue(exceptionClasses.contains(ArrayIndexOutOfBoundsException.class));
+        assertTrue(exceptionClasses.contains(NullPointerException.class));
 
         HeapItem item = graph.getTerminatingRegisterConsensus(0);
         assertEquals(CommonTypes.UNKNOWN, item.getType());
