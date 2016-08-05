@@ -120,7 +120,7 @@ class Heap {
         } else {
             for (String currentKey : keySet()) {
                 HeapItem currentItem = get(currentKey);
-                if (oldItem.getValue() == currentItem.getValue()) {
+                if (oldItem.valueIdentity(currentItem)) {
                     set(currentKey, updatedItem);
                 }
             }

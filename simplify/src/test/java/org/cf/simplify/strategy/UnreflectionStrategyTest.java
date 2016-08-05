@@ -365,7 +365,7 @@ public class UnreflectionStrategyTest {
         }
     }
 
-    public static class TestProtectedMethods {
+    public static class ProtectedMethods {
 
         @Test
         public void instanceGetOpcodes() {

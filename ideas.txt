@@ -24,24 +24,7 @@ run instance-of tests
 can you do primitive instanceof primitive?
   primitive instance of object? (probably)
 
-implement array length property
-
-
-MethodExecutor, right before node is executed:
-  if (node.toString().equals("ExecutionNode{signature=Lffffff/aauuua;-><init>()V, op=invoke-virtual {r1}, " +
-          "Ljava/lang/String;->length()I}")) {
-      System.out.println("watch this pls");
-  }
-
-something weird happens and ambiguity creeps in when this String.length invocation works on a null
-and there are TWO exception children (the same address), that's probably a bug
-  maybe add test:
-    test exception handling: should only have one single child with a null pointer
-    e.g. v0 = null, invoke string.length on v0
-
-
-proper java documentation and document smalivm classes
-  class manager documentation should say when it works with local and non-local classes
+add documentation
 
 
 Debugger
@@ -136,8 +119,6 @@ During execution, the context has no awareness of the call stack. Knowing these 
   2.) contextualized exception throwing with stack trace
 * update - execution context of first op in method has callerContext and callerAddress, which can be traced back up to rebuild call stack
 
-
-what if?
   get stack trace, first element
   from inside a method that's being optimized from main
   the call stack *should* be ambiguous

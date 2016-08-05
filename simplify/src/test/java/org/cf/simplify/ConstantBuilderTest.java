@@ -86,7 +86,7 @@ public class ConstantBuilderTest {
     public static class BuildBoolean {
 
         @Test
-        public void testWithFalse() {
+        public void withFalse() {
             Boolean value = Boolean.FALSE;
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, 0);
@@ -95,7 +95,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithHeapItemWithBooleanTypeAndIntegerValue() {
+        public void withHeapItemWithBooleanTypeAndIntegerValue() {
             int intValue = 1;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "Z");
@@ -108,7 +108,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithTrue() {
+        public void withTrue() {
             Boolean value = Boolean.TRUE;
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, 1);
@@ -120,7 +120,7 @@ public class ConstantBuilderTest {
     public static class BuildByte {
 
         @Test
-        public void testWith4BitLiteral() {
+        public void with4BitLiteral() {
             byte value = 7;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -129,7 +129,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith7BitLiteral() {
+        public void with7BitLiteral() {
             byte value = Byte.MAX_VALUE;
             Instruction expected = new BuilderInstruction21s(Opcode.CONST_16, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -138,7 +138,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithHeapItemWitByteTypeAndIntegerValue() {
+        public void withHeapItemWitByteTypeAndIntegerValue() {
             int intValue = 5;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "B");
@@ -154,7 +154,7 @@ public class ConstantBuilderTest {
     public static class BuildDouble {
 
         @Test
-        public void testWithHeapItemWithDoubleTypeAndLongValue() {
+        public void withHeapItemWithDoubleTypeAndLongValue() {
             double doubleValue = Math.pow(2, 15);
             long longValue = (long) doubleValue;
             long longBits = Double.doubleToLongBits(doubleValue);
@@ -169,7 +169,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithLast48BitsNotZero() {
+        public void withLast48BitsNotZero() {
             double value = 127.01;
             long longBits = Double.doubleToLongBits(value);
             Instruction expected = new BuilderInstruction51l(Opcode.CONST_WIDE, REGISTER, longBits);
@@ -179,7 +179,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithValueWithLast48BitsZero() {
+        public void withValueWithLast48BitsZero() {
             double value = Math.pow(2, 48);
             long longBits = Double.doubleToLongBits(value);
             Instruction expected = new BuilderInstruction21lh(Opcode.CONST_WIDE_HIGH16, REGISTER, longBits);
@@ -192,7 +192,7 @@ public class ConstantBuilderTest {
     public static class BuildFloat {
 
         @Test
-        public void testWithHeapItemWitFloatTypeAndIntegerValue() {
+        public void withHeapItemWitFloatTypeAndIntegerValue() {
             int intValue = 5;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "F");
@@ -205,7 +205,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithLast16BitsNotZero() {
+        public void withLast16BitsNotZero() {
             float value = 127.01F;
             int intBits = Float.floatToIntBits(value);
             Instruction expected = new BuilderInstruction31i(Opcode.CONST, REGISTER, intBits);
@@ -215,7 +215,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithValueWithLast16BitsZero() {
+        public void withValueWithLast16BitsZero() {
             int intBits = 0xFF0000;
             float value = Float.intBitsToFloat(intBits);
             Instruction expected = new BuilderInstruction21ih(Opcode.CONST_HIGH16, REGISTER, intBits);
@@ -228,7 +228,7 @@ public class ConstantBuilderTest {
     public static class BuildInteger {
 
         @Test
-        public void testWith15BitLiteral() {
+        public void with15BitLiteral() {
             int value = (int) (Math.pow(2, 15) - 1);
             Instruction expected = new BuilderInstruction21s(Opcode.CONST_16, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -237,7 +237,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith16BitLiteral() {
+        public void with16BitLiteral() {
             int value = 50000;
             Instruction expected = new BuilderInstruction31i(Opcode.CONST, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -246,7 +246,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith31BitLiteral() {
+        public void with31BitLiteral() {
             int value = Integer.MAX_VALUE;
             Instruction expected = new BuilderInstruction31i(Opcode.CONST, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -255,7 +255,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith4BitLiteral() {
+        public void with4BitLiteral() {
             int value = 7;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -264,7 +264,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithMinValue() {
+        public void withMinValue() {
             int value = Integer.MIN_VALUE;
             Instruction expected = new BuilderInstruction31i(Opcode.CONST, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -276,7 +276,7 @@ public class ConstantBuilderTest {
     public static class BuildLong {
 
         @Test
-        public void testWith31BitLiteral() {
+        public void with31BitLiteral() {
             long value = (long) (Math.pow(2, 31) - 1);
             Instruction expected = new BuilderInstruction31i(Opcode.CONST_WIDE_32, REGISTER, (int) value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -285,7 +285,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith4BitLiteral() {
+        public void with4BitLiteral() {
             long value = 7L;
             Instruction expected = new BuilderInstruction21s(Opcode.CONST_WIDE_16, REGISTER, (int) value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -294,7 +294,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith64BitLiteral() {
+        public void with64BitLiteral() {
             long value = Long.MAX_VALUE;
             Instruction expected = new BuilderInstruction51l(Opcode.CONST_WIDE, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -303,7 +303,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithNegative25BitLiteral() {
+        public void withNegative25BitLiteral() {
             long value = 0 - (long) (Math.pow(2, 25) - 1);
             Instruction expected = new BuilderInstruction51l(Opcode.CONST_WIDE, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -322,7 +322,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithClass() {
+        public void withClass() {
             Class<?> value = String.class;
             String className = ClassNameUtils.toInternal(value);
             TypeReference typeRef = dexBuilder.internTypeReference(className);
@@ -333,7 +333,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithString() {
+        public void withString() {
             String value = "Ever sift sand through a screen?";
             StringReference stringRef = dexBuilder.internStringReference(value);
             Instruction expected = new BuilderInstruction21c(Opcode.CONST_STRING, REGISTER, stringRef);
@@ -346,7 +346,7 @@ public class ConstantBuilderTest {
     public static class BuildShort {
 
         @Test
-        public void testWith15BitLiteral() {
+        public void with15BitLiteral() {
             short value = Short.MAX_VALUE;
             Instruction expected = new BuilderInstruction21s(Opcode.CONST_16, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -355,7 +355,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWith4BitLiteral() {
+        public void with4BitLiteral() {
             short value = 7;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, value);
             Instruction actual = ConstantBuilder.buildConstant(value, REGISTER);
@@ -364,7 +364,7 @@ public class ConstantBuilderTest {
         }
 
         @Test
-        public void testWithHeapItemWitShortTypeAndIntegerValue() {
+        public void withHeapItemWitShortTypeAndIntegerValue() {
             int intValue = 5;
             Instruction expected = new BuilderInstruction11n(Opcode.CONST_4, REGISTER, intValue);
             HeapItem value = new HeapItem(intValue, "S");
