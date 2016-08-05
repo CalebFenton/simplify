@@ -63,16 +63,20 @@ subprojects {
         //options.incremental = true
     }
 
-    // Limit test memory to simulate travis ci. Other memory settings are
-    // to encourage Travis to not kill the build due to using too much memory
-    // https://discuss.gradle.org/t/travis-ci-org-gradle-launcher-daemon-client-daemondisappearedexception-gradle-build-daemon-disappeared-unexpectedly-it-may-have-been-killed-or-may-have-crashed/13106/3
-    // TravisCI sometimes doesn't give you all the memory it should:
-    // https://github.com/urho3d/Urho3D/issues/651
+    /*
+     * Running tests takes up a lot of memory and TravisCI only has 3-4 gb available.
+     * Use a low value of forkEvery to ensure heap is started fresh every few classes.
+     * Limit max heap size to simulate TravisCI environment.
+     * Relevant TravisCI building issues:
+     *  - https://discuss.gradle.org/t/travis-ci-org-gradle-launcher-daemon-client-daemondisappearedexception-gradle-build-daemon-disappeared-unexpectedly-it-may-have-been-killed-or-may-have-crashed/13106/3
+     *  - https://github.com/urho3d/Urho3D/issues/651
+    */
     tasks.withType(Test) {
         // maxParallelForks = Runtime.runtime.availableProcessors()
         maxParallelForks = 2
         minHeapSize = '256m'
-        maxHeapSize = '2g'
+        maxHeapSize = '1500m'
+        forkEvery = 20
     }
 
     // This is just to show off API usage. No tests needed.
@@ -118,11 +122,12 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
 }
 
 if (System.env.TRAVIS == 'true') {
-  allprojects {
-    tasks.withType(Test) {
-        testLogging {
-            events "started", "passed", "skipped", "failed"
+    allprojects {
+        tasks.withType(Test) {
+            testLogging {
+                // Printing out status of each test makes following and debugging builds easier.
+                events "started", "passed", "skipped", "failed"
+            }
         }
     }
-  }
 }
