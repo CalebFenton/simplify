@@ -76,7 +76,7 @@ subprojects {
         maxParallelForks = 2
         minHeapSize = '256m'
         maxHeapSize = '1500m'
-        forkEvery = 20
+        forkEvery = 10
     }
 
     // This is just to show off API usage. No tests needed.

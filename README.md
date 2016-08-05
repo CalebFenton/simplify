@@ -153,6 +153,10 @@ Some other examples of dead code:
 * unreferenced assignments - assigning registers and not using them
 * unreached / unreachable instructions - `if (false) { dead_code(); }`
 
+# Further Reading
+
+* [Dalvik Virtual Execution with SmaliVM](http://calebfenton.github.io/2016/04/30/dalvik-virtual-execution-with-smalivm/)
+
 # License
 
 This tool is available under a dual license: a commercial one suitable for closed source projects and a GPL license that can be used in open source software.
