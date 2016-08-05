@@ -69,10 +69,9 @@ subprojects {
     // TravisCI sometimes doesn't give you all the memory it should:
     // https://github.com/urho3d/Urho3D/issues/651
     tasks.withType(Test) {
-        jvmArgs '-XX:MaxPermSize=256m'
         // maxParallelForks = Runtime.runtime.availableProcessors()
         maxParallelForks = 2
-        minHeapSize = '128m'
+        minHeapSize = '256m'
         maxHeapSize = '2g'
     }
 

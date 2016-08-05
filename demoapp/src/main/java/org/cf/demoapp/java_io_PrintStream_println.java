@@ -12,17 +12,20 @@ class java_io_PrintStream_println extends MethodStateMethod implements UnknownVa
 
     java_io_PrintStream_println() {
         super();
+
+        // Writing bytes over any kind of IO affects state outside of the VM.
+        // Set the side effect level so the optimizer knows not to remove this method call.
         level = SideEffect.Level.STRONG;
     }
 
     @Override
     protected void execute(VirtualMachine vm, Op op, MethodState mState) {
-        // Virtual method, register 0 is System.out (or something else)
+        // This is a virtual method, so register 0 contains a reference to an instance of Ljava/io/PrintStream;
+        // Register 1 should have the string to print.
         HeapItem item = mState.peekParameter(1);
         Object value = item.getValue();
         String valueStr = (String) value;
 
-        // Actually print out any println's executed.
         System.out.println(valueStr);
     }
 

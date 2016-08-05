@@ -16,12 +16,13 @@ public class Main {
     private static VirtualMachine vm;
 
     public static void main(String[] args) throws Exception {
+        // The SMALI_PATH directory is populated using dumpSmali.sh and contains converted code from org.cf.demosmali.
         VirtualMachineFactory vmFactory = new VirtualMachineFactory();
         vm = vmFactory.build(SMALI_PATH);
 
         // The smali code contains System.out.println()s used for debugging, but smalivm won't execute this method
-        // because it's not whitelisted as safe. Also, smalivm doesn't have a "screen" to send output, so let's hook
-        // those method calls with our own which actually prints stuff to the console.
+        // because it's not white listed because it affects state outside of the VM. Also, smalivm doesn't have a
+        // "screen" to send output. This hooks those method calls with our own implementation to actually print stuff.
         MethodEmulator
                 .addMethod("Ljava/io/PrintStream;->println(Ljava/lang/String;)V", java_io_PrintStream_println.class);
 

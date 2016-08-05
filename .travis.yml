@@ -1,6 +1,6 @@
 language: java
 
-#dist: trusty
+dist: trusty
 
 jdk:
   - oraclejdk8
@@ -10,7 +10,7 @@ env:
     - TERM=dumb
   global:
     - secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
-    - GRADLE_OPTS="-Xms128m"
+    - GRADLE_OPTS="-Xms256m"
 
 before_install:
   - chmod +x gradlew
