@@ -23,9 +23,9 @@ after_success:
 
 sudo: false
 
-cache:
-  directories:
-    - "$HOME/.gradle"
+#cache:
+#  directories:
+#    - "$HOME/.gradle"
 
 addons:
   coverity_scan:
