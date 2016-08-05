@@ -17,6 +17,7 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         // The SMALI_PATH directory is populated using dumpSmali.sh and contains converted code from org.cf.demosmali.
+        // You can use a link to a DEX, APK, or directory with Smali files.
         VirtualMachineFactory vmFactory = new VirtualMachineFactory();
         vm = vmFactory.build(SMALI_PATH);
 
