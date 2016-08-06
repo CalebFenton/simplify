@@ -113,7 +113,7 @@ public class DeadRemovalStrategyTest {
     }
 
     @Test
-    public void detectshUnusedResultOfMethodInvocationWithNoSideEffects() {
+    public void detectsUnusedResultOfMethodInvocationWithNoSideEffects() {
         String methodName = "unusedResultNoSideEffects()I";
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName);
         DeadRemovalStrategy strategy = new DeadRemovalStrategy(manipulator);
