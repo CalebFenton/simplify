@@ -347,7 +347,6 @@ public class InvokeOp extends ExecutionContextOp {
             Op endOp = graph.getTemplateNode(endAddress).getOp();
             if (endOp instanceof ThrowOp) {
                 // At least one execution path leads to throwing an exception.
-
                 Set<HeapItem> items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister);
                 for (HeapItem item : items) {
                     if (item.getValue() instanceof Throwable) {
@@ -357,7 +356,8 @@ public class InvokeOp extends ExecutionContextOp {
                         // probably an UninitializedInstance
                         if (log.isWarnEnabled()) {
                             log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
-                                     "likely an input class and may need to be white listed to execute properly.");
+                                     "likely an input class and may need to be white listed to execute properly.",
+                                    item.getValue());
                         }
                     }
                 }
