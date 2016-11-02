@@ -34,6 +34,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     private final ExecutionGraphManipulator manipulator;
     private List<Integer> addresses;
+    private Set<Integer> exceptionHandlingAddresses;
     private int unusedAssignmentCount;
     private int uselessBranchCount;
     private int unvisitedCount;
@@ -44,6 +45,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     public DeadRemovalStrategy(ExecutionGraphManipulator manipulator) {
         this.manipulator = manipulator;
         addresses = getValidAddresses(manipulator);
+        exceptionHandlingAddresses = getExceptionHandlerAddresses(manipulator);
         unusedAssignmentCount = 0;
         uselessBranchCount = 0;
         unvisitedCount = 0;
@@ -157,8 +159,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     public Map<String, Integer> getOptimizationCounts() {
         Map<String, Integer> counts = new HashMap<>();
         counts.put("dead ops removed", unvisitedCount);
-        counts.put("unused assignments removed", unusedAssignmentCount);
-        counts.put("unused results removed", unusedResultCount);
+        counts.put("dead assignments removed", unusedAssignmentCount);
+        counts.put("dead results removed", unusedResultCount);
         counts.put("useless gotos removed", uselessBranchCount);
         counts.put("nops removed", nopCount);
 
@@ -169,6 +171,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     public boolean perform() {
         // Updated addresses each time because they change outside of this method.
         addresses = getValidAddresses(manipulator);
+        exceptionHandlingAddresses = getExceptionHandlerAddresses(manipulator);
 
         Set<Integer> removeSet = new HashSet<>();
         List<Integer> removeAddresses;
@@ -237,10 +240,6 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         // Should never remove the last op. It's either return, goto, or an array payload.
         invalidAddresses.add(validAddresses.get(validAddresses.size() - 1));
 
-        // Don't optimize exception handler code since the VM may incorrectly think the code is unreachable
-        // This needs to be in place until all ops properly raise possible exceptions
-        // invalidAddresses.addAll(getExceptionHandlerAddresses(manipulator));
-
         for (int address : validAddresses) {
             if (!manipulator.wasAddressReached(address)) {
                 // Unreached code is valid for removal
@@ -277,6 +276,13 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     private boolean isDead(int address) {
         Op op = manipulator.getOp(address);
         log.debug("Dead test @{} for: {}", address, op);
+
+        if (exceptionHandlingAddresses.contains(address)) {
+            // If virtual execution was perfect, unvisited exception handling code could safely be removed provided
+            // you also removed the try/catch but that level of accuracy is difficult. Instead, compromise by not
+            // removing unvisited code, but try and remove for other reasons such as dead assignment.
+            return false;
+        }
 
         if (manipulator.wasAddressReached(address)) {
             return false;
