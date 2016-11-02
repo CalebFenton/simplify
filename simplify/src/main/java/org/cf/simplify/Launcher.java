@@ -178,6 +178,11 @@ public class Launcher {
         }
 
         for (VirtualMethod method : methods) {
+            if (!method.hasImplementation()) {
+                System.out.println("Skipping method without implementation: " + method);
+                continue;
+            }
+            
             boolean executeAgain;
             do {
                 System.out.println("Executing: " + method);
