@@ -58,8 +58,8 @@ public class Launcher {
         }
     }
 
-    private static void filterSupportLibrary(Collection<VirtualMethod> localMethods) {
-        for (Iterator<VirtualMethod> it = localMethods.iterator(); it.hasNext(); ) {
+    private static void filterSupportLibrary(Collection<VirtualMethod> methods) {
+        for (Iterator<VirtualMethod> it = methods.iterator(); it.hasNext(); ) {
             String name = it.next().getSignature();
             if (SUPPORT_LIBRARY_PATTERN.matcher(name).find()) {
                 it.remove();
