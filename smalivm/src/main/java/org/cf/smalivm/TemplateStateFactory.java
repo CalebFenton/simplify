@@ -26,7 +26,7 @@ public class TemplateStateFactory {
 
         for (String type : parameterTypes) {
             HeapItem item;
-            if (parameterRegister == 0 && !method.isStatic()) {
+            if (parameterRegister == firstParameter && !method.isStatic()) {
                 UninitializedInstance instance = new UninitializedInstance(method.getDefiningClass());
                 item = new HeapItem(instance, type);
             } else {
