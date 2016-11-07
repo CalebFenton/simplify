@@ -45,7 +45,7 @@ subprojects {
 
     ext {
         depends = [
-            commons_lang: 'org.apache.commons:commons-lang3:3.4',
+            commons_lang: 'org.apache.commons:commons-lang3:3.5',
             findbugs: 'com.google.code.findbugs:jsr305:3.0.1',
             guava: 'com.google.guava:guava:19.0',
             junit: 'junit:junit:4.12',

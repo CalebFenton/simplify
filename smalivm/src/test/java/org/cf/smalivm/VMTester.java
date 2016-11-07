@@ -75,7 +75,7 @@ public class VMTester {
     }
 
     public static DexBuilder getDexBuilder() {
-        return DexBuilder.makeDexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
+        return new DexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
     }
 
     public static void setRegisterMock(MethodState mState, int register, Object value, String type) {
@@ -96,8 +96,9 @@ public class VMTester {
     }
 
     /**
-     * Create a new virtual machine and class manager. This is necessary when class implementations are changing, such
-     * as testing the optimization strategies and when dealing with class loading and dynamic creation.
+     * Create a new virtual machine and class manager. This is necessary when class implementations
+     * are changing, such as testing the optimization strategies and when dealing with class loading
+     * and dynamic creation.
      */
     public static VirtualMachine spawnVM(boolean reloadClasses) {
         if ((null == classManager) || reloadClasses) {
@@ -219,7 +220,7 @@ public class VMTester {
     private static void testClassState(ExecutionGraph graph,
                                        Map<String, Map<String, HeapItem>> classNameToFieldDescriptorToItem) {
         for (Entry<String, Map<String, HeapItem>> fieldDescriptorMapEntry : classNameToFieldDescriptorToItem
-                                                                                    .entrySet()) {
+                .entrySet()) {
             String className = fieldDescriptorMapEntry.getKey();
             VirtualClass virtualClass = graph.getVM().getClassManager().getVirtualClass(className);
             Map<String, HeapItem> fieldDescriptorToItem = fieldDescriptorMapEntry.getValue();

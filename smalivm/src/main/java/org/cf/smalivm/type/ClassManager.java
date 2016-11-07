@@ -4,6 +4,7 @@ import org.cf.smalivm.dex.SmaliFile;
 import org.cf.smalivm.dex.SmaliFileFactory;
 import org.cf.smalivm.dex.SmaliParser;
 import org.cf.util.ClassNameUtils;
+import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -32,7 +33,7 @@ public class ClassManager {
     private final SmaliFileFactory smaliFileFactory;
     private final DexBuilder dexBuilder;
     // Use separate DexBuilder to intern framework classes to avoid including in output dex
-    private final DexBuilder frameworkDexBuilder = DexBuilder.makeDexBuilder();
+    private final DexBuilder frameworkDexBuilder = new DexBuilder(Opcodes.getDefault());
 
     ClassManager(DexBuilder dexBuilder) {
         this(dexBuilder, false);

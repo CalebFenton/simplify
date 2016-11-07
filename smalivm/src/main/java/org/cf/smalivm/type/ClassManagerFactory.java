@@ -14,33 +14,36 @@ public class ClassManagerFactory {
 
     private static File disassemble(File file) throws IOException {
         Path tempDir = Files.createTempDirectory(TEMP_DIR_NAME);
-        String[] args = new String[] { "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(),
-                                       "--output", tempDir.toString(), };
-        org.jf.baksmali.main.main(args);
+        String[] args = new String[]{"disassemble", "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(),
+                "--output", tempDir.toString(),};
+        org.jf.baksmali.Main.main(args);
 
         return tempDir.toFile();
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain parse library classes.
+     * Create a ClassManager with no input Smali classes. It will only contain parse library
+     * classes.
      */
     public ClassManager build() throws IOException {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder();
+        DexBuilder dexBuilder = new DexBuilder(Opcodes.getDefault());
 
         return build(dexBuilder);
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain parse library classes.
+     * Create a ClassManager with no input Smali classes. It will only contain parse library
+     * classes.
      */
     public ClassManager build(int outputAPILevel) throws IOException {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(outputAPILevel));
+        DexBuilder dexBuilder = new DexBuilder(Opcodes.forApi(outputAPILevel));
 
         return build(dexBuilder);
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain input library classes.
+     * Create a ClassManager with no input Smali classes. It will only contain input library
+     * classes.
      */
     public ClassManager build(DexBuilder dexBuilder) throws IOException {
         return new ClassManager(dexBuilder);
@@ -58,32 +61,28 @@ public class ClassManagerFactory {
     }
 
     /**
-     * @param smaliPath
-     *         Path to Smali file or folder
+     * @param smaliPath Path to Smali file or folder
      */
     public ClassManager build(String smaliPath) throws IOException {
-        return build(smaliPath, DexBuilder.makeDexBuilder());
+        return build(smaliPath, new DexBuilder(Opcodes.getDefault()));
     }
 
     /**
-     * @param smaliPath
-     *         Path to Smali file or folder
+     * @param smaliPath Path to Smali file or folder
      */
     public ClassManager build(String smaliPath, int outputAPILevel) throws IOException {
         return build(new File(smaliPath), outputAPILevel);
     }
 
     /**
-     * @param smaliPath
-     *         Path to Smali file or folder
+     * @param smaliPath Path to Smali file or folder
      */
     public ClassManager build(File smaliPath, int outputAPILevel) throws IOException {
-        return build(smaliPath, DexBuilder.makeDexBuilder(Opcodes.forApi(outputAPILevel)));
+        return build(smaliPath, new DexBuilder(Opcodes.forApi(outputAPILevel)));
     }
 
     /**
-     * @param smaliPath
-     *         Path to Smali file or folder
+     * @param smaliPath Path to Smali file or folder
      */
     public ClassManager build(String smaliPath, DexBuilder dexBuilder) throws IOException {
         return build(new File(smaliPath), dexBuilder);

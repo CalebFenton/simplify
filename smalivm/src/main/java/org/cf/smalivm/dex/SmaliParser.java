@@ -32,7 +32,7 @@ public class SmaliParser {
     private static final Logger log = LoggerFactory.getLogger(SmaliParser.class.getSimpleName());
 
     public static List<BuilderClassDef> parse(String path) throws Exception {
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
+        DexBuilder dexBuilder = new DexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
 
         return parseFiles(new File(path), dexBuilder);
     }
@@ -72,7 +72,7 @@ public class SmaliParser {
         CommonTokenStream tokens = new CommonTokenStream((TokenSource) lexer);
 
         smaliParser parser = new smaliParser(tokens);
-        parser.setApiLevel(DEFAULT_API_LEVEL, false);
+        parser.setApiLevel(DEFAULT_API_LEVEL);
 
         smaliParser.smali_file_return result = parser.smali_file();
         if ((parser.getNumberOfSyntaxErrors() > 0) || (lexer.getNumberOfSyntaxErrors() > 0)) {

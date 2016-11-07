@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.cf.util.Utils;
+import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -51,7 +52,7 @@ public class FrameworkCacheBuilder {
             e.printStackTrace();
         }
 
-        DexBuilder dexBuilder = DexBuilder.makeDexBuilder();
+        DexBuilder dexBuilder = new DexBuilder(Opcodes.getDefault());
         StringBuilder sb = new StringBuilder();
         for (File resFile : resFiles) {
             String absPath = resFile.getAbsolutePath();

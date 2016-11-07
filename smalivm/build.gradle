@@ -9,10 +9,10 @@ buildscript {
 
 dependencies {
     // Object cloning
-    compile 'uk.com.robust-it:cloning:1.9.2'
+    compile 'uk.com.robust-it:cloning:1.9.3'
 
     // Easy method reflection
-    compile 'commons-beanutils:commons-beanutils:1.9.2'
+    compile 'commons-beanutils:commons-beanutils:1.9.3'
 
     // Lazy
     compile depends.commons_lang
@@ -25,9 +25,9 @@ dependencies {
     compile depends.slf4j_api
 
     // Parsing and writing dex files
-    compile 'org.smali:dexlib2:2.1.3'
-    compile 'org.smali:smali:2.1.3'
-    compile 'org.smali:baksmali:2.1.3'
+    compile group: 'org.smali', name: 'dexlib2', version: '2.2b4'
+    compile group: 'org.smali', name: 'smali', version: '2.2b4'
+    compile group: 'org.smali', name: 'baksmali', version: '2.2b4'
 
     // For dynamic java.lang.Class generation
     compile 'org.ow2.asm:asm:5.1'
