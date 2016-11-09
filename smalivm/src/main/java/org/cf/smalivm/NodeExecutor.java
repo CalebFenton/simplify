@@ -86,11 +86,11 @@ public class NodeExecutor {
             int childAddress = exceptionResolver.resolve(e, node.getAddress());
             if (childAddress <= 0) {
                 throw new RuntimeException("Real exception was thrown executing " + node +
-                                           " and was not handled. This could be a bug in smalivm.\nException:", e);
+                                           " and was not handled. This could be a bug in smalivm.\nException: " + e, e);
             } else {
                 if (log.isWarnEnabled()) {
-                    log.warn("{} threw a real exception but was caught by an exception handler. It's not possible to " +
-                             "" + "know if it's a bug in target code or in smalivm. Exception: {}", node, e);
+                    log.warn("{} threw a real exception but was caught by an exception handler. " +
+                             "This may be a bug in smalivm or in the target code. Exception: {}", node, e);
 
                 }
             }
