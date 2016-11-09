@@ -143,10 +143,14 @@ public class ClassBuilder {
 
     private void visitMethod(ClassDef classDef, Method method, MethodVisitor mv) {
         mv.visitCode();
-        if (method.getName().equals("<clinit>")) {
+
+        String methodName = method.getName();
+        if (methodName.equals("<clinit>")) {
             visitClInitStub(mv);
-        } else if (method.getName().equals("<init>")) {
+        } else if (methodName.equals("<init>")) {
             visitInitStub(classDef, mv);
+        } else if (methodName.equals("hashCode") && method.getReturnType().equals("I") ) {
+            visitCallObjectHashCode(mv);
         } else {
             visitMethodStub(mv);
         }
@@ -278,6 +282,15 @@ public class ClassBuilder {
                 visitInitStub(classDef, mv);
             }
         }
+    }
+
+    private void visitCallObjectHashCode(MethodVisitor mv) {
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        String owner = "java/lang/Object";
+        String name = "hashCode";
+        String desc = "()I";
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, owner, name, desc, false);
+        mv.visitInsn(Opcodes.IRETURN);
     }
 
     private void visitMethodStub(MethodVisitor mv) {
