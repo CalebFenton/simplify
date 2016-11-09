@@ -134,6 +134,9 @@ public class ClassBuilder {
             }
 
             String name = field.getName();
+            if (name.equals("ENUM$VALUES")) {
+                name = "$VALUES";
+            }
             String desc = field.getType();
             String signature = null;
             Object value = null;
