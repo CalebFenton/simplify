@@ -7,9 +7,9 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
-import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
@@ -131,6 +131,25 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         return addresses.toArray();
+    }
+
+    private static String getConsensusType(Set<String> types, Set<HeapItem> items) {
+        if (types.size() == 1) {
+            return types.toArray(new String[1])[0];
+        } else if (types.size() == 2 && types.contains("I")) {
+            // Dalvik uses 0 to represent null
+            // https://calebfenton.github.io/2016/02/16/how-does-dalvik-handle-null-types/
+            if (types.size() == 2 && types.contains("I")) {
+                for (String currentType : types) {
+                    if (currentType.startsWith("L") && items.contains(new HeapItem(0, "I"))) {
+                        return currentType;
+                    }
+                }
+            }
+        }
+
+        log.warn("Register consensus contains multiple types! Returning unknown type.");
+        return CommonTypes.UNKNOWN;
     }
 
     public String toString() {
@@ -313,7 +332,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getRegisterConsensus(int address, int register) {
-        return getRegisterConsensus(new int[] { address }, register);
+        return getRegisterConsensus(new int[]{address}, register);
     }
 
     public
@@ -326,21 +345,15 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             if (items.size() != 1) {
                 log.trace("No consensus for register #{}, returning Unknown.", register);
                 Set<String> types = new HashSet<>();
-                String type = null;
                 for (HeapItem item : items) {
                     if (item == null) {
                         // Register was never assigned for this execution path
                         // This can happen in short methods with branching
                         continue;
                     }
-                    type = item.getType();
-                    types.add(type);
+                    types.add(item.getType());
                 }
-
-                if (types.size() > 1) {
-                    log.warn("Consensus has multiple types! Returning unknown type.");
-                    type = "?";
-                }
+                String type = getConsensusType(types, items);
 
                 return HeapItem.newUnknown(type);
             }
@@ -408,7 +421,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getTerminatingFieldConsensus(VirtualField field) {
-        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[] { field });
+        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[]{field});
 
         return items.get(field);
     }
@@ -427,7 +440,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     public
     @Nonnull
     HeapItem getTerminatingRegisterConsensus(int register) {
-        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[] { register });
+        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[]{register});
 
         return items.get(register);
     }

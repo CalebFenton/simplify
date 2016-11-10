@@ -86,7 +86,7 @@ public class NodeExecutor {
             int childAddress = exceptionResolver.resolve(e, node.getAddress());
             if (childAddress <= 0) {
                 throw new RuntimeException("Real exception was thrown executing " + node +
-                                           " and was not handled. This could be a bug in smalivm.\nException: " + e, e);
+                                           " and was not handled. This could be a bug in smalivm.\nException: " + e);
             } else {
                 if (log.isWarnEnabled()) {
                     log.warn("{} threw a real exception but was caught by an exception handler. " +

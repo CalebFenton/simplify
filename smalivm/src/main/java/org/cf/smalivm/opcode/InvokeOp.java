@@ -108,7 +108,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         if (classManager.isFrameworkClass(targetMethod.getDefiningClass()) &&
-            !classManager.isSafeFrameworkClass(targetMethod.getDefiningClass())) {
+                !classManager.isSafeFrameworkClass(targetMethod.getDefiningClass())) {
             if (log.isDebugEnabled()) {
                 log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", targetSignature);
             }
@@ -123,7 +123,7 @@ public class InvokeOp extends ExecutionContextOp {
                     // but the object is unknown, so the real virtual of the invocation target
                     // can't be determined. That's why this is a warning and not an error.
                     log.warn("Attempting to execute local native method without implementation: {}. Assuming maximum " +
-                             "ambiguity.", targetSignature);
+                            "ambiguity.", targetSignature);
                 } else {
                     log.warn("Cannot execute local native method: {}. Assuming maximum ambiguity.", targetSignature);
                 }
@@ -353,11 +353,15 @@ public class InvokeOp extends ExecutionContextOp {
                         Throwable exception = (Throwable) item.getValue();
                         addException(exception);
                     } else {
-                        // probably an UninitializedInstance
+                        // Possibly UninitializedInstance
                         if (log.isWarnEnabled()) {
-                            log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
-                                     "likely an input class and may need to be white listed to execute properly.",
-                                    item.getValue());
+                            if (item.isUnknown()) {
+                                log.warn("Method had possible execution path which throws an exception but cannon instantiate it because the value is unknown. Exception item: {}", item);
+                            } else {
+                                log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
+                                         "likely an input class and may need to be white listed to execute properly.",
+                                         item);
+                            }
                         }
                     }
                 }
