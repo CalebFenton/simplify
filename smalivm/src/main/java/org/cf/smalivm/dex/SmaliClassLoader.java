@@ -18,7 +18,7 @@ public class SmaliClassLoader extends ClassLoader {
 
     // This jar is produced by FrameworkJarBuilder so that framework classes don't have to be built with ASM
     // every time they're needed. Instead, they can be loaded from here.
-    private static final String FRAMEWORK_STUBS_JAR = "/framework/android-23.jar";
+    private static final String FRAMEWORK_STUBS_JAR = "/framework/android-framework.jar";
 
     private final Map<String, Class<?>> cachedClasses;
     private final ClassBuilder classBuilder;

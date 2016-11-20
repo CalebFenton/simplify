@@ -55,6 +55,15 @@ task myTestsJar(type: Jar) {
     from sourceSets.test.output
 }
 
+task updateReferenceFramework(type: JavaExec) {
+    description 'Update Android reference framework artifacts. Use -PsmaliPath to specify path in resources/smali/, e.g. -PsmaliPath=android-25'
+    classpath sourceSets.main.runtimeClasspath
+    main = "org.cf.smalivm.dex.FrameworkJarBuilder"
+    def smaliPath = project.hasProperty('smaliPath') ?  project.getProperty('smaliPath') : 'android-25'
+
+    args smaliPath, 'src/main/resources/framework/android-framework.jar'
+}
+
 configurations {
   testArtifacts
 }
