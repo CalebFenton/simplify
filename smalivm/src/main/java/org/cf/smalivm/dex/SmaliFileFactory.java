@@ -63,7 +63,7 @@ public class SmaliFileFactory {
             List<File> matches = Utils.getFilesWithSmaliExtension(file);
             for (File match : matches) {
                 SmaliFile smaliFile = new SmaliFile(match);
-                // DalvikVM rejects classes that are already defined.
+                // DalvikVM rejects classes in an APK that are already defined.
                 // Framework classes take precedence over local classes.
                 String className = smaliFile.getClassName();
                 if (isFrameworkClass(className) && !className.startsWith("Landroid/support/")) {

@@ -21,7 +21,7 @@ public class ClassBuilderTest {
     @Before
     public void setUp() throws IOException {
         classManager = new ClassManagerFactory().build(TEST_SMALI_PATH);
-        classBuilder = new ClassBuilder();
+        classBuilder = new ClassBuilder(classManager);
     }
 
     @Test

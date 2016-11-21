@@ -1,12 +1,14 @@
 package org.cf.smalivm.dex;
 
 import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.ClassDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.HashMap;
@@ -30,10 +32,20 @@ public class SmaliClassLoader extends ClassLoader {
         cachedClasses = new HashMap<>();
         URL jarURL = SmaliClassLoader.class.getResource(FRAMEWORK_STUBS_JAR);
         jarLoader = new URLClassLoader(new URL[] { jarURL });
-        this.classBuilder = new ClassBuilder();
+        this.classBuilder = new ClassBuilder(classManager);
         this.classManager = classManager;
     }
 
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+//        String smaliPath = args[0];
+//        String className = args[1];
+        String smaliPath = "src/main/resources/framework/smali/android-25";
+        String className = "Landroid/view/Window$Callback;";
+        ClassManager classManager = new ClassManagerFactory().build(smaliPath);
+        VirtualClass virtualClass = classManager.getVirtualClass(className);
+        SmaliClassLoader classLoader = new SmaliClassLoader(classManager);
+        Class<?> klazz = classLoader.loadClass(virtualClass.getSourceName());
+    }
     private static String getPackageName(String className) {
         int i = className.lastIndexOf('.');
         if (i > 0) {

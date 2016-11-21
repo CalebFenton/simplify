@@ -54,8 +54,9 @@ public class FrameworkJarBuilder {
 
         String outPath = args[1];
         System.out.println("Building framework JAR");
-        ClassManager classManager = getClassManager();
-        ClassBuilder builder = new ClassBuilder();
+
+        ClassManager classManager = new ClassManagerFactory().build();
+        ClassBuilder builder = new ClassBuilder(classManager);
         Set<String> classNames = buildJar(classManager, builder, outPath);
         System.out.println("Saved " + classNames.size() + " classes to " + outPath);
     }
@@ -100,11 +101,6 @@ public class FrameworkJarBuilder {
         out.close();
 
         return classNames;
-    }
-
-    private static ClassManager getClassManager() throws IOException {
-        ClassManagerFactory managerFactory = new ClassManagerFactory();
-        return managerFactory.build();
     }
 
 }

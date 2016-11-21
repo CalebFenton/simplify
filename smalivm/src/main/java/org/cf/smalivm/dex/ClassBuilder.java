@@ -1,12 +1,24 @@
 package org.cf.smalivm.dex;
 
+import com.google.common.primitives.Ints;
+
+import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerFactory;
+import org.cf.smalivm.type.VirtualClass;
+import org.jf.dexlib2.iface.Annotation;
+import org.jf.dexlib2.iface.AnnotationElement;
 import org.jf.dexlib2.iface.ClassDef;
 import org.jf.dexlib2.iface.ExceptionHandler;
 import org.jf.dexlib2.iface.Field;
 import org.jf.dexlib2.iface.Method;
 import org.jf.dexlib2.iface.TryBlock;
+import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.iface.reference.Reference;
+import org.jf.dexlib2.iface.value.EncodedValue;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.writer.builder.BuilderAnnotationElement;
+import org.jf.dexlib2.writer.builder.BuilderEncodedValues;
+import org.jf.dexlib2.writer.builder.BuilderMethodReference;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -14,6 +26,8 @@ import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,6 +38,27 @@ import java.util.stream.StreamSupport;
 public class ClassBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(ClassBuilder.class.getSimpleName());
+
+    private final ClassManager classManager;
+
+    public ClassBuilder(ClassManager classManager) {
+        this.classManager = classManager;
+    }
+
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+        String smaliPath = args[0];
+        String className = args[1];
+        ClassManager classManager = new ClassManagerFactory().build(smaliPath);
+        VirtualClass virtualClass = classManager.getVirtualClass(className);
+
+        ClassBuilder builder = new ClassBuilder(classManager);
+        byte[] classBytes = builder.build(virtualClass.getClassDef());
+
+        new FileOutputStream(new java.io.File("temp.class")).write(classBytes);
+        System.out.println("Generated class bytes for " + virtualClass + ", size=" + classBytes.length);
+        SmaliClassLoader classLoader = new SmaliClassLoader(classManager);
+        classLoader.loadClass(virtualClass.getSourceName());
+    }
 
     public byte[] build(ClassDef classDef) {
         log.debug("Building input class: {}", classDef);
@@ -81,24 +116,78 @@ public class ClassBuilder {
     private String[] buildInterfaces(ClassDef classDef) {
         List<String> interfaces = classDef.getInterfaces();
 
-        return interfaces.stream().map(this::stripName).toArray(size -> new String[interfaces.size()]);
+        return interfaces
+                .stream()
+                .map(this::stripName)
+                .toArray(size -> new String[interfaces.size()]);
     }
 
     private String stripName(String internalName) {
         return internalName.substring(1, internalName.length() - 1);
     }
 
+    private void visitInnerClasses(BuilderEncodedValues.BuilderTypeEncodedValue value, ClassWriter classWriter) {
+        // String name, String outerName, String innerName, int access
+        String internalName = value.getValue();
+        String fullName = stripName(value.getValue());
+        String[] parts = fullName.split("\\$", 2);
+        String outerName = parts[0];
+        String innerName = parts[1];
+        boolean isAnonymous = innerName.equals("1") || Ints.tryParse(innerName) != null;
+        if (isAnonymous) {
+            innerName = null;
+        }
+        int innerAccess = classManager.getVirtualClass(internalName).getClassDef().getAccessFlags();
+        classWriter.visitInnerClass(fullName, outerName, innerName, innerAccess);
+    }
+
+    private void visitEnclosingMethod(BuilderEncodedValues.BuilderMethodEncodedValue value, ClassWriter classWriter) {
+        BuilderMethodReference methodRef = value.getValue();
+        String owner = methodRef.getDefiningClass();
+        String name = methodRef.getName();
+        String desc = ReferenceUtil.getMethodDescriptor(methodRef).split("->")[1];
+        classWriter.visitOuterClass(owner, name, desc);
+    }
+
+    private void visitClassAnnotations(Set<? extends Annotation> annotations, ClassWriter classWriter) {
+        for (Annotation annotation : annotations) {
+            switch (annotation.getType()) {
+                case "Ldalvik/annotation/EnclosingMethod;":
+                    for (AnnotationElement e : annotation.getElements()) {
+                        BuilderEncodedValues.BuilderMethodEncodedValue v = (BuilderEncodedValues.BuilderMethodEncodedValue) e.getValue();
+                        visitEnclosingMethod(v, classWriter);
+                        // There should only ever be one enclosing method.
+                        break;
+                    }
+                    break;
+                case "Ldalvik/annotation/MemberClasses;":
+                    for (AnnotationElement e : annotation.getElements()) {
+                        BuilderEncodedValues.BuilderArrayEncodedValue ev = (BuilderEncodedValues.BuilderArrayEncodedValue) e.getValue();
+                        for (EncodedValue v : ev.getValue()) {
+                            BuilderEncodedValues.BuilderTypeEncodedValue value = (BuilderEncodedValues.BuilderTypeEncodedValue) v;
+                            visitInnerClasses(value, classWriter);
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+
     private void visitClass(ClassDef classDef, ClassWriter classWriter) {
-        int version = Opcodes.V1_7;
+        int version = Opcodes.V1_8;
         int access = classDef.getAccessFlags();
         String name = stripName(classDef.getType());
+        // Signature should be type signature for the class, which is uncommon.
         String signature = buildASMSignature(classDef);
+        signature = null;
         String superName = null;
         if (classDef.getSuperclass() != null) {
             superName = stripName(classDef.getSuperclass());
         }
         String[] interfaces = buildInterfaces(classDef);
         classWriter.visit(version, access, name, signature, superName, interfaces);
+        classWriter.visitSource(classDef.getSourceFile(), null);
+        visitClassAnnotations(classDef.getAnnotations(), classWriter);
     }
 
     private void visitClInitStub(MethodVisitor mv) {
@@ -152,7 +241,7 @@ public class ClassBuilder {
             visitClInitStub(mv);
         } else if (methodName.equals("<init>")) {
             visitInitStub(classDef, mv);
-        } else if (methodName.equals("hashCode") && method.getReturnType().equals("I") ) {
+        } else if (methodName.equals("hashCode") && method.getReturnType().equals("I")) {
             visitCallObjectHashCode(mv);
         } else {
             visitMethodStub(mv);
@@ -218,8 +307,8 @@ public class ClassBuilder {
         mv.visitEnd();
 
         mv = classWriter
-                     .visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values", "()[" + classDef.getType(), null,
-                             null);
+                .visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values", "()[" + classDef.getType(), null,
+                        null);
         mv.visitCode();
         mv.visitFieldInsn(Opcodes.GETSTATIC, name, "$VALUES", "[" + classDef.getType());
         mv.visitInsn(Opcodes.DUP);
