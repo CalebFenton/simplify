@@ -30,7 +30,7 @@ dependencies {
     compile group: 'org.smali', name: 'baksmali', version: '2.2b4'
 
     // For dynamic java.lang.Class generation
-    compile 'org.ow2.asm:asm:5.1'
+    compile group: 'org.ow2.asm', name: 'asm', version: '6.0_ALPHA'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
     // Mostly, Base64, but could be anything that's slow on the vm
