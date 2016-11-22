@@ -1,5 +1,6 @@
 package org.cf.smalivm.dex;
 
+import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualClass;
@@ -20,7 +21,7 @@ public class SmaliClassLoader extends ClassLoader {
 
     // This jar is produced by FrameworkJarBuilder so that framework classes don't have to be built with ASM
     // every time they're needed. Instead, they can be loaded from here.
-    private static final String FRAMEWORK_STUBS_JAR = "/framework/android-framework.jar";
+    public static final String FRAMEWORK_STUBS_JAR = "/framework/android-framework.jar";
 
     private final Map<String, Class<?>> cachedClasses;
     private final ClassBuilder classBuilder;
@@ -30,7 +31,7 @@ public class SmaliClassLoader extends ClassLoader {
     public SmaliClassLoader(ClassManager classManager) {
         super(SmaliClassLoader.class.getClassLoader());
         cachedClasses = new HashMap<>();
-        URL jarURL = SmaliClassLoader.class.getResource(FRAMEWORK_STUBS_JAR);
+        URL jarURL = SmaliClassLoader.class.getResource(SmaliClassLoader.FRAMEWORK_STUBS_JAR);
         jarLoader = new URLClassLoader(new URL[] { jarURL });
         this.classBuilder = new ClassBuilder(classManager);
         this.classManager = classManager;

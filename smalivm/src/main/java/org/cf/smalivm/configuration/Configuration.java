@@ -1,21 +1,23 @@
 package org.cf.smalivm.configuration;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class Configuration {
 
-    private static final String IMMUTABLE_CLASSES_PATH = "immutable_classes.cfg";
+    private static final Logger log = LoggerFactory.getLogger(Configuration.class.getSimpleName());
+
+    public static final String IMMUTABLE_CLASSES_PATH = "immutable_classes.cfg";
+    public static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
+    public static final String SAFE_METHODS_PATH = "safe_methods.cfg";
+    public static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
+    public static final String FRAMEWORK_CLASSES_PATH = "framework_classes.cfg";
+    public static final String SAFE_FRAMEWORK_CLASSES_PATH = "safe_framework_classes.cfg";
 
     private static Configuration instance = null;
-    private static final Logger log = LoggerFactory.getLogger(Configuration.class.getSimpleName());
-    private static final String SAFE_CLASSES_PATH = "safe_classes.cfg";
-    private static final String SAFE_METHODS_PATH = "safe_methods.cfg";
-
-    private static final String UNSAFE_METHODS_PATH = "unsafe_methods.cfg";
     private final Set<String> immutableClasses;
     private final Set<String> safeClasses;
     private final Set<String> safeMethods;
@@ -29,8 +31,20 @@ public class Configuration {
         immutableClasses = new HashSet<>(ConfigurationLoader.load(IMMUTABLE_CLASSES_PATH));
     }
 
+    public static Configuration instance() {
+        if (instance == null) {
+            instance = new Configuration();
+        }
+
+        return instance;
+    }
+
     public Set<String> getImmutableClasses() {
         return immutableClasses;
+    }
+
+    public Set<String> getSafeClasses() {
+        return safeClasses;
     }
 
     public boolean isImmutable(String className) {
@@ -38,12 +52,10 @@ public class Configuration {
     }
 
     /**
-     * Safe classes are Java API classes which are safe to instantiate, load, and statically initialize. Safe methods
-     * are methods of Java classes which are safe to execute. Only classes and methods which can have no possible side
-     * effects outside of SmaliVM should be configured as safe.
-     *
-     * @param typeSignature
-     * @return
+     * Safe classes are Java API classes which are safe to instantiate, load, and statically
+     * initialize. Safe methods are methods of Java classes which are safe to execute. Only classes
+     * and methods which can have no possible side effects outside of SmaliVM should be configured
+     * as safe.
      */
     public boolean isSafe(String typeSignature) {
         String[] parts = typeSignature.split("->");
@@ -65,14 +77,6 @@ public class Configuration {
 
     public boolean isUnsafeMethod(String methodDescriptor) {
         return !unsafeMethods.contains(methodDescriptor);
-    }
-
-    public static Configuration instance() {
-        if (instance == null) {
-            instance = new Configuration();
-        }
-
-        return instance;
     }
 
 }

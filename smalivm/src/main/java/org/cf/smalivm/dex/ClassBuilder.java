@@ -5,6 +5,7 @@ import com.google.common.primitives.Ints;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualClass;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.Annotation;
 import org.jf.dexlib2.iface.AnnotationElement;
 import org.jf.dexlib2.iface.ClassDef;
@@ -143,9 +144,10 @@ public class ClassBuilder {
 
     private void visitEnclosingMethod(BuilderEncodedValues.BuilderMethodEncodedValue value, ClassWriter classWriter) {
         BuilderMethodReference methodRef = value.getValue();
-        String owner = methodRef.getDefiningClass();
+        String owner = stripName(methodRef.getDefiningClass());
         String name = methodRef.getName();
-        String desc = ReferenceUtil.getMethodDescriptor(methodRef).split("->")[1];
+        String descriptor = ReferenceUtil.getMethodDescriptor(methodRef).split("->")[1];
+        String desc = descriptor.substring(descriptor.indexOf('('));
         classWriter.visitOuterClass(owner, name, desc);
     }
 
