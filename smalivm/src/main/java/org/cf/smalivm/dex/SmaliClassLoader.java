@@ -47,6 +47,7 @@ public class SmaliClassLoader extends ClassLoader {
         SmaliClassLoader classLoader = new SmaliClassLoader(classManager);
         Class<?> klazz = classLoader.loadClass(virtualClass.getSourceName());
     }
+
     private static String getPackageName(String className) {
         int i = className.lastIndexOf('.');
         if (i > 0) {
