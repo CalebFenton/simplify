@@ -1,11 +1,31 @@
 # IDEA SCRATCH PAD
 
-* Allow static initialization of fields using literals, e.g. `.field myInt:I = 0x42`
-* Fixed several problems with looking up inherited fields
-* Better merging of states from called methods
-* Better exception handling - implement `throw` and `move-exception`
-* Improved correctness for `instance-of` and `check-cast` ops
-* Improved correctness for `java.lang.reflect.Field.get()` emulated method
+Add tests:
+- inner classes and enclosing methods (needs more research)
+- source name (easy)
+- validate config files
+  - every safe_class.cfg exists
+  - every safe_framework_class exists in framework jar
+  - every framework_class exists in framework jar
+  - etc.
+- research and test for https://github.com/CalebFenton/simplify/commit/71b52a33f18865b20cff6608e82daae35cfa3516
+
+
+add demos directory
+	move example app there, rename it
+	create another demo which executes methods of a real app or something
+
+add option to include jars and reflect classes therein
+
+look into including some java/nio buffer classes as full, executable java classes and reflecting them
+	similar to base64
+use actual android jars used for detecting immutability
+
+
+listeners for when an op is executed
+  could have filters or gives everything
+  variable watching
+  useful for debugger
 
 
 find all "?" and replace with common type unknkown
