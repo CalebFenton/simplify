@@ -17,9 +17,11 @@ import java.util.List;
 public class MethodReflector {
 
     private static Logger log = LoggerFactory.getLogger(MethodReflector.class.getSimpleName());
+    private final VirtualMachine vm;
     private final VirtualMethod method;
 
     public MethodReflector(VirtualMachine vm, VirtualMethod method) {
+        this.vm = vm;
         this.method = method;
     }
 
@@ -88,7 +90,8 @@ public class MethodReflector {
         return new InvocationArguments(args, parameterTypes);
     }
 
-    private Object invoke(MethodState mState) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+    private Object invoke(
+            MethodState mState) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Object returnValue;
         Class<?> klazz = Class.forName(method.getBinaryClassName());
         InvocationArguments invocationArgs = getArguments(mState);
@@ -96,23 +99,41 @@ public class MethodReflector {
         Class<?>[] parameterTypes = invocationArgs.getParameterTypes();
         if (method.isStatic()) {
             if (log.isDebugEnabled()) {
-                log.debug("Reflecting {}, clazz={} args={}", method, klazz, Arrays.toString(args));
+                log.debug("Reflecting static {}, clazz={} args={}", method, klazz,
+                          Arrays.toString(args));
             }
-            returnValue = MethodUtils.invokeStaticMethod(klazz, method.getName(), args, parameterTypes);
+            returnValue = MethodUtils
+                    .invokeStaticMethod(klazz, method.getName(), args, parameterTypes);
         } else {
             if ("<init>".equals(method.getName())) {
                 if (log.isDebugEnabled()) {
-                    log.debug("Reflecting {}, class={} args={}", method, klazz, Arrays.toString(args));
+                    log.debug("Reflecting construction {}, class={} args={}", method, klazz,
+                              Arrays.toString(args));
                 }
-                returnValue = ConstructorUtils.invokeConstructor(klazz, args);
+                if ("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V"
+                        .equals(method.getSignature())) {
+                    // This method can only be called from the <init> of an Enum child class.
+                    // It can't even be invoked with setAccessible(true) without InstantiationException.
+                    HeapItem instance = mState.peekParameter(mState.getParameterStart());
+                    String enumType = ClassNameUtils.internalToSource(instance.getType());
+                    ClassLoader classLoader = vm.getClassLoader();
+                    Class enumClass = classLoader.loadClass(enumType);
+                    String name = (String) args[0];
+                    returnValue = Enum.valueOf(enumClass, name);
+                } else {
+                    //returnValue = ConstructorUtils.invokeConstructor(klazz, args, parameterTypes);
+                    returnValue = ConstructorUtils.invokeConstructor(klazz, args);
+                }
                 mState.assignParameter(0, new HeapItem(returnValue, method.getClassName()));
             } else {
                 HeapItem targetItem = mState.peekRegister(0);
                 if (log.isDebugEnabled()) {
-                    log.debug("Reflecting {}, target={} args={}", method, targetItem, Arrays.toString(args));
+                    log.debug("Reflecting virtual {}, target={} args={}", method, targetItem,
+                              Arrays.toString(args));
                 }
                 Object value = targetItem.getValue();
-                returnValue = MethodUtils.invokeMethod(value, method.getName(), args, parameterTypes);
+                returnValue = MethodUtils
+                        .invokeMethod(value, method.getName(), args, parameterTypes);
             }
         }
 

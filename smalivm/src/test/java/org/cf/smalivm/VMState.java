@@ -41,6 +41,11 @@ public class VMState {
         }
     }
 
+    public void setRegister(Integer register, Object value, String type) {
+        HeapItem item = new HeapItem(value, type);
+        setRegister(register, item);
+    }
+
     public void setField(String className, String fieldDescriptor, HeapItem item) {
         if (!classNameToFieldDescriptorToItem.containsKey(className)) {
             classNameToFieldDescriptorToItem.put(className, new HashMap<String, HeapItem>());

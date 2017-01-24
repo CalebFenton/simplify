@@ -1,8 +1,16 @@
 package org.cf.smalivm;
 
+import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.dex.CommonTypes;
+import org.cf.smalivm.type.UninitializedInstance;
+import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm.type.VirtualMethod;
+import org.cf.util.ClassNameUtils;
 import org.junit.Before;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class MethodReflectorTest {
 
@@ -14,6 +22,29 @@ public class MethodReflectorTest {
     public void setUp() {
         expected = new VMState();
         initial = new VMState();
+    }
+
+    @Test
+    public void canReflectivelyInstantiateAnEnum() throws ClassNotFoundException {
+        String className = "Lextends_enum;";
+        String methodDescriptor = "<init>(Ljava/lang/String;II)V";
+        String enumName = "NONE";
+        VirtualMachine vm = VMTester.spawnVM();
+        VirtualClass virtualClass = vm.getClassManager().getVirtualClass(className);
+        VirtualMethod method = virtualClass.getMethod(methodDescriptor);
+        int offset = method.getRegisterCount() - method.getParameterSize();
+        initial.setRegister(offset, new UninitializedInstance(virtualClass), className);
+        initial.setRegister(offset + 1, enumName, CommonTypes.STRING);
+        initial.setRegister(offset + 2, 0, CommonTypes.INTEGER);
+        initial.setRegister(offset + 3, 0, CommonTypes.INTEGER);
+
+        ExecutionGraph graph = VMTester.execute(vm, className, methodDescriptor, initial);
+        HeapItem instance = graph.getTerminatingRegisterConsensus(0);
+
+        Class klazz = vm.getClassLoader().loadClass(ClassNameUtils.internalToSource(className));
+        Object expectedValue = Enum.valueOf(klazz, enumName);
+
+        assertEquals(expectedValue, instance.getValue());
     }
 
     @Test
@@ -54,9 +85,10 @@ public class MethodReflectorTest {
 
     @Test
     public void handlesNullArgument() throws NoSuchMethodException, SecurityException {
-        initial.setRegisters(0, System.class, CommonTypes.CLASS, 1, "currentTimeMillis", CommonTypes.STRING, 2, 0, "I");
+        initial.setRegisters(0, System.class, CommonTypes.CLASS, 1, "currentTimeMillis",
+                             CommonTypes.STRING, 2, 0, "I");
         expected.setRegisters(0, System.class.getMethod("currentTimeMillis", (Class<?>[]) null),
-                "Ljava/lang/reflect/Method;");
+                              "Ljava/lang/reflect/Method;");
 
         VMTester.test(CLASS_NAME, "getClassMethod()V", initial, expected);
     }
@@ -64,7 +96,7 @@ public class MethodReflectorTest {
     @Test
     public void handlesException() throws NoSuchMethodException, SecurityException {
         initial.setRegisters(0, null, CommonTypes.STRING);
-        int[] expected = new int[] {0, 4};
+        int[] expected = new int[]{0, 4};
 
         VMTester.testVisitation(CLASS_NAME, "stringLength()V", initial, expected);
     }
@@ -72,7 +104,7 @@ public class MethodReflectorTest {
     @Test
     public void handlesNoException() throws NoSuchMethodException, SecurityException {
         initial.setRegisters(0, "four", CommonTypes.STRING);
-        int[] expected = new int[] {0, 3, 4};
+        int[] expected = new int[]{0, 3, 4};
 
         VMTester.testVisitation(CLASS_NAME, "stringLength()V", initial, expected);
     }
