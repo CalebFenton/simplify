@@ -10,16 +10,18 @@ import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class ConstOp extends MethodStateOp {
+public class ConstOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(ConstOp.class.getSimpleName());
+
     private final ConstantType constantType;
     private final int destRegister;
     private final Object literal;
     private final ClassLoader classLoader;
 
-    ConstOp(MethodLocation location, MethodLocation child, int destRegister, ConstantType constantType, Object literal,
-            ClassLoader classLoader, ExceptionFactory exceptionFactory) {
+    ConstOp(MethodLocation location, MethodLocation child, int destRegister,
+            ConstantType constantType, Object literal, ClassLoader classLoader,
+            ExceptionFactory exceptionFactory) {
         super(location, child);
         this.destRegister = destRegister;
         this.constantType = constantType;
@@ -27,8 +29,25 @@ class ConstOp extends MethodStateOp {
         this.classLoader = classLoader;
 
         if (ConstantType.CLASS.equals(constantType)) {
-            addException(exceptionFactory.build(this, ClassNotFoundException.class, (String) literal));
+            addException(
+                    exceptionFactory.build(this, ClassNotFoundException.class, (String) literal));
         }
+    }
+
+    public ConstantType getConstantType() {
+        return constantType;
+    }
+
+    public int getDestRegister() {
+        return destRegister;
+    }
+
+    public Object getLiteral() {
+        return literal;
+    }
+
+    public ClassLoader getClassLoader() {
+        return classLoader;
     }
 
     @Override
@@ -128,8 +147,7 @@ class ConstOp extends MethodStateOp {
         return type;
     }
 
-    enum ConstantType {
+    public enum ConstantType {
         CLASS, NARROW, STRING, WIDE
     }
-
 }

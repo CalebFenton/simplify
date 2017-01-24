@@ -5,30 +5,48 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.builder.MethodLocation;
 
-class UnimplementedOp extends MethodStateOp {
+public class UnimplementedOp extends MethodStateOp {
 
     private static final String UNKNOWN_TYPE = "?";
     private final boolean canContinue;
     private final boolean canThrow;
     private final int registerA;
     private final boolean setsRegister;
-
     private final boolean setsResult;
 
-    UnimplementedOp(MethodLocation location, MethodLocation child, boolean canContinue, boolean canThrow,
-                    boolean setsResult) {
+    UnimplementedOp(MethodLocation location, MethodLocation child, boolean canContinue,
+                    boolean canThrow, boolean setsResult) {
         this(location, child, canContinue, canThrow, setsResult, false, -1);
     }
-
-    UnimplementedOp(MethodLocation location, MethodLocation child, boolean canContinue, boolean canThrow,
-                    boolean setsResult, boolean setsRegister, int registerA) {
-        super(location, canContinue ? new MethodLocation[] { child } : new MethodLocation[0]);
+    UnimplementedOp(MethodLocation location, MethodLocation child, boolean canContinue,
+                    boolean canThrow, boolean setsResult, boolean setsRegister, int registerA) {
+        super(location, canContinue ? new MethodLocation[]{child} : new MethodLocation[0]);
 
         this.canContinue = canContinue;
         this.canThrow = canThrow;
         this.setsResult = setsResult;
         this.setsRegister = setsRegister;
         this.registerA = registerA;
+    }
+
+    public boolean isCanContinue() {
+        return canContinue;
+    }
+
+    public boolean isCanThrow() {
+        return canThrow;
+    }
+
+    public int getRegisterA() {
+        return registerA;
+    }
+
+    public boolean isSetsRegister() {
+        return setsRegister;
+    }
+
+    public boolean isSetsResult() {
+        return setsResult;
     }
 
     @Override

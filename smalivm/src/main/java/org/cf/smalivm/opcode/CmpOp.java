@@ -17,12 +17,25 @@ public class CmpOp extends MethodStateOp {
     private final int lhsRegister;
     private final int rhsRegister;
 
-    CmpOp(MethodLocation location, MethodLocation child, int destRegister, int lhsRegister, int rhsRegister) {
+    CmpOp(MethodLocation location, MethodLocation child, int destRegister, int lhsRegister,
+          int rhsRegister) {
         super(location, child);
 
         this.destRegister = destRegister;
         this.lhsRegister = lhsRegister;
         this.rhsRegister = rhsRegister;
+    }
+
+    public int getDestRegister() {
+        return destRegister;
+    }
+
+    public int getLhsRegister() {
+        return lhsRegister;
+    }
+
+    public int getRhsRegister() {
+        return rhsRegister;
     }
 
     @Override
@@ -53,10 +66,10 @@ public class CmpOp extends MethodStateOp {
     }
 
     private int cmp(Number val1, Number val2) {
-        boolean arg1IsNan =
-                val1 instanceof Float && ((Float) val1).isNaN() || val1 instanceof Double && ((Double) val1).isNaN();
-        boolean arg2IsNan =
-                val2 instanceof Float && ((Float) val2).isNaN() || val2 instanceof Double && ((Double) val2).isNaN();
+        boolean arg1IsNan = val1 instanceof Float && ((Float) val1)
+                .isNaN() || val1 instanceof Double && ((Double) val1).isNaN();
+        boolean arg2IsNan = val2 instanceof Float && ((Float) val2)
+                .isNaN() || val2 instanceof Double && ((Double) val2).isNaN();
 
         int value = 0;
         if (arg1IsNan || arg2IsNan) {

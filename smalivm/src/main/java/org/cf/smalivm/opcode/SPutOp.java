@@ -23,14 +23,30 @@ public class SPutOp extends ExecutionContextOp {
     private final int valueRegister;
     private final VirtualMachine vm;
 
-    public SPutOp(MethodLocation location, MethodLocation child, int valueRegister, FieldReference fieldReference,
-                  VirtualField actualField, VirtualMachine vm) {
+    SPutOp(MethodLocation location, MethodLocation child, int valueRegister,
+                  FieldReference fieldReference, VirtualField actualField, VirtualMachine vm) {
         super(location, child);
 
         this.fieldReference = fieldReference;
         this.actualField = actualField;
         this.valueRegister = valueRegister;
         this.vm = vm;
+    }
+
+    public FieldReference getFieldReference() {
+        return fieldReference;
+    }
+
+    public VirtualField getActualField() {
+        return actualField;
+    }
+
+    public int getValueRegister() {
+        return valueRegister;
+    }
+
+    public VirtualMachine getVm() {
+        return vm;
     }
 
     @Override
@@ -48,7 +64,8 @@ public class SPutOp extends ExecutionContextOp {
 
     @Override
     public String toString() {
-        return getName() + " r" + valueRegister + ", " + ReferenceUtil.getFieldDescriptor(fieldReference);
+        return getName() + " r" + valueRegister + ", " + ReferenceUtil
+                .getFieldDescriptor(fieldReference);
     }
 
 }

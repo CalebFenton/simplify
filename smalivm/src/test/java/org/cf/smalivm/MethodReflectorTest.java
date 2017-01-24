@@ -48,6 +48,30 @@ public class MethodReflectorTest {
     }
 
     @Test
+    public void canReflectivelyInstantiateAnObfuscatedEnum() throws ClassNotFoundException {
+        String className = "Lextends_enum_obfuscated;";
+        String methodDescriptor = "<init>(Ljava/lang/String;II)V";
+        String enumName = "WEAK";
+        String obfuscatedEnumName = "c";
+        VirtualMachine vm = VMTester.spawnVM();
+        VirtualClass virtualClass = vm.getClassManager().getVirtualClass(className);
+        VirtualMethod method = virtualClass.getMethod(methodDescriptor);
+        int offset = method.getRegisterCount() - method.getParameterSize();
+        initial.setRegister(offset, new UninitializedInstance(virtualClass), className);
+        initial.setRegister(offset + 1, enumName, CommonTypes.STRING);
+        initial.setRegister(offset + 2, 0, CommonTypes.INTEGER);
+        initial.setRegister(offset + 3, 0, CommonTypes.INTEGER);
+
+        ExecutionGraph graph = VMTester.execute(vm, className, methodDescriptor, initial);
+        HeapItem instance = graph.getTerminatingRegisterConsensus(0);
+
+        Class klazz = vm.getClassLoader().loadClass(ClassNameUtils.internalToSource(className));
+        Object expectedValue = Enum.valueOf(klazz, obfuscatedEnumName);
+
+        assertEquals(expectedValue, instance.getValue());
+    }
+
+    @Test
     public void canCastIntegerToByte() {
         byte value = 6;
         initial.setRegisters(0, value, "B");

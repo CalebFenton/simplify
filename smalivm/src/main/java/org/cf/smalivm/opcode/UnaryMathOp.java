@@ -10,6 +10,7 @@ public class UnaryMathOp extends MethodStateOp {
 
     private final int destRegister;
     private final int srcRegister;
+
     UnaryMathOp(MethodLocation location, MethodLocation child, int destRegister, int srcRegister) {
         super(location, child);
 
@@ -38,6 +39,14 @@ public class UnaryMathOp extends MethodStateOp {
         }
 
         return resultType;
+    }
+
+    public int getDestRegister() {
+        return destRegister;
+    }
+
+    public int getSrcRegister() {
+        return srcRegister;
     }
 
     @Override

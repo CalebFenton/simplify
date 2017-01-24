@@ -107,6 +107,10 @@ public class ClassManager {
                        .collect(Collectors.toSet());
     }
 
+    public VirtualClass getVirtualClass(Class<?> klazz) {
+        return getVirtualClass(ClassNameUtils.toInternal(klazz));
+    }
+
     public VirtualClass getVirtualClass(String className) {
         return (VirtualClass) getVirtualType(className);
     }

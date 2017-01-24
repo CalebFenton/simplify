@@ -6,6 +6,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
+import org.cf.util.EnumAnalyzer;
 import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,12 +18,15 @@ import java.util.List;
 public class MethodReflector {
 
     private static Logger log = LoggerFactory.getLogger(MethodReflector.class.getSimpleName());
+
     private final VirtualMachine vm;
     private final VirtualMethod method;
+    private final EnumAnalyzer enumAnalyzer;
 
     public MethodReflector(VirtualMachine vm, VirtualMethod method) {
         this.vm = vm;
         this.method = method;
+        enumAnalyzer = new EnumAnalyzer(vm);
     }
 
     public void reflect(MethodState mState) throws Exception {
@@ -122,7 +126,13 @@ public class MethodReflector {
                     ClassLoader classLoader = vm.getClassLoader();
                     Class enumClass = classLoader.loadClass(enumType);
                     String name = (String) args[0];
-                    returnValue = Enum.valueOf(enumClass, name);
+                    try {
+                        returnValue = Enum.valueOf(enumClass, name);
+                    } catch (IllegalArgumentException e) {
+                        enumAnalyzer.analyze(enumClass);
+                        name = enumAnalyzer.getObfuscatedName(name);
+                        returnValue = Enum.valueOf(enumClass, name);
+                    }
                 } else {
                     returnValue = ConstructorUtils.invokeConstructor(klazz, args);
                 }

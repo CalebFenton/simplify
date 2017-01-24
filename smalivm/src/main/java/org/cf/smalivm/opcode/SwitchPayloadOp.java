@@ -3,10 +3,6 @@ package org.cf.smalivm.opcode;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.TIntObjectMap;
 
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -15,12 +11,18 @@ import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+
 public class SwitchPayloadOp extends MethodStateOp {
 
     @SuppressWarnings("unused")
-    private static final Logger log = LoggerFactory.getLogger(SwitchPayloadOp.class.getSimpleName());
+    private static final Logger log = LoggerFactory
+            .getLogger(SwitchPayloadOp.class.getSimpleName());
 
     private static final int SWITCH_OP_CODE_UNITS = 3;
+
     private final TIntObjectMap<MethodLocation> addressToLocation;
     private final TIntIntMap targetKeyToOffset;
 
