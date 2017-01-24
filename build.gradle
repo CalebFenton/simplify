@@ -73,9 +73,9 @@ subprojects {
     */
     tasks.withType(Test) {
         // maxParallelForks = Runtime.runtime.availableProcessors()
+        minHeapSize = '128m'
         maxParallelForks = 2
-        maxHeapSize = '1000m'
-        forkEvery = 50
+        forkEvery = 10
     }
 
     // This is just to show off API usage. No tests needed.
