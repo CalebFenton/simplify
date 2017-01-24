@@ -112,8 +112,11 @@ public class MethodReflector {
                 }
                 if ("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V"
                         .equals(method.getSignature())) {
-                    // This method can only be called from the <init> of an Enum child class.
-                    // It can't even be invoked with setAccessible(true) without InstantiationException.
+                    /*
+                     * Enums can't be instantiated. If you call newInstance() on the constructor,
+                     * even with setAccessible(true), it fails with InstantiationException.
+                     * http://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.9
+                     */
                     HeapItem instance = mState.peekParameter(mState.getParameterStart());
                     String enumType = ClassNameUtils.internalToSource(instance.getType());
                     ClassLoader classLoader = vm.getClassLoader();
@@ -121,7 +124,6 @@ public class MethodReflector {
                     String name = (String) args[0];
                     returnValue = Enum.valueOf(enumClass, name);
                 } else {
-                    //returnValue = ConstructorUtils.invokeConstructor(klazz, args, parameterTypes);
                     returnValue = ConstructorUtils.invokeConstructor(klazz, args);
                 }
                 mState.assignParameter(0, new HeapItem(returnValue, method.getClassName()));
