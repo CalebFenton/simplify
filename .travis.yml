@@ -11,7 +11,7 @@ env:
   global:
     - secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
     - GRADLE_OPTS="-Xms128m -Xmx512m"
-    - MALLOC_ARENA_MAX=1
+    - MALLOC_ARENA_MAX=2
     #  -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled
 
 before_install:
