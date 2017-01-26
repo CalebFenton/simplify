@@ -165,6 +165,16 @@ public class InvokeOpTest {
         }
 
         @Test
+        public void invokeMutateStringBuilderWithMultipleCallerCopiesOfStringBuilderDoesMutateParameterAndCopy() {
+            String type = "Ljava/lang/StringBuilder;";
+            initial.setRegisters(0, new StringBuilder("i have been"), type);
+            StringBuilder expectedValue = new StringBuilder("i have been mutated");
+            expected.setRegisters(0, expectedValue, type, 1, expectedValue, type);
+
+            VMTester.test(CLASS_NAME, "invokeMutateStringBuilderWithMultipleCallerCopiesOfStringBuilder()V", initial, expected);
+        }
+
+        @Test
         public void invokeMutateStringBuilderDoesMutateParameter() {
             initial.setRegisters(0, new StringBuilder("i have been"), "Ljava/lang/StringBuilder;");
             expected.setRegisters(0, new StringBuilder("i have been mutated"), "Ljava/lang/StringBuilder;");

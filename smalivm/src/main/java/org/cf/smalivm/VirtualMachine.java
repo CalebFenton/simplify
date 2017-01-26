@@ -225,7 +225,7 @@ public class VirtualMachine {
                                     int[] parameterRegisters) {
         int[] terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
-            MethodState callerMethodStae = callerContext.getMethodState();
+            MethodState callerMethodState = callerContext.getMethodState();
             List<String> parameterTypes = calledMethod.getParameterTypeNames();
             int parameterRegister = graph.getNodePile(0).get(0).getContext().getMethodState().getParameterStart();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
@@ -236,7 +236,7 @@ public class VirtualMachine {
 
                 HeapItem item = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
                 int register = parameterRegisters[parameterIndex];
-                callerMethodStae.assignRegister(register, item);
+                callerMethodState.assignRegisterAndUpdateIdentities(register, item);
 
                 parameterRegister += Utils.getRegisterSize(type);
             }

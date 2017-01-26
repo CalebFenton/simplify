@@ -40,7 +40,16 @@
 .method public static invokeMutateStringBuilder()V
   .locals 1
 
-  invoke-static {v0}, Linvoke_static_test;->mutateStringBuilder(Ljava/lang/StringBuilder;)V
+  invoke-static {v0}, Linvoke_static_test;->mutateStringBuilderAndReuseParameterRegister(Ljava/lang/StringBuilder;)V
+
+  return-void
+.end method
+
+.method public static invokeMutateStringBuilderWithMultipleCallerCopiesOfStringBuilder()V
+  .locals 1
+
+  move-object v1, v0
+  invoke-static {v0}, Linvoke_static_test;->mutateStringBuilderAndReuseParameterRegister(Ljava/lang/StringBuilder;)V
 
   return-void
 .end method
@@ -220,17 +229,20 @@
   return-void
 .end method
 
-.method private static mutateStringBuilder(Ljava/lang/StringBuilder;)V
+.method private static mutateStringBuilderAndReuseParameterRegister(Ljava/lang/StringBuilder;)V
   .locals 1
 
   const-string v0, " mutated"
   invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-  const/4 p0, 0x1 # ensure this works if the register is blasted away
+
+  # Reusing the parameter register ensures we're not just looking at end-state register values but
+  # are somehow keeping track of changes in the parameters.
+  const/4 p0, 0x1
 
   return-void
 .end method
 
-# test assumemaximum unknown
+# test assume maximum unknown
 .method private static set0thElementOfFirstParameterTo0IfSecondParameterIs0([II)V
   .locals 1
 
