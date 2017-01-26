@@ -34,6 +34,15 @@ class Heap {
         return reassigned;
     }
 
+    /**
+     * Retrieves the value indexed by {@code key} from the Heap. If the value is not stored locally
+     * in the current heap, search heap ancestors for the value. If found in an ancestor, stores a
+     * clone of the target value to preserve history. Additionally, this locally sets any other keys
+     * which point to the target value.
+     *
+     * @param key
+     * @return
+     */
     HeapItem get(String key) {
         if (hasKey(key)) {
             return keyToHeapItem.get(key);
@@ -100,20 +109,43 @@ class Heap {
         remove(key);
     }
 
+    /**
+     * Sets the heap value indexed by the {@code heapId} and {@code register} to {@code item}.
+     *
+     * @param heapId
+     * @param register
+     * @param item
+     */
     void set(String heapId, int register, HeapItem item) {
         String key = buildKey(heapId, register);
         set(key, item);
     }
 
+    /***
+     * {@see #set(String, int, HeapItem)}
+     *
+     * @param heapId
+     * @param register
+     * @param value
+     * @param type
+     */
     void set(String heapId, int register, Object value, String type) {
         set(heapId, register, new HeapItem(value, type));
     }
 
+    /**
+     * This behaves like {@link #set(String, HeapItem) set} and also updates values for all keys
+     * which point to values identical to what was stored in {@code key} originally. This is
+     * necessary because the same item may exist under multiple mappings that need to be updated.
+     * For example, when an uninitialized instance is stored under multiple mappings and is
+     * initialized, rather than simply setting a single key with the updated instance, it's
+     * necessary to look for any other identical copies of the uninitialized instance and update
+     * them with the new initialized instance value.
+     *
+     * @param key
+     * @param updatedItem
+     */
     void update(String key, HeapItem updatedItem) {
-        /*
-         * When replacing an uninitialized instance with a new instance (e.g. when executing new-instance), need to
-         * update all registers that reference the uninitialized instance to also point at the new item.
-         */
         HeapItem oldItem = get(key);
         if (oldItem == null || oldItem.getValue() == null) {
             set(key, updatedItem);
@@ -127,6 +159,13 @@ class Heap {
         }
     }
 
+    /**
+     * {@see #update(String, HeapItem)}
+     *
+     * @param heapId
+     * @param register
+     * @param item
+     */
     void update(String heapId, int register, HeapItem item) {
         String key = buildKey(heapId, register);
         update(key, item);
@@ -175,5 +214,4 @@ class Heap {
     private void set(String key, HeapItem item) {
         keyToHeapItem.put(key, item);
     }
-
 }
