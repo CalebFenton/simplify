@@ -66,16 +66,12 @@ subprojects {
     /*
      * Running tests takes up a lot of memory and TravisCI only has 3-4 gb available.
      * Use a low value of forkEvery to ensure heap is started fresh every few classes.
-     * Limit max heap size to simulate TravisCI environment.
-     * Relevant TravisCI building issues:
-     *  - https://discuss.gradle.org/t/travis-ci-org-gradle-launcher-daemon-client-daemondisappearedexception-gradle-build-daemon-disappeared-unexpectedly-it-may-have-been-killed-or-may-have-crashed/13106/3
-     *  - https://github.com/urho3d/Urho3D/issues/651
     */
     tasks.withType(Test) {
-        maxParallelForks = Runtime.runtime.availableProcessors()
+//        maxParallelForks = Runtime.runtime.availableProcessors()
         minHeapSize = '128m'
-        //maxParallelForks = 2
-        forkEvery = 10
+        maxParallelForks = 2
+        forkEvery = 25
     }
 
     // This is just to show off API usage. No tests needed.
