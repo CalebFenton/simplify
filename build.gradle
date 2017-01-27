@@ -72,9 +72,9 @@ subprojects {
      *  - https://github.com/urho3d/Urho3D/issues/651
     */
     tasks.withType(Test) {
-        // maxParallelForks = Runtime.runtime.availableProcessors()
+        maxParallelForks = Runtime.runtime.availableProcessors()
         minHeapSize = '128m'
-        maxParallelForks = 2
+        //maxParallelForks = 2
         forkEvery = 10
     }
 
