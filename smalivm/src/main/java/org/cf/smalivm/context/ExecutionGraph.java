@@ -413,7 +413,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
      * UnknownValue} if a consensus doesn't exist
      */
     public
-    @Nonnull
+    @Nullable
     HeapItem getRegisterConsensus(int[] addresses, int register) {
         Set<HeapItem> items = new HashSet<>();
         for (int address : addresses) {
@@ -543,14 +543,16 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public
-    @Nonnull
+    @Nullable
     HeapItem getTerminatingRegisterConsensus(int register) {
         Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[]{ register });
 
         return items.get(register);
     }
 
-    public Map<Integer, HeapItem> getTerminatingRegisterConsensus(int[] registers) {
+    public
+    @Nullable
+    Map<Integer, HeapItem> getTerminatingRegisterConsensus(int[] registers) {
         int[] addresses = getConnectedTerminatingAddresses();
         Map<Integer, HeapItem> result = new HashMap<>(registers.length);
         for (int register : registers) {

@@ -9,6 +9,8 @@ import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 public class MethodState extends BaseState {
 
     public static final int ResultRegister = -1;
@@ -140,7 +142,9 @@ public class MethodState extends BaseState {
         return item;
     }
 
-    public HeapItem peekRegister(int register) {
+    public
+    @Nullable
+    HeapItem peekRegister(int register) {
         if (register == MethodState.ResultRegister) {
             if (!hasRegister(register, METHOD_HEAP)) {
                 if (getParent() != null && !getParent().hasRegister(register, METHOD_HEAP)) {
@@ -150,9 +154,9 @@ public class MethodState extends BaseState {
                     // Returning null.");
                     return null;
                 }
-
             }
         }
+
         return peekRegister(register, METHOD_HEAP);
     }
 
