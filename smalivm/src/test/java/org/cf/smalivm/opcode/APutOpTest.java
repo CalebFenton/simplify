@@ -268,7 +268,7 @@ public class APutOpTest {
         assertTrue(exceptionClasses.contains(NullPointerException.class));
 
         HeapItem item = graph.getTerminatingRegisterConsensus(0);
-        assertEquals(CommonTypes.UNKNOWN, item.getType());
+        assertEquals(CommonTypes.OBJECT, item.getType());
         assertEquals(UnknownValue.class, item.getValue().getClass());
     }
 

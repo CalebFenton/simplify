@@ -253,6 +253,9 @@ public class InvokeOp extends ExecutionContextOp {
 
     private void assumeMaximumUnknown(MethodState callerMethodState) {
         // TODO: add option to mark all class states unknown instead of just method state
+        // This is heavy handed in most cases, but it's impossible to tell if the method we're
+        // failing to execute modifies class state. If it did, we aren't capturing it here.
+        boolean isInitializing = method.getSignature().contains(";-><init>(");
         for (int i = 0; i < method.getParameterTypeNames().size(); i++) {
             int register = parameterRegisters[i];
             HeapItem item = callerMethodState.readRegister(register);
@@ -263,9 +266,8 @@ public class InvokeOp extends ExecutionContextOp {
             }
 
             String type = analyzedParameterTypes[i];
-            boolean isInitializing = method.getSignature().contains(";-><init>(");
             if (!isInitializing) {
-                // May be immutable virtual, but if this is the initializer, internal state would be changing.
+                // May be immutable type, but if this is the initializer, internal state would be changing.
                 if (vm.getConfiguration().isImmutable(type)) {
                     if (log.isTraceEnabled()) {
                         log.trace("{} (parameter) is immutable", type);
@@ -288,6 +290,12 @@ public class InvokeOp extends ExecutionContextOp {
             }
 
             callerMethodState.pokeRegister(register, item);
+        }
+
+        if (isInitializing) {
+            // TODO: If we're refusing to execute an <init> method, should create a new instance of at least the stub class or something
+            // and update identities. That way we don't have weird Uninitialized instances floating around. Look at TestExceptionHandling
+            // and how ExceptionalCode throws CustomException but Throwable isn't whitelisted.
         }
 
         if (!method.returnsVoid()) {
