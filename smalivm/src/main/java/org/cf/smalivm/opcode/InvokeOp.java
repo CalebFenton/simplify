@@ -16,7 +16,7 @@ import org.cf.smalivm.emulate.MethodEmulator;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
@@ -216,8 +216,8 @@ public class InvokeOp extends ExecutionContextOp {
             if (item.isPrimitive() || ClassNameUtils.isPrimitive(baseTypeName)) {
                 type = parameterTypeName;
             } else {
-                VirtualGeneric baseType = vm.getClassManager().getVirtualType(baseTypeName);
-                VirtualGeneric parameterType = vm.getClassManager().getVirtualType(parameterTypeName);
+                VirtualType baseType = vm.getClassManager().getVirtualType(baseTypeName);
+                VirtualType parameterType = vm.getClassManager().getVirtualType(parameterTypeName);
                 if (baseType.getAncestors().contains(parameterType)) {
                     type = item.getType();
                 } else {
@@ -394,7 +394,7 @@ public class InvokeOp extends ExecutionContextOp {
         int instanceRegister = parameterRegisters[0];
         HeapItem instanceItem = callerMethodState.peekRegister(instanceRegister);
         UninitializedInstance uninitializedInstance = (UninitializedInstance) instanceItem.getValue();
-        VirtualGeneric instanceType = uninitializedInstance.getType();
+        VirtualType instanceType = uninitializedInstance.getType();
 
         // Create a Java class of the true type
         Class<?> klazz = vm.getClassLoader().loadClass(instanceType.getBinaryName());
@@ -460,7 +460,7 @@ public class InvokeOp extends ExecutionContextOp {
          * A method may not be defined in the class referenced by invoke op. The method implementation may be part
          * of the super class. This method searches ancestor hierarchy for the class which implements the method.
          */
-        VirtualGeneric referenceType;
+        VirtualType referenceType;
         if (virtualReference == null || virtualReference instanceof UnknownValue) {
             return method;
         }

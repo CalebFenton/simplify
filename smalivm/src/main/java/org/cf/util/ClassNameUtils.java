@@ -17,6 +17,7 @@ public class ClassNameUtils {
     private static final BiMap<String, String> internalPrimitiveToBinaryName;
     private static final BiMap<String, String> internalPrimitiveToWrapper;
     private static final Map<String, Class<?>> internalPrimitiveToClass;
+
     static {
         internalPrimitiveToWrapper = HashBiMap.create();
         internalPrimitiveToWrapper.put("I", Integer.class.getName());
@@ -115,7 +116,7 @@ public class ClassNameUtils {
     }
 
     /**
-     * Similar to Array.getComponentType(). Works with binary, internal, and source formats.
+     * Similar to {@link Class#getComponentType()} for array classes. Works with binary, internal, and source formats.
      *
      * @return component class
      */
@@ -262,13 +263,15 @@ public class ClassNameUtils {
     }
 
     /**
-     * Determines if the virtual is an object parse virtual. This could either be an object or an array. Works with
-     * internal and binary formats.
+     * Determines if the type can be represented by an {@link Object}. For example, a String or an int[].
+     * Works with internal or binary type formats.
      *
-     * @return true if virtual is object, false otherwise
+     * @return true if type is an object, false otherwise
      */
     public static boolean isObject(String type) {
-        return type.startsWith("L") || type.startsWith("[");
+        char c = type.charAt(0);
+
+        return c == 'L' || c == '[';
     }
 
     /**
@@ -358,7 +361,7 @@ public class ClassNameUtils {
     /**
      * Converts a class name of arbitrary format into any other format.
      *
-     * @return class name of format virtual
+     * @return class name in the given {@link TypeFormat}
      */
     public static String toFormat(String className, TypeFormat format) {
         /*
@@ -451,7 +454,9 @@ public class ClassNameUtils {
     }
 
     public enum TypeFormat {
-        BINARY, INTERNAL, SOURCE
+        BINARY,
+        INTERNAL,
+        SOURCE
     }
 
 }

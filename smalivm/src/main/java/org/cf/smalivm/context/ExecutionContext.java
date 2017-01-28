@@ -7,8 +7,7 @@ import org.cf.smalivm.TemplateStateFactory;
 import org.cf.smalivm.UnhandledVirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.VirtualMachineException;
-import org.cf.smalivm.type.VirtualClass;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +24,7 @@ public class ExecutionContext {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(ExecutionContext.class.getSimpleName());
     private final VirtualMachine vm;
-    private final Map<VirtualGeneric, ClassStatus> classToStatus;
+    private final Map<VirtualType, ClassStatus> classToStatus;
     private final Heap heap;
     private final VirtualMethod method;
     private MethodState mState;
@@ -60,7 +59,7 @@ public class ExecutionContext {
         return callerContext;
     }
 
-    public SideEffect.Level getClassSideEffectLevel(VirtualGeneric virtualClass) {
+    public SideEffect.Level getClassSideEffectLevel(VirtualType virtualClass) {
         ExecutionContext ancestor = getAncestorWithClass(virtualClass);
         if (ancestor == null) {
             return null;
@@ -69,7 +68,7 @@ public class ExecutionContext {
         return ancestor.classToStatus.get(virtualClass).getSideEffectLevel();
     }
 
-    public Set<VirtualGeneric> getInitializedClasses() {
+    public Set<VirtualType> getInitializedClasses() {
         return classToStatus.entrySet().stream().filter(entry -> entry.getValue().isInitialized()).map(Entry::getKey)
                        .collect(Collectors.toSet());
     }
@@ -102,13 +101,13 @@ public class ExecutionContext {
         setClassInitialized(cState.getVirtualClass(), level);
     }
 
-    public boolean isClassInitialized(VirtualGeneric virtualClass) {
+    public boolean isClassInitialized(VirtualType virtualClass) {
         ExecutionContext ancestor = getAncestorWithClass(virtualClass);
 
         return ancestor != null && ancestor.classToStatus.get(virtualClass).isInitialized();
     }
 
-    public ClassState peekClassState(VirtualGeneric virtualClass) {
+    public ClassState peekClassState(VirtualType virtualClass) {
         ExecutionContext ancestor = getAncestorWithClass(virtualClass);
         if (ancestor == null) {
             // VirtualClass has not been initialized; build template and cache it locally to track initialization state
@@ -129,7 +128,7 @@ public class ExecutionContext {
         return classToStatus.get(virtualClass).getClassState();
     }
 
-    public ClassState readClassState(VirtualGeneric virtualClass) {
+    public ClassState readClassState(VirtualType virtualClass) {
         staticallyInitializeClassIfNecessary(virtualClass);
 
         return peekClassState(virtualClass);
@@ -160,7 +159,7 @@ public class ExecutionContext {
         return child;
     }
 
-    public void staticallyInitializeClassIfNecessary(VirtualGeneric virtualClass) {
+    public void staticallyInitializeClassIfNecessary(VirtualType virtualClass) {
         /*
          * This method should be called when a class is first used. A usage is:
          * 1.) The invocation of a method declared by the class (not inherited from a superclass)
@@ -174,7 +173,7 @@ public class ExecutionContext {
         }
 
         // Initialize class ancestors as well
-        for (VirtualGeneric ancestor : virtualClass.getAncestors()) {
+        for (VirtualType ancestor : virtualClass.getAncestors()) {
             int accessFlags = virtualClass.getClassDef().getAccessFlags();
             if (Modifier.isAbstract(accessFlags) || Modifier.isInterface(accessFlags) ||
                 Modifier.isNative(accessFlags)) {
@@ -230,10 +229,10 @@ public class ExecutionContext {
         if (sb.length() > 0) {
             sb.append('\n');
         }
-        Set<VirtualGeneric> initializedClasses = getInitializedClasses();
+        Set<VirtualType> initializedClasses = getInitializedClasses();
         if (initializedClasses.size() < 4) {
             // Too many will trash the heap
-            for (VirtualGeneric virtualClass : initializedClasses) {
+            for (VirtualType virtualClass : initializedClasses) {
                 ClassState cState = classToStatus.get(virtualClass).getClassState();
                 sb.append("Class state: ").append(virtualClass).append(' ').append(cState);
             }
@@ -246,7 +245,7 @@ public class ExecutionContext {
         return heap;
     }
 
-    private ExecutionContext getAncestorWithClass(VirtualGeneric virtualClass) {
+    private ExecutionContext getAncestorWithClass(VirtualType virtualClass) {
         ExecutionContext ancestor = this;
         do {
             ClassStatus status = ancestor.classToStatus.get(virtualClass);
@@ -260,7 +259,7 @@ public class ExecutionContext {
         return null;
     }
 
-    private void setClassInitialized(VirtualGeneric virtualClass, SideEffect.Level level) {
+    private void setClassInitialized(VirtualType virtualClass, SideEffect.Level level) {
         peekClassState(virtualClass);
         classToStatus.get(virtualClass).setSideEffectLevel(level);
     }

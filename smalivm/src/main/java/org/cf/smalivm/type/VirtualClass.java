@@ -11,16 +11,16 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
-public class VirtualClass extends VirtualGeneric {
+public class VirtualClass extends VirtualType {
 
     private static final Logger log = LoggerFactory.getLogger(VirtualClass.class.getSimpleName());
 
@@ -30,8 +30,7 @@ public class VirtualClass extends VirtualGeneric {
     private Map<String, VirtualField> fieldNameToField;
 
     VirtualClass(BuilderClassDef classDef) {
-        super(classDef, classDef.getType(), ClassNameUtils.internalToBinary(classDef.getType()),
-                ClassNameUtils.internalToSource(classDef.getType()));
+        super(classDef, classDef.getType(), ClassNameUtils.internalToBinary(classDef.getType()), ClassNameUtils.internalToSource(classDef.getType()));
         this.classDef = classDef;
         methodDescriptorToMethod = null;
         fieldNameToField = null;
@@ -43,29 +42,24 @@ public class VirtualClass extends VirtualGeneric {
         }
         ancestors.add(virtualClass);
 
-        for (VirtualClass ancestor : getImmediateAncestors(virtualClass)) {
+        for (VirtualClass ancestor : virtualClass.getImmediateAncestors()) {
             getAncestors0(ancestor, ancestors);
         }
     }
 
-    public boolean isAncestorOf(VirtualClass other) {
-        return other.getAncestors().contains(this);
-    }
-
-    public boolean isChildOf(VirtualClass other) {
-        return getAncestors().contains(other);
-    }
-
-    private static Set<VirtualClass> getImmediateAncestors(VirtualClass virtualClass) {
-        List<String> parentNames = new LinkedList<>();
-        BuilderClassDef classDef = virtualClass.getClassDef();
-        parentNames.addAll(classDef.getInterfaces());
+    @Override
+    public Set<VirtualClass> getImmediateAncestors() {
+        ClassManager classManager = getClassManager();
+        Set<VirtualClass> parents = new HashSet<>();
+        BuilderClassDef classDef = getClassDef();
+        for (String classInterface : classDef.getInterfaces()) {
+            parents.add(classManager.getVirtualClass(classInterface));
+        }
         if (classDef.getSuperclass() != null) {
-            parentNames.add(classDef.getSuperclass());
+            parents.add(classManager.getVirtualClass(classDef.getSuperclass()));
         }
 
-        ClassManager classManager = getClassManager();
-        return parentNames.stream().map(classManager::getVirtualClass).collect(Collectors.toSet());
+        return parents;
     }
 
     @Override
@@ -149,7 +143,7 @@ public class VirtualClass extends VirtualGeneric {
     }
 
     @Override
-    public boolean instanceOf(VirtualGeneric targetType) {
+    public boolean instanceOf(VirtualType targetType) {
         if (targetType instanceof VirtualArray || targetType instanceof VirtualPrimitive) {
             return false;
         }
@@ -157,7 +151,7 @@ public class VirtualClass extends VirtualGeneric {
         if (equals(targetType)) {
             return true;
         }
-        for (VirtualGeneric ancestor : getAncestors()) {
+        for (VirtualType ancestor : getAncestors()) {
             if (ancestor.equals(targetType)) {
                 return true;
             }
@@ -182,7 +176,7 @@ public class VirtualClass extends VirtualGeneric {
     }
 
     @Override
-    public boolean isInnerClassOf(VirtualGeneric parentClass) {
+    public boolean isInnerClassOf(VirtualType parentClass) {
         // TODO: easy - add tests
         return getBinaryName().startsWith(parentClass.getBinaryName() + "$");
     }
@@ -199,7 +193,7 @@ public class VirtualClass extends VirtualGeneric {
     }
 
     @Override
-    public boolean isSamePackageOf(VirtualGeneric otherClass) {
+    public boolean isSamePackageOf(VirtualType otherClass) {
         return getPackage().equals(otherClass.getPackage());
     }
 
@@ -244,5 +238,4 @@ public class VirtualClass extends VirtualGeneric {
 
         return methodDescriptorToMethod.get(methodDescriptor);
     }
-
 }

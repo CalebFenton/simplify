@@ -5,8 +5,7 @@ import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.map.TIntObjectMap;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.type.VirtualClass;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -81,7 +80,7 @@ public class InvokeOpFactory implements OpFactory {
         int[] registers = buildRegisters(location.getInstruction());
 
         String className = methodReference.getDefiningClass();
-        VirtualGeneric type = vm.getClassManager().getVirtualType(className);
+        VirtualType type = vm.getClassManager().getVirtualType(className);
         String methodSignature = ReferenceUtil.getMethodDescriptor(methodReference);
         String methodDescriptor = methodSignature.split("->")[1];
         VirtualMethod method = type.getMethod(methodDescriptor);

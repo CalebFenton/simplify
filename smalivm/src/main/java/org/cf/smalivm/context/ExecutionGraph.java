@@ -12,10 +12,9 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
-import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.VirtualType;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -130,11 +129,30 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
                 default:
                     continue;
             }
-
             addresses.add(address);
         }
 
         return addresses.toArray();
+    }
+
+    private static void collapseTypeHierarchies(Set<String> types, ClassManager classManager) {
+        List<VirtualType> typeList = new LinkedList<>();
+        for (String type : types) {
+            typeList.add(classManager.getVirtualType(type));
+        }
+        for (int index = 0; index < typeList.size(); index++) {
+            VirtualType currentType = typeList.get(index);
+            for (int i = 0; i < typeList.size(); i++) {
+                if (i == index) {
+                    continue;
+                }
+                VirtualType compareType = typeList.get(i);
+                if (currentType.isChildOf(compareType)) {
+                    types.remove(currentType.getName());
+                    break;
+                }
+            }
+        }
     }
 
     private String getConsensusType(Set<String> types, Set<HeapItem> items) {
@@ -142,42 +160,41 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             return types.toArray(new String[1])[0];
         }
 
-        /*
-         * Roll up child types into parent types since a register may contain multiple types in the
-         * same hierarchy. For example, it may contain a ChildClass or a ParentClass. In this case,
-         * the UnknownValue type should be ParentClass rather than Unknown. It should be Unknown
-         * if a register may contain multiple types in different hierarchies, e.g. String and
-         * Exception.
-         */
-        ClassManager classManager = vm.getClassManager();
-        List<VirtualClass> objectTypes = types.stream().filter(t -> t.length() > 0).map(classManager::getVirtualClass).collect(Collectors.toList());
-        for (int index = 0; index < objectTypes.size(); index++) {
-            VirtualClass currentClass = objectTypes.get(index);
-            for (int i = 0; i < objectTypes.size(); i++) {
-                if (i == index) {
-                    continue;
-                }
-                VirtualClass compareClass = objectTypes.get(i);
-                if (currentClass.isChildOf(compareClass)) {
-                    types.remove(currentClass.getName());
-                    break;
+        int newAncestors = 0;
+        do {
+            /*
+             * Collapse type hierarchies to get the most common type. For example, if types includes ChildClass and ParentClass, then the consensus
+             * type should be ParentClass.
+             */
+            ClassManager classManager = vm.getClassManager();
+            collapseTypeHierarchies(types, classManager);
+
+            if (types.size() == 1) {
+                return types.toArray(new String[1])[0];
+            }
+
+            if (types.size() == 2 && types.contains("I")) {
+                // Dalvik uses 0 constant to represent null value
+                // https://calebfenton.github.io/2016/02/16/how-does-dalvik-handle-null-types/
+                for (String currentType : types) {
+                    if (currentType.startsWith("L") && items.contains(new HeapItem(0, "I"))) {
+                        return currentType;
+                    }
                 }
             }
-        }
 
-        if (types.size() == 1) {
-            return types.toArray(new String[1])[0];
-        }
-
-        if (types.size() == 2 && types.contains("I")) {
-            // Dalvik uses 0 to represent null
-            // https://calebfenton.github.io/2016/02/16/how-does-dalvik-handle-null-types/
-            for (String currentType : types) {
-                if (currentType.startsWith("L") && items.contains(new HeapItem(0, "I"))) {
-                    return currentType;
+            // If there are still multiple possible types, check for common immediate ancestors.
+            Set<String> newTypes = new HashSet<>();
+            for (String type : types) {
+                VirtualType virtualType = classManager.getVirtualType(type);
+                for (VirtualType ancestor : virtualType.getImmediateAncestors()) {
+                    newTypes.add(ancestor.getName());
                 }
             }
-        }
+            types.addAll(newTypes);
+            newAncestors = newTypes.size();
+            collapseTypeHierarchies(types, classManager);
+        } while (newAncestors > 0);
 
         return CommonTypes.UNKNOWN;
     }
@@ -201,8 +218,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addresses;
     }
 
-    public Set<VirtualGeneric> getAllPossiblyInitializedClasses(int[] addresses) {
-        Set<VirtualGeneric> allClasses = new HashSet<>();
+    public Set<VirtualType> getAllPossiblyInitializedClasses(int[] addresses) {
+        Set<VirtualType> allClasses = new HashSet<>();
         for (int address : addresses) {
             List<ExecutionNode> pile = getNodePile(address);
             for (ExecutionNode node : pile) {
@@ -225,7 +242,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getFieldConsensus(int[] addresses, VirtualField field) {
-        VirtualGeneric virtualClass = field.getDefiningClass();
+        VirtualType virtualClass = field.getDefiningClass();
         Set<HeapItem> items = new HashSet<>();
         for (int address : addresses) {
             // If the class wasn't initialized in one path, it's unknown
@@ -263,7 +280,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return items;
     }
 
-    public SideEffect.Level getHighestClassSideEffectLevel(VirtualGeneric virtualClass) {
+    public SideEffect.Level getHighestClassSideEffectLevel(VirtualType virtualClass) {
         int[] addresses = getConnectedTerminatingAddresses();
         SideEffect.Level result = SideEffect.Level.NONE;
         for (int address : addresses) {
@@ -315,8 +332,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         int[] addresses = getConnectedTerminatingAddresses();
-        Set<VirtualGeneric> allClasses = getAllPossiblyInitializedClasses(addresses);
-        for (VirtualGeneric virtualClass : allClasses) {
+        Set<VirtualType> allClasses = getAllPossiblyInitializedClasses(addresses);
+        for (VirtualType virtualClass : allClasses) {
             SideEffect.Level level = getHighestClassSideEffectLevel(virtualClass);
             switch (level) {
                 case STRONG:
@@ -401,33 +418,45 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         Set<HeapItem> items = new HashSet<>();
         for (int address : addresses) {
             items.addAll(getRegisterItems(address, register));
-            // Size may be 0 if there was an exception
-            if (items.size() != 1) {
-                log.trace("No consensus value, register={}; returning UnknownValue", register);
-
-                // Determine correct type for UnknownValue
-                Set<String> types = new HashSet<>(items.size());
-                for (HeapItem item : items) {
-                    if (item == null) {
-                        // Register was not assigned in this execution path.
-                        // This can happen in short methods which terminate early.
-                        continue;
-                    }
-                    types.add(item.getType());
-                }
-
-                String type = getConsensusType(types, items);
-                if (log.isWarnEnabled() && type.equals(CommonTypes.UNKNOWN)) {
-                    log.warn("No consensus type; using *unknown* type! method={}, addresses={}, " + "register={}, types={}",
-                             getMethod().getSignature(), addresses, register, types);
-
-                }
-
-                return HeapItem.newUnknown(type);
-            }
         }
 
-        return items.toArray(new HeapItem[1])[0];
+        if (items.size() == 1) {
+            return items.toArray(new HeapItem[1])[0];
+        }
+
+        log.trace("No consensus value for register {}; returning UnknownValue", register);
+
+        // Determine correct type for UnknownValue
+        Set<String> types = new HashSet<>(items.size());
+        for (HeapItem item : items) {
+            if (item == null) {
+                // Register was not assigned in this execution path.
+                // This can happen in short methods which terminate early.
+                continue;
+            }
+            types.add(item.getType());
+        }
+
+        if (types.size() == 0) {
+            // May not have any items if an exception was thrown and checking return register
+            log.warn("No types for consensus; using *unknown* type! method={}, addresses={}, " + "register={}", getMethod().getSignature(), addresses,
+                     register, types);
+            return HeapItem.newUnknown(CommonTypes.UNKNOWN);
+        } else {
+            String type = getConsensusType(types, items);
+            if (type.equals(CommonTypes.UNKNOWN)) {
+                if (register == MethodState.ReturnRegister) {
+                    log.warn("Strange: No consensus type for return register; using method return type, method={}, addresses={}, " + "register={}, "
+                                     + "types={}", getMethod().getSignature(), addresses, register, types);
+                    type = method.getReturnType();
+                } else {
+                    log.warn("No consensus type; using *unknown* type! method={}, addresses={}, " + "register={}, types={}",
+                             getMethod().getSignature(), addresses, register, types);
+                }
+            }
+
+            return HeapItem.newUnknown(type);
+        }
     }
 
     public Object getRegisterConsensusValue(int address, int register) {

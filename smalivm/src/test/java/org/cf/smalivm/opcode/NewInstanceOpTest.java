@@ -5,7 +5,7 @@ import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.type.UninitializedInstance;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -23,7 +23,7 @@ public class NewInstanceOpTest {
         initial.setRegisters(0, 1, "I");
         ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "newLocalInstance()V", initial);
 
-        VirtualGeneric instanceType = vm.getClassManager().getVirtualType(CLASS_NAME);
+        VirtualType instanceType = vm.getClassManager().getVirtualType(CLASS_NAME);
         expected.setRegisters(0, new UninitializedInstance(instanceType), CLASS_NAME);
         VMTester.testState(graph, expected);
     }
@@ -33,7 +33,7 @@ public class NewInstanceOpTest {
         initial.setRegisters(0, 1, "I");
         ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "newNonLocalInstance()V", initial);
 
-        VirtualGeneric instanceType = vm.getClassManager().getVirtualType("Ljava/lang/Integer;");
+        VirtualType instanceType = vm.getClassManager().getVirtualType("Ljava/lang/Integer;");
         expected.setRegisters(0, new UninitializedInstance(instanceType), "Ljava/lang/Integer;");
         VMTester.testState(graph, expected);
     }

@@ -7,7 +7,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualArray;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -71,9 +71,9 @@ public class APutOp extends MethodStateOp {
 
     private static boolean throwsArrayStoreException(HeapItem arrayItem, HeapItem valueItem,
                                                      ClassManager classManager) {
-        VirtualGeneric valueType = classManager.getVirtualType(valueItem.getType());
+        VirtualType valueType = classManager.getVirtualType(valueItem.getType());
         VirtualArray arrayType = (VirtualArray) classManager.getVirtualType(arrayItem.getType());
-        VirtualGeneric arrayComponentType = arrayType.getComponentType();
+        VirtualType arrayComponentType = arrayType.getComponentType();
 
         if (arrayComponentType.instanceOf(valueType)) {
             return false;

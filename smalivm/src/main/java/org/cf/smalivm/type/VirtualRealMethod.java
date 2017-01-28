@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public class VirtualRealMethod extends VirtualMethod {
 
     private final BuilderMethod method;
-    private final VirtualGeneric type;
+    private final VirtualType type;
 
     VirtualRealMethod(BuilderMethod method, VirtualClass type) {
         super(method, type);

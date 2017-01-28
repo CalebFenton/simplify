@@ -5,7 +5,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 public class UninitializedInstance extends Instance {
 
-    public UninitializedInstance(VirtualGeneric type) {
+    public UninitializedInstance(VirtualType type) {
         super(type);
     }
 

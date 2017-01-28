@@ -11,7 +11,7 @@ public class InitializedInstance extends Instance {
 
     private InstanceState iState;
 
-    public InitializedInstance(VirtualGeneric type) {
+    public InitializedInstance(VirtualType type) {
         super(type);
         iState = null;
     }

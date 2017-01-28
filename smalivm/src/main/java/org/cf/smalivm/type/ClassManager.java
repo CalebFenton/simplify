@@ -45,7 +45,7 @@ public class ClassManager {
         smaliFileFactory = new SmaliFileFactory();
         classNameToClass = new HashMap<>();
         classNameToSmaliFile = new HashMap<>();
-        VirtualGeneric.setClassManager(this);
+        VirtualType.setClassManager(this);
     }
 
     ClassManager(DexBuilder dexBuilder, File smaliPath) throws IOException {
@@ -75,8 +75,7 @@ public class ClassManager {
      * @return all framework class names
      */
     public Set<String> getFrameworkClassNames() {
-        return classNameToSmaliFile.keySet().stream().filter(smaliFileFactory::isFrameworkClass)
-                       .collect(Collectors.toSet());
+        return classNameToSmaliFile.keySet().stream().filter(smaliFileFactory::isFrameworkClass).collect(Collectors.toSet());
     }
 
     public Collection<VirtualClass> getLoadedClasses() {
@@ -92,7 +91,7 @@ public class ClassManager {
     }
 
     public VirtualMethod getMethod(String className, String methodDescriptor) {
-        VirtualGeneric virtualClass = getVirtualClass(className);
+        VirtualType virtualClass = getVirtualClass(className);
 
         return virtualClass.getMethod(methodDescriptor);
     }
@@ -103,8 +102,7 @@ public class ClassManager {
      * @return all local class names which are not part of the framework
      */
     public Set<String> getNonFrameworkClassNames() {
-        return classNameToSmaliFile.keySet().stream().filter(className -> !smaliFileFactory.isFrameworkClass(className))
-                       .collect(Collectors.toSet());
+        return classNameToSmaliFile.keySet().stream().filter(className -> !smaliFileFactory.isFrameworkClass(className)).collect(Collectors.toSet());
     }
 
     public VirtualClass getVirtualClass(Class<?> klazz) {
@@ -115,7 +113,7 @@ public class ClassManager {
         return (VirtualClass) getVirtualType(className);
     }
 
-    public VirtualGeneric getVirtualType(TypeReference typeReference) {
+    public VirtualType getVirtualType(TypeReference typeReference) {
         char first = typeReference.charAt(0);
         if (first == 'L') {
             String className = typeReference.getType();
@@ -131,17 +129,21 @@ public class ClassManager {
         }
     }
 
-    public VirtualGeneric getVirtualType(String typeSignature) {
+    public VirtualType getVirtualType(Class<?> typeClass) {
+        return getVirtualType(ClassNameUtils.toInternal(typeClass));
+    }
+
+    public VirtualType getVirtualType(String typeSignature) {
         TypeReference typeReference = getFrameworkDexBuilder().internTypeReference(typeSignature);
 
         return getVirtualType(typeReference);
     }
 
-    public boolean isFrameworkClass(VirtualGeneric virtualClass) {
+    public boolean isFrameworkClass(VirtualType virtualClass) {
         return smaliFileFactory.isFrameworkClass(virtualClass.getName());
     }
 
-    public boolean isSafeFrameworkClass(VirtualGeneric virtualClass) {
+    public boolean isSafeFrameworkClass(VirtualType virtualClass) {
         return smaliFileFactory.isSafeFrameworkClass(virtualClass.getName());
     }
 

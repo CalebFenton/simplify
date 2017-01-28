@@ -12,9 +12,9 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-public abstract class VirtualGeneric {
+public abstract class VirtualType {
 
-    private static final Logger log = LoggerFactory.getLogger(VirtualGeneric.class.getSimpleName());
+    private static final Logger log = LoggerFactory.getLogger(VirtualType.class.getSimpleName());
 
     protected static ClassManager classManager;
     private final TypeReference typeReference;
@@ -22,7 +22,7 @@ public abstract class VirtualGeneric {
     private final String binaryName;
     private final String sourceName;
 
-    VirtualGeneric(TypeReference typeReference, String internalName, String binaryName, String sourceName) {
+    VirtualType(TypeReference typeReference, String internalName, String binaryName, String sourceName) {
         this.typeReference = typeReference;
         this.internalName = internalName;
         this.binaryName = binaryName;
@@ -34,10 +34,20 @@ public abstract class VirtualGeneric {
     }
 
     static void setClassManager(ClassManager classManager) {
-        VirtualGeneric.classManager = classManager;
+        VirtualType.classManager = classManager;
     }
 
-    public abstract Set<? extends VirtualGeneric> getAncestors();
+    public abstract Set<? extends VirtualType> getImmediateAncestors();
+
+    public abstract Set<? extends VirtualType> getAncestors();
+
+    public boolean isAncestorOf(VirtualType other) {
+        return other.getAncestors().contains(this);
+    }
+
+    public boolean isChildOf(VirtualType other) {
+        return getAncestors().contains(other);
+    }
 
     public String getPackage() {
         return null;
@@ -79,11 +89,11 @@ public abstract class VirtualGeneric {
         return null;
     }
 
-    public boolean isInnerClassOf(VirtualGeneric other) {
+    public boolean isInnerClassOf(VirtualType other) {
         return false;
     }
 
-    public boolean isSamePackageOf(VirtualGeneric other) {
+    public boolean isSamePackageOf(VirtualType other) {
         return false;
     }
 
@@ -103,7 +113,7 @@ public abstract class VirtualGeneric {
         if (obj.getClass() != getClass()) {
             return false;
         }
-        VirtualGeneric rhs = (VirtualGeneric) obj;
+        VirtualType rhs = (VirtualType) obj;
 
         return new EqualsBuilder().append(getName(), rhs.getName()).isEquals();
     }
@@ -113,10 +123,9 @@ public abstract class VirtualGeneric {
         return getName();
     }
 
-    public abstract boolean instanceOf(VirtualGeneric targetType);
+    public abstract boolean instanceOf(VirtualType targetType);
 
     public abstract boolean isArray();
 
     public abstract boolean isPrimitive();
-
 }

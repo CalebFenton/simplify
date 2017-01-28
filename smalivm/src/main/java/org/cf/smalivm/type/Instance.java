@@ -2,13 +2,13 @@ package org.cf.smalivm.type;
 
 public abstract class Instance {
 
-    private final VirtualGeneric type;
+    private final VirtualType type;
 
-    protected Instance(VirtualGeneric type) {
+    protected Instance(VirtualType type) {
         this.type = type;
     }
 
-    public VirtualGeneric getType() {
+    public VirtualType getType() {
         return type;
     }
 

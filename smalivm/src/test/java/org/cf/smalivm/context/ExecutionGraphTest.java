@@ -41,19 +41,41 @@ public class ExecutionGraphTest {
     }
 
     @Test
-    public void determinesCorrectConsensusTypeForTypesInSameHierarchy() {
+    public void getsExpectedConsensusTypeForTypesInSameHierarchy() {
         String methodDescriptor = "returnsObjectOrString()Ljava/lang/Object;";
         initial.setRegister(0, new UnknownValue(), "I");
 
         ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, methodDescriptor, initial);
-        HeapItem item = graph.getTerminatingRegisterConsensus(0);
+        HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
 
         assertEquals(CommonTypes.OBJECT, item.getType());
     }
 
     @Test
-    public void determinesCorrectConsensusTypeForTypesInSameHierarchyWithNull() {
+    public void getsExpectedConsensusTypeForTypesInSameHierarchyAndNull() {
         String methodDescriptor = "returnsObjectOrStringOrNull()Ljava/lang/Object;";
+        initial.setRegister(0, new UnknownValue(), "I");
+
+        ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, methodDescriptor, initial);
+        HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+
+        assertEquals(CommonTypes.OBJECT, item.getType());
+    }
+
+    @Test
+    public void getsReturnTypeForAmbiguousReturnTypes() {
+        String methodDescriptor = "returnsStringOrThrowsException()Ljava/lang/String;";
+        initial.setRegister(0, new UnknownValue(), "I");
+
+        ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, methodDescriptor, initial);
+        HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+
+        assertEquals(CommonTypes.STRING, item.getType());
+    }
+
+    @Test
+    public void getsMostRecentCommonAncestorForTypesNotInSameHierarchy() {
+        String methodDescriptor = "storesStringOrInteger()V";
         initial.setRegister(0, new UnknownValue(), "I");
 
         ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, methodDescriptor, initial);
@@ -63,8 +85,8 @@ public class ExecutionGraphTest {
     }
 
     @Test
-    public void determinesUnknownConsensusTypeForAmbiguousTypes() {
-        String methodDescriptor = "returnsStringOrInteger()Ljava/lang/Object;";
+    public void getsUnknownConsensusTypeForAmbiguousTypes() {
+        String methodDescriptor = "storesStringOrInt()V";
         initial.setRegister(0, new UnknownValue(), "I");
 
         ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, methodDescriptor, initial);
@@ -73,4 +95,15 @@ public class ExecutionGraphTest {
         assertEquals(CommonTypes.UNKNOWN, item.getType());
     }
 
+    @Test
+    public void getsMostCommonAncestorTypeForArrayTypes() {
+        String methodDescriptor = "returnsStringArrayOr2DIntArray()Ljava/lang/Object;";
+        initial.setRegister(0, new UnknownValue(), "I");
+
+        ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, methodDescriptor, initial);
+        HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+
+        // Could be an Object, but more accurate to say Object[]
+        assertEquals("[" + CommonTypes.OBJECT, item.getType());
+    }
 }

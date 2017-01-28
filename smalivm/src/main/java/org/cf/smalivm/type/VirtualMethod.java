@@ -9,7 +9,7 @@ import java.util.List;
 
 public abstract class VirtualMethod extends VirtualClassItem {
 
-    VirtualMethod(Reference reference, VirtualGeneric type) {
+    VirtualMethod(Reference reference, VirtualType type) {
         super(reference, type);
     }
 

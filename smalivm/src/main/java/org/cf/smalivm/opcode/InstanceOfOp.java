@@ -6,7 +6,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
@@ -16,12 +16,12 @@ public class InstanceOfOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(InstanceOfOp.class.getSimpleName());
 
-    private final VirtualGeneric referenceType;
+    private final VirtualType referenceType;
     private final int destRegister;
     private final int arg1Register;
     private final VirtualMachine vm;
 
-    InstanceOfOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, VirtualGeneric
+    InstanceOfOp(MethodLocation location, MethodLocation child, int destRegister, int arg1Register, VirtualType
             referenceType, VirtualMachine vm) {
         super(location, child);
         this.destRegister = destRegister;
@@ -42,7 +42,7 @@ public class InstanceOfOp extends MethodStateOp {
 
         ClassManager classManager = vm.getClassManager();
         for (String typeName : Utils.getDeclaredAndValueTypeNames(item)) {
-            VirtualGeneric itemType = classManager.getVirtualType(typeName);
+            VirtualType itemType = classManager.getVirtualType(typeName);
             if (itemType.instanceOf(referenceType)) {
                 mState.assignRegister(destRegister, new HeapItem(true, CommonTypes.BOOL));
                 return;

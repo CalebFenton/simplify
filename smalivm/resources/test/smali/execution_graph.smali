@@ -55,7 +55,6 @@
     .end sparse-switch
 .end method
 
-
 .method public static returnsObjectOrString()Ljava/lang/Object;
     .locals 1
 
@@ -69,7 +68,6 @@
     invoke-direct {v0}, Ljava/lang/Object;-><init>()V
     return-object v0
 .end method
-
 
 .method public static returnsObjectOrStringOrNull()Ljava/lang/Object;
     .locals 1
@@ -99,6 +97,19 @@
     .end packed-switch
 .end method
 
+.method public static returnsStringOrThrowsException()Ljava/lang/String;
+    .locals 1
+
+    if-eqz v0, :cond_1
+
+    const-string v0, "the world was built by people no smarter than you"
+    return-object v0
+
+    :cond_1
+    new-instance v0, Ljava/lang/Exception;
+    invoke-direct {v0}, Ljava/lang/Exception;-><init>()V
+    throw v0
+.end method
 
 .method public static returnsStringOrInteger()Ljava/lang/Object;
     .locals 2
@@ -112,5 +123,45 @@
     new-instance v0, Ljava/lang/Integer;
     const/4 v1, 0x2
     invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
+    return-object v0
+.end method
+
+.method public static storesStringOrInteger()V
+    .locals 2
+
+    if-eqz v0, :cond_1
+
+    const-string v0, "the world was built by people no smarter than you"
+    return-void
+
+    :cond_1
+    new-instance v0, Ljava/lang/Integer;
+    const/4 v1, 0x2
+    invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
+    return-void
+.end method
+
+.method public static storesStringOrInt()V
+    .locals 1
+
+    if-eqz v0, :cond_1
+
+    const-string v0, "the world was built by people no smarter than you"
+    return-void
+
+    :cond_1
+    const/4 v0, 0x2
+    return-void
+.end method
+
+.method public static returnsStringArrayOr2DIntArray()Ljava/lang/Object;
+    .locals 2
+
+    if-eqz v0, :cond_1
+    new-array v0, v0, [Ljava/lang/String;
+    return-object v0
+
+    :cond_1
+    new-array v0, v0, [[I
     return-object v0
 .end method

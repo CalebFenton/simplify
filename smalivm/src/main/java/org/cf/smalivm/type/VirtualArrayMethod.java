@@ -13,9 +13,9 @@ import java.util.List;
 public class VirtualArrayMethod extends VirtualMethod {
 
     private final Reference reference;
-    private final VirtualGeneric type;
+    private final VirtualType type;
 
-    VirtualArrayMethod(Reference reference, VirtualGeneric type) {
+    VirtualArrayMethod(Reference reference, VirtualType type) {
         super(reference, type);
         this.reference = reference;
         this.type = type;

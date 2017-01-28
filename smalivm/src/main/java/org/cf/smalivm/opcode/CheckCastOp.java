@@ -5,7 +5,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -16,12 +16,12 @@ public class CheckCastOp extends MethodStateOp {
 
     private static final Logger log = LoggerFactory.getLogger(CheckCastOp.class.getSimpleName());
 
-    private final VirtualGeneric castType;
+    private final VirtualType castType;
     private final int targetRegister;
     private final ClassManager classManager;
     private final ExceptionFactory exceptionFactory;
 
-    CheckCastOp(MethodLocation location, MethodLocation child, int targetRegister, VirtualGeneric castType,
+    CheckCastOp(MethodLocation location, MethodLocation child, int targetRegister, VirtualType castType,
                 ClassManager classManager, ExceptionFactory exceptionFactory) {
         super(location, child);
         this.targetRegister = targetRegister;
@@ -30,19 +30,19 @@ public class CheckCastOp extends MethodStateOp {
         this.exceptionFactory = exceptionFactory;
     }
 
-    private static boolean isInstance(HeapItem item, VirtualGeneric referenceType, ClassManager classManager) {
+    private static boolean isInstance(HeapItem item, VirtualType referenceType, ClassManager classManager) {
         /*
          * This covers cases where class type cannot be implied from value. E.g.
          * Object o = null;
          * String s = (String) o; // check-cast o as null passes
          */
-        VirtualGeneric itemType = classManager.getVirtualType(item.getType());
+        VirtualType itemType = classManager.getVirtualType(item.getType());
         if (!itemType.isPrimitive() && item.isNull()) {
             return true;
         }
 
         for (String typeName : Utils.getDeclaredAndValueTypeNames(item)) {
-            VirtualGeneric type = classManager.getVirtualType(typeName);
+            VirtualType type = classManager.getVirtualType(typeName);
             if (type.instanceOf(referenceType)) {
                 return true;
             }

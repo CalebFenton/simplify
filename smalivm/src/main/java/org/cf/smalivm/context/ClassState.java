@@ -3,7 +3,7 @@ package org.cf.smalivm.context;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualGeneric;
+import org.cf.smalivm.type.VirtualType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,9 +11,9 @@ public class ClassState extends BaseState {
 
     private static final Logger log = LoggerFactory.getLogger(ClassState.class.getSimpleName());
 
-    private final VirtualGeneric virtualClass;
+    private final VirtualType virtualClass;
 
-    public ClassState(VirtualGeneric virtualClass, ExecutionContext context) {
+    public ClassState(VirtualType virtualClass, ExecutionContext context) {
         super(context, virtualClass.getFields().size());
 
         this.virtualClass = virtualClass;
@@ -40,7 +40,7 @@ public class ClassState extends BaseState {
         return new ClassState(this, childContext);
     }
 
-    public VirtualGeneric getVirtualClass() {
+    public VirtualType getVirtualClass() {
         return virtualClass;
     }
 
