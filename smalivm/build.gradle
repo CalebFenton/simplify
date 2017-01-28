@@ -33,7 +33,7 @@ dependencies {
     compile group: 'org.ow2.asm', name: 'asm', version: '6.0_ALPHA'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
-    // Mostly, Base64, but could be anything that's slow on the vm
+    // Reflection is much faster and more robust than virtual execution
     compile files('libs/android-local.jar')
 
     // Testing

@@ -64,13 +64,14 @@ subprojects {
     }
 
     /*
-     * Running tests takes up a lot of memory and TravisCI only has 3-4 gb available.
-     * Use a low value of forkEvery to ensure heap is started fresh every few classes.
+     * Tests are memory intensive and TravisCI only has 3-4 GB available. If we go over, test fails.
+     * Low min heap size so that each fork doesn't get the huge default heap size.
+     * Also, fork frequently to get a fresh heap in case of memory leaks.
+     * Using larger values doesn't seem to improve test performance.
     */
     tasks.withType(Test) {
-//        maxParallelForks = Runtime.runtime.availableProcessors()
+        maxParallelForks = Runtime.runtime.availableProcessors() / 2
         minHeapSize = '128m'
-        maxParallelForks = 2
         forkEvery = 25
     }
 
@@ -120,7 +121,7 @@ if (System.env.TRAVIS == 'true') {
     allprojects {
         tasks.withType(Test) {
             testLogging {
-                // Printing out status of each test makes following and debugging builds easier.
+                // Print out test status to make it easier to debug problematic builds.
                 events "started", "passed", "skipped", "failed"
             }
         }
