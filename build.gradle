@@ -63,16 +63,9 @@ subprojects {
         //options.incremental = true
     }
 
-    /*
-     * Tests are memory intensive and TravisCI only has 3-4 GB available. If we go over, test fails.
-     * Low min heap size so that each fork doesn't get the huge default heap size.
-     * Also, fork frequently to get a fresh heap in case of memory leaks.
-     * Using larger values doesn't seem to improve test performance.
-    */
     tasks.withType(Test) {
         maxParallelForks = Runtime.runtime.availableProcessors() / 2
         minHeapSize = '128m'
-        forkEvery = 25
     }
 
     // This is just to show off API usage. No tests needed.
@@ -124,6 +117,16 @@ if (System.env.TRAVIS == 'true') {
                 // Print out test status to make it easier to debug problematic builds.
                 events "started", "passed", "skipped", "failed"
             }
+
+            /*
+             * Tests are memory intensive and TravisCI only has 3-4 GB available. If we go over, test fails.
+             * Low min heap size so that each fork doesn't get the huge default heap size.
+             * Also, fork frequently to get a fresh heap in case of memory leaks.
+             * Using larger values doesn't seem to improve test performance.
+            */
+            maxParallelForks = 2
+            minHeapSize = '128m'
+            forkEvery = 10
         }
     }
 }
