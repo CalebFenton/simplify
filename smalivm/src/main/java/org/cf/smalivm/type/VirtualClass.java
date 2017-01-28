@@ -48,6 +48,14 @@ public class VirtualClass extends VirtualGeneric {
         }
     }
 
+    public boolean isAncestorOf(VirtualClass other) {
+        return other.getAncestors().contains(this);
+    }
+
+    public boolean isChildOf(VirtualClass other) {
+        return getAncestors().contains(other);
+    }
+
     private static Set<VirtualClass> getImmediateAncestors(VirtualClass virtualClass) {
         List<String> parentNames = new LinkedList<>();
         BuilderClassDef classDef = virtualClass.getClassDef();

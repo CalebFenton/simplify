@@ -10,6 +10,9 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
+import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualGeneric;
 import org.cf.smalivm.type.VirtualMethod;
@@ -40,6 +43,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     protected static final int TEMPLATE_NODE_INDEX = 0;
     protected static final int METHOD_ROOT_ADDRESS = 0;
     private static final Logger log = LoggerFactory.getLogger(ExecutionGraph.class.getSimpleName());
+
     protected final Map<MethodLocation, List<ExecutionNode>> locationToNodePile;
     protected final TIntObjectMap<MethodLocation> addressToLocation;
     private final VirtualMachine vm;
@@ -133,22 +137,48 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return addresses.toArray();
     }
 
-    private static String getConsensusType(Set<String> types, Set<HeapItem> items) {
+    private String getConsensusType(Set<String> types, Set<HeapItem> items) {
         if (types.size() == 1) {
             return types.toArray(new String[1])[0];
-        } else if (types.size() == 2 && types.contains("I")) {
-            // Dalvik uses 0 to represent null
-            // https://calebfenton.github.io/2016/02/16/how-does-dalvik-handle-null-types/
-            if (types.size() == 2 && types.contains("I")) {
-                for (String currentType : types) {
-                    if (currentType.startsWith("L") && items.contains(new HeapItem(0, "I"))) {
-                        return currentType;
-                    }
+        }
+
+        /*
+         * Roll up child types into parent types since a register may contain multiple types in the
+         * same hierarchy. For example, it may contain a ChildClass or a ParentClass. In this case,
+         * the UnknownValue type should be ParentClass rather than Unknown. It should be Unknown
+         * if a register may contain multiple types in different hierarchies, e.g. String and
+         * Exception.
+         */
+        ClassManager classManager = vm.getClassManager();
+        List<VirtualClass> objectTypes = types.stream().filter(t -> t.length() > 0).map(classManager::getVirtualClass).collect(Collectors.toList());
+        for (int index = 0; index < objectTypes.size(); index++) {
+            VirtualClass currentClass = objectTypes.get(index);
+            for (int i = 0; i < objectTypes.size(); i++) {
+                if (i == index) {
+                    continue;
+                }
+                VirtualClass compareClass = objectTypes.get(i);
+                if (currentClass.isChildOf(compareClass)) {
+                    types.remove(currentClass.getName());
+                    break;
                 }
             }
         }
 
-        log.warn("Register consensus contains multiple types! Returning unknown type.");
+        if (types.size() == 1) {
+            return types.toArray(new String[1])[0];
+        }
+
+        if (types.size() == 2 && types.contains("I")) {
+            // Dalvik uses 0 to represent null
+            // https://calebfenton.github.io/2016/02/16/how-does-dalvik-handle-null-types/
+            for (String currentType : types) {
+                if (currentType.startsWith("L") && items.contains(new HeapItem(0, "I"))) {
+                    return currentType;
+                }
+            }
+        }
+
         return CommonTypes.UNKNOWN;
     }
 
@@ -330,10 +360,41 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return getTemplateNode(address).getOp();
     }
 
+    /**
+     * {@see #getRegisterConsensus(int[], int)}
+     *
+     * @return consensus value over all {@code addresses} in {@code register} or {@link
+     * UnknownValue} if a consensus doesn't exist
+     */
     public HeapItem getRegisterConsensus(int address, int register) {
-        return getRegisterConsensus(new int[]{address}, register);
+        return getRegisterConsensus(new int[]{ address }, register);
     }
 
+    /**
+     * Look at the value in {@code register} at each of the {@code addresses}. If all values are
+     * identical, that means there is a consensus. It means every exeuction path had the same value
+     * at those particular {@code addresses} for that particular {@code register}. If there is more
+     * than one value, it means it's not possible to know with certainty what the value is. For
+     * example, consider the following method:
+     *
+     * <pre>{@code
+     * foo()I
+     *   v0 = readStringFromNetwork()Ljava/lang/String; // won't be executed because unsafe
+     *   if v0 == "the spice must flow":
+     *     v1 = 1
+     *   else:
+     *     v1 = 0
+     *   return v1}</pre>
+     *
+     * Since the result of {@code readStringFromNetwork()Ljava/lang/String;} won't be known, because
+     * it's probably unsafe to virtually execute, the {@code if v0} will be ambiguous and every
+     * possible execution path will be taken. This means {@code return v1} could either be {@code 1}
+     * or {@code 0}. This means there is no consensus. In this case, an {@link UnknownValue} will
+     * be returned.
+     *
+     * @return consensus value over all {@code addresses} in {@code register} or {@link
+     * UnknownValue} if a consensus doesn't exist
+     */
     public
     @Nonnull
     HeapItem getRegisterConsensus(int[] addresses, int register) {
@@ -342,17 +403,25 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
             items.addAll(getRegisterItems(address, register));
             // Size may be 0 if there was an exception
             if (items.size() != 1) {
-                log.trace("No consensus for register #{}, returning Unknown.", register);
-                Set<String> types = new HashSet<>();
+                log.trace("No consensus value, register={}; returning UnknownValue", register);
+
+                // Determine correct type for UnknownValue
+                Set<String> types = new HashSet<>(items.size());
                 for (HeapItem item : items) {
                     if (item == null) {
-                        // Register was never assigned for this execution path
-                        // This can happen in short methods with branching
+                        // Register was not assigned in this execution path.
+                        // This can happen in short methods which terminate early.
                         continue;
                     }
                     types.add(item.getType());
                 }
+
                 String type = getConsensusType(types, items);
+                if (log.isWarnEnabled() && type.equals(CommonTypes.UNKNOWN)) {
+                    log.warn("No consensus type; using *unknown* type! method={}, addresses={}, " + "register={}, types={}",
+                             getMethod().getSignature(), addresses, register, types);
+
+                }
 
                 return HeapItem.newUnknown(type);
             }
@@ -375,6 +444,11 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return item.getValue();
     }
 
+    /**
+     * This gives you every possible value for a given {@code address} and {@code register}.
+     *
+     * @return returns items at {@code address} in {@code register} for every execution path
+     */
     public Set<HeapItem> getRegisterItems(int address, int register) {
         List<ExecutionNode> nodePile = getNodePile(address);
         Set<HeapItem> items = new HashSet<>(nodePile.size());
@@ -405,6 +479,9 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         return nodePile.get(TEMPLATE_NODE_INDEX);
     }
 
+    /**
+     * @return all terminating addresses (return, throw)
+     */
     public int[] getTerminatingAddresses() {
         return terminatingAddresses;
     }
@@ -420,7 +497,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getTerminatingFieldConsensus(VirtualField field) {
-        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[]{field});
+        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[]{ field });
 
         return items.get(field);
     }
@@ -439,7 +516,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     public
     @Nonnull
     HeapItem getTerminatingRegisterConsensus(int register) {
-        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[]{register});
+        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[]{ register });
 
         return items.get(register);
     }
