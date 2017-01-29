@@ -10,7 +10,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.5.0'
+        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.6.3'
     }
 }
 
@@ -80,15 +80,13 @@ subprojects {
     }
 }
 
-coveralls {
-    ext.targetProjects = subprojects - project(':demoapp')
-    sourceDirs = files(ext.targetProjects.sourceSets.main.allJava.srcDirs).files.absolutePath
-}
 
-task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    ext.targetProjects = subprojects - project(':demoapp')
+task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
+    description = 'Generates an aggregate report from all subprojects'
 
-    dependsOn = ext.targetProjects.test
+    ext.targetProjects = subprojects - project(':demoapp')
+    dependsOn(ext.targetProjects.test)
+
     sourceDirectories = files(ext.targetProjects.sourceSets.main.allJava.srcDirs)
     classDirectories = files(ext.targetProjects.sourceSets.main.output.classesDir)
     executionData = files(ext.targetProjects.jacocoTestReport.executionData)
@@ -99,15 +97,15 @@ task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
         csv.enabled = false
     }
 
-    onlyIf = {
-        true
-    }
-
     doFirst {
-        executionData = files(executionData.findAll {
-            it.exists()
-        })
+        executionData = files(executionData.findAll { it.exists() })
     }
+}
+
+coveralls {
+    // Exclude demoapp from Coveralls reporting
+    ext.targetProjects = subprojects - project(':demoapp')
+    sourceDirs = subprojects.sourceSets.main.allJava.srcDirs
 }
 
 if (System.env.TRAVIS == 'true') {

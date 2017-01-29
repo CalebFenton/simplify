@@ -29,7 +29,7 @@ dependencies {
     testCompile depends.junit
     testCompile depends.mockito
     testCompile depends.perfidix // benchmarks
-    testCompile project(path: ':smalivm', configuration: 'testArtifacts')
+    testCompile project(':smalivm').sourceSets.test.output
 }
 
 // Because of conflicting transitive dependencies (commons-cli), SmaliVM must be at the END of the classpath.
@@ -63,7 +63,6 @@ task fatJar(type: Jar) {
         }
     }
 }
-tasks.getByPath('build').dependsOn(fatJar)
 
 task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
     def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
