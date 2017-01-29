@@ -328,7 +328,7 @@ public final class OpCreator {
         }
 
         if (opFactory == null) {
-            opFactory = new UnimplementedOpFactory();
+            throw new RuntimeException("Unimplemented opcode: " + op);
         }
 
         return opFactory;
@@ -349,5 +349,4 @@ public final class OpCreator {
 
         return opFactory.create(location, addressToLocation, vm);
     }
-
 }
