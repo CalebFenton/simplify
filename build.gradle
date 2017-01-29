@@ -67,17 +67,6 @@ subprojects {
         maxParallelForks = Runtime.runtime.availableProcessors() / 2
         minHeapSize = '128m'
     }
-
-    // This is just to show off API usage. No tests needed.
-    if (!project.name.equals("demoapp")) {
-        jacocoTestReport {
-            reports {
-                html.enabled = true
-                xml.enabled = true
-                csv.enabled = false
-            }
-        }
-    }
 }
 
 
@@ -105,7 +94,8 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
 coveralls {
     // Exclude demoapp from Coveralls reporting
     ext.targetProjects = subprojects - project(':demoapp')
-    sourceDirs = subprojects.sourceSets.main.allJava.srcDirs
+    sourceDirs = ext.targetProjects.sourceSets.main.allJava.srcDirs
+    jacocoReportPath = "simplify/build/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
 }
 
 if (System.env.TRAVIS == 'true') {
