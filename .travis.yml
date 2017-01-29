@@ -1,50 +1,38 @@
 language: java
-
 sudo: required
 dist: trusty
-
 jdk:
-  - oraclejdk8
-
+- oraclejdk8
 env:
   matrix:
-    - TERM=dumb
+  - TERM=dumb
   global:
-    - secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
-    - GRADLE_OPTS="-Xms128m"
-    - MALLOC_ARENA_MAX=2
-    #  -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled
-
+  - secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
+  - secure: AXRGnJN4mRaQZ6L7iP63wFKXAM54VANhH4Q2XaQmcXMV+G4Aw66cvFsohg+mlGYYPb8FsGjax0LQrNCbUB4hCC9463qk+e+tfr1dt8ueaycMw9VP4eOA31/RWdvIYSZhKNro35IFDAwMD0jA5TVJFFiYwm3vyTiz/lPVqbVdwTk=
+  - GRADLE_OPTS="-Xms128m"
+  - MALLOC_ARENA_MAX=2
 before_install:
-  - chmod +x gradlew
-
+- chmod +x gradlew
 before_script:
-  - sudo service postgresql stop || true
-  - sudo service mysql stop || true
-  - sudo service memcached stop || true
-  - sudo service bootlogd stop || true
-  - sudo service elasticsearch stop || true
-  - sudo service mongodb stop || true
-  - sudo service neo4j stop || true
-  - sudo service riak stop || true
-  - sudo service rsync stop || true
-  - sudo service x11-common stop || true
-
+- sudo service postgresql stop || true
+- sudo service mysql stop || true
+- sudo service memcached stop || true
+- sudo service bootlogd stop || true
+- sudo service elasticsearch stop || true
+- sudo service mongodb stop || true
+- sudo service neo4j stop || true
+- sudo service riak stop || true
+- sudo service rsync stop || true
+- sudo service x11-common stop || true
 script:
-  - "free -m && ./gradlew test"
-
+- free -m && ./gradlew test
 after_success:
-  - "./gradlew jacocoTestReport coveralls"
-
-#cache:
-#  directories:
-#    - "$HOME/.gradle"
-
+- "./gradlew jacocoTestReport coveralls"
 addons:
   coverity_scan:
     project:
-      name: "CalebFenton/simplify"
-      description: "Build submitted via Travis CI"
+      name: CalebFenton/simplify
+      description: Build submitted via Travis CI
     notification_email: calebjfenton@gmail.com
     build_command_prepend: "./gradlew clean"
     build_command: "./gradlew build"
