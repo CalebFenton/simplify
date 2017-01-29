@@ -27,7 +27,7 @@ before_script:
 script:
 - free -m && ./gradlew test
 after_success:
-- "./gradlew jacocoTestReport coveralls"
+- "./gradlew jacocoRootReport coveralls"
 addons:
   coverity_scan:
     project:
