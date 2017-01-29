@@ -58,13 +58,13 @@ public class SmaliParser {
         return result;
     }
 
-    public static BuilderClassDef parse(File smaliFile,
-                                        DexBuilder dexBuilder) throws FileNotFoundException, UnsupportedEncodingException, RecognitionException {
+    public static BuilderClassDef parse(File smaliFile, DexBuilder dexBuilder) throws FileNotFoundException, UnsupportedEncodingException,
+            RecognitionException {
         return parse(smaliFile.getAbsolutePath(), new FileInputStream(smaliFile), dexBuilder);
     }
 
-    public static BuilderClassDef parse(String path, InputStream is,
-                                        DexBuilder dexBuilder) throws UnsupportedEncodingException, RecognitionException {
+    public static BuilderClassDef parse(String path, InputStream is, DexBuilder dexBuilder) throws UnsupportedEncodingException,
+            RecognitionException {
         File smaliFile = new File(path);
         InputStreamReader reader = new InputStreamReader(is, "UTF-8");
         LexerErrorInterface lexer = new smaliFlexLexer(reader);
@@ -97,5 +97,4 @@ public class SmaliParser {
     public static List<BuilderClassDef> parse(String path, DexBuilder dexBuilder) throws Exception {
         return parseFiles(new File(path), dexBuilder);
     }
-
 }
