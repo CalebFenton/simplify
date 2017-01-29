@@ -14,7 +14,6 @@ import org.junit.runner.RunWith;
 
 import static org.junit.Assert.assertFalse;
 
-@RunWith(Enclosed.class)
 public class CheckCastOpTest {
 
     private static final String CLASS_NAME = "Lcheck_cast_test;";
