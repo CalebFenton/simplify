@@ -36,10 +36,9 @@ dependencies {
     // Reflection is much faster and more robust than virtual execution
     compile files('libs/android-local.jar')
 
-    // Testing
     testCompile depends.junit
     testCompile depends.mockito
-    testCompile depends.perfidix // benchmarks
+    testCompile depends.perfidix // Benchmarking
 }
 
 task fatJar(type: Jar) {

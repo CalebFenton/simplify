@@ -45,17 +45,27 @@ subprojects {
 
     ext {
         depends = [
-            commons_lang: 'org.apache.commons:commons-lang3:3.5',
-            findbugs: 'com.google.code.findbugs:jsr305:3.0.1',
-            guava: 'com.google.guava:guava:19.0',
-            junit: 'junit:junit:4.12',
-            mockito: 'org.mockito:mockito-core:1.10.19',
-            perfidix: 'org.perfidix:perfidix:3.6.9',
-            proguard_gradle: 'net.sf.proguard:proguard-gradle:5.2.1',
-            slf4j_api: 'org.slf4j:slf4j-api:1.7.21',
-            slf4j_nop: 'org.slf4j:slf4j-nop:1.7.21',
-            trove4j: 'net.sf.trove4j:trove4j:3.0.3',
-         ]
+                commons_lang   : 'org.apache.commons:commons-lang3:3.5',
+                findbugs       : 'com.google.code.findbugs:jsr305:3.0.1',
+                guava          : 'com.google.guava:guava:19.0',
+                junit          : 'junit:junit:4.12',
+                mockito        : 'org.mockito:mockito-core:1.10.19',
+                perfidix       : 'org.perfidix:perfidix:3.6.9',
+                proguard_gradle: 'net.sf.proguard:proguard-gradle:5.2.1',
+                slf4j_api      : 'org.slf4j:slf4j-api:1.7.21',
+                slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.21',
+                trove4j        : 'net.sf.trove4j:trove4j:3.0.3',
+        ]
+    }
+
+    if (project.name != "demoapp") {
+        jacocoTestReport {
+            reports {
+                html.enabled = true
+                xml.enabled = true
+                csv.enabled = false
+            }
+        }
     }
 
     tasks.withType(JavaCompile) {
@@ -91,12 +101,14 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     }
 }
 
+
 coveralls {
     // Exclude demoapp from Coveralls reporting
     ext.targetProjects = subprojects - project(':demoapp')
-    sourceDirs = ext.targetProjects.sourceSets.main.allJava.srcDirs
-    jacocoReportPath = "simplify/build/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
+    sourceDirs = ext.targetProjects.sourceSets.main.allJava.srcDirs.flatten()
+    jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
 }
+
 
 if (System.env.TRAVIS == 'true') {
     allprojects {
