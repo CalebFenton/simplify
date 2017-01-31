@@ -1,34 +1,28 @@
 # IDEA SCRATCH PAD
 
-Add tests:
-- inner classes and enclosing methods (needs more research)
-- source name (easy)
-- validate config files
-  - every safe_class.cfg exists
-  - every safe_framework_class exists in framework jar
-  - every framework_class exists in framework jar
-  - etc.
-- research and test for https://github.com/CalebFenton/simplify/commit/71b52a33f18865b20cff6608e82daae35cfa3516
+Better tests for class generation:
+  - inner classes and enclosing methods (needs more research)
+  - annotations
+  - source name (easy)
 
+Add demos directory:
+  - Move example app there, possibly rename it
+  - Create another demo which executes method of a real app maybe
 
-add demos directory
-	move example app there, rename it
-	create another demo which executes methods of a real app or something
+Add option to include JARs with classes that should be reflected. This could allow dex2jar + simplify to work together. Could also include Android framework JARs.
 
-add option to include jars and reflect classes therein
-
-look into including some java/nio buffer classes as full, executable java classes and reflecting them
-	similar to base64
-use actual android jars used for detecting immutability
-
-
-listeners for when an op is executed
-  could have filters or gives everything
-  variable watching
-  useful for debugger
-
-
-find all "?" and replace with common type unknkown
+Architecture changes to make adding a debugger easier:
+  - Attach listeners with call backs for method and op execution to method and op execution
+    - Used for watching fields and registers
+    - Useful for debugger
+    - Listeners could define filters
+  - Add visitation strategy for methods to call them in the same order Android would
+    - Activities have methods called in a certain order and rely on class state setup by that order
+    - ex: simplify 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
+          ArrayLists are initialized in onCreate, but since that's not known, everything fails
+      MethodVisitor interface
+      SimpleMethodVisitor - executes each method in arbitrary order
+      AndroidLifecycleAwareMethodVisitor
 
 
 // TODO: https://github.com/CalebFenton/simplify/issues/8
@@ -43,8 +37,6 @@ also fix invoke op for getting graph of invoked method
 run instance-of tests
 can you do primitive instanceof primitive?
   primitive instance of object? (probably)
-
-add documentation
 
 
 Debugger
@@ -76,9 +68,10 @@ Hygene
   move sideeffect out of op and into node
     op shared between all nodes at address, should record sideeffect per execution
 
-  smalivm shouldn't require trove
+  maybe smalivm shouldn't require trove
     remove arrays and regular lists / sets instead
     primitive unboxing probably isn't that bad
+    need some serious benchmarking
 
   remove array data payloads that are unreferenced
     Obfuscated example does this in reflected field lookups
@@ -86,12 +79,10 @@ Hygene
 
 Profiling Feature
   record each method descriptor and the number of times it was called
-
   filter for only method descriptors which have a pattern
-
   record only methods that failed, methods that could be whitelisted
 
-Making Hooking easier.
+Making Hooking easier to do dynamically.
 
 Emulate
   System.exit() to halt the execution path
@@ -99,16 +90,6 @@ Emulate
   Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
   invoke ourselves or run emulated method
 
-Android class lifecycle initialization
-  sometimes it can be assumed onCreate has been called
-  or just give a list of methods to be called before whatever else
-
-  simplify 7604399 -it 'PornApplication;->i2c1cqop3faop3cdhokggmd97ce\(\)'
-  ArrayLists are initialized in onCreate, but since that's not known, everything fails
-
-  MethodVisitor interface
-  SimpleMethodVisitor - executes each method in arbitrary order
-  AndroidLifecycleAwareMethodVisitor
 
 
 Emulate / spoof stack traces - requires call stack in context or similar
