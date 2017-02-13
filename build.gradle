@@ -80,15 +80,16 @@ subprojects {
 }
 
 
+// Exclude demoapp from Coveralls reporting
+def reportProjects = subprojects - project(':demoapp')
+
 task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     description = 'Generates an aggregate report from all subprojects'
+    dependsOn(reportProjects.test)
 
-    ext.targetProjects = subprojects - project(':demoapp')
-    dependsOn(ext.targetProjects.test)
-
-    sourceDirectories = files(ext.targetProjects.sourceSets.main.allJava.srcDirs)
-    classDirectories = files(ext.targetProjects.sourceSets.main.output.classesDir)
-    executionData = files(ext.targetProjects.jacocoTestReport.executionData)
+    sourceDirectories = files(reportProjects.sourceSets.main.allJava.srcDirs)
+    classDirectories = files(reportProjects.sourceSets.main.output.classesDir)
+    executionData = files(reportProjects.jacocoTestReport.executionData)
 
     reports {
         html.enabled = true
@@ -103,9 +104,7 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
 
 
 coveralls {
-    // Exclude demoapp from Coveralls reporting
-    ext.targetProjects = subprojects - project(':demoapp')
-    sourceDirs = ext.targetProjects.sourceSets.main.allJava.srcDirs.flatten()
+    sourceDirs = reportProjects.sourceSets.main.allJava.srcDirs.flatten()
     jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
 }
 
@@ -127,6 +126,7 @@ if (System.env.TRAVIS == 'true') {
             maxParallelForks = 2
             minHeapSize = '128m'
             forkEvery = 10
+            jvmArgs '-Xss4m'
         }
     }
 }
