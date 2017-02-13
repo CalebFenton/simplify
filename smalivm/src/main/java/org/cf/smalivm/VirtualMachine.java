@@ -11,8 +11,8 @@ import org.cf.smalivm.dex.SmaliClassLoader;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,39 +35,14 @@ public class VirtualMachine {
     private final Configuration configuration;
     private final ExceptionFactory exceptionFactory;
 
-    VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
-                   int maxExecutionTime) {
+    VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits, int maxExecutionTime) {
         this.classManager = manager;
         classLoader = new SmaliClassLoader(classManager);
-        methodExecutor =
-                new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits, maxExecutionTime);
+        methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits, maxExecutionTime);
         methodToTemplateExecutionGraph = new HashMap<>();
         staticFieldAccessor = new StaticFieldAccessor(this);
         configuration = Configuration.instance();
         exceptionFactory = new ExceptionFactory(this);
-    }
-
-    private static String getClassNameFromMethodSignature(String methodSignature) {
-        return methodSignature.split("->", 2)[0];
-    }
-
-    private static HeapItem getMutableParameterConsensus(int[] addresses, ExecutionGraph graph, int parameterRegister) {
-        ExecutionNode firstNode = graph.getNodePile(addresses[0]).get(0);
-        HeapItem item = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
-        for (int address : addresses) {
-            List<ExecutionNode> nodes = graph.getNodePile(address);
-            for (ExecutionNode node : nodes) {
-                HeapItem otherItem = node.getContext().getMethodState().peekParameter(parameterRegister);
-                if (item.getValue() != otherItem.getValue()) {
-                    log.trace("No consensus value for r{}. Returning unknown.", parameterRegister);
-
-                    return HeapItem.newUnknown(item.getType());
-                }
-            }
-
-        }
-
-        return item;
     }
 
     public ExecutionGraph execute(String methodSignature) throws VirtualMachineException {
@@ -89,8 +64,7 @@ public class VirtualMachine {
         return execute(method, context, null, null);
     }
 
-    public ExecutionGraph execute(String className, String methodDescriptor,
-                                  ExecutionContext context) throws VirtualMachineException {
+    public ExecutionGraph execute(String className, String methodDescriptor, ExecutionContext context) throws VirtualMachineException {
         return execute(className + "->" + methodDescriptor, context, null, null);
     }
 
@@ -98,8 +72,7 @@ public class VirtualMachine {
         return execute(methodSignature, context, null, null);
     }
 
-    public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext,
-                                  ExecutionContext callerContext,
+    public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext, ExecutionContext callerContext,
                                   int[] parameterRegisters) throws VirtualMachineException {
         VirtualMethod virtualMethod = classManager.getMethod(methodSignature);
         if (virtualMethod == null) {
@@ -109,8 +82,7 @@ public class VirtualMachine {
         return execute(virtualMethod, calleeContext, callerContext, parameterRegisters);
     }
 
-    public ExecutionGraph execute(VirtualMethod virtualMethod, ExecutionContext calleeContext,
-                                  ExecutionContext callerContext,
+    public ExecutionGraph execute(VirtualMethod virtualMethod, ExecutionContext calleeContext, ExecutionContext callerContext,
                                   int[] parameterRegisters) throws VirtualMachineException {
         if (!virtualMethod.hasImplementation()) {
             log.warn("Attempting to execute method without implementation: {}", virtualMethod);
@@ -156,6 +128,12 @@ public class VirtualMachine {
         return getConfiguration().isSafe(virtualClass.toString());
     }
 
+    public ExecutionGraph spawnInstructionGraph(String className, String methodDescriptor) {
+        VirtualMethod method = getClassManager().getVirtualClass(className).getMethod(methodDescriptor);
+
+        return spawnInstructionGraph(method);
+    }
+
     public ExecutionGraph spawnInstructionGraph(VirtualMethod method) {
         if (!methodToTemplateExecutionGraph.containsKey(method)) {
             updateInstructionGraph(method);
@@ -186,8 +164,7 @@ public class VirtualMachine {
         return spawnRootContext(method, null, 0);
     }
 
-    public ExecutionContext spawnRootContext(VirtualMethod method, @Nullable ExecutionContext callerContext,
-                                             int callerAddress) {
+    public ExecutionContext spawnRootContext(VirtualMethod method, @Nullable ExecutionContext callerContext, int callerAddress) {
         if (!method.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
             throw new IllegalArgumentException("No implementation for " + method);
@@ -216,13 +193,35 @@ public class VirtualMachine {
         return exceptionFactory;
     }
 
+    private static String getClassNameFromMethodSignature(String methodSignature) {
+        return methodSignature.split("->", 2)[0];
+    }
+
+    private static HeapItem getMutableParameterConsensus(int[] addresses, ExecutionGraph graph, int parameterRegister) {
+        ExecutionNode firstNode = graph.getNodePile(addresses[0]).get(0);
+        HeapItem item = firstNode.getContext().getMethodState().peekParameter(parameterRegister);
+        for (int address : addresses) {
+            List<ExecutionNode> nodes = graph.getNodePile(address);
+            for (ExecutionNode node : nodes) {
+                HeapItem otherItem = node.getContext().getMethodState().peekParameter(parameterRegister);
+                if (item.getValue() != otherItem.getValue()) {
+                    log.trace("No consensus value for r{}. Returning unknown.", parameterRegister);
+
+                    return HeapItem.newUnknown(item.getType());
+                }
+            }
+
+        }
+
+        return item;
+    }
+
     /*
      * Get the consensus of mutable objects of method and class states of called context and merge them into
      * the context of the caller. In other words, reflect changes to objects that happen in the called method back
      * into the caller method.
      */
-    private void collapseMultiverse(VirtualMethod calledMethod, ExecutionGraph graph, ExecutionContext callerContext,
-                                    int[] parameterRegisters) {
+    private void collapseMultiverse(VirtualMethod calledMethod, ExecutionGraph graph, ExecutionContext callerContext, int[] parameterRegisters) {
         int[] terminatingAddresses = graph.getConnectedTerminatingAddresses();
         if (parameterRegisters != null) {
             MethodState callerMethodState = callerContext.getMethodState();
