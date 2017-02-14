@@ -26,11 +26,10 @@ public class LauncherTest {
     public void runsWithoutMajorFailureWithDexFile() throws IOException, UnhandledVirtualException {
         Launcher launcher = new Launcher(new VirtualMachineFactory());
         File outFile = File.createTempFile("simplify-test", ".tmp");
-        launcher.run(new String[] { "resources/test/obfuscated-example.zip", "-it", "WhiteNoise", "-o",
+        launcher.run(new String[] { "src/test/resources/obfuscated-example.zip", "-it", "WhiteNoise", "-o",
                                     outFile.getAbsolutePath() });
 
         assertTrue(outFile.exists());
         Files.delete(outFile.toPath());
     }
-
 }

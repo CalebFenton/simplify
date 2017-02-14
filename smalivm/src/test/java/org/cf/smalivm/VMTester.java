@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 
 public class VMTester {
 
-    private static final String TEST_CLASS_PATH = "resources/test/smali";
+    private static final String TEST_CLASS_PATH = "src/test/resources/smali";
 
     private static ClassManager classManager;
 

@@ -24,7 +24,7 @@ before_script:
 - sudo service rsync stop || true
 - sudo service x11-common stop || true
 script:
-- free -m && ./gradlew test
+- free -m && ./gradlew test --info -s
 after_success:
 - "./gradlew jacocoRootReport coveralls"
 addons:
