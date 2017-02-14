@@ -15,7 +15,7 @@ import java.io.IOException;
 
 public class ClassBuilderTest {
 
-    private static final String TEST_SMALI_PATH = "resources/test/smali/class_builder";
+    private static final String TEST_SMALI_PATH = VMTester.TEST_CLASS_PATH + "/class_builder";
 //    @Rule
 //    public final ExpectedException exception = ExpectedException.none();
     private ClassBuilder classBuilder;

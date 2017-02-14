@@ -1,5 +1,6 @@
 package org.cf.smalivm.dex;
 
+import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.junit.Before;
@@ -33,7 +34,7 @@ public class SmaliClassLoaderTest {
                            "public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
                            "public java.lang.String java.lang.Object.toString()",
                            "public native int java.lang.Object.hashCode()" };
-    private static final String TEST_SMALI_PATH = "resources/test/smali/class_builder";
+    private static final String TEST_SMALI_PATH = VMTester.TEST_CLASS_PATH + "/class_builder";
 
     @Rule
     public final ExpectedException exception = ExpectedException.none();
@@ -49,8 +50,8 @@ public class SmaliClassLoaderTest {
         Object enumConstant = Enum.valueOf((Class<? extends Enum>) klazz, "ACTIVITY_INTENT_ACTION");
         assertEquals(klazz, enumConstant.getClass());
 
-        String[] enumStrings = Arrays.asList(klazz.getEnumConstants()).stream().map(c -> c.toString())
-                                       .toArray(size -> new String[size]);
+        String[] enumStrings = Arrays.stream(klazz.getEnumConstants()).map(Object::toString)
+                                     .toArray(String[]::new);
         String[] expectedEnumStrings =
                 new String[] { "ACTIVITY_INTENT_ACTION", "BROADCAST_INTENT_ACTION", "FEATURE", "INTENT_CATEGORY",
                                "SERVICE_ACTION", "$shadow_instance" };
@@ -198,7 +199,7 @@ public class SmaliClassLoaderTest {
     }
 
     private void assertHasObjectMethods(Class<?> klazz) {
-        Stream<String> methods = Arrays.stream(klazz.getMethods()).map(n -> n.toString());
+        Stream<String> methods = Arrays.stream(klazz.getMethods()).map(Method::toString);
         List<String> methodDescriptors = methods.collect(Collectors.toList());
         for (String objectMethod : OBJECT_METHODS) {
             assertTrue("Must have method: " + objectMethod, methodDescriptors.contains(objectMethod));
@@ -230,5 +231,4 @@ public class SmaliClassLoaderTest {
 
         return methods;
     }
-
 }

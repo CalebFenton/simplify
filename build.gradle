@@ -126,7 +126,6 @@ if (System.env.TRAVIS == 'true') {
             maxParallelForks = 2
             minHeapSize = '128m'
             forkEvery = 20
-            jvmArgs '-Xss64m'
         }
     }
 }

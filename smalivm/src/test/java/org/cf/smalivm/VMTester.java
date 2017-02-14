@@ -8,6 +8,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.dex.SmaliParser;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
@@ -41,7 +42,7 @@ import static org.mockito.Mockito.when;
 
 public class VMTester {
 
-    private static final String TEST_CLASS_PATH = "src/test/resources/smali";
+    public static final String TEST_CLASS_PATH = "src/test/resources/smali";
 
     private static ClassManager classManager;
 
@@ -81,7 +82,7 @@ public class VMTester {
     public static void setRegisterMock(MethodState mState, int register, Object value, String type) {
         HeapItem item = mock(HeapItem.class);
         when(item.getValue()).thenReturn(value);
-        if ("I".equals(type) && value instanceof Number) {
+        if (CommonTypes.INTEGER.equals(type) && value instanceof Number) {
             when(item.asInteger()).thenReturn((Integer) value);
         } else if (value instanceof UnknownValue) {
             when(item.isUnknown()).thenReturn(true);

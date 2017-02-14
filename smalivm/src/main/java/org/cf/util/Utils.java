@@ -37,8 +37,7 @@ public class Utils {
         return buildArray(internalName, length, Utils.class.getClassLoader());
     }
 
-    public static Object buildArray(String internalName, int length,
-                                    ClassLoader classLoader) throws ClassNotFoundException {
+    public static Object buildArray(String internalName, int length, ClassLoader classLoader) throws ClassNotFoundException {
         String baseClassName = ClassNameUtils.getComponentBase(internalName);
         String binaryName = ClassNameUtils.internalToBinary(baseClassName);
 
@@ -161,15 +160,11 @@ public class Utils {
     }
 
     public static Float getFloatValue(Object obj) {
-        Float floatValue = (Float) castToPrimitive(obj, CommonTypes.FLOAT_OBJ);
-
-        return floatValue;
+        return (Float) castToPrimitive(obj, CommonTypes.FLOAT_OBJ);
     }
 
     public static Integer getIntegerValue(Object obj) {
-        Integer intValue = (Integer) castToPrimitive(obj, CommonTypes.INTEGER_OBJ);
-
-        return intValue;
+        return (Integer) castToPrimitive(obj, CommonTypes.INTEGER_OBJ);
     }
 
     public static MethodLocation[] getLocations(BuilderInstruction... instructions) {
@@ -182,13 +177,10 @@ public class Utils {
     }
 
     public static Long getLongValue(Object obj) {
-        Long longValue = (Long) castToPrimitive(obj, CommonTypes.LONG_OBJ);
-
-        return longValue;
+        return (Long) castToPrimitive(obj, CommonTypes.LONG_OBJ);
     }
 
-    public static MethodLocation getNextLocation(MethodLocation location,
-                                                 TIntObjectMap<MethodLocation> addressToLocation) {
+    public static MethodLocation getNextLocation(MethodLocation location, TIntObjectMap<MethodLocation> addressToLocation) {
         int address = location.getCodeAddress();
         int nextAddress = address + location.getInstruction().getCodeUnits();
 
@@ -273,5 +265,4 @@ public class Utils {
             intToObject.put(currentKey + shift, obj);
         }
     }
-
 }

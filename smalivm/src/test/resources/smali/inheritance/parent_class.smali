@@ -3,6 +3,7 @@
 
 .field public static parentField:I
 
+
 .method public constructor <clinit>()V
     .locals 1
 
@@ -11,6 +12,7 @@
 
     return-void
 .end method
+
 
 .method public constructor <init>()V
     .locals 0
@@ -25,7 +27,6 @@
 .end method
 
 
-# virtual methods
 .method public someString()Ljava/lang/String;
     .locals 1
 
@@ -38,8 +39,10 @@
     return-object v0
 .end method
 
+
 .method public abstract abstractMethod()Ljava/lang/String;
 .end method
+
 
 .method public parentMethod()Ljava/lang/String;
     .locals 1

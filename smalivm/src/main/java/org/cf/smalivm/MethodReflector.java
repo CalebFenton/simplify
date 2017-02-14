@@ -37,7 +37,8 @@ public class MethodReflector {
         Object returnValue;
         try {
             returnValue = invoke(mState);
-        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+        } catch (NullPointerException | ClassNotFoundException | NoSuchMethodException | SecurityException | InstantiationException |
+                IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             //            e.printStackTrace();
             if (log.isWarnEnabled()) {
                 log.warn("Failed to reflect {}: {}", method, e.getMessage());
@@ -94,8 +95,9 @@ public class MethodReflector {
         return new InvocationArguments(args, parameterTypes);
     }
 
-    private Object invoke(
-            MethodState mState) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+    @SuppressWarnings({ "unchecked" })
+    private Object invoke(MethodState mState) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException,
+            InstantiationException {
         Object returnValue;
         Class<?> klazz = Class.forName(method.getBinaryClassName());
         InvocationArguments invocationArgs = getArguments(mState);
@@ -103,19 +105,15 @@ public class MethodReflector {
         Class<?>[] parameterTypes = invocationArgs.getParameterTypes();
         if (method.isStatic()) {
             if (log.isDebugEnabled()) {
-                log.debug("Reflecting static {}, clazz={} args={}", method, klazz,
-                          Arrays.toString(args));
+                log.debug("Reflecting static {}, clazz={} args={}", method, klazz, Arrays.toString(args));
             }
-            returnValue = MethodUtils
-                    .invokeStaticMethod(klazz, method.getName(), args, parameterTypes);
+            returnValue = MethodUtils.invokeStaticMethod(klazz, method.getName(), args, parameterTypes);
         } else {
             if ("<init>".equals(method.getName())) {
                 if (log.isDebugEnabled()) {
-                    log.debug("Reflecting construction {}, class={} args={}", method, klazz,
-                              Arrays.toString(args));
+                    log.debug("Reflecting construction {}, class={} args={}", method, klazz, Arrays.toString(args));
                 }
-                if ("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V"
-                        .equals(method.getSignature())) {
+                if ("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V".equals(method.getSignature())) {
                     /*
                      * Enums can't be instantiated. If you call newInstance() on the constructor,
                      * even with setAccessible(true), it fails with InstantiationException.
@@ -124,7 +122,8 @@ public class MethodReflector {
                     HeapItem instance = mState.peekParameter(mState.getParameterStart());
                     String enumType = ClassNameUtils.internalToSource(instance.getType());
                     ClassLoader classLoader = vm.getClassLoader();
-                    Class enumClass = classLoader.loadClass(enumType);
+
+                    Class<? extends Enum> enumClass = (Class<? extends Enum>) classLoader.loadClass(enumType);
                     String name = (String) args[0];
                     try {
                         returnValue = Enum.valueOf(enumClass, name);
@@ -140,12 +139,10 @@ public class MethodReflector {
             } else {
                 HeapItem targetItem = mState.peekRegister(0);
                 if (log.isDebugEnabled()) {
-                    log.debug("Reflecting virtual {}, target={} args={}", method, targetItem,
-                              Arrays.toString(args));
+                    log.debug("Reflecting virtual {}, target={} args={}", method, targetItem, Arrays.toString(args));
                 }
                 Object value = targetItem.getValue();
-                returnValue = MethodUtils
-                        .invokeMethod(value, method.getName(), args, parameterTypes);
+                returnValue = MethodUtils.invokeMethod(value, method.getName(), args, parameterTypes);
             }
         }
 
@@ -171,5 +168,4 @@ public class MethodReflector {
         }
 
     }
-
 }

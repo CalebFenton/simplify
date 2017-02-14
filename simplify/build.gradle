@@ -30,6 +30,7 @@ dependencies {
     testCompile depends.mockito
     testCompile depends.perfidix // benchmarks
     testCompile project(':smalivm').sourceSets.test.output
+    testCompile project(':smalivm').sourceSets.test.resources
 }
 
 // Because of conflicting transitive dependencies (commons-cli), SmaliVM must be at the END of the classpath.
