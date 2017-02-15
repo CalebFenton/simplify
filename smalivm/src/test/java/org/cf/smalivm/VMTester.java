@@ -8,6 +8,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.dex.SmaliParser;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
@@ -41,7 +42,7 @@ import static org.mockito.Mockito.when;
 
 public class VMTester {
 
-    private static final String TEST_CLASS_PATH = "resources/test/smali";
+    public static final String TEST_CLASS_PATH = "src/test/resources/smali";
 
     private static ClassManager classManager;
 
@@ -81,7 +82,7 @@ public class VMTester {
     public static void setRegisterMock(MethodState mState, int register, Object value, String type) {
         HeapItem item = mock(HeapItem.class);
         when(item.getValue()).thenReturn(value);
-        if ("I".equals(type) && value instanceof Number) {
+        if (CommonTypes.INTEGER.equals(type) && value instanceof Number) {
             when(item.asInteger()).thenReturn((Integer) value);
         } else if (value instanceof UnknownValue) {
             when(item.isUnknown()).thenReturn(true);
@@ -91,14 +92,25 @@ public class VMTester {
         when(mState.readRegister(eq(register))).thenReturn(item);
     }
 
+    /**
+     * Create a new {@link VirtualMachine} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
+     * VirtualMachine} by reusing the same {@link ClassManager}.
+     *
+     * @return {@link VirtualMachine} for tests
+     */
     public static VirtualMachine spawnVM() {
         return spawnVM(false);
     }
 
     /**
-     * Create a new virtual machine and class manager. This is necessary when class implementations
-     * are changing, such as testing the optimization strategies and when dealing with class loading
-     * and dynamic creation.
+     * Create a new {@link VirtualMachine} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
+     * VirtualMachine} by reusing the same {@link ClassManager} by default. If {@code reloadClasses} is true, a new {@link ClassManager} is created
+     * and all classes are loaded again. This is necessary if method implementations are modified. For example, Simplify optimization strategy tests
+     * modify method implementation and in order for each test to have the true method implementations, many of those tests set {@code reloadClasses}
+     * to {@code true}.
+     *
+     * @param reloadClasses if true, rebuild {@link ClassManager}, otherwise reuse existing
+     * @return {@link VirtualMachine} for tests
      */
     public static VirtualMachine spawnVM(boolean reloadClasses) {
         if ((null == classManager) || reloadClasses) {
@@ -132,8 +144,7 @@ public class VMTester {
         testVisitation(className, methodSignature, new VMState(), expectedAddresses);
     }
 
-    public static void testVisitation(String className, String methodSignature, VMState initialState,
-                                      int[] expectedAddresses) {
+    public static void testVisitation(String className, String methodSignature, VMState initialState, int[] expectedAddresses) {
         ExecutionGraph graph = VMTester.execute(className, methodSignature, initialState);
         testVisitation(graph, expectedAddresses);
     }
@@ -153,21 +164,18 @@ public class VMTester {
         assertArrayEquals(expectedAddresses, actualAddresses);
     }
 
-    public static void verifyExceptionHandling(Set<Throwable> expectedExceptions, ExecutionNode node,
-                                               MethodState mState) {
+    public static void verifyExceptionHandling(Set<Throwable> expectedExceptions, ExecutionNode node, MethodState mState) {
         verify(node).setExceptions(eq(expectedExceptions));
         verify(node).clearChildren();
         verify(node, times(0)).setChildLocations(any(MethodLocation[].class));
         verify(mState, times(0)).assignRegister(any(Integer.class), any(HeapItem.class));
     }
 
-    public static void verifyExceptionHandling(Class<? extends Throwable> exceptionClass, ExecutionNode node,
-                                               MethodState mState) {
+    public static void verifyExceptionHandling(Class<? extends Throwable> exceptionClass, ExecutionNode node, MethodState mState) {
         verifyExceptionHandling(exceptionClass, null, node, mState);
     }
 
-    public static void verifyExceptionHandling(Class<? extends Throwable> exceptionClass, String message,
-                                               ExecutionNode node, MethodState mState) {
+    public static void verifyExceptionHandling(Class<? extends Throwable> exceptionClass, String message, ExecutionNode node, MethodState mState) {
         ArgumentCaptor<Throwable> argument = ArgumentCaptor.forClass(Throwable.class);
         verify(node).setException(argument.capture());
         assertEquals(exceptionClass, argument.getValue().getClass());
@@ -206,8 +214,7 @@ public class VMTester {
         }
     }
 
-    private static void setupMethodState(ExecutionContext context, Map<Integer, HeapItem> registerToItem,
-                                         int registerCount) {
+    private static void setupMethodState(ExecutionContext context, Map<Integer, HeapItem> registerToItem, int registerCount) {
         MethodState mState = new MethodState(context, registerCount);
         for (Entry<Integer, HeapItem> entry : registerToItem.entrySet()) {
             Integer register = entry.getKey();
@@ -217,10 +224,8 @@ public class VMTester {
         context.setMethodState(mState);
     }
 
-    private static void testClassState(ExecutionGraph graph,
-                                       Map<String, Map<String, HeapItem>> classNameToFieldDescriptorToItem) {
-        for (Entry<String, Map<String, HeapItem>> fieldDescriptorMapEntry : classNameToFieldDescriptorToItem
-                .entrySet()) {
+    private static void testClassState(ExecutionGraph graph, Map<String, Map<String, HeapItem>> classNameToFieldDescriptorToItem) {
+        for (Entry<String, Map<String, HeapItem>> fieldDescriptorMapEntry : classNameToFieldDescriptorToItem.entrySet()) {
             String className = fieldDescriptorMapEntry.getKey();
             VirtualClass virtualClass = graph.getVM().getClassManager().getVirtualClass(className);
             Map<String, HeapItem> fieldDescriptorToItem = fieldDescriptorMapEntry.getValue();

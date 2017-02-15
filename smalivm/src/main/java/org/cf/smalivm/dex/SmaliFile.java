@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -34,27 +35,26 @@ public class SmaliFile {
     }
 
     private static String getClassName(File inputFile) throws FileNotFoundException {
-        String className;
         try {
             Path myPath = Paths.get(inputFile.toURI());
             Stream<String> lines = Files.lines(myPath);
-            String line = lines.filter(s -> s.startsWith(".class ")).findFirst().get();
+            Optional<String> firstClassLine = lines.filter(s -> s.startsWith(".class ")).findFirst();
             lines.close();
 
-            if (null == line) {
+            if (!firstClassLine.isPresent()) {
                 throw new RuntimeException("Missing class directive in " + inputFile);
             }
 
+            String line = firstClassLine.get();
             Matcher m = CLASS_PATTERN.matcher(line);
             if (!m.find()) {
                 throw new RuntimeException("Strange class directive: " + line);
             }
-            className = m.group(1);
+
+            return m.group(1);
         } catch (IOException e) {
             throw new RuntimeException("Unable to read class name in " + inputFile, e);
         }
-
-        return className;
     }
 
     public String getClassName() {
@@ -93,5 +93,4 @@ public class SmaliFile {
     public String toString() {
         return path;
     }
-
 }

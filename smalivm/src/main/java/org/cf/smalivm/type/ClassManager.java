@@ -50,6 +50,7 @@ public class ClassManager {
 
     ClassManager(DexBuilder dexBuilder, File smaliPath) throws IOException {
         this(dexBuilder, false);
+        System.out.println("Creating class manager with this path: " + smaliPath.getAbsolutePath());
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath));
     }
 
@@ -179,6 +180,7 @@ public class ClassManager {
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
         if (smaliFile == null) {
             throw new RuntimeException("Can't find Smali file for " + className);
+
         }
 
         boolean isFramework = smaliFileFactory.isFrameworkClass(className);
