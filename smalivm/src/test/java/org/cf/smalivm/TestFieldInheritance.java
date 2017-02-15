@@ -20,7 +20,11 @@ public class TestFieldInheritance {
 
     @Before
     public void setupVM() {
-        vm = VMTester.spawnVM();
+        /*
+         * On TravisCI, these tests fail with StackOverflowError and missing classes unless classes are reloaded. Local test classes are actually
+         * completely missing for no obvious reason.
+         */
+        vm = VMTester.spawnVM(true);
         ClassManager classManager = vm.getClassManager();
         childClass = classManager.getVirtualClass("Lchild_class;");
         parentClass = classManager.getVirtualClass("Lparent_class;");
@@ -91,5 +95,4 @@ public class TestFieldInheritance {
         fieldItem = graph.getTerminatingFieldConsensus(field);
         assertEquals(expectedValue, fieldItem.getValue());
     }
-
 }
