@@ -90,12 +90,13 @@ public class NodeExecutor {
             } else {
                 if (log.isWarnEnabled()) {
                     log.warn("{} threw a real exception but was caught by an exception handler. " +
-                             "This may be a bug in smalivm or in the target code. Exception: {}", node, e);
+                             "This may be a bug in smalivm or in the input code. Exception: {}", node, e.toString());
 
                 }
             }
             spawnChild(graph, node, childAddress);
         }
+
 
         spawnChildren(graph, node);
         spawnExceptionChildren(graph, node, exceptionResolver);
@@ -104,5 +105,4 @@ public class NodeExecutor {
             log.debug("Context after:\n{}", node.getContext());
         }
     }
-
 }
