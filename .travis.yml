@@ -7,12 +7,14 @@ env:
   matrix:
   - TERM=dumb
   global:
-  - secure: ZYDSu09ecVRgxB0oRHaOFSj2InEgpAcQLJKnrr24vfCD4+RncHzAJqqGoUbe0eiajTnybJppiuscoQTh+yPmuF4TPTIvRZa87VP9xGZRs1r6hbw6XUtvyBIZx4yVVr0+69hIQ/LTQSHTl3l7WIXXTw/ZgN3PD8Hm/KdSlUkUXQk=
-  - secure: AXRGnJN4mRaQZ6L7iP63wFKXAM54VANhH4Q2XaQmcXMV+G4Aw66cvFsohg+mlGYYPb8FsGjax0LQrNCbUB4hCC9463qk+e+tfr1dt8ueaycMw9VP4eOA31/RWdvIYSZhKNro35IFDAwMD0jA5TVJFFiYwm3vyTiz/lPVqbVdwTk=
   - GRADLE_OPTS="-Xms128m"
   - MALLOC_ARENA_MAX=2
+  - secure: CuwlExvbWSRXHB637HlLgP7js+vpiDRbD2kA6QuC/GEi7WuDDkvzqZel/7Sf3bQBAi29LjFCUn7004pfhsrKWZjyEOc2P3abKkWjbIle4t8OuhR7mEGurWmdU4OXxPXU0jZYHHwnu/AUvM/YL9epYtFeOLu+MxIXaf4mJe5IoXM=
+  - secure: AXRGnJN4mRaQZ6L7iP63wFKXAM54VANhH4Q2XaQmcXMV+G4Aw66cvFsohg+mlGYYPb8FsGjax0LQrNCbUB4hCC9463qk+e+tfr1dt8ueaycMw9VP4eOA31/RWdvIYSZhKNro35IFDAwMD0jA5TVJFFiYwm3vyTiz/lPVqbVdwTk=
 before_install:
 - chmod +x gradlew
+- echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END
+  CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
 before_script:
 - sudo service bootlogd stop || true
 - sudo service elasticsearch stop || true
