@@ -110,7 +110,7 @@ public class Launcher {
 
     private static void updateZip(File zip, File entry, String entryName) throws IOException {
         Map<String, String> env = new HashMap<>();
-        String uriPath = "jar:file:" + zip.getAbsolutePath();
+        String uriPath = "jar:" + zip.toURI().toString();
         URI uri = URI.create(uriPath);
         try (FileSystem fs = FileSystems.newFileSystem(uri, env)) {
             fs.provider().checkAccess(fs.getPath(entryName), AccessMode.READ);
@@ -182,7 +182,7 @@ public class Launcher {
                 System.out.println("Skipping method without implementation: " + method);
                 continue;
             }
-            
+
             boolean executeAgain;
             do {
                 System.out.println("Executing: " + method);
