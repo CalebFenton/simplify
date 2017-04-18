@@ -12,3 +12,18 @@ dependencies {
 
     testCompile depends.junit
 }
+
+task fatJar(type: Jar) {
+    from sourceSets.main.output
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+
+    manifest {
+        attributes('Main-Class': mainClassName)
+    }
+
+    doLast {
+        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
+            ant.symlink(link: file("${destinationDir}/demoapp.jar"), resource: archivePath, overwrite: true)
+        }
+    }
+}

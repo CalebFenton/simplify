@@ -8,9 +8,9 @@ import org.cf.smalivm.emulate.MethodStateMethod;
 import org.cf.smalivm.emulate.UnknownValuesMethod;
 import org.cf.smalivm.opcode.Op;
 
-class java_io_PrintStream_println extends MethodStateMethod implements UnknownValuesMethod {
+public class java_io_PrintStream_println extends MethodStateMethod implements UnknownValuesMethod {
 
-    java_io_PrintStream_println() {
+    public java_io_PrintStream_println() {
         super();
 
         // Writing bytes over any kind of IO affects state outside of the VM.
