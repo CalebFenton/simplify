@@ -364,7 +364,7 @@ public class InvokeOp extends ExecutionContextOp {
                         // Possibly UninitializedInstance
                         if (log.isWarnEnabled()) {
                             if (item.isUnknown()) {
-                                log.warn("Method had possible execution path which throws an exception but cannon instantiate it because the value is unknown. Exception item: {}", item);
+                                log.warn("Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}", item);
                             } else {
                                 log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
                                          "likely an input class and may need to be white listed to execute properly.",
