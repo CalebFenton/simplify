@@ -25,9 +25,9 @@ dependencies {
     compile depends.slf4j_api
 
     // Parsing and writing dex files
-    compile group: 'org.smali', name: 'dexlib2', version: '2.2b4'
-    compile group: 'org.smali', name: 'smali', version: '2.2b4'
-    compile group: 'org.smali', name: 'baksmali', version: '2.2b4'
+    compile group: 'org.smali', name: 'dexlib2', version: '2.2.1'
+    compile group: 'org.smali', name: 'smali', version: '2.2.1'
+    compile group: 'org.smali', name: 'baksmali', version: '2.2.1'
 
     // For dynamic java.lang.Class generation
     compile group: 'org.ow2.asm', name: 'asm', version: '6.0_ALPHA'
