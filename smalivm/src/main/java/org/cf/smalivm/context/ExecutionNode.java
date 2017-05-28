@@ -157,7 +157,8 @@ public class ExecutionNode {
         if (this.context != null) {
             sb.append("signature=").append(context.getMethod()).append(", ");
         }
-        sb.append("op=").append(op.toString()).append('}');
+        sb.append("op=").append(op.toString()).append(", ");
+        sb.append("@=").append(op.getAddress()).append('}');
 
         return sb.toString();
     }
