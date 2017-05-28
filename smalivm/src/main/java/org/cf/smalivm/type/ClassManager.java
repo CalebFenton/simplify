@@ -50,7 +50,6 @@ public class ClassManager {
 
     ClassManager(DexBuilder dexBuilder, File smaliPath) throws IOException {
         this(dexBuilder, false);
-        System.out.println("Creating class manager with this path: " + smaliPath.getAbsolutePath());
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath));
     }
 
