@@ -151,8 +151,6 @@ public class VirtualClass extends VirtualType {
         }
 
         if (targetType.getName().equals(CommonTypes.OBJECT)) {
-            // If not a primitive, target type will have Object in its ancestors.
-            // This check is just to avoid having to iterate through them.
             return true;
         }
 

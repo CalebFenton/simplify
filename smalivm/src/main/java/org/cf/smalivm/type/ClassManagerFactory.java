@@ -87,5 +87,4 @@ public class ClassManagerFactory {
     public ClassManager build(String smaliPath, DexBuilder dexBuilder) throws IOException {
         return build(new File(smaliPath), dexBuilder);
     }
-
 }

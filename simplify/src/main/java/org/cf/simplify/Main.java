@@ -24,5 +24,4 @@ public class Main {
             launcher = new Launcher(vmFactory);
         }
     }
-
 }

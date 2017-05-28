@@ -46,5 +46,4 @@ public class VirtualMachineFactory {
         return build(new File(smaliPath), outputAPILevel, maxAddressVisits, maxCallDepth, maxMethodVisits,
                         maxExecutionTime);
     }
-
 }
