@@ -8,13 +8,16 @@ buildscript {
         mavenCentral()
         jcenter()
     }
-
     dependencies {
         classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.6.3'
     }
 }
 
+apply plugin: 'com.github.kt3k.coveralls'
+
 allprojects {
+    apply plugin: 'jacoco'
+
     repositories {
         mavenLocal()
         mavenCentral()
@@ -25,10 +28,8 @@ allprojects {
             options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
         }
     }
-
-    apply plugin: 'jacoco'
-    apply plugin: 'com.github.kt3k.coveralls'
 }
+
 
 subprojects {
     apply plugin: 'java'
