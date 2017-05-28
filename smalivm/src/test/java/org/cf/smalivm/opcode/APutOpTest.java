@@ -52,17 +52,24 @@ public class APutOpTest {
         ClassLoader classLoader = VMTester.spawnVM().getClassLoader();
         Class<?> value2 = classLoader.loadClass(binaryClassName);
 
-        initial.setRegisters(0, array, arrayType, 1, index1, "I", 2, value1, valueType, 3, index2, "I", 4, value2,
-                valueType);
-        expected.setRegisters(0, new Class<?>[] { value1, value2 }, arrayType);
+        initial.setRegisters(0, array, arrayType, 1, index1, "I", 2, value1, valueType, 3, index2, "I", 4, value2, valueType);
+        expected.setRegisters(0, new Class<?>[]{value1, value2}, arrayType);
 
         VMTester.test(CLASS_NAME, "putObjects()V", initial, expected);
     }
 
     @Test
+    public void canArrayIntoObjectArray() {
+        initial.setRegisters(0, new Object[1], "[" + CommonTypes.OBJECT, 1, 0, "I", 2, new byte[1], "[B");
+        expected.setRegisters(0, new Object[]{new byte[1]}, "[" + CommonTypes.OBJECT);
+
+        VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
+    }
+
+    @Test
     public void canPutBoolean() {
         initial.setRegisters(0, new boolean[1], "[Z", 1, 0, "I", 2, 0x1, "Z");
-        expected.setRegisters(0, new boolean[] { true }, "[Z");
+        expected.setRegisters(0, new boolean[]{true}, "[Z");
 
         VMTester.test(CLASS_NAME, "putBoolean()V", initial, expected);
     }
@@ -71,7 +78,7 @@ public class APutOpTest {
     public void canPutBooleanWithShortValue() {
         Short value = 0x1;
         initial.setRegisters(0, new boolean[1], "[Z", 1, 0, "I", 2, value, "Z");
-        expected.setRegisters(0, new boolean[] { true }, "[Z");
+        expected.setRegisters(0, new boolean[]{true}, "[Z");
 
         VMTester.test(CLASS_NAME, "putBoolean()V", initial, expected);
     }
@@ -80,7 +87,7 @@ public class APutOpTest {
     public void canPutByte() {
         Byte value = 0xf;
         initial.setRegisters(0, new byte[1], "[B", 1, 0, "I", 2, value, "B");
-        expected.setRegisters(0, new byte[] { value }, "[B");
+        expected.setRegisters(0, new byte[]{value}, "[B");
 
         VMTester.test(CLASS_NAME, "putByte()V", initial, expected);
     }
@@ -89,7 +96,7 @@ public class APutOpTest {
     public void canPutByteFromInt() {
         int value = 0xf;
         initial.setRegisters(0, new byte[1], "[B", 1, 0, "I", 2, value, "B");
-        expected.setRegisters(0, new byte[] { (byte) value }, "[B");
+        expected.setRegisters(0, new byte[]{(byte) value}, "[B");
 
         VMTester.test(CLASS_NAME, "putByte()V", initial, expected);
     }
@@ -97,7 +104,7 @@ public class APutOpTest {
     @Test
     public void canPutChar() {
         initial.setRegisters(0, new char[1], "[C", 1, 0, "I", 2, '$', "C");
-        expected.setRegisters(0, new char[] { '$' }, "[C");
+        expected.setRegisters(0, new char[]{'$'}, "[C");
 
         VMTester.test(CLASS_NAME, "putChar()V", initial, expected);
     }
@@ -105,7 +112,7 @@ public class APutOpTest {
     @Test
     public void canPutCharFromInt() {
         initial.setRegisters(0, new char[1], "[C", 1, 0, "I", 2, (int) '$', "I");
-        expected.setRegisters(0, new char[] { '$' }, "[C");
+        expected.setRegisters(0, new char[]{'$'}, "[C");
 
         VMTester.test(CLASS_NAME, "putChar()V", initial, expected);
     }
@@ -119,7 +126,7 @@ public class APutOpTest {
         int value = 0;
 
         initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
-        expected.setRegisters(0, new String[] { null }, arrayType);
+        expected.setRegisters(0, new String[]{null}, arrayType);
 
         VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
     }
@@ -128,21 +135,67 @@ public class APutOpTest {
     public void canPutIntegerWithShortIndex() {
         Short index = 0;
         initial.setRegisters(0, new int[1], "[I", 1, index, "S", 2, 4, "I");
-        expected.setRegisters(0, new int[] { 4 }, "[I");
+        expected.setRegisters(0, new int[]{4}, "[I");
 
         VMTester.test(CLASS_NAME, "put()V", initial, expected);
     }
 
     @Test
-    public void canPutObject() {
-        String valueType = "Ljava/lang/String;";
+    public void canPutStringInStringArray() {
+        String valueType = CommonTypes.STRING;
         String arrayType = "[" + valueType;
+        String[] array = new String[1];
+        int index = 0;
+        String value = "Arrakis, Dune, desert planet...";
+
+        initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
+        expected.setRegisters(0, new String[]{value}, arrayType);
+
+        VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
+    }
+
+    @Test
+    public void canPutStringInObjectArray() {
+        String valueType = CommonTypes.STRING;
+        String arrayType = "[" + CommonTypes.OBJECT;
         Object[] array = new String[1];
         int index = 0;
         String value = "Arrakis, Dune, desert planet...";
 
         initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
-        expected.setRegisters(0, new String[] { value }, arrayType);
+        expected.setRegisters(0, new String[]{value}, arrayType);
+
+        VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
+    }
+
+    @Test
+    public void canPutStringArrayIn2DStringArray() {
+        String valueType = "[" + CommonTypes.STRING;
+        String arrayType = "[" + valueType;
+        String[][] array = new String[1][];
+        int index = 0;
+        String[] value = {"Arrakis, Dune, desert planet..."};
+
+        initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
+        String[][] expectedValue = new String[1][];
+        expectedValue[0] = value;
+        expected.setRegisters(0, expectedValue, arrayType);
+
+        VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
+    }
+
+    @Test
+    public void canPutStringArrayIn2DObjectArray() {
+        String valueType = "[" + CommonTypes.STRING;
+        String arrayType = "[[" + CommonTypes.OBJECT;
+        String[][] array = new String[1][];
+        int index = 0;
+        String[] value = {"Arrakis, Dune, desert planet..."};
+
+        initial.setRegisters(0, array, arrayType, 1, index, "I", 2, value, valueType);
+        String[][] expectedValue = new String[1][];
+        expectedValue[0] = value;
+        expected.setRegisters(0, expectedValue, arrayType);
 
         VMTester.test(CLASS_NAME, "putObject()V", initial, expected);
     }
@@ -151,7 +204,7 @@ public class APutOpTest {
     public void canPutShort() {
         Short value = 0x42;
         initial.setRegisters(0, new short[1], "[S", 1, 0, "I", 2, value, "S");
-        expected.setRegisters(0, new short[] { value }, "[S");
+        expected.setRegisters(0, new short[]{value}, "[S");
 
         VMTester.test(CLASS_NAME, "putShort()V", initial, expected);
     }
@@ -160,7 +213,7 @@ public class APutOpTest {
     public void canPutShortWithIntegerValue() {
         int value = 0x42;
         initial.setRegisters(0, new short[1], "[S", 1, 0, "I", 2, value, "I");
-        expected.setRegisters(0, new short[] { (short) value }, "[S");
+        expected.setRegisters(0, new short[]{(short) value}, "[S");
 
         VMTester.test(CLASS_NAME, "putShort()V", initial, expected);
     }
@@ -179,7 +232,7 @@ public class APutOpTest {
     public void canPutWideWithDouble() {
         Double value = 100000000000D;
         initial.setRegisters(0, new double[1], "[D", 1, 0, "I", 2, value, "D");
-        expected.setRegisters(0, new double[] { value }, "[D");
+        expected.setRegisters(0, new double[]{value}, "[D");
 
         VMTester.test(CLASS_NAME, "putWide()V", initial, expected);
     }
@@ -188,7 +241,7 @@ public class APutOpTest {
     public void canPutWideWithFloat() {
         Float value = 10.45F;
         initial.setRegisters(0, new float[1], "[F", 1, 0, "I", 2, value, "F");
-        expected.setRegisters(0, new float[] { value }, "[F");
+        expected.setRegisters(0, new float[]{value}, "[F");
 
         VMTester.test(CLASS_NAME, "putWide()V", initial, expected);
     }
@@ -197,7 +250,7 @@ public class APutOpTest {
     public void canPutWideWithLong() {
         Long value = 10000000000L;
         initial.setRegisters(0, new long[1], "[J", 1, 0, "I", 2, value, "J");
-        expected.setRegisters(0, new long[] { value }, "[J");
+        expected.setRegisters(0, new long[]{value}, "[J");
 
         VMTester.test(CLASS_NAME, "putWide()V", initial, expected);
     }
@@ -205,7 +258,7 @@ public class APutOpTest {
     @Test
     public void canPutWithInteger() {
         initial.setRegisters(0, new int[1], "[I", 1, 0, "I", 2, 4, "I");
-        expected.setRegisters(0, new int[] { 4 }, "[I");
+        expected.setRegisters(0, new int[]{4}, "[I");
 
         VMTester.test(CLASS_NAME, "put()V", initial, expected);
     }

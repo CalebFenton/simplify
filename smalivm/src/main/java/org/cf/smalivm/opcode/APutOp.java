@@ -75,7 +75,7 @@ public class APutOp extends MethodStateOp {
         VirtualArray arrayType = (VirtualArray) classManager.getVirtualType(arrayItem.getType());
         VirtualType arrayComponentType = arrayType.getComponentType();
 
-        if (arrayComponentType.instanceOf(valueType)) {
+        if (valueType.instanceOf(arrayComponentType)) {
             return false;
         }
 

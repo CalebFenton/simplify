@@ -1,5 +1,6 @@
 package org.cf.smalivm.type;
 
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
@@ -144,7 +145,19 @@ public class VirtualClass extends VirtualType {
 
     @Override
     public boolean instanceOf(VirtualType targetType) {
-        if (targetType instanceof VirtualArray || targetType instanceof VirtualPrimitive) {
+        if (targetType instanceof VirtualPrimitive) {
+            // Primitives can't be stored in objects
+            return false;
+        }
+
+        if (targetType.getName().equals(CommonTypes.OBJECT)) {
+            // If not a primitive, target type will have Object in its ancestors.
+            // This check is just to avoid having to iterate through them.
+            return true;
+        }
+
+        if (targetType instanceof VirtualArray) {
+            // Arrays can't be instances of non array, non object types.
             return false;
         }
 
