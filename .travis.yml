@@ -9,6 +9,7 @@ env:
   global:
   - GRADLE_OPTS="-Xms128m"
   - MALLOC_ARENA_MAX=2
+  - CI_NAME=travis-ci
   - secure: dz8FVLtE8hXYAhrMcBoYJh6iDbfm8V231eqLF4uWVeEDptf5iEvE58YqyDp9MW/XSo2KpWHdd8CkGK/auMrr6gAOTUY4woIDncdzGcnTTQQPJXVgdXjdilEwFrzEdTR64wkusBA924u47JOQnAXQTrhD0kZYD6ckcW9Bw4gg74s=
   - secure: CuqvnSiDcMGB7AxaFBq82zXuh+PwZ2nfcD+Y3AI38H3Hj9EdEwqrpkSaSrxPIvoShe7YgCtUqc/ELNuU7IeocosxJP6aA3Rd5fsSc4IHbWTER0+EnqepiDaDjIttvA9WnUwSypeN5lkdaT0yqUCI1j5FuGus+o4liq7n/4IXAlw=
 before_install:
