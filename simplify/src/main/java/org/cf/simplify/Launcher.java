@@ -58,13 +58,8 @@ public class Launcher {
         }
     }
 
-    private static void filterSupportLibrary(Collection<VirtualMethod> methods) {
-        for (Iterator<VirtualMethod> it = methods.iterator(); it.hasNext(); ) {
-            String name = it.next().getSignature();
-            if (SUPPORT_LIBRARY_PATTERN.matcher(name).find()) {
-                it.remove();
-            }
-        }
+    private static void filterSupportLibrary(Collection<String> classNames) {
+        classNames.removeIf(name -> SUPPORT_LIBRARY_PATTERN.matcher(name).find());
     }
 
     private static SimplifyOptions getOptions(String[] args) {
@@ -86,24 +81,20 @@ public class Launcher {
 
     private static void setLogLevel(SimplifyOptions bean) {
         if (bean.isQuiet()) {
-            ch.qos.logback.classic.Logger rootLogger =
-                    (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.OFF);
             return;
         }
 
         if (bean.getVerbosity() == 1) {
-            ch.qos.logback.classic.Logger rootLogger =
-                    (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.INFO);
         } else if (bean.getVerbosity() == 2) {
-            ch.qos.logback.classic.Logger rootLogger =
-                    (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.DEBUG);
         } else if (bean.getVerbosity() == 3) {
             // Ok, you asked for it.
-            ch.qos.logback.classic.Logger rootLogger =
-                    (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
             rootLogger.setLevel(Level.TRACE);
         }
     }
@@ -130,8 +121,7 @@ public class Launcher {
         }
         formatter.setWidth(consoleWidth);
 
-        formatter
-                .printHelp("java -jar simplify.jar <input> [options]", "deobfuscates a dalvik executable", options, "");
+        formatter.printHelp("java -jar simplify.jar <input> [options]", "deobfuscates a dalvik executable", options, "");
     }
 
     public void run(String[] args) throws IOException, UnhandledVirtualException {
@@ -142,22 +132,27 @@ public class Launcher {
             log.info("Options:\n{}", opts.toString());
         }
 
-        long startTime = System.currentTimeMillis();
-        VirtualMachine vm = vmFactory.build(opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(),
-                opts.getMaxCallDepth(), opts.getMaxMethodVisits(), opts.getMaxExecutionTime());
+        RuntimeStats stats = new RuntimeStats();
+        stats.begin();
+
+        VirtualMachine vm = vmFactory
+                .build(opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
+                       opts.getMaxExecutionTime());
         ClassManager classManager = vm.getClassManager();
         Set<String> classNames = classManager.getNonFrameworkClassNames();
-        int classCount = 0;
-        int methodCount = 0;
+        if (!opts.includeSupportLibrary()) {
+            filterSupportLibrary(classNames);
+        }
+        stats.intakeClasses(classNames);
+
         for (String className : classNames) {
-            int newCount = executeClass(vm, className);
-            classCount += newCount > 0 ? 1 : 0;
-            methodCount += newCount;
+            stats.incrementCurrentClassIndex();
+            System.out.println("[" + stats.getCurrentClassIndex() + " / " + stats.getTotalClasses() + "] Processing top level class " + className);
+            executeClass(vm, className, stats);
         }
 
-        long totalTime = System.currentTimeMillis() - startTime;
-        System.out.println(
-                "Simplified " + methodCount + " methods from " + classCount + " classes in " + totalTime + " ms.");
+        stats.end();
+        System.out.println("Simplification complete:\n" + stats.getStats());
         System.out.println(Optimizer.getTotalOptimizationCounts());
 
         System.out.println("Writing output to " + opts.getOutFile());
@@ -168,24 +163,25 @@ public class Launcher {
         }
     }
 
-    private int executeClass(VirtualMachine vm, String className) {
+    private void executeClass(VirtualMachine vm, String className, RuntimeStats stats) {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
         Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();
         filterMethods(methods, opts.getIncludeFilter(), opts.getExcludeFilter());
-        if (!opts.includeSupportLibrary()) {
-            filterSupportLibrary(methods);
-        }
 
+        stats.intakeMethods(methods);
         for (VirtualMethod method : methods) {
+            stats.incrementCurrentMethodIndex();
+
             if (!method.hasImplementation()) {
-                System.out.println("Skipping method without implementation: " + method);
+                System.out.println("[" + stats.getCurrentMethodIndex() + " / " + stats
+                        .getTotalMethods() + "] Skipping top level method without implementation: " + method);
                 continue;
             }
 
             boolean executeAgain;
             do {
-                System.out.println("Executing: " + method);
+                System.out.println("[" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + "] Executing top level method: " + method);
                 ExecutionGraph graph = null;
                 try {
                     graph = vm.execute(method);
@@ -194,9 +190,11 @@ public class Launcher {
                 }
 
                 if (null == graph) {
-                    System.out.println("Skipping " + method);
+                    System.out.println("Skipping optimization of " + method + "; null execution graph");
+                    stats.incrementFailedMethodCount();
                     break;
                 }
+                stats.incrementOptimizedMethodCount();
 
                 Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
                 optimizer.simplify(opts.getMaxOptimizationPasses());
@@ -209,7 +207,84 @@ public class Launcher {
                 executeAgain = optimizer.shouldReexecute();
             } while (executeAgain);
         }
+    }
 
-        return methods.size();
+    private class RuntimeStats {
+        int totalClasses;
+        int totalMethods;
+        int currentClassIndex;
+        int currentMethodIndex;
+        int failedMethodCount;
+        int optimizedMethodCount;
+        long startTime;
+        long endTime;
+
+        RuntimeStats() {
+        }
+
+        void intakeClasses(Collection classes) {
+            totalClasses = classes.size();
+        }
+
+        void intakeMethods(Collection methods) {
+            totalMethods = methods.size();
+        }
+
+        void incrementCurrentClassIndex() {
+            currentClassIndex++;
+        }
+
+        void incrementCurrentMethodIndex() {
+            currentMethodIndex++;
+        }
+
+        void incrementOptimizedMethodCount() {
+            optimizedMethodCount++;
+        }
+
+        void incrementFailedMethodCount() {
+            failedMethodCount++;
+        }
+
+        void begin() {
+            startTime = System.currentTimeMillis();
+        }
+
+        void end() {
+            endTime = System.currentTimeMillis();
+        }
+
+        String getStats() {
+            long totalTime = endTime - startTime;
+            return "\ttotal classes = " + totalClasses + "\n" +
+                    "\ttotal methods = " + totalMethods + "\n" +
+                    "\toptimized methods = " + optimizedMethodCount + "\n" +
+                    "\tfailed methods = " + failedMethodCount + "\n" +
+                    "\trun time = " + totalTime + " ms";
+        }
+
+        int getTotalClasses() {
+            return totalClasses;
+        }
+
+        int getTotalMethods() {
+            return totalMethods;
+        }
+
+        int getCurrentClassIndex() {
+            return currentClassIndex;
+        }
+
+        int getCurrentMethodIndex() {
+            return currentMethodIndex;
+        }
+
+        int getFailedMethodCount() {
+            return failedMethodCount;
+        }
+
+        int getOptimizedMethodCount() {
+            return optimizedMethodCount;
+        }
     }
 }
