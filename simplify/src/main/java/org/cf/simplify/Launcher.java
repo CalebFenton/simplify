@@ -181,7 +181,7 @@ public class Launcher {
 
             boolean executeAgain;
             do {
-                System.out.println("[" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + "] Executing top level method: " + method);
+                System.out.println("(" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + ") Executing top level method: " + method);
                 ExecutionGraph graph = null;
                 try {
                     graph = vm.execute(method);
