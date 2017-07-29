@@ -7,10 +7,7 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
-import org.cf.smalivm.type.UninitializedInstance;
-import org.cf.smalivm.type.UnknownValue;
-import org.cf.smalivm.type.VirtualClass;
-import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.*;
 import org.cf.util.ClassNameUtils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -27,6 +24,39 @@ import static org.junit.Assert.assertNull;
 
 @RunWith(Enclosed.class)
 public class InvokeOpTest {
+
+    public static class InstanceInitialization {
+        private VMState expected;
+        private VMState initial;
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
+
+        @Test
+        public void objectClassInitializationCreatesCorrectClass() {
+            VirtualMachine vm = VMTester.spawnVM();
+            VirtualType type = vm.getClassManager().getVirtualType("Lhash_code;");
+            initial.setRegisters(0, new UninitializedInstance(type), "Lhash_code;");
+
+            ExecutionGraph graph = VMTester.execute("Lhash_code;", "<init>()V");
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals("Lhash_code;", consensus.getType());
+        }
+
+        @Test
+        public void enumClassInitializationCreatesCorrectClass() {
+            VirtualMachine vm = VMTester.spawnVM();
+            VirtualType type = vm.getClassManager().getVirtualType("Lextends_enum;");
+            initial.setRegisters(0, new UninitializedInstance(type), "Lextends_enum;", 1, "NONE", "Ljava/lang/String;", 2, 0, "I", 3, 0, "I");
+
+            ExecutionGraph graph = VMTester.execute("Lextends_enum;", "<init>(Ljava/lang/String;II)V", initial);
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals("Lextends_enum;", consensus.getType());
+        }
+    }
 
     public static class Reflected {
 

@@ -50,7 +50,12 @@ public class MethodReflector {
         }
 
         if (!method.returnsVoid()) {
-            HeapItem returnItem = new HeapItem(returnValue, method.getReturnType());
+            HeapItem returnItem;
+            if (returnValue != null) {
+                returnItem = new HeapItem(returnValue, ClassNameUtils.toInternal(returnValue.getClass()));
+            } else {
+                returnItem = new HeapItem(returnValue, method.getReturnType());
+            }
             mState.assignReturnRegister(returnItem);
         }
     }
@@ -113,10 +118,10 @@ public class MethodReflector {
                 if (log.isDebugEnabled()) {
                     log.debug("Reflecting construction {}, class={} args={}", method, klazz, Arrays.toString(args));
                 }
-                if ("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V".equals(method.getSignature())) {
+                if (method.getSignature().startsWith("Ljava/lang/Enum;-><init>(Ljava/lang/String;")) {
                     /*
-                     * Enums can't be instantiated. If you call newInstance() on the constructor,
-                     * even with setAccessible(true), it fails with InstantiationException.
+                     * Enums can't be instantiated by calling newInstance() on the constructor,
+                     * even with setAccessible(true). It fails with InstantiationException.
                      * http://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.9
                      */
                     HeapItem instance = mState.peekParameter(mState.getParameterStart());
@@ -135,7 +140,8 @@ public class MethodReflector {
                 } else {
                     returnValue = ConstructorUtils.invokeConstructor(klazz, args);
                 }
-                mState.assignParameter(0, new HeapItem(returnValue, method.getClassName()));
+                HeapItem instanceItem = new HeapItem(returnValue, ClassNameUtils.toInternal(returnValue.getClass()));
+                mState.assignParameter(0, instanceItem);
             } else {
                 HeapItem targetItem = mState.peekRegister(0);
                 if (log.isDebugEnabled()) {
