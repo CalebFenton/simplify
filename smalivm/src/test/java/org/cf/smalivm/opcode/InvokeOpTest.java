@@ -45,8 +45,7 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyCoaxedToCharacter() {
-            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/util/LinkedList;", 1, (int) 'a', "I", 2, 0,
-                    "I");
+            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/util/LinkedList;", 1, (int) 'a', "I", 2, 0, "I");
             expected.setRegisters(0, (int) 'a', "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -72,8 +71,7 @@ public class InvokeOpTest {
 
         @Test
         public void intValueCorrectlyNotCoaxedToNull() {
-            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/util/LinkedList;", 1, 5, "Ljava/lang/Integer;", 2,
-                    0, "I");
+            initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/util/LinkedList;", 1, 5, "Ljava/lang/Integer;", 2, 0, "I");
             expected.setRegisters(0, 5, "Ljava/lang/Object;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
@@ -97,8 +95,7 @@ public class InvokeOpTest {
         public void initStringWithByteArrayWithUnknownParameter() {
             VirtualMachine vm = VMTester.spawnVM(true);
             VirtualClass instanceType = vm.getClassManager().getVirtualClass("Ljava/lang/String;");
-            initial.setRegisters(0, new UninitializedInstance(instanceType), "Ljava/lang/String;", 1,
-                    new UnknownValue(), "[B");
+            initial.setRegisters(0, new UninitializedInstance(instanceType), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
             expected.setRegisters(0, new UnknownValue(), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
 
             VMTester.test(CLASS_NAME, "initStringWithByteArray()V", initial, expected);
@@ -135,6 +132,22 @@ public class InvokeOpTest {
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
+        }
+
+        @Test
+        public void invokeMethodCausingAssumeMaximumUnknownWithSignatureTypeLessSpecificThanKnownArgumentsTypeRetainsSpecificType() {
+            initial.setRegisters(0, new byte[0], "[B", 1, 0, "I", 2, new byte[0], "[B", 3, 0, "I", 4, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "[B", 1, 0, "I", 2, new UnknownValue(), "[B", 3, 0, "I", 4, new UnknownValue(), "I");
+
+            VMTester.test(CLASS_NAME, "invokeArrayCopy()V", initial, expected);
+        }
+
+        @Test
+        public void invokeMethodCausingAssumeMaximumUnknownWithSignatureTypeLessSpecificThanUnknownArgumentsTypeRetainsSpecificType() {
+            initial.setRegisters(0, new UnknownValue(), "[B", 1, 0, "I", 2, new UnknownValue(), "[B", 3, 0, "I", 4, new UnknownValue(), "I");
+            expected.setRegisters(0, new UnknownValue(), "[B", 1, 0, "I", 2, new UnknownValue(), "[B", 3, 0, "I", 4, new UnknownValue(), "I");
+
+            VMTester.test(CLASS_NAME, "invokeArrayCopy()V", initial, expected);
         }
 
         @Test
@@ -225,8 +238,7 @@ public class InvokeOpTest {
             initial.setRegisters(0, new int[] { 0x5 }, "[I", 1, 0, "I");
             expected.setRegisters(0, new int[] { 0x0 }, "[I", 1, 0, "I");
 
-            VMTester.test(CLASS_NAME, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
-                    expected);
+            VMTester.test(CLASS_NAME, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial, expected);
         }
 
         @Test
@@ -234,8 +246,7 @@ public class InvokeOpTest {
             initial.setRegisters(0, new int[] { 0x5 }, "[I", 1, new UnknownValue(), "I");
             expected.setRegisters(0, new UnknownValue(), "[I", 1, new UnknownValue(), "I");
 
-            VMTester.test(CLASS_NAME, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial,
-                    expected);
+            VMTester.test(CLASS_NAME, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial, expected);
         }
 
         @Test
@@ -265,16 +276,14 @@ public class InvokeOpTest {
         @Test
         public void sometimesThrownExceptionExecutesExceptionalAndNormalExecutionPaths() {
             initial.setRegisters(0, new UnknownValue(), "I");
-            ExecutionGraph graph =
-                    VMTester.execute(CLASS_NAME, "invokeMethodWhichMayThrowNullPointerException()V", initial);
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeMethodWhichMayThrowNullPointerException()V", initial);
 
             int[] expectedAddresses = new int[] { 0, 3, 4, 5 };
             VMTester.testVisitation(graph, expectedAddresses);
 
             String exceptionClass = "Ljava/lang/NullPointerException;";
             // Unknown type for register 0 because could be I or exceptionClass
-            expected.setRegisters(MethodState.ThrowRegister, new UnknownValue(), exceptionClass, 0, new UnknownValue(),
-                    "?");
+            expected.setRegisters(MethodState.ThrowRegister, new UnknownValue(), exceptionClass, 0, new UnknownValue(), "?");
             VMTester.testState(graph, expected);
         }
     }

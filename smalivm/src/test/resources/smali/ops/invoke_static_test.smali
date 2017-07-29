@@ -87,6 +87,14 @@
   return-void
 .end method
 
+.method public invokeArrayCopy()V
+  .locals 5
+
+  invoke-static {v0, v1, v2, v3, v4}, Ljava/lang/System;->arraycopy(Ljava/lang/Object;ILjava/lang/Object;II)V
+
+  return-void
+.end method
+
 # Need proper error handling, and to test private and instance from static
 #.method public static TestPrivateMethodInaccessible()V
 #.end method

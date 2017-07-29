@@ -1,5 +1,8 @@
 package org.cf.smalivm.opcode;
 
+import gnu.trove.list.TIntList;
+import gnu.trove.list.linked.TIntLinkedList;
+
 import org.cf.smalivm.MethodReflector;
 import org.cf.smalivm.ObjectInstantiator;
 import org.cf.smalivm.SideEffect;
@@ -26,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -261,24 +265,32 @@ public class InvokeOp extends ExecutionContextOp {
             HeapItem item = callerMethodState.readRegister(register);
             Object value = item.getValue();
             if (null == value) {
-                // Nulls don't mutate.
+                // Null references can't mutate.
                 continue;
             }
 
-            String type = analyzedParameterTypes[i];
+            String type;
+            if (item.isUnknown()) {
+                type = analyzedParameterTypes[i];
+                if (!type.equals(item.getType())){
+                    VirtualType parameterType = vm.getClassManager().getVirtualType(type);
+                    VirtualType argumentType = vm.getClassManager().getVirtualType(item.getType());
+
+                    if (parameterType.isAncestorOf(argumentType)) {
+                        type = item.getType();
+                    }
+                }
+            } else {
+                // If argument is known, use that type rather than relying on method signature.
+                // Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
+                type = item.getType();
+            }
+
             if (!isInitializing) {
-                // May be immutable type, but if this is the initializer, internal state would be changing.
+                // Even if immutable type, internal state can change in the initializer.
                 if (vm.getConfiguration().isImmutable(type)) {
                     if (log.isTraceEnabled()) {
-                        log.trace("{} (parameter) is immutable", type);
-                    }
-                    continue;
-                }
-
-                if (item.isImmutable()) {
-                    // Parameter virtual might be "Ljava/lang/Object;" but actual virtual is "Ljava/lang/String";
-                    if (log.isTraceEnabled()) {
-                        log.trace("{} (actual) is immutable", type);
+                        log.trace("{} is immutable", type);
                     }
                     continue;
                 }
@@ -383,7 +395,17 @@ public class InvokeOp extends ExecutionContextOp {
             node.clearChildren();
         } else {
             if (!method.getReturnType().equals(CommonTypes.VOID)) {
-                HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
+                // Terminating addresses may include throw ops which may not have a return register set
+                TIntList addresses = new TIntLinkedList();
+                for (int address : graph.getTerminatingAddresses()) {
+                    if (!graph.wasAddressReached(address)) {
+                        continue;
+                    }
+                    if (graph.getOp(address) instanceof ReturnOp) {
+                        addresses.add(address);
+                    }
+                }
+                HeapItem consensus = graph.getRegisterConsensus(addresses.toArray(), MethodState.ReturnRegister);
                 callerContext.getMethodState().assignResultRegister(consensus);
             } else {
                 if (methodSignature.contains(";-><init>(")) {
