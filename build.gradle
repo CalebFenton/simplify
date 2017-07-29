@@ -89,7 +89,7 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     dependsOn(reportProjects.test)
 
     sourceDirectories = files(reportProjects.sourceSets.main.allJava.srcDirs)
-    classDirectories = files(reportProjects.sourceSets.main.output.classesDir)
+    classDirectories = files(reportProjects.sourceSets.main.output.classesDirs)
     executionData = files(reportProjects.jacocoTestReport.executionData)
 
     reports {
@@ -118,9 +118,13 @@ if (System.env.TRAVIS == 'true') {
                 events "started", "passed", "skipped", "failed"
             }
 
+            tasks.withType(GroovyCompile) {
+                groovyOptions.fork = false
+            }
+
             /*
              * Tests are memory intensive and TravisCI only has 3-4 GB available. If we go over, test fails.
-             * Low min heap size so that each fork doesn't get the huge default heap size.
+             * Gradle creates a lot of forks, so keep fork min heap size low.
              * Also, fork frequently to get a fresh heap in case of memory leaks.
              * Using larger values doesn't seem to improve test performance.
             */
