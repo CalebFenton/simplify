@@ -118,10 +118,6 @@ if (System.env.TRAVIS == 'true') {
                 events "started", "passed", "skipped", "failed"
             }
 
-            tasks.withType(GroovyCompile) {
-                groovyOptions.fork = false
-            }
-
             /*
              * Tests are memory intensive and TravisCI only has 3-4 GB available. If we go over, test fails.
              * Gradle creates a lot of forks, so keep fork min heap size low.
@@ -129,8 +125,8 @@ if (System.env.TRAVIS == 'true') {
              * Using larger values doesn't seem to improve test performance.
             */
             maxParallelForks = 2
-            minHeapSize = '128m'
-            forkEvery = 20
+            minHeapSize = '64m'
+            forkEvery = 10
         }
     }
 }
