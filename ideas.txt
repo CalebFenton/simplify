@@ -177,6 +177,6 @@ consider unit testing
 
 
 Success stories:
-  * java -jar build/libs/simplify.jar sandbox/6247332 -it 'Configs;-><clinit>'
+  * java -jar build/libs/simplify.jar sandbox/6e83dc38935db29123ff29dc9454b5969e4a472a -it 'D;->'
   * java -Xmx6g -jar build/libs/simplify.jar sandbox/e99dd3229dc9ff70f6e768342ca27d984e796f1a -it '/smv;'
-  * java -jar build/libs/simplify.jar sandbox/8748278/ -it Acgt -v
+  * java -jar build/libs/simplify.jar sandbox/44417221d3ef6db0fa8f0f80e462f1332a7204a3/ -it Acgt -v
