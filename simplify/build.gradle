@@ -15,15 +15,15 @@ dependencies {
     compile depends.guava
 
     // CLI parsing
-    compile 'commons-cli:commons-cli:1.3.1'
+    compile 'commons-cli:commons-cli:1.4'
 
     // Primitive collections
     compile depends.trove4j
 
     // Logging
     compile depends.slf4j_api
-    compile 'ch.qos.logback:logback-core:1.1.11'
-    compile 'ch.qos.logback:logback-classic:1.1.11'
+    compile 'ch.qos.logback:logback-core:1.2.3'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
 
     // Testing
     testCompile depends.junit

@@ -49,7 +49,7 @@ public class FrameworkJarBuilder {
         System.out.println("Building framework cache from " + resPath);
         String cache = buildFrameworkCache(resPath);
         String cacheFileName = "src/main/resources/framework_classes.cfg";
-        Files.write(cache, new File(cacheFileName), Charset.forName("UTF-8"));
+        Files.asCharSink(new File(cacheFileName), Charset.forName("UTF-8")).write(cache);
         System.out.println("Saved cache to " + cacheFileName + " (" + cache.getBytes().length + " bytes)");
 
         String outPath = args[1];

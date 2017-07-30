@@ -9,7 +9,7 @@ buildscript {
 
 dependencies {
     // Object cloning
-    compile 'uk.com.robust-it:cloning:1.9.3'
+    compile 'uk.com.robust-it:cloning:1.9.5'
 
     // Easy method reflection
     compile 'commons-beanutils:commons-beanutils:1.9.3'

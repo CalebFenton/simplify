@@ -20,24 +20,28 @@ The code on the left is a decompilation of an obfuscated app, and the code on th
 
 There are three parts to the project: smalivm, simplify, and the demo app.
 
-1. **smalivm**: Virtual machine library which can execute Android apps. It executes a method and returns a graph which contains the register and class values at every instruction for every possible execution path. It works even if certain values are unknown such as a network response from a server. If it encounters an `if` and doesn't know the values of the conditional, it assumes either branch could happen and executes both paths.
-2. **simplify**: Analyzes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and specific peephole optimizations. The optimizations are fairly simple, but when applied together and in succession, it can decrypt strings, peel back layers of obfuscation, and greatly simplify code.
-3. **demoapp**: Contains simple, heavily commented examples of how to use **smalivm**. It's a good place to start if you want to use smalivm in your own projects.
+1. **smalivm**: Provides a virtual machine sandbox for executing Dalvik methods. After executing a method, it returns a graph containing all possible register and class values for every execution path. It works even if some values are unknown, such as file and network I/O. For example, any `if` or `switch` conditional with an unknown value results in both branches being taken.
+2. **simplify**: Analyzes the execution graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and some peephole optimizations. These are fairly simple, but when applied together repeatedly, they'll decrypt strings, remove reflection, and greatly simplify code. It does *not* rename methods and classes.
+3. **demoapp**: Contains simple, heavily commented examples for using **smalivm** in your own project. If you're building something that needs to execute Dalvik code, check it out.
 
 ## Usage
 
 ```
 usage: java -jar simplify.jar <input> [options]
 deobfuscates a dalvik executable
- -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after include-types
+ -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after
+                                 include-types
  -h,--help                       Display this message
-    --include-support            Attempt to execute and optimize classes in Android support library packages, default: false
+    --include-support            Attempt to execute and optimize classes in Android support library packages, default:
+                                 false
  -it,--include-types <pattern>   Limit execution to classes and methods which include REGEX, eg: ";->targetMethod\("
-    --max-address-visits <N>     Give up executing a method after visiting the same address N times, limits loops, default: 10000
-    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method chains, default:
-                                 50
+    --max-address-visits <N>     Give up executing a method after visiting the same address N times, limits loops,
+                                 default: 10000
+    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method
+                                 chains, default: 50
     --max-execution-time <N>     Give up executing a method after N seconds, default: 300
-    --max-method-vists <N>       Give up executing a method after executing N instructions in that method, default: 1000000
+    --max-method-visits <N>      Give up executing a method after executing N instructions in that method, default:
+                                 1000000
     --max-passes <N>             Do not run optimizers on a method more than N times, default: 100
  -o,--output <file>              Output simplified input to FILE
     --output-api-level <LEVEL>   Set output DEX API compatibility to LEVEL, default: 15
@@ -74,11 +78,11 @@ java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-exam
 
 ## Troubleshooting
 
-Simplify is in early stages of development. If you encounter a failure, try these recommendations, in order:
+If you encounter a failure, try these recommendations, in order:
 
-1. Include only a few methods or classes with `-it`.
+1. Only target a few methods or classes by using `-it` option.
 2. If failure is because of maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
-3. Try with `-v` or `-v 2` and report the issue with the logs.
+3. Try with `-v` or `-v 2` and report the issue with the logs and a hash of the DEX or APK.
 4. Try again, but do not break eye contact. Simplify can sense fear.
 
 ## Contributing
