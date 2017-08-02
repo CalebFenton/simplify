@@ -75,6 +75,8 @@ public class SimplifyOptionsParser {
                 case "quiet":
                     simplifyOpts.setIsQuiet();
                     break;
+                case "ignore-errors":
+                    simplifyOpts.setIgnoreErrors();
                 case "verbose":
                     if (val == null) {
                         simplifyOpts.setVerbosity(1);
@@ -174,6 +176,8 @@ public class SimplifyOptionsParser {
 
         Option helpOption = Option.builder("h").longOpt("help").desc("Display this message").build();
 
+        Option ignoreErrorsOption = Option.builder("ie").longOpt("ignore-errors").desc("Ignore errors while optimizing methods").build();
+
         Option quietOption = Option.builder("q").longOpt("quiet").desc("Be quiet").build();
 
         Option verboseOption = Option.builder("v").longOpt("verbose").hasArg().optionalArg(true).argName("LEVEL")
@@ -181,6 +185,7 @@ public class SimplifyOptionsParser {
 
         options.addOption(outputOption);
         options.addOption(includeTypesOption);
+        options.addOption(ignoreErrorsOption);
         options.addOption(excludeTypesOption);
         options.addOption(maxExecutionTimeOption);
         options.addOption(maxAddressVisitsOption);

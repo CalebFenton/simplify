@@ -187,6 +187,13 @@ public class Launcher {
                     graph = vm.execute(method);
                 } catch (VirtualMachineException e) {
                     System.err.println("Aborting execution; exception: " + e);
+                } catch (Throwable e1) {
+                    if (opts.ignoreErrors()) {
+                        System.err.println("Exception thrown while executing method:");
+                        e1.printStackTrace();
+                    } else {
+                        throw e1;
+                    }
                 }
 
                 if (null == graph) {

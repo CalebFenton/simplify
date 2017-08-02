@@ -17,6 +17,7 @@ public class SimplifyOptions implements Serializable {
 
     private Pattern excludeFilter;
     private boolean help;
+    private boolean ignoreErrors;
     private Pattern includeFilter;
     private boolean includeSupportLibrary;
     private File inFile;
@@ -156,6 +157,10 @@ public class SimplifyOptions implements Serializable {
         return help;
     }
 
+    public boolean ignoreErrors() {
+        return ignoreErrors;
+    }
+
     public boolean isQuiet() {
         return quiet;
     }
@@ -196,6 +201,10 @@ public class SimplifyOptions implements Serializable {
 
     protected void setIsHelp() {
         help = true;
+    }
+
+    protected void setIgnoreErrors() {
+        ignoreErrors = true;
     }
 
     protected void setIsQuiet() {
