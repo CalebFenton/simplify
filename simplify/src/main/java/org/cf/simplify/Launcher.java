@@ -179,40 +179,44 @@ public class Launcher {
                 continue;
             }
 
-            boolean executeAgain;
-            do {
-                System.out.println("(" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + ") Executing top level method: " + method);
-                ExecutionGraph graph = null;
-                try {
-                    graph = vm.execute(method);
-                } catch (VirtualMachineException e) {
-                    System.err.println("Aborting execution; exception: " + e);
-                } catch (Throwable e1) {
-                    if (opts.ignoreErrors()) {
-                        System.err.println("Exception thrown while executing method:");
-                        e1.printStackTrace();
-                    } else {
-                        throw e1;
+            try {
+                boolean executeAgain;
+                do {
+                    System.out.println("(" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + ") Executing top level method: " + method);
+                    ExecutionGraph graph = null;
+                    try {
+                        graph = vm.execute(method);
+                    } catch (VirtualMachineException e) {
+                        System.err.println("Aborting execution; exception: " + e);
                     }
-                }
 
-                if (null == graph) {
-                    System.out.println("Skipping optimization of " + method + "; null execution graph");
-                    stats.incrementFailedMethodCount();
-                    break;
-                }
+                    if (null == graph) {
+                        System.out.println("Skipping optimization of " + method + "; null execution graph");
+                        stats.incrementFailedMethodCount();
+                        break;
+                    }
+
+                    Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
+                    optimizer.simplify(opts.getMaxOptimizationPasses());
+                    if (optimizer.madeChanges()) {
+                        // Optimizer changed the implementation. Re-build graph to include changes.
+                        vm.updateInstructionGraph(method);
+                    }
+                    System.out.println(optimizer.getOptimizationCounts());
+
+                    executeAgain = optimizer.shouldReexecute();
+                } while (executeAgain);
                 stats.incrementOptimizedMethodCount();
-
-                Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
-                optimizer.simplify(opts.getMaxOptimizationPasses());
-                if (optimizer.madeChanges()) {
-                    // Optimizer changed the implementation. Re-build graph to include changes.
-                    vm.updateInstructionGraph(method);
+            }  catch (Throwable e1) {
+                if (opts.ignoreErrors()) {
+                    System.err.println("Exception thrown while executing method:");
+                    e1.printStackTrace();
+                    stats.incrementFailedMethodCount();
+                    continue;
+                } else {
+                    throw e1;
                 }
-                System.out.println(optimizer.getOptimizationCounts());
-
-                executeAgain = optimizer.shouldReexecute();
-            } while (executeAgain);
+            }
         }
     }
 
