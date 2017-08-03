@@ -120,8 +120,7 @@ public class Launcher {
         formatter.printHelp("java -jar simplify.jar <input> [options]", "deobfuscates a dalvik executable", options, "");
     }
 
-    public static ArrayList<String> optimizedClasses = new ArrayList<>();
-    public static ArrayList<String> optimizedMethods = new ArrayList<>();
+    private VirtualMachine vm;
 
     public void run(String[] args) throws IOException, UnhandledVirtualException {
         opts = getOptions(args);
@@ -134,7 +133,7 @@ public class Launcher {
         RuntimeStats stats = new RuntimeStats();
         stats.begin();
 
-        VirtualMachine vm = vmFactory
+        vm = vmFactory
                 .build(opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
                         opts.getMaxExecutionTime());
         ClassManager classManager = vm.getClassManager();
@@ -145,26 +144,9 @@ public class Launcher {
         stats.intakeClasses(classNames);
 
         for (String className : classNames) {
-            if (optimizedClasses.contains(className)) {
-                System.out.println("TEST: Already optimized "+className+", skipping");
-                continue;
-            }
             stats.incrementCurrentClassIndex();
             System.out.println("[" + stats.getCurrentClassIndex() + " / " + stats.getTotalClasses() + "] Processing top level class " + className);
-            try {
-                executeClass(vm, className, stats);
-            } catch (TryAgainException e) {
-                System.out.println("TEST: crashed while optimizing "+className+" writing error.dex");
-                for (String className1 : classManager.getNonFrameworkClassNames()) {
-                    Collection<VirtualMethod> methods = classManager.getVirtualClass(className1).getMethods();
-                    filterMethods(methods, opts.getIncludeFilter(), opts.getExcludeFilter());
-                }
-                Main.errorDexFile = File.createTempFile("error", "dex");
-                classManager.getDexBuilder().writeTo(new FileDataStore(Main.errorDexFile));
-                throw e;
-            }
-            System.out.println("TEST: successfully optimized "+className);
-            optimizedClasses.add(className);
+            executeClass(className, stats);
         }
 
         stats.end();
@@ -179,7 +161,7 @@ public class Launcher {
         }
     }
 
-    private void executeClass(VirtualMachine vm, String className, RuntimeStats stats) {
+    private void executeClass(String className, RuntimeStats stats) {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
         Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();
@@ -187,18 +169,11 @@ public class Launcher {
 
         stats.intakeMethods(methods);
         for (VirtualMethod method : methods) {
-            if (optimizedMethods.contains(method.toString())) {
-                System.out.println("TEST: Already optimized "+method.toString());
-                continue;
-            }
-
             stats.incrementCurrentMethodIndex();
 
             if (!method.hasImplementation()) {
                 System.out.println("[" + stats.getCurrentMethodIndex() + " / " + stats
                         .getTotalMethods() + "] Skipping top level method without implementation: " + method);
-                optimizedMethods.add(method.toString());
-                System.out.println("TEST: Skipping optimizing "+method.toString());
                 continue;
             }
 
@@ -212,12 +187,12 @@ public class Launcher {
                     System.err.println("Aborting execution; exception: " + e);
                 } catch (Throwable e1) {
                     if (opts.ignoreErrors()) {
-                        System.err.println("Unexpected, non-virtual exception executing "+method+", skipping");
+                        System.err.println("Unexpected, non-virtual exception executing " + method + ", skipping");
                         e1.printStackTrace();
                         stats.incrementFailedMethodCount();
-                        optimizedMethods.add(method.toString());
-                        System.out.println("TEST: Failed to optimize "+method.toString());
-                        throw new TryAgainException();
+                        vm = vmFactory
+                                .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
+                                        opts.getMaxExecutionTime());
                     } else {
                         throw e1;
                     }
@@ -226,8 +201,6 @@ public class Launcher {
                 if (null == graph) {
                     System.out.println("Skipping optimization of " + method + "; null execution graph");
                     stats.incrementFailedMethodCount();
-                    optimizedMethods.add(method.toString());
-                    System.out.println("TEST: Skipping optimization of "+method.toString());
                     break;
                 }
 
@@ -236,12 +209,12 @@ public class Launcher {
                     optimizer.simplify(opts.getMaxOptimizationPasses());
                 } catch (Throwable e1) {
                     if (opts.ignoreErrors()) {
-                        System.err.println("Exception optimizing "+method+", skipping");
+                        System.err.println("Exception optimizing " + method + ", skipping");
                         e1.printStackTrace();
                         stats.incrementFailedMethodCount();
-                        optimizedMethods.add(method.toString());
-                        System.out.println("TEST: Failed to optimize "+method.toString());
-                        throw new TryAgainException();
+                        vm = vmFactory
+                                .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
+                                        opts.getMaxExecutionTime());
                     } else {
                         throw e1;
                     }
@@ -255,9 +228,6 @@ public class Launcher {
                 executeAgain = optimizer.shouldReexecute();
             } while (executeAgain);
             stats.incrementOptimizedMethodCount();
-            optimizedMethods.add(method.toString());
-            System.out.println("TEST: Successfully optimized "+method.toString());
-
         }
     }
 

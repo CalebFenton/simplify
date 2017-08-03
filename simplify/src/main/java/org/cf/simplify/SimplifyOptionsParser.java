@@ -110,11 +110,6 @@ public class SimplifyOptionsParser {
             simplifyOpts.setOutFile(new File(outFileName));
         }
 
-        if (Main.errorDexFile != null) {
-            System.out.println("TEST: Try again mode - loading error.dex");
-            simplifyOpts.setInFile(Main.errorDexFile);
-        }
-
         return simplifyOpts;
     }
 
