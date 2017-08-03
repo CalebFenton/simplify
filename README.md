@@ -32,7 +32,8 @@ deobfuscates a dalvik executable
  -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after
                                  include-types
  -h,--help                       Display this message
- -ie,--ignore-errors             Ignore errors while optimizing methods
+ -ie,--ignore-errors             Ignore errors while executing and optimizing methods. This may lead to unexpected
+                                 behavior.
     --include-support            Attempt to execute and optimize classes in Android support library packages, default:
                                  false
  -it,--include-types <pattern>   Limit execution to classes and methods which include REGEX, eg: ";->targetMethod\("

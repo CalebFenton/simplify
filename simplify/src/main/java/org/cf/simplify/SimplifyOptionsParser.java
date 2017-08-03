@@ -176,7 +176,7 @@ public class SimplifyOptionsParser {
 
         Option helpOption = Option.builder("h").longOpt("help").desc("Display this message").build();
 
-        Option ignoreErrorsOption = Option.builder("ie").longOpt("ignore-errors").desc("Ignore errors while optimizing methods").build();
+        Option ignoreErrorsOption = Option.builder("ie").longOpt("ignore-errors").desc("Ignore errors while executing and optimizing methods. This may lead to unexpected behavior.").build();
 
         Option quietOption = Option.builder("q").longOpt("quiet").desc("Be quiet").build();
 
