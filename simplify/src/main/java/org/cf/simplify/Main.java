@@ -3,15 +3,25 @@ package org.cf.simplify;
 import org.cf.smalivm.UnhandledVirtualException;
 import org.cf.smalivm.VirtualMachineFactory;
 
+import java.io.File;
 import java.io.IOException;
 
 public class Main {
 
     private static Launcher launcher;
 
+    public static File errorDexFile;
+
     public static void main(String[] args) throws IOException, UnhandledVirtualException {
-        setupLauncher();
-        launcher.run(args);
+        while (true) {
+            try {
+                setupLauncher();
+                launcher.run(args);
+                break;
+            } catch (TryAgainException e) {
+                System.out.println("simplify crashed - trying to resume");
+            }
+        }
     }
 
     static void setLauncher(Launcher launcher) {
