@@ -193,6 +193,7 @@ public class Launcher {
                         vm = vmFactory
                                 .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
                                         opts.getMaxExecutionTime());
+                        break;
                     } else {
                         throw e1;
                     }
@@ -215,6 +216,7 @@ public class Launcher {
                         vm = vmFactory
                                 .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
                                         opts.getMaxExecutionTime());
+                        break;
                     } else {
                         throw e1;
                     }
