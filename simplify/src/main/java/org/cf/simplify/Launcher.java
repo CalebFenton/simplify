@@ -25,11 +25,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import ch.qos.logback.classic.Level;
@@ -124,6 +120,8 @@ public class Launcher {
         formatter.printHelp("java -jar simplify.jar <input> [options]", "deobfuscates a dalvik executable", options, "");
     }
 
+    private VirtualMachine vm;
+
     public void run(String[] args) throws IOException, UnhandledVirtualException {
         opts = getOptions(args);
 
@@ -135,9 +133,9 @@ public class Launcher {
         RuntimeStats stats = new RuntimeStats();
         stats.begin();
 
-        VirtualMachine vm = vmFactory
+        vm = vmFactory
                 .build(opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
-                       opts.getMaxExecutionTime());
+                        opts.getMaxExecutionTime());
         ClassManager classManager = vm.getClassManager();
         Set<String> classNames = classManager.getNonFrameworkClassNames();
         if (!opts.includeSupportLibrary()) {
@@ -148,7 +146,7 @@ public class Launcher {
         for (String className : classNames) {
             stats.incrementCurrentClassIndex();
             System.out.println("[" + stats.getCurrentClassIndex() + " / " + stats.getTotalClasses() + "] Processing top level class " + className);
-            executeClass(vm, className, stats);
+            executeClass(className, stats);
         }
 
         stats.end();
@@ -163,7 +161,7 @@ public class Launcher {
         }
     }
 
-    private void executeClass(VirtualMachine vm, String className, RuntimeStats stats) {
+    private void executeClass(String className, RuntimeStats stats) {
         ClassManager classManager = vm.getClassManager();
         DexBuilder dexBuilder = classManager.getDexBuilder();
         Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();
@@ -187,6 +185,18 @@ public class Launcher {
                     graph = vm.execute(method);
                 } catch (VirtualMachineException e) {
                     System.err.println("Aborting execution; exception: " + e);
+                } catch (Throwable e1) {
+                    if (opts.ignoreErrors()) {
+                        System.err.println("Unexpected, non-virtual exception executing " + method + ", skipping");
+                        e1.printStackTrace();
+                        stats.incrementFailedMethodCount();
+                        vm = vmFactory
+                                .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
+                                        opts.getMaxExecutionTime());
+                        break;
+                    } else {
+                        throw e1;
+                    }
                 }
 
                 if (null == graph) {
@@ -194,10 +204,23 @@ public class Launcher {
                     stats.incrementFailedMethodCount();
                     break;
                 }
-                stats.incrementOptimizedMethodCount();
 
                 Optimizer optimizer = new Optimizer(graph, method, vm, dexBuilder, opts);
-                optimizer.simplify(opts.getMaxOptimizationPasses());
+                try {
+                    optimizer.simplify(opts.getMaxOptimizationPasses());
+                } catch (Throwable e1) {
+                    if (opts.ignoreErrors()) {
+                        System.err.println("Exception optimizing " + method + ", skipping");
+                        e1.printStackTrace();
+                        stats.incrementFailedMethodCount();
+                        vm = vmFactory
+                                .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
+                                        opts.getMaxExecutionTime());
+                        break;
+                    } else {
+                        throw e1;
+                    }
+                }
                 if (optimizer.madeChanges()) {
                     // Optimizer changed the implementation. Re-build graph to include changes.
                     vm.updateInstructionGraph(method);
@@ -206,6 +229,7 @@ public class Launcher {
 
                 executeAgain = optimizer.shouldReexecute();
             } while (executeAgain);
+            stats.incrementOptimizedMethodCount();
         }
     }
 
