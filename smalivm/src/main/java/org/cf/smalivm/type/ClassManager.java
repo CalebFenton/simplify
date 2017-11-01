@@ -179,7 +179,6 @@ public class ClassManager {
         SmaliFile smaliFile = classNameToSmaliFile.get(className);
         if (smaliFile == null) {
             throw new RuntimeException("Can't find Smali file for " + className);
-
         }
 
         boolean isFramework = smaliFileFactory.isFrameworkClass(className);
