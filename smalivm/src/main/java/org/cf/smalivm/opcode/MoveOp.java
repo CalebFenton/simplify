@@ -52,6 +52,18 @@ public class MoveOp extends MethodStateOp {
         }
     }
 
+    public MoveType getMoveType() {
+        return moveType;
+    }
+
+    public int getToRegister() {
+        return toRegister;
+    }
+
+    public int getTargetRegister() {
+        return targetRegister;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());

@@ -7,6 +7,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.opcode.InvokeOp;
+import org.cf.smalivm.opcode.MoveOp;
 import org.cf.smalivm.opcode.Op;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
@@ -16,6 +17,7 @@ import org.jf.dexlib2.builder.Label;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction10x;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
+import org.jf.dexlib2.iface.instruction.FiveRegisterInstruction;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction21t;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
@@ -26,13 +28,7 @@ import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -40,8 +36,9 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     private static final Logger log = LoggerFactory.getLogger(PeepholeStrategy.class.getSimpleName());
 
-    private static final String ClassForNameSignature =
+    private static final String CLASS_FOR_NAME_SIGNATURE =
             "Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;";
+    private static final String OBJECT_GET_CLASS_SIGNATURE = "Ljava/lang/Object;->getClass()Ljava/lang/Class;";
 
     private final ExecutionGraphManipulator manipulator;
     private int peepCount;
@@ -79,6 +76,10 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         addresses = getValidAddresses(manipulator);
         peepCheckCast();
+
+        addresses = getValidAddresses(manipulator);
+        peepUninitializedInstanceThisReference();
+
         return madeChanges;
     }
 
@@ -98,6 +99,28 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return constClassInstruction;
     }
 
+    BuilderInstruction buildUninitializedInstanceReferenceResultReplacement(int address) {
+        BuilderInstruction original = manipulator.getInstruction(address);
+        int instanceRegister = ((FiveRegisterInstruction) original).getRegisterC();
+        HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
+
+        int nextAddress = address + original.getCodeUnits();
+        MoveOp moveOp = (MoveOp) manipulator.getOp(nextAddress);
+        int destRegsiter = moveOp.getToRegister();
+
+        ReferenceInstruction instr = (ReferenceInstruction) original;
+        String methodDescriptor = ReferenceUtil.getReferenceString(instr.getReference());
+
+        BuilderInstruction replacementInstruction = null;
+        if (methodDescriptor.equals(OBJECT_GET_CLASS_SIGNATURE)) {
+            String smaliClassName = item.getType();
+            BuilderTypeReference classRef = manipulator.getDexBuilder().internTypeReference(smaliClassName);
+            replacementInstruction = new BuilderInstruction21c(Opcode.CONST_CLASS, destRegsiter, classRef);
+        }
+
+        return replacementInstruction;
+    }
+
     boolean canPeepCheckCast(int address) {
         Op op = manipulator.getOp(address);
         if (!op.toString().startsWith("check-cast")) {
@@ -112,7 +135,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         Set<String> ancestorTypes = new HashSet<>();
         for (int parentAddress : manipulator.getParentAddresses(address)) {
             ancestorTypes.addAll(manipulator.getRegisterItems(parentAddress, registerA).stream().map(HeapItem::getType)
-                                         .collect(Collectors.toList()));
+                    .collect(Collectors.toList()));
         }
 
         if (ancestorTypes.size() > 1) {
@@ -150,7 +173,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         BuilderInstruction instruction = manipulator.getInstruction(address);
         ReferenceInstruction instr = (ReferenceInstruction) instruction;
         String methodDescriptor = ReferenceUtil.getReferenceString(instr.getReference());
-        if (!methodDescriptor.equals(ClassForNameSignature)) {
+        if (!methodDescriptor.equals(CLASS_FOR_NAME_SIGNATURE)) {
             return false;
         }
 
@@ -166,8 +189,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
     boolean canPeepStringInit(int address) {
         BuilderInstruction original = manipulator.getInstruction(address);
-        if (!(original instanceof Instruction35c)) {
-            // Not an invoke direct
+        if (original.getOpcode() != Opcode.INVOKE_DIRECT) {
             return false;
         }
 
@@ -187,9 +209,45 @@ public class PeepholeStrategy implements OptimizationStrategy {
         return true;
     }
 
+    boolean canPeepUninitializedInstanceThisReference(int address) {
+        Op op = manipulator.getOp(address);
+        if (!op.getName().startsWith("invoke-virtual")) {
+            return false;
+        }
+
+        BuilderInstruction original = manipulator.getInstruction(address);
+        int instanceRegister = ((FiveRegisterInstruction) original).getRegisterC();
+
+        HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
+        if (!item.getType().equals(manipulator.getMethod().getClassName())) {
+            // It's a "this" reference. It'll probably be unknown after invoking if it wasn't handled by InvokeOp.
+            return false;
+        }
+
+        ReferenceInstruction instr = (ReferenceInstruction) original;
+        String methodDescriptor = ReferenceUtil.getReferenceString(instr.getReference());
+
+        // Could probably handle a few more methods here.
+        if (!methodDescriptor.equals(OBJECT_GET_CLASS_SIGNATURE)) {
+            return false;
+        }
+
+        int nextAddress = address + original.getCodeUnits();
+        if (!addresses.contains(nextAddress)) {
+            return false;
+        }
+
+        BuilderInstruction nextInstruction = manipulator.getInstruction(nextAddress);
+        if (!nextInstruction.getOpcode().name.startsWith("move-result")) {
+            return false;
+        }
+
+        return true;
+    }
+
     List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {
         return IntStream.of(manipulator.getAddresses()).boxed().filter(manipulator::wasAddressReached)
-                       .collect(Collectors.toList());
+                .collect(Collectors.toList());
     }
 
     void peepCheckCast() {
@@ -232,6 +290,25 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
             BuilderInstruction replacement = buildClassForNameReplacement(address);
             manipulator.replaceInstruction(address, replacement);
+        }
+    }
+
+    void peepUninitializedInstanceThisReference() {
+        List<Integer> peepAddresses =
+                addresses.stream().filter(this::canPeepUninitializedInstanceThisReference).collect(Collectors.toList());
+        if (0 == peepAddresses.size()) {
+            return;
+        }
+
+        madeChanges = true;
+        peepCount += peepAddresses.size();
+
+        Collections.sort(peepAddresses, Collections.reverseOrder());
+        for (int address : peepAddresses) {
+            BuilderInstruction replacement = buildUninitializedInstanceReferenceResultReplacement(address);
+            manipulator.replaceInstruction(address, replacement);
+            int nextAddress = address + replacement.getCodeUnits();
+            manipulator.removeInstruction(nextAddress);
         }
     }
 

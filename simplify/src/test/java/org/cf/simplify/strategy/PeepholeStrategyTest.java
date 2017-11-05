@@ -3,7 +3,12 @@ package org.cf.simplify.strategy;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
+import org.cf.smalivm.VMTester;
+import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.type.VirtualType;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
@@ -11,6 +16,7 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.util.ReferenceUtil;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -24,14 +30,24 @@ import static org.junit.Assert.assertEquals;
 public class PeepholeStrategyTest {
 
     private static final String CLASS_NAME = "Lpeephole_strategy_test;";
+    private static final String CLASS_NAME_BINARY = "peephole_strategy_test";
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(PeepholeStrategyTest.class.getSimpleName());
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
+        return getOptimizedGraph(null, methodName, args);
+    }
+
+    private static ExecutionGraphManipulator getOptimizedGraph(VirtualMachine vm, String methodName, Object... args) {
         VMState initial = new VMState();
         initial.setRegisters(args);
-        ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+        ExecutionGraphManipulator manipulator;
+        if (vm == null) {
+            manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
+        } else {
+            manipulator = OptimizerTester.getGraphManipulator(vm, CLASS_NAME, methodName, initial);
+        }
         PeepholeStrategy strategy = new PeepholeStrategy(manipulator);
         strategy.perform();
 
@@ -183,4 +199,30 @@ public class PeepholeStrategyTest {
 
     }
 
+    public static class UninitializedInstanceThisReference {
+
+        private static final int ADDRESS = 0;
+
+        private VirtualMachine vm;
+        private VirtualType thisReference;
+
+        @Before
+        public void setUp() {
+            vm = VMTester.spawnVM(true);
+            thisReference = vm.getClassManager().getVirtualClass(CLASS_NAME);
+        }
+
+        @Test
+        public void testyTest() {
+            String methodName = "invokeGetClassOnThis()V";
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(vm, methodName, 1, new UninitializedInstance(thisReference), CLASS_NAME);
+
+            BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction(ADDRESS);
+            assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
+            assertEquals(0, instruction.getRegisterA());
+
+            String actualClassName = ReferenceUtil.getReferenceString(instruction.getReference());
+            assertEquals(CLASS_NAME, actualClassName);
+        }
+    }
 }

@@ -73,3 +73,12 @@
   check-cast p0, I
   return-void
 .end method
+
+.method public invokeGetClassOnThis()V
+    .locals 1
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result v0
+
+    return-void
+.end method
