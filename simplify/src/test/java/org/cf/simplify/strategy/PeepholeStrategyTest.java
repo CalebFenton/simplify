@@ -5,7 +5,6 @@ import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualType;
@@ -15,6 +14,7 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
 import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
+import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.util.ReferenceUtil;
 import org.junit.Before;
 import org.junit.Test;
@@ -166,6 +166,14 @@ public class PeepholeStrategyTest {
         private static final String METHOD_NAME = "stringInit()V";
         private static final String ZENSUNNI_POEM = "Sand keeps the skin clean, and the mind.";
 
+        private VirtualMachine vm;
+        private VirtualType thisReference;
+
+        @Before
+        public void setUp() {
+            vm = VMTester.spawnVM(true);
+        }
+
         @Test
         public void stringInitWithKnownStringIsReplaced() {
             testForExpectedInstruction(ZENSUNNI_POEM.getBytes(), ZENSUNNI_POEM);
@@ -173,30 +181,28 @@ public class PeepholeStrategyTest {
 
         @Test
         public void stringInitWithUnknownValueIsNotReplaced() {
-            //            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, new
-            // UninitializedInstance(
-            //                            "Ljava/lang/String;"), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
-            //            Instruction35c instruction = (Instruction35c) manipulator.getInstruction(ADDRESS);
-            //            String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
-            //
-            //            assertEquals("Ljava/lang/String;-><init>([B)V", methodDescriptor);
+            VirtualType instanceType = vm.getClassManager().getVirtualType("Ljava/lang/String;");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(vm, METHOD_NAME, 0, new
+                    UninitializedInstance(instanceType), "Ljava/lang/String;", 1, new UnknownValue(), "[B");
+            Instruction35c instruction = (Instruction35c) manipulator.getInstruction(ADDRESS);
+            String methodDescriptor = ReferenceUtil.getMethodDescriptor((MethodReference) instruction.getReference());
+
+            assertEquals("Ljava/lang/String;-><init>([B)V", methodDescriptor);
         }
 
         private void testForExpectedInstruction(Object register1, String expectedConstant) {
-            //
-            //            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0, new
-            // UninitializedInstance(
-            //                            "Ljava/lang/String;"), "Ljava/lang/String;", 1, register1, "[B");
-            //
-            //            BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction
-            // (ADDRESS);
-            //            assertEquals(Opcode.CONST_STRING, instruction.getOpcode());
-            //            assertEquals(0, instruction.getRegisterA());
-            //
-            //            String actualConstant = ((StringReference) instruction.getReference()).getString();
-            //            assertEquals(expectedConstant, actualConstant);
-        }
+            VirtualType instanceType = vm.getClassManager().getVirtualType("Ljava/lang/String;");
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(METHOD_NAME, 0,
+                    new UninitializedInstance(instanceType), "Ljava/lang/String;", 1, register1, "[B");
 
+            BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction
+                    (ADDRESS);
+            assertEquals(Opcode.CONST_STRING, instruction.getOpcode());
+            assertEquals(0, instruction.getRegisterA());
+
+            String actualConstant = ((StringReference) instruction.getReference()).getString();
+            assertEquals(expectedConstant, actualConstant);
+        }
     }
 
     public static class UninitializedInstanceThisReference {
