@@ -421,6 +421,16 @@ public class InvokeOpTest {
 
             VMTester.test(CLASS_NAME, "invokeRangeManyParameters()V", initial, expected);
         }
+
+        @Test
+        public void invokeGetClassOnSelfIsUnknown() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+            VirtualMachine vm = VMTester.spawnVM();
+            Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
+            Object instance = virtualClass.newInstance();
+            expected.setRegisters(MethodState.ResultRegister, new UnknownValue(), CommonTypes.CLASS);
+
+            VMTester.test(CLASS_NAME, "invokeGetClassOnThis()V", initial, expected);
+        }
     }
 
     public static class MethodStateProperties {

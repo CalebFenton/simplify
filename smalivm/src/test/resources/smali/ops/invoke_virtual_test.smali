@@ -65,6 +65,15 @@
   return-void
 .end method
 
+.method public invokeGetClassOnThis()V
+    .locals 0
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    return-void
+.end method
+
+
 .method private returnVoid()V
     .locals 0
 

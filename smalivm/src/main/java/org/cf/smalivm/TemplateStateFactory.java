@@ -6,8 +6,8 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.Utils;
 
 import java.util.List;
@@ -25,7 +25,7 @@ public class TemplateStateFactory {
 
         for (String type : parameterTypes) {
             HeapItem item;
-            if (parameterRegister == firstParameter && !method.isStatic()) {
+            if (parameterRegister == firstParameter && !method.isStatic() && method.getName().equals("<init>")) {
                 UninitializedInstance instance = new UninitializedInstance(method.getDefiningClass());
                 item = new HeapItem(instance, type);
             } else {
