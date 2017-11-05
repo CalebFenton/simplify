@@ -4,6 +4,7 @@ import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.EnumAnalyzer;
@@ -18,6 +19,8 @@ import java.util.List;
 public class MethodReflector {
 
     private static Logger log = LoggerFactory.getLogger(MethodReflector.class.getSimpleName());
+
+    private static final String ENUM_INIT_SIGNATURE = "Ljava/lang/Enum;-><init>(Ljava/lang/String;";
 
     private final VirtualMachine vm;
     private final VirtualMethod method;
@@ -118,25 +121,8 @@ public class MethodReflector {
                 if (log.isDebugEnabled()) {
                     log.debug("Reflecting construction {}, class={} args={}", method, klazz, Arrays.toString(args));
                 }
-                if (method.getSignature().startsWith("Ljava/lang/Enum;-><init>(Ljava/lang/String;")) {
-                    /*
-                     * Enums can't be instantiated by calling newInstance() on the constructor,
-                     * even with setAccessible(true). It fails with InstantiationException.
-                     * http://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.9
-                     */
-                    HeapItem instance = mState.peekParameter(mState.getParameterStart());
-                    String enumType = ClassNameUtils.internalToSource(instance.getType());
-                    ClassLoader classLoader = vm.getClassLoader();
-
-                    Class<? extends Enum> enumClass = (Class<? extends Enum>) classLoader.loadClass(enumType);
-                    String name = (String) args[0];
-                    try {
-                        returnValue = Enum.valueOf(enumClass, name);
-                    } catch (IllegalArgumentException e) {
-                        enumAnalyzer.analyze(enumClass);
-                        name = enumAnalyzer.getObfuscatedName(name);
-                        returnValue = Enum.valueOf(enumClass, name);
-                    }
+                if (method.getSignature().startsWith(ENUM_INIT_SIGNATURE)) {
+                    returnValue = invokeEnumInit(mState, (String) args[0], vm.getClassLoader());
                 } else {
                     returnValue = ConstructorUtils.invokeConstructor(klazz, args);
                 }
@@ -155,8 +141,27 @@ public class MethodReflector {
         return returnValue;
     }
 
-    private static class InvocationArguments {
+    @SuppressWarnings({ "unchecked" })
+    private Object invokeEnumInit(MethodState mState, String name, ClassLoader classLoader) throws ClassNotFoundException {
+        /*
+         * Enums can't be instantiated by calling newInstance() on the constructor,
+         * even with setAccessible(true). It fails with InstantiationException.
+         * http://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.9
+         */
+        HeapItem instance = mState.peekParameter(mState.getParameterStart());
+        String enumType = ClassNameUtils.internalToSource(instance.getType());
 
+        Class<? extends Enum> enumClass = (Class<? extends Enum>) classLoader.loadClass(enumType);
+        try {
+            return Enum.valueOf(enumClass, name);
+        } catch (IllegalArgumentException e) {
+            enumAnalyzer.analyze(enumClass);
+            name = enumAnalyzer.getObfuscatedName(name);
+            return Enum.valueOf(enumClass, name);
+        }
+    }
+
+    private static class InvocationArguments {
         private Object[] args;
         private Class<?>[] parameterTypes;
 
