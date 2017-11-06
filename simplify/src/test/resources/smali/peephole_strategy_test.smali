@@ -82,3 +82,12 @@
 
     return-void
 .end method
+
+.method public invokeRangeGetClassOnThis()V
+    .locals 1
+
+    invoke-virtual/range {p0 .. p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    move-result v0
+
+    return-void
+.end method

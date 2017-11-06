@@ -100,10 +100,11 @@ public class PeepholeStrategy implements OptimizationStrategy {
     }
 
     BuilderInstruction buildUninitializedInstanceReferenceResultReplacement(int address) {
-        BuilderInstruction original = manipulator.getInstruction(address);
-        int instanceRegister = ((FiveRegisterInstruction) original).getRegisterC();
+        InvokeOp invokeOp = (InvokeOp) manipulator.getOp(address);
+        int instanceRegister = invokeOp.getParameterRegisters()[0];
         HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
 
+        BuilderInstruction original = manipulator.getInstruction(address);
         int nextAddress = address + original.getCodeUnits();
         MoveOp moveOp = (MoveOp) manipulator.getOp(nextAddress);
         int destRegsiter = moveOp.getToRegister();
@@ -215,23 +216,22 @@ public class PeepholeStrategy implements OptimizationStrategy {
             return false;
         }
 
-        BuilderInstruction original = manipulator.getInstruction(address);
-        int instanceRegister = ((FiveRegisterInstruction) original).getRegisterC();
-
+        InvokeOp invokeOp = (InvokeOp) op;
+        int instanceRegister = invokeOp.getParameterRegisters()[0];
         HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
         if (!item.getType().equals(manipulator.getMethod().getClassName())) {
             // It's a "this" reference. It'll probably be unknown after invoking if it wasn't handled by InvokeOp.
             return false;
         }
 
-        ReferenceInstruction instr = (ReferenceInstruction) original;
-        String methodDescriptor = ReferenceUtil.getReferenceString(instr.getReference());
+        String methodSignature = ((InvokeOp) op).getMethod().getSignature();
 
-        // Could probably handle a few more methods here.
-        if (!methodDescriptor.equals(OBJECT_GET_CLASS_SIGNATURE)) {
+        // May eventually add a few other methods here
+        if (!methodSignature.equals(OBJECT_GET_CLASS_SIGNATURE)) {
             return false;
         }
 
+        BuilderInstruction original = manipulator.getInstruction(address);
         int nextAddress = address + original.getCodeUnits();
         if (!addresses.contains(nextAddress)) {
             return false;

@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(Enclosed.class)
 public class PeepholeStrategyTest {
@@ -219,10 +220,25 @@ public class PeepholeStrategyTest {
         }
 
         @Test
-        public void testyTest() {
+        public void thisReferencedWithInvokeIsCorrectlyOptimizedAsConstClass() {
             String methodName = "invokeGetClassOnThis()V";
             ExecutionGraphManipulator manipulator = getOptimizedGraph(vm, methodName, 1, new UninitializedInstance(thisReference), CLASS_NAME);
 
+            assertEquals(BuilderInstruction21c.class, manipulator.getInstruction(ADDRESS).getClass());
+            BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction(ADDRESS);
+            assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
+            assertEquals(0, instruction.getRegisterA());
+
+            String actualClassName = ReferenceUtil.getReferenceString(instruction.getReference());
+            assertEquals(CLASS_NAME, actualClassName);
+        }
+
+        @Test
+        public void thisReferencedWithInvokeRangeIsCorrectlyOptimizedAsConstClass() {
+            String methodName = "invokeRangeGetClassOnThis()V";
+            ExecutionGraphManipulator manipulator = getOptimizedGraph(vm, methodName, 1, new UninitializedInstance(thisReference), CLASS_NAME);
+
+            assertEquals(BuilderInstruction21c.class, manipulator.getInstruction(ADDRESS).getClass());
             BuilderInstruction21c instruction = (BuilderInstruction21c) manipulator.getInstruction(ADDRESS);
             assertEquals(Opcode.CONST_CLASS, instruction.getOpcode());
             assertEquals(0, instruction.getRegisterA());
