@@ -153,6 +153,14 @@ public class InvokeOp extends ExecutionContextOp {
         return sideEffectLevel;
     }
 
+    public VirtualMethod getMethod() {
+        return method;
+    }
+
+    public String[] getAnalyzedParameterTypes() {
+        return analyzedParameterTypes;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
