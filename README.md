@@ -6,6 +6,8 @@
 
 Simplify virtually executes an app to understand its behavior and then tries to optimize the code so that it behaves identically but is easier for a human to understand. Each optimization type is simple and generic, so it doesn't matter what the specific type of obfuscation is used.
 
+IMPORTANT: Simplify requires Java Development kit (JDK), version 8 prefered.
+
 ### Before and After
 
 The code on the left is a decompilation of an obfuscated app, and the code on the right has been deobfuscated.
@@ -52,8 +54,13 @@ deobfuscates a dalvik executable
  -v,--verbose <LEVEL>            Set verbosity to LEVEL, default: 0
 ```
 
+NOTES: *simplify.jar must be built first. See the next section for more informations.
+       *Name of the jar may vary. After the build check the simplify/build/libs folder, copy its path and the jar name and paste the entiere path (under quotes) as executable instead of simplify.jar if java cannot locate it itself.
+
+
 ## Building
 
+**Linux/Mac users**
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
 ```bash
@@ -77,6 +84,15 @@ The Simplify jar will be in `simplify/build/libs/simplify.jar`. You can test it'
 ```bash
 java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
 ```
+
+**Windows users**
+
+Using CMD:
+``
+cd [location of your simplify folder]
+gradlew fatjar
+``
+If build fails because gradlew is looking for JDK tools in your JRE, close the CMD, add in system environnement variables "JAVA_HOME" as new variable name and your JDK path as value, then reproceed.
 
 ## Troubleshooting
 
