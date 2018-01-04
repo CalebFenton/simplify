@@ -54,13 +54,16 @@ deobfuscates a dalvik executable
  -v,--verbose <LEVEL>            Set verbosity to LEVEL, default: 0
 ```
 
-NOTES: *simplify.jar must be built first. See the next section for more informations.
-       *Name of the jar may vary. After the build check the simplify/build/libs folder, copy its path and the jar name and paste the entiere path (under quotes) as executable instead of simplify.jar if java cannot locate it itself.
+NOTES: 
+• simplify.jar must be built first. See the next section for more informations.
+
+• Name of the jar may vary. After the build check the simplify/build/libs folder, copy its path and the jar name and paste the entiere path (under quotes) as executable instead of simplify.jar if java cannot locate it itself.
 
 
 ## Building
 
 **Linux/Mac users**
+
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
 ```bash
@@ -88,10 +91,12 @@ java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-exam
 **Windows users**
 
 Using CMD:
-``
+
+```
 cd [location of your simplify folder]
 gradlew fatjar
-``
+```
+
 If build fails because gradlew is looking for JDK tools in your JRE, close the CMD, add in system environnement variables "JAVA_HOME" as new variable name and your JDK path as value, then reproceed.
 
 ## Troubleshooting
