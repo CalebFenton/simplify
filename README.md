@@ -6,8 +6,6 @@
 
 Simplify virtually executes an app to understand its behavior and then tries to optimize the code so that it behaves identically but is easier for a human to understand. Each optimization type is simple and generic, so it doesn't matter what the specific type of obfuscation is used.
 
-IMPORTANT: Simplify requires Java Development kit (JDK), version 8 prefered.
-
 ### Before and After
 
 The code on the left is a decompilation of an obfuscated app, and the code on the right has been deobfuscated.
@@ -54,15 +52,9 @@ deobfuscates a dalvik executable
  -v,--verbose <LEVEL>            Set verbosity to LEVEL, default: 0
 ```
 
-NOTES: 
-• simplify.jar must be built first. See the next section for more informations.
-
-• Name of the jar may vary. After the build check the simplify/build/libs folder, copy its path and the jar name and paste the entiere path (under quotes) as executable instead of simplify.jar if java cannot locate it itself.
-
-
 ## Building
 
-**Linux/Mac users**
+IMPORTANT: Simplify build requires Java Development Kit (JDK)
 
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
@@ -76,28 +68,19 @@ Or update submodules at any time with:
 git submodule update --init --recursive
 ```
 
+NOTE: The previous steps does not apply to Windows users, because no command-line method allow user to clone/get a github repository.
+
 Then, to build a single jar:
 
 ```bash
 ./gradlew fatjar
 ```
 
-The Simplify jar will be in `simplify/build/libs/simplify.jar`. You can test it's working by simplifying the obfuscated-example app:
+The Simplify jar will be in ``simplify/build/libs/``. You can test it's working by simplifying the obfuscated-example app. Here's how you'd run it (you may need to rename the output simplify jar file to simplify.jar if the name do not match):
 
 ```bash
 java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
 ```
-
-**Windows users**
-
-Using CMD:
-
-```
-cd [location of your simplify folder]
-gradlew fatjar
-```
-
-If build fails because gradlew is looking for JDK tools in your JRE, close the CMD, add in system environnement variables "JAVA_HOME" as new variable name and your JDK path as value, then reproceed.
 
 ## Troubleshooting
 
@@ -107,6 +90,7 @@ If you encounter a failure, try these recommendations, in order:
 2. If failure is because of maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
 3. Try with `-v` or `-v 2` and report the issue with the logs and a hash of the DEX or APK.
 4. Try again, but do not break eye contact. Simplify can sense fear.
+5. If build fails because gradlew is looking for JDK tools in your JRE, close the CMD, add in system environnement variables "JAVA_HOME" as new variable name and your JDK path as value, then reproceed.
 
 ## Contributing
 
