@@ -76,7 +76,7 @@ Then, to build a single jar:
 ./gradlew fatjar
 ```
 
-The Simplify jar will be in ``simplify/build/libs/``. You can test it's working by simplifying the obfuscated-example app. Here's how you'd run it (you may need to rename the output simplify jar file to simplify.jar if the name do not match):
+The Simplify jar will be in ``simplify/build/libs/``. You can test it's working by simplifying the obfuscated-example app. Here's how you'd run it (you may need to rename the output simplify jar file to simplify.jar if the name doesn't match):
 
 ```bash
 java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
