@@ -54,6 +54,8 @@ deobfuscates a dalvik executable
 
 ## Building
 
+IMPORTANT: Simplify build requires Java Development Kit (JDK)
+
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
 ```bash
@@ -66,13 +68,15 @@ Or update submodules at any time with:
 git submodule update --init --recursive
 ```
 
+NOTE: The previous steps does not apply to Windows users, because no command-line method allow user to clone/get a github repository.
+
 Then, to build a single jar:
 
 ```bash
 ./gradlew fatjar
 ```
 
-The Simplify jar will be in `simplify/build/libs/simplify.jar`. You can test it's working by simplifying the obfuscated-example app:
+The Simplify jar will be in ``simplify/build/libs/``. You can test it's working by simplifying the obfuscated-example app. Here's how you'd run it (you may need to rename the output simplify jar file to simplify.jar if the name doesn't match):
 
 ```bash
 java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
@@ -86,6 +90,7 @@ If you encounter a failure, try these recommendations, in order:
 2. If failure is because of maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
 3. Try with `-v` or `-v 2` and report the issue with the logs and a hash of the DEX or APK.
 4. Try again, but do not break eye contact. Simplify can sense fear.
+5. If build fails because gradlew is looking for JDK tools in your JRE, close the CMD, add in system environnement variables "JAVA_HOME" as new variable name and your JDK path as value, then reproceed.
 
 ## Contributing
 
