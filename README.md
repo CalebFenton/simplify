@@ -54,7 +54,7 @@ deobfuscates a dalvik executable
 
 ## Building
 
-IMPORTANT: Simplify build requires Java Development Kit (JDK)
+Building requires the [Java Development Kit (JDK)](http://www.oracle.com/technetwork/java/javase/downloads/index.html) to be installed.
 
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
@@ -68,15 +68,13 @@ Or update submodules at any time with:
 git submodule update --init --recursive
 ```
 
-NOTE: The previous steps does not apply to Windows users, because no command-line method allow user to clone/get a github repository.
-
-Then, to build a single jar:
+Then, to build a single jar which contains all dependencies:
 
 ```bash
 ./gradlew fatjar
 ```
 
-The Simplify jar will be in ``simplify/build/libs/``. You can test it's working by simplifying the obfuscated-example app. Here's how you'd run it (you may need to rename the output simplify jar file to simplify.jar if the name doesn't match):
+The Simplify jar will be in `simplify/build/libs/`. You can test it's working by simplifying the provided [obfuscated-example app](https://github.com/CalebFenton/simplify/tree/master/simplify/Obfuscated). Here's how you'd run it (you may need change `simplify.jar`):
 
 ```bash
 java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
@@ -84,13 +82,18 @@ java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-exam
 
 ## Troubleshooting
 
-If you encounter a failure, try these recommendations, in order:
+If Simplify fails, try these recommendations, in order:
 
 1. Only target a few methods or classes by using `-it` option.
 2. If failure is because of maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
 3. Try with `-v` or `-v 2` and report the issue with the logs and a hash of the DEX or APK.
 4. Try again, but do not break eye contact. Simplify can sense fear.
-5. If build fails because gradlew is looking for JDK tools in your JRE, close the CMD, add in system environnement variables "JAVA_HOME" as new variable name and your JDK path as value, then reproceed.
+
+If building on Windows, and building fails with an error similar to:
+
+> Could not find tools.jar. Please check that C:\Program Files\Java\jre1.8.0_151 contains a valid JDK installation.
+
+This means Gradle is unable to find a proper JDK path. Make sure the JDK is installed, set the `JAVA_HOME` environment variable to your JDK path, and make sure to close and re-open the command prompt you use to build.
 
 ## Contributing
 
@@ -225,18 +228,19 @@ Other examples of dead code:
 * unreferenced assignments - assigning registers and not using them
 * unreached / unreachable instructions - `if (false) { dead_code(); }`
 
-# Further Reading
-
-* [Dalvik Virtual Execution with SmaliVM](http://calebfenton.github.io/2016/04/30/dalvik-virtual-execution-with-smalivm/)
-
 # License
 
 This tool is available under a dual license: a commercial one suitable for closed source projects and a GPL license that can be used in open source software.
 
 Depending on your needs, you must choose one of them and follow its policies. A detail of the policies and agreements for each license type are available in the [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) and [LICENSE.GPL](LICENSE.GPL) files.
 
-# Related / Inspirational
+# Further Reading
 
+* [Dalvik Virtual Execution with SmaliVM](http://calebfenton.github.io/2016/04/30/dalvik-virtual-execution-with-smalivm/)
 * [Guillot, Yoann, and Alexandre Gazet. "Automatic Binary Deobfuscation." Journal in Computer Virology 6.3 (2010): 261-76](http://metasm.cr0.org/docs/sstic09-metasm-jcv.pdf)
 * [Unicorn - The ultimate CPU emulator](http://www.unicorn-engine.org/)
 * [Babak Yadegari, Saumya Debray. "Symbolic Execution of Obfuscated Code"](https://www.cs.arizona.edu/people/debray/Publications/ccs2015-symbolic.pdf)
+* Success stories:
+    * [Android Dynamic Class Loading with "AES/CFB/NoPadding" encryption. Take a peek before & after. Tool used: #simplify. #Android #obfuscation #classencryption #dex](https://twitter.com/enovella_/status/946899042973437952)
+    * [Decrypting Malware String Encryption](https://twitter.com/caleb_fenton/status/850400605340262400)
+
