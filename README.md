@@ -74,7 +74,7 @@ Then, to build a single jar which contains all dependencies:
 ./gradlew fatjar
 ```
 
-The Simplify jar will be in `simplify/build/libs/`. You can test it's working by simplifying the provided [obfuscated-example app](https://github.com/CalebFenton/simplify/tree/master/simplify/Obfuscated). Here's how you'd run it (you may need change `simplify.jar`):
+The Simplify jar will be in `simplify/build/libs/`. You can test it's working by simplifying the provided [obfuscated-example app](https://github.com/CalebFenton/simplify/tree/master/simplify/Obfuscated). Here's how you'd run it (you may need to change `simplify.jar`):
 
 ```bash
 java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
