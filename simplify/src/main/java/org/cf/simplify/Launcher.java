@@ -1,5 +1,6 @@
 package org.cf.simplify;
 
+import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
@@ -19,22 +20,15 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.AccessMode;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.util.*;
 import java.util.regex.Pattern;
-
-import ch.qos.logback.classic.Level;
 
 public class Launcher {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class.getSimpleName());
 
-    private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|v\\d{1,2})/");
+    private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|design|v\\d{1,2})/");
 
     private final VirtualMachineFactory vmFactory;
     private SimplifyOptions opts;
@@ -126,27 +120,25 @@ public class Launcher {
         opts = getOptions(args);
 
         setLogLevel(opts);
-        if (log.isInfoEnabled()) {
-            log.info("Options:\n{}", opts.toString());
-        }
+        log.info("Options:\n{}", opts.toString());
 
         RuntimeStats stats = new RuntimeStats();
         stats.begin();
 
-        vm = vmFactory
-                .build(opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
-                        opts.getMaxExecutionTime());
-        ClassManager classManager = vm.getClassManager();
-        Set<String> classNames = classManager.getNonFrameworkClassNames();
-        if (!opts.includeSupportLibrary()) {
-            filterSupportLibrary(classNames);
-        }
-        stats.intakeClasses(classNames);
+        vm = vmFactory.build(
+                opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(),
+                opts.getMaxCallDepth(), opts.getMaxMethodVisits(), opts.getMaxExecutionTime()
+        );
 
-        for (String className : classNames) {
+        ClassManager classManager = vm.getClassManager();
+        Map<String, Collection<VirtualMethod>> targetClassNameToMethods = collectTargetClassNameToMethods(classManager, opts);
+        stats.startClasses(targetClassNameToMethods.keySet());
+        for (Map.Entry<String, Collection<VirtualMethod>> entry : targetClassNameToMethods.entrySet()) {
             stats.incrementCurrentClassIndex();
+            String className = entry.getKey();
+            Collection<VirtualMethod> methods = entry.getValue();
             System.out.println("[" + stats.getCurrentClassIndex() + " / " + stats.getTotalClasses() + "] Processing top level class " + className);
-            executeClass(className, stats);
+            executeMethods(methods, classManager, stats);
         }
 
         stats.end();
@@ -161,13 +153,31 @@ public class Launcher {
         }
     }
 
-    private void executeClass(String className, RuntimeStats stats) {
-        ClassManager classManager = vm.getClassManager();
-        DexBuilder dexBuilder = classManager.getDexBuilder();
-        Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();
-        filterMethods(methods, opts.getIncludeFilter(), opts.getExcludeFilter());
+    private static Map<String, Collection<VirtualMethod>> collectTargetClassNameToMethods(ClassManager classManager, SimplifyOptions opts) {
+        Set<String> classNames = classManager.getNonFrameworkClassNames();
 
-        stats.intakeMethods(methods);
+        if (!opts.includeSupportLibrary()) {
+            int beforeCount = classNames.size();
+            filterSupportLibrary(classNames);
+            log.info("Filtered " + (beforeCount - classNames.size()) + " support library classes");
+        }
+
+        Map<String, Collection<VirtualMethod>> classNameToMethods = new HashMap<>();
+        for (String className : classNames) {
+            Collection<VirtualMethod> methods = classManager.getVirtualClass(className).getMethods();
+            filterMethods(methods, opts.getIncludeFilter(), opts.getExcludeFilter());
+            if (!methods.isEmpty()) {
+                classNameToMethods.put(className, methods);
+            }
+        }
+
+        return classNameToMethods;
+    }
+
+    private void executeMethods(Collection<VirtualMethod> methods, ClassManager classManager, RuntimeStats stats) {
+        DexBuilder dexBuilder = classManager.getDexBuilder();
+
+        stats.startMethods(methods);
         for (VirtualMethod method : methods) {
             stats.incrementCurrentMethodIndex();
 
@@ -190,9 +200,10 @@ public class Launcher {
                         System.err.println("Unexpected, non-virtual exception executing " + method + ", skipping");
                         e1.printStackTrace();
                         stats.incrementFailedMethodCount();
-                        vm = vmFactory
-                                .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
-                                        opts.getMaxExecutionTime());
+                        vm = vmFactory.build(
+                                classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
+                                opts.getMaxMethodVisits(), opts.getMaxExecutionTime()
+                        );
                         break;
                     } else {
                         throw e1;
@@ -246,11 +257,13 @@ public class Launcher {
         RuntimeStats() {
         }
 
-        void intakeClasses(Collection classes) {
+        void startClasses(Collection classes) {
+            currentClassIndex = 0;
             totalClasses = classes.size();
         }
 
-        void intakeMethods(Collection methods) {
+        void startMethods(Collection methods) {
+            currentMethodIndex = 0;
             totalMethods = methods.size();
         }
 
