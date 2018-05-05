@@ -2,38 +2,22 @@ package org.cf.smalivm.opcode;
 
 import gnu.trove.list.TIntList;
 import gnu.trove.list.linked.TIntLinkedList;
-
-import org.cf.smalivm.MethodReflector;
-import org.cf.smalivm.ObjectInstantiator;
-import org.cf.smalivm.SideEffect;
-import org.cf.smalivm.UnhandledVirtualException;
-import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.VirtualMachineException;
-import org.cf.smalivm.context.ExecutionContext;
-import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.HeapItem;
-import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.*;
+import org.cf.smalivm.context.*;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.emulate.MethodEmulator;
-import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.UninitializedInstance;
-import org.cf.smalivm.type.UnknownValue;
-import org.cf.smalivm.type.VirtualType;
-import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.*;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 public class InvokeOp extends ExecutionContextOp {
 
@@ -75,11 +59,15 @@ public class InvokeOp extends ExecutionContextOp {
             }
             return;
         } else {
-            String signature = method.getSignature();
-            if (signature.charAt(0) == '[' && method.getName().equals("clone")) {
-                // [Object;->clone()Ljava/lang/Object; is also a special snow flake
-                executeArrayClone(callerMethodState);
-                return;
+            if (method.getName().equals("clone") && parameterRegisters.length == 1) {
+                int targetRegister = parameterRegisters[0];
+                HeapItem item = context.getMethodState().peekRegister(targetRegister);
+                String signature = method.getSignature();
+                if (signature.charAt(0) == '[' || (!item.isNull() && item.getValueType().charAt(0) == '[')) {
+                    // [Object;->clone()Ljava/lang/Object; is also a special snow flake
+                    executeArrayClone(callerMethodState, node);
+                    return;
+                }
             }
         }
 
@@ -181,17 +169,27 @@ public class InvokeOp extends ExecutionContextOp {
         return sb.toString();
     }
 
-    private void executeArrayClone(MethodState callerMethodState) {
+    private void executeArrayClone(MethodState callerMethodState, ExecutionNode node) {
         int instanceRegister = parameterRegisters[0];
         HeapItem arrayItem = callerMethodState.peekRegister(instanceRegister);
-        Method m = null;
-        try {
-            m = Object.class.getDeclaredMethod("clone");
-            m.setAccessible(true);
-            Object clone = m.invoke(arrayItem.getValue());
-            callerMethodState.assignResultRegister(clone, arrayItem.getType());
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (arrayItem.isUnknown()) {
+            callerMethodState.assignResultRegister(new UnknownValue(), arrayItem.getType());
+        } else if (arrayItem.isNull()) {
+            // This operation would have thrown a null pointer exception, and nothing else.
+            Throwable exception = new NullPointerException();
+            addException(exception);
+            node.clearChildren();
+        } else {
+            Method m = null;
+            try {
+                m = Object.class.getDeclaredMethod("clone");
+                m.setAccessible(true);
+                Object clone = m.invoke(arrayItem.getValue());
+                callerMethodState.assignResultRegister(clone, arrayItem.getType());
+            } catch (Exception e) {
+                // TODO: should handle exceptions here and bubble them up
+                e.printStackTrace();
+            }
         }
     }
 
@@ -280,7 +278,7 @@ public class InvokeOp extends ExecutionContextOp {
             String type;
             if (item.isUnknown()) {
                 type = analyzedParameterTypes[i];
-                if (!type.equals(item.getType())){
+                if (!type.equals(item.getType())) {
                     VirtualType parameterType = vm.getClassManager().getVirtualType(type);
                     VirtualType argumentType = vm.getClassManager().getVirtualType(item.getType());
 
@@ -387,8 +385,8 @@ public class InvokeOp extends ExecutionContextOp {
                                 log.warn("Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}", item);
                             } else {
                                 log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
-                                         "likely an input class and may need to be white listed to execute properly.",
-                                         item);
+                                                "likely an input class and may need to be white listed to execute properly.",
+                                        item);
                             }
                         }
                     }

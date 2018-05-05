@@ -327,18 +327,47 @@ public class InvokeOpTest {
         private VMState initial;
 
         @Test
-        public void canInvokeArrayCloneMethod() throws Exception {
-            int[] array = new int[] { 1, 2, 3 };
-            //            System.out.println("orig: " + Arrays.toString(array));
-            //            System.out.println("clone: " + Arrays.toString(array.clone()));
-            //            Method m = Object[].class.getMethod("clone");
-            //            System.out.println("reflect: " + m.invoke(array));
+        public void cloningArrayWithArrayCloneWorksAsExpected() {
+            initial.setRegisters(0, new UnknownValue(), "[I");
+            expected.setRegisters(0, new UnknownValue(), "[I", 1, new UnknownValue(), "[I");
 
+            VMTester.test(CLASS_NAME, "invokeArrayClone()V", initial, expected);
+
+        }
+
+        @Test
+        public void cloningUnknownValueWithArraySignatureWithArrayCloneReturnsUnknown() {
+            int[] array = new int[] { 1, 2, 3 };
             initial.setRegisters(0, array, "[I");
             expected.setRegisters(0, array, "[I", 1, array.clone(), "[I");
 
             VMTester.test(CLASS_NAME, "invokeArrayClone()V", initial, expected);
 
+        }
+
+        @Test
+        public void cloningArrayWithObjectCloneWorksAsExpected() {
+            int[] array = new int[] { 1, 2, 3 };
+            initial.setRegisters(0, array, "[I");
+            expected.setRegisters(0, array, "[I", 1, array.clone(), "[I");
+
+            VMTester.test(CLASS_NAME, "invokeObjectClone()V", initial, expected);
+        }
+
+        @Test
+        public void cloningNullWithArrayCloneThrowsException() {
+            // Calling with Object clone (and not [Object clone) will always throw a NPE because
+            // there's not enough type information to know it's an array clone.
+            initial.setRegisters(0, null, "[Ljava/lang/Object;");
+            ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeArrayClone()V", initial);
+
+            HeapItem item = graph.getTerminatingRegisterConsensus(0);
+            Class<?> exceptionClass = NullPointerException.class;
+            Assert.assertEquals(exceptionClass, item.getValue().getClass());
+            Assert.assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
+
+            int[] expectedAddresses = new int[] { 0, 5, 6 };
+            VMTester.testVisitation(graph, expectedAddresses);
         }
 
         @Test
@@ -423,11 +452,12 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void invokeGetClassOnSelfIsUnknown() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+        public void invokeGetClassOnSelfReturnsCorrectClassName() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();
-            expected.setRegisters(MethodState.ResultRegister, new UnknownValue(), CommonTypes.CLASS);
+            initial.setRegisters(0, instance, CLASS_NAME);
+            expected.setRegisters(MethodState.ResultRegister, instance.getClass(), CommonTypes.CLASS);
 
             VMTester.test(CLASS_NAME, "invokeGetClassOnThis()V", initial, expected);
         }

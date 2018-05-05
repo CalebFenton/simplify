@@ -46,7 +46,26 @@
 .method public static invokeArrayClone()V
   .locals 2
 
+  :try_start_1
   invoke-virtual {v0}, [I->clone()Ljava/lang/Object;
+  move-result-object v1
+  :try_end_1
+  .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
+
+  return-void
+
+  :catch_1
+  move-exception v0
+  throw v0
+
+  return-void
+.end method
+
+.method public static invokeObjectClone()V
+  .locals 2
+
+  # Arrays may be referenced as Ljava/lang/Object; !
+  invoke-virtual {v0}, Ljava/lang/Object;->clone()Ljava/lang/Object;
   move-result-object v1
 
   return-void
