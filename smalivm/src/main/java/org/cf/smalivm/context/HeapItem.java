@@ -2,7 +2,6 @@ package org.cf.smalivm.context;
 
 import com.rits.cloning.Cloner;
 import com.rits.cloning.ObjenesisInstantiationStrategy;
-
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.cf.smalivm.configuration.Configuration;
@@ -10,16 +9,15 @@ import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.lang.reflect.Array;
 import java.util.Arrays;
-
-import javax.annotation.Nullable;
 
 public class HeapItem {
 
     // private static final Cloner cloner = new Cloner();
     private static final Cloner cloner = new Cloner(new ObjenesisInstantiationStrategy());
-    //private final Cloner cloner = new Cloner(new ObjenesisInstantiationStrategy());
 
     private String type;
     private Object value;
@@ -145,6 +143,7 @@ public class HeapItem {
         return Configuration.instance().isImmutable(getType());
     }
 
+    @Nonnull
     public boolean isNull() {
         return getValue() == null;
     }
@@ -167,6 +166,10 @@ public class HeapItem {
 
     public boolean isUnknown() {
         return getValue() instanceof UnknownValue;
+    }
+
+    public boolean isKnown() {
+        return !isUnknown();
     }
 
     public boolean valueIdentity(HeapItem other) {
