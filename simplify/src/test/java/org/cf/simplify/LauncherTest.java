@@ -16,7 +16,7 @@ public class LauncherTest {
     public void runsWithoutMajorFailureWithSmaliFolder() throws IOException, UnhandledVirtualException {
         Launcher launcher = new Launcher(new VirtualMachineFactory());
         File outFile = File.createTempFile("simplify-test", ".tmp");
-        launcher.run(new String[] { "obfuscated-example", "-it", "WhiteNoise", "-o", outFile.getAbsolutePath() });
+        launcher.run(new String[] { "src/test/resources/obfuscated-example", "-it", "WhiteNoise", "-o", outFile.getAbsolutePath() });
 
         assertTrue(outFile.exists());
         Files.delete(outFile.toPath());
