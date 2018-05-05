@@ -53,35 +53,41 @@
     new-instance v3, Ljava/lang/StringBuilder;
 
     #@14
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    #@17
     const-string v4, "helloWorld(): "
 
-    #@16
-    invoke-direct {v3, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
     #@19
-    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@1c
     move-result-object v3
 
     #@1d
-    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@20
     move-result-object v3
 
     #@21
-    invoke-virtual {v2, v3}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     #@24
+    move-result-object v3
+
+    #@25
+    invoke-virtual {v2, v3}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+
+    #@28
     .line 10
     return-void
 
-    #@25
+    #@29
     .line 6
     nop
 
-    #@26
+    #@2a
     :array_0
     .array-data 1
         0x61t
@@ -104,7 +110,7 @@
 .end method
 
 .method public static main([Ljava/lang/String;)V
-    .locals 0
+    .locals 3
     .param p0, "args"    # [Ljava/lang/String;
 
     #@0
@@ -118,7 +124,45 @@
 
     #@6
     .line 15
+    const/4 v2, 0x3
+
+    #@7
+    new-array v0, v2, [C
+
+    #@9
+    fill-array-data v0, :array_0
+
+    #@c
+    .line 16
+    .local v0, "carr":[C
+    invoke-virtual {v0}, [C->clone()Ljava/lang/Object;
+
+    #@f
+    move-result-object v1
+
+    #@10
+    check-cast v1, [C
+
+    #@12
+    .line 17
+    .local v1, "cloned":[C
+    sget-object v2, Ljava/lang/System;->out:Ljava/io/PrintStream;
+
+    #@14
+    invoke-virtual {v2, v1}, Ljava/io/PrintStream;->println([C)V
+
+    #@17
+    .line 18
     return-void
+
+    #@18
+    .line 15
+    :array_0
+    .array-data 2
+        0x61s
+        0x62s
+        0x63s
+    .end array-data
 .end method
 
 .method private parameterLogic(I)I
@@ -127,11 +171,11 @@
 
     #@0
     .prologue
-    .line 34
+    .line 37
     const/4 v0, 0x5
 
     #@1
-    .line 35
+    .line 38
     .local v0, "x":I
     const/16 v1, 0xa
 
@@ -139,11 +183,11 @@
     if-ne p1, v1, :cond_0
 
     #@5
-    .line 36
+    .line 39
     const/16 v0, 0xa
 
     #@7
-    .line 39
+    .line 42
     :cond_0
     sget-object v1, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
@@ -151,28 +195,34 @@
     new-instance v2, Ljava/lang/StringBuilder;
 
     #@b
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    #@e
     const-string v3, "parameterLogic(), x = "
 
-    #@d
-    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
     #@10
-    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@13
     move-result-object v2
 
     #@14
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     #@17
     move-result-object v2
 
     #@18
-    invoke-virtual {v1, v2}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     #@1b
-    .line 41
+    move-result-object v2
+
+    #@1c
+    invoke-virtual {v1, v2}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+
+    #@1f
+    .line 44
     return v0
 .end method
 
@@ -182,35 +232,41 @@
 
     #@0
     .prologue
-    .line 29
+    .line 32
     sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
     #@2
     new-instance v1, Ljava/lang/StringBuilder;
 
     #@4
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    #@7
     const-string v2, "printParameter(), param = "
 
-    #@6
-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
     #@9
-    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@c
     move-result-object v1
 
     #@d
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     #@10
     move-result-object v1
 
     #@11
-    invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     #@14
-    .line 30
+    move-result-object v1
+
+    #@15
+    invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+
+    #@18
+    .line 33
     return-void
 .end method
 
@@ -219,14 +275,14 @@
 
     #@0
     .prologue
-    .line 18
+    .line 21
     new-instance v0, Ljava/lang/StringBuilder;
 
     #@2
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
 
     #@5
-    .line 19
+    .line 22
     .local v0, "sb":Ljava/lang/StringBuilder;
     const-string v1, "1"
 
@@ -240,7 +296,7 @@
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     #@e
-    .line 20
+    .line 23
     const-string v1, "2"
 
     #@10
@@ -253,54 +309,60 @@
     invoke-virtual {v0, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
 
     #@17
-    .line 21
+    .line 24
     const/16 v1, 0x33
 
     #@19
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(C)Ljava/lang/StringBuilder;
 
     #@1c
-    .line 22
+    .line 25
     const-string v1, "abc"
 
     #@1e
     invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@21
-    .line 24
+    .line 27
     sget-object v1, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
     #@23
     new-instance v2, Ljava/lang/StringBuilder;
 
     #@25
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    #@28
     const-string v3, "stringBuilder(): "
 
-    #@27
-    invoke-direct {v2, v3}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
     #@2a
-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    #@2d
-    move-result-object v3
-
-    #@2e
     invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    #@31
+    #@2d
     move-result-object v2
 
+    #@2e
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    #@31
+    move-result-object v3
+
     #@32
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@35
     move-result-object v2
 
     #@36
-    invoke-virtual {v1, v2}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     #@39
-    .line 25
+    move-result-object v2
+
+    #@3a
+    invoke-virtual {v1, v2}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+
+    #@3d
+    .line 28
     return-void
 .end method
