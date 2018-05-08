@@ -1,17 +1,25 @@
 package org.cf.obfuscated;
 
-import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        //        for (int i = 0; i < 11; i++) {
+        //            Log.d("StringHolder", i + ": " + StringHolder.get(i));
+        //        }
+
+        try {
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 

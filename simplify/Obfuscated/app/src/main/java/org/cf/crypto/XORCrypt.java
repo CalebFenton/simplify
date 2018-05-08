@@ -1,4 +1,4 @@
-package org.cf.obfuscated;
+package org.cf.crypto;
 
 public class XORCrypt {
 
