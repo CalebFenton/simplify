@@ -55,7 +55,7 @@ public class CheckCastOpTest {
     @Test
     public void canCastStringWithStringTypeToObject() {
         initial.setRegisters(0, "great maker", "Ljava/lang/String;");
-        expected = initial;
+        expected.setRegisters(0, "great maker", "Ljava/lang/Object;");
 
         VMTester.test(CLASS_NAME, "castToObject()V", initial, expected);
     }

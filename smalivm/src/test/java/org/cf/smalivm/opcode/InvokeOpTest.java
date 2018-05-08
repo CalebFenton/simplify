@@ -66,17 +66,9 @@ public class InvokeOpTest {
         private VMState initial;
 
         @Test
-        public void intValueCorrectlyCoaxedToBoolean() {
-            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/util/LinkedList;", 1, 1, "I", 2, 0, "I");
-            expected.setRegisters(0, 1, "Ljava/lang/Object;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
-        }
-
-        @Test
-        public void intValueCorrectlyCoaxedToCharacter() {
-            initial.setRegisters(0, new LinkedList<Character>(), "Ljava/util/LinkedList;", 1, (int) 'a', "I", 2, 0, "I");
-            expected.setRegisters(0, (int) 'a', "Ljava/lang/Object;");
+        public void canInsertObjectIntoListAndGetObjectBack() {
+            initial.setRegisters(0, new LinkedList<Boolean>(), "Ljava/util/LinkedList;", 1, Boolean.TRUE, "Ljava/lang/Boolean;", 2, 0, "I");
+            expected.setRegisters(0, Boolean.TRUE, "Ljava/lang/Boolean;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
         }
@@ -92,17 +84,9 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void intValueCorrectlyCoaxedToShort() {
-            initial.setRegisters(0, new LinkedList<Short>(), "Ljava/util/LinkedList;", 1, 5, "I", 2, 0, "I");
-            expected.setRegisters(0, 5, "Ljava/lang/Object;");
-
-            VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
-        }
-
-        @Test
         public void intValueCorrectlyNotCoaxedToNull() {
             initial.setRegisters(0, new LinkedList<Integer>(), "Ljava/util/LinkedList;", 1, 5, "Ljava/lang/Integer;", 2, 0, "I");
-            expected.setRegisters(0, 5, "Ljava/lang/Object;");
+            expected.setRegisters(0, 5, "Ljava/lang/Integer;");
 
             VMTester.test(CLASS_NAME, "addToListAndGet()V", initial, expected);
         }
@@ -318,6 +302,73 @@ public class InvokeOpTest {
         }
     }
 
+    public static class Direct {
+
+        private static final String CLASS_NAME = "Linvoke_direct_test;";
+        private static final String CLASS_NAME_BINARY = "invoke_direct_test";
+
+        private VMState expected;
+        private VMState initial;
+
+        @Test
+        public void canCallInitOfClassWithDefaultConstructorAndGetNewInstance() throws ClassNotFoundException {
+            String instanceClassName = "Lclass_with_default_constructor;";
+            VirtualMachine vm = VMTester.spawnVM(false);
+            VirtualClass instanceType = vm.getClassManager().getVirtualClass(instanceClassName);
+            Class<?> virtualClass = vm.getClassLoader().loadClass(ClassNameUtils.internalToBinary(instanceClassName));
+            initial.setRegisters(0, new UninitializedInstance(instanceType), instanceClassName);
+
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "callInitOfClassWithDefaultConstructor()V", initial);
+            //VMTester.testState(graph, expected);
+
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(instanceClassName, consensus.getType());
+            assertEquals(virtualClass.getName(), consensus.getValue().getClass().getName());
+        }
+
+        @Test
+        public void canCallInitOfClassWithoutDefaultConstructorAndGetNewInstance() throws ClassNotFoundException {
+            String instanceClassName = "Lclass_without_default_constructor;";
+            VirtualMachine vm = VMTester.spawnVM(false);
+            VirtualClass instanceType = vm.getClassManager().getVirtualClass(instanceClassName);
+            Class<?> virtualClass = vm.getClassLoader().loadClass(ClassNameUtils.internalToBinary(instanceClassName));
+            char[] initArg = new char[] { '4', '2' };
+            initial.setRegisters(0, new UninitializedInstance(instanceType), instanceClassName, 1, initArg, "[C");
+            expected.setRegisters(1, initArg, "[C");
+
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "callInitOfClassWithoutDefaultConstructor()V", initial);
+            VMTester.testState(graph, expected);
+
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(instanceClassName, consensus.getType());
+            assertEquals(virtualClass.getName(), consensus.getValue().getClass().getName());
+        }
+
+        @Test
+        public void canCallInitOfClassWithoutDefaultConstructorWhichChecksForNullArgumentAndGetNewInstance() throws ClassNotFoundException {
+            String instanceClassName = "Lclass_without_default_constructor_checks_null;";
+            VirtualMachine vm = VMTester.spawnVM(false);
+            VirtualClass instanceType = vm.getClassManager().getVirtualClass(instanceClassName);
+            Class<?> virtualClass = vm.getClassLoader().loadClass(ClassNameUtils.internalToBinary(instanceClassName));
+            char[] initArg = new char[] { '4', '2' };
+            initial.setRegisters(0, new UninitializedInstance(instanceType), instanceClassName, 1, initArg, "[C");
+            expected.setRegisters(1, initArg, "[C");
+
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "callInitOfClassWithoutDefaultConstructorWhichChecksForNullArgument()V", initial);
+            VMTester.testState(graph, expected);
+
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(0);
+            assertEquals(instanceClassName, consensus.getType());
+            assertEquals(virtualClass.getName(), consensus.getValue().getClass().getName());
+        }
+
+        @Before
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
+    }
+
     public static class Virtual {
 
         private static final String CLASS_NAME = "Linvoke_virtual_test;";
@@ -332,7 +383,6 @@ public class InvokeOpTest {
             expected.setRegisters(0, new UnknownValue(), "[I", 1, new UnknownValue(), "[I");
 
             VMTester.test(CLASS_NAME, "invokeArrayClone()V", initial, expected);
-
         }
 
         @Test
@@ -342,7 +392,6 @@ public class InvokeOpTest {
             expected.setRegisters(0, array, "[I", 1, array.clone(), "[I");
 
             VMTester.test(CLASS_NAME, "invokeArrayClone()V", initial, expected);
-
         }
 
         @Test
@@ -372,6 +421,7 @@ public class InvokeOpTest {
 
         @Test
         public void instanceInitializerWorksAsExpected() throws ClassNotFoundException {
+            // TODO: easy, try reloadClasses false, or explain why it's needed
             VirtualMachine vm = VMTester.spawnVM(true);
             VirtualClass instanceType = vm.getClassManager().getVirtualClass(CLASS_NAME);
             initial.setRegisters(0, new UninitializedInstance(instanceType), CLASS_NAME);

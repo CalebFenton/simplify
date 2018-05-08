@@ -213,7 +213,7 @@ public class UnaryMathOpTest {
         public void testNegIntWithShort() {
             Short value = 0x42;
             initial.setRegisters(0, value, "S");
-            expected.setRegisters(0, -value, "S");
+            expected.setRegisters(0, -value, "I");
 
             VMTester.test(CLASS_NAME, "negInt()V", initial, expected);
         }
@@ -238,7 +238,7 @@ public class UnaryMathOpTest {
         public void testNotIntWithShort() {
             Short value = 0x42;
             initial.setRegisters(0, value, "S");
-            expected.setRegisters(0, ~value, "S");
+            expected.setRegisters(0, ~value, "I");
 
             VMTester.test(CLASS_NAME, "notInt()V", initial, expected);
         }

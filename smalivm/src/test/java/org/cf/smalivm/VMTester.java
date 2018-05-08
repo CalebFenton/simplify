@@ -299,6 +299,7 @@ public class VMTester {
             assertEquals(expectedValue.toString(), consensusValue.toString());
         } else {
             assertEquals(expectedValue, consensusValue);
+            assertEquals(expected.getType(), consensus.getType());
         }
     }
 

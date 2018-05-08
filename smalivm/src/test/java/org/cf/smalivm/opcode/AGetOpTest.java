@@ -129,7 +129,7 @@ public class AGetOpTest {
     public void canGetWithShortIndex() {
         Short index = 0;
         initial.setRegisters(0, new int[] { 0x42 }, "[I", 1, index, "S");
-        expected.setRegisters(index.intValue(), 0x42, "S");
+        expected.setRegisters(index.intValue(), 0x42, "I", 1, Short.valueOf(index.shortValue()), "S");
 
         VMTester.test(CLASS_NAME, "get()V", initial, expected);
     }

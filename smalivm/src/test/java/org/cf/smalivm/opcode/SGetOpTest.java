@@ -142,7 +142,7 @@ public class SGetOpTest {
 
     @Test
     public void getStaticLongLiteral() {
-        expected.setRegisters(0, 0xFFFFFFFFFL, "L");
+        expected.setRegisters(0, 0xFFFFFFFFFL, "J");
 
         VMTester.test(CLASS_NAME, "getStaticLongLiteral()V", initial, expected);
     }

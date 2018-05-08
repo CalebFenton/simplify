@@ -29,8 +29,8 @@ public class ConstOpTest {
         private VMState expected;
 
         @Test
-        public void canConst() throws NoSuchFieldException, SecurityException {
-            expected.setRegisters(0, 0x42424242, "D");
+        public void canConst() {
+            expected.setRegisters(0, 0x42424242, "I");
 
             VMTester.test(CLASS_NAME, "const()V", expected);
         }
@@ -92,7 +92,7 @@ public class ConstOpTest {
 
         @Test
         public void canConstWide() {
-            expected.setRegisters(0, 0x4242424242424242L, "J");
+            expected.setRegisters(0, 0x4242424242424242L, "D");
 
             VMTester.test(CLASS_NAME, "constWide()V", expected);
         }
