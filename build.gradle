@@ -53,8 +53,8 @@ subprojects {
                 mockito        : 'org.mockito:mockito-core:1.10.19',
                 perfidix       : 'org.perfidix:perfidix:3.6.9',
                 proguard_gradle: 'net.sf.proguard:proguard-gradle:5.2.1',
-                slf4j_api      : 'org.slf4j:slf4j-api:1.7.21',
-                slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.21',
+                slf4j_api      : 'org.slf4j:slf4j-api:1.7.25',
+                slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.25',
                 trove4j        : 'net.sf.trove4j:trove4j:3.0.3',
         ]
     }
