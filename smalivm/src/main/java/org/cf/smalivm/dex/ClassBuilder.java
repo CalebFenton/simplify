@@ -125,7 +125,7 @@ public class ClassBuilder {
             }
         }
 
-        return exceptionTypes.toArray(new String[exceptionTypes.size()]);
+        return exceptionTypes.toArray(new String[0]);
     }
 
     private String[] buildInterfaces(ClassDef classDef) {
