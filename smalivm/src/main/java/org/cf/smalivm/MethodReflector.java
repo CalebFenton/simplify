@@ -54,7 +54,7 @@ public class MethodReflector {
 
         if (!method.returnsVoid()) {
             HeapItem returnItem;
-            if (returnValue != null) {
+            if (returnValue != null && !ClassNameUtils.isPrimitive(method.getReturnType())) {
                 returnItem = new HeapItem(returnValue, ClassNameUtils.toInternal(returnValue.getClass()));
             } else {
                 returnItem = new HeapItem(returnValue, method.getReturnType());

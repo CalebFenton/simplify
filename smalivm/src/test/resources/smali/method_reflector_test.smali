@@ -12,6 +12,15 @@
   return-void
 .end method
 
+.method public static intValueOfInteger()V
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Integer;->intValue()I
+  move-result v0
+
+  return-void
+.end method
+
 .method public static initBooleanWithBoolean()V
   .locals 1
 

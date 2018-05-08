@@ -76,6 +76,15 @@ public class MethodReflectorTest {
     }
 
     @Test
+    public void methodWithPrimitiveReturnValueTypeActuallyReturnsPrimitiveType() {
+        int intVal = 42;
+        initial.setRegisters(0, Integer.valueOf(intVal), "Ljava/lang/Integer;");
+        expected.setRegisters(0, intVal, CommonTypes.INTEGER);
+
+        VMTester.test(CLASS_NAME, "intValueOfInteger()V", initial, expected);
+    }
+
+    @Test
     public void canCastIntegerToByte() {
         byte value = 6;
         initial.setRegisters(0, value, "B");
