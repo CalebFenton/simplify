@@ -74,11 +74,13 @@ Then, to build a single jar which contains all dependencies:
 ./gradlew fatjar
 ```
 
-The Simplify jar will be in `simplify/build/libs/`. You can test it's working by simplifying the provided [obfuscated-example app](https://github.com/CalebFenton/simplify/tree/master/simplify/Obfuscated). Here's how you'd run it (you may need to change `simplify.jar`):
+The Simplify jar will be in `simplify/build/libs/`. You can test it's working by simplifying the provided [obfuscated example app](/simplify/ObfuscatedApp). Here's how you'd run it (you may need to change `simplify.jar`):
 
 ```bash
-java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
+java -jar simplify/build/libs/simplify.jar -it 'org/cf/obfuscated' -et 'MainActivity' simplify/obfuscated-app.apk
 ```
+
+To understand what's getting deobfuscated, check out [Obfuscated App's README](/simplify/ObfuscatedApp/README.md).
 
 ## Troubleshooting
 
@@ -103,7 +105,7 @@ Don't be shy. I think virtual execution and deobfuscation are fascinating proble
 
 Please include a link to the APK or DEX and the full command you're using. This makes it much easier to reproduce (and thus _fix_) your issue.
 
-If you can't share the sample, please include the file hash (sha1, sha256, etc).
+If you can't share the sample, *please* include the file hash (SHA1, SHA256, etc).
 
 ## Optimization Strategies
 
