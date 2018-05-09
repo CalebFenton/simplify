@@ -222,9 +222,13 @@ public class ExecutionContext {
 
     @Override
     public String toString() {
+        return toString(true);
+    }
+
+    public String toString(boolean onlyPeekCachedRegisters) {
         StringBuilder sb = new StringBuilder();
         if (mState != null) {
-            sb.append(method.getSignature()).append(" State: ").append(mState.toString());
+            sb.append(method.getSignature()).append(" State: ").append(mState.toString(onlyPeekCachedRegisters));
         }
         if (sb.length() > 0) {
             sb.append('\n');

@@ -2,7 +2,6 @@ package org.cf.smalivm;
 
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
-
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.type.ClassManager;
@@ -25,8 +24,7 @@ public class MethodExecutor {
     private final int maxMethodVisits;
     private int totalVisits;
 
-    MethodExecutor(ClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits,
-                   int maxExecutionTime) {
+    MethodExecutor(ClassManager classManager, int maxCallDepth, int maxAddressVisits, int maxMethodVisits, int maxExecutionTime) {
         this.classManager = classManager;
         this.maxCallDepth = maxCallDepth;
         this.maxAddressVisits = maxAddressVisits;
@@ -40,7 +38,6 @@ public class MethodExecutor {
         VirtualMethod method = graph.getMethod();
         ExecutionNode node = graph.getRoot();
         int callDepth = node.getCallDepth();
-        log.info("Executing {}, depth={}", method, callDepth);
         if (node.getCallDepth() > getMaxCallDepth()) {
             throw new MaxCallDepthExceededException(method.getSignature());
         }
@@ -49,6 +46,8 @@ public class MethodExecutor {
             // This is a new root method.
             resetTotalVisits();
         }
+
+        log.info("Executing {}, depth={}", method, callDepth);
 
         NodeExecutor nodeExecutor = new NodeExecutor(graph, classManager);
         Deque<ExecutionNode> stack = new ArrayDeque<>();
@@ -60,10 +59,13 @@ public class MethodExecutor {
             checkMaxVisits(node, method, addressToVisitCount);
 
             nodeExecutor.execute(node);
+
             if (node.getChildren().size() > 1 && !warnedMultipleExecutionPaths) {
                 warnedMultipleExecutionPaths = true;
-                String children =
-                        node.getChildren().stream().map(ExecutionNode::toString).collect(Collectors.joining(", "));
+                String children = node.getChildren()
+                        .stream()
+                        .map(ExecutionNode::toString)
+                        .collect(Collectors.joining(", "));
                 // This can lead to more ambiguity and it's not always obvious when this happens.
                 // Let the user know if they're listening.
                 log.debug("{} has multiple execution paths starting at {}: {}", method, node, children);
@@ -76,8 +78,7 @@ public class MethodExecutor {
         return graph;
     }
 
-    private void checkMaxExecutionTime(long endTime,
-                                       VirtualMethod localMethod) throws MaxExecutionTimeExceededException {
+    private void checkMaxExecutionTime(long endTime, VirtualMethod localMethod) throws MaxExecutionTimeExceededException {
         if (maxExecutionTime == 0) {
             return;
         }
@@ -87,8 +88,7 @@ public class MethodExecutor {
         }
     }
 
-    private void checkMaxVisits(ExecutionNode node, VirtualMethod localMethod,
-                                TIntIntMap addressToVisitCount) throws MaxAddressVisitsExceededException, MaxMethodVisitsExceededException {
+    private void checkMaxVisits(ExecutionNode node, VirtualMethod localMethod, TIntIntMap addressToVisitCount) throws MaxAddressVisitsExceededException, MaxMethodVisitsExceededException {
         if (totalVisits > getMaxMethodVisits()) {
             throw new MaxMethodVisitsExceededException(node, localMethod.getSignature());
         }

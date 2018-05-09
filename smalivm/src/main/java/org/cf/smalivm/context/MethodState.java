@@ -201,13 +201,17 @@ public class MethodState extends BaseState {
 
     @Override
     public String toString() {
+        return toString(true);
+    }
+
+    public String toString(boolean onlyPeekCachedRegisters) {
         StringBuilder sb = new StringBuilder();
         int localsCount = getRegisterCount() - getParameterCount();
         sb.append("params: ").append(parameterCount).append(", ");
         sb.append("locals: ").append(localsCount).append('\n');
         StringBuilder ctx = new StringBuilder();
         for (int register = 0; register < getRegisterCount(); register++) {
-            if (!hasRegister(register)) {
+            if (onlyPeekCachedRegisters && !hasRegister(register)) {
                 continue;
             }
 
@@ -225,19 +229,19 @@ public class MethodState extends BaseState {
             }
         }
 
-        if (hasRegister(ResultRegister)) {
+        if (onlyPeekCachedRegisters && hasRegister(ResultRegister)) {
             ctx.append("result: ").append(peekRegister(ResultRegister)).append('\n');
         }
 
-        if (hasRegister(ReturnRegister)) {
+        if (onlyPeekCachedRegisters && hasRegister(ReturnRegister)) {
             ctx.append("return: ").append(peekRegister(ReturnRegister)).append('\n');
         }
 
         if (ctx.length() > 0) {
             ctx.setLength(ctx.length() - 1);
         }
-
         sb.append(ctx);
+
         return sb.toString();
     }
 
