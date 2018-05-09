@@ -9,7 +9,7 @@
 
     #@0
     .prologue
-    .line 3
+    .line 6
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     #@3
@@ -21,7 +21,7 @@
 
     #@0
     .prologue
-    .line 6
+    .line 9
     const/16 v2, 0x10
 
     #@2
@@ -31,7 +31,7 @@
     fill-array-data v0, :array_0
 
     #@7
-    .line 7
+    .line 10
     .local v0, "data":[B
     new-instance v1, Ljava/lang/String;
 
@@ -45,7 +45,7 @@
     invoke-direct {v1, v2}, Ljava/lang/String;-><init>([B)V
 
     #@10
-    .line 9
+    .line 12
     .local v1, "output":Ljava/lang/String;
     sget-object v2, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
@@ -80,11 +80,11 @@
     invoke-virtual {v2, v3}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
 
     #@28
-    .line 10
+    .line 13
     return-void
 
     #@29
-    .line 6
+    .line 9
     nop
 
     #@2a
@@ -110,59 +110,21 @@
 .end method
 
 .method public static main([Ljava/lang/String;)V
-    .locals 3
+    .locals 0
     .param p0, "args"    # [Ljava/lang/String;
 
     #@0
     .prologue
-    .line 13
+    .line 16
     invoke-static {}, Lorg/cf/demosmali/Main;->helloWorld()V
 
     #@3
-    .line 14
+    .line 17
     invoke-static {}, Lorg/cf/demosmali/Main;->stringBuilder()V
 
     #@6
-    .line 15
-    const/4 v2, 0x3
-
-    #@7
-    new-array v0, v2, [C
-
-    #@9
-    fill-array-data v0, :array_0
-
-    #@c
-    .line 16
-    .local v0, "carr":[C
-    invoke-virtual {v0}, [C->clone()Ljava/lang/Object;
-
-    #@f
-    move-result-object v1
-
-    #@10
-    check-cast v1, [C
-
-    #@12
-    .line 17
-    .local v1, "cloned":[C
-    sget-object v2, Ljava/lang/System;->out:Ljava/io/PrintStream;
-
-    #@14
-    invoke-virtual {v2, v1}, Ljava/io/PrintStream;->println([C)V
-
-    #@17
     .line 18
     return-void
-
-    #@18
-    .line 15
-    :array_0
-    .array-data 2
-        0x61s
-        0x62s
-        0x63s
-    .end array-data
 .end method
 
 .method private parameterLogic(I)I
