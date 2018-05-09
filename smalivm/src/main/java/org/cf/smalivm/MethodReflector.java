@@ -4,7 +4,6 @@ import org.apache.commons.beanutils.ConstructorUtils;
 import org.apache.commons.beanutils.MethodUtils;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.EnumAnalyzer;
@@ -44,10 +43,10 @@ public class MethodReflector {
                 IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
             //            e.printStackTrace();
             if (log.isWarnEnabled()) {
-                log.warn("Failed to reflect {}: {}", method, e.getMessage());
+                log.warn("Failed to reflect {}: ", method, e);
             }
             if (log.isDebugEnabled()) {
-                log.debug("Stack trace:", e);
+                log.debug("Stack trace: ", e);
             }
             throw e;
         }

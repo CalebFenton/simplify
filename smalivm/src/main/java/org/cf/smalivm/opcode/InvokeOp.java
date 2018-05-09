@@ -210,10 +210,10 @@ public class InvokeOp extends ExecutionContextOp {
         /*
          * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear:
          * const/4 v0,0x0 (could be true, (int)0, or (short)0, null, etc.)
-         * If a more restrictive virtual is given in the method signature, prefer that, for example:
+         * If a more restrictive class is given in the method signature, prefer that, for example:
          * method argument is an int but signature declares it as boolean, so switch it to boolean
-         * However, if the virtual is less specific, such as a super class or interface, do not use the less specific
-         * virtual. For example:
+         * However, if the class is less specific, such as a super class or interface, do not use the less specific
+         * class. For example:
          * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
          */
         List<String> parameterTypes = method.getParameterTypeNames();
@@ -251,7 +251,7 @@ public class InvokeOp extends ExecutionContextOp {
                 if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
                     value = null;
                 } else {
-                    // An I virtual may actually be a S, B, C, etc. Pass the cast virtual to simplify things.
+                    // The "I" type may actually be "S", "B", "C", etc. Cast to the given parameter type.
                     value = Utils.castToPrimitive(value, parameterType);
                 }
             }

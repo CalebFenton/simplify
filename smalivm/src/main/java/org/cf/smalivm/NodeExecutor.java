@@ -41,7 +41,7 @@ public class NodeExecutor {
         if (node.mayThrowException()) {
             for (Throwable exception : node.getExceptions()) {
                 if (log.isTraceEnabled()) {
-                    log.trace("{} may throw virtual exception: {}", node, exception);
+                    log.trace("{} may throw virtual exception: ", node, exception);
                 }
 
                 int childAddress = exceptionResolver.resolve(exception, node.getAddress());
@@ -52,14 +52,14 @@ public class NodeExecutor {
                     if (node.getChildLocations().length == 0) {
                         if (log.isErrorEnabled()) {
                             // No children, probably a real exception
-                            log.error("{} unhandled virtual exception: {}", node, exception);
+                            log.error("{} unhandled virtual exception: ", node, exception);
                         }
 
                         throw new UnhandledVirtualException(exception);
                     } else {
                         // Op has children, doesn't *always* throw, probably virtual exception
                         if (log.isTraceEnabled()) {
-                            log.trace("{} possible unhandled virtual exception: {}", node, exception);
+                            log.trace("{} possible unhandled virtual exception: ", node, exception);
                         }
                     }
                 }
@@ -90,8 +90,7 @@ public class NodeExecutor {
             } else {
                 if (log.isWarnEnabled()) {
                     log.warn("{} threw a real exception but was caught by an exception handler. " +
-                             "This may be a bug in smalivm or in the input code. Exception: {}", node, e.toString());
-
+                             "This may be a bug in smalivm or in the input code. Exception: ", node, e);
                 }
             }
             spawnChild(graph, node, childAddress);

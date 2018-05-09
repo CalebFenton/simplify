@@ -54,7 +54,7 @@ class Heap {
         Heap ancestor = getAncestorWithKey(key);
         if (ancestor == null) {
             if (log.isTraceEnabled()) {
-                log.trace("Undefined value for " + key + "; possibly a mistake!", new Exception());
+                log.trace("Undefined value for {}; possibly a mistake!", key, new Exception());
             }
 
             return null;

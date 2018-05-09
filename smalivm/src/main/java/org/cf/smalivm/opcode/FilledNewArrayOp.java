@@ -44,7 +44,7 @@ public class FilledNewArrayOp extends MethodStateOp {
             } else {
                 if (!item.isUnknown()) {
                     if (log.isWarnEnabled()) {
-                        log.warn("Unexpected value virtual for " + toString() + ": " + item);
+                        log.warn("Unexpected value virtual for {}: {}", toString(), item);
                     }
                 }
 
@@ -66,7 +66,7 @@ public class FilledNewArrayOp extends MethodStateOp {
         sb.append(" {");
         if (dimensionRegisters.length > 5) {
             sb.append('r').append(dimensionRegisters[0]).append(" .. r")
-                            .append(dimensionRegisters[dimensionRegisters.length - 1]);
+                    .append(dimensionRegisters[dimensionRegisters.length - 1]);
         } else {
             for (int dimensionRegister : dimensionRegisters) {
                 sb.append('r').append(dimensionRegister).append(", ");

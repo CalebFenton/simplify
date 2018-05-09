@@ -159,7 +159,7 @@ public class Launcher {
         if (!opts.includeSupportLibrary()) {
             int beforeCount = classNames.size();
             filterSupportLibrary(classNames);
-            log.info("Filtered " + (beforeCount - classNames.size()) + " support library classes");
+            log.info("Filtered {} support library classes", (beforeCount - classNames.size()));
         }
 
         Map<String, Collection<VirtualMethod>> classNameToMethods = new HashMap<>();
