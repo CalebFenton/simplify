@@ -27,6 +27,10 @@ public class HeapItem {
         this.type = type.intern();
     }
 
+    public HeapItem(Object value) {
+        this(value, ClassNameUtils.toInternal(value.getClass()));
+    }
+
     HeapItem(HeapItem other) {
         value = cloner.deepClone(other.getValue());
         type = other.getType();
