@@ -4,7 +4,7 @@ This is an example obfuscated Android app which shows off some of the deobfuscat
 
 ## Build
 ```bash
-./gradlew build && cp app/build/outputs/apk/app-release-unsigned.apk ../obfuscated-example.apk
+./gradlew build && cp app/build/outputs/apk/app-release-unsigned.apk ../obfuscated-app.apk
 ```
 
 ## Reflection
@@ -46,13 +46,21 @@ public class WhiteNoise
   }
   
   public static void messyMethod() {
-    new Integer(12345);
-    Integer.valueOf(Integer.valueOf(Integer.valueOf(Integer.valueOf(Integer.parseInt(new String(new char[] { 49, 48 }))).intValue() * Integer.valueOf(3).intValue()).intValue() + Integer.valueOf(24).intValue()).intValue() / Integer.valueOf(3).intValue()).intValue();
-    Integer.valueOf(8).intValue();
+    Integer i;
+    i = new Integer(12345);
+    i = Integer.parseInt(new String(new char[] {'1', '0'}));
+    i *= Integer.valueOf(3);
+    i += Integer.valueOf(24);
+    i /= Integer.valueOf(3);
+    i -= Integer.valueOf(8);
     realTarget();
-    byte[] arrayOfByte = new byte[Integer.valueOf(Integer.parseInt(new String(new char[] { 51, 57 }))).intValue()];
-    Integer.valueOf(Integer.valueOf(Integer.valueOf(Integer.valueOf(Integer.parseInt(new String(new char[] { 50, 52 }))).intValue() * Integer.valueOf(4).intValue()).intValue() + Integer.valueOf(12).intValue()).intValue() / Integer.valueOf(2).intValue()).intValue();
-    Integer.valueOf(6).intValue();
+    i = Integer.parseInt(new String(new char[] {'3', '9'}));
+    byte[] noise = new byte[i];
+    i = Integer.parseInt(new String(new char[] {'2', '4'}));
+    i *= Integer.valueOf(4);
+    i += Integer.valueOf(12);
+    i /= Integer.valueOf(2);
+    i -= Integer.valueOf(6);
   }
   
   private static void realTarget() {}
