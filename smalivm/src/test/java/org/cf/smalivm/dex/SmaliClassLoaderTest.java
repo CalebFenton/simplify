@@ -8,9 +8,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import javax.crypto.CipherSpi;
+import javax.crypto.interfaces.PBEKey;
+import javax.crypto.spec.PBEKeySpec;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -18,22 +22,21 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class SmaliClassLoaderTest {
 
-    private static final String[] OBJECT_METHODS =
-            new String[] { "public boolean java.lang.Object.equals(java.lang.Object)",
-                           "public final native java.lang.Class java.lang.Object.getClass()",
-                           "public final native void java.lang.Object.notify()",
-                           "public final native void java.lang.Object.notifyAll()",
-                           "public final native void java.lang.Object.wait(long) throws java.lang.InterruptedException",
-                           "public final void java.lang.Object.wait() throws java.lang.InterruptedException",
-                           "public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
-                           "public java.lang.String java.lang.Object.toString()",
-                           "public native int java.lang.Object.hashCode()" };
+    private static final String[] OBJECT_METHODS = new String[] {
+            "public boolean java.lang.Object.equals(java.lang.Object)",
+            "public final native java.lang.Class java.lang.Object.getClass()",
+            "public final native void java.lang.Object.notify()",
+            "public final native void java.lang.Object.notifyAll()",
+            "public final native void java.lang.Object.wait(long) throws java.lang.InterruptedException",
+            "public final void java.lang.Object.wait() throws java.lang.InterruptedException",
+            "public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+            "public java.lang.String java.lang.Object.toString()",
+            "public native int java.lang.Object.hashCode()"
+    };
     private static final String TEST_SMALI_PATH = VMTester.TEST_CLASS_PATH + "/class_builder";
 
     @Rule
@@ -51,10 +54,12 @@ public class SmaliClassLoaderTest {
         assertEquals(klazz, enumConstant.getClass());
 
         String[] enumStrings = Arrays.stream(klazz.getEnumConstants()).map(Object::toString)
-                                     .toArray(String[]::new);
+                .toArray(String[]::new);
         String[] expectedEnumStrings =
-                new String[] { "ACTIVITY_INTENT_ACTION", "BROADCAST_INTENT_ACTION", "FEATURE", "INTENT_CATEGORY",
-                               "SERVICE_ACTION", "$shadow_instance" };
+                new String[] {
+                        "ACTIVITY_INTENT_ACTION", "BROADCAST_INTENT_ACTION", "FEATURE", "INTENT_CATEGORY",
+                        "SERVICE_ACTION", "$shadow_instance"
+                };
         assertArrayEquals(expectedEnumStrings, enumStrings);
     }
 
@@ -68,7 +73,7 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsClassThatReferencesNonExistentClassAndThrowsExceptionWhenVerifyingIt() throws ClassNotFoundException {
+    public void loadingClassWhichReferencesNonExistentClassThrowsExceptionDuringVerification() throws ClassNotFoundException {
         String className = "org.cf.test.NonExistentReference";
         Class<?> klazz = classLoader.loadClass(className);
 
@@ -78,7 +83,7 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsClassWithCircularReferences() throws Exception {
+    public void canLoadClassWithCircularReferences() throws Exception {
         String className1 = "org.cf.test.CircularReference1";
         Class<?> klazz1 = classLoader.loadClass(className1);
 
@@ -99,7 +104,7 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsClassWithOverloadedFields() throws Exception {
+    public void canLoadClassWithOverloadedFields() throws Exception {
         String className = "org.cf.test.OverloadedFields";
         Class<?> klazz = classLoader.loadClass(className);
         assertHasObjectMethods(klazz);
@@ -112,13 +117,13 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsClassWithIllegalFieldModifiers() throws Exception {
+    public void canLoadClassWithIllegalFieldModifiers() throws Exception {
         String className = "org.cf.test.IllegalFieldModifiers";
         Class<?> klazz = classLoader.loadClass(className);
     }
 
     @Test
-    public void loadsComplexClass() throws Exception {
+    public void canLoadComplexClass() throws Exception {
         String className = "org.cf.test.ComplexClass";
         Class<?> klazz = classLoader.loadClass(className);
         assertHasObjectMethods(klazz);
@@ -136,15 +141,29 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsJVMClasses() throws ClassNotFoundException {
-        Class<?> expected = String.class;
-        Class<?> actual = classLoader.loadClass(expected.getName());
-
-        assertEquals(expected, actual);
+    public void loadingProtectedJavaClassesReturnsRunningJVMClass() throws ClassNotFoundException {
+        Class<?>[] expectedClasses = new Class<?>[] { String.class, Integer.class, Object.class };
+        for (Class<?> expected : expectedClasses) {
+            Class<?> actual = classLoader.loadClass(expected.getName());
+            assertEquals(expected, actual);
+        }
     }
 
     @Test
-    public void loadsSelfReferencingClass() throws Exception {
+    public void loadingNonProtectedFrameworkClassesWhichAreAlsoInJVMReturnsFrameworkJarClass() throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        String[] expectedClassNames = new String[] {
+                PBEKeySpec.class.getName(), PBEKey.class.getName(), CipherSpi.class.getName(),
+                };
+        for (String expectedClassName : expectedClassNames) {
+            Class<?> actual = classLoader.loadClass(expectedClassName);
+            assertEquals(expectedClassName, actual.getName());
+            Class<?> jvmClass = classLoader.getParent().loadClass(expectedClassName);
+            assertNotEquals(jvmClass, actual);
+        }
+    }
+
+    @Test
+    public void canLoadSelfReferencingClass() throws Exception {
         String className = "org.cf.test.SelfReference";
         Class<?> klazz = classLoader.loadClass(className);
         assertHasObjectMethods(klazz);
@@ -163,7 +182,7 @@ public class SmaliClassLoaderTest {
     }
 
     @Test
-    public void loadsSimpleClass() throws ClassNotFoundException {
+    public void canLoadSimpleClass() throws ClassNotFoundException {
         String className = "org.cf.test.SimpleClass";
         Class<?> klazz = classLoader.loadClass(className);
         assertHasObjectMethods(klazz);

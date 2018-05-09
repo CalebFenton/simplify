@@ -1,6 +1,5 @@
 package org.cf.smalivm.dex;
 
-import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualClass;
@@ -15,24 +14,21 @@ import java.net.URLClassLoader;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SmaliClassLoader extends ClassLoader {
+public class SmaliClassLoader extends URLClassLoader {
 
     private static final Logger log = LoggerFactory.getLogger(SmaliClassLoader.class.getSimpleName());
 
-    // This jar is produced by FrameworkJarBuilder so that framework classes don't have to be built with ASM
-    // every time they're needed. Instead, they can be loaded from here.
+    // This jar is created by FrameworkJarBuilder. It's a cache of framework classes to avoid
+    // having to dynamically generate them.
     public static final String FRAMEWORK_STUBS_JAR = "/framework/android-framework.jar";
 
     private final Map<String, Class<?>> cachedClasses;
     private final ClassBuilder classBuilder;
     private final ClassManager classManager;
-    private final URLClassLoader jarLoader;
 
     public SmaliClassLoader(ClassManager classManager) {
-        super(SmaliClassLoader.class.getClassLoader());
+        super(new URL[] { SmaliClassLoader.class.getResource(SmaliClassLoader.FRAMEWORK_STUBS_JAR) });
         cachedClasses = new HashMap<>();
-        URL jarURL = SmaliClassLoader.class.getResource(SmaliClassLoader.FRAMEWORK_STUBS_JAR);
-        jarLoader = new URLClassLoader(new URL[] { jarURL });
         this.classBuilder = new ClassBuilder(classManager);
         this.classManager = classManager;
     }
@@ -59,29 +55,50 @@ public class SmaliClassLoader extends ClassLoader {
     }
 
     @Override
-    protected Class findClass(String name) throws ClassNotFoundException {
-        try {
-            return super.findClass(name);
-        } catch (ClassNotFoundException e) {
-        }
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+        String internalName = ClassNameUtils.binaryToInternal(name);
+        /*
+         * Framework classes should be loaded from smalivm's generated framework jar.
+         * This is because the ObjectInstantiator will expect an empty default constructor
+         * and one is added whenever classes are built.
+         */
+        if (classManager.getFrameworkClassNames().contains(internalName)) {
+            Class<?> klazz = cachedClasses.get(name);
+            if (klazz != null) {
+                return klazz;
+            }
 
+            klazz = findClass(name);
+            cachedClasses.put(name, klazz);
+            return klazz;
+        }
+        return super.loadClass(name, resolve);
+    }
+
+    @Override
+    public Class<?> findClass(String name) throws ClassNotFoundException {
         if (name.startsWith("java.")) {
-            log.warn("Unable to load prohibited class name: {}\nThis error is likely the result of using a class " +
-                     "which references a java.* class only available on Android. There's no work-around at this time " +
-                     "since loading protected classes is a huge pain.", name);
+            try {
+                return super.loadClass(name, false);
+            } catch (ClassNotFoundException e) {
+            }
+
+            log.warn("Unable to build and load prohibited class name: {}\nThis error is likely the result of using a class " +
+                    "which references a java.* class only available on Android. There's no work-around at this time " +
+                    "since loading protected classes is a huge pain.", name);
             throw new ClassNotFoundException(name);
         }
 
-        Class<?> klazz;
-        try {
-            klazz = jarLoader.loadClass(name);
-            return klazz;
-        } catch (ClassNotFoundException e) {
-        }
-
-        klazz = cachedClasses.get(name);
+        Class<?> klazz = cachedClasses.get(name);
         if (klazz != null) {
             return klazz;
+        }
+
+        try {
+            klazz =  super.findClass(name);
+            cachedClasses.put(name, klazz);
+            return klazz;
+        } catch (ClassNotFoundException e) {
         }
 
         String internalName = ClassNameUtils.binaryToInternal(name);
