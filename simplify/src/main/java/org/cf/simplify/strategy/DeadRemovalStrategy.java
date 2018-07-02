@@ -5,11 +5,7 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.opcode.APutOp;
-import org.cf.smalivm.opcode.GotoOp;
-import org.cf.smalivm.opcode.InvokeOp;
-import org.cf.smalivm.opcode.NopOp;
-import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.opcode.*;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderExceptionHandler;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -18,13 +14,7 @@ import org.jf.dexlib2.iface.instruction.OffsetInstruction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -108,33 +98,48 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
+    /***
+     * Check if the values in a set of registers is used (read) at or after a certain address.
+     * @param address
+     * @param usedRegisters
+     * @param graph
+     * @param node
+     * @return
+     */
     private static boolean isAnyRegisterUsed(int address, Set<Integer> usedRegisters, ExecutionGraphManipulator graph,
                                              ExecutionNode node) {
         ExecutionNode current = node;
+        Set<Integer> reassignedRegisters = new HashSet<Integer>();
         for (; ; ) {
             MethodState mState = current.getContext().getMethodState();
             for (int register : usedRegisters) {
-                // Some ops read from and assign to the same register, e.g add-int/2addr v0, v0
-                // Read check must come first because this still counts as a usage.
+                // Need to check if read before checking if assigned because some ops may read & assign to the same register, e.g. add-int/2addr v0, v0
                 if (mState.wasRegisterRead(register)) {
                     if (log.isTraceEnabled()) {
-                        log.trace("r{} read after {} @{}, {}", register, address, current.getAddress(),
+                        log.trace("r{} read after {} @{} with {}", register, address, current.getAddress(),
                                 current.getOp());
                     }
 
                     return true;
                 }
                 // aput mutates an object. Assignment isn't "reassignment" like it is with other ops
-                else if (mState.wasRegisterAssigned(register) && !(current.getOp() instanceof APutOp)) {
+                if (mState.wasRegisterAssigned(register)) {
+                    if (current.getOp() instanceof APutOp) {
+                        // aput* ops mutate the value at the target register, they don't reassign to a new object, so don't count it as reassignment
+                        continue;
+                    }
+
                     if (log.isTraceEnabled()) {
-                        log.trace("r{} assigned after {} @{}, {}", register, address, current.getAddress(),
+                        log.trace("r{} assigned after {} @{} with {}", register, address, current.getAddress(),
                                 current.getOp());
                     }
 
-                    usedRegisters.remove(register);
+                    // This register has been reassigned so the original value isn't accessible from this register anymore.
+                    reassignedRegisters.add(register);
                 }
             }
 
+            usedRegisters.removeAll(reassignedRegisters);
             if (usedRegisters.isEmpty()) {
                 return false;
             }
