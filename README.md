@@ -54,7 +54,7 @@ deobfuscates a dalvik executable
 
 ## Building
 
-Building requires the [Java Development Kit (JDK)](http://www.oracle.com/technetwork/java/javase/downloads/index.html) to be installed.
+Building requires the [Java Development Kit 8 (JDK)](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html) to be installed.
 
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
