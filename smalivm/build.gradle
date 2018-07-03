@@ -9,7 +9,7 @@ buildscript {
 
 dependencies {
     // Object cloning
-    compile 'uk.com.robust-it:cloning:1.9.5'
+    compile 'uk.com.robust-it:cloning:1.9.10'
 
     // Easy method reflection
     compile 'commons-beanutils:commons-beanutils:1.9.3'
@@ -25,12 +25,12 @@ dependencies {
     compile depends.slf4j_api
 
     // Parsing and writing dex files
-    compile group: 'org.smali', name: 'dexlib2', version: '2.2.3'
-    compile group: 'org.smali', name: 'smali', version: '2.2.3'
-    compile group: 'org.smali', name: 'baksmali', version: '2.2.3'
+    compile group: 'org.smali', name: 'dexlib2', version: '2.2.4'
+    compile group: 'org.smali', name: 'smali', version: '2.2.4'
+    compile group: 'org.smali', name: 'baksmali', version: '2.2.4'
 
     // For dynamic java.lang.Class generation
-    compile group: 'org.ow2.asm', name: 'asm', version: '6.0_ALPHA'
+    compile group: 'org.ow2.asm', name: 'asm', version: '6.2'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
     // E.g. android.util.Base64
