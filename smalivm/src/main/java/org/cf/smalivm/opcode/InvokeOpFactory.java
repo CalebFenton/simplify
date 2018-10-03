@@ -3,10 +3,9 @@ package org.cf.smalivm.opcode;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.map.TIntObjectMap;
-
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.Utils;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.Instruction;
@@ -64,7 +63,7 @@ public class InvokeOpFactory implements OpFactory {
     private int[] buildParameterRegisters(List<String> parameterTypes, int[] registers) {
         TIntList parameterRegisters = new TIntLinkedList(parameterTypes.size());
         int index = 0;
-        for ( String parameterType : parameterTypes ) {
+        for (String parameterType : parameterTypes) {
             parameterRegisters.add(registers[index]);
             index += Utils.getRegisterSize(parameterType);
         }
@@ -84,6 +83,9 @@ public class InvokeOpFactory implements OpFactory {
         String methodSignature = ReferenceUtil.getMethodDescriptor(methodReference);
         String methodDescriptor = methodSignature.split("->")[1];
         VirtualMethod method = type.getMethod(methodDescriptor);
+        if (method == null) {
+            throw new RuntimeException("Method doesn't exist: " + methodSignature);
+        }
         int[] parameterRegisters = buildParameterRegisters(method.getParameterTypeNames(), registers);
 
         return new InvokeOp(location, child, method, parameterRegisters, vm);
