@@ -35,6 +35,9 @@ public class ClassManager {
     // Use separate DexBuilder to intern framework classes to avoid including in output dex
     private final DexBuilder frameworkDexBuilder = new DexBuilder(Opcodes.getDefault());
 
+    private Set<String> frameworkClassNames = null;
+    private Set<String> nonFrameworkClassNames = null;
+
     ClassManager(DexBuilder dexBuilder) {
         this(dexBuilder, false);
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles());
@@ -75,7 +78,13 @@ public class ClassManager {
      * @return all framework class names
      */
     public Set<String> getFrameworkClassNames() {
-        return classNameToSmaliFile.keySet().stream().filter(smaliFileFactory::isFrameworkClass).collect(Collectors.toSet());
+        if (frameworkClassNames == null) {
+            frameworkClassNames = classNameToSmaliFile.keySet().stream()
+                    .filter(smaliFileFactory::isFrameworkClass)
+                    .collect(Collectors.toSet());
+        }
+
+        return frameworkClassNames;
     }
 
     public Collection<VirtualClass> getLoadedClasses() {
@@ -102,7 +111,13 @@ public class ClassManager {
      * @return all local class names which are not part of the framework
      */
     public Set<String> getNonFrameworkClassNames() {
-        return classNameToSmaliFile.keySet().stream().filter(className -> !smaliFileFactory.isFrameworkClass(className)).collect(Collectors.toSet());
+        if (nonFrameworkClassNames == null) {
+            nonFrameworkClassNames = classNameToSmaliFile.keySet().stream()
+                    .filter(className -> !smaliFileFactory.isFrameworkClass(className))
+                    .collect(Collectors.toSet());
+        }
+
+        return nonFrameworkClassNames;
     }
 
     public VirtualClass getVirtualClass(Class<?> klazz) {
