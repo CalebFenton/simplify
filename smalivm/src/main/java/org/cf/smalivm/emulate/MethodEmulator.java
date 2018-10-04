@@ -15,12 +15,14 @@ public class MethodEmulator {
 
     private static final Logger log = LoggerFactory.getLogger(MethodEmulator.class.getSimpleName());
     private static Map<String, Class<? extends EmulatedMethod>> emulatedMethods = new HashMap<>();
+
     static {
         addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", org_cf_simplify_Utils_breakpoint.class);
         addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", java_lang_Class_forName.class);
-        addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;",
-                java_lang_reflect_Field_get.class);
+        addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;", java_lang_reflect_Field_get.class);
+        addMethod("Ljava/lang/Object;->getClass()Ljava/lang/Class;", java_lang_Object_getClass.class);
     }
+
     private final VirtualMachine vm;
     private final ExecutionContext context;
     private final String methodDescriptor;
