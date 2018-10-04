@@ -17,10 +17,9 @@ before_install:
 - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END
   CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
 before_script:
-- sudo service dockerd stop || true
+- sudo service docker stop || true
 - sudo service elasticsearch stop || true
 - sudo service memcached stop || true
-- sudo service mongod stop || true
 - sudo service mysql stop || true
 - sudo service neo4j stop || true
 - sudo service postgresql stop || true
