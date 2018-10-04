@@ -2,12 +2,12 @@ language: java
 sudo: required
 dist: trusty
 jdk:
-- oraclejdk8
+- openjdk8
 env:
   matrix:
   - TERM=dumb
   global:
-  - GRADLE_OPTS="-Xms128m -Xss512k"
+  - GRADLE_OPTS="-Xms128m -Xmx6g -Xss512k"
   - MALLOC_ARENA_MAX=2
   - CI_NAME=travis-ci
   - secure: dz8FVLtE8hXYAhrMcBoYJh6iDbfm8V231eqLF4uWVeEDptf5iEvE58YqyDp9MW/XSo2KpWHdd8CkGK/auMrr6gAOTUY4woIDncdzGcnTTQQPJXVgdXjdilEwFrzEdTR64wkusBA924u47JOQnAXQTrhD0kZYD6ckcW9Bw4gg74s=
@@ -24,10 +24,14 @@ before_script:
 - sudo service mysql stop || true
 - sudo service neo4j stop || true
 - sudo service postgresql stop || true
+- sudo service couchdb stop || true
+- sudo service redis-server stop || true
 - sudo service rsync stop || true
 - sudo service x11-common stop || true
+- ps -e -o pid,vsz,comm= | sort -n -k 2
+- sudo free -m -t
 script:
-- free -m && ./gradlew test --no-daemon
+- ./gradlew test --no-daemon
 after_success:
 - "./gradlew jacocoRootReport coveralls"
 before_cache:
