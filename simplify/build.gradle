@@ -33,7 +33,9 @@ dependencies {
     testCompile project(':smalivm').sourceSets.test.resources
 }
 
-// Because of conflicting transitive dependencies (commons-cli), SmaliVM must be at the END of the classpath.
+test.dependsOn project(':smalivm').tasks.getByName('test')
+
+// SmaliVM must be at the END of the classpath due to transitive dependency conflict (commons-cli).
 eclipse.classpath.file {
     withXml {
         def node = it.asNode()

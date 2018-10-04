@@ -81,7 +81,7 @@ subprojects {
 }
 
 
-// Exclude demoapp from Coveralls reporting
+// Demoapp isn't intended to have tests -- exclude from reporting
 def reportProjects = subprojects - project(':demoapp')
 
 task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
@@ -119,7 +119,7 @@ if (System.env.TRAVIS == 'true') {
             }
 
             /*
-             * Tests are memory intensive and TravisCI only has 3-4 GB available. If we go over, test fails.
+             * Tests are memory intensive and TravisCI only has 3-4 GB available.
              * Gradle creates a lot of forks, so keep fork min heap size low.
              * Also, fork frequently to get a fresh heap in case of memory leaks.
              * Using larger values doesn't seem to improve test performance.
