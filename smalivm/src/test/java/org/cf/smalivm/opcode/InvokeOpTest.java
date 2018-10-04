@@ -502,14 +502,16 @@ public class InvokeOpTest {
         }
 
         @Test
-        public void invokeGetClassOnSelfReturnsCorrectClassName() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+        public void invokeGetClassOnSelfReturnsCorrectClass() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
             VirtualMachine vm = VMTester.spawnVM();
+
             Class<?> virtualClass = vm.getClassLoader().loadClass(CLASS_NAME_BINARY);
             Object instance = virtualClass.newInstance();
             initial.setRegisters(0, instance, CLASS_NAME);
-            expected.setRegisters(MethodState.ResultRegister, instance.getClass(), CommonTypes.CLASS);
 
-            VMTester.test(CLASS_NAME, "invokeGetClassOnThis()V", initial, expected);
+            ExecutionGraph graph = VMTester.execute(vm, CLASS_NAME, "invokeGetClassOnThis()V", initial);
+            HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ResultRegister);
+            assertEquals(instance.getClass(), consensus.getValue());
         }
     }
 

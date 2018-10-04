@@ -20,10 +20,9 @@ class java_lang_Object_getClass extends ExecutionContextMethod implements Unknow
     public void execute(VirtualMachine vm, Op op, ExecutionContext context) {
         MethodState mState = context.getMethodState();
         String argumentType = mState.peekParameter(0).getType();
-
         VirtualType virtualType = vm.getClassManager().getVirtualType(argumentType);
         try {
-            Class<?> value = vm.getClassLoader().findClass(virtualType.getBinaryName());
+            Class<?> value = vm.getClassLoader().loadClass(virtualType.getBinaryName());
             mState.assignReturnRegister(value, RETURN_TYPE);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Class not found: " + argumentType, e);
