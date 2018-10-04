@@ -126,7 +126,7 @@ if (System.env.TRAVIS == 'true') {
             */
             maxParallelForks = 2
             minHeapSize = '64m'
-            forkEvery = 10
+            forkEvery = 4
         }
     }
 }
