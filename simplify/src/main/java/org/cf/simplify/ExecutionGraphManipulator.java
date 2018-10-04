@@ -1,55 +1,28 @@
 package org.cf.simplify;
 
 import com.google.common.primitives.Ints;
-
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
-
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
-import org.cf.smalivm.opcode.FillArrayDataPayloadOp;
-import org.cf.smalivm.opcode.InvokeOp;
-import org.cf.smalivm.opcode.NewInstanceOp;
-import org.cf.smalivm.opcode.NopOp;
-import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.opcode.OpCreator;
-import org.cf.smalivm.opcode.ReturnOp;
-import org.cf.smalivm.opcode.ReturnVoidOp;
-import org.cf.smalivm.opcode.SwitchPayloadOp;
+import org.cf.smalivm.opcode.*;
 import org.cf.smalivm.type.VirtualMethod;
-import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.builder.BuilderTryBlock;
-import org.jf.dexlib2.builder.Label;
-import org.jf.dexlib2.builder.MethodLocation;
-import org.jf.dexlib2.builder.MutableMethodImplementation;
+import org.jf.dexlib2.builder.*;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Field;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("Convert2streamapi")
 public class ExecutionGraphManipulator extends ExecutionGraph {
@@ -114,7 +87,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         if (null == node) {
             // No children. All registers available!
             assert getTemplateNode(address).getOp() instanceof ReturnOp ||
-                   getTemplateNode(address).getOp() instanceof ReturnVoidOp;
+                    getTemplateNode(address).getOp() instanceof ReturnVoidOp;
             return registers;
         }
 
@@ -270,7 +243,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         recreateLocations.add(newLocation);
         reexecuteLocations.add(newLocation);
         boolean autoAddedPadding = op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp ||
-                                                           shiftedOp instanceof SwitchPayloadOp);
+                shiftedOp instanceof SwitchPayloadOp);
         for (int i = 0; i < shiftedNodePile.size(); i++) {
             ExecutionNode newNode = new ExecutionNode(op);
             newNodePile.add(i, newNode);
@@ -451,7 +424,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     @Nullable
     MethodLocation getLocation(Label label) {
         try {
-            Field f = Label.class.getDeclaredField("location");
+            Field f = ItemWithLocation.class.getDeclaredField("location");
             f.setAccessible(true);
             return (MethodLocation) f.get(label);
         } catch (Exception e) {
