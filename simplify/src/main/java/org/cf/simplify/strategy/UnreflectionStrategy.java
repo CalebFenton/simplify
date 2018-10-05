@@ -1,7 +1,6 @@
 package org.cf.simplify.strategy;
 
 import com.google.common.primitives.Ints;
-
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.smalivm.opcode.InvokeOp;
@@ -13,13 +12,7 @@ import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction11x;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction21c;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction22c;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction23x;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction32x;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction35c;
-import org.jf.dexlib2.builder.instruction.BuilderInstruction3rc;
+import org.jf.dexlib2.builder.instruction.*;
 import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.reference.FieldReference;
@@ -34,12 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -149,13 +137,10 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int targetRegister = parameterRegisters[1];
         int parametersRegister = parameterRegisters[2];
 
-        // As long as VirtualMethod;->invoke is not emulated (it must never be white-listed as safe) current address
-        // will have
-        // all unknown values. Get details from parents.
+        // As long as Method.invoke() is not emulated (it must never be white-listed as safe) current address
+        // will have all unknown values. Get details from parents.
         int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
-        Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
-        assert !(parametersValue instanceof UnknownValue);
 
         java.lang.reflect.Method method = (java.lang.reflect.Method) methodValue;
         int methodAccessFlags = method.getModifiers();
@@ -174,8 +159,8 @@ public class UnreflectionStrategy implements OptimizationStrategy {
                     IntStream.of(manipulator.getAvailableRegisters(address)).boxed().sorted()
                             .collect(Collectors.toList());
 
-            if (parametersValue instanceof Object[] && 0 < ((Object[]) parametersValue).length) {
-                // Not just an empty array, so will need to pull values out later.
+            if (parameterTypes.size() > 0) {
+                // Will need to pull values out of invocation parameters Object[]
                 availableRegisters1.remove((Integer) parametersRegister);
             }
 
@@ -254,12 +239,12 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
             if (isStatic) {
                 invoke = new BuilderInstruction35c(invokeOp, invokeRegisterCount, registers.get(0), registers.get(1),
-                                                          registers.get(2), registers.get(3), registers.get(4),
-                                                          methodRef);
+                        registers.get(2), registers.get(3), registers.get(4),
+                        methodRef);
             } else {
                 invoke = new BuilderInstruction35c(invokeOp, invokeRegisterCount, targetRegister, registers.get(0),
-                                                          registers.get(1), registers.get(2), registers.get(3),
-                                                          methodRef);
+                        registers.get(1), registers.get(2), registers.get(3),
+                        methodRef);
             }
         }
         instructions.add(invoke);
@@ -328,12 +313,6 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         int[] parentAddresses = manipulator.getParentAddresses(address);
         Object methodValue = manipulator.getRegisterConsensusValue(parentAddresses, methodRegister);
         if (methodValue instanceof UnknownValue) {
-            return false;
-        }
-
-        int parametersRegister = parameterRegisters[2];
-        Object parametersValue = manipulator.getRegisterConsensusValue(parentAddresses, parametersRegister);
-        if (parametersValue instanceof UnknownValue) {
             return false;
         }
 
@@ -506,7 +485,10 @@ public class UnreflectionStrategy implements OptimizationStrategy {
     }
 
     private void replaceMethodInvoke() {
-        int[] invokeAddresses = Arrays.stream(addresses).filter(this::canReplaceMethodInvoke).sorted().toArray();
+        int[] invokeAddresses = Arrays.stream(addresses)
+                .filter(this::canReplaceMethodInvoke)
+                .sorted()
+                .toArray();
 
         int count = invokeAddresses.length;
         if (count == 0) {

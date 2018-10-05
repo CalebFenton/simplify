@@ -179,16 +179,6 @@ public class UnreflectionStrategyTest {
             testSmali(manipulator, EXPECTED_SHARED_SMALI);
             testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
         }
-
-        @Test
-        public void unknownParametersOfPublccMethodIsNotOptimized() {
-            ExecutionGraphManipulator manipulator =
-                    getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE, 1, 0, "I", 2,
-                            new UnknownValue(), "[Ljava/lang/Object;");
-
-            testSmali(manipulator, EXPECTED_SHARED_SMALI);
-            testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 3);
-        }
     }
 
     public static class MethodUnreflectionWithInterfaceMethod {
@@ -313,6 +303,20 @@ public class UnreflectionStrategyTest {
             String[] endLines = new String[] {
                     "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;" +
                     "Ljava/lang/Object;Ljava/lang/Object;)V", "return-void", };
+            String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
+
+            testSmali(manipulator, expectedLines);
+            testRegisterCount(manipulator, METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 10);
+        }
+
+        @Test
+        public void optimizesToExpectedLinesWhenParametersIsUnknown() {
+            ExecutionGraphManipulator manipulator =
+                    getOptimizedGraph(METHOD_WITH_3_LOCALS_AND_0_AVAILABLE, 0, METHOD, METHOD_TYPE, 1, 0, "I", 2,
+                            new UnknownValue(), "[Ljava/lang/Object;");
+            String[] endLines = new String[] {
+                    "invoke-static {r0, r1, r2}, Lunreflection_strategy_test;->useRegisters(Ljava/lang/Object;" +
+                            "Ljava/lang/Object;Ljava/lang/Object;)V", "return-void", };
             String[] expectedLines = ObjectArrays.concat(EXPECTED_SHARED_SMALI, endLines, String.class);
 
             testSmali(manipulator, expectedLines);
