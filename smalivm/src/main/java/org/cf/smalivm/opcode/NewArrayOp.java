@@ -16,6 +16,7 @@ public class NewArrayOp extends MethodStateOp {
 
     private final int destRegister;
     private final int lengthRegister;
+
     private final String arrayType;
     private final ClassLoader classLoader;
 
@@ -63,6 +64,18 @@ public class NewArrayOp extends MethodStateOp {
         }
 
         return instance;
+    }
+
+    public int getDestRegister() {
+        return destRegister;
+    }
+
+    public int getLengthRegister() {
+        return lengthRegister;
+    }
+
+    public String getArrayType() {
+        return arrayType;
     }
 
 }
