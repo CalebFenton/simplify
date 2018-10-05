@@ -4,6 +4,7 @@ import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
+import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction;
@@ -94,10 +95,40 @@ public class ConstantPropagationStrategyTest {
         }
 
         @Test
-        public void canConstantizeAGet() {
+        public void canConstantizeArrayGetOfInt() {
             ExecutionGraphManipulator manipulator =
                     getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0, new int[] { 0, 7 }, "[I", 1, 1, "I");
             BuilderInstruction expected = ConstantBuilder.buildConstant(7, 0);
+
+            testEquals(expected, manipulator, 0);
+        }
+
+        @Test
+        public void canConstantizeArrayGetOfString() {
+            String firstIdeal = "Life before death, strength before weakness, journey before destination.";
+            ExecutionGraphManipulator manipulator =
+                    getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0, new String[] { firstIdeal }, "[Ljava/lang/String;", 1, 0, "I");
+            BuilderInstruction expected = ConstantBuilder.buildConstant(firstIdeal, CommonTypes.STRING, 0, manipulator.getDexBuilder());
+
+            testEquals(expected, manipulator, 0);
+        }
+
+        @Test
+        public void canConstantizeArrayGetOfClass() {
+            Class<?> targetClass = String.class;
+            ExecutionGraphManipulator manipulator =
+                    getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0, new Class<?>[] { targetClass }, "[Ljava/lang/Class;", 1, 0, "I");
+            BuilderInstruction expected = ConstantBuilder.buildConstant(targetClass, CommonTypes.CLASS, 0, manipulator.getDexBuilder());
+
+            testEquals(expected, manipulator, 0);
+        }
+
+        @Test
+        public void canConstantizeArrayGetOfStringInObjectArray() {
+            String secondIdeal = "I will protect those who cannot protect themselves.";
+            ExecutionGraphManipulator manipulator =
+                    getOptimizedGraph("arrayGetFromV0AtV1ToV0()V", 0, new Object[] { secondIdeal }, "[Ljava/lang/Object;", 1, 0, "I");
+            BuilderInstruction expected = ConstantBuilder.buildConstant(secondIdeal, CommonTypes.STRING, 0, manipulator.getDexBuilder());
 
             testEquals(expected, manipulator, 0);
         }

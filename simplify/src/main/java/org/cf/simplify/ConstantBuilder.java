@@ -194,7 +194,9 @@ public class ConstantBuilder implements Dependency {
         OneRegisterInstruction instruction = (OneRegisterInstruction) manipulator.getInstruction(address);
         int register = instruction.getRegisterA();
         HeapItem item = manipulator.getRegisterConsensus(address, register);
-        BuilderInstruction constant = buildConstant(item.getValue(), item.getUnboxedType(), register, dexBuilder);
+        Object value = item.getValue();
+        String type = item.isPrimitive() ? item.getType() : item.getUnboxedValueType();
+        BuilderInstruction constant = buildConstant(value, type, register, dexBuilder);
 
         return constant;
     }
