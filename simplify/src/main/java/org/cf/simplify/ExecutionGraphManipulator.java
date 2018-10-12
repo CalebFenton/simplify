@@ -200,12 +200,18 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     }
 
     public String toSmali() {
+        return toSmali(false);
+    }
+
+    public String toSmali(boolean includeAddress) {
         int[] addresses = getAddresses();
         Arrays.sort(addresses);
         StringBuilder sb = new StringBuilder();
         for (int address : addresses) {
             Op op = getOp(address);
-            // sb.append("#@").append(address).append('\n');
+            if (includeAddress) {
+                sb.append("# @").append(address).append('\n');
+            }
             sb.append(op.toString()).append('\n');
         }
         sb.setLength(sb.length() - 1);

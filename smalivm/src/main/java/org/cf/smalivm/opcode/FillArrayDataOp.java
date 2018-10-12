@@ -31,7 +31,7 @@ public class FillArrayDataOp extends MethodStateOp {
 
     @Override
     public String toString() {
-        return getName() + " r" + register + ", #" + getChildren()[0].getCodeAddress();
+        return getName() + " r" + register + ", :addr_" + getChildren()[0].getCodeAddress();
     }
 
 }

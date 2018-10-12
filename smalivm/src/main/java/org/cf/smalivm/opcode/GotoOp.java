@@ -19,7 +19,7 @@ public class GotoOp extends MethodStateOp {
     public String toString() {
         StringBuilder sb = new StringBuilder(getName());
         int childAddress = getChildren()[0].getCodeAddress();
-        sb.append(" #").append(childAddress);
+        sb.append(" :addr_").append(childAddress);
 
         return sb.toString();
     }

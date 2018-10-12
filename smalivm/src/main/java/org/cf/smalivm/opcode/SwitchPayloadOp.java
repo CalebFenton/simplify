@@ -70,7 +70,7 @@ public class SwitchPayloadOp extends MethodStateOp {
         Arrays.sort(keys);
         for (int key : keys) {
             int offset = targetKeyToOffset.get(key);
-            sb.append(key).append(" -> #").append(offset).append(", ");
+            sb.append(key).append(" -> :addr_").append(offset).append(", ");
         }
         sb.setLength(sb.length() - 2);
         sb.append(']');
