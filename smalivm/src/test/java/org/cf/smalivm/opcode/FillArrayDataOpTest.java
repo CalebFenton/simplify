@@ -5,7 +5,7 @@ import org.cf.smalivm.VMTester;
 import org.junit.Before;
 import org.junit.Test;
 
-public class FillArrayDataOpsTest {
+public class FillArrayDataOpTest {
 
     private static final String CLASS_NAME = "Lfill_array_data_test;";
 
@@ -61,19 +61,35 @@ public class FillArrayDataOpsTest {
     }
 
     @Test
-    public void canFillArrayDataLong() {
+    public void canFillArrayDataLongWithLongs() {
         initial.setRegisters(0, new long[3], "[J");
         expected.setRegisters(0, new long[] { 0x1000000000L, 0x2000000000L, 0x3L }, "[J");
 
-        VMTester.test(CLASS_NAME, "fillArrayDataLong()V", initial, expected);
+        VMTester.test(CLASS_NAME, "fillArrayDataLongWithLongs()V", initial, expected);
     }
 
     @Test
-    public void canFillArrayDataShort() {
+    public void canFillArrayDataLongWithInts() {
+        initial.setRegisters(0, new long[3], "[J");
+        expected.setRegisters(0, new long[] { 0x10, 0x20, 0x30 }, "[J");
+
+        VMTester.test(CLASS_NAME, "fillArrayDataLongWithInts()V", initial, expected);
+    }
+
+    @Test
+    public void canFillArrayDataShortWithShorts() {
         initial.setRegisters(0, new short[3], "[S");
         expected.setRegisters(0, new short[] { 100, 200, 5 }, "[S");
 
-        VMTester.test(CLASS_NAME, "fillArrayDataShort()V", initial, expected);
+        VMTester.test(CLASS_NAME, "fillArrayDataShortWithShorts()V", initial, expected);
+    }
+
+    @Test
+    public void canFillArrayDataShortWithInts() {
+        initial.setRegisters(0, new short[3], "[S");
+        expected.setRegisters(0, new short[] { 0x10, 0x20, 0x30 }, "[S");
+
+        VMTester.test(CLASS_NAME, "fillArrayDataShortWithInts()V", initial, expected);
     }
 
     @Before

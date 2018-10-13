@@ -18,7 +18,7 @@
     .end array-data
 .end method
 
-.method public static fillArrayDataLong()V
+.method public static fillArrayDataLongWithLongs()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -32,6 +32,22 @@
         0x3L
     .end array-data
 .end method
+
+.method public static fillArrayDataLongWithInts()V
+    .locals 1
+
+    fill-array-data v0, :array_0
+
+    return-void
+
+    :array_0
+    .array-data 8
+        0x10
+        0x20
+        0x30
+    .end array-data
+.end method
+
 .method public static fillArrayDataBoolean()V
     .locals 1
 
@@ -79,7 +95,7 @@
     .end array-data
 .end method
 
-.method public static fillArrayDataShort()V
+.method public static fillArrayDataShortWithShorts()V
     .locals 1
 
     fill-array-data v0, :array_0
@@ -91,6 +107,21 @@
         0x64s
         0xc8s
         0x5s
+    .end array-data
+.end method
+
+.method public static fillArrayDataShortWithInts()V
+    .locals 1
+
+    fill-array-data v0, :array_0
+
+    return-void
+
+    :array_0
+    .array-data 2
+        0x10
+        0x20
+        0x30
     .end array-data
 .end method
 

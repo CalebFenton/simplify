@@ -1,8 +1,5 @@
 package org.cf.smalivm.opcode;
 
-import java.lang.reflect.Array;
-import java.util.List;
-
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -10,6 +7,9 @@ import org.cf.smalivm.context.MethodState;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Array;
+import java.util.List;
 
 public class FillArrayDataPayloadOp extends MethodStateOp {
 
@@ -23,27 +23,28 @@ public class FillArrayDataPayloadOp extends MethodStateOp {
         // Dexlib will only ever make byte (t), int, long (l), or short (s)
         if (klazz == byte.class) {
             value = number.byteValue();
-            if (expectedClass == boolean.class) {
-                value = (byte) value == 1;
-            }
         } else if (klazz == short.class) {
             value = number.shortValue();
-            if (expectedClass == char.class) {
-                value = (char) number.shortValue();
-            }
         } else if (klazz == int.class) {
-            if (expectedClass == int.class) {
-                value = number.intValue();
-            } else if (expectedClass == float.class) {
-                value = Float.intBitsToFloat(number.intValue());
-            }
+            value = number.intValue();
         } else if (klazz == long.class) {
             value = number.longValue();
-            if (expectedClass == long.class) {
-                value = number.longValue();
-            } else if (expectedClass == double.class) {
-                value = Double.longBitsToDouble(number.longValue());
-            }
+        }
+
+        if (expectedClass == boolean.class) {
+            value = (byte) value == 1;
+        } else if (expectedClass == char.class) {
+            value = (char) number.shortValue();
+        } else if (expectedClass == short.class) {
+            value = number.shortValue();
+        } else if (expectedClass == int.class) {
+            value = number.intValue();
+        } else if (expectedClass == long.class) {
+            value = number.longValue();
+        } else if (expectedClass == float.class) {
+            value = Float.intBitsToFloat(number.intValue());
+        } else if (expectedClass == double.class) {
+            value = Double.longBitsToDouble(number.longValue());
         }
 
         return value;
