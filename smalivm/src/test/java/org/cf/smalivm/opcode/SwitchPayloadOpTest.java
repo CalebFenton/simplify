@@ -52,7 +52,7 @@ public class SwitchPayloadOpTest {
 
             op = (SwitchPayloadOp) opFactory.create(location, addressToLocation, vm);
 
-            assertEquals("packed-switch-payload [1 -> #10, 2 -> #20]", op.toString());
+            assertEquals("packed-switch-payload [1 -> :addr_10, 2 -> :addr_20]", op.toString());
         }
 
         @Before

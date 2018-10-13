@@ -339,7 +339,7 @@ public class IfOpTest {
             op = (IfOp) opFactory.create(location, addressToLocation, vm);
             op.execute(node, mState);
 
-            assertEquals("if-ge r2, r4, #0", op.toString());
+            assertEquals("if-ge r2, r4, :addr_0", op.toString());
         }
 
         @Before

@@ -128,7 +128,7 @@ public class PeepholeStrategyTest {
 
             int[] addresses = manipulator.getAddresses();
             assertArrayEquals(new int[] { 0, 2, 4 }, addresses);
-            assertEquals("if-eqz r0, #4", manipulator.getOp(0).toString());
+            assertEquals("if-eqz r0, :addr_4", manipulator.getOp(0).toString());
             assertEquals("sget r0, Ljava/lang/Integer;->MAX_VALUE:I", manipulator.getOp(2).toString());
             assertEquals("return-void", manipulator.getOp(4).toString());
         }
@@ -151,7 +151,7 @@ public class PeepholeStrategyTest {
                     getOptimizedGraph(methodName, 0, new UnknownValue(), "Ljava/lang/Object;");
 
             assertArrayEquals(new int[] { 0, 2, 3, 6, 7, 9 }, manipulator.getAddresses());
-            assertEquals("if-eqz r1, #7", manipulator.getOp(0).toString());
+            assertEquals("if-eqz r1, :addr_7", manipulator.getOp(0).toString());
             assertEquals("const/4 r0, 0x0", manipulator.getOp(2).toString());
             assertEquals("invoke-static {r0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;",
                     manipulator.getOp(3).toString());
