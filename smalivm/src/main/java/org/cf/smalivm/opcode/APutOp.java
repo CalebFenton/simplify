@@ -7,6 +7,7 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualArray;
+import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualType;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
@@ -72,7 +73,13 @@ public class APutOp extends MethodStateOp {
     private static boolean throwsArrayStoreException(HeapItem arrayItem, HeapItem valueItem,
                                                      ClassManager classManager) {
         VirtualType valueType = classManager.getVirtualType(valueItem.getType());
-        VirtualArray arrayType = (VirtualArray) classManager.getVirtualType(arrayItem.getType());
+        VirtualType arrayTypeType = classManager.getVirtualType(arrayItem.getType());
+        if (arrayTypeType instanceof VirtualClass && arrayTypeType.getName().equals(CommonTypes.OBJECT)) {
+            Exception e = new Exception("APutOp");
+            log.warn("Attempting to store item in array of type java.lang.Object. Not enough type information to know if this may throw an exception.", e);
+            return false;
+        }
+        VirtualArray arrayType = (VirtualArray) arrayTypeType;
         VirtualType arrayComponentType = arrayType.getComponentType();
 
         if (valueType.instanceOf(arrayComponentType)) {

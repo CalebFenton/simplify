@@ -219,6 +219,14 @@ public class APutOpTest {
     }
 
     @Test
+    public void canPutIntoUnknownValueOfObjectTypeWithoutThrowingException() {
+        initial.setRegisters(0, new UnknownValue(), CommonTypes.OBJECT, 1, 0, "I", 2, 0x5, "I");
+        expected.setRegisters(0, new UnknownValue(), CommonTypes.OBJECT);
+
+        VMTester.test(CLASS_NAME, "put()V", initial, expected);
+    }
+
+    @Test
     public void canPutUnknownValue() {
         // TODO: Ideally, setting an element unknown shouldn't set entire array unknown.
         // This is tricky to handle gracefully. See APutOp for more details.
