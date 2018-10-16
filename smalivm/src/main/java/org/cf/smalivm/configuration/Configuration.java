@@ -61,7 +61,7 @@ public class Configuration {
         String[] parts = typeSignature.split("->");
         String className = parts[0];
 
-        if (safeClasses.contains(className) && !unsafeMethods.contains(typeSignature)) {
+        if (safeClasses.contains(className) && !isUnsafeMethod(typeSignature)) {
             return true;
         }
 
