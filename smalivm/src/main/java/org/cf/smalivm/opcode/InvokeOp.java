@@ -384,9 +384,8 @@ public class InvokeOp extends ExecutionContextOp {
                             if (item.isUnknown()) {
                                 log.warn("Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}", item);
                             } else {
-                                log.warn("Refusing to instantiate and throw potentially unsafe exception: {}. This is " +
-                                                "likely an input class and may need to be white listed to execute properly.",
-                                        item);
+                                // May just need to whitelist Exception class
+                                log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item);
                             }
                         }
                     }
@@ -403,10 +402,7 @@ public class InvokeOp extends ExecutionContextOp {
             if (!method.getReturnType().equals(CommonTypes.VOID)) {
                 // Terminating addresses may include throw ops which may not have a return register set
                 TIntList addresses = new TIntLinkedList();
-                for (int address : graph.getTerminatingAddresses()) {
-                    if (!graph.wasAddressReached(address)) {
-                        continue;
-                    }
+                for (int address : graph.getConnectedTerminatingAddresses()) {
                     if (graph.getOp(address) instanceof ReturnOp) {
                         addresses.add(address);
                     }
