@@ -229,14 +229,11 @@ public class VirtualMachine {
             int parameterRegister = graph.getNodePile(0).get(0).getContext().getMethodState().getParameterStart();
             for (int parameterIndex = 0; parameterIndex < parameterTypes.size(); parameterIndex++) {
                 String type = parameterTypes.get(parameterIndex);
-                if (configuration.isImmutable(type)) {
-                    continue;
+                if (configuration.isMutable(type)) {
+                    HeapItem item = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
+                    int register = parameterRegisters[parameterIndex];
+                    callerMethodState.assignRegisterAndUpdateIdentities(register, item);
                 }
-
-                HeapItem item = getMutableParameterConsensus(terminatingAddresses, graph, parameterRegister);
-                int register = parameterRegisters[parameterIndex];
-                callerMethodState.assignRegisterAndUpdateIdentities(register, item);
-
                 parameterRegister += Utils.getRegisterSize(type);
             }
         }

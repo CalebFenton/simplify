@@ -210,6 +210,14 @@ public class InvokeOpTest {
         }
 
         @Test
+        public void invokeMutateStringBuilderAsThirdParameterAndFirstMutableParameterDoesMutateParameter() {
+            initial.setRegisters(0, 0x10, "I", 1, 0x20, "I", 2, new StringBuilder("i have been"), "Ljava/lang/StringBuilder;");
+            expected.setRegisters(0, 0x10, "I", 1, 0x20, "I", 2, new StringBuilder("i have been mutated"), "Ljava/lang/StringBuilder;");
+
+            VMTester.test(CLASS_NAME, "invokeMutateStringBuilderAsThirdParameterAndFirstMutableParameter()V", initial, expected);
+        }
+
+        @Test
         public void invokeMutateStringDoesNotMutateParameter() {
             initial.setRegisters(0, "not mutated", "Ljava/lang/String;");
             expected.setRegisters(0, "not mutated", "Ljava/lang/String;");

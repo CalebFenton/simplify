@@ -54,6 +54,14 @@
   return-void
 .end method
 
+.method public static invokeMutateStringBuilderAsThirdParameterAndFirstMutableParameter()V
+  .locals 3
+
+  invoke-static {v0, v1, v2}, Linvoke_static_test;->mutateStringBuilderAsThirdParameterAndFirstMutableParameter(IILjava/lang/StringBuilder;)V
+
+  return-void
+.end method
+
 .method public static invokeNonExistentMethod()V
   .locals 0
 
@@ -246,6 +254,17 @@
   # Reusing the parameter register ensures we're not just looking at end-state register values but
   # are somehow keeping track of changes in the parameters.
   const/4 p0, 0x1
+
+  return-void
+.end method
+
+.method private static mutateStringBuilderAsThirdParameterAndFirstMutableParameter(IILjava/lang/StringBuilder;)V
+  .locals 1
+
+  const-string v0, " mutated"
+  invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+  const/4 p2, 0x1
 
   return-void
 .end method
