@@ -51,6 +51,10 @@ public class Configuration {
         return immutableClasses.contains(className);
     }
 
+    public boolean isMutable(String className) {
+        return !isImmutable(className);
+    }
+
     /**
      * Safe classes are Java API classes which are safe to instantiate, load, and statically
      * initialize. Safe methods are methods of Java classes which are safe to execute. Only classes
@@ -76,7 +80,7 @@ public class Configuration {
     }
 
     public boolean isUnsafeMethod(String methodDescriptor) {
-        return !unsafeMethods.contains(methodDescriptor);
+        return unsafeMethods.contains(methodDescriptor);
     }
 
 }
