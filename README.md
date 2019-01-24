@@ -29,21 +29,15 @@ There are three parts to the project: smalivm, simplify, and the demo app.
 ```
 usage: java -jar simplify.jar <input> [options]
 deobfuscates a dalvik executable
- -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after
-                                 include-types
+ -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after include-types
  -h,--help                       Display this message
- -ie,--ignore-errors             Ignore errors while executing and optimizing methods. This may lead to unexpected
-                                 behavior.
-    --include-support            Attempt to execute and optimize classes in Android support library packages, default:
-                                 false
+ -ie,--ignore-errors             Ignore errors while executing and optimizing methods. This may lead to unexpected behavior.
+    --include-support            Attempt to execute and optimize classes in Android support library packages, default: false
  -it,--include-types <pattern>   Limit execution to classes and methods which include REGEX, eg: ";->targetMethod\("
-    --max-address-visits <N>     Give up executing a method after visiting the same address N times, limits loops,
-                                 default: 10000
-    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method
-                                 chains, default: 50
+    --max-address-visits <N>     Give up executing a method after visiting the same address N times, limits loops, default: 10000
+    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method chains, default: 50
     --max-execution-time <N>     Give up executing a method after N seconds, default: 300
-    --max-method-visits <N>      Give up executing a method after executing N instructions in that method, default:
-                                 1000000
+    --max-method-visits <N>      Give up executing a method after executing N instructions in that method, default: 1000000
     --max-passes <N>             Do not run optimizers on a method more than N times, default: 100
  -o,--output <file>              Output simplified input to FILE
     --output-api-level <LEVEL>   Set output DEX API compatibility to LEVEL, default: 15
