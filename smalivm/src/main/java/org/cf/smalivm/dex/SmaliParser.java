@@ -1,5 +1,6 @@
 package org.cf.smalivm.dex;
 
+import com.google.common.base.Charsets;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
 import org.antlr.runtime.TokenSource;
@@ -66,8 +67,8 @@ public class SmaliParser {
     public static BuilderClassDef parse(String path, InputStream is, DexBuilder dexBuilder) throws UnsupportedEncodingException,
             RecognitionException {
         File smaliFile = new File(path);
-        InputStreamReader reader = new InputStreamReader(is, "UTF-8");
-        LexerErrorInterface lexer = new smaliFlexLexer(reader);
+        InputStreamReader reader = new InputStreamReader(is, Charsets.UTF_8);
+        LexerErrorInterface lexer = new smaliFlexLexer(reader, DEFAULT_API_LEVEL);
         ((smaliFlexLexer) lexer).setSourceFile(smaliFile);
         CommonTokenStream tokens = new CommonTokenStream((TokenSource) lexer);
 
