@@ -33,7 +33,7 @@ dependencies {
     testCompile project(':smalivm').sourceSets.test.resources
 }
 
-test.dependsOn project(':smalivm').tasks.getByName('test')
+test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
 // SmaliVM must be at the END of the classpath due to transitive dependency conflict (commons-cli).
 eclipse.classpath.file {
