@@ -3,26 +3,19 @@ package org.cf.smalivm.dex;
 import com.google.common.base.Charsets;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
-import org.antlr.runtime.TokenSource;
 import org.antlr.runtime.tree.CommonTree;
 import org.antlr.runtime.tree.CommonTreeNodeStream;
 import org.cf.util.Utils;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.jf.dexlib2.writer.builder.DexBuilder;
-import org.jf.smali.LexerErrorInterface;
 import org.jf.smali.smaliFlexLexer;
 import org.jf.smali.smaliParser;
 import org.jf.smali.smaliTreeWalker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,18 +52,16 @@ public class SmaliParser {
         return result;
     }
 
-    public static BuilderClassDef parse(File smaliFile, DexBuilder dexBuilder) throws FileNotFoundException, UnsupportedEncodingException,
-            RecognitionException {
+    public static BuilderClassDef parse(File smaliFile, DexBuilder dexBuilder) throws FileNotFoundException, RecognitionException {
         return parse(smaliFile.getAbsolutePath(), new FileInputStream(smaliFile), dexBuilder);
     }
 
-    public static BuilderClassDef parse(String path, InputStream is, DexBuilder dexBuilder) throws UnsupportedEncodingException,
-            RecognitionException {
+    public static BuilderClassDef parse(String path, InputStream is, DexBuilder dexBuilder) throws RecognitionException {
         File smaliFile = new File(path);
         InputStreamReader reader = new InputStreamReader(is, Charsets.UTF_8);
-        LexerErrorInterface lexer = new smaliFlexLexer(reader, DEFAULT_API_LEVEL);
-        ((smaliFlexLexer) lexer).setSourceFile(smaliFile);
-        CommonTokenStream tokens = new CommonTokenStream((TokenSource) lexer);
+        smaliFlexLexer lexer = new smaliFlexLexer(reader, DEFAULT_API_LEVEL);
+        lexer.setSourceFile(smaliFile);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
 
         smaliParser parser = new smaliParser(tokens);
         parser.setApiLevel(DEFAULT_API_LEVEL);
