@@ -209,9 +209,9 @@ public class InvokeOp extends ExecutionContextOp {
     private void analyzeParameterTypes(MethodState callerState) {
         /*
          * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear:
-         * const/4 v0,0x0 (could be true, (int)0, or (short)0, null, etc.)
-         * If a more restrictive class is given in the method signature, prefer that, for example:
-         * method argument is an int but signature declares it as boolean, so switch it to boolean
+         * const/4 v0, 0x0 (could be (bool)true, (int)0, or (short)0, null, etc.)
+         * Use type in method signature if it's more restrictive. For example, if the method argument is
+         * an int but the method signature declares it as a boolean, use boolean.
          * However, if the class is less specific, such as a super class or interface, do not use the less specific
          * class. For example:
          * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
@@ -472,7 +472,7 @@ public class InvokeOp extends ExecutionContextOp {
             } else {
                 boolean isMutable = !vm.getConfiguration().isImmutable(newInstanceItem.getType());
                 if (isMutable) {
-                    // The instance virtual is mutable so could have changed. Record that it was changed for the
+                    // The instance class is mutable so could have changed. Record that it was changed for the
                     // optimizer.
                     callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem);
                 }

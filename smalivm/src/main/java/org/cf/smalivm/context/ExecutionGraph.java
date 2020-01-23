@@ -492,8 +492,8 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
 
     public ExecutionNode getRoot() {
         List<ExecutionNode> pile = getNodePileByAddress(METHOD_ROOT_ADDRESS);
-        // Return node with initialized context if available.
-        if (pile.size() > 1) {
+        boolean nodePileInitialized = pile.size() > 1;
+        if (nodePileInitialized) {
             return pile.get(1);
         } else {
             return pile.get(TEMPLATE_NODE_INDEX);
