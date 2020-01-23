@@ -28,8 +28,11 @@ public class VirtualMachine {
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
 
     private final ClassManager classManager;
+    private final int maxCallDepth;
+    private final int maxAddressVisits;
+    private final int maxMethodVisits;
+    private final int maxExecutionTime;
     private final SmaliClassLoader classLoader;
-    private final MethodExecutor methodExecutor;
     private final Map<VirtualMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
     private final Configuration configuration;
@@ -37,8 +40,12 @@ public class VirtualMachine {
 
     VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits, int maxExecutionTime) {
         this.classManager = manager;
+        this.maxAddressVisits = maxAddressVisits;
+        this.maxCallDepth = maxCallDepth;
+        this.maxMethodVisits = maxMethodVisits;
+        this.maxExecutionTime = maxExecutionTime;
+
         classLoader = new SmaliClassLoader(classManager);
-        methodExecutor = new MethodExecutor(classManager, maxCallDepth, maxAddressVisits, maxMethodVisits, maxExecutionTime);
         methodToTemplateExecutionGraph = new HashMap<>();
         staticFieldAccessor = new StaticFieldAccessor(this);
         configuration = Configuration.instance();
@@ -100,7 +107,8 @@ public class VirtualMachine {
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 
-        ExecutionGraph execution = methodExecutor.execute(graph);
+        MethodExecutor methodExecutor = new NonInteractiveMethodExecutor(classManager, graph, maxCallDepth, maxAddressVisits, maxMethodVisits, maxExecutionTime);
+        ExecutionGraph execution = methodExecutor.execute();
         if ((execution != null) && (callerContext != null)) {
             collapseMultiverse(virtualMethod, graph, callerContext, parameterRegisters);
         }
