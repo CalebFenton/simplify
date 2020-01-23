@@ -2,14 +2,12 @@ package org.cf.smalivm.dex;
 
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.VirtualMachineException;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.jf.dexlib2.iface.ClassDef;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 
 import java.io.IOException;
 

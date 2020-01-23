@@ -3,13 +3,11 @@ package org.cf.smalivm;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.dex.CommonTypes;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.Instance;
 import org.cf.smalivm.type.UninitializedInstance;
-import org.cf.smalivm.type.UnknownValue;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;

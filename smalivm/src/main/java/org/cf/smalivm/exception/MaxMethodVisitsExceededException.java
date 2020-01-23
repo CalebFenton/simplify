@@ -1,4 +1,4 @@
-package org.cf.smalivm;
+package org.cf.smalivm.exception;
 
 import org.cf.smalivm.context.ExecutionNode;
 

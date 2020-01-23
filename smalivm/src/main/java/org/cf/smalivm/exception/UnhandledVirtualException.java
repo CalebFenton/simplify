@@ -1,4 +1,4 @@
-package org.cf.smalivm;
+package org.cf.smalivm.exception;
 
 public class UnhandledVirtualException extends VirtualMachineException {
 

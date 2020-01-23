@@ -8,6 +8,7 @@ import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.SmaliClassLoader;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;

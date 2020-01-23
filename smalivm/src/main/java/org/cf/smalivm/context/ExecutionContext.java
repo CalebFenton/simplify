@@ -4,9 +4,9 @@ import com.rits.cloning.Cloner;
 
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.TemplateStateFactory;
-import org.cf.smalivm.UnhandledVirtualException;
+import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.VirtualMachineException;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
 import org.slf4j.Logger;

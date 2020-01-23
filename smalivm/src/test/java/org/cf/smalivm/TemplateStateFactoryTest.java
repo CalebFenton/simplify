@@ -2,9 +2,9 @@ package org.cf.smalivm;
 
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
-import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualMethod;

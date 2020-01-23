@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.ClassManager;
 import org.jf.dexlib2.builder.MethodLocation;

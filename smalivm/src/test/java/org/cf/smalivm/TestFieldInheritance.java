@@ -2,6 +2,7 @@ package org.cf.smalivm;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;

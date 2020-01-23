@@ -10,6 +10,7 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.dex.SmaliParser;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.UnknownValue;

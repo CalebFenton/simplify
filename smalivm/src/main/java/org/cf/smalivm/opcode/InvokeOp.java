@@ -6,6 +6,8 @@ import org.cf.smalivm.*;
 import org.cf.smalivm.context.*;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.emulate.MethodEmulator;
+import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.*;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;

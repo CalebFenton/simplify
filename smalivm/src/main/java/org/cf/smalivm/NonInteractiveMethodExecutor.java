@@ -4,13 +4,12 @@ import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.exception.*;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.stream.Collectors;
 
 public class NonInteractiveMethodExecutor extends MethodExecutor {

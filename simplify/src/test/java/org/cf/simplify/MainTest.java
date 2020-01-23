@@ -1,6 +1,6 @@
 package org.cf.simplify;
 
-import org.cf.smalivm.UnhandledVirtualException;
+import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.junit.Test;
 
 import java.io.IOException;

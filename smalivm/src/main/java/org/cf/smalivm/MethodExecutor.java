@@ -2,6 +2,8 @@ package org.cf.smalivm;
 
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
+import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualMethod;
 import org.slf4j.Logger;

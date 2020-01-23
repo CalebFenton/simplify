@@ -1,7 +1,7 @@
 package org.cf.demoapp;
 
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.VirtualMachineException;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.VirtualMachineFactory;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;

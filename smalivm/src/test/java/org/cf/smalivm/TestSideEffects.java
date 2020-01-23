@@ -1,6 +1,7 @@
 package org.cf.smalivm;
 
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.exception.VirtualMachineException;
 import org.junit.Before;
 import org.junit.Test;
 
