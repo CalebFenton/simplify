@@ -197,7 +197,7 @@ public class Launcher {
                     System.err.println("Aborting execution; exception: " + e);
                 } catch (Throwable e1) {
                     if (opts.ignoreErrors()) {
-                        System.err.println("Unexpected, non-virtual exception executing " + method + ", skipping");
+                        System.err.println("Unexpected, non-virtual exception executing " + method + "; skipping");
                         e1.printStackTrace();
                         stats.incrementFailedMethodCount();
                         vm = vmFactory.build(
