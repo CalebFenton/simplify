@@ -85,12 +85,32 @@ public class VirtualMachine {
         }
 
         MethodExecutor methodExecutor = methodExecutorFactory.build(virtualMethod, calleeContext, callerContext);
-        ExecutionGraph execution = methodExecutor.execute();
-        if ((execution != null) && (callerContext != null)) {
-            collapseMultiverse(virtualMethod, methodExecutor.getExecutionGraph(), callerContext, parameterRegisters);
+        methodExecutor.execute();
+
+        return finishExecution(methodExecutor, callerContext, parameterRegisters);
+    }
+
+    private ExecutionGraph finishExecution(MethodExecutor methodExecutor, ExecutionContext callerContext, int[] parameterRegisters) {
+        if ((methodExecutor.getExecutionGraph() != null) && (callerContext != null)) {
+            collapseMultiverse(methodExecutor.getVirtualMethod(), methodExecutor.getExecutionGraph(), callerContext, parameterRegisters);
         }
 
-        return execution;
+        return methodExecutor.getExecutionGraph();
+    }
+
+    public MethodExecutor startDebug(ExecutionContext callerContext, ExecutionContext calleeContext) {
+        VirtualMethod virtualMethod = calleeContext.getMethod();
+        if (!virtualMethod.hasImplementation()) {
+            log.warn("Attempting to execute method without implementation: {}", virtualMethod);
+            return null;
+        }
+
+        MethodExecutor methodExecutor = methodExecutorFactory.build(virtualMethod, calleeContext, callerContext);
+        return methodExecutor;
+    }
+
+    public ExecutionGraph finishDebug(MethodExecutor methodExecutor, ExecutionContext callerContext, int[] parameterRegisters) {
+        return finishExecution(methodExecutor, callerContext, parameterRegisters);
     }
 
     public SmaliClassLoader getClassLoader() {

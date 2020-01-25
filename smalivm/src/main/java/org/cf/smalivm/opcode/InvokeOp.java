@@ -32,8 +32,13 @@ public class InvokeOp extends ExecutionContextOp {
     private final ClassManager classManager;
     private SideEffect.Level sideEffectLevel;
 
-    InvokeOp(MethodLocation location, MethodLocation child, VirtualMethod method, int[] parameterRegisters,
-             VirtualMachine vm) {
+    private boolean debugMode;
+    private MethodExecutor debuggedMethodExecutor;
+    private ExecutionContext debuggedCallerContext;
+    private ExecutionContext debuggedCalleeContext;
+    private ExecutionNode debuggedNode;
+
+    InvokeOp(MethodLocation location, MethodLocation child, VirtualMethod method, int[] parameterRegisters, VirtualMachine vm) {
         super(location, child);
         this.method = method;
         this.parameterRegisters = parameterRegisters;
@@ -41,6 +46,7 @@ public class InvokeOp extends ExecutionContextOp {
         this.vm = vm;
         classManager = vm.getClassManager();
         sideEffectLevel = SideEffect.Level.STRONG;
+        debugMode = false;
     }
 
     @Override
@@ -127,7 +133,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         ExecutionContext calleeContext = buildLocalCalleeContext(context, targetMethod);
-        executeLocalMethod(targetSignature, context, calleeContext, node);
+        executeLocalMethod(context, calleeContext, node);
     }
 
     public int[] getParameterRegisters() {
@@ -156,7 +162,7 @@ public class InvokeOp extends ExecutionContextOp {
         StringBuilder sb = new StringBuilder(getName());
         sb.append(" {");
         if (getName().contains("/range")) {
-            sb.append("r").append(parameterRegisters[0]).append(" .. r")
+            sb.append('r').append(parameterRegisters[0]).append(" .. r")
                     .append(parameterRegisters[parameterRegisters.length - 1]);
         } else {
             if (parameterRegisters.length > 0) {
@@ -169,6 +175,14 @@ public class InvokeOp extends ExecutionContextOp {
         sb.append("}, ").append(method);
 
         return sb.toString();
+    }
+
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
+    }
+
+    public boolean isDebugMode() {
+        return debugMode;
     }
 
     private void executeArrayClone(MethodState callerMethodState, ExecutionNode node) {
@@ -348,25 +362,11 @@ public class InvokeOp extends ExecutionContextOp {
         return calleeContext;
     }
 
-    private void executeLocalMethod(String methodSignature, ExecutionContext callerContext,
-                                    ExecutionContext calleeContext, ExecutionNode node) {
-        ExecutionGraph graph = null;
-        try {
-            graph = vm.execute(methodSignature, calleeContext, callerContext, parameterRegisters);
-        } catch (VirtualMachineException e) {
-            log.warn(e.toString());
-            if (e instanceof UnhandledVirtualException) {
-                // An exception was thrown and there was no exception handler to catch it. It's not clear at this point
-                // if the fault is in smalivm code or the app code.
-                // TODO: bubble this up to the calling method
-            }
-        }
-
+    private void finishLocalMethodExecution(ExecutionContext callerContext, ExecutionContext calleeContext, ExecutionNode node, ExecutionGraph graph) {
         if (graph == null) {
             // Maybe node visits or call depth exceeded?
-            log.info("Problem executing {}, propagating ambiguity.", methodSignature);
+            log.info("Problem executing {}, propagating ambiguity.", calleeContext.getMethod());
             assumeMaximumUnknown(callerContext.getMethodState());
-
             return;
         }
 
@@ -403,16 +403,16 @@ public class InvokeOp extends ExecutionContextOp {
         } else {
             if (!method.getReturnType().equals(CommonTypes.VOID)) {
                 // Terminating addresses may include throw ops which may not have a return register set
-                TIntList addresses = new TIntLinkedList();
+                TIntList returnOpAddresses = new TIntLinkedList();
                 for (int address : graph.getConnectedTerminatingAddresses()) {
                     if (graph.getOp(address) instanceof ReturnOp) {
-                        addresses.add(address);
+                        returnOpAddresses.add(address);
                     }
                 }
-                HeapItem consensus = graph.getRegisterConsensus(addresses.toArray(), MethodState.ReturnRegister);
+                HeapItem consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister);
                 callerContext.getMethodState().assignResultRegister(consensus);
             } else {
-                if (methodSignature.contains(";-><init>(")) {
+                if (calleeContext.getMethod().getDescriptor().startsWith("<init>(")) {
                     // This was a call to a local parent <init> method
                     int calleeInstanceRegister = calleeContext.getMethodState().getParameterStart();
                     HeapItem newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister);
@@ -421,7 +421,42 @@ public class InvokeOp extends ExecutionContextOp {
                 }
             }
         }
+
         sideEffectLevel = graph.getHighestSideEffectLevel();
+    }
+
+    private void executeLocalMethod(ExecutionContext callerContext, ExecutionContext calleeContext, ExecutionNode node) {
+        if (isDebugMode()) {
+            startDebugLocalMethod(callerContext, calleeContext, node);
+        } else {
+            ExecutionGraph graph = null;
+            try {
+                graph = vm.execute(calleeContext.getMethod(), callerContext, calleeContext, parameterRegisters);
+            } catch (VirtualMachineException e) {
+                log.warn(e.toString());
+                if (e instanceof UnhandledVirtualException) {
+                    // An exception was thrown but there was no exception handler to catch it.
+                    // It's not clear if it's smalivm's fault or the app's code.
+                    // TODO: bubble this up to the calling method
+                }
+            }
+            finishLocalMethodExecution(callerContext, calleeContext, node, graph);
+        }
+    }
+
+    public void startDebugLocalMethod(ExecutionContext callerContext, ExecutionContext calleeContext, ExecutionNode node) {
+        debuggedMethodExecutor = vm.startDebug(callerContext, calleeContext);
+        debuggedCallerContext = callerContext;
+        debuggedCalleeContext = calleeContext;
+        debuggedNode = node;
+    }
+
+    public void finishDebugLocalMethod(ExecutionGraph graph) {
+        finishLocalMethodExecution(debuggedCalleeContext, debuggedCallerContext, debuggedNode, graph);
+    }
+
+    public MethodExecutor getDebuggedMethodExecutor() {
+        return debuggedMethodExecutor;
     }
 
     private void executeLocalObjectInit(MethodState callerMethodState) throws ClassNotFoundException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
@@ -437,8 +472,7 @@ public class InvokeOp extends ExecutionContextOp {
         callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem);
     }
 
-    private void executeNonLocalMethod(String methodDescriptor, MethodState callerMethodState,
-                                       ExecutionContext calleeContext, ExecutionNode node) {
+    private void executeNonLocalMethod(String methodDescriptor, MethodState callerMethodState, ExecutionContext calleeContext, ExecutionNode node) {
         if (MethodEmulator.canEmulate(methodDescriptor)) {
             MethodEmulator emulator = new MethodEmulator(vm, calleeContext, methodDescriptor);
             emulator.emulate(this);

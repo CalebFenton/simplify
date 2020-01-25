@@ -1,0 +1,56 @@
+buildscript {
+    dependencies {
+        classpath depends.proguard_gradle
+    }
+    repositories {
+        mavenCentral()
+    }
+}
+
+dependencies {
+    compile project(':smalivm')
+    compile 'commons-cli:commons-cli:1.4'
+    compile group: 'info.picocli', name: 'picocli-shell-jline3', version: '4.1.4'
+    compile group: 'org.fusesource.jansi', name: 'jansi', version: '1.18'
+    compile depends.slf4j_api
+    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+
+    testCompile depends.junit
+    testCompile depends.mockito
+    testCompile project(':smalivm').sourceSets.test.output
+    testCompile project(':smalivm').sourceSets.test.resources
+}
+
+test.dependsOn project(':smalivm').tasks.getByName('testClasses')
+
+// SmaliVM must be at the END of the classpath due to transitive dependency conflict (commons-cli).
+eclipse.classpath.file {
+    withXml {
+        def node = it.asNode()
+        def smalivmNode
+        node.children().each { n ->
+            if ( n.attributes()['path'] == '/smalivm') {
+                smalivmNode = n
+                return
+            }
+        }
+        node.remove(smalivmNode)
+        node.append(smalivmNode)
+    }
+}
+
+task fatJar(type: Jar) {
+    from sourceSets.main.output
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+
+    manifest {
+        attributes('Main-Class': 'org.cf.sdbg.Main')
+    }
+
+    doLast {
+        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
+            ant.symlink(link: file("${destinationDir}/sdbg.jar"), resource: archivePath, overwrite: true)
+        }
+    }
+}

@@ -34,9 +34,8 @@ public class MethodExecutor {
     }
 
     public ExecutionGraph execute() throws VirtualMachineException {
-        ExecutionNode rootNode = getExecutionGraph().getRoot();
         VirtualMethod method = getExecutionGraph().getMethod();
-        int callDepth = rootNode.getCallDepth();
+        int callDepth = getCurrentNode().getCallDepth();
         log.info("Executing {}, depth={}", method, callDepth);
 
         while (!isFinished()) {
@@ -54,8 +53,12 @@ public class MethodExecutor {
         return node;
     }
 
-    public ExecutionNode current() {
+    public ExecutionNode getCurrentNode() {
         return getStack().peek();
+    }
+
+    public VirtualMethod getVirtualMethod() {
+        return getExecutionGraph().getMethod();
     }
 
     public ExecutionGraph getExecutionGraph() {
