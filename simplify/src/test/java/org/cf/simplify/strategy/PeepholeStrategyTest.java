@@ -1,5 +1,8 @@
 package org.cf.simplify.strategy;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
@@ -16,18 +19,11 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction35c;
 import org.jf.dexlib2.iface.reference.MethodReference;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.util.ReferenceUtil;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-@RunWith(Enclosed.class)
 public class PeepholeStrategyTest {
 
     private static final String CLASS_NAME = "Lpeephole_strategy_test;";
@@ -170,7 +166,7 @@ public class PeepholeStrategyTest {
         private VirtualMachine vm;
         private VirtualType thisReference;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             vm = VMTester.spawnVM(true);
         }
@@ -213,7 +209,7 @@ public class PeepholeStrategyTest {
         private VirtualMachine vm;
         private VirtualType thisReference;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             vm = VMTester.spawnVM(true);
             thisReference = vm.getClassManager().getVirtualClass(CLASS_NAME);

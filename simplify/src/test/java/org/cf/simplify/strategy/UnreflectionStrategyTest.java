@@ -1,7 +1,11 @@
 package org.cf.simplify.strategy;
 
-import com.google.common.collect.ObjectArrays;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.common.collect.ObjectArrays;
+import java.util.ArrayList;
+import java.util.List;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.VMState;
@@ -11,19 +15,10 @@ import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
-@RunWith(Enclosed.class)
 public class UnreflectionStrategyTest {
 
     @SuppressWarnings("unused")

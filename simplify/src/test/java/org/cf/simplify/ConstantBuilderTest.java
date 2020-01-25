@@ -1,5 +1,10 @@
 package org.cf.simplify;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
+
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.util.ClassNameUtils;
@@ -20,19 +25,11 @@ import org.jf.dexlib2.iface.instruction.WideLiteralInstruction;
 import org.jf.dexlib2.iface.reference.StringReference;
 import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.writer.builder.DexBuilder;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
-
-@RunWith(Enclosed.class)
 public class ConstantBuilderTest {
 
     @SuppressWarnings("unused")
@@ -316,7 +313,7 @@ public class ConstantBuilderTest {
 
         DexBuilder dexBuilder;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             dexBuilder = VMTester.getDexBuilder();
         }

@@ -1,14 +1,13 @@
 package org.cf.simplify;
 
-import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.cf.smalivm.VirtualMachineFactory;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-
-import static org.junit.Assert.assertTrue;
+import org.cf.smalivm.VirtualMachineFactory;
+import org.cf.smalivm.exception.UnhandledVirtualException;
+import org.junit.jupiter.api.Test;
 
 public class LauncherTest {
 
@@ -32,4 +31,5 @@ public class LauncherTest {
         assertTrue(outFile.exists());
         Files.delete(outFile.toPath());
     }
+
 }

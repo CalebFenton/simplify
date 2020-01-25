@@ -1,5 +1,13 @@
 package org.cf.simplify;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -14,16 +22,7 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction11n;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.jf.dexlib2.writer.io.FileDataStore;
-import org.junit.Test;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import org.junit.jupiter.api.Test;
 
 public class ExecutionGraphManipulatorTest {
 
@@ -40,8 +39,7 @@ public class ExecutionGraphManipulatorTest {
 
             Object[][][] exChildren = (Object[][][]) ex[2];
             List<ExecutionNode> actualNodePile = manipulator.getNodePile(address);
-            assertEquals(expectedOpcode.name + " @" + address + " node pile size", exChildren.length,
-                    actualNodePile.size());
+            assertEquals(exChildren.length, actualNodePile.size(), expectedOpcode.name + " @" + address + " node pile size");
             for (int i = 0; i < exChildren.length; i++) {
                 ExecutionNode actualNode = actualNodePile.get(i);
                 List<ExecutionNode> childNodes = actualNode.getChildren();
@@ -50,13 +48,10 @@ public class ExecutionGraphManipulatorTest {
                     children[j] = childNodes.get(j).getOp().getInstruction();
                 }
 
-                assertEquals(expectedOpcode.name + " @" + address + " children size", exChildren[i].length,
-                        children.length);
+                assertEquals(exChildren[i].length, children.length, expectedOpcode.name + " @" + address + " children size");
                 for (int j = 0; j < exChildren[i].length; j++) {
-                    assertEquals(expectedOpcode.name + " @" + address + " child address", (int) exChildren[i][j][0],
-                            children[j].getLocation().getCodeAddress());
-                    assertEquals(expectedOpcode.name + " @" + address + " child opcode", exChildren[i][j][1],
-                            children[j].getOpcode());
+                    assertEquals((int) exChildren[i][j][0], children[j].getLocation().getCodeAddress(), expectedOpcode.name + " @" + address + " child address");
+                    assertEquals(exChildren[i][j][1], children[j].getOpcode(), expectedOpcode.name + " @" + address + " child opcode");
                 }
             }
         }
