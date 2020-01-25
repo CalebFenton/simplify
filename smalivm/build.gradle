@@ -9,12 +9,12 @@ buildscript {
 
 dependencies {
     // Object cloning
-    compile 'uk.com.robust-it:cloning:1.9.12'
+    compile group: 'uk.com.robust-it', name: 'cloning', version: '1.9.12'
 
     // Easy method reflection
-    compile 'commons-beanutils:commons-beanutils:1.9.4'
+    compile group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
 
-    // Lazy
+    // Utilities
     compile depends.commons_lang
     compile depends.guava
 
@@ -39,7 +39,7 @@ dependencies {
 
     testCompile depends.junit
     testCompile depends.mockito
-    testCompile depends.perfidix // Benchmarking
+    testCompile depends.perfidix
 }
 
 task fatJar(type: Jar) {

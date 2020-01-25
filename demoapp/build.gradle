@@ -5,8 +5,6 @@ mainClassName = 'org.cf.demoapp.Main'
 
 dependencies {
     compile project(':smalivm')
-
-    // Logging
     compile depends.slf4j_api
     compile depends.slf4j_nop
 

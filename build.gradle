@@ -71,9 +71,16 @@ subprojects {
         //options.incremental = true
     }
 
-    tasks.withType(Test) {
-        maxParallelForks = Runtime.runtime.availableProcessors() / 2
-        minHeapSize = '128m'
+    if (project.name == 'simplify') {
+        tasks.withType(Test) {
+            maxParallelForks = 2
+            forkEvery = 4
+            minHeapSize = '64m'
+        }
+    } else {
+        tasks.withType(Test) {
+            maxParallelForks = Runtime.runtime.availableProcessors()
+        }
     }
 }
 

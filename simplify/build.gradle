@@ -8,27 +8,17 @@ buildscript {
 }
 
 dependencies {
-    // SmaliVM
     compile project(':smalivm')
-
-    // Lazy
     compile depends.guava
-
-    // CLI parsing
-    compile 'commons-cli:commons-cli:1.4'
-
-    // Primitive collections
+    compile group: 'commons-cli', name: 'commons-cli', version: '1.4'
     compile depends.trove4j
-
-    // Logging
     compile depends.slf4j_api
-    compile 'ch.qos.logback:logback-core:1.2.3'
-    compile 'ch.qos.logback:logback-classic:1.2.3'
+    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
 
-    // Testing
     testCompile depends.junit
     testCompile depends.mockito
-    testCompile depends.perfidix // benchmarks
+    testCompile depends.perfidix
     testCompile project(':smalivm').sourceSets.test.output
     testCompile project(':smalivm').sourceSets.test.resources
 }
