@@ -45,7 +45,7 @@ public class ClassManagerFactory {
      * Create a ClassManager with no input Smali classes. It will only contain input library
      * classes.
      */
-    public ClassManager build(DexBuilder dexBuilder) throws IOException {
+    public ClassManager build(DexBuilder dexBuilder)  {
         return new ClassManager(dexBuilder);
     }
 
