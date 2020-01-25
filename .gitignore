@@ -54,7 +54,7 @@ build/
 
 # Logging
 log.txt
-/bin/
+bin/
 
 # Generated Java documentation
 smalivm/doc
