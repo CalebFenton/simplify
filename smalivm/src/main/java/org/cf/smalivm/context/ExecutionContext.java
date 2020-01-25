@@ -202,7 +202,7 @@ public class ExecutionContext {
 
         ExecutionGraph graph = null;
         try {
-            graph = vm.execute(method, initContext, this, null);
+            graph = vm.execute(initContext, this, null);
         } catch (VirtualMachineException e) {
             log.warn(e.toString());
             if (e instanceof UnhandledVirtualException) {

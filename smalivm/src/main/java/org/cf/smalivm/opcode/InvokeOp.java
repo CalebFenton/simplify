@@ -133,7 +133,7 @@ public class InvokeOp extends ExecutionContextOp {
         }
 
         ExecutionContext calleeContext = buildLocalCalleeContext(context, targetMethod);
-        executeLocalMethod(context, calleeContext, node);
+        executeLocalMethod(calleeContext, context, node);
     }
 
     public int[] getParameterRegisters() {
@@ -362,7 +362,7 @@ public class InvokeOp extends ExecutionContextOp {
         return calleeContext;
     }
 
-    private void finishLocalMethodExecution(ExecutionContext callerContext, ExecutionContext calleeContext, ExecutionNode node, ExecutionGraph graph) {
+    private void finishLocalMethodExecution(ExecutionContext calleeContext, ExecutionContext callerContext, ExecutionNode node, ExecutionGraph graph) {
         if (graph == null) {
             // Maybe node visits or call depth exceeded?
             log.info("Problem executing {}, propagating ambiguity.", calleeContext.getMethod());
@@ -425,13 +425,13 @@ public class InvokeOp extends ExecutionContextOp {
         sideEffectLevel = graph.getHighestSideEffectLevel();
     }
 
-    private void executeLocalMethod(ExecutionContext callerContext, ExecutionContext calleeContext, ExecutionNode node) {
+    private void executeLocalMethod(ExecutionContext calleeContext, ExecutionContext callerContext, ExecutionNode node) {
         if (isDebugMode()) {
-            startDebugLocalMethod(callerContext, calleeContext, node);
+            startDebugLocalMethod(calleeContext, callerContext, node);
         } else {
             ExecutionGraph graph = null;
             try {
-                graph = vm.execute(calleeContext.getMethod(), callerContext, calleeContext, parameterRegisters);
+                graph = vm.execute(calleeContext, callerContext, parameterRegisters);
             } catch (VirtualMachineException e) {
                 log.warn(e.toString());
                 if (e instanceof UnhandledVirtualException) {
@@ -440,11 +440,11 @@ public class InvokeOp extends ExecutionContextOp {
                     // TODO: bubble this up to the calling method
                 }
             }
-            finishLocalMethodExecution(callerContext, calleeContext, node, graph);
+            finishLocalMethodExecution(calleeContext, callerContext, node, graph);
         }
     }
 
-    public void startDebugLocalMethod(ExecutionContext callerContext, ExecutionContext calleeContext, ExecutionNode node) {
+    public void startDebugLocalMethod(ExecutionContext calleeContext, ExecutionContext callerContext, ExecutionNode node) {
         debuggedMethodExecutor = vm.startDebug(callerContext, calleeContext);
         debuggedCallerContext = callerContext;
         debuggedCalleeContext = calleeContext;
@@ -452,7 +452,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     public void finishDebugLocalMethod(ExecutionGraph graph) {
-        finishLocalMethodExecution(debuggedCalleeContext, debuggedCallerContext, debuggedNode, graph);
+        finishLocalMethodExecution(debuggedCallerContext, debuggedCalleeContext, debuggedNode, graph);
     }
 
     public MethodExecutor getDebuggedMethodExecutor() {

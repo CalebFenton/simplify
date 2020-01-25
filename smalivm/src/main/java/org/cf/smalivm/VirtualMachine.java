@@ -56,35 +56,23 @@ public class VirtualMachine {
     public ExecutionGraph execute(VirtualMethod virtualMethod) throws VirtualMachineException {
         ExecutionContext calleeContext = spawnRootContext(virtualMethod);
 
-        return execute(virtualMethod, calleeContext, null, null);
+        return execute(calleeContext);
     }
 
-    public ExecutionGraph execute(String className, String methodDescriptor, ExecutionContext context) throws VirtualMachineException {
-        return execute(className + "->" + methodDescriptor, context, null, null);
+    public ExecutionGraph execute(ExecutionContext context) throws VirtualMachineException {
+        return execute(context, null, null);
     }
 
-    public ExecutionGraph execute(String methodSignature, ExecutionContext context) throws VirtualMachineException {
-        return execute(methodSignature, context, null, null);
-    }
-
-    public ExecutionGraph execute(String methodSignature, ExecutionContext calleeContext, ExecutionContext callerContext,
-                                  int[] parameterRegisters) throws VirtualMachineException {
-        VirtualMethod virtualMethod = classManager.getMethod(methodSignature);
+    public ExecutionGraph execute(ExecutionContext calleeContext, ExecutionContext callerContext,  int[] parameterRegisters) throws VirtualMachineException {
+        VirtualMethod virtualMethod = calleeContext.getMethod();
         if (virtualMethod == null) {
-            throw new RuntimeException("Method signature not found: " + methodSignature);
-        }
-
-        return execute(virtualMethod, calleeContext, callerContext, parameterRegisters);
-    }
-
-    public ExecutionGraph execute(VirtualMethod virtualMethod, ExecutionContext calleeContext, ExecutionContext callerContext,
-                                  int[] parameterRegisters) throws VirtualMachineException {
-        if (!virtualMethod.hasImplementation()) {
+            throw new RuntimeException("Method not found: " + virtualMethod);
+        } else if (!virtualMethod.hasImplementation()) {
             log.warn("Attempting to execute method without implementation: {}", virtualMethod);
             return null;
         }
 
-        MethodExecutor methodExecutor = methodExecutorFactory.build(virtualMethod, calleeContext, callerContext);
+        MethodExecutor methodExecutor = methodExecutorFactory.build(calleeContext, callerContext);
         methodExecutor.execute();
 
         return finishExecution(methodExecutor, callerContext, parameterRegisters);
@@ -105,8 +93,7 @@ public class VirtualMachine {
             return null;
         }
 
-        MethodExecutor methodExecutor = methodExecutorFactory.build(virtualMethod, calleeContext, callerContext);
-        return methodExecutor;
+        return methodExecutorFactory.build(calleeContext, callerContext);
     }
 
     public ExecutionGraph finishDebug(MethodExecutor methodExecutor, ExecutionContext callerContext, int[] parameterRegisters) {

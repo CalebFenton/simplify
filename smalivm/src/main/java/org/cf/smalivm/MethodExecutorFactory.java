@@ -44,18 +44,19 @@ public class MethodExecutorFactory {
 
     public MethodExecutor build(VirtualMethod virtualMethod) {
         ExecutionContext calleeContext = vm.spawnRootContext(virtualMethod);
-        return build(virtualMethod, calleeContext);
+        return build(calleeContext);
     }
 
-    public MethodExecutor build(VirtualMethod virtualMethod, ExecutionContext calleeContext) {
-        return build(virtualMethod, calleeContext, null);
+    public MethodExecutor build(ExecutionContext calleeContext) {
+        return build(calleeContext, null);
     }
 
-    public MethodExecutor build(VirtualMethod virtualMethod, ExecutionContext calleeContext, ExecutionContext callerContext) {
+    public MethodExecutor build(ExecutionContext calleeContext, ExecutionContext callerContext) {
         if (callerContext != null) {
             inheritClassStates(callerContext, calleeContext);
         }
 
+        VirtualMethod virtualMethod = calleeContext.getMethod();
         calleeContext.staticallyInitializeClassIfNecessary(virtualMethod.getDefiningClass());
 
         ExecutionGraph graph = vm.spawnInstructionGraph(virtualMethod);

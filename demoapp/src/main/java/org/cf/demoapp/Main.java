@@ -44,7 +44,7 @@ public class Main {
         // is the 'this' reference, or contains a reference to the object.
         // First method parameter starts at r5, or parameter start + 1.
         mState.assignParameter(mState.getParameterStart() + 1, parameterValue, "I");
-        ExecutionGraph graph = vm.execute(methodSignature, context);
+        ExecutionGraph graph = vm.execute(context);
 
         HeapItem item = graph.getTerminatingRegisterConsensus(MethodState.ReturnRegister);
         System.out.println("With context, returns " + parameterValue + ": " + item);
@@ -71,7 +71,7 @@ public class Main {
         ExecutionContext context = vm.spawnRootContext(className, methodDescriptor);
         MethodState mState = context.getMethodState();
         mState.assignParameter(3, parameterValue, "I");
-        vm.execute(className, methodDescriptor, context);
+        vm.execute(context);
     }
 
 }

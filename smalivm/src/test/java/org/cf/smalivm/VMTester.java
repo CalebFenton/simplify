@@ -64,7 +64,7 @@ public class VMTester {
         ExecutionContext context = buildInitializedContext(vm, methodSignature, state);
         ExecutionGraph graph = null;
         try {
-            graph = vm.execute(methodSignature, context);
+            graph = vm.execute(context);
         } catch (VirtualMachineException e) {
             e.printStackTrace();
         }
