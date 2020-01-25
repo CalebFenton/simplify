@@ -32,8 +32,8 @@ public class NonInteractiveMethodExecutor extends MethodExecutor {
     }
 
     public ExecutionGraph execute() throws VirtualMachineException {
-        ExecutionNode rootNode = getGraph().getRoot();
-        VirtualMethod method = getGraph().getMethod();
+        ExecutionNode rootNode = getExecutionGraph().getRoot();
+        VirtualMethod method = getExecutionGraph().getMethod();
         int callDepth = rootNode.getCallDepth();
         log.info("Executing {}, depth={}", method, callDepth);
 
@@ -47,7 +47,7 @@ public class NonInteractiveMethodExecutor extends MethodExecutor {
         TIntIntMap addressToVisitCount = new TIntIntHashMap();
         long endTime = System.currentTimeMillis() + (maxExecutionTime * 1000);
         boolean warnedMultipleExecutionPaths = false;
-        while (!finished()) {
+        while (!isFinished()) {
             totalVisits += 1;
             checkMaxVisits(rootNode, method, addressToVisitCount);
 
@@ -66,7 +66,7 @@ public class NonInteractiveMethodExecutor extends MethodExecutor {
             checkMaxExecutionTime(endTime, method);
         }
 
-        return getGraph();
+        return getExecutionGraph();
     }
 
     private void checkMaxExecutionTime(long endTime, VirtualMethod localMethod) throws MaxExecutionTimeExceededException {

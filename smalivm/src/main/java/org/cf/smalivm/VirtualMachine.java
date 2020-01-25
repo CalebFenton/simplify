@@ -1,38 +1,25 @@
 package org.cf.smalivm;
 
 import org.cf.smalivm.configuration.Configuration;
-import org.cf.smalivm.context.ClassState;
-import org.cf.smalivm.context.ExecutionContext;
-import org.cf.smalivm.context.ExecutionGraph;
-import org.cf.smalivm.context.ExecutionNode;
-import org.cf.smalivm.context.HeapItem;
-import org.cf.smalivm.context.MethodState;
+import org.cf.smalivm.context.*;
 import org.cf.smalivm.dex.SmaliClassLoader;
 import org.cf.smalivm.exception.VirtualMachineException;
-import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.VirtualClass;
-import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualMethod;
-import org.cf.smalivm.type.VirtualType;
+import org.cf.smalivm.type.*;
 import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import javax.annotation.Nullable;
 
 public class VirtualMachine {
 
     private static final Logger log = LoggerFactory.getLogger(VirtualMachine.class.getSimpleName());
 
     private final ClassManager classManager;
-    private final int maxCallDepth;
-    private final int maxAddressVisits;
-    private final int maxMethodVisits;
-    private final int maxExecutionTime;
+    private final MethodExecutorFactory methodExecutorFactory;
     private final SmaliClassLoader classLoader;
     private final Map<VirtualMethod, ExecutionGraph> methodToTemplateExecutionGraph;
     private final StaticFieldAccessor staticFieldAccessor;
@@ -41,11 +28,11 @@ public class VirtualMachine {
 
     VirtualMachine(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits, int maxExecutionTime) {
         this.classManager = manager;
-        this.maxAddressVisits = maxAddressVisits;
-        this.maxCallDepth = maxCallDepth;
-        this.maxMethodVisits = maxMethodVisits;
-        this.maxExecutionTime = maxExecutionTime;
-
+        this.methodExecutorFactory = new MethodExecutorFactory(this)
+                .setMaxAddressVisits(maxAddressVisits)
+                .setMaxCallDepth(maxCallDepth)
+                .setMaxMethodVisits(maxMethodVisits)
+                .setMaxExecutionTime(maxExecutionTime);
         classLoader = new SmaliClassLoader(classManager);
         methodToTemplateExecutionGraph = new HashMap<>();
         staticFieldAccessor = new StaticFieldAccessor(this);
@@ -66,10 +53,10 @@ public class VirtualMachine {
         return execute(className + "->" + methodDescriptor);
     }
 
-    public ExecutionGraph execute(VirtualMethod method) throws VirtualMachineException {
-        ExecutionContext context = spawnRootContext(method);
+    public ExecutionGraph execute(VirtualMethod virtualMethod) throws VirtualMachineException {
+        ExecutionContext calleeContext = spawnRootContext(virtualMethod);
 
-        return execute(method, context, null, null);
+        return execute(virtualMethod, calleeContext, null, null);
     }
 
     public ExecutionGraph execute(String className, String methodDescriptor, ExecutionContext context) throws VirtualMachineException {
@@ -97,21 +84,10 @@ public class VirtualMachine {
             return null;
         }
 
-        if (callerContext != null) {
-            inheritClassStates(callerContext, calleeContext);
-        }
-
-        calleeContext.staticallyInitializeClassIfNecessary(virtualMethod.getDefiningClass());
-
-        ExecutionGraph graph = spawnInstructionGraph(virtualMethod);
-        ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
-        rootNode.setContext(calleeContext);
-        graph.addNode(rootNode);
-
-        MethodExecutor methodExecutor = new NonInteractiveMethodExecutor(classManager, graph, maxCallDepth, maxAddressVisits, maxMethodVisits, maxExecutionTime);
+        MethodExecutor methodExecutor = methodExecutorFactory.build(virtualMethod, calleeContext, callerContext);
         ExecutionGraph execution = methodExecutor.execute();
         if ((execution != null) && (callerContext != null)) {
-            collapseMultiverse(virtualMethod, graph, callerContext, parameterRegisters);
+            collapseMultiverse(virtualMethod, methodExecutor.getExecutionGraph(), callerContext, parameterRegisters);
         }
 
         return execution;
@@ -196,6 +172,10 @@ public class VirtualMachine {
     public void updateInstructionGraph(VirtualMethod method) {
         ExecutionGraph graph = new ExecutionGraph(this, method);
         methodToTemplateExecutionGraph.put(method, graph);
+    }
+
+    public MethodExecutorFactory getMethodExecutorFactory() {
+        return methodExecutorFactory;
     }
 
     public ExceptionFactory getExceptionFactory() {
@@ -288,24 +268,6 @@ public class VirtualMachine {
                     cState.updateIdentities(field, item);
                 }
             }
-        }
-    }
-
-    private void inheritClassStates(ExecutionContext parentContext, ExecutionContext childContext) {
-        for (VirtualClass virtualClass : classManager.getLoadedClasses()) {
-            if (!parentContext.isClassInitialized(virtualClass)) {
-                continue;
-            }
-
-            ClassState fromClassState = parentContext.peekClassState(virtualClass);
-            ClassState toClassState = fromClassState.getChild(childContext);
-            for (VirtualField field : fromClassState.getVirtualClass().getFields()) {
-                HeapItem item = fromClassState.peekField(field);
-                // TODO: should update field here?
-                toClassState.pokeField(field, item);
-            }
-            SideEffect.Level level = parentContext.getClassSideEffectLevel(virtualClass);
-            childContext.initializeClass(toClassState, level);
         }
     }
 

@@ -16,13 +16,11 @@ public class MethodExecutor {
 
     private static Logger log = LoggerFactory.getLogger(MethodExecutor.class.getSimpleName());
 
-    private final ClassManager classManager;
     private final Deque<ExecutionNode> stack;
     private final NodeExecutor nodeExecutor;
     private final ExecutionGraph graph;
 
     public MethodExecutor(ClassManager classManager, ExecutionGraph graph) {
-        this.classManager = classManager;
         this.graph = graph;
 
         nodeExecutor = new NodeExecutor(graph, classManager);
@@ -31,21 +29,21 @@ public class MethodExecutor {
         stack.push(rootNode);
     }
 
-    public boolean finished() {
+    public boolean isFinished() {
         return getStack().isEmpty();
     }
 
     public ExecutionGraph execute() throws VirtualMachineException {
-        ExecutionNode rootNode = getGraph().getRoot();
-        VirtualMethod method = getGraph().getMethod();
+        ExecutionNode rootNode = getExecutionGraph().getRoot();
+        VirtualMethod method = getExecutionGraph().getMethod();
         int callDepth = rootNode.getCallDepth();
         log.info("Executing {}, depth={}", method, callDepth);
 
-        while (!finished()) {
+        while (!isFinished()) {
             step();
         }
 
-        return getGraph();
+        return getExecutionGraph();
     }
 
     public ExecutionNode step() throws UnhandledVirtualException {
@@ -56,7 +54,11 @@ public class MethodExecutor {
         return node;
     }
 
-    public ExecutionGraph getGraph() {
+    public ExecutionNode current() {
+        return getStack().peek();
+    }
+
+    public ExecutionGraph getExecutionGraph() {
         return graph;
     }
 
