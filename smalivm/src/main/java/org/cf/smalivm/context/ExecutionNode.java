@@ -3,6 +3,7 @@ package org.cf.smalivm.context;
 import org.cf.smalivm.opcode.ExecutionContextOp;
 import org.cf.smalivm.opcode.MethodStateOp;
 import org.cf.smalivm.opcode.Op;
+import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,14 @@ public class ExecutionNode {
 
     public int getAddress() {
         return op.getAddress();
+    }
+
+    public int getIndex() {
+        return op.getIndex();
+    }
+
+    public VirtualMethod getMethod() {
+        return context.getMethod();
     }
 
     public int getCallDepth() {

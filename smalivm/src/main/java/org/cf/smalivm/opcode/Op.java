@@ -27,6 +27,10 @@ public abstract class Op {
         return location.getCodeAddress();
     }
 
+    public final int getIndex() {
+        return location.getIndex();
+    }
+
     public final MethodLocation[] getChildren() {
         return children;
     }
