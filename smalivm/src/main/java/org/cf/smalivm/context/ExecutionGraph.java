@@ -4,17 +4,12 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.linked.TIntLinkedList;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.opcode.OpCreator;
-import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.UnknownValue;
-import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualMethod;
-import org.cf.smalivm.type.VirtualType;
+import org.cf.smalivm.type.*;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -22,20 +17,9 @@ import org.jf.dexlib2.builder.MutableMethodImplementation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class ExecutionGraph implements Iterable<ExecutionNode> {
 
@@ -384,7 +368,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
      * UnknownValue} if a consensus doesn't exist
      */
     public HeapItem getRegisterConsensus(int address, int register) {
-        return getRegisterConsensus(new int[]{ address }, register);
+        return getRegisterConsensus(new int[] { address }, register);
     }
 
     /**
@@ -402,7 +386,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
      *   else:
      *     v1 = 0
      *   return v1}</pre>
-     *
+     * <p>
      * Since the result of {@code readStringFromNetwork()Ljava/lang/String;} won't be known, because
      * it's probably unsafe to virtually execute, the {@code if v0} will be ambiguous and every
      * possible execution path will be taken. This means {@code return v1} could either be {@code 1}
@@ -440,18 +424,18 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         if (types.size() == 0) {
             // May not have any items if an exception was thrown and checking return register
             log.warn("No types for consensus; using *unknown* type! method={}, addresses={}, " + "register={}", getMethod().getSignature(), addresses,
-                     register, types);
+                    register, types);
             return HeapItem.newUnknown(CommonTypes.UNKNOWN);
         } else {
             String type = getConsensusType(types, items);
             if (type.equals(CommonTypes.UNKNOWN)) {
                 if (register == MethodState.ReturnRegister) {
                     log.warn("Strange: No consensus type for return register; using method return type, method={}, addresses={}, " + "register={}, "
-                                     + "types={}", getMethod().getSignature(), addresses, register, types);
+                            + "types={}", getMethod().getSignature(), addresses, register, types);
                     type = method.getReturnType();
                 } else {
                     log.warn("No consensus type; using *unknown* type! method={}, addresses={}, " + "register={}, types={}",
-                             getMethod().getSignature(), addresses, register, types);
+                            getMethod().getSignature(), addresses, register, types);
                 }
             }
 
@@ -526,7 +510,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     }
 
     public HeapItem getTerminatingFieldConsensus(VirtualField field) {
-        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[]{ field });
+        Map<VirtualField, HeapItem> items = getTerminatingFieldConsensus(new VirtualField[] { field });
 
         return items.get(field);
     }
@@ -545,7 +529,7 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
     public
     @Nullable
     HeapItem getTerminatingRegisterConsensus(int register) {
-        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[]{ register });
+        Map<Integer, HeapItem> items = getTerminatingRegisterConsensus(new int[] { register });
 
         return items.get(register);
     }
@@ -586,6 +570,26 @@ public class ExecutionGraph implements Iterable<ExecutionNode> {
         }
 
         return nodePile.size() > 1;
+    }
+
+    public String toSmali() {
+        return toSmali(false);
+    }
+
+    public String toSmali(boolean includeAddress) {
+        int[] addresses = getAddresses();
+        StringBuilder sb = new StringBuilder();
+        for (int address : addresses) {
+            Op op = getOp(address);
+            sb.append(op.toString());
+            if (includeAddress) {
+                sb.append(" # @").append(address);
+            }
+            sb.append('\n');
+        }
+        sb.setLength(sb.length() - 1);
+
+        return sb.toString();
     }
 
     protected int getNodeIndex(ExecutionNode node) {

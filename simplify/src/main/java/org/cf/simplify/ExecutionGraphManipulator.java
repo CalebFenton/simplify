@@ -199,26 +199,6 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
         removeInstruction(location);
     }
 
-    public String toSmali() {
-        return toSmali(false);
-    }
-
-    public String toSmali(boolean includeAddress) {
-        int[] addresses = getAddresses();
-        Arrays.sort(addresses);
-        StringBuilder sb = new StringBuilder();
-        for (int address : addresses) {
-            Op op = getOp(address);
-            if (includeAddress) {
-                sb.append("# @").append(address).append('\n');
-            }
-            sb.append(op.toString()).append('\n');
-        }
-        sb.setLength(sb.length() - 1);
-
-        return sb.toString();
-    }
-
     public MethodLocation getLocation(int address) {
         return addressToLocation.get(address);
     }
