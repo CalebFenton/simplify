@@ -1,14 +1,13 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.ArrayList;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
-import org.junit.Test;
-
-import java.util.ArrayList;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.Test;
 
 public class TestStaticFieldAccess {
 
@@ -61,7 +60,8 @@ public class TestStaticFieldAccess {
         HeapItem item = graph.getTerminatingRegisterConsensus(0);
 
         assertEquals(ArrayList.class, item.getValue().getClass());
-        ArrayList list = (ArrayList) item.getValue();
+        @SuppressWarnings("unchecked")
+        ArrayList<String> list = (ArrayList<String>) item.getValue();
         assertEquals(1, list.size());
         assertEquals("added item!", list.get(0));
 

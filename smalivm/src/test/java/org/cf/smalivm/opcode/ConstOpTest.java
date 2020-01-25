@@ -1,5 +1,8 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -8,18 +11,9 @@ import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.util.ClassNameUtils;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
-@RunWith(Enclosed.class)
 public class ConstOpTest {
 
     public static class IntegrationTest {
@@ -143,7 +137,7 @@ public class ConstOpTest {
             assertEquals(0, mState.getRegistersAssigned().length);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
         }

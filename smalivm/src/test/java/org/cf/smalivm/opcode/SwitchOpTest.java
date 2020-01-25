@@ -3,12 +3,9 @@ package org.cf.smalivm.opcode;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.UnknownValue;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-@RunWith(Enclosed.class)
 public class SwitchOpTest {
 
     private static final String CLASS_NAME = "Lswitch_test;";
@@ -19,7 +16,7 @@ public class SwitchOpTest {
 
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
         }
@@ -52,7 +49,7 @@ public class SwitchOpTest {
 
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
         }

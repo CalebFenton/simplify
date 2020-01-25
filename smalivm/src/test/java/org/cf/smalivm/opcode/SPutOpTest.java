@@ -2,8 +2,8 @@ package org.cf.smalivm.opcode;
 
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class SPutOpTest {
 
@@ -68,7 +68,7 @@ public class SPutOpTest {
         VMTester.test(CLASS_NAME, "putStaticWide()V", initial, expected);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         expected = new VMState();
         initial = new VMState();

@@ -1,23 +1,22 @@
 package org.cf.smalivm;
 
-import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.VirtualClass;
-import org.cf.smalivm.type.VirtualMethod;
-import org.jf.dexlib2.builder.BuilderExceptionHandler;
-import org.jf.dexlib2.builder.BuilderTryBlock;
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm.type.VirtualMethod;
+import org.jf.dexlib2.builder.BuilderExceptionHandler;
+import org.jf.dexlib2.builder.BuilderTryBlock;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ExceptionHandlerAddressResolverTest {
 
@@ -51,18 +50,18 @@ public class ExceptionHandlerAddressResolverTest {
         return tryBlock;
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
-        tryBlocks = new LinkedList<BuilderTryBlock>();
+        tryBlocks = new LinkedList<>();
 
         exceptionClass1 = mockException("Ljava/lang/Exception");
         exceptionClass2 = mockException("Ljava/lang/RuntimeException;");
         exceptionClass3 = mockException("Ljava/lang/NullPointerException;");
-        when(exceptionClass1.getAncestors()).thenReturn(new HashSet<VirtualClass>(0));
+        when(exceptionClass1.getAncestors()).thenReturn(new HashSet<>(0));
         Set<VirtualClass> ancestors;
-        ancestors = new HashSet<VirtualClass>(Collections.singletonList(exceptionClass1));
+        ancestors = new HashSet<>(Collections.singletonList(exceptionClass1));
         when(exceptionClass2.getAncestors()).thenReturn(ancestors);
-        ancestors = new HashSet<VirtualClass>(Collections.singletonList(exceptionClass2));
+        ancestors = new HashSet<>(Collections.singletonList(exceptionClass2));
         when(exceptionClass3.getAncestors()).thenReturn(ancestors);
 
         classManager = mock(ClassManager.class);

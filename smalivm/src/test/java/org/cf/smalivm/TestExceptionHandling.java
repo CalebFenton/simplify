@@ -1,17 +1,16 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.Instance;
 import org.cf.smalivm.type.UninitializedInstance;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestExceptionHandling {
 
@@ -19,7 +18,7 @@ public class TestExceptionHandling {
     private static final String EXCEPTION_CLASS_NAME = "Lorg/cf/test/CustomException;";
     private VirtualMachine vm;
 
-    @Before
+    @BeforeEach
     public void setupVM() {
         vm = VMTester.spawnVM();
     }

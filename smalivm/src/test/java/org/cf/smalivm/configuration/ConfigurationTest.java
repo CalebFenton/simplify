@@ -1,9 +1,11 @@
 package org.cf.smalivm.configuration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import org.cf.smalivm.dex.SmaliClassLoader;
 import org.cf.util.ClassNameUtils;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,16 +16,14 @@ import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ConfigurationTest {
 
     private Configuration configuration;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         configuration = Configuration.instance();
     }
@@ -94,6 +94,6 @@ public class ConfigurationTest {
         List<String> nonExistentClasses = classNames.stream().filter(l -> !jarClasses.contains(l)).collect(Collectors.toList());
 
         String msg = "Classes in " + configResPath + " don't exist: " + Arrays.toString(nonExistentClasses.toArray());
-        assertEquals(msg, 0, nonExistentClasses.size());
+        assertEquals(0, nonExistentClasses.size(), msg);
     }
 }

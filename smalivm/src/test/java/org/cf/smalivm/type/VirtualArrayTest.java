@@ -1,15 +1,14 @@
 package org.cf.smalivm.type;
 
-import org.cf.smalivm.dex.CommonTypes;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
+import org.cf.smalivm.dex.CommonTypes;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class VirtualArrayTest {
 
@@ -18,7 +17,7 @@ public class VirtualArrayTest {
     private static ClassManager classManager;
     private VirtualArray virtualArray;
 
-    @BeforeClass
+    @BeforeAll
     public static void getClassManager() throws IOException {
         classManager = new ClassManagerFactory().build(TEST_DIRECTORY);
     }

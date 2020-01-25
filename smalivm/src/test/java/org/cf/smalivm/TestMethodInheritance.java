@@ -1,20 +1,16 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.exception.VirtualMachineException;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-
-@RunWith(Enclosed.class)
-public class TestMethodInheritence {
+public class TestMethodInheritance {
 
     public static class ChildClass {
 
@@ -22,7 +18,7 @@ public class TestMethodInheritence {
         private static final String EXPECTED_VALUE = "abstract?";
         private VirtualMachine vm;
 
-        @Before
+        @BeforeEach
         public void setupVM() {
             vm = VMTester.spawnVM(true);
         }
@@ -60,21 +56,17 @@ public class TestMethodInheritence {
 
         private static final String CLASS_NAME = "Lparent_class;";
 
-        @Rule
-        public final ExpectedException exception = ExpectedException.none();
-
         private VirtualMachine vm;
 
-        @Before
+        @BeforeEach
         public void setupVM() {
             vm = VMTester.spawnVM();
         }
 
         @Test
-        public void executingAbstractMethodReturnsNull() throws VirtualMachineException {
+        public void executingAbstractMethodReturnsNull() {
             String methodName = "abstractMethod()Ljava/lang/String;";
-            exception.expect(IllegalArgumentException.class);
-            vm.execute(CLASS_NAME + "->" + methodName);
+            assertThrows(IllegalArgumentException.class, () -> vm.execute(CLASS_NAME + "->" + methodName));
         }
     }
 

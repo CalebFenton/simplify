@@ -1,5 +1,12 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -9,16 +16,8 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.util.ClassNameUtils;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class APutOpTest {
 
@@ -34,7 +33,7 @@ public class APutOpTest {
         assertEquals(exceptionClass, item.getValue().getClass());
         assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
 
-        assertFalse("Should not reach next instruction in non-exception execution path", graph.wasAddressReached(2));
+        assertFalse(graph.wasAddressReached(2), "Should not reach next instruction in non-exception execution path");
 
         MethodState mState = graph.getNodePile(0).get(0).getContext().getMethodState();
         assertEquals(0, mState.getRegistersAssigned().length);
@@ -333,7 +332,7 @@ public class APutOpTest {
         assertEquals(UnknownValue.class, item.getValue().getClass());
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         initial = new VMState();
         expected = new VMState();

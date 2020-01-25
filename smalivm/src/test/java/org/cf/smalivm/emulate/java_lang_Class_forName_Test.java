@@ -1,5 +1,14 @@
 package org.cf.smalivm.emulate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
@@ -13,17 +22,8 @@ import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class java_lang_Class_forName_Test {
 
@@ -39,8 +39,8 @@ public class java_lang_Class_forName_Test {
     private Op op;
     private ExceptionFactory exceptionFactory;
 
-    @Before
-    public void setUp() throws ClassNotFoundException {
+    @BeforeEach
+    public void setUp() {
         vm = mock(VirtualMachine.class);
         classManager = mock(ClassManager.class);
         when(vm.getClassManager()).thenReturn(classManager);

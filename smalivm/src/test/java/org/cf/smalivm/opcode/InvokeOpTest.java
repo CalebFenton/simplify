@@ -1,5 +1,10 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.LinkedList;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -7,29 +12,22 @@ import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
-import org.cf.smalivm.type.*;
+import org.cf.smalivm.type.UninitializedInstance;
+import org.cf.smalivm.type.UnknownValue;
+import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm.type.VirtualType;
 import org.cf.util.ClassNameUtils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import java.util.LinkedList;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
-@RunWith(Enclosed.class)
 public class InvokeOpTest {
 
     public static class InstanceInitialization {
         private VMState expected;
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -99,7 +97,7 @@ public class InvokeOpTest {
             VMTester.test(CLASS_NAME, "invokeBooleanValueOf()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -142,7 +140,7 @@ public class InvokeOpTest {
         private VMState expected;
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -252,7 +250,7 @@ public class InvokeOpTest {
             ExecutionGraph graph = VMTester.execute(CLASS_NAME, "invokeReturnVoid()V");
             HeapItem consensus = graph.getTerminatingRegisterConsensus(MethodState.ResultRegister);
 
-            assertNull("Consensus should be null", consensus);
+            assertNull(consensus, "Consensus should be null");
         }
 
         @Test
@@ -285,8 +283,8 @@ public class InvokeOpTest {
 
             HeapItem item = graph.getTerminatingRegisterConsensus(0);
             Class<?> exceptionClass = NullPointerException.class;
-            Assert.assertEquals(exceptionClass, item.getValue().getClass());
-            Assert.assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
+            assertEquals(exceptionClass, item.getValue().getClass());
+            assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
 
             int[] expectedAddresses = new int[] { 0, 4, 5 };
             VMTester.testVisitation(graph, expectedAddresses);
@@ -370,7 +368,7 @@ public class InvokeOpTest {
             assertEquals(virtualClass.getName(), consensus.getValue().getClass().getName());
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -420,8 +418,8 @@ public class InvokeOpTest {
 
             HeapItem item = graph.getTerminatingRegisterConsensus(0);
             Class<?> exceptionClass = NullPointerException.class;
-            Assert.assertEquals(exceptionClass, item.getValue().getClass());
-            Assert.assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
+            assertEquals(exceptionClass, item.getValue().getClass());
+            assertEquals(ClassNameUtils.toInternal(exceptionClass), item.getType());
 
             int[] expectedAddresses = new int[] { 0, 5, 6 };
             VMTester.testVisitation(graph, expectedAddresses);
@@ -443,7 +441,7 @@ public class InvokeOpTest {
             assertEquals(virtualClass, consensus.getValue().getClass());
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -527,12 +525,9 @@ public class InvokeOpTest {
 
         private static final String CLASS_NAME = "Linvoke_static_test;";
 
-        @Rule
-        public ExpectedException thrown = ExpectedException.none();
-
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
         }
@@ -540,10 +535,10 @@ public class InvokeOpTest {
         //WithTwoArrayParametersWithUnknownParameterMutatesAllParameters
         @Test
         public void invokeNonExistentMethodThrowsException() {
-            thrown.expect(RuntimeException.class);
-            thrown.expectMessage("Can't find Smali file for Lim_not_your_friend_buddy;");
-
-            VMTester.execute(CLASS_NAME, "invokeNonExistentMethod()V");
+            Throwable exception = assertThrows(RuntimeException.class, () -> {
+                VMTester.execute(CLASS_NAME, "invokeNonExistentMethod()V");
+            });
+            assertEquals(exception.getMessage(), "Can't find Smali file for Lim_not_your_friend_buddy;");
         }
 
         @Test
@@ -557,4 +552,5 @@ public class InvokeOpTest {
             assertEquals("invoke-static {}, " + CLASS_NAME + "->returnVoid()V", op.toString());
         }
     }
+
 }

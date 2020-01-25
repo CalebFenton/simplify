@@ -4,7 +4,7 @@ import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 
 import org.jf.util.SparseArray;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
 import org.perfidix.annotation.BeforeBenchClass;
 import org.perfidix.annotation.Bench;
 import org.perfidix.annotation.BenchClass;
@@ -17,7 +17,7 @@ public class DataStructureBenchmark {
     private static TIntObjectMap<Object> myTrove = new TIntObjectHashMap<Object>();
 
     @BeforeBenchClass
-    @BeforeClass
+    @BeforeAll
     public static void beforeClass() {
         for (int i = 0; i < data.length; i++) {
             data[i] = new Integer(i);

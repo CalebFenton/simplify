@@ -1,5 +1,8 @@
 package org.cf.smalivm.context;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -7,11 +10,8 @@ import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualMethod;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class ExecutionGraphTest {
 
@@ -21,7 +21,7 @@ public class ExecutionGraphTest {
     private VirtualClass virtualClass;
     private VMState initial;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         vm = VMTester.spawnVM();
         virtualClass = vm.getClassManager().getVirtualClass(CLASS_NAME);

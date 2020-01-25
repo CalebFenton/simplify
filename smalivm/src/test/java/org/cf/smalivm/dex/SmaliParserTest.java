@@ -1,12 +1,11 @@
 package org.cf.smalivm.dex;
 
-import org.cf.smalivm.VMTester;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-
-import static org.junit.Assert.*;
+import org.cf.smalivm.VMTester;
+import org.jf.dexlib2.writer.builder.BuilderClassDef;
+import org.junit.jupiter.api.Test;
 
 public class SmaliParserTest {
 

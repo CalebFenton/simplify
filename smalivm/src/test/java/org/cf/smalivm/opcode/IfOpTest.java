@@ -1,8 +1,12 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
+
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -14,17 +18,9 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22t;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
-
-@RunWith(Enclosed.class)
 public class IfOpTest {
 
     private static final int ADDRESS_IF = 0;
@@ -41,7 +37,7 @@ public class IfOpTest {
 
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
         }
@@ -238,7 +234,7 @@ public class IfOpTest {
 
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
         }
@@ -342,7 +338,7 @@ public class IfOpTest {
             assertEquals("if-ge r2, r4, :addr_0", op.toString());
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             vm = mock(VirtualMachine.class);
             mState = mock(MethodState.class);
@@ -376,7 +372,7 @@ public class IfOpTest {
 
         private VMState initial;
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
         }

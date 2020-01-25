@@ -1,5 +1,7 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -8,10 +10,8 @@ import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualMethod;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TemplateStateFactoryTest {
 
@@ -63,8 +63,8 @@ public class TemplateStateFactoryTest {
         assertEquals(UninitializedInstance.class, instanceItem.getValue().getClass());
     }
 
-    @Before
-    public void setupVM() throws Exception {
+    @BeforeEach
+    public void setupVM() {
         vm = VMTester.spawnVM();
     }
 

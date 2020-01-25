@@ -1,8 +1,15 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
+
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
@@ -14,22 +21,14 @@ import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
-
-@RunWith(Enclosed.class)
 public class CmpOpTest {
 
     private static final String CLASS_NAME = "Lcmp_test;";
@@ -119,7 +118,7 @@ public class CmpOpTest {
             VMTester.test(CLASS_NAME, "cmplDouble()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -211,7 +210,7 @@ public class CmpOpTest {
             VMTester.test(CLASS_NAME, "cmplFloat()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -255,14 +254,15 @@ public class CmpOpTest {
             VMTester.test(CLASS_NAME, "cmpLong()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
         }
     }
 
-    @RunWith(MockitoJUnitRunner.class)
+    @ExtendWith(MockitoExtension.class)
+    @MockitoSettings(strictness = Strictness.LENIENT)
     public static class UnitTest {
 
         private static final int ADDRESS = 0;
@@ -356,7 +356,7 @@ public class CmpOpTest {
             doTest(value1, value2, Opcode.CMP_LONG, "J", cmpValue);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             vm = mock(VirtualMachine.class);
             mState = mock(MethodState.class);

@@ -1,16 +1,11 @@
 package org.cf.smalivm.dex;
 
-import org.cf.smalivm.VMTester;
-import org.cf.smalivm.type.ClassManager;
-import org.cf.smalivm.type.ClassManagerFactory;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.crypto.CipherSpi;
-import javax.crypto.interfaces.PBEKey;
-import javax.crypto.spec.PBEKeySpec;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -21,8 +16,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.crypto.CipherSpi;
+import javax.crypto.interfaces.PBEKey;
+import javax.crypto.spec.PBEKeySpec;
+import org.cf.smalivm.VMTester;
+import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
 
 public class SmaliClassLoaderTest {
 
@@ -38,9 +40,6 @@ public class SmaliClassLoaderTest {
             "public native int java.lang.Object.hashCode()"
     };
     private static final String TEST_SMALI_PATH = VMTester.TEST_CLASS_PATH + "/class_builder";
-
-    @Rule
-    public final ExpectedException exception = ExpectedException.none();
 
     private SmaliClassLoader classLoader;
     private ClassManager classManager;
@@ -75,11 +74,13 @@ public class SmaliClassLoaderTest {
     @Test
     public void loadingClassWhichReferencesNonExistentClassThrowsExceptionDuringVerification() throws ClassNotFoundException {
         String className = "org.cf.test.NonExistentReference";
-        Class<?> klazz = classLoader.loadClass(className);
+        Throwable exception = assertThrows(NoClassDefFoundError.class, () -> {
+            Class<?> klazz = classLoader.loadClass(className);
+            klazz.getMethods();
+        });
 
-        exception.expect(NoClassDefFoundError.class);
-        exception.expectMessage("does/not/exist");
-        klazz.getMethods();
+        System.out.println(exception.getMessage());
+        assertEquals(exception.getMessage(), "does/not/exist");
     }
 
     @Test
@@ -193,7 +194,7 @@ public class SmaliClassLoaderTest {
                 methods.get(0).toString());
     }
 
-    @Before
+    @BeforeEach
     public void setUp() throws IOException {
         ClassManagerFactory managerFactory = new ClassManagerFactory();
         classManager = managerFactory.build(TEST_SMALI_PATH);
@@ -203,25 +204,23 @@ public class SmaliClassLoaderTest {
     @Test
     public void throwsExceptionWhenLoadingNonExistentAndReferencedClass() throws ClassNotFoundException {
         String nonExistentClassName = "does.not.exist";
-        exception.expect(ClassNotFoundException.class);
-        exception.expectMessage(nonExistentClassName);
-        classLoader.loadClass(nonExistentClassName);
+        Throwable exception = assertThrows(ClassNotFoundException.class, () -> classLoader.loadClass(nonExistentClassName));
+        assertEquals(exception.getMessage(), nonExistentClassName);
     }
 
 
     @Test
     public void throwsExceptionWhenLoadingNonExistentAndUnreferencedClass() throws ClassNotFoundException {
         String nonExistentClassName = "asdfasdf";
-        exception.expect(ClassNotFoundException.class);
-        exception.expectMessage(nonExistentClassName);
-        classLoader.loadClass(nonExistentClassName);
+        Throwable exception = assertThrows(ClassNotFoundException.class, () -> classLoader.loadClass(nonExistentClassName));
+        assertEquals(exception.getMessage(), nonExistentClassName);
     }
 
     private void assertHasObjectMethods(Class<?> klazz) {
         Stream<String> methods = Arrays.stream(klazz.getMethods()).map(Method::toString);
         List<String> methodDescriptors = methods.collect(Collectors.toList());
         for (String objectMethod : OBJECT_METHODS) {
-            assertTrue("Must have method: " + objectMethod, methodDescriptors.contains(objectMethod));
+            assertTrue(methodDescriptors.contains(objectMethod), "Must have method: " + objectMethod);
         }
     }
 

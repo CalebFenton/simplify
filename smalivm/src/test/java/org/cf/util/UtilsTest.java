@@ -1,27 +1,25 @@
 package org.cf.util;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
-import org.jf.dexlib2.writer.builder.BuilderTypeList;
-import org.jf.dexlib2.writer.builder.BuilderTypeReference;
-import org.junit.Before;
-import org.junit.Test;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.jf.dexlib2.writer.builder.BuilderTypeList;
+import org.jf.dexlib2.writer.builder.BuilderTypeReference;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class UtilsTest {
 
     private Random rng;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         rng = new Random();
     }

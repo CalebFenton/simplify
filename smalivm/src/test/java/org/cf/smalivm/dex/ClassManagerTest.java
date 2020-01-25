@@ -1,19 +1,17 @@
 package org.cf.smalivm.dex;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualArray;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualPrimitive;
 import org.cf.smalivm.type.VirtualType;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
-import java.io.IOException;
-
-import static junit.framework.TestCase.assertNotNull;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class ClassManagerTest {
 
@@ -21,7 +19,7 @@ public class ClassManagerTest {
 
     private static ClassManager manager;
 
-    @BeforeClass
+    @BeforeAll
     public static void getClassManager() throws IOException {
         manager = new ClassManagerFactory().build(TEST_DIRECTORY);
     }

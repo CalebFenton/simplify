@@ -1,5 +1,7 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.exception.VirtualMachineException;
@@ -7,10 +9,8 @@ import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualMethod;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestFieldInheritance {
 
@@ -19,7 +19,7 @@ public class TestFieldInheritance {
     private VirtualClass parentClass;
     private VirtualClass grandparentClass;
 
-    @Before
+    @BeforeEach
     public void setupVM() {
         /*
          * On TravisCI, these tests fail with StackOverflowError and missing classes unless classes are reloaded. Local test classes are actually

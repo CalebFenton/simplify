@@ -4,9 +4,6 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
-import org.cf.smalivm.MethodExecutor;
-import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.VirtualMachineFactory;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.UnhandledVirtualException;
@@ -23,7 +20,7 @@ public class Debugger {
   private final Stack<InvokeOp> steppedInvokeOps;
   private final Set<String> breakpoints;
 
-  Debugger(String methodSignature) throws IOException {
+  public Debugger(String methodSignature) throws IOException {
     if (vm == null) {
       VirtualMachineFactory vmFactory = new VirtualMachineFactory();
       vm = vmFactory.build("resources/");

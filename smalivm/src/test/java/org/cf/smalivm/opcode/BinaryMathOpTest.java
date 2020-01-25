@@ -1,8 +1,14 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
-
 import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
@@ -19,19 +25,9 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction23x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x;
 import org.jf.dexlib2.iface.instruction.formats.Instruction22s;
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@RunWith(Enclosed.class)
 public class BinaryMathOpTest {
 
     private static final String CLASS_NAME = "Lbinary_math_test;";
@@ -130,7 +126,7 @@ public class BinaryMathOpTest {
             VMTester.test(CLASS_NAME, "subDouble2Addr()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             expected = new VMState();
             initial = new VMState();
@@ -231,7 +227,7 @@ public class BinaryMathOpTest {
             VMTester.test(CLASS_NAME, "subFloat2Addr()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
             expected = new VMState();
@@ -646,7 +642,7 @@ public class BinaryMathOpTest {
             VMTester.test(CLASS_NAME, "xorIntLit8()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
             expected = new VMState();
@@ -843,7 +839,7 @@ public class BinaryMathOpTest {
             VMTester.test(CLASS_NAME, "xorLong2Addr()V", initial, expected);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             initial = new VMState();
             expected = new VMState();
@@ -979,7 +975,7 @@ public class BinaryMathOpTest {
             VMTester.verifyExceptionHandling(ArithmeticException.class, "/ by zero", node, mState);
         }
 
-        @Before
+        @BeforeEach
         public void setUp() {
             vm = mock(VirtualMachine.class);
             mState = mock(MethodState.class);
@@ -990,7 +986,7 @@ public class BinaryMathOpTest {
             ExceptionFactory exceptionFactory = mock(ExceptionFactory.class);
             when(vm.getExceptionFactory()).thenReturn(exceptionFactory);
 
-            addressToLocation = new TIntObjectHashMap<MethodLocation>();
+            addressToLocation = new TIntObjectHashMap<>();
             addressToLocation.put(ADDRESS, location);
 
             opFactory = new BinaryMathOpFactory();

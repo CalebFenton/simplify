@@ -1,11 +1,11 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.exception.VirtualMachineException;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestSideEffects {
 
@@ -119,8 +119,8 @@ public class TestSideEffects {
         assertEquals(SideEffect.Level.NONE, graph.getHighestSideEffectLevel());
     }
 
-    @Before
-    public void setupVM() throws Exception {
+    @BeforeEach
+    public void setupVM() {
         vm = VMTester.spawnVM();
     }
 

@@ -1,5 +1,12 @@
 package org.cf.smalivm.emulate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Set;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -8,21 +15,10 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
-import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.cf.smalivm.type.VirtualType;
+import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.Set;
-
-import static junit.framework.TestCase.assertEquals;
-import static org.junit.Assert.assertNotNull;
-
-@RunWith(Enclosed.class)
 public class java_lang_reflect_Field_get_Test {
 
     private static final String DUMMY_CLASS_NAME = "Lorg/cf/smalivm/DummyClass;";
@@ -50,7 +46,7 @@ public class java_lang_reflect_Field_get_Test {
         test(vm, context, fieldName, callingMethodSignature, setAccessible);
         HeapItem returnItem = context.getMethodState().peekReturnRegister();
 
-        assertNotNull("Emulated method should set return register", returnItem);
+        assertNotNull(returnItem, "Emulated method should set return register");
         assertEquals(fieldType, returnItem.getType());
         if (fieldValue instanceof UnknownValue) {
             assertEquals(UnknownValue.class, returnItem.getValue().getClass());
@@ -59,8 +55,7 @@ public class java_lang_reflect_Field_get_Test {
         }
     }
 
-    private static void testPositiveCase(String fieldName, String callingMethodSignature, Object fieldValue,
-                                         String fieldType) throws Exception {
+    private static void testPositiveCase(String fieldName, String callingMethodSignature, Object fieldValue, String fieldType) throws Exception {
         testPositiveCase(fieldName, callingMethodSignature, fieldValue, fieldType, false);
     }
 
@@ -70,7 +65,7 @@ public class java_lang_reflect_Field_get_Test {
         ExecutionContextMethod fieldGet = test(vm, context, fieldName, callingMethodSignature, false);
 
         Set<Throwable> exceptions = fieldGet.getExceptions();
-        assertEquals("Should have one exception", 1, exceptions.size());
+        assertEquals(1, exceptions.size(), "Should have one exception");
 
         VirtualType callingClass = context.getCallerContext().getMethod().getDefiningClass();
         VirtualField field = context.getMethod().getDefiningClass().getField(fieldName);

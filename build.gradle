@@ -11,7 +11,6 @@ plugins {
 }
 
 version = '1.2.1'
-def jarVersion = version
 
 allprojects {
     apply plugin: 'jacoco'
@@ -30,33 +29,34 @@ allprojects {
 
 subprojects {
     apply plugin: 'java'
-    apply plugin: 'eclipse'
     apply plugin: 'idea'
 
     group = 'org.cf'
-    sourceCompatibility = 1.8
     version = parent.version
 
-    jar {
-        version = jarVersion
+    java {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     ext {
         depends = [
-            commons_lang   : 'org.apache.commons:commons-lang3:3.9',
-            findbugs       : 'com.google.code.findbugs:jsr305:3.0.1',
-            guava          : 'com.google.guava:guava:28.2-jre',
-            junit          : 'junit:junit:4.13',
-            mockito        : 'org.mockito:mockito-core:1.10.19',
-            perfidix       : 'org.perfidix:perfidix:3.6.9',
-            proguard_gradle: 'net.sf.proguard:proguard-gradle:6.2.2',
-            slf4j_api      : 'org.slf4j:slf4j-api:1.7.30',
-            slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.30',
-            trove4j        : 'net.sf.trove4j:trove4j:3.0.3',
+                commons_lang   : 'org.apache.commons:commons-lang3:3.9',
+                findbugs       : 'com.google.code.findbugs:jsr305:3.0.1',
+                guava          : 'com.google.guava:guava:28.2-jre',
+                junit_compile  : 'org.junit.jupiter:junit-jupiter-api:5.6.0',
+                junit_engine   : 'org.junit.jupiter:junit-jupiter-engine:5.6.0',
+                junit_runner   : 'org.junit.platform:junit-platform-runner:1.6.0',
+                mockito        : 'org.mockito:mockito-junit-jupiter:3.2.4',
+                perfidix       : 'org.perfidix:perfidix:3.6.9',
+                proguard_gradle: 'net.sf.proguard:proguard-gradle:6.2.2',
+                slf4j_api      : 'org.slf4j:slf4j-api:1.7.30',
+                slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.30',
+                trove4j        : 'net.sf.trove4j:trove4j:3.0.3',
         ]
     }
 
-    if (project.name != 'demoapp') {
+    if (project.name != 'demoapp' && project.name != 'sdbg') {
         jacocoTestReport {
             reports {
                 html.enabled = true
@@ -66,9 +66,13 @@ subprojects {
         }
     }
 
+    test {
+        useJUnitPlatform()
+    }
+
     tasks.withType(JavaCompile) {
         options.fork = true
-        //options.incremental = true
+        //options.incremental = false
     }
 
     if (project.name == 'simplify') {
@@ -86,7 +90,7 @@ subprojects {
 
 
 // Demoapp isn't intended to have tests and shouldn't count against code coverage
-def reportProjects = subprojects - project(':demoapp')
+def reportProjects = subprojects - project(':demoapp') - project(':sdbg')
 
 task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     description = 'Generates an aggregate report from all subprojects'

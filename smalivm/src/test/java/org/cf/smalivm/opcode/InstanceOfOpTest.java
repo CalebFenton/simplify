@@ -4,12 +4,9 @@ import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.experimental.runners.Enclosed;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-@RunWith(Enclosed.class)
 public class InstanceOfOpTest {
 
     private static final String CLASS_NAME = "Linstanceof_test;";
@@ -18,6 +15,12 @@ public class InstanceOfOpTest {
 
         private VMState expected;
         private VMState initial;
+
+        @BeforeEach
+        public void setUp() {
+            expected = new VMState();
+            initial = new VMState();
+        }
 
         @Test
         public void intArray2DIsInstanceOfObjectArray() {
@@ -49,12 +52,6 @@ public class InstanceOfOpTest {
             expected.setRegisters(0, new int[0], CommonTypes.OBJECT, 1, false, CommonTypes.BOOL);
 
             VMTester.test(CLASS_NAME, "instanceOfString()V", initial, expected);
-        }
-
-        @Before
-        public void setUp() {
-            expected = new VMState();
-            initial = new VMState();
         }
 
         @Test

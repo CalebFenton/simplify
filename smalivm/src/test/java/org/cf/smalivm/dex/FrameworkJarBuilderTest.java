@@ -1,14 +1,13 @@
 package org.cf.smalivm.dex;
 
-import org.cf.smalivm.configuration.Configuration;
-import org.cf.smalivm.configuration.ConfigurationLoader;
-import org.cf.util.ClassNameUtils;
-import org.junit.Test;
-
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.List;
+import org.cf.smalivm.configuration.Configuration;
+import org.cf.smalivm.configuration.ConfigurationLoader;
+import org.cf.util.ClassNameUtils;
+import org.junit.jupiter.api.Test;
 
 public class FrameworkJarBuilderTest {
 

@@ -1,14 +1,13 @@
 package org.cf.util;
 
-import org.cf.util.ClassNameUtils.TypeFormat;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
-
-import static org.junit.Assert.assertEquals;
+import org.cf.util.ClassNameUtils.TypeFormat;
+import org.junit.jupiter.api.Test;
 
 public class ClassNameUtilsTest {
 
@@ -128,7 +127,7 @@ public class ClassNameUtilsTest {
             boolean expected = entry.getValue();
             boolean actual = ClassNameUtils.isPrimitive(className);
 
-            assertEquals("class: " + className, expected, actual);
+            assertEquals(expected, actual, "class: " + className);
         }
     }
 

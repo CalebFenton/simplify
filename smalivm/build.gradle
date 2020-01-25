@@ -8,28 +8,15 @@ buildscript {
 }
 
 dependencies {
-    // Object cloning
     compile group: 'uk.com.robust-it', name: 'cloning', version: '1.9.12'
-
-    // Easy method reflection
     compile group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
-
-    // Utilities
     compile depends.commons_lang
     compile depends.guava
-
-    // Primitive collections
     compile depends.trove4j
-
-    // Logging facade
     compile depends.slf4j_api
-
-    // Parsing and writing dex files
     compile group: 'org.smali', name: 'dexlib2', version: '2.3.4'
     compile group: 'org.smali', name: 'smali', version: '2.3.4'
     compile group: 'org.smali', name: 'baksmali', version: '2.3.4'
-
-    // For dynamic java.lang.Class generation
     compile group: 'org.ow2.asm', name: 'asm', version: '6.2.1'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
@@ -37,9 +24,11 @@ dependencies {
     // Reflection is much faster and more robust than virtual execution
     compile files('libs/android-local.jar')
 
-    testCompile depends.junit
     testCompile depends.mockito
     testCompile depends.perfidix
+    testCompile depends.junit_compile
+    testRuntime depends.junit_engine
+    testRuntime depends.junit_runner
 }
 
 task fatJar(type: Jar) {

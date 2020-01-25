@@ -6,8 +6,8 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.VirtualType;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class NewInstanceOpTest {
 
@@ -15,7 +15,6 @@ public class NewInstanceOpTest {
 
     private VMState expected;
     private VMState initial;
-
     private VirtualMachine vm;
 
     @Test
@@ -38,7 +37,7 @@ public class NewInstanceOpTest {
         VMTester.testState(graph, expected);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         expected = new VMState();
         initial = new VMState();

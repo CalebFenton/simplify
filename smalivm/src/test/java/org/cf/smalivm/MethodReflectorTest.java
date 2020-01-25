@@ -1,5 +1,7 @@
 package org.cf.smalivm;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.dex.CommonTypes;
@@ -7,10 +9,8 @@ import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class MethodReflectorTest {
 
@@ -18,7 +18,7 @@ public class MethodReflectorTest {
     private VMState expected;
     private VMState initial;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         expected = new VMState();
         initial = new VMState();

@@ -1,17 +1,17 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.util.Arrays;
-
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class MoveOpTest {
 
@@ -36,8 +36,7 @@ public class MoveOpTest {
         // Must invoke VM directly to ensure parse identity
         ExecutionGraph graph = VMTester.execute(CLASS_NAME, "moveRegisterObject()V", initial);
         int[] addresses = graph.getConnectedTerminatingAddresses();
-        assertTrue("Should terminate when expected: " + Arrays.toString(addresses) + " == {1}",
-                Arrays.equals(addresses, new int[] { 1 }));
+        assertArrayEquals(addresses, new int[]{1}, "Should terminate when expected: " + Arrays.toString(addresses) + " == {1}");
 
         HeapItem register0 = graph.getRegisterConsensus(1, 0);
         HeapItem register1 = graph.getRegisterConsensus(1, 1);
@@ -62,7 +61,7 @@ public class MoveOpTest {
         VMTester.test(CLASS_NAME, "moveResult()V", initial, expected);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         expected = new VMState();
         initial = new VMState();

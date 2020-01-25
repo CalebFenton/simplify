@@ -8,7 +8,9 @@ dependencies {
     compile depends.slf4j_api
     compile depends.slf4j_nop
 
-    testCompile depends.junit
+    testCompile depends.junit_compile
+    testRuntime depends.junit_engine
+    testRuntime depends.junit_runner
 }
 
 task fatJar(type: Jar) {

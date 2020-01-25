@@ -1,7 +1,23 @@
 package org.cf.smalivm;
 
-import com.google.common.primitives.Ints;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.google.common.primitives.Ints;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
@@ -22,24 +38,6 @@ import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.builder.MethodLocation;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.mockito.ArgumentCaptor;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 public class VMTester {
 
@@ -135,7 +133,7 @@ public class VMTester {
     }
 
     public static void testState(ExecutionGraph graph, VMState expectedState) {
-        assertNotNull("Graph is null. Failed to execute method.", graph);
+        assertNotNull(graph, "Graph is null. Failed to execute method.");
 
         testRegisterState(graph, expectedState.getRegisters());
         testClassState(graph, expectedState.getFields());
@@ -263,7 +261,7 @@ public class VMTester {
         Object consensusValue = consensus.getValue();
 
         if (expectedValue != null) {
-            assertNotNull("No consensus for value", consensusValue);
+            assertNotNull(consensusValue, "No consensus for value");
         }
 
         if (expectedValue == null) {

@@ -11,8 +11,8 @@ public class VMState {
     private final Map<Integer, HeapItem> registerToItem;
 
     public VMState() {
-        classNameToFieldDescriptorToItem = new HashMap<String, Map<String, HeapItem>>();
-        registerToItem = new HashMap<Integer, HeapItem>();
+        classNameToFieldDescriptorToItem = new HashMap<>();
+        registerToItem = new HashMap<>();
     }
 
     public HeapItem getField(String className, String fieldName) {
@@ -48,7 +48,7 @@ public class VMState {
 
     public void setField(String className, String fieldDescriptor, HeapItem item) {
         if (!classNameToFieldDescriptorToItem.containsKey(className)) {
-            classNameToFieldDescriptorToItem.put(className, new HashMap<String, HeapItem>());
+            classNameToFieldDescriptorToItem.put(className, new HashMap<>());
         }
         classNameToFieldDescriptorToItem.get(className).put(fieldDescriptor, item);
     }

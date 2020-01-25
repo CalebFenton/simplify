@@ -1,18 +1,18 @@
 package org.cf.smalivm.opcode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.UnknownValue;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class SGetOpTest {
 
     private static final String CLASS_NAME = "Lsget_test;";
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
+
     private VMState expected;
     private VMState initial;
 
@@ -201,11 +201,10 @@ public class SGetOpTest {
     @Test
     public void getStaticUnknownClassFieldThrowsException() {
         expected.setRegisters(0, new UnknownValue(), "I");
-
-        thrown.expect(RuntimeException.class);
-        thrown.expectMessage("Can't find Smali file for Lsome/unknown/classzzzzz;");
-
-        VMTester.test(CLASS_NAME, "getStaticUnknownClassField()V", expected);
+        Throwable exception = assertThrows(RuntimeException.class, () -> {
+            VMTester.test(CLASS_NAME, "getStaticUnknownClassField()V", expected);
+        });
+        assertEquals(exception.getMessage(), "Can't find Smali file for Lsome/unknown/classzzzzz;");
     }
 
     @Test
@@ -215,7 +214,7 @@ public class SGetOpTest {
         VMTester.test(CLASS_NAME, "getStaticWhitelistedClassField()V", expected);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         expected = new VMState();
         initial = new VMState();
