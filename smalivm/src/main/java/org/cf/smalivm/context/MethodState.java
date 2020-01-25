@@ -210,8 +210,9 @@ public class MethodState extends BaseState {
         sb.append("params: ").append(parameterCount).append(", ");
         sb.append("locals: ").append(localsCount).append('\n');
         StringBuilder ctx = new StringBuilder();
-        for (int register = 0; register < getRegisterCount(); register++) {
+        for (int register = 0; register < getRegisterCount(); ) {
             if (onlyPeekCachedRegisters && !hasRegister(register)) {
+                register += 1;
                 continue;
             }
 
@@ -223,10 +224,8 @@ public class MethodState extends BaseState {
             HeapItem item = peekRegister(register);
             ctx.append(": ").append(item).append('\n');
 
-            register += Utils.getRegisterSize(item.getType());
-            if (Utils.getRegisterSize(item.getType()) == 2) {
-                register += 1;
-            }
+            int registerSize = item == null ? 1 : Utils.getRegisterSize(item.getType());
+            register += registerSize;
         }
 
         if (onlyPeekCachedRegisters && hasRegister(ResultRegister)) {
