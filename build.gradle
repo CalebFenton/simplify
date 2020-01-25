@@ -56,7 +56,7 @@ subprojects {
         ]
     }
 
-    if (project.name != "demoapp") {
+    if (project.name != 'demoapp') {
         jacocoTestReport {
             reports {
                 html.enabled = true
