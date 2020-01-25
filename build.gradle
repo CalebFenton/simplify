@@ -27,6 +27,7 @@ allprojects {
     }
 }
 
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'idea'
@@ -77,8 +78,8 @@ subprojects {
 
     if (project.name == 'simplify') {
         tasks.withType(Test) {
-            maxParallelForks = 2
-            forkEvery = 4
+            maxParallelForks = 1
+            forkEvery = 2
             minHeapSize = '64m'
         }
     } else {
@@ -96,18 +97,15 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     description = 'Generates an aggregate report from all subprojects'
     dependsOn(reportProjects.test)
 
-    sourceDirectories = files(reportProjects.sourceSets.main.allJava.srcDirs)
-    classDirectories = files(reportProjects.sourceSets.main.output.classesDirs)
-    executionData = files(reportProjects.jacocoTestReport.executionData)
+    sourceDirectories.from = subprojects.sourceSets.main.allSource.srcDirs
+    additionalSourceDirs.from = subprojects.sourceSets.main.allSource.srcDirs
+    classDirectories.from = subprojects.sourceSets.main.output
+    executionData.from = subprojects.jacocoTestReport.executionData
 
     reports {
         html.enabled = true
         xml.enabled = true
         csv.enabled = false
-    }
-
-    doFirst {
-        executionData = files(executionData.findAll { it.exists() })
     }
 }
 
@@ -125,16 +123,6 @@ if (System.env.TRAVIS == 'true') {
                 // Print out test status to make it easier to debug problematic builds.
                 events "started", "passed", "skipped", "failed"
             }
-
-            /*
-             * Tests are memory intensive and TravisCI only has 3-4 GB available.
-             * Gradle creates a lot of forks, so keep fork min heap size low.
-             * Also, fork frequently to get a fresh heap in case of memory leaks.
-             * Using larger values doesn't seem to improve test performance.
-            */
-            maxParallelForks = 2
-            minHeapSize = '64m'
-            forkEvery = 4
         }
     }
 }
