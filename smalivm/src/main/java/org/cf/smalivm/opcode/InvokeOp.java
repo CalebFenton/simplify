@@ -452,7 +452,7 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     public void finishDebugLocalMethod(ExecutionGraph graph) {
-        finishLocalMethodExecution(debuggedCallerContext, debuggedCalleeContext, debuggedNode, graph);
+        finishLocalMethodExecution(debuggedCalleeContext, debuggedCallerContext, debuggedNode, graph);
     }
 
     public MethodExecutor getDebuggedMethodExecutor() {
