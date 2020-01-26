@@ -228,11 +228,11 @@ public class MethodState extends BaseState {
             register += registerSize;
         }
 
-        if (onlyPeekCachedRegisters && hasRegister(ResultRegister)) {
+        if (hasRegister(ResultRegister)) {
             ctx.append("result: ").append(peekRegister(ResultRegister)).append('\n');
         }
 
-        if (onlyPeekCachedRegisters && hasRegister(ReturnRegister)) {
+        if (hasRegister(ReturnRegister)) {
             ctx.append("return: ").append(peekRegister(ReturnRegister)).append('\n');
         }
 
