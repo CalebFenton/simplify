@@ -18,6 +18,7 @@ import java.io.PrintWriter
             List::class,
             WhereCommand::class,
             StepCommand::class,
+            NextCommand::class,
             InfoCommand::class
         ])
 class CliCommands : Runnable {
