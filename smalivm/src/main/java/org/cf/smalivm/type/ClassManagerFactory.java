@@ -1,5 +1,6 @@
 package org.cf.smalivm.type;
 
+import java.util.Arrays;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
@@ -52,6 +53,9 @@ public class ClassManagerFactory {
 
     public ClassManager build(File inFile, DexBuilder dexBuilder) throws IOException {
         File smaliPath;
+        if (!inFile.exists()) {
+            throw new RuntimeException("Input Smali path does not exist: " + inFile);
+        }
         if (inFile.isFile()) {
             smaliPath = disassemble(inFile);
         } else {

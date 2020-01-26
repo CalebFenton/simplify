@@ -6,20 +6,20 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.cf.smalivm.VMTester;
 import org.cf.smalivm.dex.CommonTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class VirtualArrayTest {
 
-    private static final String TEST_DIRECTORY = "resources/test/smali";
 
     private static ClassManager classManager;
     private VirtualArray virtualArray;
 
     @BeforeAll
     public static void getClassManager() throws IOException {
-        classManager = new ClassManagerFactory().build(TEST_DIRECTORY);
+        classManager = new ClassManagerFactory().build(VMTester.TEST_CLASS_PATH);
     }
 
     @Test

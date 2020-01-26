@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualArray;
@@ -15,37 +16,35 @@ import org.junit.jupiter.api.Test;
 
 public class ClassManagerTest {
 
-    private static final String TEST_DIRECTORY = "resources/test/smali";
-
-    private static ClassManager manager;
+    private static ClassManager classManager;
 
     @BeforeAll
     public static void getClassManager() throws IOException {
-        manager = new ClassManagerFactory().build(TEST_DIRECTORY);
+        classManager = new ClassManagerFactory().build(VMTester.TEST_CLASS_PATH);
     }
 
     @Test
     public void canGetVirtualClassFromString() {
-        VirtualClass virtualClass = manager.getVirtualClass(CommonTypes.STRING);
+        VirtualClass virtualClass = classManager.getVirtualClass(CommonTypes.STRING);
         assertEquals(CommonTypes.STRING, virtualClass.getName());
     }
 
     @Test
     public void canGetVirtualClassFromClass() {
-        VirtualClass virtualClass = manager.getVirtualClass(String.class);
+        VirtualClass virtualClass = classManager.getVirtualClass(String.class);
         assertEquals(CommonTypes.STRING, virtualClass.getName());
     }
 
     @Test
     public void canGetVirtualPrimitiveFromString() {
-        VirtualType virtualType = manager.getVirtualType(CommonTypes.INTEGER);
+        VirtualType virtualType = classManager.getVirtualType(CommonTypes.INTEGER);
         assertEquals(CommonTypes.INTEGER, virtualType.getName());
         assertTrue(virtualType instanceof VirtualPrimitive);
     }
 
     @Test
     public void canGetVirtualPrimitiveFromClass() {
-        VirtualType virtualType = manager.getVirtualType(CommonTypes.INTEGER);
+        VirtualType virtualType = classManager.getVirtualType(CommonTypes.INTEGER);
         assertEquals(CommonTypes.INTEGER, virtualType.getName());
         assertTrue(virtualType instanceof VirtualPrimitive);
     }
@@ -53,14 +52,14 @@ public class ClassManagerTest {
     @Test
     public void canGetVirtualArrayFromString() {
         String typeSignature = "[" + CommonTypes.STRING;
-        VirtualType virtualType = manager.getVirtualType(typeSignature);
+        VirtualType virtualType = classManager.getVirtualType(typeSignature);
         assertEquals(typeSignature, virtualType.getName());
         assertTrue(virtualType instanceof VirtualArray);
     }
 
     @Test
     public void canGetVirtualArrayFromClass() {
-        VirtualType virtualType = manager.getVirtualType(String[].class);
+        VirtualType virtualType = classManager.getVirtualType(String[].class);
         assertEquals("[" + CommonTypes.STRING, virtualType.getName());
         assertTrue(virtualType instanceof VirtualArray);
     }
