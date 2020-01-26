@@ -9,8 +9,7 @@ import org.jf.dexlib2.writer.builder.DexBuilder;
 
 public class OptimizerTester {
 
-    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature,
-                                                                Object... args) {
+    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodSignature, Object... args) {
         VMState initial = new VMState();
         if (args.length > 0) {
             initial.setRegisters(args);
@@ -19,8 +18,7 @@ public class OptimizerTester {
         return getGraphManipulator(className, methodSignature, initial);
     }
 
-    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodDescriptor,
-                                                                VMState initial) {
+    public static ExecutionGraphManipulator getGraphManipulator(String className, String methodDescriptor, VMState initial) {
         // Force reloading of classes since implementations in class definitions may have changed
         VirtualMachine vm = VMTester.spawnVM(true);
 

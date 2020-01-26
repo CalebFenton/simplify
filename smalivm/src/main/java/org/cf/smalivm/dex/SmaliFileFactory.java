@@ -54,15 +54,15 @@ public class SmaliFileFactory {
         return frameworkFiles;
     }
 
-    public Set<SmaliFile> getSmaliFiles(File file) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(File file) {
         return getSmaliFiles(new File[] { file });
     }
 
-    public Set<SmaliFile> getSmaliFiles(File[] files) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(File[] files) {
         Set<SmaliFile> smaliFiles = getSmaliFiles();
         for (File file : files) {
             List<File> matches = Utils.getFilesWithSmaliExtension(file);
-            for (File match : matches) {
+            matches.parallelStream().forEach((File match) -> {
                 SmaliFile smaliFile = new SmaliFile(match);
                 // DalvikVM rejects classes in an APK that are already defined.
                 // Framework classes take precedence over local classes.
@@ -72,7 +72,7 @@ public class SmaliFileFactory {
                 } else {
                     smaliFiles.add(smaliFile);
                 }
-            }
+            });
         }
 
         return smaliFiles;
@@ -91,11 +91,11 @@ public class SmaliFileFactory {
         return frameworkClassNameToSmaliFile.containsKey(className);
     }
 
-    public Set<SmaliFile> getSmaliFiles(String path) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(String path) {
         return getSmaliFiles(new String[] { path });
     }
 
-    public Set<SmaliFile> getSmaliFiles(String[] paths) throws IOException {
+    public Set<SmaliFile> getSmaliFiles(String[] paths)  {
         File[] files = new File[paths.length];
         for (int i = 0; i < paths.length; i++) {
             files[i] = new File(paths[i]);

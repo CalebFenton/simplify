@@ -39,8 +39,7 @@ public class ExecutionGraphManipulator extends ExecutionGraph {
     private final OpCreator opCreator;
     private boolean recreateOrExecuteAgain;
 
-    public ExecutionGraphManipulator(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm,
-                                     DexBuilder dexBuilder) {
+    public ExecutionGraphManipulator(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;

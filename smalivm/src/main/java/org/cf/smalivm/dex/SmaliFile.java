@@ -25,7 +25,7 @@ public class SmaliFile {
     private boolean isResource;
     private boolean isSafeFramework;
 
-    SmaliFile(File file) throws FileNotFoundException {
+    SmaliFile(File file) {
         this(file.getAbsolutePath(), getClassName(file));
     }
 
@@ -34,7 +34,7 @@ public class SmaliFile {
         this.className = className;
     }
 
-    private static String getClassName(File inputFile) throws FileNotFoundException {
+    private static String getClassName(File inputFile) {
         try {
             Path myPath = Paths.get(inputFile.toURI());
             Stream<String> lines = Files.lines(myPath);

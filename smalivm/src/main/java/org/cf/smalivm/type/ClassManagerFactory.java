@@ -14,8 +14,9 @@ public class ClassManagerFactory {
 
     private static File disassemble(File file) throws IOException {
         Path tempDir = Files.createTempDirectory(TEMP_DIR_NAME);
-        String[] args = new String[]{"disassemble", "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(),
-                "--output", tempDir.toString(),};
+        String[] args = new String[]{
+            "disassemble", "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(), "--output", tempDir.toString(),
+        };
         org.jf.baksmali.Main.main(args);
 
         return tempDir.toFile();
