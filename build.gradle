@@ -1,53 +1,38 @@
 buildscript {
+    ext.kotlin_version = '1.3.61'
     repositories {
         mavenCentral()
         jcenter()
     }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
 }
 
 plugins {
-    id 'idea'
     id 'com.github.kt3k.coveralls' version '2.8.4'
 }
 
-version = '1.2.1'
-
 allprojects {
+    apply plugin: 'idea'
     apply plugin: 'jacoco'
 
     repositories {
         mavenLocal()
         mavenCentral()
     }
-
-    gradle.projectsEvaluated {
-        tasks.withType(JavaCompile) {
-            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
-        }
-    }
 }
 
-
 subprojects {
-    if (project.name == 'smalivm') {
-        apply plugin: 'java-library'
-    }
-    else {
-        apply plugin: 'java'
-    }
-    apply plugin: 'idea'
-
     group = 'org.cf'
-    version = parent.version
-
-    java {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
 
     ext {
         depends = [
                 commons_lang   : 'org.apache.commons:commons-lang3:3.9',
+                commons_cli    : 'commons-cli:commons-cli:1.4',
                 findbugs       : 'com.google.code.findbugs:jsr305:3.0.1',
                 guava          : 'com.google.guava:guava:28.2-jre',
                 junit_compile  : 'org.junit.jupiter:junit-jupiter-api:5.6.0',
@@ -62,6 +47,17 @@ subprojects {
         ]
     }
 
+    if (project.name == 'simplify' || project.name == 'demoapp') {
+        apply plugin: 'java'
+        apply plugin: 'application'
+    } else if (project.name == 'smalivm') {
+        apply plugin: 'java-library'
+        version = '1.3.0'
+    } else {
+        apply plugin: 'org.jetbrains.kotlin.jvm'
+        apply plugin: 'application'
+    }
+
     if (project.name != 'demoapp' && project.name != 'sdbg') {
         jacocoTestReport {
             reports {
@@ -72,12 +68,18 @@ subprojects {
         }
     }
 
+    java {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
     test {
         useJUnitPlatform()
     }
 
     tasks.withType(JavaCompile) {
         options.fork = true
+        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
         //options.incremental = false
     }
 
@@ -91,6 +93,12 @@ subprojects {
     } else {
         tasks.withType(Test) {
             maxParallelForks = Runtime.runtime.availableProcessors()
+            if (System.env.TRAVIS == 'true') {
+                testLogging {
+                    // Print out test status to make it easier to debug problematic builds.
+                    events "started", "passed", "skipped", "failed"
+                }
+            }
         }
     }
 }
@@ -98,13 +106,12 @@ subprojects {
 
 // These aren't intended to have tests and shouldn't count against code coverage
 def reportProjects = (subprojects - project(':demoapp') - project(':sdbg'))
-
 task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     description = 'Generates an aggregate report from all subprojects'
     dependsOn(reportProjects.test)
 
     sourceDirectories.from = reportProjects.sourceSets.main.allJava.srcDirs
-//    additionalSourceDirs.from = reportProjects.sourceSets.main.allJava.srcDirs
+    //additionalSourceDirs.from = reportProjects.sourceSets.main.allJava.srcDirs
     classDirectories.from = reportProjects.sourceSets.main.output.classesDirs
     executionData.from = reportProjects.jacocoTestReport.executionData
 
@@ -113,22 +120,9 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
         xml.enabled = true
         csv.enabled = false
     }
-
 }
 
 coveralls {
     sourceDirs = reportProjects.sourceSets.main.allJava.srcDirs.flatten()
     jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
-}
-
-
-if (System.env.TRAVIS == 'true') {
-    allprojects {
-        tasks.withType(Test) {
-            testLogging {
-                // Print out test status to make it easier to debug problematic builds.
-                events "started", "passed", "skipped", "failed"
-            }
-        }
-    }
 }

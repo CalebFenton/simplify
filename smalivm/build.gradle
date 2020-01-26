@@ -47,12 +47,16 @@ task updateReferenceFramework(type: JavaExec) {
     args smaliPath, 'src/main/resources/framework/android-framework.jar'
 }
 
-configurations {
-  testArtifacts
-}
+//configurations {
+//  testArtifacts
+//}
+
+//artifacts {
+//    archives fatJar
+//}
 
 task proguard(type: ProGuardTask, dependsOn: fatJar) {
-    def outFile = fatJar.destinationDirectory.toString() + '/' + fatJar.archiveBaseName + '-' + fatJar.archiveVersion + '-proguard' + '.' + fatJar.archiveExtension
+    def outFile = "${fatJar.destinationDirectory.get()}/${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion}-proguard.${fatJar.archiveExtension}"
 
     injars fatJar.archiveFile
     outjars outFile

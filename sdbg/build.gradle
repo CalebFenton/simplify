@@ -1,15 +1,13 @@
-buildscript {
-    dependencies {
-        classpath depends.proguard_gradle
-    }
-    repositories {
-        mavenCentral()
-    }
-}
+//plugins {
+//    id 'org.jetbrains.kotlin.jvm' version '1.3.61'
+//}
+
+version = '0.1.0'
+mainClassName = 'org.cf.sdbg.Main'
 
 dependencies {
     implementation project(':smalivm')
-    implementation 'commons-cli:commons-cli:1.4'
+    implementation depends.commons_cli
     implementation group: 'info.picocli', name: 'picocli-shell-jline3', version: '4.1.4'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '1.18'
     implementation depends.slf4j_api
@@ -22,21 +20,34 @@ dependencies {
     testImplementation depends.junit_compile
     testRuntimeOnly depends.junit_engine
     testRuntimeOnly depends.junit_runner
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
 }
 
 test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
-task fatJar(type: Jar) {
-    from sourceSets.main.output
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-
+task fatJar(type: Jar, dependsOn: ':smalivm:fatJar') {
     manifest {
-        attributes('Main-Class': 'org.cf.sdbg.Main')
+        attributes('Main-Class': mainClassName)
     }
+//    from sourceSets.main.output
+//    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 
     doLast {
         if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDirectory}/sdbg.jar"), resource: archiveFile, overwrite: true)
+            ant.symlink(link: file("${destinationDirectory.get()}/sdbg.jar"), resource: archiveFile.get(), overwrite: true)
         }
     }
 }

@@ -1,6 +1,9 @@
-project.version = '1.0.0'
+plugins {
+    id 'java'
+    id 'application'
+}
 
-apply plugin: 'application'
+project.version = '1.0.0'
 mainClassName = 'org.cf.demoapp.Main'
 
 dependencies {
@@ -19,7 +22,7 @@ task fatJar(type: Jar) {
 
     doLast {
         if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDir}/demoapp.jar"), resource: archivePath, overwrite: true)
+            ant.symlink(link: file("${destinationDirectory.get()}/demoapp.jar"), resource: archiveFile.get(), overwrite: true)
         }
     }
 }

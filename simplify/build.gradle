@@ -9,12 +9,14 @@ buildscript {
     }
 }
 
+version = project(':smalivm').version.toString()
+mainClassName = 'org.cf.simplify.Main'
+
 dependencies {
     implementation project(':smalivm')
-    implementation group: 'org.smali', name: 'dexlib2', version: '2.3.4'
 
     implementation depends.guava
-    implementation group: 'commons-cli', name: 'commons-cli', version: '1.4'
+    implementation depends.commons_cli
     implementation depends.trove4j
     implementation depends.slf4j_api
     implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
@@ -31,23 +33,23 @@ dependencies {
 
 test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
-task fatJar(type: Jar) {
+task fatJar(type: Jar, dependsOn: ':smalivm:fatJar') {
     from sourceSets.main.output
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
 
     manifest {
-        attributes('Main-Class': 'org.cf.simplify.Main')
+        attributes('Main-Class': mainClassName)
     }
 
     doLast {
         if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDirectory}/simplify.jar"), resource: archiveFile, overwrite: true)
+            ant.symlink(link: file("${destinationDirectory.get()}/simplify.jar"), resource: archiveFile.get(), overwrite: true)
         }
     }
 }
 
 task proguard(type: ProGuardTask, dependsOn: fatJar) {
-    def outFile = fatJar.destinationDirectory.toString() + '/' + fatJar.archiveBaseName + '-' + fatJar.archiveVersion + '-proguard' + '.' + fatJar.archiveExtension
+    def outFile = "${fatJar.destinationDirectory.get()}/${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion}-proguard.${fatJar.archiveExtension}"
 
     injars fatJar.archiveFile
     outjars outFile
