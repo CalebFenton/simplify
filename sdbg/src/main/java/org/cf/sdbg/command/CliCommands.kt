@@ -25,7 +25,8 @@ class CliCommands : Runnable {
     lateinit var out: PrintWriter
     fun setReader(reader: LineReader) {
         this.reader = reader as LineReaderImpl
-        out = reader.getTerminal().writer()
+        out = reader.terminal.writer()
+
     }
 
     override fun run() {

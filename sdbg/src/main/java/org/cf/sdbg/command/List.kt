@@ -1,11 +1,18 @@
 package org.cf.sdbg.command
 
 import org.cf.sdbg.Main
+import org.cf.smalivm.context.ExecutionGraph
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
-import java.util.*
-import java.util.stream.Collectors
+import java.lang.Integer.min
+import java.util.stream.Collectors.joining
 import java.util.stream.IntStream
+
+sealed class ParsedTarget
+data class ParsedTargetClass(val className: String) : ParsedTarget()
+data class ParsedTargetMethod(val methodSignature: String) : ParsedTarget()
+data class ParsedTargetRange(val start: Int = -1, val stop: Int? = null) : ParsedTarget()
+object ParsedTargetInvalid : ParsedTarget()
 
 @CommandLine.Command(name = "list", aliases = ["l"], mixinStandardHelpOptions = true, version = ["1.0"],
         description = ["List source code"])
@@ -16,68 +23,93 @@ class List : Runnable {
             description = ["line-number | start#,end# | method | class->method"])
     var target: String? = null
 
-    override fun run() {
-        var graph = Main.debugger.executionGraph
-        var start = 0
-        var end = 0
-        if (target != null) {
-            if (target!!.contains("(")) {
-                val methodSignature: String
-                methodSignature = if (target!!.contains("->")) {
-                    target!!
+
+    private fun parseTarget(target: String?): ParsedTarget {
+        return when {
+            target == null -> ParsedTargetMethod(Main.debugger.currentMethodSignature)
+            target == "-" -> ParsedTargetRange(start = Main.debugger.currentIndex + 1)
+            target.contains("(") -> {
+                if (target.contains("->")) {
+                    ParsedTargetMethod(target)
                 } else {
                     val className = Main.debugger.executionGraph.method.className
-                    "$className->$target"
+                    ParsedTargetMethod("$className->$target")
                 }
-                val virtualMethod = Main.debugger.classManager.getMethod(methodSignature)
+            }
+            target.contains(",") -> {
+                val parts = target.split(',', limit = 2)
+                val start = parts[0].toIntOrNull() ?: return ParsedTargetInvalid
+                val stop = parts[1].toIntOrNull() ?: return ParsedTargetInvalid
+                ParsedTargetRange(start, stop)
+            }
+            target.startsWith("L") || target.startsWith("[") -> ParsedTargetClass(target)
+            target.toIntOrNull() != null -> ParsedTargetRange(start = target.toInt())
+            else -> ParsedTargetInvalid
+        }
+    }
+
+    private fun printMethod(graph: ExecutionGraph, start: Int, stop: Int) {
+        val smaliLines = graph.toSmali(true).split('\n')
+        val realStop = if (start == stop) stop + 1 else min(stop, smaliLines.size)
+        val currentIndex = Main.debugger.currentNode.index + 1
+        val targetLines = IntStream.range(start, realStop + 1)
+                .mapToObj { n: Int -> "$n${if (n == currentIndex) ":>" else ":"}\t${smaliLines[n - 1]}" }
+                .collect(joining("\n"))
+        parent.out.println(targetLines)
+
+    }
+
+    private fun printInvalid(message: String) {
+        parent.out.println("invalid target; $message")
+    }
+
+    private fun printTarget(target: String?) {
+        when (val parsedTarget = parseTarget(target)) {
+            is ParsedTargetClass -> {
+                val virtualType = Main.debugger.classManager.getVirtualClass(parsedTarget.className)
+                if (virtualType == null) {
+                    printInvalid("class name not found")
+                    return
+                }
+                parent.out.println("not implemented yet! lol")
+            }
+            is ParsedTargetMethod -> {
+                val virtualMethod = Main.debugger.classManager.getMethod(parsedTarget.methodSignature)
                 if (virtualMethod == null) {
-                    parent.out.println("invalid target; method signature not found")
+                    printInvalid("method signature not found")
                     return
                 }
-                graph = Main.debugger.virtualMachine.spawnInstructionGraph(virtualMethod)
-            } else if (target!!.contains(",")) {
-                val positions = Arrays.stream(target!!.split(",".toRegex(), 2).toTypedArray())
-                        .mapToInt { s: String -> s.toInt() }
-                        .toArray()
-                start = positions[0]
-                end = positions[1]
-                if (start > end) {
-                    parent.out.println("invalid target; start# > end#")
-                    return
-                }
-                if (start <= 0) {
-                    parent.out.println("invalid target; start# <= 0")
-                    return
-                }
-            } else {
-                try {
-                    start = target!!.toInt()
-                    end = start
-                    if (start <= 0) {
-                        parent.out.println("invalid target; line-number <= 0")
+                val graph = Main.debugger.virtualMachine.spawnInstructionGraph(virtualMethod)
+                printMethod(graph, 1, Int.MAX_VALUE)
+            }
+            is ParsedTargetRange -> {
+                val start = parsedTarget.start
+                val stop = parsedTarget.stop
+                if (stop != null) {
+                    if (start > stop) {
+                        printInvalid("start# > end#")
+                        return
+                    } else if (start <= 0) {
+                        printInvalid("start# <= 0")
                         return
                     }
-                } catch (ex: NumberFormatException) {
-                    parent.out.println("invalid target; unable to parse line-number")
-                    return
+                    printMethod(Main.debugger.executionGraph, parsedTarget.start, parsedTarget.stop)
+                } else {
+                    if (start <= 0) {
+                        printInvalid("line-number <= 0")
+                        return
+                    }
+                    printMethod(Main.debugger.executionGraph, parsedTarget.start, parsedTarget.start)
                 }
             }
-        }
-        val theLines = graph.toSmali(true).split("\n".toRegex()).toTypedArray()
-        if (start == 0) {
-            end = theLines.size - 1
-        } else {
-            start--
-            end--
-            if (end >= theLines.size) {
-                end = theLines.size - 1
+            is ParsedTargetInvalid -> {
+                printInvalid("unable to parse")
+                return
             }
         }
-        val instructionIndex = Main.debugger.currentNode.index
-        val lines = IntStream.range(start, end + 1)
-                .mapToObj { n: Int -> (n + 1).toString() + (if (n == instructionIndex) ":>" else ":") + "\t" + theLines[n] }
-                .collect(Collectors.toList())
-        val code = java.lang.String.join("\n", lines)
-        parent.out.println(code)
+    }
+
+    override fun run() {
+        printTarget(target)
     }
 }
