@@ -6,7 +6,7 @@ import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
 @CommandLine.Command(name = "next", aliases = ["n"], mixinStandardHelpOptions = true, version = ["1.0"], description = ["Execute next line of code without entering methods"])
-class Next : Runnable {
+class NextCommand : Runnable {
     @ParentCommand
     lateinit var parent: CliCommands
 

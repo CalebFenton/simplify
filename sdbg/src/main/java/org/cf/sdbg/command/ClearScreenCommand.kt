@@ -7,7 +7,7 @@ import java.util.concurrent.Callable
 
 @CommandLine.Command(name = "cls", aliases = ["clear"], mixinStandardHelpOptions = true, version = ["1.0"],
         description = ["Clears the screen"])
-class ClearScreen : Runnable {
+class ClearScreenCommand : Runnable {
     @ParentCommand
     lateinit var parent: CliCommands
 

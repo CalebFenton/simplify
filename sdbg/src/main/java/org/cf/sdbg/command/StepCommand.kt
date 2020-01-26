@@ -7,7 +7,7 @@ import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
 @CommandLine.Command(name = "step", aliases = ["s"], mixinStandardHelpOptions = true, version = ["1.0"], description = ["Step to next line of code including stepping into functions"])
-class Step : Runnable {
+class StepCommand : Runnable {
     @ParentCommand
     lateinit var parent: CliCommands
 

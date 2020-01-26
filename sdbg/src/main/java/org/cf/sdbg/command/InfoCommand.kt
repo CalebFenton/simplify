@@ -6,7 +6,7 @@ import picocli.CommandLine.ParentCommand
 
 @CommandLine.Command(name = "info", aliases = ["i"], mixinStandardHelpOptions = true, version = ["1.0"],
         description = ["Info"])
-class Info : Runnable {
+class InfoCommand : Runnable {
     @ParentCommand
     lateinit var parent: CliCommands
 

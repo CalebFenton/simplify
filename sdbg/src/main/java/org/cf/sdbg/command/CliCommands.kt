@@ -14,11 +14,11 @@ import java.io.PrintWriter
         subcommands = [
             CommandLine.HelpCommand::class,
             //MyCommand::class,
-            ClearScreen::class,
+            ClearScreenCommand::class,
             List::class,
-            Where::class,
-            Step::class,
-            Info::class
+            WhereCommand::class,
+            StepCommand::class,
+            InfoCommand::class
         ])
 class CliCommands : Runnable {
     lateinit var reader: LineReaderImpl

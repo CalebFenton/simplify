@@ -6,7 +6,7 @@ import picocli.CommandLine.ParentCommand
 
 @CommandLine.Command(name = "where", aliases = ["w"], mixinStandardHelpOptions = true, version = ["1.0"],
         description = ["Shows current instruction index and which function you are in"])
-class Where : Runnable {
+class WhereCommand : Runnable {
     @ParentCommand
     lateinit var parent: CliCommands
 
