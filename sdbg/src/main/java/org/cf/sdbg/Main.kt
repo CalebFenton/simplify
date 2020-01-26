@@ -22,15 +22,18 @@ import java.util.*
 import java.util.function.Function
 
 object Main {
-    var debugger: Debugger? = null
+    lateinit var debugger: Debugger
+
     private fun startConsoleLoop() {
-        try { // set up JLine built-in commands
+        try {
+            // set up JLine built-in commands
             val workDir = Paths.get("")
             val builtins = Builtins(workDir, null, null)
             builtins.rename(Builtins.Command.TTOP, "top")
             builtins.alias("zle", "widget")
             builtins.alias("bindkey", "keymap")
             val systemCompleter = builtins.compileCompleters()
+
             // set up picocli commands
             val commands = CliCommands()
             val cmd = CommandLine(commands)
@@ -46,17 +49,17 @@ object Main {
                     .build()
             builtins.setLineReader(reader)
             commands.setReader(reader)
-            val descriptionGenerator = DescriptionGenerator(builtins,
-                    picocliCommands)
+            val descriptionGenerator = DescriptionGenerator(builtins, picocliCommands)
             TailTipWidgets(reader, Function { line: CmdLine -> descriptionGenerator.commandDescription(line) }, 5,
                     TailTipWidgets.TipType.COMPLETER)
             val prompt = "(sdbg) "
             val rightPrompt: String? = null
             var line: String
+
             while (true) {
                 try {
                     line = reader.readLine(prompt, rightPrompt, null as MaskingCallback?, null)
-                    if (line.matches("^\\s*#.*")) {
+                    if (line.matches("^\\s*#.*".toRegex())) {
                         continue
                     }
                     val pl = reader.parser.parse(line, 0)
@@ -86,20 +89,12 @@ object Main {
     }
 
     private fun setLogLevel(verbosity: Int) {
-        if (verbosity == 0) {
-            val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-            rootLogger.level = Level.OFF
-            return
-        }
-        if (verbosity == 1) {
-            val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-            rootLogger.level = Level.INFO
-        } else if (verbosity == 2) {
-            val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-            rootLogger.level = Level.DEBUG
-        } else if (verbosity == 3) { // Ok, you asked for it.
-            val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-            rootLogger.level = Level.TRACE
+        val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+        when (verbosity) {
+            0 -> { rootLogger.level = Level.OFF }
+            1 -> { rootLogger.level = Level.INFO }
+            2 -> { rootLogger.level = Level.DEBUG }
+            3 -> { rootLogger.level = Level.TRACE }
         }
     }
 
@@ -108,8 +103,7 @@ object Main {
     fun main(args: Array<String>) {
         AnsiConsole.systemInstall()
         setLogLevel(0)
-        val target: String
-        target = if (args.size > 0) {
+        val target: String = if (args.isNotEmpty()) {
             args[0]
         } else {
             "LTest;->addNumbers()V"
@@ -129,10 +123,13 @@ object Main {
             when (line.descriptionType) {
                 DescriptionType.COMMAND -> {
                     val cmd = Parser.getCommand(line.args[0])
-                    if (builtins.hasCommand(cmd)) {
-                        out = builtins.commandDescription(cmd)
-                    } else if (picocli.hasCommand(cmd)) {
-                        out = picocli.commandDescription(cmd)
+                    when {
+                        builtins.hasCommand(cmd) -> {
+                            out = builtins.commandDescription(cmd)
+                        }
+                        picocli.hasCommand(cmd) -> {
+                            out = picocli.commandDescription(cmd)
+                        }
                     }
                 }
                 else -> {

@@ -5,17 +5,14 @@ import picocli.CommandLine.ParentCommand
 import java.io.IOException
 import java.util.concurrent.Callable
 
-/**
- * Command that clears the screen.
- */
-@CommandLine.Command(name = "cls", aliases = ["clear"], mixinStandardHelpOptions = true, version = ["1.0"], description = ["Clears the screen"])
-class ClearScreen : Callable<Void?> {
+@CommandLine.Command(name = "cls", aliases = ["clear"], mixinStandardHelpOptions = true, version = ["1.0"],
+        description = ["Clears the screen"])
+class ClearScreen : Runnable {
     @ParentCommand
-    var parent: CliCommands? = null
+    lateinit var parent: CliCommands
 
     @Throws(IOException::class)
-    override fun call(): Void? {
-        parent!!.reader!!.clearScreen()
-        return null
+    override fun run() {
+        parent.reader.clearScreen()
     }
 }

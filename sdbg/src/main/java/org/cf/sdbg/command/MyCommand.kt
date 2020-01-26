@@ -8,8 +8,8 @@ import java.util.concurrent.TimeUnit
 /**
  * A command with some options to demonstrate completion.
  */
-@CommandLine.Command(name = "cmd", mixinStandardHelpOptions = true, version = ["1.0"], description = ["Command with some options to demonstrate TAB-completion" +
-        " (note that enum values also get completed)"], subcommands = [CommandLine.HelpCommand::class])
+@CommandLine.Command(name = "cmd", mixinStandardHelpOptions = true, version = ["1.0"],
+        description = ["Command with some options to demonstrate TAB-completion (note that enum values also get completed)"], subcommands = [CommandLine.HelpCommand::class])
 class MyCommand : Runnable {
     @CommandLine.Option(names = ["-v", "--verbose"], description = ["Specify multiple -v options to increase verbosity.", "For example, `-v -v -v` or `-vvv`"])
     private val verbosity = booleanArrayOf()
@@ -27,11 +27,11 @@ class MyCommand : Runnable {
     var parent: CliCommands? = null
 
     override fun run() {
-        if (verbosity.size > 0) {
-            parent!!.out!!.printf("Hi there. You asked for %d %s.%n",
+        if (verbosity.isNotEmpty()) {
+            parent!!.out.printf("Hi there. You asked for %d %s.%n",
                     myDuration.amount, myDuration.unit)
         } else {
-            parent!!.out!!.println("hi!")
+            parent!!.out.println("hi!")
         }
     }
 }
