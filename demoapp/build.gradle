@@ -4,9 +4,9 @@ apply plugin: 'application'
 mainClassName = 'org.cf.demoapp.Main'
 
 dependencies {
-    compile project(':smalivm')
-    compile depends.slf4j_api
-    compile depends.slf4j_nop
+    implementation project(':smalivm')
+    implementation depends.slf4j_api
+    implementation depends.slf4j_nop
 }
 
 task fatJar(type: Jar) {

@@ -1,3 +1,5 @@
+import proguard.gradle.ProGuardTask
+
 buildscript {
     dependencies {
         classpath depends.proguard_gradle
@@ -8,27 +10,27 @@ buildscript {
 }
 
 dependencies {
-    compile group: 'uk.com.robust-it', name: 'cloning', version: '1.9.12'
-    compile group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
-    compile depends.commons_lang
-    compile depends.guava
-    compile depends.trove4j
-    compile depends.slf4j_api
-    compile group: 'org.smali', name: 'dexlib2', version: '2.3.4'
-    compile group: 'org.smali', name: 'smali', version: '2.3.4'
-    compile group: 'org.smali', name: 'baksmali', version: '2.3.4'
-    compile group: 'org.ow2.asm', name: 'asm', version: '6.2.1'
+    api group: 'org.smali', name: 'dexlib2', version: '2.3.4'
+    api group: 'org.smali', name: 'smali', version: '2.3.4'
+    api group: 'org.smali', name: 'baksmali', version: '2.3.4'
+    implementation group: 'uk.com.robust-it', name: 'cloning', version: '1.9.12'
+    implementation group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
+    implementation depends.commons_lang
+    implementation depends.guava
+    implementation depends.trove4j
+    implementation depends.slf4j_api
+    implementation group: 'org.ow2.asm', name: 'asm', version: '6.2.1'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
     // E.g. android.util.Base64
     // Reflection is much faster and more robust than virtual execution
-    compile files('libs/android-local.jar')
+    implementation files('libs/android-local.jar')
 
-    testCompile depends.mockito
-    testCompile depends.perfidix
-    testCompile depends.junit_compile
-    testRuntime depends.junit_engine
-    testRuntime depends.junit_runner
+    testImplementation depends.mockito
+    testImplementation depends.perfidix
+    testImplementation depends.junit_compile
+    testRuntimeOnly depends.junit_engine
+    testRuntimeOnly depends.junit_runner
 }
 
 task fatJar(type: Jar) {
@@ -49,10 +51,10 @@ configurations {
   testArtifacts
 }
 
-task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
-    def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
+task proguard(type: ProGuardTask, dependsOn: fatJar) {
+    def outFile = fatJar.destinationDirectory.toString() + '/' + fatJar.archiveBaseName + '-' + fatJar.archiveVersion + '-proguard' + '.' + fatJar.archiveExtension
 
-    injars fatJar.archivePath
+    injars fatJar.archiveFile
     outjars outFile
 
     libraryjars "${System.properties['java.home']}/lib/rt.jar"

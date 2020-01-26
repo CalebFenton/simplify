@@ -8,20 +8,20 @@ buildscript {
 }
 
 dependencies {
-    compile project(':smalivm')
-    compile 'commons-cli:commons-cli:1.4'
-    compile group: 'info.picocli', name: 'picocli-shell-jline3', version: '4.1.4'
-    compile group: 'org.fusesource.jansi', name: 'jansi', version: '1.18'
-    compile depends.slf4j_api
-    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
-    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    implementation project(':smalivm')
+    implementation 'commons-cli:commons-cli:1.4'
+    implementation group: 'info.picocli', name: 'picocli-shell-jline3', version: '4.1.4'
+    implementation group: 'org.fusesource.jansi', name: 'jansi', version: '1.18'
+    implementation depends.slf4j_api
+    implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
 
-    testCompile project(':smalivm').sourceSets.test.output
-    testCompile project(':smalivm').sourceSets.test.resources
-    testCompile depends.mockito
-    testCompile depends.junit_compile
-    testRuntime depends.junit_engine
-    testRuntime depends.junit_runner
+    testImplementation project(':smalivm').sourceSets.test.output
+    testImplementation project(':smalivm').sourceSets.test.resources
+    testImplementation depends.mockito
+    testImplementation depends.junit_compile
+    testRuntimeOnly depends.junit_engine
+    testRuntimeOnly depends.junit_runner
 }
 
 test.dependsOn project(':smalivm').tasks.getByName('testClasses')
@@ -36,7 +36,7 @@ task fatJar(type: Jar) {
 
     doLast {
         if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDir}/sdbg.jar"), resource: archivePath, overwrite: true)
+            ant.symlink(link: file("${destinationDirectory}/sdbg.jar"), resource: archiveFile, overwrite: true)
         }
     }
 }

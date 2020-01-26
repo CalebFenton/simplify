@@ -29,7 +29,12 @@ allprojects {
 
 
 subprojects {
-    apply plugin: 'java'
+    if (project.name == 'smalivm') {
+        apply plugin: 'java-library'
+    }
+    else {
+        apply plugin: 'java'
+    }
     apply plugin: 'idea'
 
     group = 'org.cf'
@@ -78,9 +83,10 @@ subprojects {
 
     if (project.name == 'simplify') {
         tasks.withType(Test) {
-            maxParallelForks = 1
-            forkEvery = 2
-            minHeapSize = '64m'
+            maxParallelForks = 2
+            minHeapSize = '128m'
+            maxHeapSize = '4g'
+            jvmArgs = ['-XX:-UseGCOverheadLimit']
         }
     } else {
         tasks.withType(Test) {
@@ -90,25 +96,25 @@ subprojects {
 }
 
 
-// Demoapp isn't intended to have tests and shouldn't count against code coverage
-def reportProjects = subprojects - project(':demoapp') - project(':sdbg')
+// These aren't intended to have tests and shouldn't count against code coverage
+def reportProjects = (subprojects - project(':demoapp') - project(':sdbg'))
 
 task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     description = 'Generates an aggregate report from all subprojects'
     dependsOn(reportProjects.test)
 
-    sourceDirectories.from = subprojects.sourceSets.main.allSource.srcDirs
-    additionalSourceDirs.from = subprojects.sourceSets.main.allSource.srcDirs
-    classDirectories.from = subprojects.sourceSets.main.output
-    executionData.from = subprojects.jacocoTestReport.executionData
+    sourceDirectories.from = reportProjects.sourceSets.main.allJava.srcDirs
+//    additionalSourceDirs.from = reportProjects.sourceSets.main.allJava.srcDirs
+    classDirectories.from = reportProjects.sourceSets.main.output.classesDirs
+    executionData.from = reportProjects.jacocoTestReport.executionData
 
     reports {
         html.enabled = true
         xml.enabled = true
         csv.enabled = false
     }
-}
 
+}
 
 coveralls {
     sourceDirs = reportProjects.sourceSets.main.allJava.srcDirs.flatten()

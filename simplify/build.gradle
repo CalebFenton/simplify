@@ -1,3 +1,5 @@
+import proguard.gradle.ProGuardTask
+
 buildscript {
     dependencies {
         classpath depends.proguard_gradle
@@ -8,26 +10,27 @@ buildscript {
 }
 
 dependencies {
-    compile project(':smalivm')
-    compile depends.guava
-    compile group: 'commons-cli', name: 'commons-cli', version: '1.4'
-    compile depends.trove4j
-    compile depends.slf4j_api
-    compile group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
-    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    implementation project(':smalivm')
+    implementation group: 'org.smali', name: 'dexlib2', version: '2.3.4'
 
-    testCompile project(':smalivm').sourceSets.test.output
-    testCompile project(':smalivm').sourceSets.test.resources
-    testCompile depends.mockito
-    testCompile depends.perfidix
-    testCompile depends.junit_compile
-    testRuntime depends.junit_engine
-    testRuntime depends.junit_runner
+    implementation depends.guava
+    implementation group: 'commons-cli', name: 'commons-cli', version: '1.4'
+    implementation depends.trove4j
+    implementation depends.slf4j_api
+    implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+
+    testImplementation project(':smalivm').sourceSets.test.output
+    testImplementation project(':smalivm').sourceSets.test.resources
+    testImplementation depends.mockito
+    testImplementation depends.perfidix
+    testImplementation depends.junit_compile
+    testRuntimeOnly depends.junit_engine
+    testRuntimeOnly depends.junit_runner
 }
 
 test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
-// Build a separate jar that contains all dependencies
 task fatJar(type: Jar) {
     from sourceSets.main.output
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
@@ -38,15 +41,15 @@ task fatJar(type: Jar) {
 
     doLast {
         if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDir}/simplify.jar"), resource: archivePath, overwrite: true)
+            ant.symlink(link: file("${destinationDirectory}/simplify.jar"), resource: archiveFile, overwrite: true)
         }
     }
 }
 
-task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
-    def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
+task proguard(type: ProGuardTask, dependsOn: fatJar) {
+    def outFile = fatJar.destinationDirectory.toString() + '/' + fatJar.archiveBaseName + '-' + fatJar.archiveVersion + '-proguard' + '.' + fatJar.archiveExtension
 
-    injars fatJar.archivePath
+    injars fatJar.archiveFile
     outjars outFile
 
     libraryjars "${System.properties['java.home']}/lib/rt.jar"
