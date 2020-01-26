@@ -1,4 +1,4 @@
-.class public final enum Lextends_enum;
+.class public final Lextends_enum;
 .super Ljava/lang/Enum;
 .source "Level.java"
 
