@@ -79,9 +79,10 @@ public class ClassManager {
      */
     public Set<String> getFrameworkClassNames() {
         if (frameworkClassNames == null) {
-            frameworkClassNames = classNameToSmaliFile.keySet().stream()
-                    .filter(smaliFileFactory::isFrameworkClass)
-                    .collect(Collectors.toSet());
+            frameworkClassNames = classNameToSmaliFile.keySet()
+                .parallelStream()
+                .filter(smaliFileFactory::isFrameworkClass)
+                .collect(Collectors.toSet());
         }
 
         return frameworkClassNames;
@@ -112,9 +113,10 @@ public class ClassManager {
      */
     public Set<String> getNonFrameworkClassNames() {
         if (nonFrameworkClassNames == null) {
-            nonFrameworkClassNames = classNameToSmaliFile.keySet().stream()
-                    .filter(className -> !smaliFileFactory.isFrameworkClass(className))
-                    .collect(Collectors.toSet());
+            nonFrameworkClassNames = classNameToSmaliFile.keySet()
+                .parallelStream()
+                .filter(className -> !smaliFileFactory.isFrameworkClass(className))
+                .collect(Collectors.toSet());
         }
 
         return nonFrameworkClassNames;
@@ -140,6 +142,7 @@ public class ClassManager {
         } else if (ClassNameUtils.isPrimitive(typeReference.getType())) {
             return new VirtualPrimitive(typeReference);
         } else {
+            // TODO: throw IllegalArgumentException? Or Maybe before it's interned?
             throw new RuntimeException("Unrecognized type: " + typeReference);
         }
     }
@@ -149,6 +152,7 @@ public class ClassManager {
     }
 
     public VirtualType getVirtualType(String typeSignature) {
+        // TODO: consider validing the type Signature here rather than in getVirtualType
         TypeReference typeReference = getFrameworkDexBuilder().internTypeReference(typeSignature);
 
         return getVirtualType(typeReference);
