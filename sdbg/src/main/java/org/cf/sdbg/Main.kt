@@ -1,7 +1,5 @@
 package org.cf.sdbg
 
-import ch.qos.logback.classic.Level
-import ch.qos.logback.classic.Logger
 import org.cf.sdbg.command.CliCommands
 import org.cf.smalivm.Debugger
 import org.fusesource.jansi.AnsiConsole
@@ -14,15 +12,15 @@ import org.jline.reader.impl.DefaultParser
 import org.jline.terminal.TerminalBuilder
 import org.jline.utils.AttributedStringBuilder
 import org.jline.utils.AttributedStyle
-import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import picocli.shell.jline3.PicocliCommands
 import java.nio.file.Paths
-import java.util.*
 import java.util.function.Function
+
 
 object Main {
     lateinit var debugger: Debugger
+    const val version: String = "0.1.0"
 
     private fun startConsoleLoop() {
         try {
@@ -67,7 +65,7 @@ object Main {
                     val arguments = pl.words().toTypedArray()
                     val command = Parser.getCommand(pl.word())
                     if (builtins.hasCommand(command)) {
-                        builtins.execute(command, Arrays.copyOfRange(arguments, 1, arguments.size)
+                        builtins.execute(command, arguments.copyOfRange(1, arguments.size)
                                 , System.`in`, System.out, System.err)
                     } else {
                         CommandLine(commands).execute(*arguments)
@@ -89,30 +87,14 @@ object Main {
         }
     }
 
-    private fun setLogLevel(verbosity: Int) {
-        val rootLogger = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
-        when (verbosity) {
-            0 -> { rootLogger.level = Level.OFF }
-            1 -> { rootLogger.level = Level.INFO }
-            2 -> { rootLogger.level = Level.DEBUG }
-            3 -> { rootLogger.level = Level.TRACE }
-        }
-    }
-
     @Throws(Exception::class)
     @JvmStatic
     fun main(args: Array<String>) {
         AnsiConsole.systemInstall()
-        setLogLevel(0)
-        val target: String = if (args.isNotEmpty()) {
-            args[0]
-        } else {
-            "LTest;->addNumbers()V"
+        val initStatus = CommandLine(Initialize()).execute(*args)
+        if (initStatus == 1) {
+            startConsoleLoop()
         }
-        //    debugger = new SmaliDebugger("LTest;->main([Ljava/lang/String;)V");
-        println("Starting debugger for $target")
-        debugger = Debugger("LTest;->addNumbers()V")
-        startConsoleLoop()
     }
 
     /**

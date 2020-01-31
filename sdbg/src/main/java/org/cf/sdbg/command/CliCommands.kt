@@ -1,11 +1,12 @@
 package org.cf.sdbg.command
 
+import org.cf.sdbg.Main
 import org.jline.reader.LineReader
 import org.jline.reader.impl.LineReaderImpl
 import picocli.CommandLine
 import java.io.PrintWriter
 
-@CommandLine.Command(name = "", footer = ["", "Press Ctl-D to exit."],
+@CommandLine.Command(name = "", version = [Main.version], footer = ["", "Press Ctl-D to exit."],
         description = [
             "Smali DeBuGger (SDBG) Hit @|magenta <TAB>|@ to see available commands.",
             "Type `@|bold,yellow keymap ^[s tailtip-toggle|@`, then hit @|magenta ALT-S|@ to toggle tailtips.",
@@ -13,7 +14,6 @@ import java.io.PrintWriter
         ],
         subcommands = [
             CommandLine.HelpCommand::class,
-            //MyCommand::class,
             ClearScreenCommand::class,
             ListCommand::class,
             WhereCommand::class,

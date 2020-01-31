@@ -1,5 +1,6 @@
 package org.cf.smalivm;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -16,19 +17,19 @@ import org.cf.smalivm.type.VirtualMethod;
 
 public class Debugger {
 
-  private static VirtualMachine vm = null;
-
+  private final VirtualMachine vm;
   private final Stack<MethodExecutor> steppedMethodExecutors;
   private final Stack<InvokeOp> steppedInvokeOps;
   private final Set<String> breakpoints;
   private ExecutionNode currentNode;
 
-  public Debugger(String methodSignature) throws IOException {
-    if (vm == null) {
-      VirtualMachineFactory vmFactory = new VirtualMachineFactory();
-      vm = vmFactory.build("resources/");
-      vm.getMethodExecutorFactory().setInteractive();
-    }
+  public Debugger(File smaliPath, String methodSignature) throws IOException {
+    this(new VirtualMachineFactory().build(smaliPath), methodSignature);
+  }
+
+  public Debugger(VirtualMachine vm, String methodSignature) {
+    this.vm = vm;
+    this.vm.getMethodExecutorFactory().setInteractive();
 
     steppedMethodExecutors = new Stack<>();
     steppedInvokeOps = new Stack<>();
@@ -36,6 +37,9 @@ public class Debugger {
 
     ClassManager classManager = vm.getClassManager();
     VirtualMethod virtualMethod = classManager.getMethod(methodSignature);
+    if (virtualMethod == null) {
+      throw new IllegalArgumentException("Method signature not found: " + methodSignature);
+    }
     MethodExecutor methodExecutor = vm.getMethodExecutorFactory().build(virtualMethod);
     currentNode = methodExecutor.getCurrentNode();
     steppedMethodExecutors.push(methodExecutor);
