@@ -53,12 +53,12 @@ class BreakCommand : DebuggerCommand() {
                 if (!method.hasImplementation()) {
                     printInvalid("method has no implementation")
                 }
-                debugger.addBreakpoint(parsedTarget.methodSignature, 1)
+                debugger.addBreakpoint(parsedTarget.methodSignature, 0)
                 parent.out.println("breakpoint set for ${parsedTarget.methodSignature}")
             }
             is BreakTargetIndex -> {
                 val method = debugger.currentMethod
-                if (method.implementation.instructions.size < parsedTarget.index - 1) {
+                if (method.implementation.instructions.size < parsedTarget.index) {
                     parent.out.println("instr size: ${method.implementation.instructions.size}")
                     printInvalid("index out of range")
                     return

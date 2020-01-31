@@ -55,9 +55,8 @@ class ListCommand : DebuggerCommand() {
     private fun printMethod(graph: ExecutionGraph, start: Int, stop: Int) {
         val smaliLines = graph.toSmali(true).split('\n')
         val realStop = if (start == stop) stop + 1 else min(stop, smaliLines.size)
-        val currentIndex = debugger.currentNode.index + 1
-        val targetLines = IntStream.range(start, realStop + 1)
-                .mapToObj { n: Int -> "$n${if (n == currentIndex) ":>" else ":"}\t${smaliLines[n - 1]}" }
+        val targetLines = IntStream.range(start, realStop)
+                .mapToObj { n: Int -> "$n${if (n == debugger.currentIndex) ":>" else ":"}\t${smaliLines[n]}" }
                 .collect(joining("\n"))
         parent.out.println(targetLines)
 
@@ -95,7 +94,7 @@ class ListCommand : DebuggerCommand() {
                     return
                 }
                 val graph = debugger.virtualMachine.spawnInstructionGraph(virtualMethod)
-                printMethod(graph, 1, Int.MAX_VALUE)
+                printMethod(graph, 0, Int.MAX_VALUE)
             }
             is ListTargetRange -> {
                 val start = parsedTarget.start
@@ -104,14 +103,14 @@ class ListCommand : DebuggerCommand() {
                     if (start > stop) {
                         printInvalid("start# > end#")
                         return
-                    } else if (start <= 0) {
-                        printInvalid("start# <= 0")
+                    } else if (start < 0) {
+                        printInvalid("start# < 0")
                         return
                     }
                     printMethod(debugger.executionGraph, parsedTarget.start, parsedTarget.stop)
                 } else {
-                    if (start <= 0) {
-                        printInvalid("line-number <= 0")
+                    if (start < 0) {
+                        printInvalid("line-number < 0")
                         return
                     }
                     printMethod(debugger.executionGraph, parsedTarget.start, parsedTarget.start)

@@ -1,6 +1,5 @@
 package org.cf.sdbg.command
 
-import org.cf.sdbg.Main
 import org.cf.smalivm.exception.UnhandledVirtualException
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
@@ -13,9 +12,10 @@ class NextCommand : DebuggerCommand() {
 
     override fun run() {
         try {
+            debugger.currentIndex
             val currentOp = debugger.currentOp
-            parent.out.println("${currentOp.index + 1}:>\t${currentOp}")
-            val node = debugger.step()
+            parent.out.println("${debugger.currentIndex}:>\t${currentOp}")
+            val node = debugger.step(false)
             node ?: parent.out.println("execution terminated")
         } catch (e: UnhandledVirtualException) {
             e.printStackTrace(parent.out)

@@ -41,12 +41,18 @@ public class Debugger {
     steppedMethodExecutors.push(methodExecutor);
   }
 
-  public void stepIntoInvoke(MethodExecutor methodExecutor, InvokeOp invokeOp) {
-    steppedMethodExecutors.push(methodExecutor);
+  private ExecutionNode stepIntoInvoke(InvokeOp invokeOp) throws UnhandledVirtualException {
+    invokeOp.setDebugMode(true);
+    ExecutionNode node = getMethodExecutor().step();
+    invokeOp.setDebugMode(false);
+
+    MethodExecutor invokedMethodExecutor = invokeOp.getDebuggedMethodExecutor();
+    steppedMethodExecutors.push(invokedMethodExecutor);
     steppedInvokeOps.push(invokeOp);
+    return node;
   }
 
-  public void stepOutOfInvoke() {
+  private void stepOutOfInvoke() {
     MethodExecutor methodExecutor = steppedMethodExecutors.pop();
     InvokeOp invokeOp = steppedInvokeOps.pop();
     invokeOp.finishDebugLocalMethod(methodExecutor.getExecutionGraph());
@@ -86,7 +92,7 @@ public class Debugger {
   }
 
   public int getCurrentIndex() {
-    return getCurrentOp().getIndex() + 1;
+    return getCurrentOp().getIndex();
   }
 
   public boolean addBreakpoint(String methodSignature, int index) {
@@ -132,24 +138,38 @@ public class Debugger {
 
   @Nullable
   public ExecutionNode step() throws UnhandledVirtualException {
-    if (!isFinished()) {
-      currentNode = getMethodExecutor().step();
-      boolean steppedIntoInvoke = currentNode.getCallDepth() > 0;
-      if (isFinished() && steppedIntoInvoke) {
-        stepOutOfInvoke();
-      }
-      return currentNode;
-    } else {
+    return step(true);
+  }
+
+  @Nullable
+  public ExecutionNode step(boolean stepIntoInvokes) throws UnhandledVirtualException {
+    if (isFinished()) {
       return null;
+    }
+
+    Op currentOp = getCurrentOp();
+    if (stepIntoInvokes && currentOp instanceof InvokeOp) {
+      currentNode = stepIntoInvoke(((InvokeOp) currentOp));
+    } else {
+      currentNode = getMethodExecutor().step();
+    }
+    boolean insideDebuggedInvoke = currentNode.getCallDepth() > 0;
+    if (isFinished() && insideDebuggedInvoke) {
+      stepOutOfInvoke();
+    }
+
+    if (isFinished()) {
+      return null;
+    } else {
+      currentNode = getMethodExecutor().getCurrentNode();
+      return currentNode;
     }
   }
 
   public void run() throws UnhandledVirtualException {
-    while(true) {
-      currentNode = step();
-      if (currentNode == null) {
-        break;
-      } else if (isBreakpoint(currentNode)) {
+    while (true) {
+      ExecutionNode lastNode = step();
+      if (lastNode == null || isAtBreakpoint()) {
         break;
       }
     }

@@ -17,6 +17,7 @@ class ContinueCommand : DebuggerCommand() {
         while (number >= 0) {
             debugger.run()
             if (debugger.isFinished) {
+                parent.out.println("execution finished")
                 break
             } else if (debugger.isAtBreakpoint) {
                 number--

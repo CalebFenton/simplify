@@ -41,7 +41,11 @@ class InfoCommand : DebuggerCommand() {
 
     private fun printBreakInfo() {
         val breakpoints = debugger.breakpoints.sorted()
-        parent.out.println("breakpoint count=${breakpoints.size}, list:\n${breakpoints.joinToString { "\n" }}")
+        parent.out.println("breakpoint count=${breakpoints.size}")
+        if (breakpoints.isNotEmpty()) {
+            val lines = breakpoints.joinToString("\n")
+            parent.out.println(lines);
+        }
     }
 
     override fun run() {

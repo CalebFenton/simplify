@@ -1,12 +1,13 @@
 package org.cf.sdbg.command
 
 import org.cf.smalivm.type.VirtualField
+import org.cf.util.ClassNameUtils
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
 sealed class PrintTarget
-data class PrintTargetField(val fieldDescriptor: VirtualField) : PrintTarget()
-data class PrintTargetRegister(val register: Int) : PrintTarget()
+data class PrintTargetField(val virtualField: VirtualField) : PrintTarget()
+data class PrintTargetRegister(val name: String, val register: Int) : PrintTarget()
 object PrintTargetInvalid : PrintTarget()
 
 @CommandLine.Command(name = "print", aliases = ["p"], mixinStandardHelpOptions = true, version = ["1.0"],
@@ -21,30 +22,56 @@ class PrintCommand : DebuggerCommand() {
     private val registerRegex = "[vpr]\\d+".toRegex()
 
     private fun parseTarget(target: String?): PrintTarget {
+        if (target == null) {
+            return PrintTargetInvalid
+        }
+        val guessedType = ClassNameUtils.guessReferenceType(target);
         return when {
-            target == null -> PrintTargetInvalid
-            target.startsWith("L") || target.startsWith("[") && target.contains("->") -> {
-                val parts = target.split("->")
+            guessedType == ClassNameUtils.ReferenceType.INTERNAL_CLASS_DESCRIPTOR -> {
+                val parts = target.split("->".toRegex(), 2)
                 val classDescriptor = parts[0]
                 val fieldName = parts[1]
                 val virtualClass = debugger.classManager.getVirtualClass(classDescriptor) ?: return PrintTargetInvalid
                 val virtualField = virtualClass.getField(fieldName) ?: return PrintTargetInvalid
                 PrintTargetField(virtualField)
-//                val accessor = debugger.virtualMachine.staticFieldAccessor
-//                val fieldItem = accessor.getField(debugger.currentNode.context, virtualField)
-//                parent.out.println(fieldItem)
             }
-            target matches registerRegex -> {
-//                when {
-//                    target.startsWith('v') ->
-//                }
-                PrintTargetInvalid
+            target.toLowerCase() matches registerRegex -> {
+                return when {
+                    target.startsWith('p') -> {
+                        val parameterStart = debugger.currentNode.context.methodState.parameterStart
+                        val value = target.substring(1).toInt()
+                        PrintTargetRegister("p${value}(r${value + parameterStart})", value + parameterStart)
+                    }
+                    else -> {
+                        val value = target.substring(1).toInt()
+                        PrintTargetRegister("v${value}", value)
+                    }
+                }
             }
             else -> PrintTargetInvalid
         }
     }
 
+    private fun printInvalid(message: String) {
+        parent.out.println("invalid target; $message")
+    }
+
     override fun run() {
-//        Main.debugger.currentNode.context
+        when (val parsedTarget = parseTarget(target)) {
+            is PrintTargetField -> {
+                val accessor = debugger.virtualMachine.staticFieldAccessor
+                val fieldItem = accessor.getField(debugger.currentNode.context, parsedTarget.virtualField)
+                parent.out.println("${parsedTarget.virtualField}: $fieldItem")
+            }
+            is PrintTargetRegister -> {
+                val methodState = debugger.currentNode.context.methodState
+                val item = methodState.peekRegister(parsedTarget.register);
+                parent.out.println("${parsedTarget.name}: $item")
+            }
+            is PrintTargetInvalid -> {
+                printInvalid("unable to parse")
+                return
+            }
+        }
     }
 }
