@@ -445,9 +445,9 @@ public class InvokeOp extends ExecutionContextOp {
     }
 
     public void startDebugLocalMethod(ExecutionContext calleeContext, ExecutionContext callerContext, ExecutionNode node) {
-        debuggedMethodExecutor = vm.startDebug(callerContext, calleeContext);
-        debuggedCallerContext = callerContext;
+        debuggedMethodExecutor = vm.startDebug(calleeContext, callerContext);
         debuggedCalleeContext = calleeContext;
+        debuggedCallerContext = callerContext;
         debuggedNode = node;
     }
 

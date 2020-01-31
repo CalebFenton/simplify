@@ -86,7 +86,7 @@ public class VirtualMachine {
         return methodExecutor.getExecutionGraph();
     }
 
-    public MethodExecutor startDebug(ExecutionContext callerContext, ExecutionContext calleeContext) {
+    public MethodExecutor startDebug(ExecutionContext calleeContext, ExecutionContext callerContext) {
         VirtualMethod virtualMethod = calleeContext.getMethod();
         if (!virtualMethod.hasImplementation()) {
             log.warn("Attempting to execute method without implementation: {}", virtualMethod);
