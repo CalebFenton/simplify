@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class ClassNameUtils {
@@ -434,6 +435,25 @@ public class ClassNameUtils {
         return names;
     }
 
+    public static ReferenceType guessReferenceType(@Nonnull String s) {
+        if (s.startsWith("[")) {
+            s = getComponentBase(s);
+        }
+        if (s.startsWith("L")) {
+            if (s.contains(";->")) {
+                if (s.contains("(") && s.contains(")")) {
+                    return ReferenceType.INTERNAL_METHOD_SIGNATURE;
+                } else if (s.contains(":")) {
+                    return ReferenceType.INTERNAL_FIELD_DESCRIPTOR;
+                }
+            }
+        } else if (s.contains("(") && s.contains(")")) {
+            return ReferenceType.INTERNAL_METHOD_DESCRIPTOR;
+        }
+
+        return ReferenceType.UNKNOWN;
+    }
+
     static String addDimensionsToBinaryClassName(String className, int dimensionCount) {
         StringBuilder sb = new StringBuilder(className);
         for (int i = 0; i < dimensionCount; i++) {
@@ -459,4 +479,11 @@ public class ClassNameUtils {
         SOURCE
     }
 
+    public enum ReferenceType {
+        INTERNAL_CLASS_DESCRIPTOR,
+        INTERNAL_METHOD_DESCRIPTOR,
+        INTERNAL_METHOD_SIGNATURE,
+        INTERNAL_FIELD_DESCRIPTOR,
+        UNKNOWN,
+    }
 }

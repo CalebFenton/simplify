@@ -38,6 +38,7 @@ object Main {
             val commands = CliCommands()
             val cmd = CommandLine(commands)
             val picocliCommands = PicocliCommands(workDir, cmd)
+            // TODO: figure out how to add classes, methods, and fields to auto-complete
             systemCompleter.add(picocliCommands.compileCompleters())
             systemCompleter.compile()
             val terminal = TerminalBuilder.builder().build()

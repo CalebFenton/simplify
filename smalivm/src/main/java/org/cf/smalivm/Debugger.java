@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Stack;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.UnhandledVirtualException;
@@ -19,6 +21,7 @@ public class Debugger {
   private final Stack<MethodExecutor> steppedMethodExecutors;
   private final Stack<InvokeOp> steppedInvokeOps;
   private final Set<String> breakpoints;
+  private ExecutionNode currentNode;
 
   public Debugger(String methodSignature) throws IOException {
     if (vm == null) {
@@ -34,6 +37,7 @@ public class Debugger {
     ClassManager classManager = vm.getClassManager();
     VirtualMethod virtualMethod = classManager.getMethod(methodSignature);
     MethodExecutor methodExecutor = vm.getMethodExecutorFactory().build(virtualMethod);
+    currentNode = methodExecutor.getCurrentNode();
     steppedMethodExecutors.push(methodExecutor);
   }
 
@@ -72,8 +76,9 @@ public class Debugger {
     return getCurrentMethod().getSignature();
   }
 
+  @Nonnull
   public ExecutionNode getCurrentNode() {
-    return getMethodExecutor().getCurrentNode();
+    return currentNode;
   }
 
   public Op getCurrentOp() {
@@ -81,7 +86,7 @@ public class Debugger {
   }
 
   public int getCurrentIndex() {
-    return getCurrentOp().getIndex();
+    return getCurrentOp().getIndex() + 1;
   }
 
   public boolean addBreakpoint(String methodSignature, int index) {
@@ -94,9 +99,27 @@ public class Debugger {
     return breakpoints.remove(key);
   }
 
-  public boolean isBreakpoint(String methodSignature, int index) {
+  public void clearBreakpoints() {
+    breakpoints.clear();
+  }
+
+  private boolean isBreakpoint(String methodSignature, int index) {
     String key = makeBreakpointKey(methodSignature, index);
     return breakpoints.contains(key);
+  }
+
+  private boolean isBreakpoint(ExecutionNode node) {
+    String methodSignature = node.getMethod().getSignature();
+    int index = node.getIndex();
+    return isBreakpoint(methodSignature, index);
+  }
+
+  public boolean isAtBreakpoint() {
+    return isBreakpoint(currentNode);
+  }
+
+  public Set<String> getBreakpoints() {
+    return breakpoints;
   }
 
   private static String makeBreakpointKey(String methodSignature, int index) {
@@ -107,14 +130,29 @@ public class Debugger {
     return getMethodExecutor().isFinished();
   }
 
+  @Nullable
   public ExecutionNode step() throws UnhandledVirtualException {
-    ExecutionNode node = getMethodExecutor().step();
-    boolean steppedIntoInvoke = node.getCallDepth() > 0;
-    if (isFinished() && steppedIntoInvoke) {
-      stepOutOfInvoke();
+    if (!isFinished()) {
+      currentNode = getMethodExecutor().step();
+      boolean steppedIntoInvoke = currentNode.getCallDepth() > 0;
+      if (isFinished() && steppedIntoInvoke) {
+        stepOutOfInvoke();
+      }
+      return currentNode;
+    } else {
+      return null;
     }
+  }
 
-    return node;
+  public void run() throws UnhandledVirtualException {
+    while(true) {
+      currentNode = step();
+      if (currentNode == null) {
+        break;
+      } else if (isBreakpoint(currentNode)) {
+        break;
+      }
+    }
   }
 
 }

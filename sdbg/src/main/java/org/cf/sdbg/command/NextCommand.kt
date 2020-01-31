@@ -7,15 +7,16 @@ import picocli.CommandLine.ParentCommand
 
 @CommandLine.Command(name = "next", aliases = ["n"], mixinStandardHelpOptions = true, version = ["1.0"],
         description = ["Execute next line of code without entering methods"])
-class NextCommand : Runnable {
+class NextCommand : DebuggerCommand() {
     @ParentCommand
     lateinit var parent: CliCommands
 
     override fun run() {
         try {
-            val currentOp = Main.debugger.currentOp
+            val currentOp = debugger.currentOp
             parent.out.println("${currentOp.index + 1}:>\t${currentOp}")
-            Main.debugger.step()
+            val node = debugger.step()
+            node ?: parent.out.println("execution terminated")
         } catch (e: UnhandledVirtualException) {
             e.printStackTrace(parent.out)
         }
