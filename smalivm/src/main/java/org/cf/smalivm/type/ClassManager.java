@@ -152,7 +152,7 @@ public class ClassManager {
     }
 
     public VirtualType getVirtualType(String typeSignature) {
-        // TODO: consider validing the type Signature here rather than in getVirtualType
+        // TODO: consider validating the type Signature here rather than in getVirtualType
         TypeReference typeReference = getFrameworkDexBuilder().internTypeReference(typeSignature);
 
         return getVirtualType(typeReference);

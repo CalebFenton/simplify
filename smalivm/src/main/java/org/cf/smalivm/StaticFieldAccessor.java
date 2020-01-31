@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 
+// TODO: why is this not part of ClassState?
 public class StaticFieldAccessor {
 
     private static Logger log = LoggerFactory.getLogger(StaticFieldAccessor.class.getSimpleName());
@@ -22,7 +23,7 @@ public class StaticFieldAccessor {
 
     public HeapItem getField(ExecutionContext context, VirtualField field) {
         if (isSafe(field)) {
-            return getSafeField(context, field);
+            return getSafeField(field);
         } else {
             return getLocalField(context, field);
         }
@@ -34,7 +35,8 @@ public class StaticFieldAccessor {
         return cState.peekField(field);
     }
 
-    private HeapItem getSafeField(ExecutionContext context, VirtualField field) {
+    // TODO: can we just remove context here?
+    private HeapItem getSafeField(VirtualField field) {
         String className = field.getDefiningClass().getBinaryName();
         try {
             Class<?> klazz = Class.forName(className);

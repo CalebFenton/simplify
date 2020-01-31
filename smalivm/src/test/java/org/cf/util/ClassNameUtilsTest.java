@@ -235,11 +235,8 @@ public class ClassNameUtilsTest {
         assertEquals("[Ljava/lang/Object;", ClassNameUtils.toFormat("[Ljava/lang/Object;", TypeFormat.INTERNAL));
 
         assertEquals("[Ljava.lang.Object;", ClassNameUtils.toFormat("java.lang.Object[]", TypeFormat.BINARY));
-        ;
         assertEquals("java.lang.Object", ClassNameUtils.toFormat("java.lang.Object", TypeFormat.BINARY));
-        ;
         assertEquals("java.lang.Object", ClassNameUtils.toFormat("Ljava/lang/Object;", TypeFormat.BINARY));
-        ;
         assertEquals("int", ClassNameUtils.toFormat("I", TypeFormat.BINARY));
         assertEquals("[I", ClassNameUtils.toFormat("[I", TypeFormat.BINARY));
     }
