@@ -1,7 +1,7 @@
 package org.cf.sdbg.command
 
 import org.cf.sdbg.Main
-import org.cf.smalivm.Debugger
+import org.cf.smalivm.debug.Debugger
 
 open class DebuggerCommand : Runnable {
     protected val debugger: Debugger by lazy { Main.debugger }

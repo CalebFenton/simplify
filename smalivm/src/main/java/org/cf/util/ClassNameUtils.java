@@ -446,6 +446,8 @@ public class ClassNameUtils {
                 } else if (s.contains(":")) {
                     return ReferenceType.INTERNAL_FIELD_DESCRIPTOR;
                 }
+            } else if (s.endsWith(";")) {
+                return ReferenceType.INTERNAL_CLASS_DESCRIPTOR;
             }
         } else if (s.contains("(") && s.contains(")")) {
             return ReferenceType.INTERNAL_METHOD_DESCRIPTOR;

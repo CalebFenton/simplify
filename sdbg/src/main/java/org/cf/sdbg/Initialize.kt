@@ -2,7 +2,7 @@ package org.cf.sdbg
 
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
-import org.cf.smalivm.Debugger
+import org.cf.smalivm.debug.Debugger
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import java.io.File

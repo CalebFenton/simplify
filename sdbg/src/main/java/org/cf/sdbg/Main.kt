@@ -1,7 +1,7 @@
 package org.cf.sdbg
 
 import org.cf.sdbg.command.CliCommands
-import org.cf.smalivm.Debugger
+import org.cf.smalivm.debug.Debugger
 import org.fusesource.jansi.AnsiConsole
 import org.jline.builtins.Builtins
 import org.jline.builtins.Options.HelpException

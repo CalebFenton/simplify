@@ -1,4 +1,4 @@
-package org.cf.smalivm;
+package org.cf.smalivm.debug;
 
 import java.io.File;
 import java.io.IOException;
@@ -7,6 +7,9 @@ import java.util.Set;
 import java.util.Stack;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.cf.smalivm.MethodExecutor;
+import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineFactory;
 import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.UnhandledVirtualException;
@@ -20,7 +23,7 @@ public class Debugger {
   private final VirtualMachine vm;
   private final Stack<MethodExecutor> steppedMethodExecutors;
   private final Stack<InvokeOp> steppedInvokeOps;
-  private final Set<String> breakpoints;
+  private final Set<Breakpoint> breakpoints;
   private ExecutionNode currentNode;
 
   public Debugger(File smaliPath, String methodSignature) throws IOException {
@@ -99,26 +102,26 @@ public class Debugger {
     return getCurrentOp().getIndex();
   }
 
-  public boolean addBreakpoint(String methodSignature, int index) {
-    String key = makeBreakpointKey(methodSignature, index);
-    return breakpoints.add(key);
+  public boolean addBreakpoint(String methodSignature, int instructionIndex) {
+    Breakpoint breakpoint = new Breakpoint(methodSignature, instructionIndex);
+    return breakpoints.add(breakpoint);
   }
 
-  public boolean removeBreakpoint(String methodSignature, int index) {
-    String key = makeBreakpointKey(methodSignature, index);
-    return breakpoints.remove(key);
+  public boolean removeBreakpoint(String methodSignature, int instructionIndex) {
+    Breakpoint breakpoint = new Breakpoint(methodSignature, instructionIndex);
+    return breakpoints.remove(breakpoint);
   }
 
   public void clearBreakpoints() {
     breakpoints.clear();
   }
 
-  private boolean isBreakpoint(String methodSignature, int index) {
-    String key = makeBreakpointKey(methodSignature, index);
-    return breakpoints.contains(key);
+  public boolean isBreakpoint(String methodSignature, int instructionIndex) {
+    Breakpoint breakpoint = new Breakpoint(methodSignature, instructionIndex);
+    return breakpoints.contains(breakpoint);
   }
 
-  private boolean isBreakpoint(ExecutionNode node) {
+  public boolean isBreakpoint(ExecutionNode node) {
     String methodSignature = node.getMethod().getSignature();
     int index = node.getIndex();
     return isBreakpoint(methodSignature, index);
@@ -128,12 +131,8 @@ public class Debugger {
     return isBreakpoint(currentNode);
   }
 
-  public Set<String> getBreakpoints() {
+  public Set<Breakpoint> getBreakpoints() {
     return breakpoints;
-  }
-
-  private static String makeBreakpointKey(String methodSignature, int index) {
-    return methodSignature + ":" + index;
   }
 
   public boolean isFinished() {
