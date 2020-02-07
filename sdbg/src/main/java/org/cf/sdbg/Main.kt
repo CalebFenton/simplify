@@ -27,7 +27,7 @@ object Main {
             // set up JLine built-in commands
             val workDir = Paths.get("")
             val builtins = Builtins(workDir, null, null)
-            builtins.rename(Builtins.Command.TTOP, "top")
+//            builtins.rename(Builtins.Command.TTOP, "top")
             builtins.alias("zle", "widget")
             builtins.alias("bindkey", "keymap")
             val systemCompleter = builtins.compileCompleters()
