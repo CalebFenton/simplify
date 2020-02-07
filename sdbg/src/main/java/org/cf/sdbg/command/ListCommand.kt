@@ -20,7 +20,7 @@ data class ListTargetMethod(val methodSignature: String) : ListTarget()
 data class ListTargetRange(val start: Int = -1, val stop: Int? = null) : ListTarget()
 object ListTargetInvalid : ListTarget()
 
-@CommandLine.Command(name = "list", aliases = ["l"], mixinStandardHelpOptions = true, version = ["1.0"],
+@CommandLine.Command(name = "list", aliases = ["l"], mixinStandardHelpOptions = true,
         description = ["List source code"])
 class ListCommand : DebuggerCommand() {
     @ParentCommand

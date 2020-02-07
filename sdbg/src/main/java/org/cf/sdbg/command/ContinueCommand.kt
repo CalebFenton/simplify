@@ -3,7 +3,7 @@ package org.cf.sdbg.command
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
-@CommandLine.Command(name = "continue", aliases = ["c"], mixinStandardHelpOptions = true, version = ["1.0"],
+@CommandLine.Command(name = "continue", aliases = ["c"], mixinStandardHelpOptions = true,
         description = ["Continue executing until next break point"])
 class ContinueCommand : DebuggerCommand() {
     @ParentCommand

@@ -10,7 +10,7 @@ data class PrintTargetField(val virtualField: VirtualField) : PrintTarget()
 data class PrintTargetRegister(val name: String, val register: Int) : PrintTarget()
 object PrintTargetInvalid : PrintTarget()
 
-@CommandLine.Command(name = "print", aliases = ["p"], mixinStandardHelpOptions = true, version = ["1.0"],
+@CommandLine.Command(name = "print", aliases = ["p"], mixinStandardHelpOptions = true,
         description = ["Print value stored in variable or field"])
 class PrintCommand : DebuggerCommand() {
     @ParentCommand

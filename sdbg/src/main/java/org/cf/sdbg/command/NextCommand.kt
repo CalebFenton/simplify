@@ -4,7 +4,7 @@ import org.cf.smalivm.exception.UnhandledVirtualException
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
-@CommandLine.Command(name = "next", aliases = ["n"], mixinStandardHelpOptions = true, version = ["1.0"],
+@CommandLine.Command(name = "next", aliases = ["n"], mixinStandardHelpOptions = true,
         description = ["Execute next line of code without entering methods"])
 class NextCommand : DebuggerCommand() {
     @ParentCommand

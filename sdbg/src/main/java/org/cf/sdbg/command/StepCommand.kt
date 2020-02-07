@@ -4,7 +4,7 @@ import org.cf.smalivm.exception.UnhandledVirtualException
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
-@CommandLine.Command(name = "step", aliases = ["s"], mixinStandardHelpOptions = true, version = ["1.0"],
+@CommandLine.Command(name = "step", aliases = ["s"], mixinStandardHelpOptions = true,
         description = ["Step to next line of code including stepping into methods"])
 class StepCommand : DebuggerCommand() {
     @ParentCommand

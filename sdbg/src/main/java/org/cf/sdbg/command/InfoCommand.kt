@@ -9,7 +9,7 @@ data class InfoTargetMethod(val methodSignature: String) : InfoTarget()
 data class InfoTargetRange(val start: Int = -1, val stop: Int? = null) : InfoTarget()
 object InfoTargetInvalid : InfoTarget()
 
-@CommandLine.Command(name = "info", aliases = ["i"], mixinStandardHelpOptions = true, version = ["1.0"],
+@CommandLine.Command(name = "info", aliases = ["i"], mixinStandardHelpOptions = true,
         description = ["List information about target"])
 class InfoCommand : DebuggerCommand() {
     @ParentCommand

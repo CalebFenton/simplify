@@ -7,7 +7,7 @@ open class DebuggerCommand : Runnable {
     protected val debugger: Debugger by lazy { Main.debugger }
 
     override fun run() {
-        TODO("not implemented; that's a 50 DKP MINUS!")
+        TODO("not implemented; that's a 50 DKP MINUS for not implementing me!")
     }
 
 }
