@@ -1,18 +1,16 @@
 package org.cf.sdbg.command
 
+import org.cf.sdbg.writeTo2
 import org.cf.smalivm.context.ExecutionGraph
 import org.cf.util.ClassNameUtils
 import org.cf.util.ClassNameUtils.ReferenceType
 import org.jf.baksmali.Adaptors.ClassDefinition
 import org.jf.baksmali.Adaptors.MethodDefinition
 import org.jf.baksmali.BaksmaliOptions
-import org.jf.dexlib2.util.ReferenceUtil
 import org.jf.util.IndentingWriter
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
-import java.io.StringWriter
 import java.lang.Integer.min
-import java.util.stream.IntStream
 
 sealed class ListTarget
 data class ListTargetClass(val classDescriptor: String) : ListTarget()
@@ -54,17 +52,6 @@ class ListCommand : DebuggerCommand() {
         }
     }
 
-    private fun getIndexPostfix(methodSignature: String, lineNumber: Int): String {
-        val sb: StringBuilder = StringBuilder()
-        if (debugger.isBreakpoint(methodSignature, lineNumber)) {
-            sb.append('b')
-        }
-        if (methodSignature == debugger.currentMethodSignature && lineNumber == debugger.currentIndex) {
-            sb.append('>')
-        }
-        return sb.toString()
-    }
-
     private fun printMethod(graph: ExecutionGraph, start: Int, stop: Int) {
         val smaliLines = graph.toSmali(true).split('\n')
         val realStop = if (start == stop) stop + 1 else min(stop, smaliLines.size)
@@ -77,54 +64,8 @@ class ListCommand : DebuggerCommand() {
         options.localsDirective = true
         val classDefinition = ClassDefinition(options, classDef);
         val methodDefinition = MethodDefinition(classDefinition, method.methodDefinition, method.methodDefinition.implementation!!)
-        val methodString = getMethodString(methodDefinition, start, realStop)
-        parent.out.println(methodString)
-    }
-
-    private fun getMethodString(methodDefinition: MethodDefinition, start: Int, stop: Int): String {
-        val stringWriter = StringWriter()
-        val writer = IndentingWriter(stringWriter)
-        methodDefinition.writeTo(writer)
-        val rawLines = stringWriter.toString().split("\n").toMutableList()
-        val signature = ReferenceUtil.getMethodDescriptor(methodDefinition.method)
-
-        // I like seeing the full method signature.
-        val parts = rawLines[0].split(' ').toMutableList()
-        parts[parts.size - 1] = signature
-        rawLines[0] = parts.joinToString(" ")
-
-        var index = 0
-        IntStream.range(0, rawLines.size).forEach { n: Int ->
-            run {
-                if (rawLines[n].startsWith(" ")) {
-                    val trimLine = rawLines[n].trim()
-                    if (trimLine.startsWith("#@")) {
-                        rawLines[n] = "\n"
-
-                        val sb = StringBuilder()
-                        sb.append("$index:${getIndexPostfix(signature, index)}")
-                        while (sb.length < 8) {
-                            sb.append(' ')
-                        }
-                        val prefix = sb.toString()
-                        val postfix = "  $trimLine"
-                        val instructionLine = "${rawLines[n + 1].replaceFirst("    ", prefix)}$postfix"
-                        if (index < start || index > stop) {
-                            rawLines[n + 1] = "\n"
-                        } else {
-                            rawLines[n + 1] = instructionLine
-                        }
-                        index++
-                    } else {
-                        rawLines[n] = rawLines[n].replace("    ", "        ")
-                    }
-                }
-            }
-        }
-
-        return rawLines
-                .filter { l -> l.trim().isNotEmpty() }
-                .joinToString("\n")
+        val writer = IndentingWriter(parent.out)
+        methodDefinition.writeTo2(writer, debugger, start, realStop)
     }
 
     private fun printClass(classDescriptor: String) {
@@ -135,7 +76,7 @@ class ListCommand : DebuggerCommand() {
         val classDef = debugger.classManager.getVirtualClass(classDescriptor).classDef
         val classDefinition = ClassDefinition(options, classDef)
         val writer = IndentingWriter(parent.out)
-        classDefinition.writeTo(writer)
+        classDefinition.writeTo2(writer, debugger)
     }
 
     private fun printInvalid(message: String) {
