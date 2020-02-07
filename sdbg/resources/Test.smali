@@ -27,21 +27,28 @@
   return p0
 .end method
 
+.method public static multiPath()V
+  .locals 2
+
+  const/4 v0, 0x1
+  const/4 v1, 0x2
+  if-eq v0, v1, :end
+
+  add-int v0, v0, v1
+
+  :end
+  return-void
+.end method
+
 .method public static main([Ljava/lang/String;)V
   .locals 2
 
-  #@0
   .prologue
   .line 3
   sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
-
-  #@2
   const-string v1, "hello,world!"
-
-  #@4
   invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
 
-  #@7
   .line 4
   return-void
 .end method
