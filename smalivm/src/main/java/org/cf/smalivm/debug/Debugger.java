@@ -54,8 +54,11 @@ public class Debugger {
     invokeOp.setDebugMode(false);
 
     MethodExecutor invokedMethodExecutor = invokeOp.getDebuggedMethodExecutor();
-    steppedMethodExecutors.push(invokedMethodExecutor);
-    steppedInvokeOps.push(invokeOp);
+    boolean wasLocalMethod = invokedMethodExecutor != null;
+    if (wasLocalMethod) {
+      steppedMethodExecutors.push(invokedMethodExecutor);
+      steppedInvokeOps.push(invokeOp);
+    }
     return node;
   }
 
@@ -151,12 +154,13 @@ public class Debugger {
     }
 
     Op currentOp = getCurrentOp();
+    ExecutionNode stepNode;
     if (stepIntoInvokes && currentOp instanceof InvokeOp) {
-      currentNode = stepIntoInvoke(((InvokeOp) currentOp));
+      stepNode = stepIntoInvoke(((InvokeOp) currentOp));
     } else {
-      currentNode = getMethodExecutor().step();
+      stepNode = getMethodExecutor().step();
     }
-    boolean insideDebuggedInvoke = currentNode.getCallDepth() > 0;
+    boolean insideDebuggedInvoke = stepNode.getCallDepth() > 0;
     if (isFinished() && insideDebuggedInvoke) {
       stepOutOfInvoke();
     }
@@ -171,8 +175,8 @@ public class Debugger {
 
   public void run() throws UnhandledVirtualException {
     while (true) {
-      ExecutionNode lastNode = step();
-      if (lastNode == null || isAtBreakpoint()) {
+      ExecutionNode nextNode = step(true);
+      if (nextNode == null || isAtBreakpoint()) {
         break;
       }
     }
