@@ -1,7 +1,3 @@
-//plugins {
-//    id 'org.jetbrains.kotlin.jvm' version '1.3.61'
-//}
-
 version = '0.1.0'
 mainClassName = 'org.cf.sdbg.Main'
 
@@ -9,6 +5,7 @@ dependencies {
     implementation project(':smalivm')
     implementation depends.commons_cli
     implementation group: 'info.picocli', name: 'picocli-shell-jline3', version: '4.1.4'
+    implementation group: 'info.picocli', name: 'picocli-codegen', version: '4.1.4'
     implementation group: 'org.fusesource.jansi', name: 'jansi', version: '1.18'
     implementation depends.slf4j_api
     implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
@@ -40,8 +37,6 @@ task fatJar(type: Jar, dependsOn: ':smalivm:fatJar') {
     manifest {
         attributes('Main-Class': mainClassName)
     }
-//    from sourceSets.main.output
-//    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 
