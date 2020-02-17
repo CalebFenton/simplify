@@ -34,12 +34,11 @@ dependencies {
 test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
 task fatJar(type: Jar, dependsOn: ':smalivm:fatJar') {
-    from sourceSets.main.output
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-
     manifest {
         attributes('Main-Class': mainClassName)
     }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 
     doLast {
         if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
