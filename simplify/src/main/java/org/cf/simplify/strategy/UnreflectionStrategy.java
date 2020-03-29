@@ -10,9 +10,11 @@ import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.cf.util.Utils;
 import org.jf.dexlib2.AccessFlags;
+import org.jf.dexlib2.HiddenApiRestriction;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.instruction.*;
+import org.jf.dexlib2.iface.Annotation;
 import org.jf.dexlib2.iface.MethodImplementation;
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction;
 import org.jf.dexlib2.iface.reference.FieldReference;
@@ -362,7 +364,15 @@ public class UnreflectionStrategy implements OptimizationStrategy {
 
         boolean isStatic;
         BuilderField builderField =
-                manipulator.getDexBuilder().internField(className, fieldName, type, field.getModifiers(), null, null);
+        manipulator.getDexBuilder().internField(
+                    className,
+                    fieldName,
+                    type,
+                    field.getModifiers(),
+                    null,
+                    new HashSet<>(),
+                    new HashSet<>()
+        );
         FieldReference fieldRef = manipulator.getDexBuilder().internFieldReference(builderField);
 
         isStatic = Modifier.isStatic(field.getModifiers());
