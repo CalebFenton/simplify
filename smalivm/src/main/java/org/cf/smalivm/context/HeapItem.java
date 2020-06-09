@@ -90,7 +90,7 @@ public class HeapItem {
     }
 
     public String getValueType() {
-        return ClassNameUtils.toInternal(getValue().getClass());
+        return isNull() ? "null" : ClassNameUtils.toInternal(getValue().getClass());
     }
 
     @Override
