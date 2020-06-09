@@ -20,6 +20,7 @@ class ContinueCommand : DebuggerCommand() {
                 parent.out.println("execution finished")
                 break
             } else if (debugger.isAtBreakpoint) {
+                parent.out.println("hit breakpoint " + number)
                 number--
             }
         }
