@@ -1,7 +1,10 @@
 package org.cf.smalivm.dex;
 
+import com.google.common.io.CharSink;
 import com.google.common.io.Files;
 
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualClass;
@@ -45,11 +48,12 @@ public class FrameworkJarBuilder {
             System.exit(-1);
         }
 
+        String cacheFileName = "src/main/resources/framework_classes.cfg";
+        CharSink cacheSink = Files.asCharSink(new File(cacheFileName), StandardCharsets.UTF_8);
         String resPath = FRAMEWORK_ROOT + "/" + args[0];
         System.out.println("Building framework cache from " + resPath);
         String cache = buildFrameworkCache(resPath);
-        String cacheFileName = "src/main/resources/framework_classes.cfg";
-        Files.asCharSink(new File(cacheFileName), Charset.forName("UTF-8")).write(cache);
+        cacheSink.write(cache);
         System.out.println("Saved cache to " + cacheFileName + " (" + cache.getBytes().length + " bytes)");
 
         String outPath = args[1];
@@ -71,11 +75,16 @@ public class FrameworkJarBuilder {
             e.printStackTrace();
         }
 
+        List<String> resourcePaths = resFiles
+            .parallelStream()
+            .map(File::getAbsolutePath)
+            .map(p -> p.substring(p.lastIndexOf(FRAMEWORK_ROOT)))
+            .sorted() // so they look nice in the output file
+            .collect(Collectors.toList());
+
         DexBuilder dexBuilder = new DexBuilder(Opcodes.getDefault());
         StringBuilder sb = new StringBuilder();
-        for (File resFile : resFiles) {
-            String absPath = resFile.getAbsolutePath();
-            String path = absPath.substring(absPath.lastIndexOf(FRAMEWORK_ROOT));
+        for (String path : resourcePaths) {
             InputStream is = FrameworkJarBuilder.class.getResourceAsStream(path);
             BuilderClassDef classDef = SmaliParser.parse(path, is, dexBuilder);
             sb.append(ReferenceUtil.getReferenceString(classDef));
