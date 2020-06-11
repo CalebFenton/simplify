@@ -9,10 +9,8 @@ import org.cf.smalivm.emulate.UnknownValuesMethod;
 import org.cf.smalivm.opcode.Op;
 
 public class java_io_PrintStream_println extends MethodStateMethod implements UnknownValuesMethod {
-
     public java_io_PrintStream_println() {
         super();
-
         // Writing bytes over any kind of IO affects state outside of the VM.
         // Set the side effect level so the optimizer knows not to remove this method call.
         level = SideEffect.Level.STRONG;
@@ -23,10 +21,7 @@ public class java_io_PrintStream_println extends MethodStateMethod implements Un
         // This is a virtual method, so register 0 contains a reference to an instance of Ljava/io/PrintStream;
         // Register 1 should have the string to print.
         HeapItem item = mState.peekParameter(1);
-        Object value = item.getValue();
-        String valueStr = (String) value;
-
-        System.out.println(valueStr);
+        String value = (String) item.getValue();
+        System.out.println(value);
     }
-
 }
