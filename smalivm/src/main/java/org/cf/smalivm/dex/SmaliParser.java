@@ -21,12 +21,12 @@ import java.util.List;
 
 public class SmaliParser {
 
-    public static final int DEFAULT_API_LEVEL = 15;
+    public static final int DEX_API_LEVEL = 28;
 
     private static final Logger log = LoggerFactory.getLogger(SmaliParser.class.getSimpleName());
 
     public static List<BuilderClassDef> parse(String path) throws Exception {
-        DexBuilder dexBuilder = new DexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
+        DexBuilder dexBuilder = new DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL));
 
         return parseFiles(new File(path), dexBuilder);
     }
@@ -59,12 +59,12 @@ public class SmaliParser {
     public static BuilderClassDef parse(String path, InputStream is, DexBuilder dexBuilder) throws RecognitionException {
         File smaliFile = new File(path);
         InputStreamReader reader = new InputStreamReader(is, Charsets.UTF_8);
-        smaliFlexLexer lexer = new smaliFlexLexer(reader, DEFAULT_API_LEVEL);
+        smaliFlexLexer lexer = new smaliFlexLexer(reader, DEX_API_LEVEL);
         lexer.setSourceFile(smaliFile);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
 
         smaliParser parser = new smaliParser(tokens);
-        parser.setApiLevel(DEFAULT_API_LEVEL);
+        parser.setApiLevel(DEX_API_LEVEL);
 
         smaliParser.smali_file_return result = parser.smali_file();
         if ((parser.getNumberOfSyntaxErrors() > 0) || (lexer.getNumberOfSyntaxErrors() > 0)) {

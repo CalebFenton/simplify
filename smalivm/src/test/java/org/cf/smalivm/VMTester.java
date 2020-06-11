@@ -75,7 +75,7 @@ public class VMTester {
     }
 
     public static DexBuilder getDexBuilder() {
-        return new DexBuilder(Opcodes.forApi(SmaliParser.DEFAULT_API_LEVEL));
+        return new DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL));
     }
 
     public static void setRegisterMock(MethodState mState, int register, Object value, String type) {

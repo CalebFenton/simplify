@@ -29,7 +29,7 @@ public class SimplifyOptions implements Serializable {
     private int maxOptimizationPasses = 100;
     private File outDexFile;
     private File outFile;
-    private int outputAPILevel = SmaliParser.DEFAULT_API_LEVEL;
+    private int outputAPILevel = SmaliParser.DEX_API_LEVEL;
     private boolean quiet;
     private boolean removeWeak = true;
     private int verbosity = 0;

@@ -33,12 +33,12 @@ public class VirtualMachineFactory {
     }
 
     public VirtualMachine build(File smaliPath) throws IOException {
-        return build(smaliPath, SmaliParser.DEFAULT_API_LEVEL, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
+        return build(smaliPath, SmaliParser.DEX_API_LEVEL, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
             DEFAULT_MAX_METHOD_VISITS, DEFAULT_MAX_EXECUTION_TIME);
     }
 
     public VirtualMachine build(String smaliPath) throws IOException {
-        return build(smaliPath, SmaliParser.DEFAULT_API_LEVEL);
+        return build(smaliPath, SmaliParser.DEX_API_LEVEL);
     }
 
     public VirtualMachine build(String smaliPath, int outputAPILevel) throws IOException {
