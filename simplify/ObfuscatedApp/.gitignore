@@ -72,4 +72,5 @@ captures/
 
 # IntelliJ
 out/
+.idea/caches/
 ### End JetBrains IDEA IntelliJ ###

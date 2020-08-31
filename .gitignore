@@ -41,6 +41,7 @@ hs_err_pid*
 
 # IntelliJ
 out/
+.idea/caches/
 ### End JetBrains IDEA IntelliJ ###
 
 # Gradle
