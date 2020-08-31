@@ -3,6 +3,7 @@
 This is an example obfuscated Android app which shows off some of the deobfuscation features of Simplify.
 
 ## Build
+
 ```bash
 ./gradlew build && cp app/build/outputs/apk/app-release-unsigned.apk ../obfuscated-app.apk
 ```
