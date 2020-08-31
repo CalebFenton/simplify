@@ -5,7 +5,7 @@ This is an example obfuscated Android app which shows off some of the deobfuscat
 ## Build
 
 ```bash
-./gradlew build && cp app/build/outputs/apk/app-release-unsigned.apk ../obfuscated-app.apk
+./gradlew build && cp app/build/outputs/apk/release/app-release-unsigned.apk ../obfuscated-app.apk
 ```
 
 ## Reflection
