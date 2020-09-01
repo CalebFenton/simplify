@@ -21,7 +21,7 @@ import java.util.List;
 
 public class SmaliParser {
 
-    public static final int DEX_API_LEVEL = 28;
+    public static final int DEX_API_LEVEL = 20;
 
     private static final Logger log = LoggerFactory.getLogger(SmaliParser.class.getSimpleName());
 
