@@ -57,8 +57,7 @@ public class FrameworkJarBuilder {
         System.out.println("Saved cache to " + cacheFileName + " (" + cache.getBytes().length + " bytes)");
 
         String outPath = args[1];
-        System.out.println("Building framework JAR");
-
+        System.out.println("Beginning class generation");
         ClassManager classManager = new ClassManagerFactory().build();
         ClassBuilder builder = new ClassBuilder(classManager);
         Set<String> classNames = buildJar(classManager, builder, outPath);
