@@ -24,31 +24,31 @@ public class VirtualMachineFactory {
         return new VirtualMachine(manager, maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime);
     }
 
-    public VirtualMachine build(File smaliPath, int outputAPILevel, int maxAddressVisits, int maxCallDepth,
+    public VirtualMachine build(File inputPath, int outputAPILevel, int maxAddressVisits, int maxCallDepth,
                     int maxMethodVisits, int maxExecutionTime) throws IOException {
         ClassManagerFactory factory = new ClassManagerFactory();
-        ClassManager manager = factory.build(smaliPath, outputAPILevel);
+        ClassManager manager = factory.build(inputPath, outputAPILevel);
 
         return new VirtualMachine(manager, maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime);
     }
 
-    public VirtualMachine build(File smaliPath) throws IOException {
-        return build(smaliPath, SmaliParser.DEX_API_LEVEL, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
+    public VirtualMachine build(File inputPath) throws IOException {
+        return build(inputPath, SmaliParser.DEX_API_LEVEL, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
             DEFAULT_MAX_METHOD_VISITS, DEFAULT_MAX_EXECUTION_TIME);
     }
 
-    public VirtualMachine build(String smaliPath) throws IOException {
-        return build(smaliPath, SmaliParser.DEX_API_LEVEL);
+    public VirtualMachine build(String inputPath) throws IOException {
+        return build(inputPath, SmaliParser.DEX_API_LEVEL);
     }
 
-    public VirtualMachine build(String smaliPath, int outputAPILevel) throws IOException {
-        return build(smaliPath, outputAPILevel, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
+    public VirtualMachine build(String inputPath, int outputAPILevel) throws IOException {
+        return build(inputPath, outputAPILevel, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
                         DEFAULT_MAX_METHOD_VISITS, DEFAULT_MAX_EXECUTION_TIME);
     }
 
-    public VirtualMachine build(String smaliPath, int outputAPILevel, int maxAddressVisits, int maxCallDepth,
+    public VirtualMachine build(String inputPath, int outputAPILevel, int maxAddressVisits, int maxCallDepth,
                     int maxMethodVisits, int maxExecutionTime) throws IOException {
-        return build(new File(smaliPath), outputAPILevel, maxAddressVisits, maxCallDepth, maxMethodVisits,
+        return build(new File(inputPath), outputAPILevel, maxAddressVisits, maxCallDepth, maxMethodVisits,
                         maxExecutionTime);
     }
 }

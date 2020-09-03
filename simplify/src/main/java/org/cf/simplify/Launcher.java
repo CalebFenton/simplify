@@ -4,7 +4,6 @@ import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.VirtualMachineFactory;
@@ -48,7 +47,7 @@ public class Launcher {
         }
     }
 
-    private static void filterSupportLibrary(Collection<String> classNames) {
+    private static void filterSupportLibraryClasses(Collection<String> classNames) {
         classNames.removeIf(name -> SUPPORT_LIBRARY_PATTERN.matcher(name).find());
     }
 
@@ -116,7 +115,7 @@ public class Launcher {
 
     private VirtualMachine vm;
 
-    public void run(String[] args) throws IOException, UnhandledVirtualException {
+    public void run(String[] args) throws IOException {
         opts = getOptions(args);
 
         setLogLevel(opts);
@@ -158,7 +157,7 @@ public class Launcher {
 
         if (!opts.includeSupportLibrary()) {
             int beforeCount = classNames.size();
-            filterSupportLibrary(classNames);
+            filterSupportLibraryClasses(classNames);
             log.info("Filtered {} support library classes", (beforeCount - classNames.size()));
         }
 
