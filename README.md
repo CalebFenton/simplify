@@ -24,7 +24,7 @@ There are three parts to the project: smalivm, simplify, and the demo app.
 2. **simplify**: Analyzes the execution graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and some peephole optimizations. These are fairly simple, but when applied together repeatedly, they'll decrypt strings, remove reflection, and greatly simplify code. It does *not* rename methods and classes.
 3. **demoapp**: Contains simple, heavily commented examples for using **smalivm** in your own project. If you're building something that needs to execute Dalvik code, check it out.
 
-## Usage
+## Usage 
 
 ```
 usage: java -jar simplify.jar <input> [options]
@@ -91,11 +91,11 @@ If building on Windows, and building fails with an error similar to:
 
 This means Gradle is unable to find a proper JDK path. Make sure the JDK is installed, set the `JAVA_HOME` environment variable to your JDK path, and make sure to close and re-open the command prompt you use to build.
 
-## Contributing
+## Contributing to us
 
 Don't be shy. I think virtual execution and deobfuscation are fascinating problems. Anyone who's interested is automatically cool and contributions are welcome, even if it's just to fix a typo. Feel free to ask questions in the issues and submit pull requests.
 
-### Reporting Issues
+### Reporting Any Issues
 
 Please include a link to the APK or DEX and the full command you're using. This makes it much easier to reproduce (and thus _fix_) your issue.
 
@@ -161,7 +161,7 @@ It can know the values of `v0`, `v1`, and `v2`. If it's sure what the values are
 
 For everything that doesn't fit cleanly into a particular category, there's peephole optimizations. This includes removing useless `check-cast` ops, replacing `Ljava/lang/String;-><init>` calls with `const-string`, and so on.
 
-## Deobfuscation Example
+## Deobfuscation Example :
 
 ### Before Optimization
 
