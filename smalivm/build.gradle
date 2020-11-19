@@ -19,7 +19,7 @@ dependencies {
     implementation depends.guava
     implementation depends.trove4j
     implementation depends.slf4j_api
-    implementation group: 'org.ow2.asm', name: 'asm', version: '6.2.1'
+    implementation group: 'org.ow2.asm', name: 'asm', version: '8.0.1'
 
     // Contains Android framework classes that should be reflected instead of virtually executed
     // E.g. android.util.Base64
