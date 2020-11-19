@@ -19,14 +19,11 @@ class android_text_TextUtils_isEmpty extends ExecutionContextMethod {
 
     @Override
     public void execute(VirtualMachine vm, Op op, ExecutionContext context) {
-        
         MethodState mState = context.getMethodState();
         CharSequence charSequence = (CharSequence) mState.peekParameter(0).getValue();
-        
-        if (charSequence == null || charSequence.length() == 0) {
-            mState.assignReturnRegister(true, RETURN_TYPE);
-        } else {
-            mState.assignReturnRegister(false, RETURN_TYPE);
-        }
+        // https://developer.android.com/reference/android/text/TextUtils#isEmpty(java.lang.CharSequence)
+        boolean isEmpty = charSequence == null || charSequence.length() == 0;
+        mState.assignReturnRegister(isEmpty, RETURN_TYPE);
     }
+
 }
