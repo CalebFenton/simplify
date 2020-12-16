@@ -11,6 +11,7 @@ import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.util.UUID;
 
 public class MethodReflectorTest {
 
@@ -100,6 +101,15 @@ public class MethodReflectorTest {
         expected.setRegisters(0, value, CommonTypes.BOOLEAN_OBJ);
 
         VMTester.test(CLASS_NAME, "initBooleanWithBoolean()V", initial, expected);
+    }
+
+    @Test
+    public void canInitUUIDWithTwoLongs() {
+        UUID uuid = new UUID(0x42L, 0x1337L);
+        initial.setRegisters(1, 0x42L, "J", 3, 0x1337L, "J");
+        expected.setRegisters(0, uuid, ClassNameUtils.toInternal(uuid.getClass()));
+
+        VMTester.test(CLASS_NAME, "initUUIDWithTwoLongs()V", initial, expected);
     }
 
     @Test

@@ -12,6 +12,16 @@
   return-void
 .end method
 
+.method public static initUUIDWithTwoLongs()V
+  .locals 5
+
+  new-instance v0, Ljava/util/UUID;
+
+  invoke-direct {v0, v1, v2, v3, v4}, Ljava/util/UUID;-><init>(JJ)V
+
+  return-void
+.end method
+
 .method public static intValueOfInteger()V
   .locals 1
 

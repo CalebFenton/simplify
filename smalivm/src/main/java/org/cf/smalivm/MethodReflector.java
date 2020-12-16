@@ -68,21 +68,20 @@ public class MethodReflector {
     }
 
     private InvocationArguments getArguments(MethodState mState) throws ClassNotFoundException {
-        int paramOffset = 0;
+        int registerOffset = 0;
+        List<String> parameterTypeNames = method.getParameterTypeNames();
         if (!method.isStatic()) {
             // First parameter in method state for non-static methods is the virtual instance for that method
             // It's not needed to reflect the actual JVM method
-            paramOffset = 1;
+            registerOffset = 1;
+            parameterTypeNames.remove(0);
         }
 
-        List<String> parameterTypeNames = method.getParameterTypeNames();
-        int size = parameterTypeNames.size() - paramOffset;
-        Object[] args = new Object[size];
-        Class<?>[] parameterTypes = new Class<?>[size];
-        int registerCount = mState.getRegisterCount();
-        for (int i = paramOffset; i < registerCount; ) {
-            HeapItem argItem = mState.peekParameter(i);
-            args[i - paramOffset] = argItem.getValue();
+        Object[] args = new Object[parameterTypeNames.size()];
+        Class<?>[] parameterTypes = new Class<?>[parameterTypeNames.size()];
+        for (int i = 0, register = registerOffset; i < parameterTypeNames.size(); i++) {
+            HeapItem argItem = mState.peekParameter(register);
+            args[i] = argItem.getValue();
 
             String parameterTypeName = parameterTypeNames.get(i);
             Class<?> parameterType;
@@ -93,10 +92,9 @@ public class MethodReflector {
                 // Also, some classes are arrays and loadClass only works for non-array, non-primitive types
                 parameterType = Class.forName(ClassNameUtils.internalToBinary(parameterTypeName));
             }
-            parameterTypes[i - paramOffset] = parameterType;
+            parameterTypes[i] = parameterType;
 
-            // Long tried every diet but is still fat and takes 2 registers. Could be thyroid.
-            i += Utils.getRegisterSize(parameterTypeName);
+            register += Utils.getRegisterSize(parameterTypeName);
         }
 
         return new InvocationArguments(args, parameterTypes);
