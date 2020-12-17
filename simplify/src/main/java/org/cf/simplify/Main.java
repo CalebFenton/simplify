@@ -1,6 +1,5 @@
 package org.cf.simplify;
 
-import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.VirtualMachineFactory;
 
 import java.io.IOException;
@@ -9,7 +8,7 @@ public class Main {
 
     private static Launcher launcher;
 
-    public static void main(String[] args) throws IOException, UnhandledVirtualException {
+    public static void main(String[] args) throws IOException {
         setupLauncher();
         launcher.run(args);
     }
