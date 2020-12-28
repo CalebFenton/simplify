@@ -9,10 +9,15 @@ buildscript {
     }
 }
 
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+}
+
 dependencies {
     api group: 'org.smali', name: 'dexlib2', version: '2.4.0'
     api group: 'org.smali', name: 'smali', version: '2.4.0'
     api group: 'org.smali', name: 'baksmali', version: '2.4.0'
+    implementation group: 'org.agrona', name: 'agrona', version: '1.9.0'
     implementation group: 'io.github.kostaskougios', name: 'cloning', version: '1.10.3'
     implementation group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
     implementation depends.commons_lang
@@ -31,6 +36,18 @@ dependencies {
     testImplementation depends.junit_compile
     testRuntimeOnly depends.junit_engine
     testRuntimeOnly depends.junit_runner
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
 }
 
 task fatJar(type: Jar) {
@@ -42,18 +59,10 @@ task updateReferenceFramework(type: JavaExec) {
     description 'Update Android reference framework artifacts. Use -PsmaliPath to specify path in resources/smali/, e.g. -PsmaliPath=android-25'
     classpath sourceSets.main.runtimeClasspath
     main = "org.cf.smalivm.dex.FrameworkJarBuilder"
-    def smaliPath = project.hasProperty('smaliPath') ?  project.getProperty('smaliPath') : 'android-25'
+    def smaliPath = project.hasProperty('smaliPath') ? project.getProperty('smaliPath') : 'android-25'
 
     args smaliPath, 'src/main/resources/framework/android-framework.jar'
 }
-
-//configurations {
-//  testArtifacts
-//}
-
-//artifacts {
-//    archives fatJar
-//}
 
 task proguard(type: ProGuardTask, dependsOn: fatJar) {
     def outFile = "${fatJar.destinationDirectory.get()}/${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion}-proguard.${fatJar.archiveExtension}"
@@ -75,3 +84,4 @@ task proguard(type: ProGuardTask, dependsOn: fatJar) {
     dontwarn
     verbose
 }
+
