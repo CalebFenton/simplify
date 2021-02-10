@@ -20,6 +20,7 @@ import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.dex.SmaliClassLoader;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerImpl;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +43,7 @@ public class java_lang_Class_forName_Test {
     @BeforeEach
     public void setUp() {
         vm = mock(VirtualMachine.class);
-        classManager = mock(ClassManager.class);
+        classManager = mock(ClassManagerImpl.class);
         when(vm.getClassManager()).thenReturn(classManager);
 
         classLoader = mock(SmaliClassLoader.class);

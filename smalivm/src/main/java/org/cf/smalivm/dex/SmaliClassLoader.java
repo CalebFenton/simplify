@@ -36,8 +36,6 @@ public class SmaliClassLoader extends URLClassLoader {
     public static void main(String[] args) throws IOException, ClassNotFoundException {
         String smaliPath = args[0];
         String className = args[1];
-//        String smaliPath = "src/main/resources/framework/smali/android-25";
-//        String className = "Landroid/view/Window$Callback;";
         ClassManager classManager = new ClassManagerFactory().build(smaliPath);
         VirtualClass virtualClass = classManager.getVirtualClass(className);
         SmaliClassLoader classLoader = new SmaliClassLoader(classManager);

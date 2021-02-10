@@ -10,8 +10,7 @@ import java.util.Set;
 public class VirtualPrimitive extends VirtualType {
 
     VirtualPrimitive(TypeReference typeReference) {
-        super(typeReference, typeReference.getType(), ClassNameUtils.internalToBinary(typeReference.getType()),
-              ClassNameUtils.internalToSource(typeReference.getType()));
+        super(typeReference, null);
     }
 
     @Override

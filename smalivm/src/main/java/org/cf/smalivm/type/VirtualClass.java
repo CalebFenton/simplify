@@ -30,8 +30,8 @@ public class VirtualClass extends VirtualType {
     private Map<String, VirtualMethod> methodDescriptorToMethod;
     private Map<String, VirtualField> fieldNameToField;
 
-    VirtualClass(BuilderClassDef classDef) {
-        super(classDef, classDef.getType(), ClassNameUtils.internalToBinary(classDef.getType()), ClassNameUtils.internalToSource(classDef.getType()));
+    VirtualClass(BuilderClassDef classDef, ClassManager classManager) {
+        super(classDef, classManager);
         this.classDef = classDef;
         methodDescriptorToMethod = null;
         fieldNameToField = null;
@@ -50,7 +50,6 @@ public class VirtualClass extends VirtualType {
 
     @Override
     public Set<VirtualClass> getImmediateAncestors() {
-        ClassManager classManager = getClassManager();
         Set<VirtualClass> parents = new HashSet<>();
         BuilderClassDef classDef = getClassDef();
         for (String classInterface : classDef.getInterfaces()) {

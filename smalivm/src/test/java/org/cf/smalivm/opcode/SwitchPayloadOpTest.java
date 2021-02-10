@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerImpl;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -56,7 +57,7 @@ public class SwitchPayloadOpTest {
         @BeforeEach
         public void setUp() {
             vm = mock(VirtualMachine.class);
-            classManager = mock(ClassManager.class);
+            classManager = mock(ClassManagerImpl.class);
             when(vm.getClassManager()).thenReturn(classManager);
 
             location = mock(MethodLocation.class);

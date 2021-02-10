@@ -1,6 +1,5 @@
 package org.cf.smalivm.type;
 
-import java.util.Arrays;
 import org.jf.dexlib2.Opcodes;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 
@@ -48,7 +47,7 @@ public class ClassManagerFactory {
      * classes.
      */
     public ClassManager build(DexBuilder dexBuilder)  {
-        return new ClassManager(dexBuilder);
+        return new ClassManagerImpl(dexBuilder);
     }
 
     public ClassManager build(File inFile, DexBuilder dexBuilder) throws IOException {
@@ -62,7 +61,7 @@ public class ClassManagerFactory {
             smaliPath = inFile;
         }
 
-        return new ClassManager(dexBuilder, smaliPath);
+        return new ClassManagerImpl(dexBuilder, smaliPath);
     }
 
     /**

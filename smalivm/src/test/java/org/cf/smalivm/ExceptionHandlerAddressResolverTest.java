@@ -11,6 +11,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import org.cf.smalivm.type.ClassManager;
+import org.cf.smalivm.type.ClassManagerImpl;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.builder.BuilderExceptionHandler;
@@ -64,7 +65,7 @@ public class ExceptionHandlerAddressResolverTest {
         ancestors = new HashSet<>(Collections.singletonList(exceptionClass2));
         when(exceptionClass3.getAncestors()).thenReturn(ancestors);
 
-        classManager = mock(ClassManager.class);
+        classManager = mock(ClassManagerImpl.class);
         when(classManager.getVirtualClass(EXCEPTION1)).thenReturn(exceptionClass1);
         when(classManager.getVirtualClass(EXCEPTION2)).thenReturn(exceptionClass2);
         when(classManager.getVirtualClass(EXCEPTION3)).thenReturn(exceptionClass3);

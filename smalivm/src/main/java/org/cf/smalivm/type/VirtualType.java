@@ -2,6 +2,7 @@ package org.cf.smalivm.type;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.reference.TypeReference;
 import org.jf.dexlib2.writer.builder.BuilderClassDef;
 import org.slf4j.Logger;
@@ -16,25 +17,18 @@ public abstract class VirtualType {
 
     private static final Logger log = LoggerFactory.getLogger(VirtualType.class.getSimpleName());
 
-    protected static ClassManager classManager;
+    protected final ClassManager classManager;
     private final TypeReference typeReference;
     private final String internalName;
     private final String binaryName;
     private final String sourceName;
 
-    VirtualType(TypeReference typeReference, String internalName, String binaryName, String sourceName) {
+    VirtualType(TypeReference typeReference, ClassManager classManager) {
         this.typeReference = typeReference;
-        this.internalName = internalName;
-        this.binaryName = binaryName;
-        this.sourceName = sourceName;
-    }
-
-    static ClassManager getClassManager() {
-        return classManager;
-    }
-
-    static void setClassManager(ClassManager classManager) {
-        VirtualType.classManager = classManager;
+        this.classManager = classManager;
+        this.internalName = typeReference.getType();
+        this.binaryName = ClassNameUtils.internalToBinary(typeReference.getType());
+        this.sourceName = ClassNameUtils.internalToSource(typeReference.getType());
     }
 
     public abstract Set<? extends VirtualType> getImmediateAncestors();

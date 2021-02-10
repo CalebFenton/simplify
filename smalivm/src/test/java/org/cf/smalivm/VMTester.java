@@ -29,6 +29,7 @@ import org.cf.smalivm.dex.SmaliParser;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
+import org.cf.smalivm.type.ClassManagerImpl;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
@@ -93,7 +94,7 @@ public class VMTester {
 
     /**
      * Create a new {@link VirtualMachine} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
-     * VirtualMachine} by reusing the same {@link ClassManager}.
+     * VirtualMachine} by reusing the same {@link ClassManagerImpl}.
      *
      * @return {@link VirtualMachine} for tests
      */
@@ -103,12 +104,12 @@ public class VMTester {
 
     /**
      * Create a new {@link VirtualMachine} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
-     * VirtualMachine} by reusing the same {@link ClassManager} by default. If {@code reloadClasses} is true, a new {@link ClassManager} is created
+     * VirtualMachine} by reusing the same {@link ClassManagerImpl} by default. If {@code reloadClasses} is true, a new {@link ClassManagerImpl} is created
      * and all classes are loaded again. This is necessary if method implementations are modified. For example, Simplify optimization strategy tests
      * modify method implementation and in order for each test to have the true method implementations, many of those tests set {@code reloadClasses}
      * to {@code true}.
      *
-     * @param reloadClasses if true, rebuild {@link ClassManager}, otherwise reuse existing
+     * @param reloadClasses if true, rebuild {@link ClassManagerImpl}, otherwise reuse existing
      * @return {@link VirtualMachine} for tests
      */
     public static VirtualMachine spawnVM(boolean reloadClasses) {

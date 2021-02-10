@@ -24,9 +24,8 @@ public class VirtualArray extends VirtualType {
     private Set<VirtualType> ancestors;
     private Map<String, VirtualArrayMethod> methodDescriptorToMethod;
 
-    VirtualArray(TypeReference typeReference) {
-        super(typeReference, typeReference.getType(), ClassNameUtils.internalToBinary(typeReference.getType()),
-              ClassNameUtils.internalToSource(typeReference.getType()));
+    VirtualArray(TypeReference typeReference, ClassManager classManager) {
+        super(typeReference, classManager);
         dimensionRank = ClassNameUtils.getDimensionCount(typeReference.getType());
     }
 
