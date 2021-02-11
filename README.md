@@ -71,7 +71,7 @@ Then, to build a single jar which contains all dependencies:
 The Simplify jar will be in `simplify/build/libs/`. You can test it's working by simplifying the provided [obfuscated example app](/simplify/ObfuscatedApp). Here's how you'd run it (you may need to change `simplify.jar`):
 
 ```bash
-java -jar simplify/build/libs/simplify.jar -it 'org/cf/obfuscated' -et 'MainActivity' simplify/obfuscated-app.apk
+java -jar simplify/build/libs/simplify.jar -it "org/cf/obfuscated" -et "MainActivity" simplify/obfuscated-app.apk
 ```
 
 To understand what's getting deobfuscated, check out [Obfuscated App's README](/simplify/ObfuscatedApp/README.md).
