@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineImpl;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.HeapItem;
@@ -42,7 +43,7 @@ public class java_lang_Class_forName_Test {
 
     @BeforeEach
     public void setUp() {
-        vm = mock(VirtualMachine.class);
+        vm = mock(VirtualMachineImpl.class);
         classManager = mock(ClassManagerImpl.class);
         when(vm.getClassManager()).thenReturn(classManager);
 

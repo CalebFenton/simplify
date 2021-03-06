@@ -21,6 +21,7 @@ import java.util.Set;
 import org.cf.smalivm.context.ClassState;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionGraphImpl;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -58,10 +59,10 @@ public class VMTester {
         return execute(vm, className, methodDescriptor, new VMState());
     }
 
-    public static ExecutionGraph execute(VirtualMachine vm, String className, String methodDescriptor, VMState state) {
+    public static ExecutionGraphImpl execute(VirtualMachine vm, String className, String methodDescriptor, VMState state) {
         String methodSignature = className + "->" + methodDescriptor;
         ExecutionContext context = buildInitializedContext(vm, methodSignature, state);
-        ExecutionGraph graph = null;
+        ExecutionGraphImpl graph = null;
         try {
             graph = vm.execute(context);
         } catch (VirtualMachineException e) {
@@ -93,24 +94,24 @@ public class VMTester {
     }
 
     /**
-     * Create a new {@link VirtualMachine} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
-     * VirtualMachine} by reusing the same {@link ClassManagerImpl}.
+     * Create a new {@link VirtualMachineImpl} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
+     * VirtualMachineImpl} by reusing the same {@link ClassManagerImpl}.
      *
-     * @return {@link VirtualMachine} for tests
+     * @return {@link VirtualMachineImpl} for tests
      */
     public static VirtualMachine spawnVM() {
         return spawnVM(false);
     }
 
     /**
-     * Create a new {@link VirtualMachine} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
-     * VirtualMachine} by reusing the same {@link ClassManagerImpl} by default. If {@code reloadClasses} is true, a new {@link ClassManagerImpl} is created
+     * Create a new {@link VirtualMachineImpl} for testing. Since this is heavily used, it tries to avoid the main cost of creating a {@link
+     * VirtualMachineImpl} by reusing the same {@link ClassManagerImpl} by default. If {@code reloadClasses} is true, a new {@link ClassManagerImpl} is created
      * and all classes are loaded again. This is necessary if method implementations are modified. For example, Simplify optimization strategy tests
      * modify method implementation and in order for each test to have the true method implementations, many of those tests set {@code reloadClasses}
      * to {@code true}.
      *
      * @param reloadClasses if true, rebuild {@link ClassManagerImpl}, otherwise reuse existing
-     * @return {@link VirtualMachine} for tests
+     * @return {@link VirtualMachineImpl} for tests
      */
     public static VirtualMachine spawnVM(boolean reloadClasses) {
         if ((null == classManager) || reloadClasses) {

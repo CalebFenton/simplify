@@ -15,13 +15,13 @@ public class VirtualMachineFactory {
     private static final int DEFAULT_MAX_METHOD_VISITS = 1_000_000;
 
     public VirtualMachine build(ClassManager manager) {
-        return new VirtualMachine(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
-                        DEFAULT_MAX_METHOD_VISITS, DEFAULT_MAX_EXECUTION_TIME);
+        return new VirtualMachineImpl(manager, DEFAULT_MAX_ADDRESS_VISITS, DEFAULT_MAX_CALL_DEPTH,
+                                      DEFAULT_MAX_METHOD_VISITS, DEFAULT_MAX_EXECUTION_TIME);
     }
 
     public VirtualMachine build(ClassManager manager, int maxAddressVisits, int maxCallDepth, int maxMethodVisits,
                     int maxExecutionTime) {
-        return new VirtualMachine(manager, maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime);
+        return new VirtualMachineImpl(manager, maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime);
     }
 
     public VirtualMachine build(File inputPath, int outputAPILevel, int maxAddressVisits, int maxCallDepth,
@@ -29,7 +29,7 @@ public class VirtualMachineFactory {
         ClassManagerFactory factory = new ClassManagerFactory();
         ClassManager manager = factory.build(inputPath, outputAPILevel);
 
-        return new VirtualMachine(manager, maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime);
+        return new VirtualMachineImpl(manager, maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime);
     }
 
     public VirtualMachine build(File inputPath) throws IOException {

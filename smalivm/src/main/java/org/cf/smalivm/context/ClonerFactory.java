@@ -4,6 +4,7 @@ import com.rits.cloning.Cloner;
 import com.rits.cloning.ObjenesisInstantiationStrategy;
 
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
@@ -28,15 +29,13 @@ class ClonerFactory {
      * The reason there is some ClassManager related caching is to speed up tests, i.e. to prevent having to read
      * configuration, create classes, and create a new cloner for every test.
      */
-    static Cloner build(VirtualMachine vm) {
-        ClassManager classManager = vm.getClassManager();
+    static Cloner instance(ClassManager classManager, ClassLoader classLoader, Configuration configuration) {
         Cloner cloner = cache.get(classManager);
         if (cloner != null) {
             return cloner;
         }
 
-        Set<String> immutableClasses = vm.getConfiguration().getImmutableClasses();
-        ClassLoader classLoader = vm.getClassLoader();
+        Set<String> immutableClasses = configuration.getImmutableClasses();
 
         cloner = new Cloner(new ObjenesisInstantiationStrategy());
         for (String immutableClass : immutableClasses) {

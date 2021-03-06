@@ -11,6 +11,7 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineImpl;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerImpl;
 import org.jf.dexlib2.Opcode;
@@ -56,7 +57,7 @@ public class SwitchPayloadOpTest {
 
         @BeforeEach
         public void setUp() {
-            vm = mock(VirtualMachine.class);
+            vm = mock(VirtualMachineImpl.class);
             classManager = mock(ClassManagerImpl.class);
             when(vm.getClassManager()).thenReturn(classManager);
 

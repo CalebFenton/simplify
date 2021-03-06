@@ -4,6 +4,7 @@ import org.cf.smalivm.context.*;
 import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm2.ExecutionNode;
 
 public class MethodExecutorFactory {
     private final VirtualMachine vm;
@@ -59,8 +60,8 @@ public class MethodExecutorFactory {
         VirtualMethod virtualMethod = calleeContext.getMethod();
         calleeContext.staticallyInitializeClassIfNecessary(virtualMethod.getDefiningClass());
 
-        ExecutionGraph graph = vm.spawnInstructionGraph(virtualMethod);
-        ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
+        ExecutionGraphImpl graph = vm.spawnInstructionGraph(virtualMethod);
+        org.cf.smalivm2.ExecutionNode rootNode = new ExecutionNode(graph.getRoot());
         rootNode.setContext(calleeContext);
         graph.addNode(rootNode);
 

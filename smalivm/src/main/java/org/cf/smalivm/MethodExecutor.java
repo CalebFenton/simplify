@@ -1,6 +1,7 @@
 package org.cf.smalivm;
 
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionGraphImpl;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.UnhandledVirtualException;
 import org.cf.smalivm.exception.VirtualMachineException;
@@ -18,9 +19,9 @@ public class MethodExecutor {
 
     private final Deque<ExecutionNode> stack;
     private final NodeExecutor nodeExecutor;
-    private final ExecutionGraph graph;
+    private final ExecutionGraphImpl graph;
 
-    public MethodExecutor(ClassManager classManager, ExecutionGraph graph) {
+    public MethodExecutor(ClassManager classManager, ExecutionGraphImpl graph) {
         this.graph = graph;
 
         nodeExecutor = new NodeExecutor(graph, classManager);
@@ -61,7 +62,7 @@ public class MethodExecutor {
         return getExecutionGraph().getMethod();
     }
 
-    public ExecutionGraph getExecutionGraph() {
+    public ExecutionGraphImpl getExecutionGraph() {
         return graph;
     }
 

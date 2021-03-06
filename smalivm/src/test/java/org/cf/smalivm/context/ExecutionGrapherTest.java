@@ -49,7 +49,7 @@ public class ExecutionGrapherTest {
         VirtualMethod localMethod = mock(VirtualMethod.class);
         when(localMethod.toString()).thenReturn(METHOD_SIGNATURE);
 
-        ExecutionGraph graph = mock(ExecutionGraph.class);
+        ExecutionGraphImpl graph = mock(ExecutionGraphImpl.class);
         when(graph.getRoot()).thenReturn(root);
         when(graph.getMethod()).thenReturn(localMethod);
         when(graph.getNodeIndex(root)).thenReturn(0);

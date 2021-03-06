@@ -36,7 +36,7 @@ public class ExecutionContext {
     public ExecutionContext(VirtualMachine vm, VirtualMethod method) {
         this.vm = vm;
         this.method = method;
-        Cloner cloner = ClonerFactory.build(vm);
+        Cloner cloner = ClonerFactory.instance(vm.getClassManager(), vm.getClassLoader(), vm.getConfiguration());
         heap = new Heap(cloner);
         callDepth = 0;
 

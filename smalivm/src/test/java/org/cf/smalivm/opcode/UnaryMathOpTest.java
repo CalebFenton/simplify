@@ -13,6 +13,7 @@ import gnu.trove.map.hash.TIntObjectHashMap;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineImpl;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -504,7 +505,7 @@ public class UnaryMathOpTest {
 
         @BeforeEach
         public void setUp() {
-            vm = mock(VirtualMachine.class);
+            vm = mock(VirtualMachineImpl.class);
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
             item = mock(HeapItem.class);

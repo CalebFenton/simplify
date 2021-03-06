@@ -7,7 +7,7 @@ public class ExecutionGrapher {
 
     private final static String DOT = "[^a-zA-Z\200-\377_0-9\\s\\p{Punct}]";
 
-    public static String graph(ExecutionGraph graph) {
+    public static String graph(ExecutionGraphImpl graph) {
         ExecutionNode node = graph.getRoot();
         StringBuilder sb = new StringBuilder("digraph {\n");
         getGraph(node, graph, sb, new ArrayList<>());
@@ -18,8 +18,8 @@ public class ExecutionGrapher {
         return sb.toString();
     }
 
-    private static void getGraph(ExecutionNode node, ExecutionGraph graph, StringBuilder sb,
-                    List<ExecutionNode> visitedNodes) {
+    private static void getGraph(ExecutionNode node, ExecutionGraphImpl graph, StringBuilder sb,
+                                 List<ExecutionNode> visitedNodes) {
         if (visitedNodes.contains(node)) {
             return;
         }
@@ -33,7 +33,7 @@ public class ExecutionGrapher {
         }
     }
 
-    private static StringBuilder getNodeState(ExecutionNode node, ExecutionGraph graph) {
+    private static StringBuilder getNodeState(ExecutionNode node, ExecutionGraphImpl graph) {
         MethodState state = node.getContext().getMethodState();
         String op = node.toString().replaceAll(DOT, "?").replace("\"", "\\\"");
         String stateStr = state.toString().replaceAll(DOT, "?").replace("\"", "\\\"").trim();

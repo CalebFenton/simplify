@@ -13,6 +13,7 @@ import org.cf.smalivm.ExceptionFactory;
 import org.cf.smalivm.VMState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineImpl;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UnknownValue;
@@ -977,7 +978,7 @@ public class BinaryMathOpTest {
 
         @BeforeEach
         public void setUp() {
-            vm = mock(VirtualMachine.class);
+            vm = mock(VirtualMachineImpl.class);
             mState = mock(MethodState.class);
             node = mock(ExecutionNode.class);
             location = mock(MethodLocation.class);

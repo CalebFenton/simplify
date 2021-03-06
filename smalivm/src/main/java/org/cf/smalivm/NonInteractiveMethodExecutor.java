@@ -3,6 +3,7 @@ package org.cf.smalivm;
 import gnu.trove.map.TIntIntMap;
 import gnu.trove.map.hash.TIntIntHashMap;
 import org.cf.smalivm.context.ExecutionGraph;
+import org.cf.smalivm.context.ExecutionGraphImpl;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.exception.*;
 import org.cf.smalivm.type.ClassManager;
@@ -22,7 +23,7 @@ public class NonInteractiveMethodExecutor extends MethodExecutor {
     private final int maxExecutionTime;
     private int totalVisits;
 
-    NonInteractiveMethodExecutor(ClassManager classManager, ExecutionGraph graph, int maxCallDepth, int maxAddressVisits, int maxMethodVisits, int maxExecutionTime) {
+    NonInteractiveMethodExecutor(ClassManager classManager, ExecutionGraphImpl graph, int maxCallDepth, int maxAddressVisits, int maxMethodVisits, int maxExecutionTime) {
         super(classManager, graph);
         this.maxCallDepth = maxCallDepth;
         this.maxAddressVisits = maxAddressVisits;

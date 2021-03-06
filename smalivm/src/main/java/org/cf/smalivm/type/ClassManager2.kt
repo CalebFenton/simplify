@@ -1,5 +1,6 @@
 package org.cf.smalivm.type
 
+import org.cf.smalivm2.VirtualMachine2
 import org.cf.smalivm.dex.SmaliFile
 import org.cf.smalivm.dex.SmaliFileFactory
 import org.cf.smalivm.dex.SmaliParser
@@ -16,8 +17,8 @@ import java.util.stream.Collectors
 
 // TODO: EASY - once the interface is removed, can make these vals again and use implicit getters
 class ClassManager2(
-    val inFile: File?,
-    val outputAPILevel: Int = SmaliParser.DEX_API_LEVEL,
+    val inputPath: File?,
+    val outputAPILevel: Int = VirtualMachine2.DEFAULT_OUTPUT_API_LEVEL,
     private val dexBuilder: DexBuilder = DexBuilder(Opcodes.forApi(outputAPILevel))
 ) : ClassManager {
     private val log = LoggerFactory.getLogger(ClassManager2::class.java.simpleName)
@@ -33,25 +34,25 @@ class ClassManager2(
 
     init {
 
-        if (inFile != null) {
-            val smaliPath: File = if (inFile.isFile) disassemble(inFile) else inFile
+        if (inputPath != null) {
+            val smaliPath: File = if (inputPath.isFile) disassemble(inputPath) else inputPath
             cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath))
         } else {
             cacheSmaliFiles(smaliFileFactory.smaliFiles)
         }
     }
 
-    constructor(inFile: File, dexBuilder: DexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))) : this(
-        inFile = null,
+    constructor(inputPath: File, dexBuilder: DexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))) : this(
+        inputPath = null,
         dexBuilder = dexBuilder
     ) {
-        if (!inFile.exists()) {
-            throw RuntimeException("Input Smali path does not exist: $inFile")
+        if (!inputPath.exists()) {
+            throw RuntimeException("Input Smali path does not exist: $inputPath")
         }
-        val smaliPath: File = if (inFile.isFile) {
-            disassemble(inFile)
+        val smaliPath: File = if (inputPath.isFile) {
+            disassemble(inputPath)
         } else {
-            inFile
+            inputPath
         }
         cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath))
     }
@@ -117,7 +118,7 @@ class ClassManager2(
         return getMethod(className, methodDescriptor)
     }
 
-    override fun getMethod(className: String?, methodDescriptor: String?): VirtualMethod? {
+    override fun getMethod(className: String, methodDescriptor: String): VirtualMethod? {
         val virtualClass: VirtualType? = getVirtualClass(className)
         return virtualClass!!.getMethod(methodDescriptor)
     }
@@ -137,14 +138,17 @@ class ClassManager2(
         return nonFrameworkClassNames
     }
 
-    override fun getVirtualClass(klazz: Class<*>?): VirtualClass? {
+    // todo: easy - either getVirtualMethod or getClass, make consistent
+    override fun getVirtualClass(klazz: Class<*>): VirtualClass? {
         return getVirtualClass(ClassNameUtils.toInternal(klazz))
     }
 
-    override fun getVirtualClass(className: String?): VirtualClass? {
+    override fun getVirtualClass(className: String): VirtualClass? {
         return getVirtualType(className) as VirtualClass?
     }
 
+    // todo: Should this thrown an exception ONLY for non-existent types? Or let the caller deal with it.
+    // OR throw exceptions for missing classes also (probably best)
     override fun getVirtualType(typeReference: TypeReference): VirtualType? {
         val first = typeReference[0]
         return when {

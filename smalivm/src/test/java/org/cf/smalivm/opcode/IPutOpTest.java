@@ -12,6 +12,7 @@ import static org.mockito.Mockito.withSettings;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.VirtualMachineImpl;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.HeapItem;
@@ -53,7 +54,7 @@ public class IPutOpTest {
 
     @BeforeEach
     public void setUp() {
-        vm = mock(VirtualMachine.class);
+        vm = mock(VirtualMachineImpl.class);
         ectx = mock(ExecutionContext.class);
         mState = mock(MethodState.class);
         when(ectx.getMethodState()).thenReturn(mState);

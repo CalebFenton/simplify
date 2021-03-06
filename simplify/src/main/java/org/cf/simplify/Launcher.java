@@ -5,9 +5,9 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.cf.smalivm.VirtualMachine;
+import org.cf.smalivm.context.ExecutionGraphImpl;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.VirtualMachineFactory;
-import org.cf.smalivm.context.ExecutionGraph;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
@@ -189,7 +189,7 @@ public class Launcher {
             boolean executeAgain;
             do {
                 System.out.println("(" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + ") Executing top level method: " + method);
-                ExecutionGraph graph = null;
+                ExecutionGraphImpl graph = null;
                 try {
                     graph = vm.execute(method);
                 } catch (VirtualMachineException e) {

@@ -1,7 +1,7 @@
 package org.cf.sdbg.command
 
 import org.cf.sdbg.writeTo2
-import org.cf.smalivm.context.ExecutionGraph
+import org.cf.smalivm.context.ExecutionGraphImpl
 import org.cf.util.ClassNameUtils
 import org.cf.util.ClassNameUtils.ReferenceType
 import org.jf.baksmali.Adaptors.ClassDefinition
@@ -52,7 +52,7 @@ class ListCommand : DebuggerCommand() {
         }
     }
 
-    private fun printMethod(graph: ExecutionGraph, start: Int, stop: Int) {
+    private fun printMethod(graph: ExecutionGraphImpl, start: Int, stop: Int) {
         val smaliLines = graph.toSmali(true).split('\n')
         val realStop = if (start == stop) stop + 1 else min(stop, smaliLines.size)
         val method = graph.method
