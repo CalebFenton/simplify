@@ -1,81 +1,119 @@
 package org.cf.smalivm2
 
+import com.rits.cloning.Cloner
 import org.apache.commons.lang3.builder.EqualsBuilder
 import org.apache.commons.lang3.builder.HashCodeBuilder
-import org.cf.smalivm.context.ClassState
-import org.cf.smalivm.context.ExecutionContext
-import org.cf.smalivm.context.HeapItem
-import org.cf.smalivm.context.MethodState
-import org.cf.smalivm.type.VirtualField
-import org.cf.util.ClassNameUtils
+import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.context.*
+import org.cf.smalivm.context.ClonerFactory
+import org.cf.smalivm.opcode.Op
+import org.cf.smalivm.type.*
+import org.cf.util.Utils
+import org.jf.dexlib2.iface.instruction.*
 import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.collections.HashMap
 
-data class Value(val value: Any?, val type: String, val id: ByteArray) {
-    companion object {
-        fun wrap(value: Any?): Value {
-            return wrap(value, ClassNameUtils.toInternal(value.javaClass))
-        }
+class ExecutionState(
+    val cloner: Cloner,
+    val registerCount: Int,
+    val parameterCount: Int = 0,
+    val parameterSize: Int = 0,
+    val fieldCount: Int = 0,
+    initializedClassesSize: Int = 0,
+    registersAssignedSize: Int = 0,
+    registersReadSize: Int = 0
+) {
+    // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
+    protected val values = HashMap<String, Value>(registerCount + fieldCount)
+    protected val initializedClasses = HashSet<String>(initializedClassesSize)
+    protected val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
+    protected val registersRead: MutableSet<Int> = HashSet<Int>(registersReadSize)
+    lateinit var node: ExecutionNode
 
-        fun wrap(value: Any?, type: String): Value {
-            val id = ByteArray(4)
-            Random().nextBytes(id)
-            return Value(value, type, id)
-        }
-
-        private fun wrap(other: Value): Value {
-            return Value(other.value, other.type, other.id)
-        }
-    }
-
-    fun hasSameID(other: Value): Boolean {
-        return id.contentEquals(other.id)
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Value
-
-        if (value != other.value) return false
-        if (type != other.type) return false
-        if (!id.contentEquals(other.id)) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = value.hashCode()
-        result = 31 * result + type.hashCode()
-        result = 31 * result + id.contentHashCode()
-        return result
-    }
-}
-
-class ExecutionState(val registerCount: Int, val parameterCount: Int = 0, val parameterSize: Int = 0, val fieldCount: Int = 0, initializedClassesSize: Int = 0, val multiverseId: ByteArray = ByteArray(4)) {
-    val values = HashMap<String, Value>(registerCount + fieldCount)
-    val initializedClasses = HashSet<String>(initializedClassesSize)
-    private val registersAssigned: MutableSet<Int> = HashSet<Int>(0)
-    private val registersRead: MutableSet<Int> = HashSet<Int>(0)
-    var node: ExecutionNode? = null
-
-    init {
-        if (multiverseId.contentEquals(byteArrayOf(0x00, 0x00, 0x00, 0x00))) {
-            getNewId(multiverseId)
-        }
-    }
 
     companion object {
         private val log = LoggerFactory.getLogger(ExecutionState::class.java.simpleName)
-        private val rnd = Random()
 
-        fun getNewId(multiverseId: ByteArray) {
-            rnd.nextBytes(multiverseId)
+        fun build(method: VirtualMethod, op: Op, classManager: ClassManager, classLoader: ClassLoader, configuration: Configuration): ExecutionState {
+            if (!method.hasImplementation()) {
+                // Native or abstract methods have no implementation. Shouldn't be executing them.
+                throw IllegalArgumentException("No implementation for $method");
+            }
+
+            val cloner = ClonerFactory.instance(classManager, classLoader, configuration)
+            val registerCount = method.registerCount
+            val parameterTypeNames = method.parameterTypeNames
+            val parameterCount = parameterTypeNames.size
+            val parameterSize = Utils.getRegisterSize(parameterTypeNames)
+            val firstParameterRegister = registerCount - parameterSize
+            val fieldCount = method.definingClass.fields.size
+
+            // TODO: every op should know how many registers it reads and assigns. It can't be inferred from interfaces
+            // and depends on the specific op. Once that's added, states can know exactly how big to make certain internal
+            // data structures and save on initializationk
+            val instr = op.instruction
+            val registersRead = when (instr) {
+                is OneRegisterInstruction -> 1
+                is TwoRegisterInstruction -> 2
+                is ThreeRegisterInstruction -> 3
+                is FiveRegisterInstruction -> 5
+                is VariableRegisterInstruction -> (instr as VariableRegisterInstruction).registerCount
+                else -> 0
+            }
+
+            val state = ExecutionState(cloner, registerCount, parameterCount, parameterSize, fieldCount)
+
+            val currentRegister = firstParameterRegister
+            for ( typeName in method.parameterTypeNames) {
+                val value = if (currentRegister == firstParameterRegister && !method.isStatic && method.name == "<init>") {
+                    val instance = UninitializedInstance(method.definingClass)
+                    Value.wrap(instance, typeName)
+                } else {
+                    Value.wrap(UnknownValue(), typeName)
+                }
+                state.
+            }
+            for (VirtualField field : virtualClass.getFields()) {
+                Object value = field.getInitialValue();
+                String type = field.getType();
+                cState.pokeField(field, new HeapItem(value, type));
+            }
+
+//        VirtualMethod method = context.getMethod();
+//        int registerCount = method.getRegisterCount();
+//        List<String> parameterTypes = method.getParameterTypeNames();
+//        int parameterSize = Utils.getRegisterSize(parameterTypes);
+            MethodState mState = new MethodState(context, registerCount, parameterTypes.size(), parameterSize);
+            int firstParameter = mState.getParameterStart();
+            int parameterRegister = firstParameter;
+
+            for (String type : parameterTypes) {
+                HeapItem item;
+                if (parameterRegister == firstParameter && !method.isStatic() && method.getName().equals("<init>")) {
+                    UninitializedInstance instance = new UninitializedInstance(method.getDefiningClass());
+                    item = new HeapItem(instance, type);
+                } else {
+                    item = HeapItem.newUnknown(type);
+                }
+                mState.assignParameter(parameterRegister, item);
+                parameterRegister += Utils.getRegisterSize(type);
+            }
+
+            return mState;
+//        ExecutionContext spawnedContext = new ExecutionContext(this, method);
+//        ClassState templateClassState = TemplateStateFactory.forClass(spawnedContext, method.getDefiningClass());
+//        spawnedContext.setClassState(templateClassState);
+//
+//        MethodState templateMethodState = TemplateStateFactory.forMethod(spawnedContext);
+//        spawnedContext.setMethodState(templateMethodState);
+//
+//        if (callerContext != null) {
+//            spawnedContext.registerCaller(callerContext, callerAddress);
+//        }
+
         }
     }
-
 
     fun wasRegisterAssigned(register: Int): Boolean {
         return registersAssigned.contains(register)
@@ -84,7 +122,7 @@ class ExecutionState(val registerCount: Int, val parameterCount: Int = 0, val pa
     fun assignRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
         registersAssigned.add(register)
         if (updateIdentities) {
-            node.value
+            node.value heap update identities
         } else {
             pokeRegister(register, value)
         }
@@ -127,7 +165,7 @@ class ExecutionState(val registerCount: Int, val parameterCount: Int = 0, val pa
         context.heap[heapId, register] = item
     }
 
-    fun readRegister(register: Int, heapId: String?): HeapItem {
+    public fun readRegister(register: Int, heapId: String?): HeapItem {
         registersRead.add(register)
         return peekRegister(register, heapId)
     }

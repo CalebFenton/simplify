@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.ExceptionFactory
+import ExceptionFactory
 import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.context.HeapItem
 import org.cf.smalivm.context.MethodState
@@ -15,12 +15,22 @@ import org.slf4j.LoggerFactory
 import java.lang.reflect.Array
 
 class AGetOp internal constructor(
-    location: MethodLocation, child: MethodLocation?, private val valueRegister: Int, private val arrayRegister: Int, private val indexRegister: Int,
+    location: MethodLocation,
+    child: MethodLocation,
+    private val valueRegister: Int,
+    private val arrayRegister: Int,
+    private val indexRegister: Int,
     private val exceptionFactory: ExceptionFactory
-) : MethodStateOp(location, child) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
-        val arrayItem = mState.readRegister(arrayRegister)
-        val indexItem = mState.readRegister(indexRegister)
+) : Op(location, child) {
+
+    init {
+        exceptions.add(exceptionFactory.build(this, NullPointerException::class.java))
+        exceptions.add(exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java))
+    }
+
+    override fun execute(node: ExecutionNode, state: ExecutionState) {
+        val arrayItem = state.readRegister(arrayRegister)
+        val indexItem = state.readRegister(indexRegister)
         val getItem: HeapItem
         if (arrayItem.isUnknown) {
             val innerType = getUnknownArrayInnerType(arrayItem)
@@ -56,20 +66,16 @@ class AGetOp internal constructor(
         mState.assignRegister(valueRegister, getItem)
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        TODO("Not yet implemented")
-    }
-
     override fun toString(): String {
         return "$name r$valueRegister, r$arrayRegister, r$indexRegister"
     }
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(AGetOp::class.java.simpleName)
+
         private fun getUnknownArrayInnerType(array: HeapItem): String {
             val outerType = array.type
-            val result: String
-            result = if (CommonTypes.UNKNOWN == outerType) {
+            val result: String = if (CommonTypes.UNKNOWN == outerType) {
                 CommonTypes.UNKNOWN
             } else {
                 outerType.replaceFirst("\\[".toRegex(), "")
@@ -77,7 +83,12 @@ class AGetOp internal constructor(
             return result
         }
 
-        override fun create(location: MethodLocation, addressToLocation: Map<Int, MethodLocation>, classManager: ClassManager, exceptionFactory: ExceptionFactory): Op {
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory
+        ): Op {
             val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction23x
             val valueRegister = instr.registerA
@@ -85,11 +96,5 @@ class AGetOp internal constructor(
             val indexRegister = instr.registerC
             return AGetOp(location, child, valueRegister, arrayRegister, indexRegister, exceptionFactory)
         }
-
-    }
-
-    init {
-        exceptions.add(exceptionFactory.build(this, NullPointerException::class.java))
-        exceptions.add(exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java))
     }
 }

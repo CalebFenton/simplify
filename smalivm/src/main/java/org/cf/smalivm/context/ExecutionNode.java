@@ -28,6 +28,7 @@ public class ExecutionNode {
 
     public ExecutionNode(ExecutionNode other) {
         op = other.op;
+        List l = new ArrayList<? extends Op>()
         children = new ArrayList<>(other.getChildren());
     }
 

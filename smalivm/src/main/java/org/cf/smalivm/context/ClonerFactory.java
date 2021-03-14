@@ -14,7 +14,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-class ClonerFactory {
+// TODO: make this package private once everything is reorganized
+public class ClonerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(ClonerFactory.class.getSimpleName());
 
@@ -29,7 +30,8 @@ class ClonerFactory {
      * The reason there is some ClassManager related caching is to speed up tests, i.e. to prevent having to read
      * configuration, create classes, and create a new cloner for every test.
      */
-    static Cloner instance(ClassManager classManager, ClassLoader classLoader, Configuration configuration) {
+    // TODO: make package private once everything's done refactoring
+    public static Cloner instance(ClassManager classManager, ClassLoader classLoader, Configuration configuration) {
         Cloner cloner = cache.get(classManager);
         if (cloner != null) {
             return cloner;

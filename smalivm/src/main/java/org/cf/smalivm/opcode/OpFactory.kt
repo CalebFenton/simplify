@@ -5,5 +5,5 @@ import org.jf.dexlib2.builder.MethodLocation
 
 interface OpFactory {
 
-    fun create(location: MethodLocation, addressToLocation: Map<Int, MethodLocation>, classManager: ClassManager, exceptionFactory: ExceptionFactory): Op
+    fun build(location: MethodLocation, addressToLocation: Map<Int, MethodLocation>, classManager: ClassManager, exceptionFactory: ExceptionFactory): Op
 }
