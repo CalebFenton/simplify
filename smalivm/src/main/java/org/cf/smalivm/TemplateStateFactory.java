@@ -12,6 +12,7 @@ import org.cf.util.Utils;
 
 import java.util.List;
 
+// TODO: this can be deleted after refactoring. state knows how to build itself.
 public class TemplateStateFactory {
 
     public static MethodState forMethod(ExecutionContext context) {

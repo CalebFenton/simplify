@@ -8,8 +8,8 @@ import org.jf.dexlib2.iface.reference.MethodReference
 import org.jf.dexlib2.iface.reference.TypeReference
 import java.util.*
 
-abstract class BaseNode(val op: Op, val state: ExecutionState) {
-    val children: MutableList<BaseNode>
+abstract class ExecutionNode(val op: Op, val state: ExecutionState, val parent: ExecutionNode? = null) {
+    val children: MutableList<ExecutionNode>
     val literalClassReferences: Set<String>
     open val initializedClasses: MutableSet<String> = HashSet(0)
 
@@ -55,13 +55,13 @@ abstract class BaseNode(val op: Op, val state: ExecutionState) {
     }
 }
 
-class ExecutionNode(op: Op, state: ExecutionState, val parent: BaseNode) : BaseNode(op, state) {
-    override val initializedClasses: MutableSet<String> = HashSet(0)
-}
-
-class EntrpointNode(op: Op, state: ExecutionState) : BaseNode(op, state) {
-    override val initializedClasses: MutableSet<String> = HashSet()
-
+//class ExecutionNode(op: Op, state: ExecutionState, val parent: BaseNode) : BaseNode(op, state) {
+//    override val initializedClasses: MutableSet<String> = HashSet(0)
+//}
+//
+//class EntrypointNode(op: Op, state: ExecutionState) : BaseNode(op, state) {
+//    override val initializedClasses: MutableSet<String> = HashSet()
+//
 //        val instr = this.op.instruction
 //        val valuesCapacity = when (instr) {
 //            is OneRegisterInstruction -> 1
@@ -71,5 +71,5 @@ class EntrpointNode(op: Op, state: ExecutionState) : BaseNode(op, state) {
 //            is VariableRegisterInstruction -> (instr as VariableRegisterInstruction).registerCount
 //            else -> 0
 //        }
-}
+//}
 

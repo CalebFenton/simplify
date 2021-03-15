@@ -1,13 +1,13 @@
 package org.cf.smalivm2
 
 import com.rits.cloning.Cloner
-import org.apache.commons.lang3.builder.EqualsBuilder
-import org.apache.commons.lang3.builder.HashCodeBuilder
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.*
 import org.cf.smalivm.context.ClonerFactory
+import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.opcode.Op
-import org.cf.smalivm.type.*
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm.type.VirtualField
+import org.cf.smalivm.type.VirtualMethod
 import org.cf.util.Utils
 import org.jf.dexlib2.iface.instruction.*
 import org.slf4j.LoggerFactory
@@ -22,22 +22,31 @@ class ExecutionState(
     val fieldCount: Int = 0,
     initializedClassesSize: Int = 0,
     registersAssignedSize: Int = 0,
-    registersReadSize: Int = 0
+    registersReadSize: Int = 0,
+    mutableParametersSize: Int = 0
 ) {
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
     protected val values = HashMap<String, Value>(registerCount + fieldCount)
     protected val initializedClasses = HashSet<String>(initializedClassesSize)
     protected val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
     protected val registersRead: MutableSet<Int> = HashSet<Int>(registersReadSize)
-    lateinit var node: ExecutionNode
+    protected val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
+    protected val firstParameterRegister = registerCount - parameterSize
 
+    var node: ExecutionNode? = null
 
     companion object {
         private val log = LoggerFactory.getLogger(ExecutionState::class.java.simpleName)
 
+        const val ResultRegister = -1
+        const val ReturnRegister = -2
+        const val ReturnAddressRegister = -3
+        const val ThrowRegister = -4
+        const val ExceptionRegister = -5
+
         fun build(method: VirtualMethod, op: Op, classManager: ClassManager, classLoader: ClassLoader, configuration: Configuration): ExecutionState {
             if (!method.hasImplementation()) {
-                // Native or abstract methods have no implementation. Shouldn't be executing them.
+                // May be native or abstract and thus no implementation and thus shouldn't execute
                 throw IllegalArgumentException("No implementation for $method");
             }
 
@@ -51,7 +60,7 @@ class ExecutionState(
 
             // TODO: every op should know how many registers it reads and assigns. It can't be inferred from interfaces
             // and depends on the specific op. Once that's added, states can know exactly how big to make certain internal
-            // data structures and save on initializationk
+            // data structures and save on initialization costs on first use
             val instr = op.instruction
             val registersRead = when (instr) {
                 is OneRegisterInstruction -> 1
@@ -62,57 +71,42 @@ class ExecutionState(
                 else -> 0
             }
 
-            val state = ExecutionState(cloner, registerCount, parameterCount, parameterSize, fieldCount)
+            val state = ExecutionState(cloner, registerCount, parameterCount, parameterSize, fieldCount, 0, 0, registersRead)
 
-            val currentRegister = firstParameterRegister
-            for ( typeName in method.parameterTypeNames) {
+            var currentRegister = firstParameterRegister
+            for (typeName in method.parameterTypeNames) {
                 val value = if (currentRegister == firstParameterRegister && !method.isStatic && method.name == "<init>") {
-                    val instance = UninitializedInstance(method.definingClass)
-                    Value.wrap(instance, typeName)
+                    // Use defining class instead of typeName as it should be more specific
+                    Value.uninitializedInstance(method.definingClass)
                 } else {
-                    Value.wrap(UnknownValue(), typeName)
+                    Value.unknown(typeName)
                 }
-                state.
-            }
-            for (VirtualField field : virtualClass.getFields()) {
-                Object value = field.getInitialValue();
-                String type = field.getType();
-                cState.pokeField(field, new HeapItem(value, type));
+                state.assignRegister(currentRegister, value)
+                currentRegister += Utils.getRegisterSize(typeName)
             }
 
-//        VirtualMethod method = context.getMethod();
-//        int registerCount = method.getRegisterCount();
-//        List<String> parameterTypes = method.getParameterTypeNames();
-//        int parameterSize = Utils.getRegisterSize(parameterTypes);
-            MethodState mState = new MethodState(context, registerCount, parameterTypes.size(), parameterSize);
-            int firstParameter = mState.getParameterStart();
-            int parameterRegister = firstParameter;
-
-            for (String type : parameterTypes) {
-                HeapItem item;
-                if (parameterRegister == firstParameter && !method.isStatic() && method.getName().equals("<init>")) {
-                    UninitializedInstance instance = new UninitializedInstance(method.getDefiningClass());
-                    item = new HeapItem(instance, type);
-                } else {
-                    item = HeapItem.newUnknown(type);
-                }
-                mState.assignParameter(parameterRegister, item);
-                parameterRegister += Utils.getRegisterSize(type);
+            for (field in method.getDefiningClass().fields) {
+                val value = Value.wrap(field.initialValue, field.type)
+                state.pokeField(field, value)
             }
 
-            return mState;
-//        ExecutionContext spawnedContext = new ExecutionContext(this, method);
-//        ClassState templateClassState = TemplateStateFactory.forClass(spawnedContext, method.getDefiningClass());
-//        spawnedContext.setClassState(templateClassState);
-//
-//        MethodState templateMethodState = TemplateStateFactory.forMethod(spawnedContext);
-//        spawnedContext.setMethodState(templateMethodState);
-//
-//        if (callerContext != null) {
-//            spawnedContext.registerCaller(callerContext, callerAddress);
-//        }
-
+            return state
         }
+
+        private fun getReassignedKeysBetweenChildAndAncestor(child: ExecutionState, ancestor: ExecutionState): Set<String?> {
+            val reassigned: MutableSet<String> = HashSet()
+            var current: ExecutionState = child
+            while (current !== ancestor) {
+                reassigned.addAll(current.values.keys)
+                val parent = current.getParent() ?: break
+                current = parent
+            }
+            return reassigned
+        }
+    }
+
+    fun getParent(): ExecutionState? {
+        return this.node?.parent?.state
     }
 
     fun wasRegisterAssigned(register: Int): Boolean {
@@ -121,153 +115,273 @@ class ExecutionState(
 
     fun assignRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
         registersAssigned.add(register)
+        if (register >= firstParameterRegister && value.isMutable()) {
+            mutableParameters.add(register)
+        }
+
+        pokeKey(register.toString(), value, updateIdentities)
+    }
+
+    fun assignField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
+        assignField(field.toString(), value, updateIdentities)
+    }
+
+    fun assignField(field: String, value: Value, updateIdentities: Boolean = false) {
+        pokeKey(field, value, updateIdentities)
+    }
+
+    fun pokeRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
+        pokeKey(register.toString(), value, updateIdentities)
+    }
+
+    fun pokeField(field: String, value: Value, updateIdentities: Boolean = false) {
+        pokeKey(field, value, updateIdentities)
+    }
+
+    fun pokeField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
+        pokeField(field.toString(), value, updateIdentities)
+    }
+
+    private fun pokeKey(key: String, value: Value, updateIdentities: Boolean = false) {
+        log.trace("poke {} = {}", key, value)
         if (updateIdentities) {
-            node.value heap update identities
+            update(key, value)
         } else {
-            pokeRegister(register, value)
+            values[key] = value
         }
     }
 
-    fun assignRegisterAndUpdateIdentities(register: Int, value: HeapItem?, heapId: String?) {
-        registersAssigned.add(register)
-        context.heap.update(heapId, register, item)
+    fun peekRegister(register: Int): Value {
+        return peekKey(register.toString())!!
     }
 
-//    open val parent: BaseState?
-//        get() {
-//            val parentContext = context.parent
-//            var parent: MethodState? = null
-//            if (parentContext != null) {
-//                parent = parentContext.methodState
-//            }
-//            return parent
-//        }
-
-    fun hasRegister(register: Int, heapId: String?): Boolean {
-        return context.heap.hasRegister(heapId, register)
-    }
-
-    fun peekRegister(register: Int, heapId: String?): HeapItem {
-        return context.heap[heapId, register]
-    }
-
-    fun pokeRegister(register: Int, item: HeapItem?, heapId: String?) {
-        if (log.isTraceEnabled) {
-            val sb = StringBuilder()
-            sb.append("Setting ").append(heapId).append(':').append(register).append(" = ").append(item)
-            // VERY noisy
-            // StackTraceElement[] ste = Thread.currentThread().getStackTrace();
-            // for (int i = 2; i < ste.length; i++) {
-            // sb.append("\n\t").append(ste[i]);
-            // }
-            log.trace(sb.toString())
+    fun peekField(field: String): Value {
+        val value = peekKey(field)
+        if (value == null) {
+            log.error("undefined key: {}; returning unknown", field)
+            return Value.unknown(field)
         }
-        context.heap[heapId, register] = item
+        return value
     }
 
-    public fun readRegister(register: Int, heapId: String?): HeapItem {
+    fun peekField(field: VirtualField): Value {
+        return peekField(field.toString())
+    }
+
+    fun containsRegister(register: Int): Boolean {
+        return values.containsKey(register.toString())
+    }
+
+    fun readRegister(register: Int): Value {
         registersRead.add(register)
-        return peekRegister(register, heapId)
+        return peekRegister(register)
     }
 
-    fun removeRegister(register: Int, heapId: String?) {
-        context.heap.remove(heapId, register)
+    fun removeRegister(register: Int) {
+        removeKey(register.toString())
     }
 
-    fun wasRegisterRead(register: Int, heapId: String?): Boolean {
+    private fun removeKey(key: String) {
+        values.remove(key)
+    }
+
+    // TODO: note that this returns true if a register hasn't been read but another register which points to the same object has been read
+    fun wasRegisterRead(register: Int): Boolean {
         if (registersRead.contains(register)) {
             return true
         }
-        val item = peekRegister(register, heapId) ?: return false
+        val value = peekRegister(register)
 
         /*
-         * Since multiple registers may hold the same object class, need to examine other registers for identity.
-         * However, result register must be excluded because move-result will always read and assign an identical object
-         * every time it's executed.
-         */for (currentRegister in getRegistersRead()) {
+         * Since the goal of this method is to identify which registers were read / used and thus shouldn't be removed,
+         * need to exclude the result register as the move-result op will always read and assign an identical object
+         * but this shouldn't mean move-reult counts as a real usage.
+         *
+         * E.g. If addTwoNumbers(int, int): int is called and the return value is never used, the call should be removed,
+         * regardless of whether or not move-result is called.
+         */
+        for (currentRegister in registersRead) {
             if (currentRegister == MethodState.ResultRegister) {
                 continue
             }
-            val currentItem = peekRegister(currentRegister, heapId)
-            if (item.value === currentItem.value) {
+            val currentValue = peekRegister(currentRegister)
+            if (value.value === currentValue.value) {
                 return true
             }
         }
         return false
     }
 
-    fun assignField(field: VirtualField, value: Any?) {
-        val register = 0
-        val heapId = getHeapId(field)
-        val type = field.type
-        assignRegister(register, HeapItem(value, type), heapId)
-    }
+//    fun getChild(childContext: ExecutionContext): ClassState {
+//        return ClassState(this, childContext)
+//    }
 
-    fun assignField(field: VirtualField, item: HeapItem?) {
-        val register = 0
-        val heapId = getHeapId(field)
-        assignRegister(register, item, heapId)
-    }
-
-    fun getChild(childContext: ExecutionContext): ClassState {
-        return ClassState(this, childContext)
-    }
-
-    override fun hashCode(): Int {
-        return HashCodeBuilder(1337, 13).append(virtualClass).hashCode()
-    }
-
-    override fun equals(obj: Any?): Boolean {
-        if (obj == null) {
-            return false
-        } else if (obj === this) {
-            return true
-        } else if (obj.javaClass != javaClass) {
-            return false
-        }
-        val other = obj as ClassState
-        return EqualsBuilder().append(virtualClass, other.virtualClass).isEquals
-    }
+//    override fun hashCode(): Int {
+//        return HashCodeBuilder(1337, 13).append(virtualClass).hashCode()
+//    }
+//
+//    override fun equals(obj: Any?): Boolean {
+//        if (obj == null) {
+//            return false
+//        } else if (obj === this) {
+//            return true
+//        } else if (obj.javaClass != javaClass) {
+//            return false
+//        }
+//        val other = obj as ClassState
+//        return EqualsBuilder().append(virtualClass, other.virtualClass).isEquals
+//    }
 
     override fun toString(): String {
-        val sb = StringBuilder("Fields:\n")
-        for (field in virtualClass.fields) {
-            sb.append(field).append(" = ").append(peekField(field)).append('\n')
+        return toString(true)
+    }
+
+    fun toString(onlyPeekCachedRegisters: Boolean): String {
+        val sb = StringBuilder()
+        val localsCount = registerCount - parameterSize
+        val firstParameterRegister = registerCount - parameterSize
+        sb.append("params: ").append(parameterCount).append(", ")
+        sb.append("locals: ").append(localsCount).append('\n')
+        val inner = StringBuilder()
+        var register = 0
+        while (register < registerCount) {
+            if (onlyPeekCachedRegisters && !containsRegister(register)) {
+                register += 1
+                continue
+            }
+            inner.append('v').append(register)
+            val isLocal = register < firstParameterRegister
+            if (!isLocal) {
+                inner.append("(p").append(register - firstParameterRegister).append(')')
+            }
+            val item = peekRegister(register)
+            inner.append(": ").append(item).append('\n')
+            val registerSize = Utils.getRegisterSize(item.type)
+            register += registerSize
         }
-        sb.setLength(sb.length - 1)
-        sb.append('\n')
+        if (containsRegister(MethodState.ResultRegister)) {
+            inner.append("result: ").append(peekRegister(MethodState.ResultRegister)).append('\n')
+        }
+        if (containsRegister(MethodState.ReturnRegister)) {
+            inner.append("return: ").append(peekRegister(MethodState.ReturnRegister)).append('\n')
+        }
+        if (inner.isNotEmpty()) {
+            inner.setLength(inner.length - 1)
+            sb.append(inner)
+        }
+
+        inner.clear()
+        for (key in values.keys) {
+            val isRegister = key.toIntOrNull() != null
+            if (isRegister) {
+                continue
+            }
+            inner.append(key).append(" = ").append(peekField(key)).append('\n')
+        }
+        if (inner.isNotEmpty()) {
+            inner.setLength(inner.length - 1)
+            sb.append('\n')
+            sb.append(inner)
+        }
+
         return sb.toString()
     }
 
-    fun peekField(field: VirtualField): HeapItem? {
-        val register = 0
-        val heapId = getHeapId(field)
-        var fieldItem: HeapItem? = peekRegister(register, heapId)
-        if (fieldItem == null) {
-            log.error("Undefined field: {}; returning unknown", field)
-            fieldItem = HeapItem.newUnknown(field.type)
+
+    /**
+     * Retrieves the value indexed by `key`. Searches ancestors if the value is not stored in the current state. If key is found in an ancestor, this
+     * will clone the value and store a mapping in current state of all keys which point to the same value. Cloning is done to allow for value
+     * modifications while preserving previous values and thus history.
+     *
+     * E.g. While peeking v0, it's found that the value is stored in an ancestor. In that ancestor, v0, v1, and v2 all point to the same object.
+     * However, v2 was reassigned between the ancestor and this state, so only v0 and v1 are cloned and stored locally.
+     * @param key
+     * @return
+     */
+    private fun peekKey(key: String): Value? {
+        if (hasKey(key)) {
+            return values[key]
         }
-        return fieldItem
+
+        val ancestor = getAncestorWithKey(key)
+        if (ancestor == null) {
+            log.trace("Undefined value: {}; possible mistake!", key, Exception())
+            return null
+        }
+
+        val targetItem = ancestor.peekKey(key)!!
+        val clone = cloneValue(targetItem)
+        val reassigned = getReassignedKeysBetweenChildAndAncestor(this, ancestor)
+        val potential = ancestor.values.keys
+        for (currentKey in potential) {
+            if (reassigned.contains(currentKey)) {
+                continue
+            }
+            val currentItem = ancestor.peekKey(currentKey)!!
+            if (targetItem.value === currentItem.value) {
+                pokeKey(currentKey, clone)
+            }
+        }
+        return clone
     }
 
-    fun pokeField(field: VirtualField, value: Any?) {
-        val register = 0
-        val heapId = getHeapId(field)
-        val type = field.type
-        pokeRegister(register, HeapItem(value, type), heapId)
+    fun hasKey(key: String): Boolean {
+        return values.containsKey(key)
     }
 
-    fun pokeField(field: VirtualField, item: HeapItem?) {
-        val register = 0
-        val heapId = getHeapId(field)
-        pokeRegister(register, item, heapId)
+    /**
+     * This behaves like [set][.set] and also updates values for all keys
+     * which point to values identical to what was stored in `key` originally. This is
+     * necessary because the same item may exist under multiple mappings that need to be updated.
+     * For example, when an uninitialized instance is stored under multiple mappings and is
+     * initialized, rather than simply setting a single key with the updated instance, it's
+     * necessary to look for any other identical copies of the uninitialized instance and update
+     * them with the new initialized instance value.
+     *
+     * @param key
+     * @param newValue
+     */
+    fun update(key: String, newValue: Value) {
+        val oldValue = peekKey(key)!!
+        if (oldValue.value == null) {
+            values[key] = newValue
+        } else {
+            for (currentKey in values.keys) {
+                val currentValue = peekKey(currentKey)!!
+                if (oldValue.value == currentValue.value) {
+                    values[currentKey] = newValue
+                }
+            }
+        }
     }
 
-    fun updateIdentities(field: VirtualField, item: HeapItem?) {
-        val register = 0
-        val heapId = getHeapId(field)
-        val heapKey = "$heapId:$register"
-        updateKey(heapKey, item)
+    private fun cloneValue(original: Value): Value {
+        val cloneValue = cloner.deepClone(original.value)
+        return Value.wrap(cloneValue, original.type)
     }
+
+    private fun getAncestorWithKey(key: String): ExecutionState? {
+        var ancestor: ExecutionState? = this
+        do {
+            if (ancestor!!.hasKey(key)) {
+                break
+            }
+            ancestor = ancestor.getParent()
+        } while (ancestor != null)
+        return ancestor
+    }
+
+//    private fun keys(): Set<String> {
+//        // Note: mutating this directly alters keyToHeapItem's keys
+//        return keyToValues.keys
+//    }
+//
+//    private fun remove(key: String) {
+//        keyToValues.remove(key)
+//    }
+
+//    private fun set(key: String, value: Value) {
+//        values[key] = value
+//    }
 
 }
