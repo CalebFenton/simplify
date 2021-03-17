@@ -1,43 +1,55 @@
 package org.cf.smalivm.opcode
 
+import ExceptionFactory
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.HeapItem
-import org.cf.smalivm.context.MethodState
-import org.cf.smalivm.opcode.CmpOp
+import org.cf.smalivm.dex.CommonTypes
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.formats.Instruction23x
 import org.slf4j.LoggerFactory
 
 class CmpOp internal constructor(
-    location: MethodLocation, child: MethodLocation?, val destRegister: Int, val lhsRegister: Int,
+    location: MethodLocation,
+    child: MethodLocation,
+    val destRegister: Int,
+    val lhsRegister: Int,
     val rhsRegister: Int
-) : MethodStateOp(location, child) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
-        val lhsItem = mState.readRegister(lhsRegister)
-        val rhsItem = mState.readRegister(rhsRegister)
-        val item: HeapItem
-        item = if (lhsItem.isUnknown || rhsItem.isUnknown) {
-            HeapItem.newUnknown("I")
+) : Op(location, child) {
+
+    override fun execute(node: ExecutionNode, state: ExecutionState) {
+        val lhs = state.readRegister(lhsRegister)
+        val rhs = state.readRegister(rhsRegister)
+        val item = if (lhs.isUnknown() || rhs.isUnknown()) {
+            Value.unknown(CommonTypes.INTEGER)
         } else {
-            val lhs = lhsItem.value as Number?
-            val rhs = rhsItem.value as Number?
-            assert(lhs!!.javaClass == rhs!!.javaClass)
-            assert(lhsItem.type == rhsItem.type)
-            val cmp = cmp(lhs, rhs)
-            HeapItem(cmp, "I")
+            assert(lhs.value!!.javaClass == rhs.value!!.javaClass)
+            assert(lhs.type == rhs.type)
+            val cmp = cmp(lhs.value as Number, rhs.value as Number)
+            Value.wrap(cmp, CommonTypes.INTEGER)
         }
-        mState.assignRegister(destRegister, item)
+        state.assignRegister(destRegister, item)
+    }
+
+    override fun getRegistersReadCount(): Int {
+        return 2
+    }
+
+    override fun getRegistersAssignedCount(): Int {
+        return 1
     }
 
     override fun toString(): String {
         return "$name r$destRegister, r$lhsRegister, r$rhsRegister"
     }
 
-    private fun cmp(val1: Number?, val2: Number?): Int {
-        val arg1IsNan = val1 is Float && val1
-            .isNaN() || val1 is Double && val1.isNaN()
-        val arg2IsNan = val2 is Float && val2
-            .isNaN() || val2 is Double && val2.isNaN()
+    private fun cmp(val1: Number, val2: Number): Int {
+        val arg1IsNan = val1 is Float && val1.isNaN() || val1 is Double && val1.isNaN()
+        val arg2IsNan = val2 is Float && val2.isNaN() || val2 is Double && val2.isNaN()
         var value = 0
         value = if (arg1IsNan || arg2IsNan) {
             if (name.startsWith("cmpg")) {
@@ -65,7 +77,23 @@ class CmpOp internal constructor(
         return value
     }
 
-    companion object {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(CmpOp::class.java.simpleName)
+
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instr = location.instruction as Instruction23x
+            val destRegister = instr.registerA
+            val lhsRegister = instr.registerB
+            val rhsRegister = instr.registerC
+            return CmpOp(location, child, destRegister, lhsRegister, rhsRegister)
+        }
     }
 }

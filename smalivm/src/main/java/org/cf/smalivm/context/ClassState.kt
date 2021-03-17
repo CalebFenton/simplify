@@ -25,13 +25,13 @@ class ClassState(val virtualClass: VirtualType, context: ExecutionContext?) : Ba
         assignRegister(register, item, heapId)
     }
 
-//    fun getChild(childContext: ExecutionContext): ClassState {
-//        return ClassState(this, childContext)
-//    }
+    fun getChild(childContext: ExecutionContext): ClassState {
+        return ClassState(this, childContext)
+    }
 
-//    override fun hashCode(): Int {
-//        return HashCodeBuilder(1337, 13).append(virtualClass).hashCode()
-//    }
+    override fun hashCode(): Int {
+        return HashCodeBuilder(1337, 13).append(virtualClass).hashCode()
+    }
 
     override fun equals(obj: Any?): Boolean {
         if (obj == null) {

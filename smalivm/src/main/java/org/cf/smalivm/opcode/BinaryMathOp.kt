@@ -1,29 +1,44 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.*
+import ExceptionFactory
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.HeapItem
-import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.CommonTypes
-import org.cf.smalivm.opcode.BinaryMathOp
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
+import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.Value
 import org.cf.util.Utils
+import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction
+import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction
+import org.jf.dexlib2.iface.instruction.formats.Instruction12x
+import org.jf.dexlib2.iface.instruction.formats.Instruction23x
 import org.slf4j.LoggerFactory
 
-class BinaryMathOp private constructor(
-    location: MethodLocation, child: MethodLocation, private val destRegister: Int, private val arg1Register: Int,
+class BinaryMathOp internal constructor(
+    location: MethodLocation,
+    child: MethodLocation,
+    private val destRegister: Int,
+    private val arg1Register: Int,
     exceptionFactory: ExceptionFactory
-) : MethodStateOp(location, child) {
-    private val mathOperandType: MathOperandType?
-    private val mathOperator: MathOperator?
+) : Op(location, child) {
+    private val mathOperandType = getMathOperandType(name)
+    private val mathOperator = getMathOp(name)
     private var arg2Register = 0
     private var hasLiteral = false
     private var narrowLiteral = 0
 
     internal constructor(
-        location: MethodLocation, child: MethodLocation, destRegister: Int, arg1Register: Int, otherValue: Int,
-        hasLiteral: Boolean, exceptionFactory: ExceptionFactory
+        location: MethodLocation,
+        child: MethodLocation,
+        destRegister: Int,
+        arg1Register: Int,
+        otherValue: Int,
+        hasLiteral: Boolean,
+        exceptionFactory: ExceptionFactory
     ) : this(location, child, destRegister, arg1Register, exceptionFactory) {
         this.hasLiteral = hasLiteral
         if (hasLiteral) {
@@ -33,17 +48,20 @@ class BinaryMathOp private constructor(
         }
     }
 
-    override fun execute(node: ExecutionNode, mState: MethodState) {
-        val lhsItem = mState.readRegister(arg1Register)
-        val rhsItem: HeapItem
-        rhsItem = if (hasLiteral) {
-            HeapItem(narrowLiteral, CommonTypes.INTEGER)
+    init {
+        exceptions.add(exceptionFactory.build(this, ArithmeticException::class.java, "/ by zero"))
+    }
+
+    override fun execute(node: ExecutionNode, state: ExecutionState) {
+        val lhsItem = state.readRegister(arg1Register)
+        val rhsItem: Value = if (hasLiteral) {
+            Value.wrap(narrowLiteral, CommonTypes.INTEGER)
         } else {
-            mState.readRegister(arg2Register)
+            state.readRegister(arg2Register)
         }
         var result: Any? = null
-        if (!lhsItem.isUnknown && !rhsItem.isUnknown) {
-            result = getResult(lhsItem.value, rhsItem.value)
+        if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
+            result = getResult(lhsItem, rhsItem)
             if (result is Throwable) {
                 node.setException(result)
                 node.clearChildren()
@@ -55,7 +73,15 @@ class BinaryMathOp private constructor(
         if (null == result) {
             result = UnknownValue()
         }
-        mState.assignRegister(destRegister, result, mathOperandType!!.type)
+        state.assignRegister(destRegister, result, mathOperandType.type)
+    }
+
+    override fun getRegistersReadCount(): Int {
+        TODO("Not yet implemented")
+    }
+
+    override fun getRegistersAssignedCount(): Int {
+        TODO("Not yet implemented")
     }
 
     override fun toString(): String {
@@ -75,165 +101,157 @@ class BinaryMathOp private constructor(
         return sb.toString()
     }
 
-    @Nonnull
-    private fun getResult(lhs: Any?, rhs: Any?): Any? {
-        var lhs = lhs
-        var rhs = rhs
-        val result: Any?
-        when (mathOperandType) {
-            MathOperandType.INT -> {
-                lhs = Utils.getIntegerValue(lhs)
-                rhs = Utils.getIntegerValue(rhs)
-                result = doIntegerOperation(mathOperator, lhs, rhs)
-            }
-            MathOperandType.LONG -> {
-                lhs = Utils.getLongValue(lhs)
-                rhs = Utils.getLongValue(rhs)
-                result = doLongOperation(mathOperator, lhs, rhs)
-            }
-            MathOperandType.FLOAT -> {
-                lhs = Utils.getFloatValue(lhs)
-                rhs = Utils.getFloatValue(rhs)
-                result = doFloatOperation(mathOperator, lhs, rhs)
-            }
-            MathOperandType.DOUBLE -> {
-                lhs = Utils.getDoubleValue(lhs)
-                rhs = Utils.getDoubleValue(rhs)
-                result = doDoubleOperation(mathOperator, lhs, rhs)
-            }
-            else -> throw RuntimeException("Unknown math operand class!")
+    private fun getResult(lhs: Value, rhs: Value): Any {
+        return when (mathOperandType) {
+            MathOperandType.INT -> doIntegerOperation(mathOperator, lhs.asInteger(), rhs.asInteger())
+            MathOperandType.LONG -> doLongOperation(mathOperator, lhs.asLong(), rhs.asLong())
+            MathOperandType.FLOAT -> doFloatOperation(mathOperator, lhs.asFloat(), rhs.asFloat())
+            MathOperandType.DOUBLE -> doDoubleOperation(mathOperator, lhs.asDouble(), rhs.asDouble())
         }
-        return result
     }
 
     private enum class MathOperandType(val type: String) {
         DOUBLE(CommonTypes.DOUBLE), FLOAT(CommonTypes.FLOAT), INT(CommonTypes.INTEGER), LONG(CommonTypes.LONG);
-
     }
 
     private enum class MathOperator {
         ADD, AND, DIV, MUL, OR, REM, RSUB, SHL, SHR, SUB, USHR, XOR
     }
 
-    companion object {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(BinaryMathOp::class.java.simpleName)
-        private fun doDoubleOperation(mathOperator: MathOperator?, lhs: Double?, rhs: Double?): Any? {
-            var result: Any? = null
-            when (mathOperator) {
-                MathOperator.ADD -> result = lhs!! + rhs!!
-                MathOperator.DIV -> result = lhs!! / rhs!!
-                MathOperator.MUL -> result = lhs!! * rhs!!
-                MathOperator.REM -> result = lhs!! % rhs!!
-                MathOperator.SUB -> result = lhs!! - rhs!!
+
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instruction = location.instruction as BuilderInstruction
+            val instr = location.instruction as TwoRegisterInstruction
+            val destRegister = instr.registerA
+            var arg1Register = instr.registerB
+            if (instruction is Instruction23x) {
+                // add-int vAA, vBB, vCC
+                val arg2Register = (instruction as Instruction23x).registerC
+                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Register, false, exceptionFactory)
+            } else if (instruction is Instruction12x) {
+                // add-int/2addr vAA, vBB
+                arg1Register = instr.registerA
+                val arg2Register = (instruction as Instruction12x).registerB
+                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Register, false, exceptionFactory)
+            } else if (instruction is NarrowLiteralInstruction) {
+                // Instruction22b - add-int/lit8 vAA, vBB, #CC
+                // Instruction22s - add-int/lit16 vAA, vBB, #CCCC
+                val arg2Literal = (instruction as NarrowLiteralInstruction).narrowLiteral
+                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Literal, true, exceptionFactory)
+            } else {
+                throw IllegalArgumentException("Unexpected instruction format for binary math op: ${instruction.toString()}")
             }
-            return result
         }
 
-        private fun doFloatOperation(mathOperator: MathOperator?, lhs: Float?, rhs: Float?): Any? {
-            var result: Any? = null
-            when (mathOperator) {
-                MathOperator.ADD -> result = lhs!! + rhs!!
-                MathOperator.DIV -> result = lhs!! / rhs!!
-                MathOperator.MUL -> result = lhs!! * rhs!!
-                MathOperator.REM -> result = lhs!! % rhs!!
-                MathOperator.SUB -> result = lhs!! - rhs!!
+        private fun doDoubleOperation(mathOperator: MathOperator, lhs: Double, rhs: Double): Any {
+            return when (mathOperator) {
+                MathOperator.ADD -> lhs + rhs
+                MathOperator.DIV -> lhs / rhs
+                MathOperator.MUL -> lhs * rhs
+                MathOperator.REM -> lhs % rhs
+                MathOperator.SUB -> lhs - rhs
+                else -> {
+                    log.error("Unexpected math operator for double operation: {}", mathOperator)
+                    lhs
+                }
             }
-            return result
         }
 
-        private fun doIntegerOperation(mathOperator: MathOperator?, lhs: Int?, rhs: Int?): Any? {
-            var result: Any? = null
+        private fun doFloatOperation(mathOperator: MathOperator, lhs: Float, rhs: Float): Any {
+            return when (mathOperator) {
+                MathOperator.ADD -> lhs + rhs
+                MathOperator.DIV -> lhs / rhs
+                MathOperator.MUL -> lhs * rhs
+                MathOperator.REM -> lhs % rhs
+                MathOperator.SUB -> lhs - rhs
+                else -> {
+                    log.error("Unexpected math operator for float operation: {}", mathOperator)
+                    lhs
+                }
+            }
+        }
+
+        private fun doIntegerOperation(mathOperator: MathOperator, lhs: Int, rhs: Int): Any {
             try {
-                when (mathOperator) {
-                    MathOperator.ADD -> result = lhs!! + rhs!!
-                    MathOperator.AND -> result = lhs!! and rhs!!
-                    MathOperator.DIV -> result = lhs!! / rhs!!
-                    MathOperator.MUL -> result = lhs!! * rhs!!
-                    MathOperator.OR -> result = lhs!! or rhs!!
-                    MathOperator.REM -> result = lhs!! % rhs!!
-                    MathOperator.RSUB -> result = rhs!! - lhs!!
-                    MathOperator.SHL -> result = lhs!! shl (rhs!! and 0x1f)
-                    MathOperator.SHR -> result = lhs!! shr (rhs!! and 0x1f)
-                    MathOperator.SUB -> result = lhs!! - rhs!!
-                    MathOperator.USHR -> result = lhs!! ushr (rhs!! and 0x1f)
-                    MathOperator.XOR -> result = lhs!! xor rhs!!
+                return when (mathOperator) {
+                    MathOperator.ADD -> lhs + rhs
+                    MathOperator.AND -> lhs and rhs
+                    MathOperator.DIV -> lhs / rhs
+                    MathOperator.MUL -> lhs * rhs
+                    MathOperator.OR -> lhs or rhs
+                    MathOperator.REM -> lhs % rhs
+                    MathOperator.RSUB -> rhs - lhs
+                    MathOperator.SHL -> lhs shl (rhs and 0x1f)
+                    MathOperator.SHR -> lhs shr (rhs and 0x1f)
+                    MathOperator.SUB -> lhs - rhs
+                    MathOperator.USHR -> lhs ushr (rhs and 0x1f)
+                    MathOperator.XOR -> lhs xor rhs
                 }
             } catch (e: ArithmeticException) {
                 return e
             }
-            return result
         }
 
-        private fun doLongOperation(mathOperator: MathOperator?, lhs: Long?, rhs: Long?): Any? {
-            var result: Any? = null
-            try {
+        private fun doLongOperation(mathOperator: MathOperator, lhs: Long, rhs: Long): Any {
+            return try {
                 when (mathOperator) {
-                    MathOperator.ADD -> result = lhs!! + rhs!!
-                    MathOperator.AND -> result = lhs!! and rhs!!
-                    MathOperator.DIV -> result = lhs!! / rhs!!
-                    MathOperator.MUL -> result = lhs!! * rhs!!
-                    MathOperator.OR -> result = lhs!! or rhs!!
-                    MathOperator.REM -> result = lhs!! % rhs!!
-                    MathOperator.SHL -> result = lhs!! shl rhs
-                    MathOperator.SHR -> result = lhs!! shr rhs
-                    MathOperator.SUB -> result = lhs!! - rhs!!
-                    MathOperator.USHR -> result = lhs!! ushr rhs
-                    MathOperator.XOR -> result = lhs!! xor rhs!!
+                    MathOperator.ADD -> lhs + rhs
+                    MathOperator.AND -> lhs and rhs
+                    MathOperator.DIV -> lhs / rhs
+                    MathOperator.MUL -> lhs * rhs
+                    MathOperator.OR -> lhs or rhs
+                    MathOperator.REM -> lhs % rhs
+                    MathOperator.SHL -> lhs shl rhs.toInt()
+                    MathOperator.SHR -> lhs shr rhs.toInt()
+                    MathOperator.SUB -> lhs - rhs
+                    MathOperator.USHR -> lhs ushr rhs.toInt()
+                    MathOperator.XOR -> lhs xor rhs
+                    else -> {
+                        log.error("Unexpected math operator for long operation: {}", mathOperator)
+                        lhs
+                    }
                 }
             } catch (e: ArithmeticException) {
-                return e
+                e
             }
-            return result
         }
 
-        private fun getMathOp(opName: String?): MathOperator? {
-            var result: MathOperator? = null
-            if (opName!!.startsWith("add")) {
-                result = MathOperator.ADD
-            } else if (opName.startsWith("sub")) {
-                result = MathOperator.SUB
-            } else if (opName.startsWith("mul")) {
-                result = MathOperator.MUL
-            } else if (opName.startsWith("div")) {
-                result = MathOperator.DIV
-            } else if (opName.startsWith("rem")) {
-                result = MathOperator.REM
-            } else if (opName.startsWith("and")) {
-                result = MathOperator.AND
-            } else if (opName.startsWith("or")) {
-                result = MathOperator.OR
-            } else if (opName.startsWith("xor")) {
-                result = MathOperator.XOR
-            } else if (opName.startsWith("shl")) {
-                result = MathOperator.SHL
-            } else if (opName.startsWith("shr")) {
-                result = MathOperator.SHR
-            } else if (opName.startsWith("ushr")) {
-                result = MathOperator.USHR
-            } else if (opName.startsWith("rsub")) {
-                result = MathOperator.RSUB
+        private fun getMathOp(opName: String): MathOperator {
+            return when {
+                opName.startsWith("add") -> MathOperator.ADD
+                opName.startsWith("sub") -> MathOperator.SUB
+                opName.startsWith("mul") -> MathOperator.MUL
+                opName.startsWith("div") -> MathOperator.DIV
+                opName.startsWith("rem") -> MathOperator.REM
+                opName.startsWith("and") -> MathOperator.AND
+                opName.startsWith("or") -> MathOperator.OR
+                opName.startsWith("xor") -> MathOperator.XOR
+                opName.startsWith("shl") -> MathOperator.SHL
+                opName.startsWith("shr") -> MathOperator.SHR
+                opName.startsWith("ushr") -> MathOperator.USHR
+                opName.startsWith("rsub") -> MathOperator.RSUB
+                else -> throw IllegalArgumentException("Unexpected binary math op name: $opName")
             }
-            return result
         }
 
-        private fun getMathOperandType(opName: String?): MathOperandType? {
-            var result: MathOperandType? = null
-            if (opName!!.contains("-int")) {
-                result = MathOperandType.INT
-            } else if (opName.contains("-double")) {
-                result = MathOperandType.DOUBLE
-            } else if (opName.contains("-float")) {
-                result = MathOperandType.FLOAT
-            } else if (opName.contains("-long")) {
-                result = MathOperandType.LONG
+        private fun getMathOperandType(opName: String): MathOperandType {
+            return when {
+                opName.contains("-int") -> MathOperandType.INT
+                opName.contains("-double") -> MathOperandType.DOUBLE
+                opName.contains("-float") -> MathOperandType.FLOAT
+                opName.contains("-long") -> MathOperandType.LONG
+                else -> throw IllegalArgumentException("Unexpected binary math op operand: $opName")
             }
-            return result
         }
-    }
-
-    init {
-        mathOperator = getMathOp(name)
-        mathOperandType = getMathOperandType(name)
-        addException(exceptionFactory.build(this, ArithmeticException::class.java, "/ by zero"))
     }
 }

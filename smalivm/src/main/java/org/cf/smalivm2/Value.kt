@@ -1,7 +1,5 @@
 package org.cf.smalivm2
 
-import org.apache.commons.lang3.builder.EqualsBuilder
-import org.apache.commons.lang3.builder.HashCodeBuilder
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.HeapItem
 import org.cf.smalivm.type.UninitializedInstance
@@ -9,7 +7,6 @@ import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm.type.VirtualType
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
-import java.lang.StringBuilder
 import java.util.*
 
 // TODO: strip out id, I don't think it's a good idea
@@ -102,6 +99,15 @@ data class Value(val value: Any?, val type: String, val id: ByteArray) {
 
     fun getValueType(): String {
         return if (isNull()) type else ClassNameUtils.toInternal(value!!.javaClass)
+    }
+
+    fun getDeclaredAndValueTypeNames(): Set<String> {
+        val types: MutableSet<String> = HashSet(3)
+        types.add(type)
+        if (!isNull() and !isUnknown()) {
+            types.add(ClassNameUtils.toInternal(value!!.javaClass))
+        }
+        return types
     }
 
     override fun toString(): String {

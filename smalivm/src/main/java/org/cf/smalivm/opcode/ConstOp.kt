@@ -1,21 +1,42 @@
 package org.cf.smalivm.opcode
 
+import ExceptionFactory
 import org.apache.commons.lang3.ClassUtils
-import org.cf.smalivm.ExceptionFactory
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.CommonTypes
-import org.cf.smalivm.opcode.ConstOp
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionState
 import org.cf.util.ClassNameUtils
+import org.cf.util.Utils
+import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction
+import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
+import org.jf.dexlib2.iface.instruction.ReferenceInstruction
+import org.jf.dexlib2.iface.instruction.WideLiteralInstruction
+import org.jf.dexlib2.iface.reference.StringReference
+import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class ConstOp internal constructor(
-    location: MethodLocation, child: MethodLocation?, val destRegister: Int,
-    val constantType: ConstantType, val literal: Any, val classLoader: ClassLoader,
+    location: MethodLocation,
+    child: MethodLocation,
+    val destRegister: Int,
+    val constantType: ConstantType,
+    val literal: Any,
+    val classLoader: ClassLoader,
     exceptionFactory: ExceptionFactory
-) : MethodStateOp(location, child) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
+) : Op(location, child) {
+
+    init {
+        if (ConstantType.CLASS == constantType) {
+            exceptions.add(exceptionFactory.build(this, ClassNotFoundException::class.java, literal as String))
+        }
+    }
+
+    override fun execute(node: ExecutionNode, state: ExecutionState) {
         val constant = buildConstant()
         if (constant is Throwable) {
             node.setException(constant)
@@ -24,7 +45,15 @@ class ConstOp internal constructor(
         } else {
             node.clearExceptions()
         }
-        mState.assignRegister(destRegister, constant, constantTypeString)
+        state.assignRegister(destRegister, constant, constantTypeString)
+    }
+
+    override fun getRegistersReadCount(): Int {
+        return 0
+    }
+
+    override fun getRegistersAssignedCount(): Int {
+        return 1
     }
 
     override fun toString(): String {
@@ -57,11 +86,11 @@ class ConstOp internal constructor(
     }
 
     private fun buildConstant(): Any {
-        val constant: Any
-        constant = if (ConstantType.CLASS == constantType) {
+        return if (ConstantType.CLASS == constantType) {
             val className = literal as String
             try {
                 val binaryClassName = ClassNameUtils.internalToBinary(className)
+                // TODO: does const-class really not cause class init?
                 ClassUtils.getClass(classLoader, binaryClassName)
             } catch (e: ClassNotFoundException) {
                 return e
@@ -69,48 +98,69 @@ class ConstOp internal constructor(
         } else {
             literal
         }
-        return constant
     }
 
     // Type string is ambiguous because Dalvik treats a multiple types as int (char, byte, etc.) and multiple
     // types as "wide" (long, float). Logic elsewhere must infer actual types when necessary, such as by opcode.
     private val constantTypeString: String
-        private get() {
+        get() {
             // Type string is ambiguous because Dalvik treats a multiple types as int (char, byte, etc.) and multiple
             // types as "wide" (long, float). Logic elsewhere must infer actual types when necessary, such as by opcode.
-            val type: String
-            type = when (constantType) {
+            return when (constantType) {
                 ConstantType.CLASS -> CommonTypes.CLASS
                 ConstantType.NARROW -> CommonTypes.INTEGER
                 ConstantType.STRING -> CommonTypes.STRING
-                ConstantType.WIDE -> if ("const-wide" == name) {
-                    CommonTypes.DOUBLE
-                } else {
-                    CommonTypes.LONG
-                }
-                else -> {
-                    if (log.isWarnEnabled) {
-                        log.warn("Unexpected constant class (should never happen): {}", constantType)
+                ConstantType.WIDE -> {
+                    if ("const-wide" == name) {
+                        CommonTypes.DOUBLE
+                    } else {
+                        CommonTypes.LONG
                     }
-                    CommonTypes.UNKNOWN
                 }
             }
-            return type
         }
 
     enum class ConstantType {
         CLASS, NARROW, STRING, WIDE
     }
 
-    companion object {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(ConstOp::class.java.simpleName)
-    }
-
-    init {
-        if (ConstantType.CLASS == constantType) {
-            addException(
-                exceptionFactory.build(this, ClassNotFoundException::class.java, literal as String)
-            )
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instruction = location.instruction as BuilderInstruction
+            val destRegister = (instruction as OneRegisterInstruction).registerA
+            val constantType: ConstantType
+            val literal: Any
+            val opName = instruction.getOpcode().name
+            if (opName.matches("const-string(?:/jumbo)?".toRegex())) {
+                val instr = location.instruction as ReferenceInstruction
+                literal = (instr.reference as StringReference).string
+                constantType = ConstantType.STRING
+            } else if (opName.endsWith("-class")) {
+                // Don't ensure that the class exists here since we don't know what classes will be available.
+                // Defer to actual execution to handle any possible exceptions.
+                val instr = location.instruction as ReferenceInstruction
+                val classRef = instr.reference
+                literal = ReferenceUtil.getReferenceString(classRef)!!
+                constantType = ConstantType.CLASS
+            } else if (opName.contains("-wide")) {
+                val instr = location.instruction as WideLiteralInstruction
+                literal = instr.wideLiteral
+                constantType = ConstantType.WIDE
+            } else {
+                val instr = location.instruction as NarrowLiteralInstruction
+                literal = instr.narrowLiteral
+                constantType = ConstantType.NARROW
+            }
+            return ConstOp(location, child, destRegister, constantType, literal, classLoader, exceptionFactory)
         }
     }
 }

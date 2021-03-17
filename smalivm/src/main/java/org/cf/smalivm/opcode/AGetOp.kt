@@ -1,13 +1,13 @@
 package org.cf.smalivm.opcode
 
 import ExceptionFactory
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.HeapItem
-import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.CommonTypes
-import org.cf.smalivm.opcode.AGetOp
+import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction23x
@@ -17,7 +17,7 @@ import java.lang.reflect.Array
 class AGetOp internal constructor(
     location: MethodLocation,
     child: MethodLocation,
-    private val valueRegister: Int,
+    private val destRegister: Int,
     private val arrayRegister: Int,
     private val indexRegister: Int,
     private val exceptionFactory: ExceptionFactory
@@ -29,51 +29,57 @@ class AGetOp internal constructor(
     }
 
     override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val arrayItem = state.readRegister(arrayRegister)
-        val indexItem = state.readRegister(indexRegister)
-        val getItem: HeapItem
-        if (arrayItem.isUnknown) {
-            val innerType = getUnknownArrayInnerType(arrayItem)
-            getItem = HeapItem.newUnknown(innerType)
+        val array = state.readRegister(arrayRegister)
+        val index = state.readRegister(indexRegister)
+        val item: Value
+        if (array.isUnknown()) {
+            val innerType = getUnknownArrayInnerType(array)
+            item = Value.unknown(innerType)
         } else {
-            val array = arrayItem.value
-            if (indexItem.isUnknown) {
-                val innerType = arrayItem.type.replaceFirst("\\[".toRegex(), "")
-                getItem = HeapItem.newUnknown(innerType)
+            if (index.isUnknown()) {
+                val innerType = array.type.replaceFirst("\\[".toRegex(), "")
+                item = Value.unknown(innerType)
             } else {
-                // All values known, so exceptions are deterministic.
+                // Since all values are known, should be possible to know any exceptions
                 node.clearExceptions()
-                if (null == array) {
+                if (null == array.value) {
                     val exception = exceptionFactory.build(this, NullPointerException::class.java)
                     node.setException(exception)
                     node.clearChildren()
                     return
                 }
-                val index = indexItem.asInteger()
-                val innerType = arrayItem.type.replaceFirst("\\[".toRegex(), "")
-                if (index >= Array.getLength(array)) {
+                val innerType = array.type.replaceFirst("\\[".toRegex(), "")
+                if (index.asInteger() >= Array.getLength(array.value)) {
                     val exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java)
                     node.setException(exception)
                     node.clearChildren()
                     return
                 } else {
-                    val value = Array.get(array, index)
-                    getItem = HeapItem(value, innerType)
+                    val stored = Array.get(array.value, index.asInteger())
+                    item = Value.wrap(stored, innerType)
                     node.clearExceptions()
                 }
             }
         }
-        mState.assignRegister(valueRegister, getItem)
+        state.assignRegister(destRegister, item)
+    }
+
+    override fun getRegistersReadCount(): Int {
+        return 2
+    }
+
+    override fun getRegistersAssignedCount(): Int {
+        return 1
     }
 
     override fun toString(): String {
-        return "$name r$valueRegister, r$arrayRegister, r$indexRegister"
+        return "$name r$destRegister, r$arrayRegister, r$indexRegister"
     }
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(AGetOp::class.java.simpleName)
 
-        private fun getUnknownArrayInnerType(array: HeapItem): String {
+        private fun getUnknownArrayInnerType(array: Value): String {
             val outerType = array.type
             val result: String = if (CommonTypes.UNKNOWN == outerType) {
                 CommonTypes.UNKNOWN
@@ -87,7 +93,9 @@ class AGetOp internal constructor(
             location: MethodLocation,
             addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
-            exceptionFactory: ExceptionFactory
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
         ): Op {
             val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction23x

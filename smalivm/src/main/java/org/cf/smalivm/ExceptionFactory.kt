@@ -2,7 +2,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.util.ClassNameUtils
 
-class ExceptionFactory internal constructor(private val classLoader: SmaliClassLoader) {
+public class ExceptionFactory internal constructor(private val classLoader: SmaliClassLoader) {
     @JvmOverloads
     fun build(op: Op, exceptionClass: Class<out Throwable>, message: String? = null): Throwable {
         try {

@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.ExceptionFactory
+import ExceptionFactory
 import org.cf.smalivm.type.ClassManager
 import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.MethodLocation
@@ -15,7 +15,7 @@ class OpCreator(
         val instruction = location.instruction!!
         val opcode = instruction.opcode
         val opFactory = getOpFactory(opcode)
-        return opFactory.build(location, addressToLocation, classManager, exceptionFactory)
+        return opFactory.build(location, addressToLocation, classManager, exceptionFactory,,)
     }
 
     companion object {

@@ -1,5 +1,6 @@
 package org.cf.smalivm;
 
+import org.apache.commons.collections.functors.ExceptionFactory;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraph;

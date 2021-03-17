@@ -21,8 +21,8 @@ class ExecutionState(
     val parameterSize: Int = 0,
     val fieldCount: Int = 0,
     initializedClassesSize: Int = 0,
-    registersAssignedSize: Int = 0,
     registersReadSize: Int = 0,
+    registersAssignedSize: Int = 0,
     mutableParametersSize: Int = 0
 ) {
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
@@ -71,7 +71,16 @@ class ExecutionState(
                 else -> 0
             }
 
-            val state = ExecutionState(cloner, registerCount, parameterCount, parameterSize, fieldCount, 0, 0, registersRead)
+            val state = ExecutionState(
+                cloner,
+                registerCount,
+                parameterCount,
+                parameterSize,
+                fieldCount,
+                0,
+                op.getRegistersReadCount(),
+                op.getRegistersAssignedCount()
+            )
 
             var currentRegister = firstParameterRegister
             for (typeName in method.parameterTypeNames) {
@@ -111,6 +120,11 @@ class ExecutionState(
 
     fun wasRegisterAssigned(register: Int): Boolean {
         return registersAssigned.contains(register)
+    }
+
+    fun assignRegister(register: Int, v: Any?, type: String, updateIdentities: Boolean = false) {
+        val value = Value.wrap(v, type)
+        return assignRegister(register, value, updateIdentities)
     }
 
     fun assignRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
