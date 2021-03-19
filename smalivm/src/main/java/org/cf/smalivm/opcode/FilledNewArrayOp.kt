@@ -1,51 +1,63 @@
 package org.cf.smalivm.opcode
 
+import ExceptionFactory
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.HeapItem
-import org.cf.smalivm.context.MethodState
-import org.cf.smalivm.opcode.FilledNewArrayOp
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.Value
+import org.cf.util.Utils
+import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.ReferenceInstruction
+import org.jf.dexlib2.iface.instruction.VariableRegisterInstruction
+import org.jf.dexlib2.iface.instruction.formats.Instruction35c
+import org.jf.dexlib2.iface.instruction.formats.Instruction3rc
+import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class FilledNewArrayOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation?,
+    child: MethodLocation,
     private val dimensionRegisters: IntArray,
-    private val typeReference: String?
-) : MethodStateOp(location, child) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
+    private val typeReference: String
+) : Op(location, child) {
+
+    override fun execute(node: ExecutionNode, state: ExecutionState) {
         /*
          * This populates a 1-dimensional integer array with values from the parameters. It does NOT create
          * n-dimensional arrays. It's usually used to create parameter for Arrays.newInstance(). If you use anything but
-         * [I as the virtual parse, the code fails verification and a few decompilers (not disassemblers) choke.
+         * [I as the type, the code fails verification and a few decompilers choke (disassemblers are usually fine).
          */
         val dimensions = IntArray(dimensionRegisters.size)
         var foundUnknown = false
         for (i in dimensionRegisters.indices) {
             val register = dimensionRegisters[i]
-            val item = mState.readRegister(register)
-            if (foundUnknown) {
-                continue
-            }
-            val value = item.value
-            if (value is Number) {
-                dimensions[i] = value.toInt()
+            val item = state.readRegister(register)
+            if (item.value is Number) {
+                dimensions[i] = item.value.toInt()
             } else {
-                if (!item.isUnknown) {
-                    if (log.isWarnEnabled) {
-                        log.warn("Unexpected value virtual for {}: {}", toString(), item)
-                    }
+                if (item.isKnown()) {
+                    log.warn("Unexpected dimension argument type for {}: {}", toString(), item)
                 }
-
-                // At least one value is unknown. Give up.
                 foundUnknown = true
+                break
             }
         }
         if (foundUnknown) {
-            mState.assignResultRegister(HeapItem.newUnknown("[I"))
+            state.assignResultRegister(Value.unknown("[I"))
         } else {
-            mState.assignResultRegister(dimensions, "[I")
+            state.assignResultRegister(dimensions, "[I")
         }
+    }
+
+    override fun getRegistersReadCount(): Int {
+        return dimensionRegisters.size
+    }
+
+    override fun getRegistersAssignedCount(): Int {
+        return 1
     }
 
     override fun toString(): String {
@@ -64,7 +76,59 @@ class FilledNewArrayOp internal constructor(
         return sb.toString()
     }
 
-    companion object {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(FilledNewArrayOp::class.java.simpleName)
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instruction = location.instruction as BuilderInstruction
+            val reference = (instruction as ReferenceInstruction).reference
+            val typeReference = ReferenceUtil.getReferenceString(reference)!!
+            val registerCount = (instruction as VariableRegisterInstruction).registerCount
+            val opName = instruction.getOpcode().name
+            val dimensionRegisters = IntArray(registerCount)
+            if (opName.endsWith("/range")) {
+                val instr = location.instruction as Instruction3rc
+                val startRegister = instr.startRegister
+                for (i in dimensionRegisters.indices) {
+                    dimensionRegisters[i] = startRegister + i
+                }
+            } else {
+                val instr = location.instruction as Instruction35c
+                when (dimensionRegisters.size) {
+                    5 -> {
+                        dimensionRegisters[4] = instr.registerG
+                        dimensionRegisters[3] = instr.registerF
+                        dimensionRegisters[2] = instr.registerE
+                        dimensionRegisters[1] = instr.registerD
+                        dimensionRegisters[0] = instr.registerC
+                    }
+                    4 -> {
+                        dimensionRegisters[3] = instr.registerF
+                        dimensionRegisters[2] = instr.registerE
+                        dimensionRegisters[1] = instr.registerD
+                        dimensionRegisters[0] = instr.registerC
+                    }
+                    3 -> {
+                        dimensionRegisters[2] = instr.registerE
+                        dimensionRegisters[1] = instr.registerD
+                        dimensionRegisters[0] = instr.registerC
+                    }
+                    2 -> {
+                        dimensionRegisters[1] = instr.registerD
+                        dimensionRegisters[0] = instr.registerC
+                    }
+                    1 -> dimensionRegisters[0] = instr.registerC
+                    else -> throw IllegalArgumentException("Unexpected filled new array dimension register size: ${dimensionRegisters.size}")
+                }
+            }
+            return FilledNewArrayOp(location, child, dimensionRegisters, typeReference)
+        }
     }
 }

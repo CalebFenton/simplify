@@ -1,8 +1,8 @@
 package org.cf.smalivm.opcode
 
 import org.cf.smalivm.SideEffect
-import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import java.util.*
@@ -23,8 +23,12 @@ abstract class Op internal constructor(val location: MethodLocation, val childre
     }
     open val sideEffectLevel = SideEffect.Level.NONE
 
-    abstract fun execute(node: ExecutionNode, state: ExecutionState)
+    abstract fun execute(node: ExecutionNode) : Array<OpChild>
     abstract fun getRegistersReadCount(): Int
     abstract fun getRegistersAssignedCount(): Int
     abstract override fun toString(): String
+
+    fun asdf() {
+
+    }
 }

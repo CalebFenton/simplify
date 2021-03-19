@@ -12,7 +12,7 @@ class SwitchPayloadOp  // Don't know children until we know the pseudo return in
 internal constructor(
     location: MethodLocation, private val addressToLocation: Map<Int, MethodLocation>,
     private val targetKeyToOffset: Map<Int, Int>
-) : MethodStateOp(location) {
+) : Op(location) {
     override fun execute(node: ExecutionNode, mState: MethodState) {
         // Pseudo points to instruction *after* switch op.
         val returnLocation = mState.pseudoInstructionReturnInstruction

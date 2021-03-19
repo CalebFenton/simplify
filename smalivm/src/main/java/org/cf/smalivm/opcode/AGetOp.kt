@@ -2,11 +2,11 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -28,40 +28,39 @@ class AGetOp internal constructor(
         exceptions.add(exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java))
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val array = state.readRegister(arrayRegister)
-        val index = state.readRegister(indexRegister)
-        val item: Value
+    override fun execute(node: ExecutionNode) : Array<OpChild> {
+        val array = node.state.readRegister(arrayRegister)
+        val index = node.state.readRegister(indexRegister)
+        val indexed: Value
         if (array.isUnknown()) {
             val innerType = getUnknownArrayInnerType(array)
-            item = Value.unknown(innerType)
+            indexed = Value.unknown(innerType)
         } else {
             if (index.isUnknown()) {
                 val innerType = array.type.replaceFirst("\\[".toRegex(), "")
-                item = Value.unknown(innerType)
+                indexed = Value.unknown(innerType)
             } else {
-                // Since all values are known, should be possible to know any exceptions
+                // All values are known so it's possible to know for sure what exceptions are thrown, if any
                 node.clearExceptions()
-                if (null == array.value) {
+                if (array.value == null) {
                     val exception = exceptionFactory.build(this, NullPointerException::class.java)
-                    node.setException(exception)
+                    node.addException(exception)
                     node.clearChildren()
                     return
                 }
                 val innerType = array.type.replaceFirst("\\[".toRegex(), "")
                 if (index.asInteger() >= Array.getLength(array.value)) {
                     val exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java)
-                    node.setException(exception)
+                    node.addException(exception)
                     node.clearChildren()
                     return
                 } else {
-                    val stored = Array.get(array.value, index.asInteger())
-                    item = Value.wrap(stored, innerType)
+                    indexed = Value.wrap(Array.get(array.value, index.asInteger()), innerType)
                     node.clearExceptions()
                 }
             }
         }
-        state.assignRegister(destRegister, item)
+        node.state.assignRegister(destRegister, indexed)
     }
 
     override fun getRegistersReadCount(): Int {

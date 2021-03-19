@@ -1,32 +1,48 @@
 package org.cf.smalivm.opcode
 
+import ExceptionFactory
 import org.apache.commons.lang3.ClassUtils
-import org.cf.smalivm.context.*
-import org.cf.smalivm.opcode.FillArrayDataPayloadOp
+import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionState
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.formats.ArrayPayload
 import org.slf4j.LoggerFactory
 import java.lang.reflect.Array
 
-class FillArrayDataPayloadOp  // childAddress / returnAddress not known until runtime
-internal constructor(location: MethodLocation, private val elementWidth: Int, private val arrayElements: List<Number>) : MethodStateOp(location) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
-        val parent = mState.parent
-        val targetRegister = parent.registersAssigned[0]
-        // Peek rather than read. This pseudo-instruction shouldn't count as an actual usage for the optimizer.
-        val arrayItem = mState.peekRegister(targetRegister)
-        if (!arrayItem!!.isUnknown) {
-            val array = arrayItem.value
-            val expectedClass = array!!.javaClass.componentType
+class FillArrayDataPayloadOp internal constructor(
+    location: MethodLocation,
+    private val elementWidth: Int,
+    private val arrayElements: List<Number>
+) :
+    Op(location) {
+
+    override fun execute(node: ExecutionNode) {
+        val parent = node.state.getParent()!!
+        val targetRegister = parent.registersAssigned.toList()[0]
+        val array = node.state.peekRegister(targetRegister)
+        if (array.isKnown()) {
+            val expectedClass = array.value!!.javaClass.componentType
             for (i in arrayElements.indices) {
                 val number = arrayElements[i]
                 val value = getProperValue(number, expectedClass)
-                Array.set(array, i, value)
+                Array.set(array.value, i, value)
             }
-            // Poke rather than assign for the optimizer.
-            mState.pokeRegister(targetRegister, arrayItem)
+            node.state.pokeRegister(targetRegister, array)
         }
-        val returnLocation = mState.parent.pseudoInstructionReturnInstruction
+        // This is a strange pseudo-op which should return to the next op after the FillArrayDataOp.
+        val returnLocation = parent.getPsuedoInstructionReturnLocation()
         node.setChildLocations(returnLocation)
+    }
+
+    override fun getRegistersReadCount(): Int {
+        return 2
+    }
+
+    override fun getRegistersAssignedCount(): Int {
+        return 1
     }
 
     override fun toString(): String {
@@ -39,38 +55,46 @@ internal constructor(location: MethodLocation, private val elementWidth: Int, pr
         return sb.toString()
     }
 
-    companion object {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(FillArrayDataPayloadOp::class.java.simpleName)
+
         private fun getProperValue(number: Number, expectedClass: Class<*>): Any? {
             val klazz = ClassUtils.wrapperToPrimitive(number.javaClass)
             var value: Any? = null
 
             // Dexlib will only ever make byte (t), int, long (l), or short (s)
-            if (klazz == Byte::class.javaPrimitiveType) {
-                value = number.toByte()
-            } else if (klazz == Short::class.javaPrimitiveType) {
-                value = number.toShort()
-            } else if (klazz == Int::class.javaPrimitiveType) {
-                value = number.toInt()
-            } else if (klazz == Long::class.javaPrimitiveType) {
-                value = number.toLong()
+            val classValue = when (klazz) {
+                Byte::class.javaPrimitiveType -> number.toByte()
+                Short::class.javaPrimitiveType -> number.toShort()
+                Int::class.javaPrimitiveType -> number.toInt()
+                Long::class.javaPrimitiveType -> number.toLong()
+                else -> throw IllegalArgumentException("Unexpected array data payload type: $klazz")
             }
-            if (expectedClass == Boolean::class.javaPrimitiveType) {
-                value = value as Byte.toInt() == 1
-            } else if (expectedClass == Char::class.javaPrimitiveType) {
-                value = number.toShort().toChar()
-            } else if (expectedClass == Short::class.javaPrimitiveType) {
-                value = number.toShort()
-            } else if (expectedClass == Int::class.javaPrimitiveType) {
-                value = number.toInt()
-            } else if (expectedClass == Long::class.javaPrimitiveType) {
-                value = number.toLong()
-            } else if (expectedClass == Float::class.javaPrimitiveType) {
-                value = java.lang.Float.intBitsToFloat(number.toInt())
-            } else if (expectedClass == Double::class.javaPrimitiveType) {
-                value = java.lang.Double.longBitsToDouble(number.toLong())
+
+            return when (expectedClass) {
+                Boolean::class.javaPrimitiveType -> classValue.toInt() == 1
+                Char::class.javaPrimitiveType -> number.toShort().toChar()
+                Short::class.javaPrimitiveType -> number.toShort()
+                Int::class.javaPrimitiveType -> number.toInt()
+                Long::class.javaPrimitiveType -> number.toLong()
+                Float::class.javaPrimitiveType -> java.lang.Float.intBitsToFloat(number.toInt())
+                Double::class.javaPrimitiveType -> java.lang.Double.longBitsToDouble(number.toLong())
+                else -> throw IllegalArgumentException("Unexpected array data payload expected type: $expectedClass")
             }
-            return value
+        }
+
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val instr = location.instruction as ArrayPayload
+            val elementWidth = instr.elementWidth
+            val arrayElements = instr.arrayElements
+            return FillArrayDataPayloadOp(location, elementWidth, arrayElements)
         }
     }
 }

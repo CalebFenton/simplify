@@ -2,11 +2,10 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualType
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
@@ -20,20 +19,19 @@ class CheckCastOp internal constructor(
     child: MethodLocation,
     private val targetRegister: Int,
     private val castType: VirtualType,
-    private val classManager: ClassManager,
     private val exceptionFactory: ExceptionFactory
 ) : Op(location, child) {
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val target = state.readRegister(targetRegister)
-        if (isInstance(target, castType, classManager)) {
+    override fun execute(node: ExecutionNode) {
+        val target = node.state.readRegister(targetRegister)
+        if (isInstance(target, castType, node.classManager)) {
             node.clearExceptions()
-            state.assignRegister(targetRegister, target.value, castType.name)
+            node.state.assignRegister(targetRegister, target.value, castType.name)
         } else {
             // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             val error = ClassNameUtils.internalToBinary(target.type) + " cannot be cast to " + castType.binaryName
             val exception = exceptionFactory.build(this, ClassCastException::class.java, error)
-            node.setException(exception)
+            node.addException(exception)
             if (target.isKnown()) {
                 // Exception is certain to happen since we had all class information
                 node.clearChildren()
@@ -88,7 +86,7 @@ class CheckCastOp internal constructor(
             val targetRegister = instr.registerA
             val reference = instr.reference as TypeReference
             val referenceType = classManager.getVirtualType(reference)
-            return CheckCastOp(location, child, targetRegister, referenceType, classManager, exceptionFactory)
+            return CheckCastOp(location, child, targetRegister, referenceType, exceptionFactory)
         }
     }
 }

@@ -2,12 +2,11 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x
@@ -26,8 +25,8 @@ class ArrayLengthOp internal constructor(
         exceptions.add(exceptionFactory.build(this, NullPointerException::class.java, "Attempt to get length of null array"))
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val array = state.readRegister(arrayRegister)
+    override fun execute(node: ExecutionNode) {
+        val array = node.state.readRegister(arrayRegister)
         if (array.value == null) {
             node.clearChildren()
             return
@@ -44,7 +43,7 @@ class ArrayLengthOp internal constructor(
                 UnknownValue()
             }
         }
-        state.assignRegister(destRegister, length, CommonTypes.INTEGER)
+        node.state.assignRegister(destRegister, length, CommonTypes.INTEGER)
     }
 
     override fun getRegistersReadCount(): Int {

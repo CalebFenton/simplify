@@ -2,13 +2,12 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualArray
 import org.cf.smalivm.type.VirtualClass
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
@@ -23,7 +22,6 @@ class APutOp internal constructor(
     private val valueRegister: Int,
     private val arrayRegister: Int,
     private val indexRegister: Int,
-    private val classManager: ClassManager,
     private val exceptionFactory: ExceptionFactory
 ) : Op(location, child) {
 
@@ -32,15 +30,15 @@ class APutOp internal constructor(
         exceptions.add(exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java))
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val store = state.readRegister(valueRegister)
-        var array = state.readRegister(arrayRegister)
-        val index = state.readRegister(indexRegister)
-        val throwsStoreException = throwsArrayStoreException(array, store, classManager)
+    override fun execute(node: ExecutionNode) {
+        val store = node.state.readRegister(valueRegister)
+        var array = node.state.readRegister(arrayRegister)
+        val index = node.state.readRegister(indexRegister)
+        val throwsStoreException = throwsArrayStoreException(array, store, node.classManager)
         if (throwsStoreException) {
             val storeType = ClassNameUtils.internalToBinary(store.type)
             val exception = exceptionFactory.build(this, ArrayStoreException::class.java, storeType)
-            node.setException(exception)
+            node.addException(exception)
             node.clearChildren()
             return
         }
@@ -53,13 +51,13 @@ class APutOp internal constructor(
             } else {
                 if (null == array.value) {
                     val exception = exceptionFactory.build(this, NullPointerException::class.java)
-                    node.setException(exception)
+                    node.addException(exception)
                     node.clearChildren()
                     return
                 }
                 if (index.asInteger() >= Array.getLength(array.value)) {
                     val exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java)
-                    node.setException(exception)
+                    node.addException(exception)
                     node.clearChildren()
                     return
                 } else {
@@ -69,7 +67,7 @@ class APutOp internal constructor(
                 }
             }
         }
-        state.assignRegister(arrayRegister, array)
+        node.state.assignRegister(arrayRegister, array)
     }
 
     override fun getRegistersReadCount(): Int {
@@ -100,7 +98,7 @@ class APutOp internal constructor(
             val putRegister = instr.registerA
             val arrayRegister = instr.registerB
             val indexRegister = instr.registerC
-            return APutOp(location, child, putRegister, arrayRegister, indexRegister, classManager, exceptionFactory)
+            return APutOp(location, child, putRegister, arrayRegister, indexRegister, exceptionFactory)
         }
 
         private fun castValue(opName: String, value: Any?): Any? {

@@ -2,11 +2,10 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -21,9 +20,9 @@ class CmpOp internal constructor(
     val rhsRegister: Int
 ) : Op(location, child) {
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val lhs = state.readRegister(lhsRegister)
-        val rhs = state.readRegister(rhsRegister)
+    override fun execute(node: ExecutionNode) {
+        val lhs = node.state.readRegister(lhsRegister)
+        val rhs = node.state.readRegister(rhsRegister)
         val item = if (lhs.isUnknown() || rhs.isUnknown()) {
             Value.unknown(CommonTypes.INTEGER)
         } else {
@@ -32,7 +31,7 @@ class CmpOp internal constructor(
             val cmp = cmp(lhs.value as Number, rhs.value as Number)
             Value.wrap(cmp, CommonTypes.INTEGER)
         }
-        state.assignRegister(destRegister, item)
+        node.state.assignRegister(destRegister, item)
     }
 
     override fun getRegistersReadCount(): Int {

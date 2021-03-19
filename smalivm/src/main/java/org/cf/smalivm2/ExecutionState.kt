@@ -4,11 +4,13 @@ import com.rits.cloning.Cloner
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
 import org.cf.smalivm.context.MethodState
+import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.util.Utils
+import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.*
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -28,11 +30,10 @@ class ExecutionState(
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
     protected val values = HashMap<String, Value>(registerCount + fieldCount)
     protected val initializedClasses = HashSet<String>(initializedClassesSize)
-    protected val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
-    protected val registersRead: MutableSet<Int> = HashSet<Int>(registersReadSize)
     protected val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
     protected val firstParameterRegister = registerCount - parameterSize
-
+    val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
+    val registersRead: MutableSet<Int> = HashSet<Int>(registersReadSize)
     var node: ExecutionNode? = null
 
     companion object {
@@ -40,11 +41,11 @@ class ExecutionState(
 
         const val ResultRegister = -1
         const val ReturnRegister = -2
-        const val ReturnAddressRegister = -3
-        const val ThrowRegister = -4
-        const val ExceptionRegister = -5
+        const val ThrowRegister = -3
+        const val ExceptionRegister = -4
+        const val PSEUDO_RETURN_ADDRESS_KEY = "*pseudo-return*"
 
-        fun build(method: VirtualMethod, op: Op, classManager: ClassManager, classLoader: ClassLoader, configuration: Configuration): ExecutionState {
+        fun build(op: Op, method: VirtualMethod, classManager: ClassManager, classLoader: SmaliClassLoader, configuration: Configuration): ExecutionState {
             if (!method.hasImplementation()) {
                 // May be native or abstract and thus no implementation and thus shouldn't execute
                 throw IllegalArgumentException("No implementation for $method");
@@ -57,19 +58,6 @@ class ExecutionState(
             val parameterSize = Utils.getRegisterSize(parameterTypeNames)
             val firstParameterRegister = registerCount - parameterSize
             val fieldCount = method.definingClass.fields.size
-
-            // TODO: every op should know how many registers it reads and assigns. It can't be inferred from interfaces
-            // and depends on the specific op. Once that's added, states can know exactly how big to make certain internal
-            // data structures and save on initialization costs on first use
-            val instr = op.instruction
-            val registersRead = when (instr) {
-                is OneRegisterInstruction -> 1
-                is TwoRegisterInstruction -> 2
-                is ThreeRegisterInstruction -> 3
-                is FiveRegisterInstruction -> 5
-                is VariableRegisterInstruction -> (instr as VariableRegisterInstruction).registerCount
-                else -> 0
-            }
 
             val state = ExecutionState(
                 cloner,
@@ -142,6 +130,30 @@ class ExecutionState(
 
     fun assignField(field: String, value: Value, updateIdentities: Boolean = false) {
         pokeKey(field, value, updateIdentities)
+    }
+
+    fun assignResultRegister(value: Value) {
+        assignRegister(MethodState.ResultRegister, value)
+    }
+
+    fun assignResultRegister(v: Any?, type: String) {
+        assignRegister(MethodState.ResultRegister, Value.wrap(v, type))
+    }
+
+    fun assignReturnRegister(value: Value) {
+        pokeRegister(MethodState.ReturnRegister, value)
+    }
+
+    fun assignReturnRegister(v: Any?, type: String) {
+        pokeRegister(MethodState.ReturnRegister, Value.wrap(v, type))
+    }
+
+    fun assignThrowRegister(value: Value) {
+        pokeRegister(MethodState.ThrowRegister, value)
+    }
+
+    fun pokeRegister(register: Int, v: Any?, type: String, updateIdentities: Boolean = false) {
+        pokeKey(register.toString(), Value.wrap(v, type), updateIdentities)
     }
 
     fun pokeRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
@@ -383,6 +395,14 @@ class ExecutionState(
             ancestor = ancestor.getParent()
         } while (ancestor != null)
         return ancestor
+    }
+
+    fun getPsuedoInstructionReturnLocation(): MethodLocation {
+        return (peekKey(PSEUDO_RETURN_ADDRESS_KEY)?.value!! as MethodLocation)
+    }
+
+    fun setPseudoInstructionReturnLocation(location: MethodLocation) {
+        pokeKey(PSEUDO_RETURN_ADDRESS_KEY, Value.wrap(location, PSEUDO_RETURN_ADDRESS_KEY))
     }
 
 //    private fun keys(): Set<String> {

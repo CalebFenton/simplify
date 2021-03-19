@@ -3,11 +3,10 @@ package org.cf.smalivm.opcode
 import ExceptionFactory
 import org.apache.commons.lang3.ClassUtils
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -36,16 +35,16 @@ class ConstOp internal constructor(
         }
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
+    override fun execute(node: ExecutionNode) {
         val constant = buildConstant()
         if (constant is Throwable) {
-            node.setException(constant)
+            node.addException(constant)
             node.clearChildren()
             return
         } else {
             node.clearExceptions()
         }
-        state.assignRegister(destRegister, constant, constantTypeString)
+        node.state.assignRegister(destRegister, constant, constantTypeString)
     }
 
     override fun getRegistersReadCount(): Int {

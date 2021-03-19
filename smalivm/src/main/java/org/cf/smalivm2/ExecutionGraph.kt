@@ -361,12 +361,12 @@ class ExecutionGraph2 {
 
     fun spawnRootNode(): ExecutionNode {
         val node = getTemplateNode(METHOD_ROOT_ADDRESS)
-        return ExecutionNode(node)
+        return EntrypointNode(node)
     }
 
     fun getTemplateNode(address: Int): ExecutionNode {
         val nodePile = getNodePileByAddress(address)
-        return nodePile!![TEMPLATE_NODE_INDEX]
+        return nodePile[TEMPLATE_NODE_INDEX]
     }
 
     /**

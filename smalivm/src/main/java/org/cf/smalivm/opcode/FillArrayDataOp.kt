@@ -2,10 +2,9 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
+import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.OffsetInstruction
@@ -18,14 +17,15 @@ class FillArrayDataOp internal constructor(
     private val returnLocation: MethodLocation,
     private val register: Int
 ) : Op(location, child) {
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val item = state.readRegister(register)
 
-        // Assign register here so payload op can determine target register for payload.
-        state.assignRegister(register, item)
+    override fun execute(node: ExecutionNode) {
+        val value = node.state.readRegister(register)
 
-        // It needs to know return address when finished since payload ops do not continue to next address.
-        state.setPseudoInstructionReturnLocation(returnLocation)
+        // Assign register so payload op can determine target register for payload.
+        node.state.assignRegister(register, value)
+
+        // Payload op needs to know return address when finished.
+        node.state.setPseudoInstructionReturnLocation(returnLocation)
     }
 
     override fun getRegistersReadCount(): Int {
@@ -33,7 +33,7 @@ class FillArrayDataOp internal constructor(
     }
 
     override fun getRegistersAssignedCount(): Int {
-        return 0
+        return 2
     }
 
     override fun toString(): String {
@@ -42,6 +42,7 @@ class FillArrayDataOp internal constructor(
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(FillArrayDataOp::class.java.simpleName)
+
         override fun build(
             location: MethodLocation,
             addressToLocation: Map<Int, MethodLocation>,
@@ -53,10 +54,10 @@ class FillArrayDataOp internal constructor(
             val instruction = location.instruction as BuilderInstruction
             val address = instruction.location.codeAddress
             val returnAddress = address + instruction.codeUnits
-            val returnLocation = addressToLocation[returnAddress]
+            val returnLocation = addressToLocation[returnAddress]!!
             val branchOffset = (instruction as OffsetInstruction).codeOffset
             val childAddress = address + branchOffset
-            val child = addressToLocation[childAddress]
+            val child = addressToLocation[childAddress]!!
             val instr = location.instruction as Instruction31t
             val register = instr.registerA
             return FillArrayDataOp(location, child, returnLocation, register)

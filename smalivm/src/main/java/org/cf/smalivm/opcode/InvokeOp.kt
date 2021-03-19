@@ -452,7 +452,7 @@ class InvokeOp internal constructor(
             try {
                 reflector.reflect(calleeContext.methodState) // playa play
             } catch (e: Exception) {
-                node.setException(e)
+                node.addException(e)
                 node.clearChildren()
                 return
             }

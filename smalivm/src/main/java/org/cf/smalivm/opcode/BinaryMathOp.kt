@@ -2,12 +2,11 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -52,18 +51,18 @@ class BinaryMathOp internal constructor(
         exceptions.add(exceptionFactory.build(this, ArithmeticException::class.java, "/ by zero"))
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val lhsItem = state.readRegister(arg1Register)
+    override fun execute(node: ExecutionNode) {
+        val lhsItem = node.state.readRegister(arg1Register)
         val rhsItem: Value = if (hasLiteral) {
             Value.wrap(narrowLiteral, CommonTypes.INTEGER)
         } else {
-            state.readRegister(arg2Register)
+            node.state.readRegister(arg2Register)
         }
         var result: Any? = null
         if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
             result = getResult(lhsItem, rhsItem)
             if (result is Throwable) {
-                node.setException(result)
+                node.addException(result)
                 node.clearChildren()
                 return
             } else {
@@ -73,7 +72,7 @@ class BinaryMathOp internal constructor(
         if (null == result) {
             result = UnknownValue()
         }
-        state.assignRegister(destRegister, result, mathOperandType.type)
+        node.state.assignRegister(destRegister, result, mathOperandType.type)
     }
 
     override fun getRegistersReadCount(): Int {
