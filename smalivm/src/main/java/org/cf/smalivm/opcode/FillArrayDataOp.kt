@@ -2,9 +2,10 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.OffsetInstruction
@@ -18,27 +19,19 @@ class FillArrayDataOp internal constructor(
     private val register: Int
 ) : Op(location, child) {
 
-    override fun execute(node: ExecutionNode) {
-        val value = node.state.readRegister(register)
+    override val registersReadCount = 1
+    override val registersAssignedCount = 2
 
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
+        val value = node.state.readRegister(register)
         // Assign register so payload op can determine target register for payload.
         node.state.assignRegister(register, value)
-
         // Payload op needs to know return address when finished.
         node.state.setPseudoInstructionReturnLocation(returnLocation)
+        return collectChildren()
     }
 
-    override fun getRegistersReadCount(): Int {
-        return 1
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 2
-    }
-
-    override fun toString(): String {
-        return name + " r" + register + ", :addr_" + children[0].codeAddress
-    }
+    override fun toString() = name + " r" + register + ", :addr_" + children[0].location.codeAddress
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(FillArrayDataOp::class.java.simpleName)

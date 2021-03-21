@@ -25,7 +25,7 @@ class GotoOp internal constructor(location: MethodLocation, childInstruction: Me
 
     override fun toString(): String {
         val sb = StringBuilder(name)
-        val childAddress = children[0].codeAddress
+        val childAddress = childLocations[0].codeAddress
         sb.append(" :addr_").append(childAddress)
         return sb.toString()
     }

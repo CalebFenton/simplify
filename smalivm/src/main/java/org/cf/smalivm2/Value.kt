@@ -1,7 +1,6 @@
 package org.cf.smalivm2
 
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.HeapItem
 import org.cf.smalivm.type.UninitializedInstance
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm.type.VirtualType
@@ -40,74 +39,66 @@ data class Value(val value: Any?, val type: String, val id: ByteArray) {
 //        return id.contentEquals(other.id)
 //    }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
+    val isImmutable: Boolean
+        get() = Configuration.instance().isImmutable(type)
 
-        other as Value
+    val isMutable: Boolean
+        get() = !isImmutable
 
-        if (value != other.value) return false
-        if (type != other.type) return false
-        if (!id.contentEquals(other.id)) return false
+    val isNull: Boolean
+        get() = value == null
 
-        return true
-    }
+    val isObject: Boolean
+        get() = ClassNameUtils.isObject(type)
 
-    override fun hashCode(): Int {
-        var result = value.hashCode()
-        result = 31 * result + type.hashCode()
-        result = 31 * result + id.contentHashCode()
-        return result
-    }
+    val isPrimitive: Boolean
+        get() = ClassNameUtils.isPrimitive(type)
 
-    fun asDouble(): Double {
+    val isPrimitiveOrWrapper: Boolean
+        get() = ClassNameUtils.isPrimitiveOrWrapper(type)
+
+    val isPrimitiveWrapper: Boolean
+        get() = ClassNameUtils.isWrapper(type)
+
+    val isUnknown: Boolean
+        get() = value is UnknownValue
+
+    val isKnown: Boolean
+        get() = !isUnknown
+
+    val componentBase: String?
+        get() = ClassNameUtils.getComponentBase(type)
+
+    val unboxedType: String
+        get() = ClassNameUtils.getPrimitive(type) ?: type
+
+    val unboxedValueType: String
+        get() = ClassNameUtils.getPrimitive(valueType) ?: valueType
+
+    val valueType: String
+        get() = if (isNull) type else ClassNameUtils.toInternal(value!!.javaClass)
+
+    val declaredAndValueTypeNames: Set<String>
+        get() = if (!isNull && !isUnknown) {
+            setOf(type, ClassNameUtils.toInternal(value!!.javaClass))
+        } else {
+            setOf(type)
+        }
+
+    fun toDouble(): Double {
         return Utils.getDoubleValue(value)
     }
 
-    fun asFloat(): Float {
+    fun toFloat(): Float {
         return Utils.getFloatValue(value)
     }
 
-    fun asInteger(): Int {
+    fun toInteger(): Int {
         return Utils.getIntegerValue(value)
     }
 
-    fun asLong(): Long {
+    fun toLong(): Long {
         return Utils.getLongValue(value)
-    }
-
-    fun getComponentBase(): String? {
-        return ClassNameUtils.getComponentBase(type)
-    }
-
-    fun getUnboxedType(): String {
-        var unboxedType = ClassNameUtils.getPrimitive(type)
-        if (unboxedType == null) {
-            unboxedType = type
-        }
-        return unboxedType
-    }
-
-    fun getUnboxedValueType(): String {
-        val valueType = getValueType()
-        var unboxedType = ClassNameUtils.getPrimitive(valueType)
-        if (unboxedType == null) {
-            unboxedType = valueType
-        }
-        return unboxedType
-    }
-
-    fun getValueType(): String {
-        return if (isNull()) type else ClassNameUtils.toInternal(value!!.javaClass)
-    }
-
-    fun getDeclaredAndValueTypeNames(): Set<String> {
-        val types: MutableSet<String> = HashSet(3)
-        types.add(type)
-        if (!isNull() and !isUnknown()) {
-            types.add(ClassNameUtils.toInternal(value!!.javaClass))
-        }
-        return types
     }
 
     override fun toString(): String {
@@ -136,44 +127,27 @@ data class Value(val value: Any?, val type: String, val id: ByteArray) {
         return sb.toString()
     }
 
-    fun isImmutable(): Boolean {
-        return Configuration.instance().isImmutable(type)
-    }
-
-    fun isMutable(): Boolean {
-        return !isImmutable()
-    }
-
-    fun isNull(): Boolean {
-        return value == null
-    }
-
-    fun isObject(): Boolean {
-        return ClassNameUtils.isObject(type)
-    }
-
-    fun isPrimitive(): Boolean {
-        return ClassNameUtils.isPrimitive(type)
-    }
-
-    fun isPrimitiveOrWrapper(): Boolean {
-        return ClassNameUtils.isPrimitiveOrWrapper(type)
-    }
-
-    fun isPrimitiveWrapper(): Boolean {
-        return ClassNameUtils.isWrapper(type)
-    }
-
-    fun isUnknown(): Boolean {
-        return value is UnknownValue
-    }
-
-    fun isKnown(): Boolean {
-        return !isUnknown()
-    }
-
-    fun valueIdentity(other: Value): Boolean {
+    fun valueEquals(other: Value): Boolean {
         return this.value === other.value
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Value
+
+        if (value != other.value) return false
+        if (type != other.type) return false
+        if (!id.contentEquals(other.id)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = value.hashCode()
+        result = 31 * result + type.hashCode()
+        result = 31 * result + id.contentHashCode()
+        return result
+    }
 }

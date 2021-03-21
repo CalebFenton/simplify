@@ -7,6 +7,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x
@@ -17,46 +18,35 @@ class ArrayLengthOp internal constructor(
     location: MethodLocation,
     child: MethodLocation,
     private val destRegister: Int,
-    private val arrayRegister: Int,
-    exceptionFactory: ExceptionFactory
-) : Op(location, child) {
+    private val arrayRegister: Int
+) : Op(location, child, Pair(NullPointerException::class.java, "Attempt to get length of null array")) {
 
-    init {
-        exceptions.add(exceptionFactory.build(this, NullPointerException::class.java, "Attempt to get length of null array"))
-    }
+    override val registersReadCount = 1
+    override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode) {
+    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
         val array = node.state.readRegister(arrayRegister)
-        if (array.value == null) {
-            node.clearChildren()
-            return
+        if (array.isNull) {
+            return throwChild(NullPointerException::class.java, "Attempt to get length of null array")
         }
+        var mayThrow = true
         val length: Any = when {
-            array.isUnknown() -> UnknownValue()
-            array.value.javaClass.isArray -> {
-                node.clearExceptions()
+            array.isUnknown -> UnknownValue()
+            array.value!!.javaClass.isArray -> {
+                mayThrow = false
                 Array.getLength(array.value)
             }
             else -> {
-                // Won't pass DEX verifier if it's not an array class. Probably our fault, so error.
-                log.error("Unexpected non-array class: {}, {}", array.value.javaClass, array.value)
+                // How'd this happen? The code won't pass DEX verifier if it's not an array class.
+                log.error("Unexpected non-array class: {}, {}; assuming unknown", array.value.javaClass, array.value)
                 UnknownValue()
             }
         }
         node.state.assignRegister(destRegister, length, CommonTypes.INTEGER)
+        return collectChildren(mayThrow)
     }
 
-    override fun getRegistersReadCount(): Int {
-        return 1
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 1
-    }
-
-    override fun toString(): String {
-        return "$name r$destRegister, r$arrayRegister"
-    }
+    override fun toString() = "$name r$destRegister, r$arrayRegister"
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(ArrayLengthOp::class.java.simpleName)
@@ -72,7 +62,7 @@ class ArrayLengthOp internal constructor(
             val instr = location.instruction as Instruction12x
             val destRegister = instr.registerA
             val arrayRegister = instr.registerB
-            return ArrayLengthOp(location, child, destRegister, arrayRegister, exceptionFactory)
+            return ArrayLengthOp(location, child, destRegister, arrayRegister)
         }
     }
 }

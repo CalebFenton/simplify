@@ -2,7 +2,7 @@ package org.cf.smalivm2
 
 import org.jf.dexlib2.builder.MethodLocation
 
-class OpChild {
+open class OpChild {
     companion object {
         fun build(methodSignature: String) = MethodInvocationChild(methodSignature)
         fun build(location: MethodLocation) = LocationChild(location)
@@ -12,4 +12,4 @@ class OpChild {
 
 class MethodInvocationChild(val methodSignature: String) : OpChild()
 class LocationChild(val location: MethodLocation) : OpChild()
-class ExceptionChild(val exceptionClass: Class<out Throwable>, val message: String? = null)
+class ExceptionChild(val exceptionClass: Class<out Throwable>, val message: String? = null) : OpChild()

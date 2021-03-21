@@ -12,22 +12,18 @@ import java.io.File
 import java.util.*
 import kotlin.collections.HashMap
 
-// TODO: easy - check all types for nullity once no longer dependant on interface
-
-//data class OpLocation(val location: MethodLocation, val method: VirtualMethod)
-
 
 class VirtualMachine2 private constructor(
-    var maxAddressVisits: Int = 500,
-    var maxCallDepth: Int = 20,
-    var maxMethodVisits: Int = 1_000_000,
-    var maxExecutionTime: Int = 5 * 60,
-)  {
+    val maxAddressVisits: Int = 500,
+    val maxCallDepth: Int = 20,
+    val maxMethodVisits: Int = 1_000_000,
+    val maxExecutionTime: Int = 5 * 60,
+) {
     lateinit var classManager: ClassManager
     lateinit var classLoader: SmaliClassLoader
-    val templateGraphs: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
+    val templates: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
     val configuration = Configuration.instance()
-    var interactiveExecution = false
+    var interactive = false
     //    val staticFieldAccessor = StaticFieldAccessor(this)
     //    val exceptionFactory = ExceptionFactory(this)
 
@@ -79,7 +75,7 @@ class VirtualMachine2 private constructor(
     }
 
     fun execute(methodSignature: String): ExecutionGraphImpl {
-        val method = classManager.getMethod(methodSignature) ?: throw RuntimeException("Method signature not found: $methodSignature")
+        val method = classManager.getMethod(methodSignature) ?: throw IllegalArgumentException("Method signature not found: $methodSignature")
 
         return execute(method)
     }
@@ -90,8 +86,10 @@ class VirtualMachine2 private constructor(
 
         // TODO: get first node of method
         val node = ExecutionNode(methodSignature)
-        val nodes = Stack<ExecutionNode>()
-        nodes.add(node)
+        val nodes = Stack<Stack<ExecutionNode>>()
+        val methodNodes = Stack<ExecutionNode>()
+        methodNodes.add(node)
+        nodes.add(methodNodes)
 
         execute(nodes, graph)
         return graph
@@ -106,11 +104,9 @@ class VirtualMachine2 private constructor(
         TODO("Not yet implemented")
     }
 
-    fun execute(nodes: Stack<ExecutionNode>, graph: ExecutionGraph2) {
-        if (!this.interactiveExecution) {
-            while (nodes.isNotEmpty()) {
-                step(nodes, graph)
-            }
+    fun execute(nodes: Stack<Stack<ExecutionNode>>, graph: ExecutionGraph2) {
+        while (!this.interactive && nodes.isNotEmpty()) {
+            step(nodes, graph)
         }
     }
 
@@ -124,13 +120,13 @@ class VirtualMachine2 private constructor(
                 continue
             }
             val initSignature = "$classReference-><clinit>()V"
-            val calleeGraph = if (interactiveExecution) null else org.cf.smalivm2.ExecutionGraph()
+            val calleeGraph = if (interactive) null else org.cf.smalivm2.ExecutionGraph()
             val calleeNodes = Stack<org.cf.smalivm2.ExecutionNode>()
             val calleeEntryNode = EntrypointNode(initSignature)
             calleeNodes.push(calleeEntryNode)
             execute(calleeNodes, calleeGraph)
 
-            if (interactiveExecution) {
+            if (interactive) {
                 /*
                 set caller node children to include calleeNode
                 set
@@ -147,9 +143,18 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    fun step(nodes: Stack<ExecutionNode>, graph: ExecutionGraph2) {
-        val node = nodes.peek()
+    fun step(nodes: Stack<Stack<ExecutionNode>>, graph: ExecutionGraph2) {
+        val methodNodes = nodes.peek()
+        val node = methodNodes.peek()
 
+        if (node is EntrypointNode) {
+            if (!node.isClassInitialized(node.method.className)) {
+                val callNodes = Stack<ExecutionNode>()
+                val callMethod = classManager.getMethod("${node.method.className}-><init>()V")
+                // graph get root node, set parent to node
+                val callNode = node.spawnChild()
+            }
+        }
         if (node.parent == null) {
             // TODO: init this class, it's the root
             initializeClassesIfNecessary(node, nodes, graph)
@@ -162,7 +167,7 @@ class VirtualMachine2 private constructor(
         val children = node.execute()
         for (child in children) {
             if (child is EntrypointNode) {
-                val calleeGraph = if (this.interactiveExecution) null else org.cf.smalivm2.ExecutionGraph()
+                val calleeGraph = if (this.interactive) null else org.cf.smalivm2.ExecutionGraph()
                 execute(methodReference, nodes, calleeGraph)
                 node.resume()
             } else {
@@ -204,10 +209,10 @@ class VirtualMachine2 private constructor(
     }
 
     fun spawnExecutionGraph(method: VirtualMethod): ExecutionGraph2 {
-        if (!templateGraphs.containsKey(method)) {
+        if (!templates.containsKey(method)) {
             updateTemplateGraph(method)
         }
-        return ExecutionGraph2(templateGraphs[method]!!)
+        return ExecutionGraph2(templates[method]!!)
     }
 
     fun spawnEntrypointState(methodSignature: String): ExecutionState {
@@ -235,7 +240,7 @@ class VirtualMachine2 private constructor(
         val state = ExecutionState(registerCount + fieldCount, 1)
 
         val currentRegister = firstParameterRegister
-        for ( typeName in method.parameterTypeNames) {
+        for (typeName in method.parameterTypeNames) {
             val value = if (currentRegister == firstParameterRegister && !method.isStatic && method.name == "<init>") {
                 val instance = UninitializedInstance(method.definingClass)
                 Value.wrap(instance, typeName)
@@ -245,9 +250,9 @@ class VirtualMachine2 private constructor(
             state.
         }
         for (VirtualField field : virtualClass.getFields()) {
-            Object value = field.getInitialValue();
-            String type = field.getType();
-            cState.pokeField(field, new HeapItem(value, type));
+            Object value = field . getInitialValue ();
+            String type = field . getType ();
+            cState.pokeField(field, new HeapItem (value, type));
         }
 
 //        VirtualMethod method = context.getMethod();
@@ -255,14 +260,14 @@ class VirtualMachine2 private constructor(
 //        List<String> parameterTypes = method.getParameterTypeNames();
 //        int parameterSize = Utils.getRegisterSize(parameterTypes);
         MethodState mState = new MethodState(context, registerCount, parameterTypes.size(), parameterSize);
-        int firstParameter = mState.getParameterStart();
+        int firstParameter = mState . getParameterStart ();
         int parameterRegister = firstParameter;
 
         for (String type : parameterTypes) {
             HeapItem item;
             if (parameterRegister == firstParameter && !method.isStatic() && method.getName().equals("<init>")) {
                 UninitializedInstance instance = new UninitializedInstance(method.getDefiningClass());
-                item = new HeapItem(instance, type);
+                item = new HeapItem (instance, type);
             } else {
                 item = HeapItem.newUnknown(type);
             }
@@ -327,7 +332,7 @@ class VirtualMachine2 private constructor(
 
     fun updateTemplateGraph(method: VirtualMethod) {
         val graph = ExecutionGraph2(method, this.classManager, this.classLoader)
-        templateGraphs[method] = graph
+        templates[method] = graph
     }
 
     fun findClassReferences(op: Op) {

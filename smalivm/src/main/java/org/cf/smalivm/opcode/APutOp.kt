@@ -8,6 +8,7 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualArray
 import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
@@ -22,65 +23,43 @@ class APutOp internal constructor(
     private val valueRegister: Int,
     private val arrayRegister: Int,
     private val indexRegister: Int,
-    private val exceptionFactory: ExceptionFactory
-) : Op(location, child) {
+) : Op(location, child, NullPointerException::class.java, ArrayIndexOutOfBoundsException::class.java) {
 
-    init {
-        exceptions.add(exceptionFactory.build(this, NullPointerException::class.java))
-        exceptions.add(exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java))
-    }
+    override val registersReadCount = 3
+    override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode) {
+    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
         val store = node.state.readRegister(valueRegister)
         var array = node.state.readRegister(arrayRegister)
         val index = node.state.readRegister(indexRegister)
-        val throwsStoreException = throwsArrayStoreException(array, store, node.classManager)
-        if (throwsStoreException) {
+        if (throwsArrayStoreException(array, store, node.classManager)) {
+            // This isn't included in possible exceptions since the message (storeType) isn't knowable until runtime.
             val storeType = ClassNameUtils.internalToBinary(store.type)
-            val exception = exceptionFactory.build(this, ArrayStoreException::class.java, storeType)
-            node.addException(exception)
-            node.clearChildren()
-            return
+            return throwChild(ArrayStoreException::class.java, storeType)
         }
-        if (array.isUnknown()) {
-            // Do nothing.
-        } else {
-            if (store.isUnknown() || index.isUnknown()) {
-                val type = array.type
-                array = Value.unknown(type)
+        var mayThrow = true
+        if (array.isKnown) {
+            if (store.isUnknown || index.isUnknown) {
+                array = Value.unknown(array.type)
             } else {
-                if (null == array.value) {
-                    val exception = exceptionFactory.build(this, NullPointerException::class.java)
-                    node.addException(exception)
-                    node.clearChildren()
-                    return
+                if (array.isNull) {
+                    return throwChild(NullPointerException::class.java)
                 }
-                if (index.asInteger() >= Array.getLength(array.value)) {
-                    val exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java)
-                    node.addException(exception)
-                    node.clearChildren()
-                    return
+                if (index.toInteger() >= Array.getLength(array.value)) {
+                    return throwChild(ArrayIndexOutOfBoundsException::class.java)
                 } else {
                     val set = castValue(name, store.value)
-                    Array.set(array.value, index.asInteger(), set)
-                    node.clearExceptions()
+                    Array.set(array.value, index.toInteger(), set)
+                    mayThrow = false
                 }
             }
         }
         node.state.assignRegister(arrayRegister, array)
+        return collectChildren(mayThrow)
     }
 
-    override fun getRegistersReadCount(): Int {
-        return 3
-    }
 
-    override fun getRegistersAssignedCount(): Int {
-        return 1
-    }
-
-    override fun toString(): String {
-        return "$name r$valueRegister, r$arrayRegister, r$indexRegister"
-    }
+    override fun toString() = "$name r$valueRegister, r$arrayRegister, r$indexRegister"
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(APutOp::class.java.simpleName)
@@ -98,7 +77,7 @@ class APutOp internal constructor(
             val putRegister = instr.registerA
             val arrayRegister = instr.registerB
             val indexRegister = instr.registerC
-            return APutOp(location, child, putRegister, arrayRegister, indexRegister, exceptionFactory)
+            return APutOp(location, child, putRegister, arrayRegister, indexRegister)
         }
 
         private fun castValue(opName: String, value: Any?): Any? {
@@ -162,9 +141,9 @@ class APutOp internal constructor(
             // Trying to store a known value of 0 and a primitive type of integer into an array of object reference.
             // This is how Dalvik does null.
             // TODO: see what happens when Dalvik makes a Z and uses as null, might want to consider other types
-            val storingNull = !valueItem.isUnknown()
+            val storingNull = !valueItem.isUnknown
                     && valueTypeName == CommonTypes.INTEGER
-                    && valueItem.asInteger() == 0
+                    && valueItem.toInteger() == 0
                     && !ClassNameUtils.isPrimitive(arrayComponentTypeName)
             return !storingNull
         }

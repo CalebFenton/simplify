@@ -49,7 +49,7 @@ class IfOp internal constructor(
             } else if ((lhs.value is Number || lhs.value is Boolean || lhs.value is Char) &&
                 (rhs.value is Number || rhs.value is Boolean || rhs.value is Char)
             ) {
-                val aIntValue = lhs.asInteger()
+                val aIntValue = lhs.toInteger()
                 aIntValue.compareTo(rhs.value as Int)
             } else {
                 if (lhs.value === rhs.value) 0 else 1
@@ -57,8 +57,8 @@ class IfOp internal constructor(
         } else if ((lhs.value is Number || lhs.value is Boolean || lhs.value is Char) &&
             (rhs.value is Number || rhs.value is Boolean || rhs.value is Char)
         ) {
-            val aIntValue = lhs.asInteger()
-            val bIntValue = rhs.asInteger()
+            val aIntValue = lhs.toInteger()
+            val bIntValue = rhs.toInteger()
             aIntValue.compareTo(bIntValue)
         } else {
             if (lhs.value === rhs.value) 0 else 1
@@ -66,7 +66,7 @@ class IfOp internal constructor(
 
         log.trace("IF compare: {} vs {} = {}", lhs.value, rhs.value, cmp)
         val childIndex = if (isTrue(ifType, cmp)) 1 else 0
-        node.setChildLocations(children[childIndex])
+        node.setChildLocations(childLocations[childIndex])
     }
 
     override fun getRegistersReadCount(): Int {

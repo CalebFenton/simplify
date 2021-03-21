@@ -7,6 +7,7 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -26,33 +27,18 @@ class ConstOp internal constructor(
     val constantType: ConstantType,
     val literal: Any,
     val classLoader: ClassLoader,
-    exceptionFactory: ExceptionFactory
 ) : Op(location, child) {
 
-    init {
-        if (ConstantType.CLASS == constantType) {
-            exceptions.add(exceptionFactory.build(this, ClassNotFoundException::class.java, literal as String))
-        }
-    }
+    override val registersReadCount = 0
+    override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode) {
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         val constant = buildConstant()
         if (constant is Throwable) {
-            node.addException(constant)
-            node.clearChildren()
-            return
-        } else {
-            node.clearExceptions()
+            return throwChild(constant)
         }
         node.state.assignRegister(destRegister, constant, constantTypeString)
-    }
-
-    override fun getRegistersReadCount(): Int {
-        return 0
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 1
+        return collectChildren()
     }
 
     override fun toString(): String {
@@ -139,27 +125,32 @@ class ConstOp internal constructor(
             val constantType: ConstantType
             val literal: Any
             val opName = instruction.getOpcode().name
-            if (opName.matches("const-string(?:/jumbo)?".toRegex())) {
-                val instr = location.instruction as ReferenceInstruction
-                literal = (instr.reference as StringReference).string
-                constantType = ConstantType.STRING
-            } else if (opName.endsWith("-class")) {
-                // Don't ensure that the class exists here since we don't know what classes will be available.
-                // Defer to actual execution to handle any possible exceptions.
-                val instr = location.instruction as ReferenceInstruction
-                val classRef = instr.reference
-                literal = ReferenceUtil.getReferenceString(classRef)!!
-                constantType = ConstantType.CLASS
-            } else if (opName.contains("-wide")) {
-                val instr = location.instruction as WideLiteralInstruction
-                literal = instr.wideLiteral
-                constantType = ConstantType.WIDE
-            } else {
-                val instr = location.instruction as NarrowLiteralInstruction
-                literal = instr.narrowLiteral
-                constantType = ConstantType.NARROW
+            when {
+                opName.matches("const-string(?:/jumbo)?".toRegex()) -> {
+                    val instr = location.instruction as ReferenceInstruction
+                    literal = (instr.reference as StringReference).string
+                    constantType = ConstantType.STRING
+                }
+                opName.endsWith("-class") -> {
+                    // Don't ensure that the class exists here since we don't know what classes will be available.
+                    // Defer to actual execution to handle any possible exceptions.
+                    val instr = location.instruction as ReferenceInstruction
+                    val classRef = instr.reference
+                    literal = ReferenceUtil.getReferenceString(classRef)!!
+                    constantType = ConstantType.CLASS
+                }
+                opName.contains("-wide") -> {
+                    val instr = location.instruction as WideLiteralInstruction
+                    literal = instr.wideLiteral
+                    constantType = ConstantType.WIDE
+                }
+                else -> {
+                    val instr = location.instruction as NarrowLiteralInstruction
+                    literal = instr.narrowLiteral
+                    constantType = ConstantType.NARROW
+                }
             }
-            return ConstOp(location, child, destRegister, constantType, literal, classLoader, exceptionFactory)
+            return ConstOp(location, child, destRegister, constantType, literal, classLoader)
         }
     }
 }

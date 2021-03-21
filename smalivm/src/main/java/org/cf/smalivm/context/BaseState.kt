@@ -69,8 +69,8 @@ open class BaseState {
         return context.heap.hasRegister(heapId, register)
     }
 
-    fun peekRegister(register: Int, heapId: String): HeapItem {
-        return context.heap[heapId, register]!!
+    fun peekRegister(register: Int, heapId: String): HeapItem? {
+        return context.heap[heapId, register]
     }
 
     fun pokeRegister(register: Int, item: HeapItem, heapId: String) {

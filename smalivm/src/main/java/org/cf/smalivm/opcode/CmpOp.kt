@@ -6,6 +6,7 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -19,11 +20,13 @@ class CmpOp internal constructor(
     val lhsRegister: Int,
     val rhsRegister: Int
 ) : Op(location, child) {
+    override val registersReadCount = 2
+    override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode) {
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         val lhs = node.state.readRegister(lhsRegister)
         val rhs = node.state.readRegister(rhsRegister)
-        val item = if (lhs.isUnknown() || rhs.isUnknown()) {
+        val item = if (lhs.isUnknown || rhs.isUnknown) {
             Value.unknown(CommonTypes.INTEGER)
         } else {
             assert(lhs.value!!.javaClass == rhs.value!!.javaClass)
@@ -32,25 +35,15 @@ class CmpOp internal constructor(
             Value.wrap(cmp, CommonTypes.INTEGER)
         }
         node.state.assignRegister(destRegister, item)
+        return collectChildren()
     }
 
-    override fun getRegistersReadCount(): Int {
-        return 2
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 1
-    }
-
-    override fun toString(): String {
-        return "$name r$destRegister, r$lhsRegister, r$rhsRegister"
-    }
+    override fun toString(): String = "$name r$destRegister, r$lhsRegister, r$rhsRegister"
 
     private fun cmp(val1: Number, val2: Number): Int {
         val arg1IsNan = val1 is Float && val1.isNaN() || val1 is Double && val1.isNaN()
         val arg2IsNan = val2 is Float && val2.isNaN() || val2 is Double && val2.isNaN()
-        var value = 0
-        value = if (arg1IsNan || arg2IsNan) {
+        return if (arg1IsNan || arg2IsNan) {
             if (name.startsWith("cmpg")) {
                 1
             } else { // cmpl
@@ -73,7 +66,6 @@ class CmpOp internal constructor(
                 java.lang.Long.compare(castVal1, castVal2)
             }
         }
-        return value
     }
 
     companion object : OpFactory {

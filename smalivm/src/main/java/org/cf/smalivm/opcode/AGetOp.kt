@@ -20,72 +20,54 @@ class AGetOp internal constructor(
     private val destRegister: Int,
     private val arrayRegister: Int,
     private val indexRegister: Int,
-    private val exceptionFactory: ExceptionFactory
-) : Op(location, child) {
+) : Op(location, child, NullPointerException::class.java, ArrayIndexOutOfBoundsException::class.java) {
 
-    init {
-        exceptions.add(exceptionFactory.build(this, NullPointerException::class.java))
-        exceptions.add(exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java))
-    }
+    override val registersReadCount = 2
+    override val registersAssignedCount = 2
 
-    override fun execute(node: ExecutionNode) : Array<OpChild> {
+    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
         val array = node.state.readRegister(arrayRegister)
         val index = node.state.readRegister(indexRegister)
         val indexed: Value
-        if (array.isUnknown()) {
+
+        var mayThrow = true
+        if (array.isUnknown) {
             val innerType = getUnknownArrayInnerType(array)
             indexed = Value.unknown(innerType)
         } else {
-            if (index.isUnknown()) {
+            if (index.isUnknown) {
                 val innerType = array.type.replaceFirst("\\[".toRegex(), "")
                 indexed = Value.unknown(innerType)
             } else {
-                // All values are known so it's possible to know for sure what exceptions are thrown, if any
-                node.clearExceptions()
-                if (array.value == null) {
-                    val exception = exceptionFactory.build(this, NullPointerException::class.java)
-                    node.addException(exception)
-                    node.clearChildren()
-                    return
+                if (array.isNull) {
+                    return throwChild(NullPointerException::class.java)
                 }
                 val innerType = array.type.replaceFirst("\\[".toRegex(), "")
-                if (index.asInteger() >= Array.getLength(array.value)) {
-                    val exception = exceptionFactory.build(this, ArrayIndexOutOfBoundsException::class.java)
-                    node.addException(exception)
-                    node.clearChildren()
-                    return
+                if (index.toInteger() >= Array.getLength(array.value)) {
+                    return throwChild(ArrayIndexOutOfBoundsException::class.java)
                 } else {
-                    indexed = Value.wrap(Array.get(array.value, index.asInteger()), innerType)
-                    node.clearExceptions()
+                    val raw = Array.get(array.value, index.toInteger())
+                    indexed = Value.wrap(raw, innerType)
+                    mayThrow = false
                 }
             }
         }
         node.state.assignRegister(destRegister, indexed)
+        return collectChildren(mayThrow)
     }
 
-    override fun getRegistersReadCount(): Int {
-        return 2
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 1
-    }
-
-    override fun toString(): String {
-        return "$name r$destRegister, r$arrayRegister, r$indexRegister"
-    }
+    override fun toString() = "$name r$destRegister, r$arrayRegister, r$indexRegister"
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(AGetOp::class.java.simpleName)
 
         private fun getUnknownArrayInnerType(array: Value): String {
             val outerType = array.type
-            val result: String = if (CommonTypes.UNKNOWN == outerType) {
+            return if (CommonTypes.UNKNOWN == outerType) {
                 CommonTypes.UNKNOWN
             } else {
                 outerType.replaceFirst("\\[".toRegex(), "")
             }
-            return result
         }
 
         override fun build(
@@ -101,7 +83,7 @@ class AGetOp internal constructor(
             val valueRegister = instr.registerA
             val arrayRegister = instr.registerB
             val indexRegister = instr.registerC
-            return AGetOp(location, child, valueRegister, arrayRegister, indexRegister, exceptionFactory)
+            return AGetOp(location, child, valueRegister, arrayRegister, indexRegister)
         }
     }
 }

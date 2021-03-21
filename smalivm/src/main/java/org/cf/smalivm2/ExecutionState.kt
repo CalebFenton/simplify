@@ -11,7 +11,6 @@ import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
-import org.jf.dexlib2.iface.instruction.*
 import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.collections.HashMap
@@ -28,10 +27,10 @@ class ExecutionState(
     mutableParametersSize: Int = 0
 ) {
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
-    protected val values = HashMap<String, Value>(registerCount + fieldCount)
-    protected val initializedClasses = HashSet<String>(initializedClassesSize)
-    protected val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
-    protected val firstParameterRegister = registerCount - parameterSize
+    val values = HashMap<String, Value>(registerCount + fieldCount)
+    val initializedClasses = HashSet<String>(initializedClassesSize)
+    val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
+    val firstParameterRegister = registerCount - parameterSize
     val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
     val registersRead: MutableSet<Int> = HashSet<Int>(registersReadSize)
     var node: ExecutionNode? = null
@@ -66,8 +65,8 @@ class ExecutionState(
                 parameterSize,
                 fieldCount,
                 0,
-                op.getRegistersReadCount(),
-                op.getRegistersAssignedCount()
+                op.registersReadCount,
+                op.registersAssignedCount
             )
 
             var currentRegister = firstParameterRegister
@@ -82,7 +81,7 @@ class ExecutionState(
                 currentRegister += Utils.getRegisterSize(typeName)
             }
 
-            for (field in method.getDefiningClass().fields) {
+            for (field in method.definingClass.fields) {
                 val value = Value.wrap(field.initialValue, field.type)
                 state.pokeField(field, value)
             }
@@ -102,7 +101,11 @@ class ExecutionState(
         }
     }
 
-    fun getParent(): ExecutionState? {
+    // Don't extend back beyond an entrypoint node to potential caller nodes to ensure we're only looking at method state
+    fun getParent(methodLocal: Boolean = true): ExecutionState? {
+        if (methodLocal && (node == null || node is EntrypointNode)) {
+            return null
+        }
         return this.node?.parent?.state
     }
 
@@ -117,7 +120,7 @@ class ExecutionState(
 
     fun assignRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
         registersAssigned.add(register)
-        if (register >= firstParameterRegister && value.isMutable()) {
+        if (register >= firstParameterRegister && value.isMutable) {
             mutableParameters.add(register)
         }
 
@@ -177,12 +180,12 @@ class ExecutionState(
         }
     }
 
-    fun peekRegister(register: Int): Value {
-        return peekKey(register.toString())!!
+    fun peekRegister(register: Int): Value? {
+        return peekKey(register.toString())
     }
 
     fun peekField(field: String): Value {
-        val value = peekKey(field)
+        val value = peekKey(field, false)
         if (value == null) {
             log.error("undefined key: {}; returning unknown", field)
             return Value.unknown(field)
@@ -200,7 +203,7 @@ class ExecutionState(
 
     fun readRegister(register: Int): Value {
         registersRead.add(register)
-        return peekRegister(register)
+        return peekRegister(register)!!
     }
 
     fun removeRegister(register: Int) {
@@ -216,12 +219,12 @@ class ExecutionState(
         if (registersRead.contains(register)) {
             return true
         }
-        val value = peekRegister(register)
+        val value = peekRegister(register) ?: return false
 
         /*
          * Since the goal of this method is to identify which registers were read / used and thus shouldn't be removed,
          * need to exclude the result register as the move-result op will always read and assign an identical object
-         * but this shouldn't mean move-reult counts as a real usage.
+         * but this shouldn't mean move-result counts as a real usage.
          *
          * E.g. If addTwoNumbers(int, int): int is called and the return value is never used, the call should be removed,
          * regardless of whether or not move-result is called.
@@ -230,7 +233,7 @@ class ExecutionState(
             if (currentRegister == MethodState.ResultRegister) {
                 continue
             }
-            val currentValue = peekRegister(currentRegister)
+            val currentValue = peekRegister(currentRegister)!!
             if (value.value === currentValue.value) {
                 return true
             }
@@ -280,9 +283,9 @@ class ExecutionState(
             if (!isLocal) {
                 inner.append("(p").append(register - firstParameterRegister).append(')')
             }
-            val item = peekRegister(register)
-            inner.append(": ").append(item).append('\n')
-            val registerSize = Utils.getRegisterSize(item.type)
+            val value = peekRegister(register)!!
+            inner.append("`: ").append(value).append('\n')
+            val registerSize = Utils.getRegisterSize(value.type)
             register += registerSize
         }
         if (containsRegister(MethodState.ResultRegister)) {
@@ -322,14 +325,15 @@ class ExecutionState(
      * E.g. While peeking v0, it's found that the value is stored in an ancestor. In that ancestor, v0, v1, and v2 all point to the same object.
      * However, v2 was reassigned between the ancestor and this state, so only v0 and v1 are cloned and stored locally.
      * @param key
+     * @param methodLocal only look within parents for this method (i.e. looking up registers instead of fields)
      * @return
      */
-    private fun peekKey(key: String): Value? {
+    private fun peekKey(key: String, methodLocal: Boolean = true): Value? {
         if (hasKey(key)) {
             return values[key]
         }
 
-        val ancestor = getAncestorWithKey(key)
+        val ancestor = getAncestorWithKey(key, methodLocal)
         if (ancestor == null) {
             log.trace("Undefined value: {}; possible mistake!", key, Exception())
             return null
@@ -386,13 +390,13 @@ class ExecutionState(
         return Value.wrap(cloneValue, original.type)
     }
 
-    private fun getAncestorWithKey(key: String): ExecutionState? {
+    private fun getAncestorWithKey(key: String, methodLocal: Boolean = true): ExecutionState? {
         var ancestor: ExecutionState? = this
         do {
             if (ancestor!!.hasKey(key)) {
                 break
             }
-            ancestor = ancestor.getParent()
+            ancestor = ancestor.getParent(methodLocal)
         } while (ancestor != null)
         return ancestor
     }

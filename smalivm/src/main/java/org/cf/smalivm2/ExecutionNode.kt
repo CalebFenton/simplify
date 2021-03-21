@@ -1,12 +1,13 @@
 package org.cf.smalivm2
 
 import ExceptionFactory
+import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualMethod
-import org.jf.dexlib2.builder.MethodLocation
+import org.cf.smalivm.type.VirtualType
 import java.util.*
 
 open class ExecutionNode(
@@ -19,85 +20,70 @@ open class ExecutionNode(
     val state: ExecutionState = ExecutionState.build(op, method, classManager, classLoader, configuration),
     var parent: ExecutionNode? = null
 ) {
-    private val initializedClasses: MutableSet<String> = HashSet(0)
-    private var children: MutableList<ExecutionNode>? = null
-    private var exceptions: MutableSet<Throwable>? = null
+    val address = op.address
+    val index = op.index
+    val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
+    var children: MutableList<ExecutionNode> = LinkedList()
 
-    fun setClassInitialized(classSignature: String) {
-        initializedClasses.add(classSignature)
+    fun setClassInitialized(classSignature: String, level: SideEffect.Level) {
+        val virtualClass = classManager.getVirtualClass(classSignature)
+        setClassInitialized(virtualClass, level)
     }
 
-    fun isClassInitialized(classSignature: String): Boolean {
+    fun setClassInitialized(virtualClass: VirtualType, level: SideEffect.Level) {
+        initializedClasses[virtualClass] = level
+    }
+
+    fun isClassInitialized(virtualClass: VirtualType): Boolean {
         return when {
-            initializedClasses.contains(classSignature) -> true
-            parent != null -> parent!!.isClassInitialized(classSignature)
+            initializedClasses.contains(virtualClass) -> true
+            parent != null -> parent!!.isClassInitialized(virtualClass)
             else -> false
         }
     }
 
-    fun getInvocationTarget(): String {
-        return ""
+    fun isClassInitialized(classSignature: String): Boolean {
+        val virtualClass = classManager.getVirtualClass(classSignature)
+        return isClassInitialized(virtualClass)
     }
+
+    fun getClassSideEffectLevel(virtualClass: VirtualType) = initializedClasses[virtualClass]
+
+    fun getClassSideEffectLevel(classSignature: String) = getClassSideEffectLevel(classManager.getVirtualClass(classSignature))
 
     fun resume(): Array<ExecutionNode> {
         // TODO: this is for invoke ops
         return arrayOf()
     }
 
-    fun clearChildren() {
-        children = children ?: LinkedList(0)
-        children!!.clear()
-    }
-
 //    open fun getCallDepth(): Int {
 //        return context.getCallDepth()
 //    }
 
-    open fun mayThrowException(): Boolean {
-        return exceptions!!.size > 0
+//    open fun mayThrowException(): Boolean {
+//        return children.any { c -> c is ExceptionChild }
+//    }
+
+    fun clearChildren() {
+        children.clear()
     }
 
-    open fun removeChild(child: ExecutionNode) {
+    fun removeChild(child: ExecutionNode) {
         // http://stream1.gifsoup.com/view/773318/not-the-father-dance-o.gif
-        children!!.remove(child)
+        children.remove(child)
     }
 
-    open fun replaceChild(oldChild: ExecutionNode, newChild: ExecutionNode) {
+    fun replaceChild(oldChild: ExecutionNode, newChild: ExecutionNode) {
         removeChild(oldChild)
         newChild.parent = this
     }
 
-    // exceptions == null means exceptions haven't been set, empty list means no exceptions, otherwise op threw
-    fun clearExceptions() {
-        exceptions = exceptions ?: HashSet(0)
-        exceptions!!.clear()
+    fun execute(): Array<out OpChild> {
+        return op.execute(this)
     }
 
-    fun addException(exception: Throwable) {
-        exceptions = exceptions ?: HashSet(1)
-        exceptions!!.add(exception)
-    }
-
-    fun setChildren(vararg locations: MethodLocation) {
-        children = children ?: locations.toMutableList()
-    }
-
-    fun execute(): Array<MethodLocation> {
-        op.execute(this)
-
-//        // Op didn't set children; pull in template values.
-//        if (childLocations == null) {
-//            setChildLocations(*op.children)
-//        }
-//
-//        // Op didn't set exceptions; pull in template values.
-//        if (exceptions == null) {
-//            setExceptions(op.exceptions)
-//        }
-    }
-
-    fun spawnChild(childOp: Op): ExecutionNode {
-        val childState = ExecutionState.build(op, method, classManager, classLoader, configuration)
+    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
+        val childState = ExecutionState.build(op, childMethod, classManager, classLoader, configuration)
         return ExecutionNode(
             op = childOp,
             method = method,
@@ -145,3 +131,18 @@ class EntrypointNode(
     exceptionFactory: ExceptionFactory,
     state: ExecutionState = ExecutionState.build(op, method, classManager, classLoader, configuration),
 ) : ExecutionNode(op, method, classManager, classLoader, configuration, exceptionFactory, state)
+
+
+data class ClassStatus constructor(val classSignature: String, val sideEffectLevel: SideEffect.Level) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) {
+            return true
+        }
+        if (other !is ClassStatus) {
+            return false
+        }
+        return this.classSignature == other.classSignature
+    }
+
+    override fun hashCode() = Objects.hash(classSignature)
+}

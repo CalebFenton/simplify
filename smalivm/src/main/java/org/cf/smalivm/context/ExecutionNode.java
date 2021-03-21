@@ -33,7 +33,7 @@ public class ExecutionNode {
 
     public ExecutionNode(Op op) {
         this.op = op;
-        children = new ArrayList<>(op.getChildren().length);
+        children = new ArrayList<>(op.getChildLocations().length);
     }
 
     public void clearChildren() {
@@ -55,7 +55,7 @@ public class ExecutionNode {
 
         // Op didn't set children; pull in template values.
         if (childLocations == null) {
-            setChildLocations(op.getChildren());
+            setChildLocations(op.getChildLocations());
         }
 
         // Op didn't set exceptions; pull in template values.

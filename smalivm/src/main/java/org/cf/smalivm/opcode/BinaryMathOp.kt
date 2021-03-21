@@ -7,6 +7,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -22,8 +23,8 @@ class BinaryMathOp internal constructor(
     child: MethodLocation,
     private val destRegister: Int,
     private val arg1Register: Int,
-    exceptionFactory: ExceptionFactory
-) : Op(location, child) {
+) : Op(location, child, Pair(ArithmeticException::class.java, "/ by zero")) {
+
     private val mathOperandType = getMathOperandType(name)
     private val mathOperator = getMathOp(name)
     private var arg2Register = 0
@@ -37,8 +38,7 @@ class BinaryMathOp internal constructor(
         arg1Register: Int,
         otherValue: Int,
         hasLiteral: Boolean,
-        exceptionFactory: ExceptionFactory
-    ) : this(location, child, destRegister, arg1Register, exceptionFactory) {
+    ) : this(location, child, destRegister, arg1Register) {
         this.hasLiteral = hasLiteral
         if (hasLiteral) {
             narrowLiteral = otherValue
@@ -47,40 +47,28 @@ class BinaryMathOp internal constructor(
         }
     }
 
-    init {
-        exceptions.add(exceptionFactory.build(this, ArithmeticException::class.java, "/ by zero"))
-    }
+    override val registersReadCount = if (hasLiteral) 1 else 2
+    override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode) {
-        val lhsItem = node.state.readRegister(arg1Register)
-        val rhsItem: Value = if (hasLiteral) {
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
+        val lhs = node.state.readRegister(arg1Register)
+        val rhs: Value = if (hasLiteral) {
             Value.wrap(narrowLiteral, CommonTypes.INTEGER)
         } else {
             node.state.readRegister(arg2Register)
         }
-        var result: Any? = null
-        if (!lhsItem.isUnknown() && !rhsItem.isUnknown()) {
-            result = getResult(lhsItem, rhsItem)
-            if (result is Throwable) {
-                node.addException(result)
-                node.clearChildren()
-                return
-            } else {
-                node.clearExceptions()
-            }
+
+        val result = if (lhs.isKnown && rhs.isKnown) {
+            getResult(lhs, rhs)
+        } else {
+            UnknownValue()
         }
-        if (null == result) {
-            result = UnknownValue()
+
+        if (result is Throwable) {
+            return throwChild(result)
         }
         node.state.assignRegister(destRegister, result, mathOperandType.type)
-    }
-
-    override fun getRegistersReadCount(): Int {
-        TODO("Not yet implemented")
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        TODO("Not yet implemented")
+        return collectChildren()
     }
 
     override fun toString(): String {
@@ -102,10 +90,10 @@ class BinaryMathOp internal constructor(
 
     private fun getResult(lhs: Value, rhs: Value): Any {
         return when (mathOperandType) {
-            MathOperandType.INT -> doIntegerOperation(mathOperator, lhs.asInteger(), rhs.asInteger())
-            MathOperandType.LONG -> doLongOperation(mathOperator, lhs.asLong(), rhs.asLong())
-            MathOperandType.FLOAT -> doFloatOperation(mathOperator, lhs.asFloat(), rhs.asFloat())
-            MathOperandType.DOUBLE -> doDoubleOperation(mathOperator, lhs.asDouble(), rhs.asDouble())
+            MathOperandType.INT -> doIntegerOperation(mathOperator, lhs.toInteger(), rhs.toInteger())
+            MathOperandType.LONG -> doLongOperation(mathOperator, lhs.toLong(), rhs.toLong())
+            MathOperandType.FLOAT -> doFloatOperation(mathOperator, lhs.toFloat(), rhs.toFloat())
+            MathOperandType.DOUBLE -> doDoubleOperation(mathOperator, lhs.toDouble(), rhs.toDouble())
         }
     }
 
@@ -136,19 +124,19 @@ class BinaryMathOp internal constructor(
             if (instruction is Instruction23x) {
                 // add-int vAA, vBB, vCC
                 val arg2Register = (instruction as Instruction23x).registerC
-                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Register, false, exceptionFactory)
+                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Register, false)
             } else if (instruction is Instruction12x) {
                 // add-int/2addr vAA, vBB
                 arg1Register = instr.registerA
                 val arg2Register = (instruction as Instruction12x).registerB
-                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Register, false, exceptionFactory)
+                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Register, false)
             } else if (instruction is NarrowLiteralInstruction) {
                 // Instruction22b - add-int/lit8 vAA, vBB, #CC
                 // Instruction22s - add-int/lit16 vAA, vBB, #CCCC
                 val arg2Literal = (instruction as NarrowLiteralInstruction).narrowLiteral
-                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Literal, true, exceptionFactory)
+                return BinaryMathOp(location, child, destRegister, arg1Register, arg2Literal, true)
             } else {
-                throw IllegalArgumentException("Unexpected instruction format for binary math op: ${instruction.toString()}")
+                throw IllegalArgumentException("Unexpected instruction format for binary math op: $instruction")
             }
         }
 
