@@ -1,15 +1,24 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.MethodState
+import ExceptionFactory
+import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.OpChild
+import org.cf.util.Utils
+import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
+import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction
 
-class MoveOp internal constructor(location: MethodLocation, child: MethodLocation?, val toRegister: Int, val moveType: MoveType) :
-    MethodStateOp(location, child) {
+class MoveOp internal constructor(location: MethodLocation, child: MethodLocation, val toRegister: Int, val moveType: MoveType) :
+    Op(location, child) {
     var targetRegister = 0
         private set
 
-    internal constructor(location: MethodLocation, child: MethodLocation?, toRegister: Int, targetRegister: Int) : this(
+    internal constructor(location: MethodLocation, child: MethodLocation, toRegister: Int, targetRegister: Int) : this(
         location,
         child,
         toRegister,
@@ -18,12 +27,16 @@ class MoveOp internal constructor(location: MethodLocation, child: MethodLocatio
         this.targetRegister = targetRegister
     }
 
-    override fun execute(node: ExecutionNode, mState: MethodState) {
+    override val registersReadCount = 1
+    override val registersAssignedCount = 1
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         when (moveType) {
-            MoveType.EXCEPTION -> moveException(mState, toRegister)
-            MoveType.RESULT -> moveResult(mState, toRegister)
-            MoveType.REGISTER -> moveRegister(mState, toRegister, targetRegister)
+            MoveType.EXCEPTION -> moveException(node.state, toRegister)
+            MoveType.RESULT -> moveResult(node.state, toRegister)
+            MoveType.REGISTER -> moveRegister(node.state, toRegister, targetRegister)
         }
+        return collectChildren()
     }
 
     override fun toString(): String {
@@ -39,20 +52,49 @@ class MoveOp internal constructor(location: MethodLocation, child: MethodLocatio
         EXCEPTION, REGISTER, RESULT
     }
 
-    companion object {
-        private fun moveException(mState: MethodState, toRegister: Int) {
-            val exception = mState.peekExceptionRegister()
-            mState.assignRegister(toRegister, exception)
+    companion object : OpFactory {
+        private fun getMoveType(opName: String): MoveType {
+            return when {
+                opName.contains("-result") -> MoveType.RESULT
+                opName.contains("-exception") -> MoveType.EXCEPTION
+                else -> MoveType.REGISTER
+            }
         }
 
-        private fun moveRegister(mState: MethodState, toRegister: Int, fromRegister: Int) {
-            val item = mState.readRegister(fromRegister)
-            mState.assignRegister(toRegister, item)
+        private fun moveException(state: ExecutionState, toRegister: Int) {
+            val exception = state.peekExceptionRegister()!!
+            state.assignRegister(toRegister, exception)
         }
 
-        private fun moveResult(mState: MethodState, toRegister: Int) {
-            val item = mState.readResultRegister()
-            mState.assignRegister(toRegister, item)
+        private fun moveRegister(state: ExecutionState, toRegister: Int, fromRegister: Int) {
+            val value = state.readRegister(fromRegister)
+            state.assignRegister(toRegister, value)
+        }
+
+        private fun moveResult(state: ExecutionState, toRegister: Int) {
+            val value = state.readResultRegister()
+            state.assignRegister(toRegister, value)
+        }
+
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            exceptionFactory: ExceptionFactory,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instruction = location.instruction as BuilderInstruction
+            val opName = instruction.opcode.name
+            val toRegister = (instruction as OneRegisterInstruction).registerA
+            return when (val moveType = getMoveType(opName)) {
+                MoveType.RESULT, MoveType.EXCEPTION -> MoveOp(location, child, toRegister, moveType)
+                MoveType.REGISTER -> {
+                    val targetRegister = (instruction as TwoRegisterInstruction).registerB
+                    MoveOp(location, child, toRegister, targetRegister)
+                }
+            }
         }
     }
 }

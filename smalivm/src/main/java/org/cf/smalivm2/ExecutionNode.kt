@@ -17,12 +17,13 @@ open class ExecutionNode(
     val classLoader: SmaliClassLoader,
     val configuration: Configuration,
     val exceptionFactory: ExceptionFactory,
-    val state: ExecutionState = ExecutionState.build(op, method, classManager, classLoader, configuration),
-    var parent: ExecutionNode? = null
+    var state: ExecutionState = ExecutionState.build(op, method, classManager, classLoader, configuration),
+    var parent: ExecutionNode? = null,
+    var sideEffectLevel: SideEffect.Level = op.sideEffectLevel
 ) {
     val address = op.address
     val index = op.index
-    val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
+    private val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
     var children: MutableList<ExecutionNode> = LinkedList()
 
     fun setClassInitialized(classSignature: String, level: SideEffect.Level) {
@@ -65,17 +66,25 @@ open class ExecutionNode(
 //    }
 
     fun clearChildren() {
+        children.forEach { c -> c.parent = null}
         children.clear()
     }
 
     fun removeChild(child: ExecutionNode) {
         // http://stream1.gifsoup.com/view/773318/not-the-father-dance-o.gif
+        child.parent = null
         children.remove(child)
+    }
+
+    fun addChild(child: ExecutionNode) {
+        child.parent = this
+        children.add(child)
     }
 
     fun replaceChild(oldChild: ExecutionNode, newChild: ExecutionNode) {
         removeChild(oldChild)
         newChild.parent = this
+        children.add(newChild)
     }
 
     fun execute(): Array<out OpChild> {
@@ -84,7 +93,7 @@ open class ExecutionNode(
 
     fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
         val childState = ExecutionState.build(op, childMethod, classManager, classLoader, configuration)
-        return ExecutionNode(
+        val child = ExecutionNode(
             op = childOp,
             method = method,
             classManager = classManager,
@@ -92,8 +101,10 @@ open class ExecutionNode(
             configuration = configuration,
             exceptionFactory = exceptionFactory,
             state = childState,
-            this
+            parent = this,
         )
+        children.add(child)
+        return child
     }
 
     // TODO: make this work

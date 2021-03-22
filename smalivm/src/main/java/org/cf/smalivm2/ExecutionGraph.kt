@@ -5,11 +5,8 @@ import com.google.common.primitives.Ints
 import gnu.trove.list.TIntList
 import gnu.trove.list.array.TIntArrayList
 import org.cf.smalivm.SideEffect
-import org.cf.smalivm.VirtualMachine
-import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionGraphImpl
 import org.cf.smalivm.dex.CommonTypes
-import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.*
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
@@ -49,10 +46,11 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
 
 class ExecutionGraph2(
     val method: VirtualMethod,
-    val classManager: ClassManager,
-    val classLoader: SmaliClassLoader,
-    val configuration: Configuration
+    val vm: VirtualMachine2,
 ) : Iterable<ExecutionNode> {
+    val classManager = vm.classManager
+    val classLoader = vm.classLoader
+    val configuration = vm.configuration
     val dexBuilder = classManager.dexBuilder
     val implementation: MutableMethodImplementation = method.implementation
     val addressToLocation = buildAddressToLocation(implementation)
@@ -63,7 +61,8 @@ class ExecutionGraph2(
 
     // When ops are added, such as when unreflecting, need to execute in order to ensure
     // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
-    val reexecuteLocations: MutableList<MethodLocation> = LinkedList()
+    val reexecuteLocations: MutableSet<MethodLocation> = HashSet()
+    val recreateLocations: MutableSet<MethodLocation> = HashSet()
     var recreateOrExecuteAgain = false
 
 
@@ -438,7 +437,7 @@ class ExecutionGraph2(
         return ExecutionGraphIterator(this)
     }
 
-     fun wasAddressReached(address: Int): Boolean {
+    fun wasAddressReached(address: Int): Boolean {
         // If this address was reached during execution there will be clones in the pile.
         val nodePile = getNodePileByAddress(address)
         if (nodePile.size < 1) {
@@ -487,11 +486,8 @@ class ExecutionGraph2(
     }
 
     fun getAvailableRegisters(address: Int): IntArray {
-        val registers = IntArray(getRegisterCount(address))
-        for (i in registers.indices) {
-            registers[i] = i
-        }
-        val stack: Deque<ExecutionNode> = ArrayDeque(getChildren(address))
+        val registers = IntArray(getRegisterCount(address)) { it }
+        val stack = ArrayDeque(getChildren(address))
         var node = stack.peek()
         if (node == null) {
             // No children. All registers available!
@@ -505,7 +501,7 @@ class ExecutionGraph2(
                 if (registersRead.contains(register) || registersAssigned.contains(register)) {
                     continue
                 }
-                if (node!!.op.name.startsWith("move-result")) {
+                if (node.op.name.startsWith("move-result")) {
                     // The target and result registers will always be identical. This makes it seem as if the register
                     // has always been read since it was read when it was in the result register.
                     continue
@@ -516,9 +512,10 @@ class ExecutionGraph2(
                     registersAssigned.add(register)
                 }
             }
-            stack.addAll(node!!.children)
+            stack.addAll(node.children)
         }
-        return Arrays.stream(registers).filter { r: Int -> !registersRead.contains(r) }.toArray()
+
+        return registers.filter { r -> !registersRead.contains(r) }.toIntArray()
     }
 
     fun getChildren(address: Int): Collection<ExecutionNode> {
@@ -531,11 +528,11 @@ class ExecutionGraph2(
     }
 
     fun getInstruction(address: Int): BuilderInstruction? {
-        val node: org.cf.smalivm.context.ExecutionNode = getTemplateNode(address)
+        val node: ExecutionNode = getTemplateNode(address)
         return node.op.instruction
     }
 
-    fun getParentAddresses(address: Int): IntArray? {
+    fun getParentAddresses(address: Int): IntArray {
         val parentAddresses: MutableSet<Int> = HashSet()
         for (node in getNodePile(address)) {
             val parent = node.parent ?: continue
@@ -544,30 +541,24 @@ class ExecutionGraph2(
         return Ints.toArray(parentAddresses)
     }
 
-    fun getTryBlocks(): List<BuilderTryBlock?>? {
-        return implementation!!.tryBlocks
+    fun getTryBlocks(): List<BuilderTryBlock> {
+        return implementation.tryBlocks
     }
 
-    fun getVM(): VirtualMachine? {
-        return vm
-    }
-
-    fun removeInstruction(location: MethodLocation?) {
-        val index = location!!.index
-        implementation!!.removeInstruction(index)
+    fun removeInstruction(location: MethodLocation) {
+        implementation.removeInstruction(location.index)
         removeEmptyTryCatchBlocks()
         rebuildGraph()
     }
 
     fun removeInstruction(address: Int) {
-        removeInstruction(getLocation(address))
+        removeInstruction(getLocation(address)!!)
     }
 
-    fun removeInstructions(addresses: List<Int?>) {
-        Collections.sort(addresses)
-        Collections.reverse(addresses)
-        ExecutionGraphManipulator.log.debug("Removing instructions: {}", addresses)
-        addresses.forEach(Consumer { address: Int -> this.removeInstruction(address) })
+    fun removeInstructions(addresses: MutableList<Int>) {
+        addresses.sortDescending()
+        log.debug("Removing instructions: {}", addresses)
+        addresses.forEach(Consumer { address -> removeInstruction(address) })
     }
 
     fun replaceInstruction(insertAddress: Int, instruction: BuilderInstruction) {
@@ -583,7 +574,7 @@ class ExecutionGraph2(
             addInstruction(address, instruction)
             address += instruction.codeUnits
         }
-        val location = getLocation(address)
+        val location = getLocation(address)!!
         recreateOrExecuteAgain = true
         removeInstruction(location)
     }
@@ -593,7 +584,7 @@ class ExecutionGraph2(
     }
 
     private fun getRegisterCount(address: Int): Int {
-        return getNodePile(address)[0].getContext().getMethodState().registerCount
+        return getTemplateNode(address).state.registerCount
     }
 
     private fun addToNodePile(newLocation: MethodLocation) {
@@ -608,51 +599,49 @@ class ExecutionGraph2(
             }
         }
         assert(shiftedLocation != null)
-        val shiftedNodePile: List<org.cf.smalivm.context.ExecutionNode>? = locationToNodePile.get(shiftedLocation)
-        val newNodePile: List<org.cf.smalivm.context.ExecutionNode> = ArrayList()
+
+        val shiftedNodePile = locationToNodePile[shiftedLocation]!!
+        val newNodePile: MutableList<ExecutionNode> = ArrayList()
         locationToNodePile[newLocation] = newNodePile
-        val shiftedOp = shiftedNodePile!![0].op
-        val op = opCreator!!.create(newLocation)
-        recreateLocations!!.add(newLocation)
-        reexecuteLocations!!.add(newLocation)
-        val autoAddedPadding = op is NopOp && (shiftedOp is FillArrayDataPayloadOp ||
-                shiftedOp is SwitchPayloadOp)
+        val shiftedOp = shiftedNodePile[0].op
+        val op = opCreator.create(newLocation)
+        recreateLocations.add(newLocation)
+        reexecuteLocations.add(newLocation)
+        val isAutoAddedPadding = op is NopOp && (shiftedOp is FillArrayDataPayloadOp || shiftedOp is SwitchPayloadOp)
         for (i in shiftedNodePile.indices) {
-            val newNode = ExecutionNode(op)
+            val newNode = ExecutionNode(op, method, classManager, classLoader, configuration, exceptionFactory)
             newNodePile.add(i, newNode)
-            if (autoAddedPadding) {
-                // Padding of this class is never reached
+            if (isAutoAddedPadding) {
+                // This type of padding is never reached and only exists for byte alignment.
                 break
             }
-            if (i == ExecutionGraphImpl.TEMPLATE_NODE_INDEX) {
+            if (i == TEMPLATE_NODE_INDEX) {
+                // Template nodes shouldn't have parents or children
                 continue
             }
+
             val shiftedNode = shiftedNodePile[i]
             val shiftedParent = shiftedNode.parent
-            var newContext: ExecutionContext?
+            //var newContext: ExecutionContext?
             if (shiftedParent != null) {
                 shiftedParent.removeChild(shiftedNode)
                 reparentNode(newNode, shiftedParent)
 
                 // Recreate parent op because its children locations may be affected.
-                recreateLocations!!.add(shiftedParent.op.location)
+                recreateLocations.add(shiftedParent.op.location)
             } else {
-                assert(ExecutionGraphImpl.METHOD_ROOT_ADDRESS == newLocation.codeAddress)
-                newContext = vm.spawnRootContext(method)
-                newNode.context = newContext
+                assert(newLocation.codeAddress == METHOD_ROOT_ADDRESS)
+                // TODO: add caller states to this if necessary
+                val state = vm.spawnEntrypointState(method)
+                newNode.state = state
             }
             reparentNode(shiftedNode, newNode)
         }
     }
 
-    private fun reparentNode(@Nonnull child: org.cf.smalivm.context.ExecutionNode, @Nonnull parent: org.cf.smalivm.context.ExecutionNode) {
-        val newContext = parent.context.spawnChild()
-        child.context = newContext
-        child.setParent(parent)
-        reexecuteLocations!!.add(child.op.location)
-        for (grandChild in child.children) {
-            grandChild.context.setShallowParent(newContext)
-        }
+    private fun reparentNode(child: ExecutionNode, parent: ExecutionNode) {
+        reexecuteLocations.add(child.op.location)
+        parent.addChild(child)
     }
 
     private fun recreateAndExecute() {
@@ -661,19 +650,19 @@ class ExecutionGraph2(
         }
 
         // Was removed from implementation before getting here
-        recreateLocations!!.removeIf { p: MethodLocation -> p.instruction == null }
-        reexecuteLocations!!.removeIf { p: MethodLocation -> p.instruction == null }
+        recreateLocations.removeIf { p: MethodLocation -> p.instruction == null }
+        reexecuteLocations.removeIf { p: MethodLocation -> p.instruction == null }
         for (location in recreateLocations) {
-            val op = opCreator!!.create(location)
-            val pile: List<org.cf.smalivm.context.ExecutionNode>? = locationToNodePile[location]
+            val op = opCreator.create(location)
+            val pile: List<ExecutionNode> = locationToNodePile[location]!!
 
             // TODO: move side effects out of ops and into nodes or graph
             // This is a big ugly.
             if (op is NewInstanceOp || op is InvokeOp) {
-                val node = pile!![0]
+                val node = pile[0]
                 try {
                     val originalLevel = node.op.sideEffectLevel
-                    var klazz: Class<out Op?>
+                    var klazz: Class<out Op>
                     if (op is NewInstanceOp) {
                         klazz = NewInstanceOp::class.java
                     } else { // InvokeOp
@@ -687,42 +676,44 @@ class ExecutionGraph2(
                     e.printStackTrace()
                 }
             }
-            for (aPile in pile!!) {
-                aPile.op = op
+            for (node in pile) {
+                // TODO: should I just recreate the node with the new op?
+                node.op = op
             }
         }
 
+        // TODO: no idea why I did it this way, comments aren't helpful, be sure and test!
         // Locations with the same address may be added. One is probably being removed. If using a sorted set with an
         // address comparator, it prevents adding multiple locations. This prevents them from executing here.
-        Collections.sort(
-            reexecuteLocations
-        ) { e1: MethodLocation, e2: MethodLocation ->
-            Integer.compare(
-                e1.codeAddress,
-                e2.codeAddress
-            )
-        }
-        val reexecute: Set<MethodLocation> = LinkedHashSet(reexecuteLocations)
-        for (location in reexecute) {
-            val pile: List<org.cf.smalivm.context.ExecutionNode>? = locationToNodePile[location]
-            for (i in pile!!.indices) {
-                val node = pile[i]
-                if (i == ExecutionGraphImpl.TEMPLATE_NODE_INDEX) {
-                    continue
+//        Collections.sort(
+//            reexecuteLocations
+//        ) { e1: MethodLocation, e2: MethodLocation ->
+//            Integer.compare(
+//                e1.codeAddress,
+//                e2.codeAddress
+//            )
+//        }
+//        val reexecute: Set<MethodLocation> = LinkedHashSet(reexecuteLocations)
+//        for (location in reexecute) {
+        // TODO: *i think* should execute in ascending order to prevent executing later ops, but this isn't perfect
+        // should create a test that must reexecute in a weird order:  op1@0 -> (branch) op2@10 -> op3@2
+        for (location in reexecuteLocations.sortedBy{ it.codeAddress }) {
+            val pile: List<ExecutionNode> = locationToNodePile[location]!!
+            pile.forEachIndexed { idx, node ->
+                if (idx != TEMPLATE_NODE_INDEX) {
+                    node.execute()
                 }
-                node.execute()
             }
         }
-        recreateLocations!!.clear()
-        reexecuteLocations!!.clear()
+        recreateLocations.clear()
+        reexecuteLocations.clear()
     }
 
     private fun rebuildGraph() {
         // This seems like overkill until you realize implementation may change from under us.
         // Multiple new instructions may be added from adding or removing a single instruction.
         val staleLocations: Set<MethodLocation> = locationToNodePile.keys
-        val implementationLocations = implementation!!.instructions.stream().map { obj: BuilderInstruction -> obj.location }
-            .collect(Collectors.toSet())
+        val implementationLocations = implementation.instructions.map { it.location }
         val addedLocations: MutableSet<MethodLocation> = HashSet(implementationLocations)
         addedLocations.removeAll(staleLocations)
         for (location in addedLocations) {
@@ -731,7 +722,7 @@ class ExecutionGraph2(
         val removedLocations: MutableSet<MethodLocation> = HashSet(staleLocations)
         removedLocations.removeAll(implementationLocations)
         removedLocations.forEach(Consumer { location: MethodLocation -> removeFromNodePile(location) })
-        val newAddressToLocation = ExecutionGraphImpl.buildAddressToLocation(implementation)
+        val newAddressToLocation = buildAddressToLocation(implementation)
         addressToLocation.clear()
         addressToLocation.putAll(newAddressToLocation)
         recreateAndExecute()
@@ -742,8 +733,8 @@ class ExecutionGraph2(
          * If every op from a try block is removed, the dex file will fail to save. Maybe dexlib should be smart enough
          * to remove empty blocks itself, but this is an admittedly strange event.
          */
-        val iter: ListIterator<BuilderTryBlock> = implementation!!.tryBlocks.listIterator()
-        val removeIndexes: TIntList = TIntArrayList()
+        val iter: ListIterator<BuilderTryBlock> = implementation.tryBlocks.listIterator()
+        val removeIndexes = LinkedList<Int>()
         while (iter.hasNext()) {
             val index = iter.nextIndex()
             val tryBlock = iter.next()
@@ -769,26 +760,20 @@ class ExecutionGraph2(
         }
 
         // MutableMethodImplementation#getTryBlocks() returns an immutable collection, but we need to modify it.
-        var tryBlocks: ArrayList<BuilderTryBlock?>? = null
-        try {
-            val f = implementation!!.javaClass.getDeclaredField("tryBlocks")
+        val tryBlocks: ArrayList<BuilderTryBlock> =try {
+            val f = implementation.javaClass.getDeclaredField("tryBlocks")
             f.isAccessible = true // I DO WHAT I WANT.
-            tryBlocks = f[implementation] as ArrayList<BuilderTryBlock?>
-        } catch (e: NoSuchFieldException) {
-            e.printStackTrace()
-        } catch (e: SecurityException) {
-            e.printStackTrace()
-        } catch (e: IllegalArgumentException) {
-            e.printStackTrace()
-        } catch (e: IllegalAccessException) {
-            e.printStackTrace()
+            f[implementation] as ArrayList<BuilderTryBlock>
+        } catch (e: Exception) {
+            log.error("Exception getting tryBlocks field", e)
+            throw RuntimeException("Unable to retrieve tryBlocks")
         }
 
         // Remove from the end to avoid re-indexing invalidations
         removeIndexes.sort()
         removeIndexes.reverse()
-        for (index in removeIndexes.toArray()) {
-            tryBlocks!!.removeAt(index)
+        for (index in removeIndexes) {
+            tryBlocks.removeAt(index)
         }
     }
 
@@ -798,18 +783,19 @@ class ExecutionGraph2(
             f.isAccessible = true
             return f[label] as MethodLocation
         } catch (e: Exception) {
-            ExecutionGraphManipulator.log.error("Couldn't get label location.", e)
+            log.error("Couldn't get label location.", e)
         }
         return null
     }
 
     private fun removeFromNodePile(location: MethodLocation) {
-        val nodePile: List<org.cf.smalivm.context.ExecutionNode>? = locationToNodePile.remove(location)
-        val locationToChildNodeToRemove: MutableMap<MethodLocation, org.cf.smalivm.context.ExecutionNode> = HashMap()
-        for (removedNode in nodePile!!) {
+        val nodePile: List<ExecutionNode> = locationToNodePile.remove(location)!!
+        val locationToChildNodeToRemove: MutableMap<MethodLocation, ExecutionNode> = HashMap()
+        for (removedNode in nodePile) {
             val parentNode = removedNode.parent ?: continue
             parentNode.removeChild(removedNode)
-            recreateLocations!!.add(parentNode.op.location)
+            recreateLocations.add(parentNode.op.location)
+            // TODO: why is this commented?
             // reexecuteLocations.add(parentNode.getOp().getLocation());
             for (childNode in removedNode.children) {
                 val childOp = childNode.op
@@ -826,8 +812,8 @@ class ExecutionGraph2(
             }
         }
         for ((key, value) in locationToChildNodeToRemove) {
-            val pile: MutableList<org.cf.smalivm.context.ExecutionNode>? = locationToNodePile[key]
-            pile!!.remove(value)
+            val pile = locationToNodePile[key]!!
+            pile.remove(value)
         }
     }
 

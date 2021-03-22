@@ -26,12 +26,12 @@ class InvokeOp internal constructor(
     val method: VirtualMethod,
     val parameterRegisters: IntArray,
     vm: VirtualMachine
-) : ExecutionContextOp(location, child) {
+) : Op(location, child) {
     val analyzedParameterTypes: Array<String?>
     private val vm: VirtualMachine
     private val classManager: ClassManager
-    override var sideEffectLevel: SideEffect.Level
-        private set
+    override lateinit var sideEffectLevel: SideEffect.Level
+
     var isDebugMode: Boolean
     var debuggedMethodExecutor: MethodExecutor? = null
         private set
@@ -513,7 +513,8 @@ class InvokeOp internal constructor(
         analyzedParameterTypes = arrayOfNulls(method.parameterTypeNames.size)
         this.vm = vm
         classManager = vm.classManager
-        sideEffectLevel = SideEffect.Level.STRONG
+        // TODO: set these in the node!
+//        sideEffectLevel = SideEffect.Level.STRONG
         isDebugMode = false
     }
 }

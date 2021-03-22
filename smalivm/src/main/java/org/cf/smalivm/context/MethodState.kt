@@ -102,10 +102,6 @@ class MethodState : BaseState {
     val pseudoInstructionReturnInstruction: MethodLocation?
         get() = peekRegister(ReturnAddressRegister)!!.value as MethodLocation?
 
-    fun peekExceptionRegister(): HeapItem? {
-        return peekRegister(ExceptionRegister)
-    }
-
     fun peekParameter(parameterRegister: Int): HeapItem? {
         val item: HeapItem?
         item = if (mutableParameters.contains(parameterRegister)) {
@@ -129,6 +125,10 @@ class MethodState : BaseState {
             }
         }
         return peekRegister(register, METHOD_HEAP)
+    }
+
+    fun peekExceptionRegister(): HeapItem? {
+        return peekRegister(ExceptionRegister)
     }
 
     fun peekResultRegister(): HeapItem? {

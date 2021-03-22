@@ -2,11 +2,11 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -34,13 +34,16 @@ class IfOp internal constructor(
         compareToZero = false
     }
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
-        val lhs = state.readRegister(register1)
-        val rhs = if (compareToZero) Value.wrap(0, CommonTypes.INTEGER) else state.readRegister(register2)
+    override val registersReadCount = if (compareToZero) 1 else 2
+    override val registersAssignedCount = 1
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
+        val lhs = node.state.readRegister(register1)
+        val rhs = if (compareToZero) Value.wrap(0, CommonTypes.INTEGER) else node.state.readRegister(register2)
 
         // Ambiguous predicate. Return to add both possible branches as children.
-        if (lhs.isUnknown() || rhs.isUnknown()) {
-            return
+        if (lhs.isUnknown || rhs.isUnknown) {
+            return collectChildren()
         }
         val cmp = if (compareToZero) {
             if (lhs.value == null) {
@@ -66,15 +69,7 @@ class IfOp internal constructor(
 
         log.trace("IF compare: {} vs {} = {}", lhs.value, rhs.value, cmp)
         val childIndex = if (isTrue(ifType, cmp)) 1 else 0
-        node.setChildLocations(childLocations[childIndex])
-    }
-
-    override fun getRegistersReadCount(): Int {
-        return if (compareToZero) 1 else 2
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 1
+        return collectChildren(children[childIndex])
     }
 
     override fun toString(): String {

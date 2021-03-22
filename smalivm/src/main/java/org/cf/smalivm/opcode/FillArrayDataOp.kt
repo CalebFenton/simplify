@@ -28,7 +28,7 @@ class FillArrayDataOp internal constructor(
         node.state.assignRegister(register, value)
         // Payload op needs to know return address when finished.
         node.state.setPseudoInstructionReturnLocation(returnLocation)
-        return collectChildren()
+        return arrayOf()
     }
 
     override fun toString() = name + " r" + register + ", :addr_" + children[0].location.codeAddress

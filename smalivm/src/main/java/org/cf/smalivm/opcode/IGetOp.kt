@@ -2,11 +2,11 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.IGetOp
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -22,24 +22,20 @@ class IGetOp(
     private val instanceRegister: Int,
     private val fieldDescriptor: String
 ) : Op(location, child) {
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
+
+    override val registersReadCount = 1
+    override val registersAssignedCount = 1
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         // TODO: https://github.com/CalebFenton/simplify/issues/22
-        val instance = state.readRegister(instanceRegister)
+        val instance = node.state.readRegister(instanceRegister)
         val type = fieldDescriptor.split(":").toTypedArray()[1]
-        state.assignRegister(destRegister, Value.unknown(type))
+        node.state.assignRegister(destRegister, Value.unknown(type))
+        return collectChildren()
     }
 
-    override fun getRegistersReadCount(): Int {
-        return 1
-    }
 
-    override fun getRegistersAssignedCount(): Int {
-        return 1
-    }
-
-    override fun toString(): String {
-        return "$name r$destRegister, r$instanceRegister, $fieldDescriptor"
-    }
+    override fun toString() = "$name r$destRegister, r$instanceRegister, $fieldDescriptor"
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(IGetOp::class.java.simpleName)

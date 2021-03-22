@@ -8,14 +8,14 @@ import org.jf.dexlib2.builder.MethodLocation
 
 abstract class Op internal constructor(
     val location: MethodLocation,
-    childLocations: Array<MethodLocation>,
-    defaultExceptions: Array<Pair<Class<out Throwable>, String?>>
+    childLocations: Array<MethodLocation> = arrayOf(),
+    defaultExceptions: Array<Pair<Class<out Throwable>, String?>> = arrayOf()
 ) {
     constructor(
         location: MethodLocation,
         childLocation: MethodLocation,
         vararg defaultExceptions: Class<out Throwable> = arrayOf()
-    ) : this(location, arrayOf(childLocation), defaultExceptions.map { p -> Pair(p, null) }.toTypedArray())
+    ) : this(location, arrayOf(childLocation), defaultExceptions.map { Pair(it, null) }.toTypedArray())
 
     constructor(
         location: MethodLocation,
@@ -26,8 +26,8 @@ abstract class Op internal constructor(
     abstract val registersReadCount: Int
     abstract val registersAssignedCount: Int
 
-    val children = childLocations.map { c -> OpChild.build(c) }.toTypedArray()
-    val exceptions = defaultExceptions.map { p -> OpChild.build(p.first, p.second) }.toTypedArray()
+    val children = childLocations.map { OpChild.build(it) }.toTypedArray()
+    val exceptions = defaultExceptions.map { OpChild.build(it.first, it.second) }.toTypedArray()
 
     val address: Int
         get() = location.codeAddress
@@ -67,6 +67,14 @@ abstract class Op internal constructor(
                 arrayOf()
             }
         }
+    }
+
+    fun collectChildren(vararg locations: MethodLocation): Array<out OpChild> {
+        return locations.map { OpChild.build(it) }.toTypedArray()
+    }
+
+    fun collectChildren(child: OpChild) : Array<OpChild> {
+        return arrayOf(child)
     }
 
 //    fun collectChildren(child: OpChild, mayThrow: Boolean) : Array<OpChild> {

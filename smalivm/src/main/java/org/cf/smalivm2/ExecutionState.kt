@@ -3,6 +3,7 @@ package org.cf.smalivm2
 import com.rits.cloning.Cloner
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
+import org.cf.smalivm.context.HeapItem
 import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
@@ -152,7 +153,15 @@ class ExecutionState(
     }
 
     fun assignThrowRegister(value: Value) {
-        pokeRegister(MethodState.ThrowRegister, value)
+        pokeRegister(ThrowRegister, value)
+    }
+
+    fun readResultRegister(): Value {
+        return readRegister(ResultRegister)
+    }
+
+    fun readReturnRegister(): Value {
+        return readRegister(ReturnRegister)
     }
 
     fun pokeRegister(register: Int, v: Any?, type: String, updateIdentities: Boolean = false) {
@@ -197,11 +206,28 @@ class ExecutionState(
         return peekField(field.toString())
     }
 
+    fun peekExceptionRegister(): Value? {
+        return peekRegister(ExceptionRegister)
+    }
+
+    fun peekResultRegister(): Value? {
+        return peekRegister(ResultRegister)
+    }
+
+    fun peekReturnRegister(): Value? {
+        return peekRegister(ReturnRegister)
+    }
+
+    fun peekThrowRegister(): Value? {
+        return peekRegister(ThrowRegister)
+    }
+
     fun containsRegister(register: Int): Boolean {
         return values.containsKey(register.toString())
     }
 
     fun readRegister(register: Int): Value {
+        // TODO: what happens if an op tries to read an uninitialized register? this assumes an op will never need to read (vs peek) one
         registersRead.add(register)
         return peekRegister(register)!!
     }

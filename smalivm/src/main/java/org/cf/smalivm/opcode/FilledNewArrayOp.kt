@@ -2,10 +2,10 @@ package org.cf.smalivm.opcode
 
 import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionNode
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -24,7 +24,10 @@ class FilledNewArrayOp internal constructor(
     private val typeReference: String
 ) : Op(location, child) {
 
-    override fun execute(node: ExecutionNode, state: ExecutionState) {
+    override val registersReadCount = dimensionRegisters.size
+    override val registersAssignedCount = 1
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         /*
          * This populates a 1-dimensional integer array with values from the parameters. It does NOT create
          * n-dimensional arrays. It's usually used to create parameter for Arrays.newInstance(). If you use anything but
@@ -34,11 +37,11 @@ class FilledNewArrayOp internal constructor(
         var foundUnknown = false
         for (i in dimensionRegisters.indices) {
             val register = dimensionRegisters[i]
-            val item = state.readRegister(register)
+            val item = node.state.readRegister(register)
             if (item.value is Number) {
                 dimensions[i] = item.value.toInt()
             } else {
-                if (item.isKnown()) {
+                if (item.isKnown) {
                     log.warn("Unexpected dimension argument type for {}: {}", toString(), item)
                 }
                 foundUnknown = true
@@ -46,18 +49,12 @@ class FilledNewArrayOp internal constructor(
             }
         }
         if (foundUnknown) {
-            state.assignResultRegister(Value.unknown("[I"))
+            node.state.assignResultRegister(Value.unknown("[I"))
         } else {
-            state.assignResultRegister(dimensions, "[I")
+            node.state.assignResultRegister(dimensions, "[I")
         }
-    }
 
-    override fun getRegistersReadCount(): Int {
-        return dimensionRegisters.size
-    }
-
-    override fun getRegistersAssignedCount(): Int {
-        return 1
+        return collectChildren()
     }
 
     override fun toString(): String {
