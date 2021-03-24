@@ -1,123 +1,127 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.HeapItem
-import org.cf.smalivm.context.MethodState
+import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.dex.CommonTypes
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.formats.Instruction12x
 
-class UnaryMathOp internal constructor(location: MethodLocation, child: MethodLocation?, val destRegister: Int, val srcRegister: Int) :
-    MethodStateOp(location, child) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
-        val item = mState.readRegister(srcRegister)
-        val resultItem: HeapItem
+class UnaryMathOp internal constructor(location: MethodLocation, child: MethodLocation, val destRegister: Int, val srcRegister: Int) :
+    Op(location, child) {
+
+    override val registersReadCount = 1
+    override val registersAssignedCount = 1
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
+        val item = node.state.readRegister(srcRegister)
+        val result: Value
         val type = getResultTypeName(name)
-        resultItem = if (item.isUnknown) {
-            HeapItem.newUnknown(type)
+        result = if (item.isUnknown) {
+            Value.unknown(type)
         } else {
-            val resultValue = perform(item.value, name)
-            HeapItem(resultValue, type)
+            val resultValue = perform(item, name)
+            Value.wrap(resultValue, type)
         }
-        mState.assignRegister(destRegister, resultItem)
+        node.state.assignRegister(destRegister, result)
+        return collectChildren()
     }
 
-    override fun toString(): String {
-        return "$name r$destRegister, r$srcRegister"
+    override fun toString() = "$name r$destRegister, r$srcRegister"
+
+    private fun perform(value: Value, opName: String): Any {
+        return when {
+            opName.startsWith("double") -> {
+                val typedValue = value.toDouble()
+                when {
+                    opName.endsWith("float") -> typedValue.toFloat()
+                    opName.endsWith("long") -> typedValue.toLong()
+                    opName.endsWith("int") -> typedValue.toInt()
+                    else -> throw IllegalArgumentException("Unexpected op name $opName")
+                }
+            }
+            opName.startsWith("float") -> {
+                val typedValue = value.toFloat()
+                when {
+                    opName.endsWith("double") -> typedValue.toDouble()
+                    opName.endsWith("long") -> typedValue.toLong()
+                    opName.endsWith("int") -> typedValue.toInt()
+                    else -> throw IllegalArgumentException("Unexpected op name $opName")
+                }
+            }
+            opName.startsWith("long") -> {
+                val typedValue = value.toLong()
+                when {
+                    opName.endsWith("double") -> typedValue.toDouble()
+                    opName.endsWith("float") -> typedValue.toFloat()
+                    opName.endsWith("int") -> typedValue.toInt()
+                    else -> throw IllegalArgumentException("Unexpected op name $opName")
+                }
+            }
+            opName.startsWith("int") -> {
+                // Could be something other than an int, such as short
+                val typedValue = value.toInteger()
+                when {
+                    opName.endsWith("byte") -> typedValue.toByte()
+                    opName.endsWith("char") -> typedValue.toChar()
+                    opName.endsWith("short") -> typedValue.toShort()
+                    opName.endsWith("double") -> typedValue.toDouble()
+                    opName.endsWith("long") -> typedValue.toLong()
+                    opName.endsWith("float") -> typedValue.toFloat()
+                    else -> throw IllegalArgumentException("Unexpected op name $opName")
+                }
+            }
+            opName.startsWith("neg") -> {
+                when {
+                    opName.endsWith("double") -> -value.toDouble()
+                    opName.endsWith("float") -> -value.toFloat()
+                    opName.endsWith("long") -> -value.toLong()
+                    opName.endsWith("int") -> -value.toInteger()
+                    else -> throw IllegalArgumentException("Unexpected op name $opName")
+                }
+            }
+            opName.startsWith("not") -> {
+                when {
+                    opName.endsWith("int") -> value.toInteger().inv()
+                    opName.endsWith("long") -> value.toLong().inv()
+                    else -> throw IllegalArgumentException("Unexpected op name $opName")
+                }
+            }
+            else -> throw IllegalArgumentException("Unexpected op name $opName")
+        }
     }
 
-    private fun perform(value: Any?, opName: String?): Any? {
-        // Stupid, but simple. Deals.
-        var resultValue: Any? = null
-        if (opName!!.startsWith("double")) {
-            val typedValue = Utils.getDoubleValue(value)
-            if (opName.endsWith("float")) {
-                resultValue = typedValue.toFloat()
-            } else if (opName.endsWith("int")) {
-                resultValue = typedValue.toInt()
-            } else if (opName.endsWith("long")) {
-                resultValue = typedValue.toLong()
-            }
-        } else if (opName.startsWith("float")) {
-            val typedValue = Utils.getFloatValue(value)
-            if (opName.endsWith("double")) {
-                resultValue = typedValue.toDouble()
-            } else if (opName.endsWith("int")) {
-                resultValue = typedValue.toInt()
-            } else if (opName.endsWith("long")) {
-                resultValue = typedValue.toLong()
-            }
-        } else if (opName.startsWith("long")) {
-            val typedValue = Utils.getLongValue(value)
-            if (opName.endsWith("double")) {
-                resultValue = typedValue.toDouble()
-            } else if (opName.endsWith("int")) {
-                resultValue = typedValue.toInt()
-            } else if (opName.endsWith("float")) {
-                resultValue = typedValue.toFloat()
-            }
-        } else if (opName.startsWith("int")) {
-            // Could be something other than an int, such as short
-            val typedValue = Utils.getIntegerValue(value)
-            if (opName.endsWith("byte")) {
-                resultValue = typedValue.toByte()
-            } else if (opName.endsWith("char")) {
-                resultValue = typedValue.toInt().toChar()
-            } else if (opName.endsWith("short")) {
-                resultValue = typedValue.toShort()
-            } else if (opName.endsWith("double")) {
-                resultValue = typedValue.toDouble()
-            } else if (opName.endsWith("long")) {
-                resultValue = typedValue.toLong()
-            } else if (opName.endsWith("float")) {
-                resultValue = typedValue.toFloat()
-            }
-        } else if (opName.startsWith("neg")) {
-            if (opName.endsWith("double")) {
-                val typedValue = Utils.getDoubleValue(value)
-                resultValue = -typedValue
-            } else if (opName.endsWith("float")) {
-                val typedValue = Utils.getFloatValue(value)
-                resultValue = -typedValue
-            } else if (opName.endsWith("int")) {
-                val typedValue = Utils.getIntegerValue(value)
-                resultValue = -typedValue
-            } else if (opName.endsWith("long")) {
-                val typedValue = Utils.getLongValue(value)
-                resultValue = -typedValue
-            }
-        } else if (opName.startsWith("not")) {
-            if (opName.endsWith("int")) {
-                val typedValue = Utils.getIntegerValue(value)
-                resultValue = typedValue.inv()
-            } else if (opName.endsWith("long")) {
-                val typedValue = Utils.getLongValue(value)
-                resultValue = typedValue.inv()
+    companion object : OpFactory {
+        private fun getResultTypeName(opName: String): String {
+            val parts = opName.split("-").toTypedArray()
+            return when (parts[parts.size - 1]) {
+                "int" -> CommonTypes.INTEGER
+                "long" -> CommonTypes.LONG
+                "float" -> CommonTypes.FLOAT
+                "byte" -> CommonTypes.BYTE
+                "char" -> CommonTypes.CHARACTER
+                "double" -> CommonTypes.DOUBLE
+                "short" -> CommonTypes.SHORT
+                else -> throw IllegalArgumentException("Unexpected op name $opName")
             }
         }
-        return resultValue
-    }
 
-    companion object {
-        private fun getResultTypeName(opName: String?): String? {
-            val parts = opName!!.split("-").toTypedArray()
-            val type = parts[parts.size - 1]
-            var resultType: String? = null
-            if ("int" == type) {
-                resultType = "I"
-            } else if ("long" == type) {
-                resultType = "J"
-            } else if ("float" == type) {
-                resultType = "F"
-            } else if ("byte" == type) {
-                resultType = "B"
-            } else if ("char" == type) {
-                resultType = "C"
-            } else if ("double" == type) {
-                resultType = "D"
-            } else if ("short" == type) {
-                resultType = "S"
-            }
-            return resultType
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instr = location.instruction as Instruction12x
+            val destRegister = instr.registerA
+            val srcRegister = instr.registerB
+            return UnaryMathOp(location, child, destRegister, srcRegister)
         }
     }
 }

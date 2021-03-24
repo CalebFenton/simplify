@@ -1,5 +1,6 @@
 package org.cf.smalivm.configuration;
 
+import org.cf.smalivm.type.VirtualType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,10 +57,8 @@ public class Configuration {
     }
 
     /**
-     * Safe classes are Java API classes which are safe to instantiate, load, and statically
-     * initialize. Safe methods are methods of Java classes which are safe to execute. Only classes
-     * and methods which can have no possible side effects outside of SmaliVM should be configured
-     * as safe.
+     * Safe classes are Java API classes which are safe to instantiate, load, and statically initialize. Safe methods are methods of Java classes
+     * which are safe to execute. Only classes and methods which can have no possible side effects outside of SmaliVM should be configured as safe.
      */
     public boolean isSafe(String typeSignature) {
         String[] parts = typeSignature.split("->");
@@ -77,6 +76,10 @@ public class Configuration {
         }
 
         return false;
+    }
+
+    public boolean isSafe(VirtualType virtualClass) {
+        return isSafe(virtualClass.toString());
     }
 
     public boolean isUnsafeMethod(String methodDescriptor) {

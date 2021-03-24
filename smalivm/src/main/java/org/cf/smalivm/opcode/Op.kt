@@ -29,19 +29,20 @@ abstract class Op internal constructor(
     val children = childLocations.map { OpChild.build(it) }.toTypedArray()
     val exceptions = defaultExceptions.map { OpChild.build(it.first, it.second) }.toTypedArray()
 
-    val address: Int
-        get() = location.codeAddress
-    val index: Int
-        get() = location.index
+    val address= location.codeAddress
+    val index = location.index
 
     // May get null instructions when modifying implementations
-    val instruction: BuilderInstruction?
-        get() = location.instruction as BuilderInstruction?
+    val instruction= location.instruction as BuilderInstruction?
     val name: String = instruction?.opcode?.name ?: "*null instr*"
 
     open val sideEffectLevel = SideEffect.Level.NONE
 
     abstract fun execute(node: ExecutionNode): Array<out OpChild>
+
+    open fun resume(node: ExecutionNode): Array<out OpChild> {
+        return collectChildren()
+    }
 
     abstract override fun toString(): String
 
@@ -73,7 +74,7 @@ abstract class Op internal constructor(
         return locations.map { OpChild.build(it) }.toTypedArray()
     }
 
-    fun collectChildren(child: OpChild) : Array<OpChild> {
+    fun collectChildren(child: OpChild): Array<OpChild> {
         return arrayOf(child)
     }
 

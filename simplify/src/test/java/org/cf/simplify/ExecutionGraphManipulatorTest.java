@@ -60,7 +60,7 @@ public class ExecutionGraphManipulatorTest {
     private static void testHeritage(ExecutionGraphManipulator manipulator, int address) {
         ExecutionNode template = manipulator.getTemplateNode(address);
         assertEquals(0, template.getChildren().size());
-        assertNotNull(template.getOp().getChildren());
+        assertNotNull(template.getOp().getChildLocations());
 
         ExecutionNode node = manipulator.getNodePile(address).get(0);
         assertEquals(template.getOp(), node.getOp());
@@ -77,7 +77,7 @@ public class ExecutionGraphManipulatorTest {
 
         Op childOp = child.getOp();
         assertEquals(childOp.getLocation(), childLocations[0]);
-        assertEquals(childOp.getLocation(), node.getOp().getChildren()[0]);
+        assertEquals(childOp.getLocation(), node.getOp().getChildLocations()[0]);
     }
 
     @Test

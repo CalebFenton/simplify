@@ -1,9 +1,7 @@
 package org.cf.smalivm.opcode
 
-import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
-import org.cf.smalivm.opcode.IGetOp
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.OpChild
@@ -43,7 +41,6 @@ class IGetOp(
             location: MethodLocation,
             addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
-            exceptionFactory: ExceptionFactory,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {

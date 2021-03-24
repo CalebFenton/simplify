@@ -14,6 +14,7 @@ public class CommonTypes {
     public static final String INTEGER = "I";
     public static final String SHORT = "S";
     public static final String CHARACTER = "C";
+    public static final String BYTE = "B";
 
     public static final String DOUBLE_OBJ = "Ljava/lang/Double;";
     public static final String FLOAT_OBJ = "Ljava/lang/Float;";

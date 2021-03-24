@@ -25,6 +25,8 @@ public interface ClassManager {
 
   VirtualClass getVirtualClass(String className);
 
+  VirtualField getVirtualField(String fieldSignature);
+
   VirtualType getVirtualType(TypeReference typeReference);
 
   VirtualType getVirtualType(Class<?> typeClass);

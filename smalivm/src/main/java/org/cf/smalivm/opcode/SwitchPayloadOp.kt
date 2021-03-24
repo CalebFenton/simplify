@@ -1,40 +1,46 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.context.ExecutionNode
-import org.cf.smalivm.context.MethodState
-import org.cf.smalivm.opcode.SwitchPayloadOp
+import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.SwitchPayload
 import org.slf4j.LoggerFactory
 import java.util.*
 
-class SwitchPayloadOp  // Don't know children until we know the pseudo return instruction, only branch offsets
-internal constructor(
-    location: MethodLocation, private val addressToLocation: Map<Int, MethodLocation>,
+class SwitchPayloadOp internal constructor(
+    location: MethodLocation,
+    private val addressToLocation: Map<Int, MethodLocation>,
     private val targetKeyToOffset: Map<Int, Int>
 ) : Op(location) {
-    override fun execute(node: ExecutionNode, mState: MethodState) {
+
+    override val registersReadCount = 2
+    override val registersAssignedCount = 0
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         // Pseudo points to instruction *after* switch op.
-        val returnLocation = mState.pseudoInstructionReturnInstruction
+        // Don't know children until we know the pseudo return instruction, only branch offsets
+        val returnLocation = node.state.getPsuedoInstructionReturnLocation()
         val branchFromAddress = returnLocation.codeAddress - SWITCH_OP_CODE_UNITS
-        val targetItem = mState.readResultRegister()
+        val targetItem = node.state.readResultRegister()
         if (targetItem.isUnknown) {
             val childList = getTargets(branchFromAddress, targetKeyToOffset)
             childList.add(returnLocation)
             val children = childList.toTypedArray()
-            node.setChildLocations(*children)
-            return
+            return collectChildren(*children)
         }
         val targetKey = Utils.getIntegerValue(targetItem.value)
         if (targetKeyToOffset.containsKey(targetKey)) {
             val targetOffset = branchFromAddress + targetKeyToOffset[targetKey]!!
-            val child = addressToLocation[targetOffset]
-            node.setChildLocations(child)
-            return
+            val child = addressToLocation[targetOffset]!!
+            return collectChildren(child)
         }
 
         // Branch target is unspecified. Continue to next op.
-        node.setChildLocations(returnLocation)
+        return collectChildren(returnLocation)
     }
 
     override fun toString(): String {
@@ -61,9 +67,23 @@ internal constructor(
         return targets
     }
 
-    companion object {
-        private val log = LoggerFactory
-            .getLogger(SwitchPayloadOp::class.java.simpleName)
+    companion object : OpFactory {
+        private val log = LoggerFactory.getLogger(SwitchPayloadOp::class.java.simpleName)
         private const val SWITCH_OP_CODE_UNITS = 3
+
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val instr = location.instruction as SwitchPayload
+            val targetKeyToOffset: HashMap<Int, Int> = HashMap()
+            for (element in instr.switchElements) {
+                targetKeyToOffset[element.key] = element.offset
+            }
+            return SwitchPayloadOp(location, addressToLocation, targetKeyToOffset)
+        }
     }
 }

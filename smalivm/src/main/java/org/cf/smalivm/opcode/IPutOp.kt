@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode
 
-import ExceptionFactory
 import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -34,13 +33,12 @@ class IPutOp internal constructor(
 
     override fun toString() = "$name r$valueRegister, r$instanceRegister, $fieldDescriptor"
 
-    private companion object : OpFactory {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(IPutOp::class.java.simpleName)
         override fun build(
             location: MethodLocation,
             addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
-            exceptionFactory: ExceptionFactory,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {

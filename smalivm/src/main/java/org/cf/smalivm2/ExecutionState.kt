@@ -1,9 +1,9 @@
 package org.cf.smalivm2
 
 import com.rits.cloning.Cloner
+import org.apache.commons.lang3.reflect.FieldUtils
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
-import org.cf.smalivm.context.HeapItem
 import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
@@ -18,6 +18,8 @@ import kotlin.collections.HashMap
 
 class ExecutionState(
     val cloner: Cloner,
+    val classManager: ClassManager,
+    val configuration: Configuration,
     val registerCount: Int,
     val parameterCount: Int = 0,
     val parameterSize: Int = 0,
@@ -45,7 +47,13 @@ class ExecutionState(
         const val ExceptionRegister = -4
         const val PSEUDO_RETURN_ADDRESS_KEY = "*pseudo-return*"
 
-        fun build(op: Op, method: VirtualMethod, classManager: ClassManager, classLoader: SmaliClassLoader, configuration: Configuration): ExecutionState {
+        fun build(
+            op: Op,
+            method: VirtualMethod,
+            classManager: ClassManager,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): ExecutionState {
             if (!method.hasImplementation()) {
                 // May be native or abstract and thus no implementation and thus shouldn't execute
                 throw IllegalArgumentException("No implementation for $method");
@@ -61,6 +69,8 @@ class ExecutionState(
 
             val state = ExecutionState(
                 cloner,
+                classManager,
+                configuration,
                 registerCount,
                 parameterCount,
                 parameterSize,
@@ -129,11 +139,11 @@ class ExecutionState(
     }
 
     fun assignField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
-        assignField(field.toString(), value, updateIdentities)
+        pokeField(field, value, updateIdentities)
     }
 
     fun assignField(field: String, value: Value, updateIdentities: Boolean = false) {
-        pokeKey(field, value, updateIdentities)
+        pokeField(field, value, updateIdentities)
     }
 
     fun assignResultRegister(value: Value) {
@@ -172,12 +182,18 @@ class ExecutionState(
         pokeKey(register.toString(), value, updateIdentities)
     }
 
-    fun pokeField(field: String, value: Value, updateIdentities: Boolean = false) {
-        pokeKey(field, value, updateIdentities)
+    fun pokeField(fieldSignature: String, value: Value, updateIdentities: Boolean = false) {
+        val field = classManager.getVirtualField(fieldSignature)
+        pokeField(field, value, updateIdentities)
     }
 
     fun pokeField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
-        pokeField(field.toString(), value, updateIdentities)
+        if (configuration.isSafe(field.definingClass)) {
+            // TODO: consider enabling this, is it safe?
+            log.warn("Ignoring static assignment of non-local field: {} = {}", field, value)
+        } else {
+            pokeKey(field.toString(), value, updateIdentities)
+        }
     }
 
     private fun pokeKey(key: String, value: Value, updateIdentities: Boolean = false) {
@@ -193,17 +209,22 @@ class ExecutionState(
         return peekKey(register.toString())
     }
 
-    fun peekField(field: String): Value {
-        val value = peekKey(field, false)
-        if (value == null) {
-            log.error("undefined key: {}; returning unknown", field)
-            return Value.unknown(field)
-        }
-        return value
+    fun peekField(fieldSignature: String): Value {
+        val field = classManager.getVirtualField(fieldSignature)
+        return peekField(field)
     }
 
     fun peekField(field: VirtualField): Value {
-        return peekField(field.toString())
+        val value = if (configuration.isSafe(field.definingClass)) {
+            getSafeField(field)
+        } else {
+            peekKey(field.toString(), false)
+        }
+        if (value == null) {
+            log.error("undefined field: {}; returning unknown", field)
+            return Value.unknown(field.type)
+        }
+        return value
     }
 
     fun peekExceptionRegister(): Value? {
@@ -434,6 +455,22 @@ class ExecutionState(
     fun setPseudoInstructionReturnLocation(location: MethodLocation) {
         pokeKey(PSEUDO_RETURN_ADDRESS_KEY, Value.wrap(location, PSEUDO_RETURN_ADDRESS_KEY))
     }
+
+    private fun getSafeField(field: VirtualField): Value {
+        val className = field.definingClass.binaryName
+        try {
+            val klazz = Class.forName(className)
+            val realField = FieldUtils.getField(klazz, field.name)
+            val fieldValue = realField[null]
+            return Value.wrap(fieldValue, field.type)
+        } catch (e: Exception) {
+            // TODO: medium - throw these exceptions and handle them by setting correct virtual exceptions
+            log.warn("Couldn't access field: {}", field.toString())
+            log.debug("Stack trace:", e)
+        }
+        return Value.unknown(field.type)
+    }
+
 
 //    private fun keys(): Set<String> {
 //        // Note: mutating this directly alters keyToHeapItem's keys

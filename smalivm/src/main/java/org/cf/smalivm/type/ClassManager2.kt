@@ -147,6 +147,14 @@ class ClassManager2(
         return getVirtualType(className) as VirtualClass?
     }
 
+    override fun getVirtualField(fieldSignature: String): VirtualField {
+        val parts = fieldSignature.split("->")
+        val className = parts[0]
+        val name = parts[1].split(":")[0]
+        val fieldClass = getVirtualClass(className)!!
+        return fieldClass.getField(name)!!
+    }
+
     // todo: Should this thrown an exception ONLY for non-existent types? Or let the caller deal with it.
     // OR throw exceptions for missing classes also (probably best)
     override fun getVirtualType(typeReference: TypeReference): VirtualType? {

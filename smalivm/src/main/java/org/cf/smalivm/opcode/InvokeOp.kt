@@ -3,26 +3,35 @@ package org.cf.smalivm.opcode
 import gnu.trove.list.TIntList
 import gnu.trove.list.linked.TIntLinkedList
 import org.cf.smalivm.*
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ExecutionContext
 import org.cf.smalivm.context.ExecutionGraph
 import org.cf.smalivm.context.HeapItem
 import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.CommonTypes
+import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.emulate.MethodEmulator
 import org.cf.smalivm.exception.UnhandledVirtualException
 import org.cf.smalivm.exception.VirtualMachineException
 import org.cf.smalivm.type.*
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.OpChild
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.iface.instruction.Instruction
+import org.jf.dexlib2.iface.instruction.ReferenceInstruction
+import org.jf.dexlib2.iface.instruction.formats.Instruction35c
+import org.jf.dexlib2.iface.instruction.formats.Instruction3rc
+import org.jf.dexlib2.iface.reference.MethodReference
+import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
 class InvokeOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation?,
+    child: MethodLocation,
     val method: VirtualMethod,
     val parameterRegisters: IntArray,
     vm: VirtualMachine
@@ -30,7 +39,6 @@ class InvokeOp internal constructor(
     val analyzedParameterTypes: Array<String?>
     private val vm: VirtualMachine
     private val classManager: ClassManager
-    override lateinit var sideEffectLevel: SideEffect.Level
 
     var isDebugMode: Boolean
     var debuggedMethodExecutor: MethodExecutor? = null
@@ -38,7 +46,23 @@ class InvokeOp internal constructor(
     private var debuggedCallerContext: ExecutionContext? = null
     private var debuggedCalleeContext: ExecutionContext? = null
     private var debuggedNode: ExecutionNode? = null
-    override fun execute(node: ExecutionNode, context: ExecutionContext) {
+
+    init {
+        analyzedParameterTypes = arrayOfNulls(method.parameterTypeNames.size)
+        this.vm = vm
+        classManager = vm.classManager
+        // TODO: set these in the node!
+//        sideEffectLevel = SideEffect.Level.STRONG
+        isDebugMode = false
+    }
+
+    override val registersReadCount: Int
+        get() = TODO("Not yet implemented")
+    override val registersAssignedCount: Int
+        get() = TODO("Not yet implemented")
+    override lateinit var sideEffectLevel: SideEffect.Level
+
+    override fun execute(node: ExecutionNode): Array<out OpChild> {
         // TODO: In order to get working call stacks, refactor this to delegate most of the work to MethodExecutor.
         // This will remove InvokeOp as a weirdly complex op, and probably allow some methods to be made protected.
         // It also keeps things clear with method execution delegated to the class with the same name.
@@ -507,14 +531,84 @@ class InvokeOp internal constructor(
 
     companion object {
         private val log = LoggerFactory.getLogger(InvokeOp::class.java.simpleName)
-    }
+        private fun buildParameterRegisters(parameterTypes: List<String>, registers: IntArray): IntArray {
+            val parameterRegisters: TIntList = TIntLinkedList(parameterTypes.size)
+            var index = 0
+            for (parameterType in parameterTypes) {
+                parameterRegisters.add(registers[index])
+                index += Utils.getRegisterSize(parameterType)
+            }
+            return parameterRegisters.toArray()
+        }
 
-    init {
-        analyzedParameterTypes = arrayOfNulls(method.parameterTypeNames.size)
-        this.vm = vm
-        classManager = vm.classManager
-        // TODO: set these in the node!
-//        sideEffectLevel = SideEffect.Level.STRONG
-        isDebugMode = false
+        private fun buildRegisters(instr: Instruction?): IntArray {
+            return if (instr is Instruction3rc) {
+                buildRegisters3rc(instr)
+            } else {
+                buildRegisters35c(instr as Instruction35c?)
+            }
+        }
+
+        private fun buildRegisters35c(instruction: Instruction35c?): IntArray {
+            val registerCount = instruction!!.registerCount
+            val registers = IntArray(registerCount)
+            when (registerCount) {
+                5 -> {
+                    registers[4] = instruction.registerG
+                    registers[3] = instruction.registerF
+                    registers[2] = instruction.registerE
+                    registers[1] = instruction.registerD
+                    registers[0] = instruction.registerC
+                }
+                4 -> {
+                    registers[3] = instruction.registerF
+                    registers[2] = instruction.registerE
+                    registers[1] = instruction.registerD
+                    registers[0] = instruction.registerC
+                }
+                3 -> {
+                    registers[2] = instruction.registerE
+                    registers[1] = instruction.registerD
+                    registers[0] = instruction.registerC
+                }
+                2 -> {
+                    registers[1] = instruction.registerD
+                    registers[0] = instruction.registerC
+                }
+                1 -> registers[0] = instruction.registerC
+            }
+            return registers
+        }
+
+        private fun buildRegisters3rc(instruction: Instruction3rc): IntArray {
+            val registerCount = instruction.registerCount
+            val start = instruction.startRegister
+            val end = start + registerCount
+            val registers = IntArray(registerCount)
+            for (i in start until end) {
+                registers[i - start] = i
+            }
+            return registers
+        }
+
+        override fun build(
+            location: MethodLocation,
+            addressToLocation: Map<Int, MethodLocation>,
+            classManager: ClassManager,
+            classLoader: SmaliClassLoader,
+            configuration: Configuration
+        ): Op {
+            val child = Utils.getNextLocation(location, addressToLocation)
+            val instruction = location.instruction as ReferenceInstruction
+            val methodReference = instruction.reference as MethodReference
+            val registers = buildRegisters(location.instruction)
+            val className = methodReference.definingClass
+            val type = classManager.getVirtualType(className)
+            val methodSignature = ReferenceUtil.getMethodDescriptor(methodReference)
+            val methodDescriptor = methodSignature.split("->").toTypedArray()[1]
+            val method = type.getMethod(methodDescriptor) ?: throw RuntimeException("Method doesn't exist: $methodSignature")
+            val parameterRegisters = buildParameterRegisters(method.parameterTypeNames, registers)
+            return InvokeOp(location, child, method, parameterRegisters)
+        }
     }
 }

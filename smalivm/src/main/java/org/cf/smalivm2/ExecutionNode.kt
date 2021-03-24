@@ -3,6 +3,7 @@ package org.cf.smalivm2
 import ExceptionFactory
 import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.context.ExecutionContext
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
@@ -26,6 +27,22 @@ open class ExecutionNode(
     private val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
     var children: MutableList<ExecutionNode> = LinkedList()
 
+    private fun getAncestorWithClass(virtualClass: VirtualType): ExecutionNode? {
+        var ancestor: ExecutionNode? = this
+        do {
+            if (ancestor!!.initializedClasses.containsKey(virtualClass)) {
+                return ancestor
+            }
+            ancestor = ancestor.parent
+        } while (ancestor != null)
+        return null
+    }
+
+    fun getClassSideEffectLevel(virtualClass: VirtualType): SideEffect.Level? {
+        val ancestor = getAncestorWithClass(virtualClass) ?: return null
+        return ancestor.initializedClasses[virtualClass]!!
+    }
+
     fun setClassInitialized(classSignature: String, level: SideEffect.Level) {
         val virtualClass = classManager.getVirtualClass(classSignature)
         setClassInitialized(virtualClass, level)
@@ -48,9 +65,9 @@ open class ExecutionNode(
         return isClassInitialized(virtualClass)
     }
 
-    fun getClassSideEffectLevel(virtualClass: VirtualType) = initializedClasses[virtualClass]
-
-    fun getClassSideEffectLevel(classSignature: String) = getClassSideEffectLevel(classManager.getVirtualClass(classSignature))
+//    fun getClassSideEffectLevel(virtualClass: VirtualType) = initializedClasses[virtualClass]
+//
+//    fun getClassSideEffectLevel(classSignature: String) = getClassSideEffectLevel(classManager.getVirtualClass(classSignature))
 
     fun resume(): Array<ExecutionNode> {
         // TODO: this is for invoke ops
@@ -144,16 +161,16 @@ class EntrypointNode(
 ) : ExecutionNode(op, method, classManager, classLoader, configuration, exceptionFactory, state)
 
 
-data class ClassStatus constructor(val classSignature: String, val sideEffectLevel: SideEffect.Level) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) {
-            return true
-        }
-        if (other !is ClassStatus) {
-            return false
-        }
-        return this.classSignature == other.classSignature
-    }
-
-    override fun hashCode() = Objects.hash(classSignature)
-}
+//data class ClassStatus constructor(val classSignature: String, val sideEffectLevel: SideEffect.Level) {
+//    override fun equals(other: Any?): Boolean {
+//        if (this === other) {
+//            return true
+//        }
+//        if (other !is ClassStatus) {
+//            return false
+//        }
+//        return this.classSignature == other.classSignature
+//    }
+//
+//    override fun hashCode() = Objects.hash(classSignature)
+//}
