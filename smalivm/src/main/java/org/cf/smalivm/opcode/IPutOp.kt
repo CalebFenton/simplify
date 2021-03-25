@@ -5,7 +5,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c
@@ -24,11 +24,11 @@ class IPutOp internal constructor(
     override val registersAssignedCount = 1
     override val sideEffectLevel = SideEffect.Level.WEAK
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val value = node.state.readRegister(valueRegister)
         val instance = node.state.readRegister(instanceRegister)
         node.state.assignRegister(instanceRegister, instance)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString() = "$name r$valueRegister, r$instanceRegister, $fieldDescriptor"

@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction11x
 import org.slf4j.LoggerFactory
@@ -14,10 +14,10 @@ class ReturnOp internal constructor(location: MethodLocation, private val regist
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val value = node.state.readRegister(register)
         node.state.assignReturnRegister(value)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString() = "$name r$register"

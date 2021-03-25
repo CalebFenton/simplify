@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 
@@ -13,7 +13,7 @@ class NopOp internal constructor(location: MethodLocation, child: MethodLocation
     override val registersReadCount = 0
     override val registersAssignedCount = 0
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // Yesterday, upon the stair,
         // I met an op who wasn't there.
         // It wasn't there again today,
@@ -23,7 +23,7 @@ class NopOp internal constructor(location: MethodLocation, child: MethodLocation
         // A little op who wasn't there,
         // It wasn't there again today
         // Oh, how I wish it'd go away...
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString() = name

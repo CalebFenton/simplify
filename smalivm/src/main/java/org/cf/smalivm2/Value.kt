@@ -48,6 +48,9 @@ data class Value(val value: Any?, val type: String, val id: ByteArray) {
     val isNull: Boolean
         get() = value == null
 
+    val isNotNull: Boolean
+        get() = !isNull
+
     val isObject: Boolean
         get() = ClassNameUtils.isObject(type)
 
@@ -66,7 +69,7 @@ data class Value(val value: Any?, val type: String, val id: ByteArray) {
     val isKnown: Boolean
         get() = !isUnknown
 
-    val componentBase: String?
+    val componentBase: String
         get() = ClassNameUtils.getComponentBase(type)
 
     val unboxedType: String

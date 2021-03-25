@@ -5,7 +5,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload
 import org.slf4j.LoggerFactory
@@ -21,7 +21,7 @@ class FillArrayDataPayloadOp internal constructor(
     override val registersReadCount = 2
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
+    override fun execute(node: ExecutionNode): kotlin.Array<out UnresolvedChild> {
         val parent = node.state.getParent()!!
         val targetRegister = parent.registersAssigned.toList()[0]
         val array = node.state.peekRegister(targetRegister)!!
@@ -36,7 +36,7 @@ class FillArrayDataPayloadOp internal constructor(
         }
         // This is a strange pseudo-op which should return to the next op after the FillArrayDataOp.
         val returnLocation = parent.getPsuedoInstructionReturnLocation()
-        return collectChildren(returnLocation)
+        return finishOp(returnLocation)
     }
 
     override fun toString(): String {

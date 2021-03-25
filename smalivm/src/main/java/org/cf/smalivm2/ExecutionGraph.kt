@@ -2,10 +2,7 @@ package org.cf.smalivm2
 
 import ExceptionFactory
 import com.google.common.primitives.Ints
-import gnu.trove.list.TIntList
-import gnu.trove.list.array.TIntArrayList
 import org.cf.smalivm.SideEffect
-import org.cf.smalivm.context.ExecutionGraphImpl
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.opcode.*
 import org.cf.smalivm.type.ClassManager
@@ -17,7 +14,6 @@ import org.jf.dexlib2.builder.*
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.function.Consumer
-import java.util.stream.Collectors
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 
@@ -39,7 +35,7 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
     }
 
     init {
-        stack = ArrayDeque()
+        stack = LinkedList()
         stack.push(graph.root)
     }
 }
@@ -47,17 +43,22 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
 class ExecutionGraph2(
     val method: VirtualMethod,
     val vm: VirtualMachine2,
+    val templateOps: Map<MethodLocation, Op>? = null
 ) : Iterable<ExecutionNode> {
+    val addressToLocation = buildAddressToLocation(method.implementation)
+    val terminatingAddresses = buildTerminatingAddresses(method.implementation.instructions)
+    val opBuilder = OpBuilder(addressToLocation, vm.classManager, vm.classLoader, vm.configuration)
+    val locationToNodePile = buildLocationToNodePile(addressToLocation, method, vm, opBuilder, templateOps)
     val classManager = vm.classManager
     val classLoader = vm.classLoader
     val configuration = vm.configuration
     val dexBuilder = classManager.dexBuilder
-    val implementation: MutableMethodImplementation = method.implementation
-    val addressToLocation = buildAddressToLocation(implementation)
-    val locationToNodePile = buildLocationToNodePile(addressToLocation, classManager)
-    val terminatingAddresses = buildTerminatingAddresses(implementation.instructions)
+
+    //    val implementation: MutableMethodImplementation = method.implementation
+    //    val opCreator: OpCreator = OpCreator(addressToLocation, classManager, classLoader, configuration)
+//    val addressToLocation = buildAddressToLocation(method.implementation)
+//    val terminatingAddresses = buildTerminatingAddresses(implementation.instructions)
     val exceptionFactory = ExceptionFactory(classLoader)
-    val opCreator: OpCreator = OpCreator(addressToLocation, classManager, exceptionFactory)
 
     // When ops are added, such as when unreflecting, need to execute in order to ensure
     // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
@@ -65,6 +66,30 @@ class ExecutionGraph2(
     val recreateLocations: MutableSet<MethodLocation> = HashSet()
     var recreateOrExecuteAgain = false
 
+
+//    fun shallowClone(): ExecutionGraph2 {
+//        // TODO: all the cloning is to avoid the work of rebuilding ops. is it really worth it?
+//        // Need to make shallow clones when spawning an instruction graph from a template
+//        // This is to avoid the cost of re-creating the graph (with most of the cost being creating ops)
+//        val newLocationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
+//        locationToNodePile.entries.forEach {
+//            val nodePile: MutableList<ExecutionNode> = ArrayList(it.value.size)
+//            for (n in it.value) {
+//                nodePile.add(ExecutionNode(n))
+//            }
+//            newLocationToNodePile[it.key] = nodePile
+//        }
+//        for (location in locationToNodePile.keys) {
+//            val otherNodePile = locationToNodePile[location]!!
+//            val nodePile: MutableList<ExecutionNode> = ArrayList(otherNodePile.size)
+//            for (n in otherNodePile) {
+//                nodePile.add(ExecutionNode(n))
+//            }
+//            locationToNodePile[location] = nodePile
+//        }
+//        val clone = ExecutionGraph2(this.method, this.vm, this.addressToLocation, this.terminatingAddresses)
+//
+//    }
 
 //    constructor(other: ExecutionGraph2, shallowClone: Boolean = true) {
 //        classManager = other.classManager
@@ -169,9 +194,10 @@ class ExecutionGraph2(
         return getTemplateNode(address).op
     }
 
-    fun spawnRootNode(): ExecutionNode {
+    fun spawnEntrypointNode(): ExecutionNode {
         val template = getTemplateNode(METHOD_ROOT_ADDRESS)
-        return EntrypointNode(template.op, template.method, classManager, classLoader, configuration, exceptionFactory)
+        val state = vm.spawnEntrypointState(method)
+        return EntrypointNode(template.op, method, classManager, classLoader, configuration, state)
     }
 
     fun getTemplateNode(address: Int): ExecutionNode {
@@ -293,7 +319,7 @@ class ExecutionGraph2(
      * @return consensus value over all `addresses` in `register` or [ ] if a consensus doesn't exist
      */
     fun getRegisterConsensus(address: Int, register: Int): Value {
-        return getRegisterConsensus(intArrayOf(address), register)!!
+        return getRegisterConsensus(intArrayOf(address), register)
     }
 
     /**
@@ -466,11 +492,11 @@ class ExecutionGraph2(
         return sb.toString()
     }
 
-    fun addInstruction(location: MethodLocation?, instruction: BuilderInstruction) {
-        val index = location!!.index
-        implementation.addInstruction(index, instruction)
+    fun addInstruction(location: MethodLocation, instruction: BuilderInstruction) {
+        val index = location.index
+        method.implementation.addInstruction(index, instruction)
         val newLocation = instruction.location
-        val oldLocation = implementation.instructions[index + 1].location
+        val oldLocation = method.implementation.instructions[index + 1].location
         try {
             val m = MethodLocation::class.java.getDeclaredMethod("mergeInto", MethodLocation::class.java)
             m.isAccessible = true
@@ -482,7 +508,7 @@ class ExecutionGraph2(
     }
 
     fun addInstruction(address: Int, newInstruction: BuilderInstruction) {
-        addInstruction(getLocation(address), newInstruction)
+        addInstruction(getLocation(address)!!, newInstruction)
     }
 
     fun getAvailableRegisters(address: Int): IntArray {
@@ -542,11 +568,11 @@ class ExecutionGraph2(
     }
 
     fun getTryBlocks(): List<BuilderTryBlock> {
-        return implementation.tryBlocks
+        return method.implementation.tryBlocks
     }
 
     fun removeInstruction(location: MethodLocation) {
-        implementation.removeInstruction(location.index)
+        method.implementation.removeInstruction(location.index)
         removeEmptyTryCatchBlocks()
         rebuildGraph()
     }
@@ -604,12 +630,12 @@ class ExecutionGraph2(
         val newNodePile: MutableList<ExecutionNode> = ArrayList()
         locationToNodePile[newLocation] = newNodePile
         val shiftedOp = shiftedNodePile[0].op
-        val op = opCreator.create(newLocation)
+        val op = opBuilder.build(newLocation)
         recreateLocations.add(newLocation)
         reexecuteLocations.add(newLocation)
         val isAutoAddedPadding = op is NopOp && (shiftedOp is FillArrayDataPayloadOp || shiftedOp is SwitchPayloadOp)
         for (i in shiftedNodePile.indices) {
-            val newNode = ExecutionNode(op, method, classManager, classLoader, configuration, exceptionFactory)
+            val newNode = ExecutionNode(op, method, classManager, classLoader, configuration)
             newNodePile.add(i, newNode)
             if (isAutoAddedPadding) {
                 // This type of padding is never reached and only exists for byte alignment.
@@ -649,38 +675,39 @@ class ExecutionGraph2(
             return
         }
 
-        // Was removed from implementation before getting here
-        recreateLocations.removeIf { p: MethodLocation -> p.instruction == null }
-        reexecuteLocations.removeIf { p: MethodLocation -> p.instruction == null }
-        for (location in recreateLocations) {
-            val op = opCreator.create(location)
-            val pile: List<ExecutionNode> = locationToNodePile[location]!!
-
-            // TODO: move side effects out of ops and into nodes or graph
-            // This is a big ugly.
-            if (op is NewInstanceOp || op is InvokeOp) {
-                val node = pile[0]
-                try {
-                    val originalLevel = node.op.sideEffectLevel
-                    var klazz: Class<out Op>
-                    if (op is NewInstanceOp) {
-                        klazz = NewInstanceOp::class.java
-                    } else { // InvokeOp
-                        klazz = InvokeOp::class.java
-                    }
-                    val f = klazz.getDeclaredField("sideEffectLevel")
-                    f.isAccessible = true
-                    f[op] = originalLevel
-                } catch (e: Exception) {
-                    // Ugly.
-                    e.printStackTrace()
-                }
-            }
-            for (node in pile) {
-                // TODO: should I just recreate the node with the new op?
-                node.op = op
-            }
-        }
+        // TODO: this needs to be tested quite a bit. lots has changed!
+//        // Was removed from implementation before getting here
+//        recreateLocations.removeIf { p: MethodLocation -> p.instruction == null }
+//        reexecuteLocations.removeIf { p: MethodLocation -> p.instruction == null }
+//        for (location in recreateLocations) {
+//            val op = opCreator.create(location)
+//            val pile: List<ExecutionNode> = locationToNodePile[location]!!
+//
+//            // TODO: move side effects out of ops and into nodes or graph
+//            // This is a big ugly.
+//            if (op is NewInstanceOp || op is InvokeOp) {
+//                val node = pile[0]
+//                try {
+//                    val originalLevel = node.op.sideEffectLevel
+//                    var klazz: Class<out Op>
+//                    if (op is NewInstanceOp) {
+//                        klazz = NewInstanceOp::class.java
+//                    } else { // InvokeOp
+//                        klazz = InvokeOp::class.java
+//                    }
+//                    val f = klazz.getDeclaredField("sideEffectLevel")
+//                    f.isAccessible = true
+//                    f[op] = originalLevel
+//                } catch (e: Exception) {
+//                    // Ugly.
+//                    e.printStackTrace()
+//                }
+//            }
+//            for (node in pile) {
+//                // TODO: should I just recreate the node with the new op?
+//                node.op = op
+//            }
+//        }
 
         // TODO: no idea why I did it this way, comments aren't helpful, be sure and test!
         // Locations with the same address may be added. One is probably being removed. If using a sorted set with an
@@ -697,7 +724,7 @@ class ExecutionGraph2(
 //        for (location in reexecute) {
         // TODO: *i think* should execute in ascending order to prevent executing later ops, but this isn't perfect
         // should create a test that must reexecute in a weird order:  op1@0 -> (branch) op2@10 -> op3@2
-        for (location in reexecuteLocations.sortedBy{ it.codeAddress }) {
+        for (location in reexecuteLocations.sortedBy { it.codeAddress }) {
             val pile: List<ExecutionNode> = locationToNodePile[location]!!
             pile.forEachIndexed { idx, node ->
                 if (idx != TEMPLATE_NODE_INDEX) {
@@ -710,10 +737,12 @@ class ExecutionGraph2(
     }
 
     private fun rebuildGraph() {
-        // This seems like overkill until you realize implementation may change from under us.
-        // Multiple new instructions may be added from adding or removing a single instruction.
+        /*
+         This may seem like overkill but by adding or removing a single instruction, multiple new instructions may be added.
+         For example, since some ops need to be byte-aligned, removing or adding an instruction may cause padding nops to be inserted.
+         */
         val staleLocations: Set<MethodLocation> = locationToNodePile.keys
-        val implementationLocations = implementation.instructions.map { it.location }
+        val implementationLocations = method.implementation.instructions.map { it.location }
         val addedLocations: MutableSet<MethodLocation> = HashSet(implementationLocations)
         addedLocations.removeAll(staleLocations)
         for (location in addedLocations) {
@@ -722,7 +751,7 @@ class ExecutionGraph2(
         val removedLocations: MutableSet<MethodLocation> = HashSet(staleLocations)
         removedLocations.removeAll(implementationLocations)
         removedLocations.forEach(Consumer { location: MethodLocation -> removeFromNodePile(location) })
-        val newAddressToLocation = buildAddressToLocation(implementation)
+        val newAddressToLocation = buildAddressToLocation(method.implementation)
         addressToLocation.clear()
         addressToLocation.putAll(newAddressToLocation)
         recreateAndExecute()
@@ -733,7 +762,7 @@ class ExecutionGraph2(
          * If every op from a try block is removed, the dex file will fail to save. Maybe dexlib should be smart enough
          * to remove empty blocks itself, but this is an admittedly strange event.
          */
-        val iter: ListIterator<BuilderTryBlock> = implementation.tryBlocks.listIterator()
+        val iter: ListIterator<BuilderTryBlock> = method.implementation.tryBlocks.listIterator()
         val removeIndexes = LinkedList<Int>()
         while (iter.hasNext()) {
             val index = iter.nextIndex()
@@ -760,10 +789,10 @@ class ExecutionGraph2(
         }
 
         // MutableMethodImplementation#getTryBlocks() returns an immutable collection, but we need to modify it.
-        val tryBlocks: ArrayList<BuilderTryBlock> =try {
-            val f = implementation.javaClass.getDeclaredField("tryBlocks")
+        val tryBlocks: ArrayList<BuilderTryBlock> = try {
+            val f = method.implementation.javaClass.getDeclaredField("tryBlocks")
             f.isAccessible = true // I DO WHAT I WANT.
-            f[implementation] as ArrayList<BuilderTryBlock>
+            f[method.implementation] as ArrayList<BuilderTryBlock>
         } catch (e: Exception) {
             log.error("Exception getting tryBlocks field", e)
             throw RuntimeException("Unable to retrieve tryBlocks")
@@ -835,13 +864,20 @@ class ExecutionGraph2(
 
         private fun buildLocationToNodePile(
             addressToLocation: Map<Int, MethodLocation>,
-            classManager: ClassManager
+            method: VirtualMethod,
+            vm: VirtualMachine2,
+            opBuilder: OpBuilder,
+            templateOps: Map<MethodLocation, Op>?
         ): MutableMap<MethodLocation, MutableList<ExecutionNode>> {
-            val opCreator = getOpCreator(addressToLocation, classManager)
             val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
             for (location in addressToLocation.values) {
-                val op = opCreator.create(location)
-                val node = ExecutionNode(op)
+                val op = templateOps?.get(location) ?: opBuilder.build(location)
+                val node = if (location.codeAddress == METHOD_ROOT_ADDRESS) {
+                    val state = vm.spawnEntrypointState(method)
+                    EntrypointNode(op, method, vm.classManager, vm.classLoader, vm.configuration, state)
+                } else {
+                    ExecutionNode(op, method, vm.classManager, vm.classLoader, vm.configuration)
+                }
 
                 // Most node piles will be a template node and 1+ ExecutionNodes.
                 val pile: MutableList<ExecutionNode> = ArrayList(2)

@@ -5,7 +5,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -24,14 +24,14 @@ class NewArrayOp internal constructor(
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val lengthItem = node.state.readRegister(lengthRegister)
         val instance = buildInstance(lengthItem, node.classLoader)
         if (instance is Throwable) {
-            return collectChildren(instance)
+            return finishOp(instance)
         }
         node.state.assignRegister(destRegister, instance, arrayType)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString() ="$name r$destRegister, r$lengthRegister, $arrayType"

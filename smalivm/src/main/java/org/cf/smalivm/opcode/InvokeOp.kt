@@ -15,7 +15,8 @@ import org.cf.smalivm.exception.UnhandledVirtualException
 import org.cf.smalivm.exception.VirtualMachineException
 import org.cf.smalivm.type.*
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
+import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -26,91 +27,62 @@ import org.jf.dexlib2.iface.instruction.formats.Instruction3rc
 import org.jf.dexlib2.iface.reference.MethodReference
 import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
-import java.lang.reflect.InvocationTargetException
-import java.lang.reflect.Method
+import java.util.*
 
 class InvokeOp internal constructor(
     location: MethodLocation,
     child: MethodLocation,
     val method: VirtualMethod,
     val parameterRegisters: IntArray,
-    vm: VirtualMachine
 ) : Op(location, child) {
-    val analyzedParameterTypes: Array<String?>
-    private val vm: VirtualMachine
-    private val classManager: ClassManager
 
-    var isDebugMode: Boolean
-    var debuggedMethodExecutor: MethodExecutor? = null
-        private set
-    private var debuggedCallerContext: ExecutionContext? = null
-    private var debuggedCalleeContext: ExecutionContext? = null
-    private var debuggedNode: ExecutionNode? = null
+//    var isDebugMode: Boolean
+//    var debuggedMethodExecutor: MethodExecutor? = null
+//        private set
+//    private var debuggedCallerContext: ExecutionContext? = null
+//    private var debuggedCalleeContext: ExecutionContext? = null
+//    private var debuggedNode: ExecutionNode? = null
 
-    init {
-        analyzedParameterTypes = arrayOfNulls(method.parameterTypeNames.size)
-        this.vm = vm
-        classManager = vm.classManager
-        // TODO: set these in the node!
-//        sideEffectLevel = SideEffect.Level.STRONG
-        isDebugMode = false
-    }
+//    init {
+//        analyzedParameterTypes = arrayOfNulls(method.parameterTypeNames.size)
+//        // TODO: set these in the node!
+////        sideEffectLevel = SideEffect.Level.STRONG
+//        isDebugMode = false
+//    }
 
-    override val registersReadCount: Int
-        get() = TODO("Not yet implemented")
-    override val registersAssignedCount: Int
-        get() = TODO("Not yet implemented")
-    override lateinit var sideEffectLevel: SideEffect.Level
+    override val registersReadCount = parameterRegisters.size
+    override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
-        // TODO: In order to get working call stacks, refactor this to delegate most of the work to MethodExecutor.
-        // This will remove InvokeOp as a weirdly complex op, and probably allow some methods to be made protected.
-        // It also keeps things clear with method execution delegated to the class with the same name.
-        // MethodExecutor can maintain a mapping such that calleeContext -> (callerContext, caller address)
-        // With this mapping, stack traces can be reconstructed.
-        val callerMethodState = context.methodState
+//    override lateinit var sideEffectLevel: SideEffect.Level
+
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         if (method.signature == CommonTypes.OBJECT + "-><init>()V") {
             // Object.<init> is a special little snow flake
-            try {
-                executeLocalObjectInit(callerMethodState)
-            } catch (e: ClassNotFoundException) {
-                log.error("Unexpected real exception initializing Object", e)
-            } catch (e: InstantiationException) {
-                log.error("Unexpected real exception initializing Object", e)
-            } catch (e: IllegalAccessException) {
-                log.error("Unexpected real exception initializing Object", e)
-            } catch (e: IllegalArgumentException) {
-                log.error("Unexpected real exception initializing Object", e)
-            } catch (e: InvocationTargetException) {
-                log.error("Unexpected real exception initializing Object", e)
-            }
-            return
-        } else {
-            if (method.name == "clone" && parameterRegisters.size == 1) {
-                val targetRegister = parameterRegisters[0]
-                val item = context.methodState.peekRegister(targetRegister)
-                val signature = method.signature
-                if (signature[0] == '[' || !item!!.isNull && item.valueType[0] == '[') {
-                    // [Object;->clone()Ljava/lang/Object; is also a special snow flake
-                    executeArrayClone(callerMethodState, node)
-                    return
-                }
-            }
+            return executeLocalObjectInit(node)
         }
-        analyzeParameterTypes(callerMethodState)
 
-        // Have to do this at run time because robust type flow analysis is harder than just examining at run time
-        var targetMethod: VirtualMethod? = method
-        if (name.startsWith("invoke-virtual") && !method.isFinal) {
+        if (method.name == "clone" && parameterRegisters.size == 1 && method.signature[0] == '[') {
             val targetRegister = parameterRegisters[0]
-            val item = context.methodState.peekRegister(targetRegister)
-            targetMethod = resolveTargetMethod(item!!.value)
+            val item = node.state.peekRegister(targetRegister)!!
+            if (item.isNotNull && item.valueType[0] == '[') {
+                // [Object;->clone()Ljava/lang/Object; is also a special snow flake
+                return executeObjectArrayClone(node)
+            }
         }
-        // Shouldn't reference method member now. Should use targetMethod for everything.
-        val targetSignature = targetMethod!!.signature
+
+        analyzeParameterTypes(node)
+
+        // Have to do this at run time for better type flow
+        val targetMethod = if (name.startsWith("invoke-virtual") && !method.isFinal) {
+            val targetRegister = parameterRegisters[0]
+            val target = node.state.peekRegister(targetRegister)!!
+            resolveTargetMethod(target.value, node.classManager)
+        } else {
+            method
+        }
 
         // Try to reflect or emulate before executing local method.
-        if (vm.configuration.isSafe(targetSignature) || MethodEmulator.canEmulate(targetSignature)) {
+        if (node.configuration.isSafe(targetSignature) || MethodEmulator.canEmulate(targetSignature)) {
             val calleeContext = buildNonLocalCalleeContext(context)
             val allArgumentsKnown = allArgumentsKnown(calleeContext.methodState)
             if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetSignature)) {
@@ -175,28 +147,28 @@ class InvokeOp internal constructor(
         return sb.toString()
     }
 
-    private fun executeArrayClone(callerMethodState: MethodState, node: ExecutionNode) {
+    private fun executeObjectArrayClone(node: ExecutionNode): Array<out UnresolvedChild> {
         val instanceRegister = parameterRegisters[0]
-        val arrayItem = callerMethodState.peekRegister(instanceRegister)
-        if (arrayItem!!.isUnknown) {
-            callerMethodState.assignResultRegister(UnknownValue(), arrayItem.type)
-        } else if (arrayItem.isNull) {
+        val arrayItem = node.state.peekRegister(instanceRegister)!!
+        if (arrayItem.isNull) {
             // This operation would have thrown a null pointer exception, and nothing else.
-            val exception: Throwable = NullPointerException()
-            addException(exception)
-            node.clearChildren()
-        } else {
-            var m: Method? = null
-            try {
-                m = Any::class.java.getDeclaredMethod("clone")
-                m.isAccessible = true
-                val clone = m.invoke(arrayItem.value)
-                callerMethodState.assignResultRegister(clone, arrayItem.type)
-            } catch (e: Exception) {
-                // TODO: should handle exceptions here and bubble them up
-                e.printStackTrace()
+            return throwException(NullPointerException::class.java)
+        }
+        val clone = when {
+            arrayItem.isUnknown -> UnknownValue()
+            else -> {
+                try {
+                    val m = Any::class.java.getDeclaredMethod("clone")
+                    m.isAccessible = true
+                    m.invoke(arrayItem.value)
+                } catch (e: Exception) {
+                    log.error("Real exception initializing Object; returning unknown", e)
+                    UnknownValue()
+                }
             }
         }
+        node.state.assignResultRegister(clone, arrayItem.type)
+        return finishOp()
     }
 
     private fun allArgumentsKnown(mState: MethodState): Boolean {
@@ -212,10 +184,10 @@ class InvokeOp internal constructor(
         return true
     }
 
-    private fun analyzeParameterTypes(callerState: MethodState) {
+    private fun analyzeParameterTypes(node: ExecutionNode): Array<String> {
         /*
-         * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear:
-         * const/4 v0, 0x0 (could be (bool)true, (int)0, or (short)0, null, etc.)
+         * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear as:
+         * const/4 v0, 0x0
          * Use type in method signature if it's more restrictive. For example, if the method argument is
          * an int but the method signature declares it as a boolean, use boolean.
          * However, if the class is less specific, such as a super class or interface, do not use the less specific
@@ -223,25 +195,25 @@ class InvokeOp internal constructor(
          * method argument is Lchild_class; but signature says Lparent_class;, prefer Lchild_class;
          */
         val parameterTypes = method.parameterTypeNames
+        val analyzedParameterTypes = Array(parameterTypes.size) { parameterTypes[it] }
         for (i in parameterRegisters.indices) {
-            val callerRegister = parameterRegisters[i]
-            val item = callerState.readRegister(callerRegister)
+            val argument = node.state.readRegister(parameterRegisters[i])
             val parameterTypeName = parameterTypes[i]
-            val baseTypeName = item.componentBase
-            var type: String?
-            type = if (item.isPrimitive || ClassNameUtils.isPrimitive(baseTypeName)) {
+            val baseTypeName = argument.componentBase
+            val type = if (argument.isPrimitive || ClassNameUtils.isPrimitive(baseTypeName)) {
                 parameterTypeName
             } else {
-                val baseType = vm.classManager.getVirtualType(baseTypeName)
-                val parameterType = vm.classManager.getVirtualType(parameterTypeName)
-                if (baseType.ancestors.contains(parameterType)) {
-                    item.type
-                } else {
-                    parameterTypeName
+                val baseType = node.classManager.getVirtualType(baseTypeName)
+                val parameterType = node.classManager.getVirtualType(parameterTypeName)
+                when {
+                    baseType.ancestors.contains(parameterType) -> argument.type
+                    else -> parameterTypeName
                 }
             }
             analyzedParameterTypes[i] = type
         }
+
+        return analyzedParameterTypes
     }
 
     private fun assignCalleeMethodArguments(callerState: MethodState, calleeState: MethodState) {
@@ -436,24 +408,24 @@ class InvokeOp internal constructor(
         finishLocalMethodExecution(debuggedCalleeContext, debuggedCallerContext, debuggedNode, graph)
     }
 
-    @Throws(
-        ClassNotFoundException::class,
-        InstantiationException::class,
-        IllegalAccessException::class,
-        IllegalArgumentException::class,
-        InvocationTargetException::class
-    )
-    private fun executeLocalObjectInit(callerMethodState: MethodState) {
+    private fun executeLocalObjectInit(node: ExecutionNode): Array<out UnresolvedChild> {
+        // TODO: Is there a problem if the VERY first OP invokes this? Is Ljava/lang/Object; clinit'ed?
         val instanceRegister = parameterRegisters[0]
-        val instanceItem = callerMethodState.peekRegister(instanceRegister)
-        val uninitializedInstance = instanceItem!!.value as UninitializedInstance?
-        val instanceType = uninitializedInstance!!.type
+        val instanceItem = node.state.peekRegister(instanceRegister)!!
+        val uninitializedInstance = instanceItem.value as UninitializedInstance
+        val instanceType = uninitializedInstance.type
+        val newInstanceItem = try {
+            // Create a Java class of the true type
+            val klazz = node.classLoader.loadClass(instanceType.binaryName)
+            val newInstance = ObjectInstantiator.newInstance(klazz)
+            Value.wrap(newInstance, instanceType.name)
+        } catch (e: Exception) {
+            log.error("Real exception initializing Object; returning unknown", e)
+            Value.unknown(instanceType.name)
+        }
+        node.state.assignRegister(instanceRegister, newInstanceItem, updateIdentities = true)
 
-        // Create a Java class of the true type
-        val klazz = vm.classLoader.loadClass(instanceType.binaryName)
-        val newInstance = ObjectInstantiator.newInstance(klazz)
-        val newInstanceItem = HeapItem(newInstance, instanceType.name)
-        callerMethodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstanceItem)
+        return finishOp()
     }
 
     private fun executeNonLocalMethod(
@@ -508,44 +480,45 @@ class InvokeOp internal constructor(
         }
     }
 
-    private fun resolveTargetMethod(virtualReference: Any?): VirtualMethod? {
+    private fun resolveTargetMethod(virtualReference: Any?, classManager: ClassManager): VirtualMethod {
         /*
          * A method may not be defined in the class referenced by invoke op. The method implementation may be part
          * of the super class. This method searches ancestor hierarchy for the class which implements the method.
          */
-        val referenceType: VirtualType
         if (virtualReference == null || virtualReference is UnknownValue) {
             return method
         }
-        referenceType = if (virtualReference is UninitializedInstance) {
+        val referenceType = if (virtualReference is UninitializedInstance) {
             virtualReference.type
         } else {
             val targetType = ClassNameUtils.toInternal(virtualReference.javaClass)
             classManager.getVirtualType(targetType)
         }
         val targetMethod = referenceType.getMethod(method.descriptor)
+
         return if (targetMethod != null && targetMethod.hasImplementation()) {
             targetMethod
-        } else method
+        } else {
+            method
+        }
     }
 
-    companion object {
+    companion object : OpFactory {
         private val log = LoggerFactory.getLogger(InvokeOp::class.java.simpleName)
         private fun buildParameterRegisters(parameterTypes: List<String>, registers: IntArray): IntArray {
-            val parameterRegisters: TIntList = TIntLinkedList(parameterTypes.size)
+            val parameterRegisters = LinkedList<Int>()
             var index = 0
             for (parameterType in parameterTypes) {
                 parameterRegisters.add(registers[index])
                 index += Utils.getRegisterSize(parameterType)
             }
-            return parameterRegisters.toArray()
+            return parameterRegisters.toIntArray()
         }
 
         private fun buildRegisters(instr: Instruction?): IntArray {
-            return if (instr is Instruction3rc) {
-                buildRegisters3rc(instr)
-            } else {
-                buildRegisters35c(instr as Instruction35c?)
+            return when (instr) {
+                is Instruction3rc -> buildRegisters3rc(instr)
+                else -> buildRegisters35c(instr as Instruction35c)
             }
         }
 

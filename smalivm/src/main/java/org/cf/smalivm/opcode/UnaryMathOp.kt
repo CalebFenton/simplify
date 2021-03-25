@@ -5,7 +5,7 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -17,7 +17,7 @@ class UnaryMathOp internal constructor(location: MethodLocation, child: MethodLo
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val item = node.state.readRegister(srcRegister)
         val result: Value
         val type = getResultTypeName(name)
@@ -28,7 +28,7 @@ class UnaryMathOp internal constructor(location: MethodLocation, child: MethodLo
             Value.wrap(resultValue, type)
         }
         node.state.assignRegister(destRegister, result)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister, r$srcRegister"

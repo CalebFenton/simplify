@@ -6,7 +6,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c
@@ -22,11 +22,11 @@ class SPutOp internal constructor(
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val item = node.state.readRegister(valueRegister)
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
         node.state.assignField(actualField, item)
-        return collectChildren()
+        return finishOp()
     }
 
     override val sideEffectLevel = SideEffect.Level.WEAK

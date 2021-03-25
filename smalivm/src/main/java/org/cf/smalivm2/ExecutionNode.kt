@@ -1,9 +1,7 @@
 package org.cf.smalivm2
 
-import ExceptionFactory
 import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.context.ExecutionContext
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
@@ -17,15 +15,27 @@ open class ExecutionNode(
     val classManager: ClassManager,
     val classLoader: SmaliClassLoader,
     val configuration: Configuration,
-    val exceptionFactory: ExceptionFactory,
-    var state: ExecutionState = ExecutionState.build(op, method, classManager, classLoader, configuration),
+    var state: ExecutionState = ExecutionState.build(
+        method,
+        classManager,
+        classLoader,
+        configuration,
+        op.registersReadCount,
+        op.registersAssignedCount
+    ),
     var parent: ExecutionNode? = null,
     var sideEffectLevel: SideEffect.Level = op.sideEffectLevel
 ) {
     val address = op.address
     val index = op.index
-    private val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
+    val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
     var children: MutableList<ExecutionNode> = LinkedList()
+
+//    def shallowClone() : ExecutionNode {
+//        if (this is EntrypointNode) {
+//            return EntrypointNode(op, method, classManager, classLoader, configuration, state, parent, sideEffectLevel)
+//        }
+//    }
 
     private fun getAncestorWithClass(virtualClass: VirtualType): ExecutionNode? {
         var ancestor: ExecutionNode? = this
@@ -83,7 +93,7 @@ open class ExecutionNode(
 //    }
 
     fun clearChildren() {
-        children.forEach { c -> c.parent = null}
+        children.forEach { c -> c.parent = null }
         children.clear()
     }
 
@@ -104,25 +114,24 @@ open class ExecutionNode(
         children.add(newChild)
     }
 
-    fun execute(): Array<out OpChild> {
+    fun execute(): Array<out UnresolvedChild> {
         return op.execute(this)
     }
 
-    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
-        val childState = ExecutionState.build(op, childMethod, classManager, classLoader, configuration)
-        val child = ExecutionNode(
-            op = childOp,
-            method = method,
-            classManager = classManager,
-            classLoader = classLoader,
-            configuration = configuration,
-            exceptionFactory = exceptionFactory,
-            state = childState,
-            parent = this,
-        )
-        children.add(child)
-        return child
-    }
+//    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
+//        val childState = ExecutionState.build(childMethod, classManager, classLoader, op, configuration)
+//        val child = ExecutionNode(
+//            op = childOp,
+//            method = method,
+//            classManager = classManager,
+//            classLoader = classLoader,
+//            configuration = configuration,
+//            state = childState,
+//            parent = this,
+//        )
+//        children.add(child)
+//        return child
+//    }
 
     // TODO: make this work
 //    override fun toString(): String {
@@ -156,9 +165,8 @@ class EntrypointNode(
     classManager: ClassManager,
     classLoader: SmaliClassLoader,
     configuration: Configuration,
-    exceptionFactory: ExceptionFactory,
-    state: ExecutionState = ExecutionState.build(op, method, classManager, classLoader, configuration),
-) : ExecutionNode(op, method, classManager, classLoader, configuration, exceptionFactory, state)
+    state: ExecutionState = ExecutionState.build(method, classManager, classLoader, configuration, op.registersReadCount, op.registersAssignedCount),
+) : ExecutionNode(op, method, classManager, classLoader, configuration, state)
 
 
 //data class ClassStatus constructor(val classSignature: String, val sideEffectLevel: SideEffect.Level) {

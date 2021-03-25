@@ -5,8 +5,10 @@ import org.cf.smalivm.context.*
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.opcode.Op
+import org.cf.smalivm.opcode.OpBuilder
 import org.cf.smalivm.type.*
 import org.cf.util.Utils
+import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.*
 import java.io.File
 import java.util.*
@@ -21,7 +23,7 @@ class VirtualMachine2 private constructor(
 ) {
     lateinit var classManager: ClassManager
     lateinit var classLoader: SmaliClassLoader
-    val templates: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
+    val methodToTemplateOps: MutableMap<VirtualMethod, Map<MethodLocation, Op>> = HashMap()
     val configuration = Configuration.instance()
     var interactive = false
     //    val staticFieldAccessor = StaticFieldAccessor(this)
@@ -70,80 +72,72 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    fun execute(className: String, methodDescriptor: String): ExecutionGraphImpl {
+    fun execute(className: String, methodDescriptor: String): ExecutionGraph2 {
         return execute("$className->$methodDescriptor")
     }
 
-    fun execute(methodSignature: String): ExecutionGraphImpl {
+    fun execute(methodSignature: String): ExecutionGraph2 {
         val method = classManager.getMethod(methodSignature) ?: throw IllegalArgumentException("Method signature not found: $methodSignature")
 
         return execute(method)
     }
 
-    fun execute(method: VirtualMethod): ExecutionGraphImpl {
-        val graph = ExecutionGraph2(method, this.classManager, this.classLoader)
-        graph.getTemplateNode()
+    fun execute(method: VirtualMethod): ExecutionGraph2 {
+        val graph = methodToTemplateOps[method]
+        val root = graph.spawnEntrypointNode()
 
-        // TODO: get first node of method
-        val node = ExecutionNode(methodSignature)
-        val nodes = Stack<Stack<ExecutionNode>>()
-        val methodNodes = Stack<ExecutionNode>()
-        methodNodes.add(node)
-        nodes.add(methodNodes)
+        val executionQueue = LinkedList<LinkedList<ExecutionNode>>()
+        val methodNodes = LinkedList<ExecutionNode>()
+        methodNodes.add(root)
+        executionQueue.add(methodNodes)
 
-        execute(nodes, graph)
-        return graph
-        return execute(state)
+        return execute(executionQueue, graph)
     }
 
-    fun execute(context: ExecutionContext?): ExecutionGraphImpl {
-        return execute(context, null, null)
-    }
+//    fun execute(calleeContext: ExecutionContext?, callerContext: ExecutionContext?, parameterRegisters: IntArray?): ExecutionGraphImpl {
+//        TODO("Not yet implemented")
+//    }
 
-    fun execute(calleeContext: ExecutionContext?, callerContext: ExecutionContext?, parameterRegisters: IntArray?): ExecutionGraphImpl {
-        TODO("Not yet implemented")
-    }
-
-    fun execute(nodes: Stack<Stack<ExecutionNode>>, graph: ExecutionGraph2) {
-        while (!this.interactive && nodes.isNotEmpty()) {
-            step(nodes, graph)
+    fun execute(executionQueue:  LinkedList<LinkedList<ExecutionNode>>, graph: ExecutionGraph2) {
+        while (!this.interactive && executionQueue.isNotEmpty()) {
+            step(executionQueue, graph)
         }
     }
 
-    private fun callMethod(methodSignature: String, graph: ExecutionGraph?) {
+//    private fun callMethod(methodSignature: String, graph: ExecutionGraph?) {
+//
+//    }
+//
+//    private fun initializeClassesIfNecessary(callerNode: org.cf.smalivm2.ClassReferencingNode, callerGraph: org.cf.smalivm2.ExecutionGraph?) {
+//        for (classReference in callerNode.getClassSignaturesToLoad()) {
+//            if (callerNode.isClassInitialized(classReference)) {
+//                continue
+//            }
+//            val initSignature = "$classReference-><clinit>()V"
+//            val calleeGraph = if (interactive) null else org.cf.smalivm2.ExecutionGraph()
+//            val calleeNodes = Stack<org.cf.smalivm2.ExecutionNode>()
+//            val calleeEntryNode = EntrypointNode(initSignature)
+//            calleeNodes.push(calleeEntryNode)
+//            execute(calleeNodes, calleeGraph)
+//
+//            if (interactive) {
+//                /*
+//                set caller node children to include calleeNode
+//                set
+//                 */
+//            } else {
+//
+//                // merge consensus of calleeGraph with current state
+//                // delete calleeGraph
+//                // make sure no references to these nodes exist!
+//                // set calleeEntryNode parent to null
+//                // reset node children and
+//
+//            }
+//        }
+//    }
 
-    }
-
-    private fun initializeClassesIfNecessary(callerNode: org.cf.smalivm2.ClassReferencingNode, callerGraph: org.cf.smalivm2.ExecutionGraph?) {
-        for (classReference in callerNode.getClassSignaturesToLoad()) {
-            if (callerNode.isClassInitialized(classReference)) {
-                continue
-            }
-            val initSignature = "$classReference-><clinit>()V"
-            val calleeGraph = if (interactive) null else org.cf.smalivm2.ExecutionGraph()
-            val calleeNodes = Stack<org.cf.smalivm2.ExecutionNode>()
-            val calleeEntryNode = EntrypointNode(initSignature)
-            calleeNodes.push(calleeEntryNode)
-            execute(calleeNodes, calleeGraph)
-
-            if (interactive) {
-                /*
-                set caller node children to include calleeNode
-                set
-                 */
-            } else {
-
-                // merge consensus of calleeGraph with current state
-                // delete calleeGraph
-                // make sure no references to these nodes exist!
-                // set calleeEntryNode parent to null
-                // reset node children and
-
-            }
-        }
-    }
-
-    fun step(nodes: Stack<Stack<ExecutionNode>>, graph: ExecutionGraph2) {
+    fun step(nodes:  LinkedList<LinkedList<ExecutionNode>>, graph: ExecutionGraph2) : ExecutionGraph2 {
         val methodNodes = nodes.peek()
         val node = methodNodes.peek()
 
@@ -209,10 +203,10 @@ class VirtualMachine2 private constructor(
     }
 
     fun spawnExecutionGraph(method: VirtualMethod): ExecutionGraph2 {
-        if (!templates.containsKey(method)) {
-            updateTemplateGraph(method)
+        if (!methodToTemplateOps.containsKey(method)) {
+            updateTemplateOps(method)
         }
-        return ExecutionGraph2(templates[method]!!)
+        return methodToTemplateOps[method]!!
     }
 
     fun spawnEntrypointState(methodSignature: String): ExecutionState {
@@ -226,7 +220,7 @@ class VirtualMachine2 private constructor(
         return spawnEntrypointState(method)
     }
 
-    fun spawnEntrypointState(method: VirtualMethod, callerContext: ExecutionContext? = null, callerAddress: Int? = null): ExecutionState {
+    fun spawnEntrypointState(method: VirtualMethod): ExecutionState {
         if (!method.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
             throw IllegalArgumentException("No implementation for $method");
@@ -237,56 +231,27 @@ class VirtualMachine2 private constructor(
         val parameterSize = Utils.getRegisterSize(parameterTypeNames)
         val firstParameterRegister = registerCount - parameterSize
         val fieldCount = method.definingClass.fields.size
-        val state = ExecutionState(registerCount + fieldCount, 1)
 
-        val currentRegister = firstParameterRegister
+        val state = ExecutionState.build(method, classManager, classLoader, configuration)
+
+        var currentRegister = firstParameterRegister
         for (typeName in method.parameterTypeNames) {
             val value = if (currentRegister == firstParameterRegister && !method.isStatic && method.name == "<init>") {
-                val instance = UninitializedInstance(method.definingClass)
-                Value.wrap(instance, typeName)
+                // Use defining class instead of typeName as it should be more specific
+                Value.uninitializedInstance(method.definingClass)
             } else {
-                Value.wrap(UnknownValue(), typeName)
+                Value.unknown(typeName)
             }
-            state.
-        }
-        for (VirtualField field : virtualClass.getFields()) {
-            Object value = field . getInitialValue ();
-            String type = field . getType ();
-            cState.pokeField(field, new HeapItem (value, type));
+            state.assignRegister(currentRegister, value)
+            currentRegister += Utils.getRegisterSize(typeName)
         }
 
-//        VirtualMethod method = context.getMethod();
-//        int registerCount = method.getRegisterCount();
-//        List<String> parameterTypes = method.getParameterTypeNames();
-//        int parameterSize = Utils.getRegisterSize(parameterTypes);
-        MethodState mState = new MethodState(context, registerCount, parameterTypes.size(), parameterSize);
-        int firstParameter = mState . getParameterStart ();
-        int parameterRegister = firstParameter;
-
-        for (String type : parameterTypes) {
-            HeapItem item;
-            if (parameterRegister == firstParameter && !method.isStatic() && method.getName().equals("<init>")) {
-                UninitializedInstance instance = new UninitializedInstance(method.getDefiningClass());
-                item = new HeapItem (instance, type);
-            } else {
-                item = HeapItem.newUnknown(type);
-            }
-            mState.assignParameter(parameterRegister, item);
-            parameterRegister += Utils.getRegisterSize(type);
+        for (field in method.definingClass.fields) {
+            val value = Value.wrap(field.initialValue, field.type)
+            state.pokeField(field, value)
         }
 
-        return mState;
-//        ExecutionContext spawnedContext = new ExecutionContext(this, method);
-//        ClassState templateClassState = TemplateStateFactory.forClass(spawnedContext, method.getDefiningClass());
-//        spawnedContext.setClassState(templateClassState);
-//
-//        MethodState templateMethodState = TemplateStateFactory.forMethod(spawnedContext);
-//        spawnedContext.setMethodState(templateMethodState);
-//
-//        if (callerContext != null) {
-//            spawnedContext.registerCaller(callerContext, callerAddress);
-//        }
-
+        return state
     }
 
     /*
@@ -326,18 +291,17 @@ class VirtualMachine2 private constructor(
     }
 
      */
-    fun spawnEntrypointNode() {
 
+    fun updateTemplateOps(method: VirtualMethod) {
+
+        val opBuilder = OpBuilder(addressToLocation, vm.classManager, vm.classLoader, vm.configuration)
+
+        methodToTemplateOps[method] = graph
     }
 
-    fun updateTemplateGraph(method: VirtualMethod) {
-        val graph = ExecutionGraph2(method, this.classManager, this.classLoader)
-        templates[method] = graph
-    }
-
-    fun findClassReferences(op: Op) {
-
-    }
+//    fun findClassReferences(op: Op) {
+//
+//    }
 
 
     object Main {

@@ -6,7 +6,6 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
 import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.SmaliClassLoader
-import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm.type.VirtualMethod
@@ -48,11 +47,12 @@ class ExecutionState(
         const val PSEUDO_RETURN_ADDRESS_KEY = "*pseudo-return*"
 
         fun build(
-            op: Op,
             method: VirtualMethod,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
-            configuration: Configuration
+            configuration: Configuration,
+            registersReadCount: Int = 0,
+            registersAssignedCount: Int = 0
         ): ExecutionState {
             if (!method.hasImplementation()) {
                 // May be native or abstract and thus no implementation and thus shouldn't execute
@@ -67,7 +67,7 @@ class ExecutionState(
             val firstParameterRegister = registerCount - parameterSize
             val fieldCount = method.definingClass.fields.size
 
-            val state = ExecutionState(
+            return ExecutionState(
                 cloner,
                 classManager,
                 configuration,
@@ -76,28 +76,9 @@ class ExecutionState(
                 parameterSize,
                 fieldCount,
                 0,
-                op.registersReadCount,
-                op.registersAssignedCount
+                registersReadCount,
+                registersAssignedCount
             )
-
-            var currentRegister = firstParameterRegister
-            for (typeName in method.parameterTypeNames) {
-                val value = if (currentRegister == firstParameterRegister && !method.isStatic && method.name == "<init>") {
-                    // Use defining class instead of typeName as it should be more specific
-                    Value.uninitializedInstance(method.definingClass)
-                } else {
-                    Value.unknown(typeName)
-                }
-                state.assignRegister(currentRegister, value)
-                currentRegister += Utils.getRegisterSize(typeName)
-            }
-
-            for (field in method.definingClass.fields) {
-                val value = Value.wrap(field.initialValue, field.type)
-                state.pokeField(field, value)
-            }
-
-            return state
         }
 
         private fun getReassignedKeysBetweenChildAndAncestor(child: ExecutionState, ancestor: ExecutionState): Set<String?> {

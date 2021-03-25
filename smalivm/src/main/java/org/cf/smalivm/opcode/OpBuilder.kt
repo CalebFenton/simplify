@@ -1,6 +1,5 @@
 package org.cf.smalivm.opcode
 
-import ExceptionFactory
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
@@ -8,14 +7,13 @@ import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.MethodLocation
 import org.slf4j.LoggerFactory
 
-class OpCreator(
+class OpBuilder(
     private val addressToLocation: Map<Int, MethodLocation>,
     private val classManager: ClassManager,
     private val classLoader: SmaliClassLoader,
     private val configuration: Configuration,
-    private val exceptionFactory: ExceptionFactory
 ) {
-    fun create(location: MethodLocation): Op {
+    fun build(location: MethodLocation): Op {
         val instruction = location.instruction!!
         val opcode = instruction.opcode
         val opFactory = getOpFactory(opcode)
@@ -23,7 +21,7 @@ class OpCreator(
     }
 
     companion object {
-        private val log = LoggerFactory.getLogger(OpCreator::class.java.simpleName)
+        private val log = LoggerFactory.getLogger(OpBuilder::class.java.simpleName)
 
         private fun getOpFactory(op: Opcode): OpFactory {
             return when (op) {

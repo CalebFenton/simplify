@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.BuilderOffsetInstruction
 import org.jf.dexlib2.builder.MethodLocation
@@ -13,9 +13,9 @@ class GotoOp internal constructor(location: MethodLocation, childInstruction: Me
     override val registersReadCount = 0
     override val registersAssignedCount = 0
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // https://xkcd.com/292/
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString(): String {

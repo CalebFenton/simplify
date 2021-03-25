@@ -5,7 +5,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
@@ -29,13 +29,13 @@ class MoveOp internal constructor(location: MethodLocation, child: MethodLocatio
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         when (moveType) {
             MoveType.EXCEPTION -> moveException(node.state, toRegister)
             MoveType.RESULT -> moveResult(node.state, toRegister)
             MoveType.REGISTER -> moveRegister(node.state, toRegister, targetRegister)
         }
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString(): String {

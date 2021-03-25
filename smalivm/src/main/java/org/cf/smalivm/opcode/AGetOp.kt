@@ -5,7 +5,7 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -24,7 +24,7 @@ class AGetOp internal constructor(
     override val registersReadCount = 2
     override val registersAssignedCount = 2
 
-    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
+    override fun execute(node: ExecutionNode): kotlin.Array<out UnresolvedChild> {
         val array = node.state.readRegister(arrayRegister)
         val index = node.state.readRegister(indexRegister)
         val indexed: Value
@@ -39,11 +39,11 @@ class AGetOp internal constructor(
                 indexed = Value.unknown(innerType)
             } else {
                 if (array.isNull) {
-                    return throwChild(NullPointerException::class.java)
+                    return throwException(NullPointerException::class.java)
                 }
                 val innerType = array.type.replaceFirst("\\[".toRegex(), "")
                 if (index.toInteger() >= Array.getLength(array.value)) {
-                    return throwChild(ArrayIndexOutOfBoundsException::class.java)
+                    return throwException(ArrayIndexOutOfBoundsException::class.java)
                 } else {
                     val raw = Array.get(array.value, index.toInteger())
                     indexed = Value.wrap(raw, innerType)
@@ -52,7 +52,7 @@ class AGetOp internal constructor(
             }
         }
         node.state.assignRegister(destRegister, indexed)
-        return collectChildren(mayThrow)
+        return finishOp(mayThrow)
     }
 
     override fun toString() = "$name r$destRegister, r$arrayRegister, r$indexRegister"

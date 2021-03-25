@@ -7,7 +7,7 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UninitializedInstance
 import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -22,24 +22,23 @@ class NewInstanceOp internal constructor(
     override val registersAssignedCount = 1
     override lateinit var sideEffectLevel: SideEffect.Level
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         if (node.configuration.isSafe(virtualClass)) {
             node.sideEffectLevel = SideEffect.Level.NONE
+            return resume(node)
         } else {
             node.sideEffectLevel = SideEffect.Level.STRONG
             // New-instance causes static initialization (but not new-array!)
             val clinit = virtualClass.getMethod("<clinit>()V")!!
-            return arrayOf(OpChild.build(clinit))
+            return finishOp(clinit)
         }
-
-        return resume(node)
     }
 
-    override fun resume(node: ExecutionNode): Array<out OpChild> {
-        val instance: Any = UninitializedInstance(virtualClass)
-        val instanceItem = Value.wrap(instance, virtualClass.name)
-        node.state.assignRegister(destRegister, instanceItem)
-        return collectChildren()
+    override fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
+        val rawInstance = UninitializedInstance(virtualClass)
+        val instance = Value.wrap(rawInstance, virtualClass.name)
+        node.state.assignRegister(destRegister, instance)
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister, $virtualClass"

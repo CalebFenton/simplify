@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.SwitchPayload
@@ -20,7 +20,7 @@ class SwitchPayloadOp internal constructor(
     override val registersReadCount = 2
     override val registersAssignedCount = 0
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // Pseudo points to instruction *after* switch op.
         // Don't know children until we know the pseudo return instruction, only branch offsets
         val returnLocation = node.state.getPsuedoInstructionReturnLocation()
@@ -30,17 +30,17 @@ class SwitchPayloadOp internal constructor(
             val childList = getTargets(branchFromAddress, targetKeyToOffset)
             childList.add(returnLocation)
             val children = childList.toTypedArray()
-            return collectChildren(*children)
+            return finishOp(*children)
         }
         val targetKey = Utils.getIntegerValue(targetItem.value)
         if (targetKeyToOffset.containsKey(targetKey)) {
             val targetOffset = branchFromAddress + targetKeyToOffset[targetKey]!!
             val child = addressToLocation[targetOffset]!!
-            return collectChildren(child)
+            return finishOp(child)
         }
 
         // Branch target is unspecified. Continue to next op.
-        return collectChildren(returnLocation)
+        return finishOp(returnLocation)
     }
 
     override fun toString(): String {

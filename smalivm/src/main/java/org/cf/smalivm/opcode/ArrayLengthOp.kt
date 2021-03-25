@@ -6,7 +6,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x
@@ -23,10 +23,10 @@ class ArrayLengthOp internal constructor(
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
+    override fun execute(node: ExecutionNode): kotlin.Array<out UnresolvedChild> {
         val array = node.state.readRegister(arrayRegister)
         if (array.isNull) {
-            return throwChild(NullPointerException::class.java, "Attempt to get length of null array")
+            return throwException(NullPointerException::class.java, "Attempt to get length of null array")
         }
         var mayThrow = true
         val length: Any = when {
@@ -42,7 +42,7 @@ class ArrayLengthOp internal constructor(
             }
         }
         node.state.assignRegister(destRegister, length, CommonTypes.INTEGER)
-        return collectChildren(mayThrow)
+        return finishOp(mayThrow)
     }
 
     override fun toString() = "$name r$destRegister, r$arrayRegister"

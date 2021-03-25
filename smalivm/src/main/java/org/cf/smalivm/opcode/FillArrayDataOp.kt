@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.OffsetInstruction
@@ -21,7 +21,7 @@ class FillArrayDataOp internal constructor(
     override val registersReadCount = 1
     override val registersAssignedCount = 2
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val value = node.state.readRegister(register)
         // Assign register so payload op can determine target register for payload.
         node.state.assignRegister(register, value)

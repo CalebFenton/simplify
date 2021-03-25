@@ -6,7 +6,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -49,7 +49,7 @@ class BinaryMathOp internal constructor(
     override val registersReadCount = if (hasLiteral) 1 else 2
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val lhs = node.state.readRegister(arg1Register)
         val rhs: Value = if (hasLiteral) {
             Value.wrap(narrowLiteral, CommonTypes.INTEGER)
@@ -64,10 +64,10 @@ class BinaryMathOp internal constructor(
         }
 
         if (result is Throwable) {
-            return throwChild(result)
+            return throwException(result)
         }
         node.state.assignRegister(destRegister, result, mathOperandType.type)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString(): String {

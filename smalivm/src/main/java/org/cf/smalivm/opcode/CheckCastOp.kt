@@ -5,7 +5,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualType
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
@@ -24,20 +24,20 @@ class CheckCastOp internal constructor(
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val target = node.state.readRegister(targetRegister)
         if (isInstance(target, castType, node.classManager)) {
             node.state.assignRegister(targetRegister, target.value, castType.name)
-            return collectChildren(mayThrow = false)
+            return finishOp(mayThrow = false)
         } else {
             // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             val errorMessage = ClassNameUtils.internalToBinary(target.type) + " cannot be cast to " + castType.binaryName
             return if (target.isKnown) {
                 // Exception is certain to happen since we had all class information
-                throwChild(ClassCastException::class.java, errorMessage)
+                throwException(ClassCastException::class.java, errorMessage)
             } else {
                 // Not enough information to know if it throws or works fine.
-                collectChildren(mayThrow = true, includeChildren = true)
+                finishOp(mayThrow = true, includeChildren = true)
             }
         }
     }

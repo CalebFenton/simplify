@@ -7,7 +7,7 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualArray
 import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
@@ -27,14 +27,14 @@ class APutOp internal constructor(
     override val registersReadCount = 3
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): kotlin.Array<out OpChild> {
+    override fun execute(node: ExecutionNode): kotlin.Array<out UnresolvedChild> {
         val store = node.state.readRegister(valueRegister)
         var array = node.state.readRegister(arrayRegister)
         val index = node.state.readRegister(indexRegister)
         if (throwsArrayStoreException(array, store, node.classManager)) {
             // This isn't included in possible exceptions since the message (storeType) isn't knowable until runtime.
             val storeType = ClassNameUtils.internalToBinary(store.type)
-            return throwChild(ArrayStoreException::class.java, storeType)
+            return throwException(ArrayStoreException::class.java, storeType)
         }
         var mayThrow = true
         if (array.isKnown) {
@@ -42,10 +42,10 @@ class APutOp internal constructor(
                 array = Value.unknown(array.type)
             } else {
                 if (array.isNull) {
-                    return throwChild(NullPointerException::class.java)
+                    return throwException(NullPointerException::class.java)
                 }
                 if (index.toInteger() >= Array.getLength(array.value)) {
-                    return throwChild(ArrayIndexOutOfBoundsException::class.java)
+                    return throwException(ArrayIndexOutOfBoundsException::class.java)
                 } else {
                     val set = castValue(name, store.value)
                     Array.set(array.value, index.toInteger(), set)
@@ -54,7 +54,7 @@ class APutOp internal constructor(
             }
         }
         node.state.assignRegister(arrayRegister, array)
-        return collectChildren(mayThrow)
+        return finishOp(mayThrow)
     }
 
 

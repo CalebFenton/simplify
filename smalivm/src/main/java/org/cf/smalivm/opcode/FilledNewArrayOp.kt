@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -26,7 +26,7 @@ class FilledNewArrayOp internal constructor(
     override val registersReadCount = dimensionRegisters.size
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         /*
          * This populates a 1-dimensional integer array with values from the parameters. It does NOT create
          * n-dimensional arrays. It's usually used to create parameter for Arrays.newInstance(). If you use anything but
@@ -53,7 +53,7 @@ class FilledNewArrayOp internal constructor(
             node.state.assignResultRegister(dimensions, "[I")
         }
 
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString(): String {

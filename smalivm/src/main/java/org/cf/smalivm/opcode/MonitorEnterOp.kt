@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
@@ -16,8 +16,8 @@ class MonitorEnterOp internal constructor(location: MethodLocation, child: Metho
     override val registersReadCount = 0
     override val registersAssignedCount = 0
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
-        return collectChildren()
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister"

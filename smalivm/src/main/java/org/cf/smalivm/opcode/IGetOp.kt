@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -24,12 +24,12 @@ class IGetOp(
     override val registersReadCount = 1
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // TODO: https://github.com/CalebFenton/simplify/issues/22
         val instance = node.state.readRegister(instanceRegister)
         val type = fieldDescriptor.split(":").toTypedArray()[1]
         node.state.assignRegister(destRegister, Value.unknown(type))
-        return collectChildren()
+        return finishOp()
     }
 
 

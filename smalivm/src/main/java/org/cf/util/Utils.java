@@ -45,9 +45,8 @@ public class Utils {
         int dimensionCount = ClassNameUtils.getDimensionCount(internalName) - 1;
         String classNameWithDimensions = ClassNameUtils.addDimensionsToBinaryClassName(binaryName, dimensionCount);
         Class<?> klazz = ClassUtils.getClass(classLoader, classNameWithDimensions);
-        Object array = Array.newInstance(klazz, length);
 
-        return array;
+        return Array.newInstance(klazz, length);
     }
 
     public static List<String> builderTypeListToTypeNames(BuilderTypeList typeList) {

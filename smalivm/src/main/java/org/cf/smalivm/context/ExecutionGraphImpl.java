@@ -8,7 +8,7 @@ import org.cf.smalivm.SideEffect;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.opcode.Op;
-import org.cf.smalivm.opcode.OpCreator;
+import org.cf.smalivm.opcode.OpBuilder;
 import org.cf.smalivm.type.*;
 import org.jf.dexlib2.Opcode;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -77,20 +77,20 @@ public class ExecutionGraphImpl implements ExecutionGraph {
         return addressToLocation;
     }
 
-    protected static OpCreator getOpCreator(VirtualMachine vm, TIntObjectMap<MethodLocation> addressToLocation) {
+    protected static OpBuilder getOpCreator(VirtualMachine vm, TIntObjectMap<MethodLocation> addressToLocation) {
         Map a2L = new HashMap<Integer, MethodLocation>();
         for (int key : addressToLocation.keys()) {
             a2L.put(key, addressToLocation.get(key));
         }
-        return new OpCreator(a2L, vm.getClassManager());
+        return new OpBuilder(a2L, vm.getClassManager());
     }
 
     private static Map<MethodLocation, List<ExecutionNode>> buildLocationToNodePile(VirtualMachine vm,
                                                                                     TIntObjectMap<MethodLocation> addressToLocation) {
-        OpCreator opCreator = getOpCreator(vm, addressToLocation);
+        OpBuilder opBuilder = getOpCreator(vm, addressToLocation);
         Map<MethodLocation, List<ExecutionNode>> locationToNodePile = new HashMap<>();
         for (MethodLocation location : addressToLocation.values(new MethodLocation[addressToLocation.size()])) {
-            Op op = opCreator.create(location);
+            Op op = opBuilder.build(location);
             ExecutionNode node = new ExecutionNode(op);
 
             // Most node piles will be a template node and 1+ ExecutionNodes.

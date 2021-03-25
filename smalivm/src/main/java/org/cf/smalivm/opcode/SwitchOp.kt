@@ -4,7 +4,7 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.OffsetInstruction
@@ -16,13 +16,13 @@ class SwitchOp internal constructor(location: MethodLocation, private val child:
     override val registersReadCount = 1
     override val registersAssignedCount = 2
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // Use result register to store value to compare. Comparison is handled by payload op.
         val item = node.state.readRegister(register)
         node.state.assignResultRegister(item)
         // If switch "falls through", will need the immediate op after this.
         node.state.setPseudoInstructionReturnLocation(child)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString() = "$name  r$register, :addr_${children[0].location.codeAddress}"

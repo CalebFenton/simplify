@@ -5,7 +5,7 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -22,7 +22,7 @@ class CmpOp internal constructor(
     override val registersReadCount = 2
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val lhs = node.state.readRegister(lhsRegister)
         val rhs = node.state.readRegister(rhsRegister)
         val item = if (lhs.isUnknown || rhs.isUnknown) {
@@ -34,7 +34,7 @@ class CmpOp internal constructor(
             Value.wrap(cmp, CommonTypes.INTEGER)
         }
         node.state.assignRegister(destRegister, item)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString(): String = "$name r$destRegister, r$lhsRegister, r$rhsRegister"

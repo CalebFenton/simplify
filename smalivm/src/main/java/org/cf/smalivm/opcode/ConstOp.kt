@@ -6,7 +6,7 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.OpChild
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
@@ -31,13 +31,13 @@ class ConstOp internal constructor(
     override val registersReadCount = 0
     override val registersAssignedCount = 1
 
-    override fun execute(node: ExecutionNode): Array<out OpChild> {
+    override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val constant = buildConstant()
         if (constant is Throwable) {
-            return throwChild(constant)
+            return throwException(constant)
         }
         node.state.assignRegister(destRegister, constant, constantTypeString)
-        return collectChildren()
+        return finishOp()
     }
 
     override fun toString(): String {
