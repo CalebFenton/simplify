@@ -2,15 +2,15 @@ package org.cf.smalivm2
 
 import com.rits.cloning.Cloner
 import org.apache.commons.lang3.reflect.FieldUtils
+import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
-import org.cf.smalivm.context.MethodState
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm.type.VirtualMethod
+import org.cf.smalivm.type.VirtualType
 import org.cf.util.Utils
-import org.jf.dexlib2.builder.MethodLocation
 import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.collections.HashMap
@@ -30,7 +30,7 @@ class ExecutionState(
 ) {
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
     val values = HashMap<String, Value>(registerCount + fieldCount)
-    val initializedClasses = HashSet<String>(initializedClassesSize)
+    val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(initializedClassesSize)
     val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
     val firstParameterRegister = registerCount - parameterSize
     val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
@@ -93,8 +93,9 @@ class ExecutionState(
         }
     }
 
-    // Don't extend back beyond an entrypoint node to potential caller nodes to ensure we're only looking at method state
     fun getParent(methodLocal: Boolean = true): ExecutionState? {
+        // For registry states, shouldn't reach beyond entry points.
+        // But for fields and class initialization, will want to reach all the way back
         if (methodLocal && (node == null || node is EntrypointNode)) {
             return null
         }
@@ -128,19 +129,19 @@ class ExecutionState(
     }
 
     fun assignResultRegister(value: Value) {
-        assignRegister(MethodState.ResultRegister, value)
+        assignRegister(ResultRegister, value)
     }
 
     fun assignResultRegister(v: Any?, type: String) {
-        assignRegister(MethodState.ResultRegister, Value.wrap(v, type))
+        assignRegister(ResultRegister, Value.wrap(v, type))
     }
 
     fun assignReturnRegister(value: Value) {
-        pokeRegister(MethodState.ReturnRegister, value)
+        pokeRegister(ReturnRegister, value)
     }
 
     fun assignReturnRegister(v: Any?, type: String) {
-        pokeRegister(MethodState.ReturnRegister, Value.wrap(v, type))
+        pokeRegister(ReturnRegister, Value.wrap(v, type))
     }
 
     fun assignThrowRegister(value: Value) {
@@ -184,6 +185,10 @@ class ExecutionState(
         } else {
             values[key] = value
         }
+    }
+
+    fun peekParameter(registerOffset: Int): Value? {
+        return peekRegister(firstParameterRegister + registerOffset)
     }
 
     fun peekRegister(register: Int): Value? {
@@ -258,7 +263,7 @@ class ExecutionState(
          * regardless of whether or not move-result is called.
          */
         for (currentRegister in registersRead) {
-            if (currentRegister == MethodState.ResultRegister) {
+            if (currentRegister == ResultRegister) {
                 continue
             }
             val currentValue = peekRegister(currentRegister)!!
@@ -316,11 +321,11 @@ class ExecutionState(
             val registerSize = Utils.getRegisterSize(value.type)
             register += registerSize
         }
-        if (containsRegister(MethodState.ResultRegister)) {
-            inner.append("result: ").append(peekRegister(MethodState.ResultRegister)).append('\n')
+        if (containsRegister(ResultRegister)) {
+            inner.append("result: ").append(peekRegister(ResultRegister)).append('\n')
         }
-        if (containsRegister(MethodState.ReturnRegister)) {
-            inner.append("return: ").append(peekRegister(MethodState.ReturnRegister)).append('\n')
+        if (containsRegister(ReturnRegister)) {
+            inner.append("return: ").append(peekRegister(ReturnRegister)).append('\n')
         }
         if (inner.isNotEmpty()) {
             inner.setLength(inner.length - 1)
@@ -450,6 +455,45 @@ class ExecutionState(
             log.debug("Stack trace:", e)
         }
         return Value.unknown(field.type)
+    }
+
+
+    fun getClassSideEffectLevel(virtualClass: VirtualType): SideEffect.Level? {
+        val ancestor = getAncestorWithClass(virtualClass) ?: return null
+        return ancestor.initializedClasses[virtualClass]!!
+    }
+
+    fun setClassInitialized(classSignature: String, level: SideEffect.Level) {
+        val virtualClass = classManager.getVirtualClass(classSignature)
+        setClassInitialized(virtualClass, level)
+    }
+
+    fun setClassInitialized(virtualClass: VirtualType, level: SideEffect.Level) {
+        initializedClasses[virtualClass] = level
+    }
+
+    fun isClassInitialized(virtualClass: VirtualType): Boolean {
+        return when {
+            initializedClasses.contains(virtualClass) -> true
+            getParent() != null -> getParent()!!.isClassInitialized(virtualClass)
+            else -> false
+        }
+    }
+
+    private fun getAncestorWithClass(virtualClass: VirtualType): ExecutionState? {
+        var ancestor: ExecutionState? = this
+        do {
+            if (ancestor!!.initializedClasses.containsKey(virtualClass)) {
+                return ancestor
+            }
+            ancestor = ancestor.getParent()
+        } while (ancestor != null)
+        return null
+    }
+
+    fun isClassInitialized(classSignature: String): Boolean {
+        val virtualClass = classManager.getVirtualClass(classSignature)
+        return isClassInitialized(virtualClass)
     }
 
 

@@ -68,7 +68,6 @@ class APutOp internal constructor(
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction23x
             val putRegister = instr.registerA
             val arrayRegister = instr.registerB

@@ -293,10 +293,10 @@ class VirtualMachine2 private constructor(
      */
 
     fun updateTemplateOps(method: VirtualMethod) {
+        val opBuilder = OpBuilder(classManager, classLoader, configuration)
 
-        val opBuilder = OpBuilder(addressToLocation, vm.classManager, vm.classLoader, vm.configuration)
-
-        methodToTemplateOps[method] = graph
+        // TODO: this!
+//        methodToTemplateOps[method] = graph
     }
 
 //    fun findClassReferences(op: Op) {

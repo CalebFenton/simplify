@@ -8,7 +8,6 @@ import org.jf.dexlib2.builder.MethodLocation
 import org.slf4j.LoggerFactory
 
 class OpBuilder(
-    private val addressToLocation: Map<Int, MethodLocation>,
     private val classManager: ClassManager,
     private val classLoader: SmaliClassLoader,
     private val configuration: Configuration,

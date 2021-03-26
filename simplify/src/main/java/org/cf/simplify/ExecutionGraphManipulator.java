@@ -36,7 +36,7 @@ public class ExecutionGraphManipulator extends ExecutionGraphImpl {
     private final VirtualMachine vm;
     private final Set<MethodLocation> recreateLocations;
     private final List<MethodLocation> reexecuteLocations;
-    private final OpCreator opCreator;
+    private final OpBuilder opBuilder;
     private boolean recreateOrExecuteAgain;
 
     public ExecutionGraphManipulator(ExecutionGraphImpl graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
@@ -46,7 +46,7 @@ public class ExecutionGraphManipulator extends ExecutionGraphImpl {
         this.method = method;
         implementation = method.getImplementation();
         this.vm = vm;
-        opCreator = getOpCreator(vm, addressToLocation);
+        opBuilder = getOpCreator(vm, addressToLocation);
         recreateLocations = new HashSet<>();
 
         // When ops are added, such as when unreflecting, need to execute in order to ensure
@@ -224,7 +224,7 @@ public class ExecutionGraphManipulator extends ExecutionGraphImpl {
         locationToNodePile.put(newLocation, newNodePile);
 
         Op shiftedOp = shiftedNodePile.get(0).getOp();
-        Op op = opCreator.create(newLocation);
+        Op op = opBuilder.build(newLocation);
         recreateLocations.add(newLocation);
         reexecuteLocations.add(newLocation);
         boolean autoAddedPadding = op instanceof NopOp && (shiftedOp instanceof FillArrayDataPayloadOp ||
@@ -280,7 +280,7 @@ public class ExecutionGraphManipulator extends ExecutionGraphImpl {
         reexecuteLocations.removeIf(p -> p.getInstruction() == null);
 
         for (MethodLocation location : recreateLocations) {
-            Op op = opCreator.create(location);
+            Op op = opBuilder.build(location);
             List<ExecutionNode> pile = locationToNodePile.get(location);
 
             // TODO: move side effects out of ops and into nodes or graph

@@ -12,6 +12,9 @@ import org.cf.smalivm.type.VirtualClass;
 import org.cf.smalivm.type.VirtualField;
 import org.cf.smalivm.type.VirtualType;
 import org.cf.smalivm.type.VirtualMethod;
+import org.cf.smalivm2.ExecutionState;
+import org.cf.smalivm2.Value;
+import org.cf.smalivm2.VirtualMachine2;
 import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,15 +22,14 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-class java_lang_reflect_Field_get extends ExecutionContextMethod {
+class java_lang_reflect_Field_get extends EmulatedMethod {
 
     private static final Logger log = LoggerFactory.getLogger(java_lang_reflect_Field_get.class.getSimpleName());
 
     @Override
-    public void execute(VirtualMachine vm, Op op, ExecutionContext context) {
-        MethodState mState = context.getMethodState();
-        HeapItem fieldItem = mState.peekParameter(0);
-        HeapItem instanceItem = mState.peekParameter(1);
+    public void execute(VirtualMachine2 vm, Op op, ExecutionState state) {
+        Value fieldItem = state.peekParameter(0);
+        Value instanceItem = state.peekParameter(1);
         Field field = (Field) fieldItem.getValue();
 
         int accessFlags = field.getModifiers();

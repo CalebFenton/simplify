@@ -11,7 +11,7 @@ class org_cf_simplify_Utils_breakpoint extends MethodStateMethod {
     private static final Logger log = LoggerFactory.getLogger(org_cf_simplify_Utils_breakpoint.class.getSimpleName());
 
     @Override
-    protected void execute(VirtualMachine vm, Op op, MethodState mState) {
+    protected void execute(VirtualMachine2 vm, Op op, MethodState mState) {
         // To use, add invoke-static {}, Lorg/cf/simplify/Utils;->breakpoint()V, and set a breakpoint here.
         log.trace("For a good time, set a breakpoint here!");
     }

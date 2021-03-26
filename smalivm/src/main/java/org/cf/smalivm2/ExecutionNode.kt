@@ -28,7 +28,6 @@ open class ExecutionNode(
 ) {
     val address = op.address
     val index = op.index
-    val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(0)
     var children: MutableList<ExecutionNode> = LinkedList()
 
 //    def shallowClone() : ExecutionNode {
@@ -36,44 +35,6 @@ open class ExecutionNode(
 //            return EntrypointNode(op, method, classManager, classLoader, configuration, state, parent, sideEffectLevel)
 //        }
 //    }
-
-    private fun getAncestorWithClass(virtualClass: VirtualType): ExecutionNode? {
-        var ancestor: ExecutionNode? = this
-        do {
-            if (ancestor!!.initializedClasses.containsKey(virtualClass)) {
-                return ancestor
-            }
-            ancestor = ancestor.parent
-        } while (ancestor != null)
-        return null
-    }
-
-    fun getClassSideEffectLevel(virtualClass: VirtualType): SideEffect.Level? {
-        val ancestor = getAncestorWithClass(virtualClass) ?: return null
-        return ancestor.initializedClasses[virtualClass]!!
-    }
-
-    fun setClassInitialized(classSignature: String, level: SideEffect.Level) {
-        val virtualClass = classManager.getVirtualClass(classSignature)
-        setClassInitialized(virtualClass, level)
-    }
-
-    fun setClassInitialized(virtualClass: VirtualType, level: SideEffect.Level) {
-        initializedClasses[virtualClass] = level
-    }
-
-    fun isClassInitialized(virtualClass: VirtualType): Boolean {
-        return when {
-            initializedClasses.contains(virtualClass) -> true
-            parent != null -> parent!!.isClassInitialized(virtualClass)
-            else -> false
-        }
-    }
-
-    fun isClassInitialized(classSignature: String): Boolean {
-        val virtualClass = classManager.getVirtualClass(classSignature)
-        return isClassInitialized(virtualClass)
-    }
 
 //    fun getClassSideEffectLevel(virtualClass: VirtualType) = initializedClasses[virtualClass]
 //

@@ -6,11 +6,13 @@ import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.opcode.Op;
 import org.cf.smalivm.type.VirtualClass;
+import org.cf.smalivm2.ExecutionState;
+import org.cf.smalivm2.VirtualMachine2;
 import org.cf.util.ClassNameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class java_lang_Class_forName extends ExecutionContextMethod {
+class java_lang_Class_forName extends EmulatedMethod {
 
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(java_lang_Class_forName.class.getSimpleName());
@@ -18,9 +20,8 @@ class java_lang_Class_forName extends ExecutionContextMethod {
     private static final String RETURN_TYPE = CommonTypes.CLASS;
 
     @Override
-    public void execute(VirtualMachine vm, Op op, ExecutionContext context) {
-        MethodState mState = context.getMethodState();
-        String binaryClassName = (String) mState.peekParameter(0).getValue();
+    public void execute(VirtualMachine2 vm, Op op, ExecutionState state) {
+        String binaryClassName = (String) state.peekParameter(0).getValue();
         String className = ClassNameUtils.binaryToInternal(binaryClassName);
 
         Class<?> value;
@@ -42,16 +43,17 @@ class java_lang_Class_forName extends ExecutionContextMethod {
                 } catch (RuntimeException e) {
                     throw new ClassNotFoundException();
                 }
-                if (!context.isClassInitialized(virtualClass) && !className.equals("Lorg/cf/obfuscated/Reflection;")) {
-                    context.staticallyInitializeClassIfNecessary(virtualClass);
-                    level = context.getClassSideEffectLevel(virtualClass);
+                if (!state.isClassInitialized(virtualClass)) {
+                    // TODO: should create a state pass the class state to the VM to execute
+                    state.staticallyInitializeClassIfNecessary(virtualClass);
+                    level = state.getClassSideEffectLevel(virtualClass);
                 }
             }
-            mState.assignReturnRegister(value, RETURN_TYPE);
+            state.assignReturnRegister(value, RETURN_TYPE);
         } catch (ClassNotFoundException e) {
-            Throwable exception = vm.getExceptionFactory().build(op, ClassNotFoundException.class, binaryClassName);
-            setException(exception);
+            setException(ClassNotFoundException.class, binaryClassName);
         }
     }
+
 
 }
