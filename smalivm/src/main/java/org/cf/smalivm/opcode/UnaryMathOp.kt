@@ -7,12 +7,11 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x
 
-class UnaryMathOp internal constructor(location: MethodLocation, child: MethodLocation, val destRegister: Int, val srcRegister: Int) :
-    Op(location, child) {
+class UnaryMathOp internal constructor(location: MethodLocation, val destRegister: Int, val srcRegister: Int) :
+    Op(location) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -112,16 +111,14 @@ class UnaryMathOp internal constructor(location: MethodLocation, child: MethodLo
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction12x
             val destRegister = instr.registerA
             val srcRegister = instr.registerB
-            return UnaryMathOp(location, child, destRegister, srcRegister)
+            return UnaryMathOp(location, destRegister, srcRegister)
         }
     }
 }

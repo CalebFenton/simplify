@@ -13,10 +13,9 @@ import org.slf4j.LoggerFactory
 
 class FillArrayDataOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
-    private val returnLocation: MethodLocation,
+    private val returnAddress: Int,
     private val register: Int
-) : Op(location, child) {
+) : Op(location) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 2
@@ -26,18 +25,20 @@ class FillArrayDataOp internal constructor(
         // Assign register so payload op can determine target register for payload.
         node.state.assignRegister(register, value)
         // Payload op needs to know return address when finished.
-        node.state.setPseudoInstructionReturnLocation(returnLocation)
+        node.state.setPseudoInstructionReturnAddress(returnAddress)
         return arrayOf()
     }
 
-    override fun toString() = name + " r" + register + ", :addr_" + children[0].location.codeAddress
+    override fun toString(): String {
+        val branchOffset = (instruction as OffsetInstruction).codeOffset
+        return "$name r$register, :addr_${address + branchOffset}"
+    }
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(FillArrayDataOp::class.java.simpleName)
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
@@ -45,13 +46,9 @@ class FillArrayDataOp internal constructor(
             val instruction = location.instruction as BuilderInstruction
             val address = instruction.location.codeAddress
             val returnAddress = address + instruction.codeUnits
-            val returnLocation = addressToLocation[returnAddress]!!
-            val branchOffset = (instruction as OffsetInstruction).codeOffset
-            val childAddress = address + branchOffset
-            val child = addressToLocation[childAddress]!!
             val instr = location.instruction as Instruction31t
             val register = instr.registerA
-            return FillArrayDataOp(location, child, returnLocation, register)
+            return FillArrayDataOp(location, returnAddress, register)
         }
     }
 }

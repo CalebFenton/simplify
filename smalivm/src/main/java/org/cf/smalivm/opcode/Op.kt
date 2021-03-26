@@ -10,33 +10,36 @@ import java.util.*
 
 abstract class Op internal constructor(
     val location: MethodLocation,
-    childLocations: Array<MethodLocation> = arrayOf(),
-    defaultExceptions: Array<Pair<Class<out Throwable>, String?>> = arrayOf()
+//    childAddresses: Array<Int> = arrayOf(),
+    exceptions: Array<Pair<Class<out Throwable>, String?>> = arrayOf()
 ) {
     constructor(
         location: MethodLocation,
-        childLocation: MethodLocation,
         vararg defaultExceptions: Class<out Throwable> = arrayOf()
-    ) : this(location, arrayOf(childLocation), defaultExceptions.map { Pair(it, null) }.toTypedArray())
+    ) : this(location, defaultExceptions.map { Pair(it, null) }.toTypedArray())
 
-    constructor(
-        location: MethodLocation,
-        childLocation: MethodLocation,
-        vararg defaultExceptions: Pair<Class<out Throwable>, String?>
-    ) : this(location, arrayOf(childLocation), arrayOf(*defaultExceptions))
+//    constructor(
+//        location: MethodLocation,
+//        vararg defaultExceptions: Pair<Class<out Throwable>, String?>
+//    ) : this(location, arrayOf(*defaultExceptions))
 
     abstract val registersReadCount: Int
     abstract val registersAssignedCount: Int
 
-    val children = childLocations.map { UnresolvedChild.build(it) }.toTypedArray()
-    val exceptions = defaultExceptions.map { UnresolvedChild.build(it.first, it.second) }.toTypedArray()
+    //    val children = childAddresses.map { UnresolvedChild.build(it) }.toTypedArray()
+    val exceptions = exceptions.map { UnresolvedChild.build(it.first, it.second) }
+    val address: Int
+        get() = location.codeAddress
+    val index: Int
+        get() = location.index
+    val nextAddress: Int
+        get() = location.codeAddress + location.instruction!!.codeUnits
 
-    val address = location.codeAddress
-    val index = location.index
-
-    // May get null instructions when modifying implementations
-    val instruction = location.instruction as BuilderInstruction?
-    val name: String = instruction?.opcode?.name ?: "*null instr*"
+    // Allow nulls here because may get null instructions when modifying implementations
+    val instruction: BuilderInstruction?
+        get() = location.instruction as BuilderInstruction?
+    val name: String
+        get() = instruction?.opcode?.name ?: "*null instr*"
 
     open val sideEffectLevel = SideEffect.Level.NONE
 
@@ -57,36 +60,48 @@ abstract class Op internal constructor(
         return arrayOf(UnresolvedChild.build(klazz, message))
     }
 
-    fun finishOp(mayThrow: Boolean = false, includeChildren: Boolean = true): Array<out UnresolvedChild> {
-        return if (mayThrow) {
-            if (includeChildren) {
-                arrayOf(*children, *exceptions)
-            } else {
-                exceptions
-            }
-        } else {
-            if (includeChildren) {
-                arrayOf(*children)
-            } else {
-                arrayOf()
-            }
-        }
-    }
-
-    fun finishOp(vararg locations: MethodLocation): Array<out UnresolvedChild> {
-        return locations.map { UnresolvedChild.build(it) }.toTypedArray()
-    }
-
-    fun finishOp(methodCall: VirtualMethod): Array<out UnresolvedChild> {
+    fun callMethod(methodCall: VirtualMethod): Array<out UnresolvedChild> {
         return arrayOf(UnresolvedChild.build(methodCall))
     }
 
-    fun finishOp(child: UnresolvedChild): Array<UnresolvedChild> {
-        return arrayOf(child)
-    }
-
-//    fun collectChildren(child: OpChild, mayThrow: Boolean) : Array<OpChild> {
-//
+//    fun finishOp(mayThrow: Boolean = false, includeChildren: Boolean = true): Array<out UnresolvedChild> {
+//        return if (mayThrow) {
+//            if (includeChildren) {
+//                arrayOf(*children, *exceptions)
+//            } else {
+//                exceptions
+//            }
+//        } else {
+//            if (includeChildren) {
+//                arrayOf(*children)
+//            } else {
+//                arrayOf()
+//            }
+//        }
 //    }
 
+    fun finishOp(mayThrow: Boolean = false): Array<out UnresolvedChild> {
+        val children: MutableList<UnresolvedChild> = LinkedList()
+        val opcode = location.instruction!!.opcode
+        if (opcode.canContinue() && this !is SwitchOp) {
+            val child = UnresolvedChild.build(nextAddress)
+            children.add(child)
+        }
+        if (mayThrow) {
+            children.addAll(exceptions)
+        }
+        return children.toTypedArray()
+    }
+
+    fun finishOp(addresses: Array<Int>): Array<out UnresolvedChild> {
+        return addresses.map { UnresolvedChild.build(it) }.toTypedArray()
+    }
+
+    fun finishOp(address: Int): Array<out UnresolvedChild> {
+        return arrayOf(UnresolvedChild.build(address))
+    }
+
+//    fun finishOp(child: UnresolvedChild): Array<UnresolvedChild> {
+//        return arrayOf(child)
+//    }
 }

@@ -17,7 +17,7 @@ class OpBuilder(
         val instruction = location.instruction!!
         val opcode = instruction.opcode
         val opFactory = getOpFactory(opcode)
-        return opFactory.build(location, addressToLocation, classManager, classLoader, configuration)
+        return opFactory.build(location, classManager, classLoader, configuration)
     }
 
     companion object {

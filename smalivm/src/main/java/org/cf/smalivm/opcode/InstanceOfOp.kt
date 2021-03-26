@@ -8,7 +8,6 @@ import org.cf.smalivm.type.VirtualType
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c
 import org.jf.dexlib2.iface.reference.TypeReference
@@ -16,12 +15,11 @@ import org.slf4j.LoggerFactory
 
 class InstanceOfOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     private val destRegister: Int,
     private val arg1Register: Int,
     private val referenceType: VirtualType,
     private val classManager: ClassManager
-) : Op(location, child) {
+) : Op(location) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -53,20 +51,19 @@ class InstanceOfOp internal constructor(
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(InstanceOfOp::class.java.simpleName)
+
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction22c
             val destRegister = instr.registerA
             val arg1Register = instr.registerB
             val typeReference = instr.reference as TypeReference
             val referenceType = classManager.getVirtualType(typeReference)
-            return InstanceOfOp(location, child, destRegister, arg1Register, referenceType, classManager)
+            return InstanceOfOp(location, destRegister, arg1Register, referenceType, classManager)
         }
     }
 }

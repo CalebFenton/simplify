@@ -13,7 +13,6 @@ import java.util.*
 
 class SwitchPayloadOp internal constructor(
     location: MethodLocation,
-    private val addressToLocation: Map<Int, MethodLocation>,
     private val targetKeyToOffset: Map<Int, Int>
 ) : Op(location) {
 
@@ -23,24 +22,22 @@ class SwitchPayloadOp internal constructor(
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // Pseudo points to instruction *after* switch op.
         // Don't know children until we know the pseudo return instruction, only branch offsets
-        val returnLocation = node.state.getPsuedoInstructionReturnLocation()
-        val branchFromAddress = returnLocation.codeAddress - SWITCH_OP_CODE_UNITS
-        val targetItem = node.state.readResultRegister()
-        if (targetItem.isUnknown) {
-            val childList = getTargets(branchFromAddress, targetKeyToOffset)
-            childList.add(returnLocation)
-            val children = childList.toTypedArray()
-            return finishOp(*children)
+        val returnAddress = node.state.getPsuedoInstructionReturnAddress()
+        val branchFromAddress = returnAddress - SWITCH_OP_CODE_UNITS
+        val result = node.state.readResultRegister()
+        if (result.isUnknown) {
+            val childAddresses = getTargets(branchFromAddress, targetKeyToOffset)
+            childAddresses.add(returnAddress)
+            return finishOp(childAddresses.toTypedArray())
         }
-        val targetKey = Utils.getIntegerValue(targetItem.value)
+        val targetKey = Utils.getIntegerValue(result.value)
         if (targetKeyToOffset.containsKey(targetKey)) {
-            val targetOffset = branchFromAddress + targetKeyToOffset[targetKey]!!
-            val child = addressToLocation[targetOffset]!!
-            return finishOp(child)
+            val targetAddress = branchFromAddress + targetKeyToOffset[targetKey]!!
+            return finishOp(targetAddress)
         }
 
         // Branch target is unspecified. Continue to next op.
-        return finishOp(returnLocation)
+        return finishOp(returnAddress)
     }
 
     override fun toString(): String {
@@ -57,12 +54,12 @@ class SwitchPayloadOp internal constructor(
         return sb.toString()
     }
 
-    private fun getTargets(branchFromAddress: Int, targetKeyToOffset: Map<Int, Int>): MutableList<MethodLocation> {
+    private fun getTargets(branchFromAddress: Int, targetKeyToOffset: Map<Int, Int>): MutableList<Int> {
         val offsets = targetKeyToOffset.values
-        val targets: MutableList<MethodLocation> = LinkedList()
+        val targets: MutableList<Int> = LinkedList()
         for (offset in offsets) {
-            val targetOffset = branchFromAddress + offset
-            targets.add(addressToLocation[targetOffset]!!)
+            val targetAddress = branchFromAddress + offset
+            targets.add(targetAddress)
         }
         return targets
     }
@@ -73,7 +70,6 @@ class SwitchPayloadOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
@@ -83,7 +79,7 @@ class SwitchPayloadOp internal constructor(
             for (element in instr.switchElements) {
                 targetKeyToOffset[element.key] = element.offset
             }
-            return SwitchPayloadOp(location, addressToLocation, targetKeyToOffset)
+            return SwitchPayloadOp(location, targetKeyToOffset)
         }
     }
 }

@@ -8,7 +8,6 @@ import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c
 import org.jf.dexlib2.iface.reference.TypeReference
@@ -16,10 +15,9 @@ import org.slf4j.LoggerFactory
 
 class CheckCastOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     private val targetRegister: Int,
     private val castType: VirtualType,
-) : Op(location, child) {
+) : Op(location) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -37,7 +35,7 @@ class CheckCastOp internal constructor(
                 throwException(ClassCastException::class.java, errorMessage)
             } else {
                 // Not enough information to know if it throws or works fine.
-                finishOp(mayThrow = true, includeChildren = true)
+                finishOp(mayThrow = true)
             }
         }
     }
@@ -68,17 +66,15 @@ class CheckCastOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction21c
             val targetRegister = instr.registerA
             val reference = instr.reference as TypeReference
             val referenceType = classManager.getVirtualType(reference)
-            return CheckCastOp(location, child, targetRegister, referenceType)
+            return CheckCastOp(location, targetRegister, referenceType)
         }
     }
 }

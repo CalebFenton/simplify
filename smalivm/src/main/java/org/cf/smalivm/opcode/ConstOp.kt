@@ -8,7 +8,6 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.ClassNameUtils
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction
@@ -21,12 +20,11 @@ import org.slf4j.LoggerFactory
 
 class ConstOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     val destRegister: Int,
     val constantType: ConstantType,
     val literal: Any,
     val classLoader: ClassLoader,
-) : Op(location, child) {
+) : Op(location) {
 
     override val registersReadCount = 0
     override val registersAssignedCount = 1
@@ -62,8 +60,6 @@ class ConstOp internal constructor(
                     `val` = `val`.substring(1)
                 }
                 sb.append("0x").append(`val`)
-            }
-            else -> {
             }
         }
         return sb.toString()
@@ -112,12 +108,10 @@ class ConstOp internal constructor(
         private val log = LoggerFactory.getLogger(ConstOp::class.java.simpleName)
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instruction = location.instruction as BuilderInstruction
             val destRegister = (instruction as OneRegisterInstruction).registerA
             val constantType: ConstantType
@@ -148,7 +142,7 @@ class ConstOp internal constructor(
                     constantType = ConstantType.NARROW
                 }
             }
-            return ConstOp(location, child, destRegister, constantType, literal, classLoader)
+            return ConstOp(location, destRegister, constantType, literal, classLoader)
         }
     }
 }

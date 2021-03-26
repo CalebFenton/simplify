@@ -15,8 +15,7 @@ class FillArrayDataPayloadOp internal constructor(
     location: MethodLocation,
     private val elementWidth: Int,
     private val arrayElements: List<Number>
-) :
-    Op(location) {
+) : Op(location) {
 
     override val registersReadCount = 2
     override val registersAssignedCount = 1
@@ -35,8 +34,8 @@ class FillArrayDataPayloadOp internal constructor(
             node.state.pokeRegister(targetRegister, array)
         }
         // This is a strange pseudo-op which should return to the next op after the FillArrayDataOp.
-        val returnLocation = parent.getPsuedoInstructionReturnLocation()
-        return finishOp(returnLocation)
+        val returnAddress = parent.getPsuedoInstructionReturnAddress()
+        return finishOp(returnAddress)
     }
 
     override fun toString(): String {
@@ -78,7 +77,6 @@ class FillArrayDataPayloadOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration

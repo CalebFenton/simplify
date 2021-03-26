@@ -27,7 +27,6 @@ class ReturnOp internal constructor(location: MethodLocation, private val regist
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration

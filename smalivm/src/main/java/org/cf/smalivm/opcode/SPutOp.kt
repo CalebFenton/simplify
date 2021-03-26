@@ -15,9 +15,11 @@ import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class SPutOp internal constructor(
-    location: MethodLocation, child: MethodLocation, val valueRegister: Int,
-    val fieldReference: FieldReference, val actualField: VirtualField
-) : Op(location, child) {
+    location: MethodLocation,
+    val valueRegister: Int,
+    val fieldReference: FieldReference,
+    val actualField: VirtualField
+) : Op(location) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -37,18 +39,16 @@ class SPutOp internal constructor(
         private val log = LoggerFactory.getLogger(SPutOp::class.java.simpleName)
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction21c?
             val destRegister = instr!!.registerA
             val fieldReference = instr.reference as FieldReference
             val fieldClass = classManager.getVirtualClass(fieldReference.definingClass)
             val actualField = fieldClass.getField(fieldReference.name)!!
-            return SPutOp(location, child, destRegister, fieldReference, actualField)
+            return SPutOp(location, destRegister, fieldReference, actualField)
         }
     }
 }

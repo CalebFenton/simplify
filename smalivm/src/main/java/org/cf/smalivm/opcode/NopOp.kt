@@ -5,10 +5,9 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 
-class NopOp internal constructor(location: MethodLocation, child: MethodLocation) : Op(location, child) {
+class NopOp internal constructor(location: MethodLocation) : Op(location) {
 
     override val registersReadCount = 0
     override val registersAssignedCount = 0
@@ -31,13 +30,11 @@ class NopOp internal constructor(location: MethodLocation, child: MethodLocation
     companion object : OpFactory {
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
-            return NopOp(location, child)
+            return NopOp(location)
         }
     }
 }

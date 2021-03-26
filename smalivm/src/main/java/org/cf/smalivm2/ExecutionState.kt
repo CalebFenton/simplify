@@ -429,12 +429,12 @@ class ExecutionState(
         return ancestor
     }
 
-    fun getPsuedoInstructionReturnLocation(): MethodLocation {
-        return (peekKey(PSEUDO_RETURN_ADDRESS_KEY)?.value!! as MethodLocation)
+    fun getPsuedoInstructionReturnAddress(): Int {
+        return (peekKey(PSEUDO_RETURN_ADDRESS_KEY)?.value!! as Int)
     }
 
-    fun setPseudoInstructionReturnLocation(location: MethodLocation) {
-        pokeKey(PSEUDO_RETURN_ADDRESS_KEY, Value.wrap(location, PSEUDO_RETURN_ADDRESS_KEY))
+    fun setPseudoInstructionReturnAddress(address: Int) {
+        pokeKey(PSEUDO_RETURN_ADDRESS_KEY, Value.wrap(address, PSEUDO_RETURN_ADDRESS_KEY))
     }
 
     private fun getSafeField(field: VirtualField): Value {

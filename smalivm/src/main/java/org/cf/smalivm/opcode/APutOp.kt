@@ -18,11 +18,10 @@ import java.lang.reflect.Array
 
 class APutOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     private val valueRegister: Int,
     private val arrayRegister: Int,
     private val indexRegister: Int,
-) : Op(location, child, NullPointerException::class.java, ArrayIndexOutOfBoundsException::class.java) {
+) : Op(location, NullPointerException::class.java, ArrayIndexOutOfBoundsException::class.java) {
 
     override val registersReadCount = 3
     override val registersAssignedCount = 1
@@ -65,7 +64,6 @@ class APutOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
@@ -75,7 +73,7 @@ class APutOp internal constructor(
             val putRegister = instr.registerA
             val arrayRegister = instr.registerB
             val indexRegister = instr.registerC
-            return APutOp(location, child, putRegister, arrayRegister, indexRegister)
+            return APutOp(location, putRegister, arrayRegister, indexRegister)
         }
 
         private fun castValue(opName: String, value: Any?): Any? {

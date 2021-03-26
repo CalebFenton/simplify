@@ -6,25 +6,23 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
 import org.jf.dexlib2.iface.instruction.TwoRegisterInstruction
 
-class MoveOp internal constructor(location: MethodLocation, child: MethodLocation, val toRegister: Int, val moveType: MoveType) :
-    Op(location, child) {
-    var targetRegister = 0
-        private set
+class MoveOp internal constructor(location: MethodLocation, val toRegister: Int, val moveType: MoveType) :
+    Op(location) {
 
-    internal constructor(location: MethodLocation, child: MethodLocation, toRegister: Int, targetRegister: Int) : this(
+    internal constructor(location: MethodLocation, toRegister: Int, targetRegister: Int) : this(
         location,
-        child,
         toRegister,
         MoveType.REGISTER
     ) {
         this.targetRegister = targetRegister
     }
+    var targetRegister = -1
+        private set
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -77,20 +75,18 @@ class MoveOp internal constructor(location: MethodLocation, child: MethodLocatio
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instruction = location.instruction as BuilderInstruction
             val opName = instruction.opcode.name
             val toRegister = (instruction as OneRegisterInstruction).registerA
             return when (val moveType = getMoveType(opName)) {
-                MoveType.RESULT, MoveType.EXCEPTION -> MoveOp(location, child, toRegister, moveType)
+                MoveType.RESULT, MoveType.EXCEPTION -> MoveOp(location, toRegister, moveType)
                 MoveType.REGISTER -> {
                     val targetRegister = (instruction as TwoRegisterInstruction).registerB
-                    MoveOp(location, child, toRegister, targetRegister)
+                    MoveOp(location, toRegister, targetRegister)
                 }
             }
         }

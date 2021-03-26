@@ -24,7 +24,6 @@ class ReturnVoidOp internal constructor(location: MethodLocation) : Op(location)
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration

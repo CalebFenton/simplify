@@ -6,7 +6,6 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction
@@ -18,10 +17,9 @@ import org.slf4j.LoggerFactory
 
 class FilledNewArrayOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     private val dimensionRegisters: IntArray,
     private val typeReference: String
-) : Op(location, child) {
+) : Op(location) {
 
     override val registersReadCount = dimensionRegisters.size
     override val registersAssignedCount = 1
@@ -76,12 +74,10 @@ class FilledNewArrayOp internal constructor(
         private val log = LoggerFactory.getLogger(FilledNewArrayOp::class.java.simpleName)
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instruction = location.instruction as BuilderInstruction
             val reference = (instruction as ReferenceInstruction).reference
             val typeReference = ReferenceUtil.getReferenceString(reference)!!
@@ -123,7 +119,7 @@ class FilledNewArrayOp internal constructor(
                     else -> throw IllegalArgumentException("Unexpected filled new array dimension register size: ${dimensionRegisters.size}")
                 }
             }
-            return FilledNewArrayOp(location, child, dimensionRegisters, typeReference)
+            return FilledNewArrayOp(location, dimensionRegisters, typeReference)
         }
     }
 }

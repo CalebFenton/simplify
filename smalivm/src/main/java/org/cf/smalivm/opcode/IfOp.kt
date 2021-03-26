@@ -7,7 +7,6 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.OffsetInstruction
@@ -17,18 +16,19 @@ import org.slf4j.LoggerFactory
 
 class IfOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     private val ifType: IfType,
-    private val target: MethodLocation,
+    private val targetAddress: Int,
     private val register1: Int
-) : Op(location, arrayOf(child, target)) {
+) : Op(location) {
     private var compareToZero = true
     private var register2 = 0
 
-    internal constructor(
-        location: MethodLocation, child: MethodLocation, ifType: IfType, target: MethodLocation, register1: Int,
-        register2: Int
-    ) : this(location, child, ifType, target, register1) {
+    internal constructor(location: MethodLocation, ifType: IfType, targetAddress: Int, register1: Int, register2: Int) : this(
+        location,
+        ifType,
+        targetAddress,
+        register1
+    ) {
         this.register2 = register2
         compareToZero = false
     }
@@ -42,7 +42,7 @@ class IfOp internal constructor(
 
         // Ambiguous predicate. Return to add both possible branches as children.
         if (lhs.isUnknown || rhs.isUnknown) {
-            return finishOp()
+            return finishOp(arrayOf(nextAddress, targetAddress))
         }
         val cmp = if (compareToZero) {
             if (lhs.value == null) {
@@ -67,8 +67,11 @@ class IfOp internal constructor(
         }
 
         log.trace("IF compare: {} vs {} = {}", lhs.value, rhs.value, cmp)
-        val childIndex = if (isTrue(ifType, cmp)) 1 else 0
-        return finishOp(children[childIndex])
+        val childAddress = when {
+            isTrue(ifType, cmp) -> targetAddress
+            else -> nextAddress
+        }
+        return finishOp(childAddress)
     }
 
     override fun toString(): String {
@@ -77,7 +80,7 @@ class IfOp internal constructor(
         if (!compareToZero) {
             sb.append(", r").append(register2)
         }
-        sb.append(", :addr_").append(target.codeAddress)
+        sb.append(", :addr_").append(targetAddress)
         return sb.toString()
     }
 
@@ -102,7 +105,6 @@ class IfOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
@@ -111,17 +113,15 @@ class IfOp internal constructor(
             val address = instruction.location.codeAddress
             val branchOffset = (instruction as OffsetInstruction?)!!.codeOffset
             val targetAddress = address + branchOffset
-            val child = Utils.getNextLocation(location, addressToLocation)
-            val target = addressToLocation[targetAddress]!!
             val opName = instruction.getOpcode().name
             val ifType = getIfType(opName)
             val register1 = (instruction as OneRegisterInstruction?)!!.registerA
             return if (instruction is Instruction22t) {
                 // if-* vA, vB, :label
-                IfOp(location, child, ifType, target, register1, instruction.registerB)
+                IfOp(location, ifType, targetAddress, register1, instruction.registerB)
             } else {
                 // if-*z vA, :label (Instruction 21t)
-                IfOp(location, child, ifType, target, register1)
+                IfOp(location, ifType, targetAddress, register1)
             }
         }
 

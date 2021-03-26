@@ -10,7 +10,6 @@ interface OpFactory {
     // that work during virtual execution.
     fun build(
         location: MethodLocation,
-        addressToLocation: Map<Int, MethodLocation>,
         classManager: ClassManager,
         classLoader: SmaliClassLoader,
         configuration: Configuration

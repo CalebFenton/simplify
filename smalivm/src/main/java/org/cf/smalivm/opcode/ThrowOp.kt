@@ -24,9 +24,9 @@ class ThrowOp internal constructor(location: MethodLocation, private val registe
 
     companion object : OpFactory {
         private val log = LoggerFactory.getLogger(ThrowOp::class.java.simpleName)
+
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration

@@ -14,11 +14,11 @@ import org.slf4j.LoggerFactory
 
 class CmpOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     val destRegister: Int,
     val lhsRegister: Int,
     val rhsRegister: Int
-) : Op(location, child) {
+) : Op(location) {
+
     override val registersReadCount = 2
     override val registersAssignedCount = 1
 
@@ -43,26 +43,29 @@ class CmpOp internal constructor(
         val arg1IsNan = val1 is Float && val1.isNaN() || val1 is Double && val1.isNaN()
         val arg2IsNan = val2 is Float && val2.isNaN() || val2 is Double && val2.isNaN()
         return if (arg1IsNan || arg2IsNan) {
-            if (name.startsWith("cmpg")) {
-                1
-            } else { // cmpl
-                -1
+            when {
+                name.startsWith("cmpg") -> 1
+                else -> -1 // cmpl
             }
         } else {
-            if (name.endsWith("float")) {
-                val castVal1 = Utils.getFloatValue(val1)
-                val castVal2 = Utils.getFloatValue(val2)
-                // The docs say "b == c" but I don't think they mean identity.
-                java.lang.Float.compare(castVal1, castVal2)
-            } else if (name.endsWith("double")) {
-                val castVal1 = Utils.getDoubleValue(val1)
-                val castVal2 = Utils.getDoubleValue(val2)
-                // The docs say "b == c" but I don't think they mean identity.
-                java.lang.Double.compare(castVal1, castVal2)
-            } else {
-                val castVal1 = Utils.getLongValue(val1)
-                val castVal2 = Utils.getLongValue(val2)
-                java.lang.Long.compare(castVal1, castVal2)
+            when {
+                name.endsWith("float") -> {
+                    val castVal1 = Utils.getFloatValue(val1)
+                    val castVal2 = Utils.getFloatValue(val2)
+                    // The docs say "b == c" but I don't think they mean identity.
+                    java.lang.Float.compare(castVal1, castVal2)
+                }
+                name.endsWith("double") -> {
+                    val castVal1 = Utils.getDoubleValue(val1)
+                    val castVal2 = Utils.getDoubleValue(val2)
+                    // The docs say "b == c" but I don't think they mean identity.
+                    java.lang.Double.compare(castVal1, castVal2)
+                }
+                else -> {
+                    val castVal1 = Utils.getLongValue(val1)
+                    val castVal2 = Utils.getLongValue(val2)
+                    java.lang.Long.compare(castVal1, castVal2)
+                }
             }
         }
     }
@@ -72,17 +75,15 @@ class CmpOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction23x
             val destRegister = instr.registerA
             val lhsRegister = instr.registerB
             val rhsRegister = instr.registerC
-            return CmpOp(location, child, destRegister, lhsRegister, rhsRegister)
+            return CmpOp(location, destRegister, lhsRegister, rhsRegister)
         }
     }
 }

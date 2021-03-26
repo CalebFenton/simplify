@@ -15,11 +15,10 @@ import org.slf4j.LoggerFactory
 
 class NewArrayOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     val destRegister: Int,
     val lengthRegister: Int,
     val arrayType: String
-) : Op(location, child) {
+) : Op(location) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -28,13 +27,13 @@ class NewArrayOp internal constructor(
         val lengthItem = node.state.readRegister(lengthRegister)
         val instance = buildInstance(lengthItem, node.classLoader)
         if (instance is Throwable) {
-            return finishOp(instance)
+            return throwException(instance)
         }
         node.state.assignRegister(destRegister, instance, arrayType)
         return finishOp()
     }
 
-    override fun toString() ="$name r$destRegister, r$lengthRegister, $arrayType"
+    override fun toString() = "$name r$destRegister, r$lengthRegister, $arrayType"
 
     private fun buildInstance(lengthItem: Value, classLoader: SmaliClassLoader): Any {
         return if (lengthItem.isUnknown) {
@@ -55,17 +54,15 @@ class NewArrayOp internal constructor(
 
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction22c
             val destRegister = instr.registerA
             val sizeRegister = instr.registerB
             val arrayType = ReferenceUtil.getReferenceString(instr.reference)!!
-            return NewArrayOp(location, child, destRegister, sizeRegister, arrayType)
+            return NewArrayOp(location, destRegister, sizeRegister, arrayType)
         }
     }
 }

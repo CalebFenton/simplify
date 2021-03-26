@@ -9,28 +9,28 @@ import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c
 import org.jf.dexlib2.iface.reference.TypeReference
 
 class NewInstanceOp internal constructor(
-    location: MethodLocation, child: MethodLocation, private val destRegister: Int, private val virtualClass: VirtualClass,
-) : Op(location, child) {
+    location: MethodLocation,
+    private val destRegister: Int,
+    private val virtualClass: VirtualClass,
+    override val sideEffectLevel: SideEffect.Level
+) :
+    Op(location) {
 
     override val registersReadCount = 0
     override val registersAssignedCount = 1
-    override lateinit var sideEffectLevel: SideEffect.Level
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        if (node.configuration.isSafe(virtualClass)) {
-            node.sideEffectLevel = SideEffect.Level.NONE
-            return resume(node)
+        return if (sideEffectLevel == SideEffect.Level.NONE) {
+            resume(node)
         } else {
-            node.sideEffectLevel = SideEffect.Level.STRONG
             // New-instance causes static initialization (but not new-array!)
             val clinit = virtualClass.getMethod("<clinit>()V")!!
-            return finishOp(clinit)
+            callMethod(clinit)
         }
     }
 
@@ -46,18 +46,20 @@ class NewInstanceOp internal constructor(
     companion object : OpFactory {
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction21c
             val destRegister = instr.registerA
             val typeRef = instr.reference as TypeReference
             val className = typeRef.type
             val virtualClass = classManager.getVirtualClass(className)
-            return NewInstanceOp(location, child, destRegister, virtualClass)
+            val sideEffectLevel = when {
+                configuration.isSafe(virtualClass) -> SideEffect.Level.NONE
+                else -> SideEffect.Level.STRONG
+            }
+            return NewInstanceOp(location, destRegister, virtualClass, sideEffectLevel)
         }
     }
 }

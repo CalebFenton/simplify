@@ -18,7 +18,7 @@ class ArrayLengthOp internal constructor(
     child: MethodLocation,
     private val destRegister: Int,
     private val arrayRegister: Int
-) : Op(location, child, Pair(NullPointerException::class.java, "Attempt to get length of null array")) {
+) : Op(location, arrayOf(Pair(NullPointerException::class.java, "Attempt to get length of null array"))) {
 
     override val registersReadCount = 1
     override val registersAssignedCount = 1
@@ -51,7 +51,6 @@ class ArrayLengthOp internal constructor(
         private val log = LoggerFactory.getLogger(ArrayLengthOp::class.java.simpleName)
         override fun build(
             location: MethodLocation,
-            addressToLocation: Map<Int, MethodLocation>,
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
