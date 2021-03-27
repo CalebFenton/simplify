@@ -1,6 +1,5 @@
 package org.cf.smalivm2
 
-import ExceptionFactory
 import com.google.common.primitives.Ints
 import org.cf.smalivm.SideEffect
 import org.cf.smalivm.dex.CommonTypes
@@ -43,22 +42,28 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
 class ExecutionGraph2(
     val method: VirtualMethod,
     val vm: VirtualMachine2,
-    val templateOps: Map<MethodLocation, Op>? = null
 ) : Iterable<ExecutionNode> {
+    val classManager
+        get() = vm.classManager
+    val classLoader
+        get() = vm.classLoader
+    val configuration
+        get() = vm.configuration
+    val dexBuilder
+        get() = classManager.dexBuilder
+    val locationToOp
+        get() = vm.methodToTemplateOps[method]!!
+    val opBuilder = OpBuilder(classManager, classLoader, configuration)
     val addressToLocation = buildAddressToLocation(method.implementation)
+    // TODO: should terminating addresses be recalculated when graphs are rebuilt? same with address -> location
     val terminatingAddresses = buildTerminatingAddresses(method.implementation.instructions)
-    val opBuilder = OpBuilder(addressToLocation, vm.classManager, vm.classLoader, vm.configuration)
-    val locationToNodePile = buildLocationToNodePile(addressToLocation, method, vm, opBuilder, templateOps)
-    val classManager = vm.classManager
-    val classLoader = vm.classLoader
-    val configuration = vm.configuration
-    val dexBuilder = classManager.dexBuilder
+    val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
 
     //    val implementation: MutableMethodImplementation = method.implementation
     //    val opCreator: OpCreator = OpCreator(addressToLocation, classManager, classLoader, configuration)
 //    val addressToLocation = buildAddressToLocation(method.implementation)
 //    val terminatingAddresses = buildTerminatingAddresses(implementation.instructions)
-    val exceptionFactory = ExceptionFactory(classLoader)
+//    val exceptionFactory = ExceptionFactory(classLoader)
 
     // When ops are added, such as when unreflecting, need to execute in order to ensure
     // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
@@ -118,14 +123,13 @@ class ExecutionGraph2(
     override fun toString() = "ExecutionGraph{$method}"
 
     val root: ExecutionNode
-        get() {
-            val pile = getNodePileByAddress(METHOD_ROOT_ADDRESS)
-            val nodePileInitialized = pile.size > 1
-            return pile[if (nodePileInitialized) 1 else TEMPLATE_NODE_INDEX]
-        }
+        get() = getNodePile(METHOD_ROOT_ADDRESS)[0]
 
     fun addNode(node: ExecutionNode) {
         val location = node.op.instruction!!.location
+        if (!locationToNodePile.containsKey(location)) {
+            locationToNodePile[location] = ArrayList()
+        }
         locationToNodePile[location]!!.add(node)
     }
 
@@ -180,36 +184,25 @@ class ExecutionGraph2(
     }
 
     fun getNodeCount(): Int {
-        val totalSize = locationToNodePile.size
-        val templateCount = locationToNodePile.keys.size
-        return totalSize - templateCount
-    }
-
-    fun getNodePile(address: Int): List<ExecutionNode> {
-        val nodePile = getNodePileByAddress(address)
-        return nodePile.subList(1, nodePile.size) // exclude template
+        return locationToNodePile.size
     }
 
     fun getOp(address: Int): Op {
-        return getTemplateNode(address).op
+        val location = addressToLocation[address]!!
+        return locationToOp[location]!!
     }
 
-    fun spawnEntrypointNode(): ExecutionNode {
-        val template = getTemplateNode(METHOD_ROOT_ADDRESS)
-        val state = vm.spawnEntrypointState(method)
-        return EntrypointNode(template.op, method, classManager, classLoader, configuration, state)
-    }
-
-    fun getTemplateNode(address: Int): ExecutionNode {
-        val nodePile = getNodePileByAddress(address)
-        return nodePile[TEMPLATE_NODE_INDEX]
+    fun spawnEntrypointNode(parentState: ExecutionState? = null): ExecutionNode {
+        val op = getOp(METHOD_ROOT_ADDRESS)
+        val state = parentState ?: vm.spawnRootState(method)
+        return ExecutionNode(op, method, classManager, classLoader, configuration, state)
     }
 
     protected fun getNodeIndex(node: ExecutionNode): Int {
         return getNodePile(node.address).indexOf(node)
     }
 
-    private fun getNodePileByAddress(address: Int): MutableList<ExecutionNode> {
+    private fun getNodePile(address: Int): MutableList<ExecutionNode> {
         val location = addressToLocation[address]
         return locationToNodePile[location]!!
     }
@@ -218,7 +211,7 @@ class ExecutionGraph2(
         val allClasses: MutableSet<VirtualType> = HashSet()
         for (address in addresses) {
             for (node in getNodePile(address)) {
-                allClasses.union(node.initializedClasses.keys)
+                allClasses.union(node.state.initializedClasses.keys)
             }
         }
         return allClasses
@@ -239,7 +232,7 @@ class ExecutionGraph2(
         for (address in addresses) {
             // If the class wasn't initialized in one path, it's unknown
             for (node in getNodePile(address)) {
-                if (!node.isClassInitialized(field.definingClass)) {
+                if (!node.state.isClassInitialized(field.definingClass)) {
                     return Value.unknown(field.type)
                 }
             }
@@ -269,7 +262,7 @@ class ExecutionGraph2(
         for (address: Int in addresses) {
             for (node in getNodePile(address)) {
                 // If null, class hasn't been initialized yet
-                val level = node.getClassSideEffectLevel(virtualClass) ?: continue
+                val level = node.state.getClassSideEffectLevel(virtualClass) ?: continue
                 when (level) {
                     SideEffect.Level.STRONG -> return level
                     SideEffect.Level.WEAK -> result = level
@@ -373,7 +366,7 @@ class ExecutionGraph2(
         } else {
             var type = getConsensusType(types, values)
             if (type == CommonTypes.UNKNOWN) {
-                if (register == ExecutionState.ReturnRegister) {
+                if (register == ExecutionState.RETURN_REGISTER) {
                     log.warn(
                         "Strange: No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
                         method.signature,
@@ -465,7 +458,7 @@ class ExecutionGraph2(
 
     fun wasAddressReached(address: Int): Boolean {
         // If this address was reached during execution there will be clones in the pile.
-        val nodePile = getNodePileByAddress(address)
+        val nodePile = getNodePile(address)
         if (nodePile.size < 1) {
             log.warn("Node pile @{} has no template node.", address)
             return false
@@ -512,12 +505,13 @@ class ExecutionGraph2(
     }
 
     fun getAvailableRegisters(address: Int): IntArray {
+        // TODO: wouldn't this always be the same for every op? If so, can refactor getRegisterCount
         val registers = IntArray(getRegisterCount(address)) { it }
         val stack = ArrayDeque(getChildren(address))
         var node = stack.peek()
         if (node == null) {
             // No children. All registers available!
-            assert(getTemplateNode(address).op is ReturnOp || getTemplateNode(address).op is ReturnVoidOp)
+            assert(getOp(address) is ReturnOp || getOp(address) is ReturnVoidOp)
             return registers
         }
         val registersRead: MutableSet<Int> = HashSet()
@@ -554,8 +548,7 @@ class ExecutionGraph2(
     }
 
     fun getInstruction(address: Int): BuilderInstruction? {
-        val node: ExecutionNode = getTemplateNode(address)
-        return node.op.instruction
+        return getOp(address).instruction
     }
 
     fun getParentAddresses(address: Int): IntArray {
@@ -610,7 +603,7 @@ class ExecutionGraph2(
     }
 
     private fun getRegisterCount(address: Int): Int {
-        return getTemplateNode(address).state.registerCount
+        return getNodePile(address)[0].state.registerCount
     }
 
     private fun addToNodePile(newLocation: MethodLocation) {
@@ -658,7 +651,7 @@ class ExecutionGraph2(
             } else {
                 assert(newLocation.codeAddress == METHOD_ROOT_ADDRESS)
                 // TODO: add caller states to this if necessary
-                val state = vm.spawnEntrypointState(method)
+                val state = vm.spawnRootState(method)
                 newNode.state = state
             }
             reparentNode(shiftedNode, newNode)
@@ -862,30 +855,29 @@ class ExecutionGraph2(
             return addressToLocation
         }
 
-        private fun buildLocationToNodePile(
-            addressToLocation: Map<Int, MethodLocation>,
-            method: VirtualMethod,
-            vm: VirtualMachine2,
-            opBuilder: OpBuilder,
-            templateOps: Map<MethodLocation, Op>?
-        ): MutableMap<MethodLocation, MutableList<ExecutionNode>> {
-            val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
-            for (location in addressToLocation.values) {
-                val op = templateOps?.get(location) ?: opBuilder.build(location)
-                val node = if (location.codeAddress == METHOD_ROOT_ADDRESS) {
-                    val state = vm.spawnEntrypointState(method)
-                    EntrypointNode(op, method, vm.classManager, vm.classLoader, vm.configuration, state)
-                } else {
-                    ExecutionNode(op, method, vm.classManager, vm.classLoader, vm.configuration)
-                }
-
-                // Most node piles will be a template node and 1+ ExecutionNodes.
-                val pile: MutableList<ExecutionNode> = ArrayList(2)
-                pile.add(node)
-                locationToNodePile[location] = pile
-            }
-            return locationToNodePile
-        }
+//        private fun buildLocationToNodePile(
+//            addressToLocation: Map<Int, MethodLocation>,
+//            method: VirtualMethod,
+//            vm: VirtualMachine2
+//        ): MutableMap<MethodLocation, MutableList<ExecutionNode>> {
+//            val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
+//            for (location in addressToLocation.values) {
+//                val op = locationToOp[location]!!
+//                val node = if (location.codeAddress == METHOD_ROOT_ADDRESS) {
+//                    ExecutionGraph2.spawnEntrypointNode()
+//                    val state = vm.spawnRootState(method)
+//                    ExecutionNode(op, method, vm.classManager, vm.classLoader, vm.configuration, state)
+//                } else {
+//                    ExecutionNode(op, method, vm.classManager, vm.classLoader, vm.configuration)
+//                }
+//
+//                // Most node piles will be a template node and 1+ ExecutionNodes.
+//                val pile: MutableList<ExecutionNode> = ArrayList(2)
+//                pile.add(node)
+//                locationToNodePile[location] = pile
+//            }
+//            return locationToNodePile
+//        }
 
         private fun buildTerminatingAddresses(instructions: List<BuilderInstruction>): IntArray {
             val addresses: MutableList<Int> = LinkedList()

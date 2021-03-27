@@ -6,7 +6,6 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm.type.VirtualType
 import java.util.*
 
 open class ExecutionNode(
@@ -26,8 +25,12 @@ open class ExecutionNode(
     var parent: ExecutionNode? = null,
     var sideEffectLevel: SideEffect.Level = op.sideEffectLevel
 ) {
-    val address = op.address
-    val index = op.index
+    val address: Int
+        get() = op.address
+    val index: Int
+        get() = op.index
+    val isEntrypoint: Boolean
+        get() = address == 0
     var children: MutableList<ExecutionNode> = LinkedList()
 
 //    def shallowClone() : ExecutionNode {
@@ -79,20 +82,20 @@ open class ExecutionNode(
         return op.execute(this)
     }
 
-//    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
-//        val childState = ExecutionState.build(childMethod, classManager, classLoader, op, configuration)
-//        val child = ExecutionNode(
-//            op = childOp,
-//            method = method,
-//            classManager = classManager,
-//            classLoader = classLoader,
-//            configuration = configuration,
-//            state = childState,
-//            parent = this,
-//        )
-//        children.add(child)
-//        return child
-//    }
+    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
+        val childState = ExecutionState.build(childMethod, classManager, classLoader, configuration)
+        val child = ExecutionNode(
+            op = childOp,
+            method = method,
+            classManager = classManager,
+            classLoader = classLoader,
+            configuration = configuration,
+            state = childState,
+            parent = this,
+        )
+        children.add(child)
+        return child
+    }
 
     // TODO: make this work
 //    override fun toString(): String {
@@ -117,18 +120,46 @@ open class ExecutionNode(
 //            childLocations[i] = children[i].op.location
 //        }
 //    }
+
+//    companion object {
+//        fun build(
+//            op: Op,
+//            method: VirtualMethod,
+//            classManager: ClassManager,
+//            classLoader: SmaliClassLoader,
+//            configuration: Configuration,
+//            state: ExecutionState = ExecutionState.build(
+//                method,
+//                classManager,
+//                classLoader,
+//                configuration,
+//                op.registersReadCount,
+//                op.registersAssignedCount
+//            ),
+//            parent: ExecutionNode? = null,
+//            sideEffectLevel: SideEffect.Level = op.sideEffectLevel
+//        ): ExecutionNode {
+//            if (op.address == 0) {
+//                return EntrypointNode(op, method, classManager, classLoader, configuration, state, parent, sideEffectLevel)
+//            } else {
+//                return ExecutionNode(op, method, classManager, classLoader, configuration, state, parent, sideEffectLevel)
+//            }
+//        }
+//    }
 }
 
 
-class EntrypointNode(
-    op: Op,
-    method: VirtualMethod,
-    classManager: ClassManager,
-    classLoader: SmaliClassLoader,
-    configuration: Configuration,
-    state: ExecutionState = ExecutionState.build(method, classManager, classLoader, configuration, op.registersReadCount, op.registersAssignedCount),
-) : ExecutionNode(op, method, classManager, classLoader, configuration, state)
-
+//class EntrypointNode(
+//    op: Op,
+//    method: VirtualMethod,
+//    classManager: ClassManager,
+//    classLoader: SmaliClassLoader,
+//    configuration: Configuration,
+//    state: ExecutionState = ExecutionState.build(method, classManager, classLoader, configuration, op.registersReadCount, op.registersAssignedCount),
+//    parent: ExecutionNode? = null,
+//    sideEffectLevel: SideEffect.Level = op.sideEffectLevel
+//) : ExecutionNode(op, method, classManager, classLoader, configuration, state, parent, sideEffectLevel)
+//
 
 //data class ClassStatus constructor(val classSignature: String, val sideEffectLevel: SideEffect.Level) {
 //    override fun equals(other: Any?): Boolean {

@@ -40,10 +40,10 @@ class ExecutionState(
     companion object {
         private val log = LoggerFactory.getLogger(ExecutionState::class.java.simpleName)
 
-        const val ResultRegister = -1
-        const val ReturnRegister = -2
-        const val ThrowRegister = -3
-        const val ExceptionRegister = -4
+        const val RESULT_REGISTER = -1
+        const val RETURN_REGISTER = -2
+        const val THROW_REGISTER = -3
+        const val EXCEPTION_REGISTER = -4
         const val PSEUDO_RETURN_ADDRESS_KEY = "*pseudo-return*"
 
         fun build(
@@ -64,7 +64,6 @@ class ExecutionState(
             val parameterTypeNames = method.parameterTypeNames
             val parameterCount = parameterTypeNames.size
             val parameterSize = Utils.getRegisterSize(parameterTypeNames)
-            val firstParameterRegister = registerCount - parameterSize
             val fieldCount = method.definingClass.fields.size
 
             return ExecutionState(
@@ -96,7 +95,7 @@ class ExecutionState(
     fun getParent(methodLocal: Boolean = true): ExecutionState? {
         // For registry states, shouldn't reach beyond entry points.
         // But for fields and class initialization, will want to reach all the way back
-        if (methodLocal && (node == null || node is EntrypointNode)) {
+        if (methodLocal && (node == null || node!!.isEntrypoint)) {
             return null
         }
         return this.node?.parent?.state
@@ -129,31 +128,31 @@ class ExecutionState(
     }
 
     fun assignResultRegister(value: Value) {
-        assignRegister(ResultRegister, value)
+        assignRegister(RESULT_REGISTER, value)
     }
 
     fun assignResultRegister(v: Any?, type: String) {
-        assignRegister(ResultRegister, Value.wrap(v, type))
+        assignRegister(RESULT_REGISTER, Value.wrap(v, type))
     }
 
     fun assignReturnRegister(value: Value) {
-        pokeRegister(ReturnRegister, value)
+        pokeRegister(RETURN_REGISTER, value)
     }
 
     fun assignReturnRegister(v: Any?, type: String) {
-        pokeRegister(ReturnRegister, Value.wrap(v, type))
+        pokeRegister(RETURN_REGISTER, Value.wrap(v, type))
     }
 
     fun assignThrowRegister(value: Value) {
-        pokeRegister(ThrowRegister, value)
+        pokeRegister(THROW_REGISTER, value)
     }
 
     fun readResultRegister(): Value {
-        return readRegister(ResultRegister)
+        return readRegister(RESULT_REGISTER)
     }
 
     fun readReturnRegister(): Value {
-        return readRegister(ReturnRegister)
+        return readRegister(RETURN_REGISTER)
     }
 
     fun pokeRegister(register: Int, v: Any?, type: String, updateIdentities: Boolean = false) {
@@ -214,19 +213,19 @@ class ExecutionState(
     }
 
     fun peekExceptionRegister(): Value? {
-        return peekRegister(ExceptionRegister)
+        return peekRegister(EXCEPTION_REGISTER)
     }
 
     fun peekResultRegister(): Value? {
-        return peekRegister(ResultRegister)
+        return peekRegister(RESULT_REGISTER)
     }
 
     fun peekReturnRegister(): Value? {
-        return peekRegister(ReturnRegister)
+        return peekRegister(RETURN_REGISTER)
     }
 
     fun peekThrowRegister(): Value? {
-        return peekRegister(ThrowRegister)
+        return peekRegister(THROW_REGISTER)
     }
 
     fun containsRegister(register: Int): Boolean {
@@ -263,7 +262,7 @@ class ExecutionState(
          * regardless of whether or not move-result is called.
          */
         for (currentRegister in registersRead) {
-            if (currentRegister == ResultRegister) {
+            if (currentRegister == RESULT_REGISTER) {
                 continue
             }
             val currentValue = peekRegister(currentRegister)!!
@@ -321,11 +320,11 @@ class ExecutionState(
             val registerSize = Utils.getRegisterSize(value.type)
             register += registerSize
         }
-        if (containsRegister(ResultRegister)) {
-            inner.append("result: ").append(peekRegister(ResultRegister)).append('\n')
+        if (containsRegister(RESULT_REGISTER)) {
+            inner.append("result: ").append(peekRegister(RESULT_REGISTER)).append('\n')
         }
-        if (containsRegister(ReturnRegister)) {
-            inner.append("return: ").append(peekRegister(ReturnRegister)).append('\n')
+        if (containsRegister(RETURN_REGISTER)) {
+            inner.append("return: ").append(peekRegister(RETURN_REGISTER)).append('\n')
         }
         if (inner.isNotEmpty()) {
             inner.setLength(inner.length - 1)

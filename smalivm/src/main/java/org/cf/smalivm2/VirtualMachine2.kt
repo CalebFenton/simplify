@@ -24,6 +24,7 @@ class VirtualMachine2 private constructor(
     lateinit var classManager: ClassManager
     lateinit var classLoader: SmaliClassLoader
     val methodToTemplateOps: MutableMap<VirtualMethod, Map<MethodLocation, Op>> = HashMap()
+    val methodToGraph: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
     val configuration = Configuration.instance()
     var interactive = false
     //    val staticFieldAccessor = StaticFieldAccessor(this)
@@ -83,7 +84,7 @@ class VirtualMachine2 private constructor(
     }
 
     fun execute(method: VirtualMethod): ExecutionGraph2 {
-        val graph = methodToTemplateOps[method]
+        val graph = getExecutionGraph(method)
         val root = graph.spawnEntrypointNode()
 
         val executionQueue = LinkedList<LinkedList<ExecutionNode>>()
@@ -141,7 +142,7 @@ class VirtualMachine2 private constructor(
         val methodNodes = nodes.peek()
         val node = methodNodes.peek()
 
-        if (node is EntrypointNode) {
+        if (node.codeAddress == 0) {
             if (!node.isClassInitialized(node.method.className)) {
                 val callNodes = Stack<ExecutionNode>()
                 val callMethod = classManager.getMethod("${node.method.className}-><init>()V")
@@ -206,21 +207,29 @@ class VirtualMachine2 private constructor(
         if (!methodToTemplateOps.containsKey(method)) {
             updateTemplateOps(method)
         }
-        return methodToTemplateOps[method]!!
+        return ExecutionGraph2(method, this)
     }
 
-    fun spawnEntrypointState(methodSignature: String): ExecutionState {
+    fun getExecutionGraph(method: VirtualMethod) : ExecutionGraph2 {
+        if (!methodToGraph.containsKey(method)) {
+            val graph = spawnExecutionGraph(method)
+            methodToGraph[method] = graph
+        }
+        return methodToGraph[method]!!
+    }
+
+    fun spawnRootState(methodSignature: String): ExecutionState {
         val method = classManager.getMethod(methodSignature)
-        return spawnEntrypointState(method)
+        return spawnRootState(method)
     }
 
-    fun spawnEntrypointState(className: String, methodDescriptor: String): ExecutionState {
+    fun spawnRootState(className: String, methodDescriptor: String): ExecutionState {
         val klazz = classManager.getVirtualClass(className)
         val method = klazz.getMethod(methodDescriptor) ?: throw RuntimeException("Method signature not found: $className->$methodDescriptor")
-        return spawnEntrypointState(method)
+        return spawnRootState(method)
     }
 
-    fun spawnEntrypointState(method: VirtualMethod): ExecutionState {
+    fun spawnRootState(method: VirtualMethod): ExecutionState {
         if (!method.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
             throw IllegalArgumentException("No implementation for $method");
@@ -294,19 +303,19 @@ class VirtualMachine2 private constructor(
 
     fun updateTemplateOps(method: VirtualMethod) {
         val opBuilder = OpBuilder(classManager, classLoader, configuration)
-
-        // TODO: this!
-//        methodToTemplateOps[method] = graph
+        val instructions = method.implementation.instructions
+        val locationToOp: MutableMap<MethodLocation, Op> = HashMap(instructions.size)
+        for (instruction in instructions) {
+            val location = instruction.location
+            locationToOp[location] = opBuilder.build(location)
+        }
+        methodToTemplateOps[method] = locationToOp
     }
-
-//    fun findClassReferences(op: Op) {
-//
-//    }
-
 
     object Main {
         @JvmStatic
         fun main(args: Array<String>) {
+            // TODO: remove this :D
             println("hey");
         }
     }
