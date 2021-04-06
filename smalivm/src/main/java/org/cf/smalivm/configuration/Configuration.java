@@ -1,5 +1,6 @@
 package org.cf.smalivm.configuration;
 
+import org.cf.smalivm.type.VirtualMethod;
 import org.cf.smalivm.type.VirtualType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +77,10 @@ public class Configuration {
         }
 
         return false;
+    }
+
+    public boolean isSafe(VirtualMethod method) {
+        return isSafe(method.getSignature());
     }
 
     public boolean isSafe(VirtualType virtualClass) {

@@ -33,7 +33,7 @@ class MoveOp internal constructor(location: MethodLocation, val toRegister: Int,
             MoveType.RESULT -> moveResult(node.state, toRegister)
             MoveType.REGISTER -> moveRegister(node.state, toRegister, targetRegister)
         }
-        return finishOp()
+        return finish()
     }
 
     override fun toString(): String {

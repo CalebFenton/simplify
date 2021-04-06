@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.collections.HashMap
 
-class ExecutionState(
+class ExecutionState internal constructor(
     val cloner: Cloner,
     val classManager: ClassManager,
     val configuration: Configuration,
@@ -186,8 +186,8 @@ class ExecutionState(
         }
     }
 
-    fun peekParameter(registerOffset: Int): Value? {
-        return peekRegister(firstParameterRegister + registerOffset)
+    fun peekParameter(parameterRegisterOffset: Int): Value? {
+        return peekRegister(firstParameterRegister + parameterRegisterOffset)
     }
 
     fun peekRegister(register: Int): Value? {
@@ -271,6 +271,18 @@ class ExecutionState(
             }
         }
         return false
+    }
+
+    fun allArgumentsKnown(): Boolean {
+        var parameterRegister = firstParameterRegister
+        while (parameterRegister < registerCount) {
+            val value = peekParameter(parameterRegister)!!
+            if (value.isUnknown) {
+                return false
+            }
+            parameterRegister += value.registerSize
+        }
+        return true
     }
 
 //    fun getChild(childContext: ExecutionContext): ClassState {
@@ -462,12 +474,12 @@ class ExecutionState(
         return ancestor.initializedClasses[virtualClass]!!
     }
 
-    fun setClassInitialized(classSignature: String, level: SideEffect.Level) {
+    fun setClassInitialized(classSignature: String, level: SideEffect.Level = SideEffect.Level.NONE) {
         val virtualClass = classManager.getVirtualClass(classSignature)
         setClassInitialized(virtualClass, level)
     }
 
-    fun setClassInitialized(virtualClass: VirtualType, level: SideEffect.Level) {
+    fun setClassInitialized(virtualClass: VirtualType, level: SideEffect.Level = SideEffect.Level.NONE) {
         initializedClasses[virtualClass] = level
     }
 

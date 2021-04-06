@@ -21,7 +21,7 @@ class SwitchOp internal constructor(location: MethodLocation, private val target
         node.state.assignResultRegister(item)
         // If switch "falls through", will need the immediate op after this.
         node.state.setPseudoInstructionReturnAddress(nextAddress)
-        return finishOp(targetAddress)
+        return finish(targetAddress)
     }
 
     override fun toString() = "$name  r$register, :addr_$nextAddress"

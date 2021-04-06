@@ -3,7 +3,6 @@ package org.cf.smalivm.context;
 import com.rits.cloning.Cloner;
 import com.rits.cloning.ObjenesisInstantiationStrategy;
 
-import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.configuration.Configuration;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.util.ClassNameUtils;
@@ -22,13 +21,12 @@ public class ClonerFactory {
     private static final Map<ClassManager, Cloner> cache = new WeakHashMap<>();
 
     /**
-     * This builds a fresh cloner. This is necessary because Cloner does some caching of classes which is a problem
-     * because classes are dynamically generated. If multiple virtual machines are used, any classes of instances that
-     * were cloned in the first virtual machine will be cached. The second virtual machine will have a different class
-     * loader and will dynamically generate different classes.
-     *
-     * The reason there is some ClassManager related caching is to speed up tests, i.e. to prevent having to read
-     * configuration, create classes, and create a new cloner for every test.
+     * This builds a fresh cloner. This is necessary because Cloner does some caching of classes which is a problem because classes are dynamically
+     * generated. If multiple virtual machines are used, any classes of instances that were cloned in the first virtual machine will be cached. The
+     * second virtual machine will have a different class loader and will dynamically generate different classes.
+     * <p>
+     * The reason there is some ClassManager related caching is to speed up tests, i.e. to prevent having to read configuration, create classes, and
+     * create a new cloner for every test.
      */
     // TODO: make package private once everything's done refactoring
     public static Cloner instance(ClassManager classManager, ClassLoader classLoader, Configuration configuration) {

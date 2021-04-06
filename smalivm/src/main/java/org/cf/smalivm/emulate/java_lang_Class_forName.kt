@@ -4,12 +4,13 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.VirtualMachine2
 import org.cf.util.ClassNameUtils
 import org.slf4j.LoggerFactory
 
 internal class java_lang_Class_forName : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode, vm: VirtualMachine2) {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode, vm: VirtualMachine2): UnresolvedChild {
         val binaryClassName = state.peekParameter(0)!!.value as String?
         val className = ClassNameUtils.binaryToInternal(binaryClassName)
         val value: Class<*>
@@ -40,8 +41,9 @@ internal class java_lang_Class_forName : EmulatedMethodCall() {
             }
             callerNode.state.assignReturnRegister(value, RETURN_TYPE)
         } catch (e: ClassNotFoundException) {
-            addException(ClassNotFoundException::class.java, binaryClassName)
+            throwException(ClassNotFoundException::class.java, binaryClassName)
         }
+        return finish()
     }
 
     companion object {

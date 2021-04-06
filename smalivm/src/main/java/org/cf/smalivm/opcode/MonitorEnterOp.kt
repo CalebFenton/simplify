@@ -16,7 +16,7 @@ class MonitorEnterOp internal constructor(location: MethodLocation, private val 
     override val registersAssignedCount = 0
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        return finishOp()
+        return finish()
     }
 
     override fun toString() = "$name r$destRegister"

@@ -14,7 +14,7 @@ open class ExecutionNode(
     val classManager: ClassManager,
     val classLoader: SmaliClassLoader,
     val configuration: Configuration,
-    var state: ExecutionState = ExecutionState.build(
+    val state: ExecutionState = ExecutionState.build(
         method,
         classManager,
         classLoader,
@@ -23,15 +23,43 @@ open class ExecutionNode(
         op.registersAssignedCount
     ),
     var parent: ExecutionNode? = null,
-    var sideEffectLevel: SideEffect.Level = op.sideEffectLevel
+    var sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE
 ) {
+    var children: MutableList<ExecutionNode> = LinkedList()
+
     val address: Int
         get() = op.address
+
     val index: Int
         get() = op.index
+
     val isEntrypoint: Boolean
-        get() = address == 0
-    var children: MutableList<ExecutionNode> = LinkedList()
+        get() = address == 0 && (parent == null || parent!!.method != method)
+
+    val callDepth: Int
+        get() {
+            var ancestor: ExecutionNode? = this
+            var callDepth = 0
+            while (ancestor != null) {
+                if (ancestor.isEntrypoint) {
+                    callDepth++
+                }
+                ancestor = ancestor.parent
+            }
+            return callDepth
+        }
+
+    val caller: ExecutionNode?
+        get() {
+            var ancestor: ExecutionNode? = this
+            while (ancestor != null) {
+                if (ancestor.isEntrypoint) {
+                    return ancestor.parent
+                }
+                ancestor = ancestor.parent
+            }
+            return null
+        }
 
 //    def shallowClone() : ExecutionNode {
 //        if (this is EntrypointNode) {
@@ -55,6 +83,7 @@ open class ExecutionNode(
 //    open fun mayThrowException(): Boolean {
 //        return children.any { c -> c is ExceptionChild }
 //    }
+
 
     fun clearChildren() {
         children.forEach { c -> c.parent = null }

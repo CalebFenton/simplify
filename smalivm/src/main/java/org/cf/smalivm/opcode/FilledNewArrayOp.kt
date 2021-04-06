@@ -51,7 +51,7 @@ class FilledNewArrayOp internal constructor(
             node.state.assignResultRegister(dimensions, "[I")
         }
 
-        return finishOp()
+        return finish()
     }
 
     override fun toString(): String {

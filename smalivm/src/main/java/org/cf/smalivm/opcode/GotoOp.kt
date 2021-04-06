@@ -14,7 +14,7 @@ class GotoOp internal constructor(location: MethodLocation) : Op(location) {
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // https://xkcd.com/292/
-        return finishOp()
+        return finish()
     }
 
     override fun toString(): String {

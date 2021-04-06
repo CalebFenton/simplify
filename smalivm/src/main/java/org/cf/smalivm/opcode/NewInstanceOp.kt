@@ -17,7 +17,7 @@ class NewInstanceOp internal constructor(
     location: MethodLocation,
     private val destRegister: Int,
     private val virtualClass: VirtualClass,
-    override val sideEffectLevel: SideEffect.Level
+    val sideEffectLevel: SideEffect.Level
 ) :
     Op(location) {
 
@@ -25,12 +25,12 @@ class NewInstanceOp internal constructor(
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        return if (sideEffectLevel == SideEffect.Level.NONE) {
-            resume(node)
-        } else {
+        return if (!node.state.isClassInitialized(virtualClass)) {
             // New-instance causes static initialization (but not new-array!)
             val clinit = virtualClass.getMethod("<clinit>()V")!!
             callMethod(clinit)
+        } else {
+            resume(node)
         }
     }
 
@@ -38,7 +38,7 @@ class NewInstanceOp internal constructor(
         val rawInstance = UninitializedInstance(virtualClass)
         val instance = Value.wrap(rawInstance, virtualClass.name)
         node.state.assignRegister(destRegister, instance)
-        return finishOp()
+        return finish(sideEffectLevel = sideEffectLevel)
     }
 
     override fun toString() = "$name r$destRegister, $virtualClass"

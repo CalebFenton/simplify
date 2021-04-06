@@ -50,7 +50,7 @@ class AGetOp internal constructor(
             }
         }
         node.state.assignRegister(destRegister, indexed)
-        return finishOp(mayThrow)
+        return finish(mayThrow)
     }
 
     override fun toString() = "$name r$destRegister, r$arrayRegister, r$indexRegister"

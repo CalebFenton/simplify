@@ -63,6 +63,7 @@ public class VirtualRealMethod extends VirtualMethod {
      */
     @Override
     public List<String> getParameterTypeNames() {
+        // TODO: this should be generated once and returned as immutable. same with getParameterTypes
         List<String> parameterTypes =
                 method.getParameterTypes().stream().map(BuilderTypeReference::getType).collect(Collectors.toList());
         if (!isStatic()) {

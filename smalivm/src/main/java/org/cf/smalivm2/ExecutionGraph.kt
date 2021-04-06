@@ -53,8 +53,8 @@ class ExecutionGraph2(
         get() = classManager.dexBuilder
     val locationToOp
         get() = vm.methodToTemplateOps[method]!!
-    val opBuilder = OpBuilder(classManager, classLoader, configuration)
     val addressToLocation = buildAddressToLocation(method.implementation)
+
     // TODO: should terminating addresses be recalculated when graphs are rebuilt? same with address -> location
     val terminatingAddresses = buildTerminatingAddresses(method.implementation.instructions)
     val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
@@ -133,6 +133,12 @@ class ExecutionGraph2(
         locationToNodePile[location]!!.add(node)
     }
 
+    fun hasNode(node: ExecutionNode): Boolean {
+        val location = node.op.instruction!!.location
+        val pile = locationToNodePile[location]
+        return pile?.contains(node) ?: false
+    }
+
     private fun getConsensusType(types: MutableSet<String>, values: Set<Value?>): String {
         if (types.size == 1) {
             return types.toTypedArray()[0]
@@ -192,10 +198,12 @@ class ExecutionGraph2(
         return locationToOp[location]!!
     }
 
-    fun spawnEntrypointNode(parentState: ExecutionState? = null): ExecutionNode {
+    fun spawnEntrypointNode(parent: ExecutionNode? = null, state: ExecutionState? = null): ExecutionNode {
         val op = getOp(METHOD_ROOT_ADDRESS)
-        val state = parentState ?: vm.spawnRootState(method)
-        return ExecutionNode(op, method, classManager, classLoader, configuration, state)
+        return when (state) {
+            null -> ExecutionNode(op, method, classManager, classLoader, configuration, parent = parent)
+            else -> ExecutionNode(op, method, classManager, classLoader, configuration, state, parent)
+        }
     }
 
     protected fun getNodeIndex(node: ExecutionNode): Int {
@@ -606,57 +614,57 @@ class ExecutionGraph2(
         return getNodePile(address)[0].state.registerCount
     }
 
-    private fun addToNodePile(newLocation: MethodLocation) {
-        // Returns node which need to be re-executed after graph / mappings are rebuilt
-        // E.g. branch offset instructions can't be created without accurate mappings
-        val oldIndex = newLocation.index + 1
-        var shiftedLocation: MethodLocation? = null
-        for (location in locationToNodePile.keys) {
-            if (location.index == oldIndex) {
-                shiftedLocation = location
-                break
-            }
-        }
-        assert(shiftedLocation != null)
-
-        val shiftedNodePile = locationToNodePile[shiftedLocation]!!
-        val newNodePile: MutableList<ExecutionNode> = ArrayList()
-        locationToNodePile[newLocation] = newNodePile
-        val shiftedOp = shiftedNodePile[0].op
-        val op = opBuilder.build(newLocation)
-        recreateLocations.add(newLocation)
-        reexecuteLocations.add(newLocation)
-        val isAutoAddedPadding = op is NopOp && (shiftedOp is FillArrayDataPayloadOp || shiftedOp is SwitchPayloadOp)
-        for (i in shiftedNodePile.indices) {
-            val newNode = ExecutionNode(op, method, classManager, classLoader, configuration)
-            newNodePile.add(i, newNode)
-            if (isAutoAddedPadding) {
-                // This type of padding is never reached and only exists for byte alignment.
-                break
-            }
-            if (i == TEMPLATE_NODE_INDEX) {
-                // Template nodes shouldn't have parents or children
-                continue
-            }
-
-            val shiftedNode = shiftedNodePile[i]
-            val shiftedParent = shiftedNode.parent
-            //var newContext: ExecutionContext?
-            if (shiftedParent != null) {
-                shiftedParent.removeChild(shiftedNode)
-                reparentNode(newNode, shiftedParent)
-
-                // Recreate parent op because its children locations may be affected.
-                recreateLocations.add(shiftedParent.op.location)
-            } else {
-                assert(newLocation.codeAddress == METHOD_ROOT_ADDRESS)
-                // TODO: add caller states to this if necessary
-                val state = vm.spawnRootState(method)
-                newNode.state = state
-            }
-            reparentNode(shiftedNode, newNode)
-        }
-    }
+//    private fun addToNodePile(newLocation: MethodLocation) {
+//        // Returns node which need to be re-executed after graph / mappings are rebuilt
+//        // E.g. branch offset instructions can't be created without accurate mappings
+//        val oldIndex = newLocation.index + 1
+//        var shiftedLocation: MethodLocation? = null
+//        for (location in locationToNodePile.keys) {
+//            if (location.index == oldIndex) {
+//                shiftedLocation = location
+//                break
+//            }
+//        }
+//        assert(shiftedLocation != null)
+//
+//        val shiftedNodePile = locationToNodePile[shiftedLocation]!!
+//        val newNodePile: MutableList<ExecutionNode> = ArrayList()
+//        locationToNodePile[newLocation] = newNodePile
+//        val shiftedOp = shiftedNodePile[0].op
+//        val op = opBuilder.build(newLocation)
+//        recreateLocations.add(newLocation)
+//        reexecuteLocations.add(newLocation)
+//        val isAutoAddedPadding = op is NopOp && (shiftedOp is FillArrayDataPayloadOp || shiftedOp is SwitchPayloadOp)
+//        for (i in shiftedNodePile.indices) {
+//            val newNode = ExecutionNode(op, method, classManager, classLoader, configuration)
+//            newNodePile.add(i, newNode)
+//            if (isAutoAddedPadding) {
+//                // This type of padding is never reached and only exists for byte alignment.
+//                break
+//            }
+//            if (i == TEMPLATE_NODE_INDEX) {
+//                // Template nodes shouldn't have parents or children
+//                continue
+//            }
+//
+//            val shiftedNode = shiftedNodePile[i]
+//            val shiftedParent = shiftedNode.parent
+//            //var newContext: ExecutionContext?
+//            if (shiftedParent != null) {
+//                shiftedParent.removeChild(shiftedNode)
+//                reparentNode(newNode, shiftedParent)
+//
+//                // Recreate parent op because its children locations may be affected.
+//                recreateLocations.add(shiftedParent.op.location)
+//            } else {
+//                assert(newLocation.codeAddress == METHOD_ROOT_ADDRESS)
+//                // TODO: add caller states to this if necessary
+//                val state = vm.spawnRootState(method)
+//                newNode.state = state
+//            }
+//            reparentNode(shiftedNode, newNode)
+//        }
+//    }
 
     private fun reparentNode(child: ExecutionNode, parent: ExecutionNode) {
         reexecuteLocations.add(child.op.location)
@@ -739,7 +747,7 @@ class ExecutionGraph2(
         val addedLocations: MutableSet<MethodLocation> = HashSet(implementationLocations)
         addedLocations.removeAll(staleLocations)
         for (location in addedLocations) {
-            addToNodePile(location)
+//            addToNodePile(location)
         }
         val removedLocations: MutableSet<MethodLocation> = HashSet(staleLocations)
         removedLocations.removeAll(implementationLocations)

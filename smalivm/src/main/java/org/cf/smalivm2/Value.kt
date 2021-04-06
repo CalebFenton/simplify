@@ -1,6 +1,7 @@
 package org.cf.smalivm2
 
 import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.type.UninitializedInstance
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm.type.VirtualType
@@ -87,6 +88,9 @@ data class Value(val value: Any?, val type: String, val id: ByteArray) {
         } else {
             setOf(type)
         }
+
+    val registerSize: Int
+        get() = if (CommonTypes.LONG == type || CommonTypes.DOUBLE == type) 2 else 1
 
     fun toDouble(): Double {
         return Utils.getDoubleValue(value)

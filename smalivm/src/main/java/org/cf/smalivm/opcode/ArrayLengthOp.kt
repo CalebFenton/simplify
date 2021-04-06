@@ -7,7 +7,6 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
-import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x
 import org.slf4j.LoggerFactory
@@ -15,7 +14,6 @@ import java.lang.reflect.Array
 
 class ArrayLengthOp internal constructor(
     location: MethodLocation,
-    child: MethodLocation,
     private val destRegister: Int,
     private val arrayRegister: Int
 ) : Op(location, arrayOf(Pair(NullPointerException::class.java, "Attempt to get length of null array"))) {
@@ -42,7 +40,7 @@ class ArrayLengthOp internal constructor(
             }
         }
         node.state.assignRegister(destRegister, length, CommonTypes.INTEGER)
-        return finishOp(mayThrow)
+        return finish(mayThrow)
     }
 
     override fun toString() = "$name r$destRegister, r$arrayRegister"
@@ -55,11 +53,10 @@ class ArrayLengthOp internal constructor(
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            val child = Utils.getNextLocation(location, addressToLocation)
             val instr = location.instruction as Instruction12x
             val destRegister = instr.registerA
             val arrayRegister = instr.registerB
-            return ArrayLengthOp(location, child, destRegister, arrayRegister)
+            return ArrayLengthOp(location, destRegister, arrayRegister)
         }
     }
 }

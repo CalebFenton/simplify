@@ -30,7 +30,7 @@ class NewArrayOp internal constructor(
             return throwException(instance)
         }
         node.state.assignRegister(destRegister, instance, arrayType)
-        return finishOp()
+        return finish()
     }
 
     override fun toString() = "$name r$destRegister, r$lengthRegister, $arrayType"

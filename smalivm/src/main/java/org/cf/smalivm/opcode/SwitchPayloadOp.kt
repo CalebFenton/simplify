@@ -28,16 +28,16 @@ class SwitchPayloadOp internal constructor(
         if (result.isUnknown) {
             val childAddresses = getTargets(branchFromAddress, targetKeyToOffset)
             childAddresses.add(returnAddress)
-            return finishOp(childAddresses.toTypedArray())
+            return finish(childAddresses.toTypedArray())
         }
         val targetKey = Utils.getIntegerValue(result.value)
         if (targetKeyToOffset.containsKey(targetKey)) {
             val targetAddress = branchFromAddress + targetKeyToOffset[targetKey]!!
-            return finishOp(targetAddress)
+            return finish(targetAddress)
         }
 
         // Branch target is unspecified. Continue to next op.
-        return finishOp(returnAddress)
+        return finish(returnAddress)
     }
 
     override fun toString(): String {

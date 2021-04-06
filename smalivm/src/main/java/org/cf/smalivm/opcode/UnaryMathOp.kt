@@ -27,7 +27,7 @@ class UnaryMathOp internal constructor(location: MethodLocation, val destRegiste
             Value.wrap(resultValue, type)
         }
         node.state.assignRegister(destRegister, result)
-        return finishOp()
+        return finish()
     }
 
     override fun toString() = "$name r$destRegister, r$srcRegister"

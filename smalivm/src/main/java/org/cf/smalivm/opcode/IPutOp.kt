@@ -21,14 +21,12 @@ class IPutOp internal constructor(
 
     override val registersReadCount = 2
     override val registersAssignedCount = 1
-    override val sideEffectLevel = SideEffect.Level.WEAK
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        // Read the registers even though they're not used to hint the optimizer
         val value = node.state.readRegister(valueRegister)
         val instance = node.state.readRegister(instanceRegister)
         node.state.assignRegister(instanceRegister, instance)
-        return finishOp()
+        return finish(sideEffectLevel = SideEffect.Level.WEAK)
     }
 
     override fun toString() = "$name r$valueRegister, r$instanceRegister, $fieldDescriptor"

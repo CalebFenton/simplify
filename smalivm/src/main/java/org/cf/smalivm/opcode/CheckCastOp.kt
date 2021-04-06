@@ -26,7 +26,7 @@ class CheckCastOp internal constructor(
         val target = node.state.readRegister(targetRegister)
         if (isInstance(target, castType, node.classManager)) {
             node.state.assignRegister(targetRegister, target.value, castType.name)
-            return finishOp(mayThrow = false)
+            return finish(mayThrow = false)
         } else {
             // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File
             val errorMessage = ClassNameUtils.internalToBinary(target.type) + " cannot be cast to " + castType.binaryName
@@ -35,7 +35,7 @@ class CheckCastOp internal constructor(
                 throwException(ClassCastException::class.java, errorMessage)
             } else {
                 // Not enough information to know if it throws or works fine.
-                finishOp(mayThrow = true)
+                finish(mayThrow = true)
             }
         }
     }

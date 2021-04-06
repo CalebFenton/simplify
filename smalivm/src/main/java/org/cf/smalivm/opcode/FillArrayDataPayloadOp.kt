@@ -35,7 +35,7 @@ class FillArrayDataPayloadOp internal constructor(
         }
         // This is a strange pseudo-op which should return to the next op after the FillArrayDataOp.
         val returnAddress = parent.getPsuedoInstructionReturnAddress()
-        return finishOp(returnAddress)
+        return finish(returnAddress)
     }
 
     override fun toString(): String {
