@@ -1,7 +1,10 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.dex.SmaliClassLoader
+import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualMethod
+import org.cf.smalivm.type.VirtualType
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
@@ -52,15 +55,27 @@ abstract class Op internal constructor(
         return arrayOf(UnresolvedChild.build(klazz, message))
     }
 
-    fun callMethod(methodCall: VirtualMethod, state: ExecutionState? = null, analyzedParameterTypes: Array<String>? = null): Array<out UnresolvedChild> {
+    fun staticInitClass(
+        virtualClass: VirtualType,
+        classManager: ClassManager,
+        classLoader: SmaliClassLoader,
+        configuration: Configuration
+    ): Array<out UnresolvedChild> {
+        // TODO: Don't some classes not have clinit? May need to just set field literals here or allow null methods OR have UnresolvedStaticInit
+        val staticInit = virtualClass.getMethod("<clinit>()V")!!
+        val state = ExecutionState.build(staticInit, classManager, classLoader, configuration)
+        return callMethod(staticInit, state, arrayOf())
+    }
+
+    fun callMethod(methodCall: VirtualMethod, state: ExecutionState, analyzedParameterTypes: Array<String>): Array<out UnresolvedChild> {
         return arrayOf(UnresolvedChild.build(methodCall, state, analyzedParameterTypes))
     }
 
-    fun finish(mayThrow: Boolean = false, sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE): Array<out UnresolvedChild> {
+    fun finish(mayThrow: Boolean = false): Array<out UnresolvedChild> {
         val children: MutableList<UnresolvedChild> = LinkedList()
         val opcode = location.instruction!!.opcode
         if (opcode.canContinue() && this !is SwitchOp) {
-            val child = UnresolvedChild.build(nextAddress, sideEffectLevel = sideEffectLevel)
+            val child = UnresolvedChild.build(nextAddress)
             children.add(child)
         }
         if (mayThrow) {

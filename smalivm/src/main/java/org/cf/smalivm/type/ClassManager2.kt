@@ -33,7 +33,6 @@ class ClassManager2(
     private val frameworkDexBuilder = DexBuilder(Opcodes.getDefault())
 
     init {
-
         if (inputPath != null) {
             val smaliPath: File = if (inputPath.isFile) disassemble(inputPath) else inputPath
             cacheSmaliFiles(smaliFileFactory.getSmaliFiles(smaliPath))

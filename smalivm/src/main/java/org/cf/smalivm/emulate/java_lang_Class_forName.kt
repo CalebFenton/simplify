@@ -10,7 +10,7 @@ import org.cf.util.ClassNameUtils
 import org.slf4j.LoggerFactory
 
 internal class java_lang_Class_forName : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode, vm: VirtualMachine2): UnresolvedChild {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
         val binaryClassName = state.peekParameter(0)!!.value as String?
         val className = ClassNameUtils.binaryToInternal(binaryClassName)
         val value: Class<*>
@@ -33,13 +33,12 @@ internal class java_lang_Class_forName : EmulatedMethodCall() {
                     throw ClassNotFoundException()
                 }
                 if (!state.isClassInitialized(virtualClass)) {
-                    // TODO: should create a state pass the class state to the VM to execute
-//                    state.staticallyInitializeClassIfNecessary(virtualClass);
-//                    vm.execute()
-//                    level = state.getClassSideEffectLevel(virtualClass);
+                    // TODO: Emulated methods should be able to influence what the VM executes next!
+                    // TODO: this isn't finished! may need to modify directly
+                    staticInitClass(virtualClass, vm.classManager, vm.classLoader, vm.configuration)
                 }
             }
-            callerNode.state.assignReturnRegister(value, RETURN_TYPE)
+            state.assignReturnRegister(value, RETURN_TYPE)
         } catch (e: ClassNotFoundException) {
             throwException(ClassNotFoundException::class.java, binaryClassName)
         }

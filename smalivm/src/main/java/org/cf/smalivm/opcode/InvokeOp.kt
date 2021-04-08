@@ -76,44 +76,6 @@ class InvokeOp internal constructor(
         val calleeState = ExecutionState.build(targetMethod, node.classManager, node.classLoader, node.configuration)
         assignCalleeMethodArguments(node.state, calleeState, analyzedParameterTypes)
         return callMethod(targetMethod, calleeState, analyzedParameterTypes)
-
-        // Try to reflect or emulate before executing local method.
-        if (node.configuration.isSafe(targetSignature) || MethodEmulator.canEmulate(targetSignature)) {
-            val calleeContext = buildNonLocalCalleeContext(context)
-            val allArgumentsKnown = allArgumentsKnown(calleeContext.methodState)
-            if (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(targetSignature)) {
-                executeNonLocalMethod(targetSignature, callerMethodState, calleeContext, node)
-                return
-            } else {
-                log.trace("Not emulating / reflecting {}; not all arguments are known", targetSignature)
-                assumeMaximumUnknown(callerMethodState)
-                return
-            }
-        }
-        if (classManager.isFrameworkClass(targetMethod.definingClass) &&
-            !classManager.isSafeFrameworkClass(targetMethod.definingClass)
-        ) {
-            log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", targetSignature)
-            assumeMaximumUnknown(callerMethodState)
-            return
-        }
-        if (!targetMethod.hasImplementation()) {
-            if (log.isWarnEnabled) {
-                if (!targetMethod.isNative) {
-                    // This can happen if a method returns an object which implements an interface
-                    // but the object is unknown, so the real class of the invocation target
-                    // can't be determined. That's why this is a warning and not an error.
-                    log.warn("Attempting to execute local native method without implementation: {}. Assuming maximum ambiguity.", targetSignature)
-                } else {
-                    log.warn("Cannot execute local native method: {}. Assuming maximum ambiguity.", targetSignature)
-                }
-            }
-            assumeMaximumUnknown(callerMethodState)
-            return
-        }
-        val calleeContext = buildLocalCalleeContext(context, targetMethod)
-        executeLocalMethod(calleeContext, context, node)
-        return finish()
     }
 
     val returnType: String
@@ -161,18 +123,6 @@ class InvokeOp internal constructor(
         return finish()
     }
 
-    private fun allArgumentsKnown(state: ExecutionState): Boolean {
-        var parameterRegister = state.firstParameterRegister
-        while (parameterRegister < state.registerCount) {
-            val value = state.peekParameter(parameterRegister)!!
-            if (value.isUnknown) {
-                return false
-            }
-            parameterRegister += value.registerSize
-        }
-        return true
-    }
-
     private fun analyzeParameterTypes(node: ExecutionNode): Array<String> {
         /*
          * Type can be confused here. For example, creating a short, int, boolean, or *null* all appear as:
@@ -217,7 +167,7 @@ class InvokeOp internal constructor(
                 value = if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
                     null
                 } else {
-                    // The "I" type may actually be "S", "B", "C", etc. Cast to the given parameter type.
+                    // The "I" type may actually be "S", "B", "C", "Z", etc. Cast to the given parameter type.
                     Utils.castToPrimitive(value, parameterType)
                 }
             }
@@ -227,145 +177,93 @@ class InvokeOp internal constructor(
         }
     }
 
-    private fun assumeMaximumUnknown(callerMethodState: MethodState) {
-        // TODO: add option to mark all class states unknown instead of just method state
-        // This is heavy handed in most cases, but it's impossible to tell if the method we're
-        // failing to execute modifies class state. If it did, we aren't capturing it here.
-        val isInitializing = method.signature.contains(";-><init>(")
-        for (i in method.parameterTypeNames.indices) {
-            val register = parameterRegisters[i]
-            var item = callerMethodState.readRegister(register)
-            val value = item.value
-                ?: // Null references can't mutate.
-                continue
-            var type: String?
-            if (item.isUnknown) {
-                type = analyzedParameterTypes[i]
-                if (type != item.type) {
-                    val parameterType = vm.classManager.getVirtualType(type)
-                    val argumentType = vm.classManager.getVirtualType(item.type)
-                    if (parameterType.isAncestorOf(argumentType)) {
-                        type = item.type
-                    }
-                }
-            } else {
-                // If argument is known, use that type rather than relying on method signature.
-                // Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
-                type = item.type
-            }
-            if (!isInitializing) {
-                // Even if immutable type, internal state can change in the initializer.
-                if (vm.configuration.isImmutable(type)) {
-                    if (log.isTraceEnabled) {
-                        log.trace("{} is immutable", type)
-                    }
-                    continue
-                }
-            }
-            item = HeapItem.newUnknown(type)
-            if (log.isDebugEnabled) {
-                log.debug("{} is mutable and passed into unresolvable method execution, making Unknown", type)
-            }
-            callerMethodState.pokeRegister(register, item)
-        }
-        if (isInitializing) {
-            // TODO: If we're refusing to execute an <init> method, should create a new instance of at least the stub class or something
-            // and update identities. That way we don't have weird Uninitialized instances floating around. Look at TestExceptionHandling
-            // and how ExceptionalCode throws CustomException but Throwable isn't whitelisted.
-        }
-        if (!method.returnsVoid()) {
-            val item = HeapItem.newUnknown(method.returnType)
-            callerMethodState.assignResultRegister(item)
-        }
-    }
+//    private fun buildLocalCalleeContext(callerContext: ExecutionContext, method: VirtualMethod?): ExecutionContext {
+//        val calleeContext = vm.spawnRootContext(method, callerContext, address)
+//        val callerMethodState = callerContext.methodState
+//        val calleeMethodState = calleeContext.methodState
+//        assignCalleeMethodArguments(callerMethodState, calleeMethodState)
+//
+//        // VirtualClass state merging is handled by the VM.
+//        return calleeContext
+//    }
+//
+//    private fun buildNonLocalCalleeContext(callerContext: ExecutionContext): ExecutionContext {
+//        val calleeContext = ExecutionContext(vm, method)
+//        val parameterSize = method.parameterSize
+//        val calleeMethodState = MethodState(calleeContext, parameterSize, method.parameterTypeNames.size, parameterSize)
+//        assignCalleeMethodArguments(callerContext.methodState, calleeMethodState)
+//        calleeContext.methodState = calleeMethodState
+//        calleeContext.registerCaller(callerContext, address)
+//        return calleeContext
+//    }
 
-    private fun buildLocalCalleeContext(callerContext: ExecutionContext, method: VirtualMethod?): ExecutionContext {
-        val calleeContext = vm.spawnRootContext(method, callerContext, address)
-        val callerMethodState = callerContext.methodState
-        val calleeMethodState = calleeContext.methodState
-        assignCalleeMethodArguments(callerMethodState, calleeMethodState)
-
-        // VirtualClass state merging is handled by the VM.
-        return calleeContext
-    }
-
-    private fun buildNonLocalCalleeContext(callerContext: ExecutionContext): ExecutionContext {
-        val calleeContext = ExecutionContext(vm, method)
-        val parameterSize = method.parameterSize
-        val calleeMethodState = MethodState(calleeContext, parameterSize, method.parameterTypeNames.size, parameterSize)
-        assignCalleeMethodArguments(callerContext.methodState, calleeMethodState)
-        calleeContext.methodState = calleeMethodState
-        calleeContext.registerCaller(callerContext, address)
-        return calleeContext
-    }
-
-    private fun finishLocalMethodExecution(
-        calleeContext: ExecutionContext?,
-        callerContext: ExecutionContext?,
-        node: ExecutionNode?,
-        graph: ExecutionGraph?
-    ) {
-        if (graph == null) {
-            // Maybe node visits or call depth exceeded?
-            log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
-            assumeMaximumUnknown(callerContext!!.methodState)
-            return
-        }
-        var hasOneNonThrow = false
-        for (endAddress in graph.connectedTerminatingAddresses) {
-            val endOp = graph.getTemplateNode(endAddress)!!.op
-            if (endOp is ThrowOp) {
-                // At least one execution path leads to throwing an exception.
-                val items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister)
-                for (item in items) {
-                    if (item.value is Throwable) {
-                        val exception = item.value as Throwable?
-                        addException(exception!!)
-                    } else {
-                        // Possibly UninitializedInstance
-                        if (log.isWarnEnabled) {
-                            if (item.isUnknown) {
-                                log.warn(
-                                    "Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}",
-                                    item
-                                )
-                            } else {
-                                // May just need to whitelist Exception class
-                                log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item)
-                            }
-                        }
-                    }
-                }
-            } else {
-                hasOneNonThrow = true
-            }
-        }
-        if (!hasOneNonThrow) {
-            // Everything was an exception; don't go execute any normal children
-            node.clearChildren()
-        } else {
-            if (method.returnType != CommonTypes.VOID) {
-                // Terminating addresses may include throw ops which may not have a return register set
-                val returnOpAddresses: TIntList = TIntLinkedList()
-                for (address in graph.connectedTerminatingAddresses) {
-                    if (graph.getOp(address) is ReturnOp) {
-                        returnOpAddresses.add(address)
-                    }
-                }
-                val consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister)
-                callerContext!!.methodState.assignResultRegister(consensus)
-            } else {
-                if (calleeContext!!.method.descriptor.startsWith("<init>(")) {
-                    // This was a call to a local parent <init> method
-                    val calleeInstanceRegister = calleeContext.methodState.parameterStart
-                    val newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister)
-                    val instanceRegister = parameterRegisters[0]
-                    callerContext!!.methodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstance)
-                }
-            }
-        }
-        sideEffectLevel = graph.highestSideEffectLevel
-    }
+//    private fun finishLocalMethodExecution(
+//        calleeContext: ExecutionContext?,
+//        callerContext: ExecutionContext?,
+//        node: ExecutionNode?,
+//        graph: ExecutionGraph?
+//    ) {
+//        if (graph == null) {
+//            // Maybe node visits or call depth exceeded?
+//            log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
+//            assumeMaximumUnknown(callerContext!!.methodState)
+//            return
+//        }
+//        var hasOneNonThrow = false
+//        for (endAddress in graph.connectedTerminatingAddresses) {
+//            val endOp = graph.getTemplateNode(endAddress)!!.op
+//            if (endOp is ThrowOp) {
+//                // At least one execution path leads to throwing an exception.
+//                val items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister)
+//                for (item in items) {
+//                    if (item.value is Throwable) {
+//                        val exception = item.value as Throwable?
+//                        addException(exception!!)
+//                    } else {
+//                        // Possibly UninitializedInstance
+//                        if (log.isWarnEnabled) {
+//                            if (item.isUnknown) {
+//                                log.warn(
+//                                    "Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}",
+//                                    item
+//                                )
+//                            } else {
+//                                // May just need to whitelist Exception class
+//                                log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item)
+//                            }
+//                        }
+//                    }
+//                }
+//            } else {
+//                hasOneNonThrow = true
+//            }
+//        }
+//        if (!hasOneNonThrow) {
+//            // Everything was an exception; don't go execute any normal children
+//            node.clearChildren()
+//        } else {
+//            if (method.returnType != CommonTypes.VOID) {
+//                // Terminating addresses may include throw ops which may not have a return register set
+//                val returnOpAddresses: TIntList = TIntLinkedList()
+//                for (address in graph.connectedTerminatingAddresses) {
+//                    if (graph.getOp(address) is ReturnOp) {
+//                        returnOpAddresses.add(address)
+//                    }
+//                }
+//                val consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister)
+//                callerContext!!.methodState.assignResultRegister(consensus)
+//            } else {
+//                if (calleeContext!!.method.descriptor.startsWith("<init>(")) {
+//                    // This was a call to a local parent <init> method
+//                    val calleeInstanceRegister = calleeContext.methodState.parameterStart
+//                    val newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister)
+//                    val instanceRegister = parameterRegisters[0]
+//                    callerContext!!.methodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstance)
+//                }
+//            }
+//        }
+//        sideEffectLevel = graph.highestSideEffectLevel
+//    }
 
 //    private fun executeLocalMethod(calleeContext: ExecutionContext, callerContext: ExecutionContext, node: ExecutionNode) {
 //        if (isDebugMode) {

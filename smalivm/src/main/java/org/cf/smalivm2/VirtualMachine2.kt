@@ -1,12 +1,13 @@
 package org.cf.smalivm2
 
 import org.cf.smalivm.MethodReflector
+import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
+import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.emulate.MethodEmulator
-import org.cf.smalivm.opcode.Op
-import org.cf.smalivm.opcode.OpBuilder
+import org.cf.smalivm.opcode.*
 import org.cf.smalivm.type.*
 import org.cf.util.EnumAnalyzer
 import org.cf.util.Utils
@@ -17,6 +18,14 @@ import java.lang.reflect.Modifier
 import java.util.*
 import kotlin.collections.HashMap
 
+import org.cf.smalivm.type.VirtualClass
+
+import org.cf.smalivm.type.VirtualMethod
+
+
+
+
+data class ExecutionQueueEntry(val graph: ExecutionGraph2, val nodes: LinkedList<ExecutionNode>)
 
 class VirtualMachine2 private constructor(
     val maxAddressVisits: Int = 500,
@@ -32,7 +41,7 @@ class VirtualMachine2 private constructor(
     val enumAnalyzer = EnumAnalyzer(this)
     var interactive = false
 
-    private val executionQueue: Deque<Pair<ExecutionGraph2, LinkedList<ExecutionNode>>> = LinkedList()
+    private val executionQueue: Deque<ExecutionQueueEntry> = LinkedList()
     private val resumeNodes: MutableSet<ExecutionNode> = HashSet()
 
     companion object {
@@ -96,15 +105,12 @@ class VirtualMachine2 private constructor(
 
     fun execute(method: VirtualMethod, state: ExecutionState? = null, parent: ExecutionNode? = null): ExecutionGraph2 {
         val graph = getExecutionGraph(method)
-        val entrypointState = state ?: spawnRootState(method)
-        val root = graph.spawnEntrypointNode(parent, entrypointState)
+        val entrypointState = state ?: spawnEntrypointState(method)
+        val entrypointNode = graph.spawnEntrypointNode(parent, entrypointState)
         val methodNodes = LinkedList<ExecutionNode>()
-        methodNodes.add(root)
+        methodNodes.add(entrypointNode)
 
-        /*
-        TODO: when you first execute a method,
-         */
-        executionQueue.add(Pair(graph, methodNodes))
+        executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
 
         while (!this.interactive && executionQueue.isNotEmpty()) {
             step()
@@ -113,58 +119,47 @@ class VirtualMachine2 private constructor(
         return graph
     }
 
-//    fun execute(calleeContext: ExecutionContext?, callerContext: ExecutionContext?, parameterRegisters: IntArray?): ExecutionGraphImpl {
-//        TODO("Not yet implemented")
-//    }
-
-//    private fun callMethod(methodSignature: String, graph: ExecutionGraph?) {
-//
-//    }
-//
-//    private fun initializeClassesIfNecessary(callerNode: org.cf.smalivm2.ClassReferencingNode, callerGraph: org.cf.smalivm2.ExecutionGraph?) {
-//        for (classReference in callerNode.getClassSignaturesToLoad()) {
-//            if (callerNode.isClassInitialized(classReference)) {
-//                continue
-//            }
-//            val initSignature = "$classReference-><clinit>()V"
-//            val calleeGraph = if (interactive) null else org.cf.smalivm2.ExecutionGraph()
-//            val calleeNodes = Stack<org.cf.smalivm2.ExecutionNode>()
-//            val calleeEntryNode = EntrypointNode(initSignature)
-//            calleeNodes.push(calleeEntryNode)
-//            execute(calleeNodes, calleeGraph)
-//
-//            if (interactive) {
-//                /*
-//                set caller node children to include calleeNode
-//                set
-//                 */
-//            } else {
-//
-//                // merge consensus of calleeGraph with current state
-//                // delete calleeGraph
-//                // make sure no references to these nodes exist!
-//                // set calleeEntryNode parent to null
-//                // reset node children and
-//
-//            }
-//        }
-//    }
-
     fun step() {
-        val currentPair = executionQueue.peek()
-        val graph = currentPair.first
-        val nodes = currentPair.second
-        val current = nodes.poll()
+        val entry = executionQueue.peek()
+        val current = entry.nodes.poll()
 
         if (current.isEntrypoint) {
-            if (!current.state.isClassInitialized(current.method.className) && current.method.descriptor != "<clinit>()V") {
-//                val clinit = classManager.getMethod("${current.method.className}-><clinit>()V")
-                staticallyInitializeClassIfNecessary(current.method.definingClass, current.state)
-                return
+            if (current.method.descriptor == "<clinit>()V") {
+                if (configuration.isSafe(current.method.definingClass)) {
+                    // Safe classes are reflected so there's no reason to init on the VM.
+                    current.state.setClassInitialized(current.method.definingClass)
+                    finishStep(entry, current, false)
+                    return
+                }
+            }
+            else {
+                val initializationQueued = queueStaticInitializationIfNecessary(current.method.definingClass, current)
+                if (initializationQueued) {
+                    entry.nodes.add(current)
+                    return
+                }
+
+                val isSafe = configuration.isSafe(current.method)
+                val canEmulate = MethodEmulator.canEmulate(current.method)
+                if (isSafe || canEmulate) {
+                    val allArgumentsKnown = current.state.allArgumentsKnown()
+                    // TODO: how to deal with these childen?
+                    val child: UnresolvedChild? = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
+                        MethodEmulator.emulate(current.method, current.state, current.parent, this)
+                    } else if (isSafe && allArgumentsKnown) {
+                        MethodReflector.reflect(current.method, current.state, current.classLoader, enumAnalyzer)
+                    } else {
+                        log.trace("Not emulating / reflecting {}; all arguments are not known. Assuming maximum unknown.", current.method)
+                        //callerState: ExecutionState, calleeState: ExecutionState, method: VirtualMethod, analyzedParameterTypes: Array<String>
+//                        assumeMaximumUnknown(parent.state, calleeState, method, analyzedParameterTypes)
+                        finishStep(entry, current, assumeMaximumUnknown = true)
+                        null
+                    }
+                }
             }
         }
 
-        graph.addNode(current)
+        entry.graph.addNode(current)
         val unresolvedChildren = if (resumeNodes.contains(current)) {
             resumeNodes.remove(current)
             current.resume()
@@ -178,10 +173,10 @@ class VirtualMachine2 private constructor(
                     handleMethodExecution(unresolvedChild.method, unresolvedChild.state, unresolvedChild.analyzedParameterTypes, current)
                 }
                 is UnresolvedAddressChild -> {
-                    val location = graph.getLocation(unresolvedChild.address)!!
+                    val location = entry.graph.getLocation(unresolvedChild.address)!!
                     val op = methodToTemplateOps[current.method]!![location]!!
                     val child = ExecutionNode(op, current.method, classManager, classLoader, configuration, parent = current)
-                    nodes.add(child)
+                    entry.nodes.add(child)
                 }
                 is UnresolvedExceptionChild -> {
                     // TODO: Hard - Should anything be done with the exception message here? Maybe it'll be more obvious elsewhere.
@@ -194,50 +189,240 @@ class VirtualMachine2 private constructor(
                     } else {
                         log.warn("{} threw exception {} but was caught by exception handler", current, unresolvedChild)
                     }
-                    val location = graph.getLocation(handlerAddress)!!
+                    val location = entry.graph.getLocation(handlerAddress)!!
                     val op = methodToTemplateOps[current.method]!![location]!!
                     val child = ExecutionNode(op, current.method, classManager, classLoader, configuration, parent = current)
-                    nodes.add(child)
+                    entry.nodes.add(child)
                 }
             }
         }
 
-        if (nodes.isEmpty()) {
-            executionQueue.remove(currentPair)
+        finishStep(entry, current)
+    }
+
+    private fun finishStep(entry: ExecutionQueueEntry, current: ExecutionNode, collapseMultiverse: Boolean = true, assumeMaximumUnknown: Boolean = false) {
+        if (entry.nodes.isEmpty()) {
+            executionQueue.remove(entry)
             val caller = current.caller
             if (caller != null) {
-                val callerPair = executionQueue.first { it.first.hasNode(caller) }
-                // TODO: collapse the multiverse, get graph consensus
-                val resumeNode = ExecutionNode(caller.op, current.method, classManager, classLoader, configuration, parent = current)
-                val a = callerPair.second.add(resumeNode)
-
-                // graph.hasNode -- where is the caller graph
-                // find the methodNodes for that graph and add the caller node back
-                // need to know if it should be resumed! add mapping in the VM?x
+                val callerEntry = executionQueue.first { it.first.hasNode(caller) }
+                if (current.method.descriptor != "<clinit>()V") {
+                    callerEntry.nodes.add(caller)
+                }
+                if (assumeMaximumUnknown) {
+                    assumeMaximumUnknown(caller.state, current.state, current.method)
+                } else {
+                    if (collapseMultiverse) {
+                        if (caller.op is InvokeOp) {
+                            collapseMultiverse(current.method, entry.graph, caller.state, caller.op.parameterRegisters)
+                        } else {
+                            collapseMultiverse(current.method, entry.graph, caller.state)
+                        }
+                    }
+                }
             }
         }
     }
 
-    private fun handleMethodExecution(method: VirtualMethod, calleeState: ExecutionState, analyzedParameterTypes: Array<String>, parent: ExecutionNode) {
-        val graph = getExecutionGraph(method)
-        val entryNode = graph.spawnEntrypointNode(parent = parent)
-        val methodNodes = LinkedList<ExecutionNode>()
-        methodNodes.add(entryNode)
-        executionQueue.add(Pair(graph, methodNodes))
-        resumeNodes.add(parent)
+    private fun finishLocalMethodExecution(
+        calleeContext: ExecutionContext?,
+        callerContext: ExecutionContext?,
+        node: ExecutionNode?,
+        graph: ExecutionGraph?
+    ) {
+        if (graph == null) {
+            // Maybe node visits or call depth exceeded?
+            InvokeOp.log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
+            assumeMaximumUnknown(callerContext!!.methodState)
+            return
+        }
+        var hasOneNonThrow = false
+        for (endAddress in graph.connectedTerminatingAddresses) {
+            val endOp = graph.getTemplateNode(endAddress)!!.op
+            if (endOp is ThrowOp) {
+                // At least one execution path leads to throwing an exception.
+                val items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister)
+                for (item in items) {
+                    if (item.value is Throwable) {
+                        val exception = item.value as Throwable?
+                        addException(exception!!)
+                    } else {
+                        // Possibly UninitializedInstance
+                        if (InvokeOp.log.isWarnEnabled) {
+                            if (item.isUnknown) {
+                                InvokeOp.log.warn(
+                                    "Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}",
+                                    item
+                                )
+                            } else {
+                                // May just need to whitelist Exception class
+                                InvokeOp.log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item)
+                            }
+                        }
+                    }
+                }
+            } else {
+                hasOneNonThrow = true
+            }
+        }
+        if (!hasOneNonThrow) {
+            // Everything was an exception; don't go execute any normal children
+            node.clearChildren()
+        } else {
+            if (method.returnType != CommonTypes.VOID) {
+                // Terminating addresses may include throw ops which may not have a return register set
+                val returnOpAddresses: TIntList = TIntLinkedList()
+                for (address in graph.connectedTerminatingAddresses) {
+                    if (graph.getOp(address) is ReturnOp) {
+                        returnOpAddresses.add(address)
+                    }
+                }
+                val consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister)
+                callerContext!!.methodState.assignResultRegister(consensus)
+            } else {
+                if (calleeContext!!.method.descriptor.startsWith("<init>(")) {
+                    // This was a call to a local parent <init> method
+                    val calleeInstanceRegister = calleeContext.methodState.parameterStart
+                    val newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister)
+                    val instanceRegister = parameterRegisters[0]
+                    callerContext!!.methodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstance)
+                }
+            }
+        }
+        sideEffectLevel = graph.highestSideEffectLevel
+    }
 
+    private fun executeNonLocalMethod(
+        methodDescriptor: String,
+        callerMethodState: MethodState,
+        calleeContext: ExecutionContext,
+        node: ExecutionNode
+    ) {
+        if (MethodEmulator.canEmulate(methodDescriptor)) {
+            val emulator = MethodEmulator(vm, calleeContext, methodDescriptor)
+            emulator.emulate(this)
+            sideEffectLevel = emulator.sideEffectLevel
+            if (emulator.exceptions.size > 0) {
+                node.clearChildren()
+                node.setExceptions(emulator.exceptions)
+                return
+            }
+        } else if (vm.configuration.isSafe(methodDescriptor)) {
+            val reflector = MethodReflector(vm, method)
+            try {
+                reflector.reflect(calleeContext.methodState) // playa play
+            } catch (e: Exception) {
+                node.addException(e)
+                node.clearChildren()
+                return
+            }
+
+            // Only safe, non-side-effect methods are allowed to be reflected.
+            sideEffectLevel = SideEffect.Level.NONE
+        }
+        if (!method.isStatic) {
+            // This is virtual and the instance parse may have been initialized or mutated.
+            val originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0])
+            val newInstanceItem = calleeContext.methodState.peekParameter(0)
+            if (originalInstanceItem!!.value !== newInstanceItem.value) {
+                // Instance has been initialized, i.e. was UninitializedInstance
+                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
+                // UninitializedInstance, and those need to be updated with the new instance.
+                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem)
+            } else {
+                val isMutable = !vm.configuration.isImmutable(newInstanceItem.type)
+                if (isMutable) {
+                    // The instance class is mutable so could have changed. Record that it was changed for the
+                    // optimizer.
+                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem)
+                }
+            }
+        }
+        if (!method.returnsVoid()) {
+            val returnItem = calleeContext.methodState.readReturnRegister()
+            callerMethodState.assignResultRegister(returnItem)
+        }
+    }
+    /*
+     * Get the consensus of mutable objects of method and class states of called context and merge them into
+     * the context of the caller. In other words, reflect changes to objects that happen in the called method back
+     * into the caller method.
+     */
+    private fun collapseMultiverse(
+        calledMethod: VirtualMethod,
+        graph: ExecutionGraph2,
+        callerState: ExecutionState,
+        parameterRegisters: IntArray? = null
+    ) {
+        val terminatingAddresses = graph.getConnectedTerminatingAddresses()
+        if (parameterRegisters != null) {
+            val parameterTypes = calledMethod.parameterTypeNames
+            var parameterRegister = graph.getNodePile(0)[0].state.firstParameterRegister
+            for (parameterIndex in parameterTypes.indices) {
+                val type = parameterTypes[parameterIndex]
+                if (configuration.isMutable(type)) {
+                    val item = graph.getRegisterConsensus(terminatingAddresses, parameterRegister)
+                    val register = parameterRegisters[parameterIndex]
+                    callerState.assignRegister(register, item, updateIdentities = true)
+                }
+                parameterRegister += Utils.getRegisterSize(type)
+            }
+        }
+
+        // TODO: performance: this is expensive and happens frequently.
+        // classManager has all local classes. would be nice to keep track of all initialized classes
+        // for each method execution, and use that to iterate instead
+        val terminatingContexts = graph.getTerminatingStates()
+        hasOneInitialization@
+        for (virtualClass in classManager.loadedClasses) {
+            val isInitializedInCaller = callerState.isClassInitialized(virtualClass)
+            if (!isInitializedInCaller) {
+                // Not initialized in caller, but maybe initialized in callee multiverse.
+                var isInitializedInCallee = false
+                for (context in terminatingContexts) {
+                    if (context.isClassInitialized(virtualClass)) {
+                        isInitializedInCallee = true
+                        break
+                    }
+                }
+
+                if (isInitializedInCallee) {
+                    break
+                }
+
+                // Class was never initialized. Nothing to merge into caller method.
+                continue
+            }
+
+            if (!isInitializedInCaller) {
+                val level = graph.getHighestClassSideEffectLevel(virtualClass)
+                callerState.setClassInitialized(virtualClass, level)
+            }
+            for (field in virtualClass.fields) {
+                val item = graph.getFieldConsensus(terminatingAddresses, field)
+                if (item.isPrimitive) {
+                    callerState.pokeField(field, item)
+                } else {
+                    callerState.pokeField(field, item, updateIdentities = true)
+                }
+            }
+        }
+    }
+
+    private fun handleMethodExecution(method: VirtualMethod, calleeState: ExecutionState, parent: ExecutionNode) {
         val isSafe = configuration.isSafe(method)
         val canEmulate = MethodEmulator.canEmulate(method)
+
+        // TODO: consider adding this to the entrypoint check in step
         if (isSafe || canEmulate) {
             val allArgumentsKnown = calleeState.allArgumentsKnown()
             val child: UnresolvedChild? = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(method))) {
                 MethodEmulator.emulate(method, calleeState, parent, this)
             } else if (isSafe && allArgumentsKnown) {
-                MethodReflector.reflect(method, calleeState, parent, enumAnalyzer)
+                MethodReflector.reflect(method, calleeState, classLoader, enumAnalyzer)
             } else {
                 log.trace("Not emulating / reflecting {}; all arguments are not known. Assuming maximum ambiguity.", method)
-                // TODO: Is this calleeState? Should rename. Caller state gets modified for unknowns, should write function to collapse / merge
-                assumeMaximumUnknown(parent.state, method, analyzedParameterTypes)
+                assumeMaximumUnknown(parent.state, calleeState, method)
                 null
             }
 
@@ -247,7 +432,7 @@ class VirtualMachine2 private constructor(
         } else {
             if (classManager.isFrameworkClass(method.definingClass) && !classManager.isSafeFrameworkClass(method.definingClass)) {
                 log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", method)
-                assumeMaximumUnknown(calleeState)
+                assumeMaximumUnknown(parent.state, calleeState, method)
                 return
             }
 
@@ -256,9 +441,18 @@ class VirtualMachine2 private constructor(
             // can't be determined. That's why this is a warning and not an error.
             if (!method.hasImplementation()) {
                 log.warn("Unable to execute method without implementation: {}, isNative={}", method, method.isNative)
-                assumeMaximumUnknown(calleeState)
+                assumeMaximumUnknown(parent.state, calleeState, method)
                 return
             }
+
+            val graph = getExecutionGraph(method)
+            val entrypointNode = graph.spawnEntrypointNode(parent = parent)
+            val methodNodes = LinkedList<ExecutionNode>()
+            methodNodes.add(entrypointNode)
+            executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
+            resumeNodes.add(parent)
+
+            // TODO: Set the caller parent so multiverse can be collapsed!
             val calleeContext = buildLocalCalleeContext(context, targetMethod)
             executeLocalMethod(calleeContext, context, node)
             return finishOp()
@@ -266,12 +460,12 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    private fun assumeMaximumUnknown(callerState: ExecutionState, method: VirtualMethod, analyzedParameterTypes: Array<String>) {
+    private fun assumeMaximumUnknown(callerState: ExecutionState, calleeState: ExecutionState, method: VirtualMethod) {
         // TODO: add option to mark all class states unknown instead of just method state
         // This is heavy handed in most cases, and maybe there's a way to optimize. It's hard to tell if the method we're
         // failing to execute modifies class state. If it did, we aren't capturing it here.
         val isInitializing = method.signature.contains(";-><init>(")
-        val parameterRegisters = callerState.registersAssigned.filter { it >= callerState.firstParameterRegister }
+        val parameterRegisters = calleeState.registersAssigned.filter { it >= callerState.firstParameterRegister }
         for (i in method.parameterTypeNames.indices) {
             val register = parameterRegisters[i]
             var value = callerState.readRegister(register)
@@ -279,30 +473,33 @@ class VirtualMachine2 private constructor(
                 // Nulls are immutable
                 continue
             }
-            var type: String
-            if (value.isUnknown) {
-                type = analyzedParameterTypes[i]
-                if (type != value.type) {
-                    val parameterType = classManager.getVirtualType(type)
-                    val argumentType = classManager.getVirtualType(value.type)
-                    if (parameterType.isAncestorOf(argumentType)) {
-                        type = value.type
-                    }
-                }
-            } else {
-                // If argument is known, use that type rather than relying on method signature.
-                // I.e. Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
-                type = value.type
-            }
+            // TODO: after some testing, was this actually needed? doesn't make sense because calleeState should always have types
+            // defined from analyzeParameterTypes.
+            val type = value.type
+//            var type: String
+//            if (value.isUnknown) {
+//                type = analyzedParameterTypes[i]
+//                if (type != value.type) {
+//                    val parameterType = classManager.getVirtualType(type)
+//                    val argumentType = classManager.getVirtualType(value.type)
+//                    if (parameterType.isAncestorOf(argumentType)) {
+//                        type = value.type
+//                    }
+//                }
+//            } else {
+//                // If argument is known, use that type rather than relying on method signature.
+//                // I.e. Parameter type might be "Ljava/lang/Object;" but actual type is "Ljava/lang/String";
+//                type = value.type
+//            }
             if (!isInitializing) {
                 // Even if immutable type, internal state can change in the initializer.
                 if (configuration.isImmutable(type)) {
-                    log.trace("r{} was passed to unresolvable method execution, but is immutable type {} so not mutating", register, type)
+                    log.trace("r{} was passed to unresolvable method execution, but is immutable type {}; not mutating.", register, type)
                     continue
                 }
             }
             value = Value.unknown(type)
-            log.debug("r{} was passed to unresolvable method execution and is mutable type {}, marking Unknown", register, type)
+            log.debug("r{} was passed to unresolvable method execution and is mutable type {}; marking unknown.", register, type)
             callerState.pokeRegister(register, value)
         }
         if (isInitializing) {
@@ -316,7 +513,7 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    fun staticallyInitializeClassIfNecessary(virtualClass: VirtualType, parent: ExecutionNode) {
+    private fun queueStaticInitializationIfNecessary(virtualClass: VirtualType, parent: ExecutionNode) : Boolean {
         /*
          * Classed should be statically initialized when:
          * 1.) The invocation of a method declared by the class (not inherited from a superclass)
@@ -325,12 +522,7 @@ class VirtualMachine2 private constructor(
          * that are both static and final, and are initialized by a compile-time constant expression.
          */
         if (parent.state.isClassInitialized(virtualClass)) {
-            return
-        }
-        if (configuration.isSafe(virtualClass)) {
-            // Safe classes will be reflected so there's no reason to init on the VM.
-            parent.state.setClassInitialized(virtualClass)
-            return
+            return false
         }
 
         // Initialize class ancestors as well
@@ -340,20 +532,20 @@ class VirtualMachine2 private constructor(
             if (Modifier.isAbstract(accessFlags) || Modifier.isInterface(accessFlags) || Modifier.isNative(accessFlags)) {
                 continue
             }
-            staticallyInitializeClassIfNecessary(ancestor, parent)
-        }
-        val method = virtualClass.getMethod("<clinit>()V")
-        if (method == null) {
-            /*
-             * Class has no static initializer but still need to set any literal fields, e.g.
-             * .field public static myInt:I = 0x4
-             */
-            initializeClassState(parent.state, virtualClass)
-            return
+            queueStaticInitializationIfNecessary(ancestor, parent)
         }
 
-        val state = ExecutionState.build(method, classManager, classLoader, configuration)
-        handleMethodExecution(method, state, arrayOf(), parent)
+        val method = virtualClass.getMethod("<clinit>()V")
+        if (method == null) {
+            // Class has no static initializer but still need to set any literal fields, e.g.
+            // .field public static myInt:I = 0x4
+            initializeClassState(parent.state, virtualClass)
+            return false
+        }
+
+        val calleeState = ExecutionState.build(method, classManager, classLoader, configuration)
+        handleMethodExecution(method, calleeState, arrayOf(), parent)
+        return true
     }
 
     private fun pushNodeToExecutionQueue(node: ExecutionNode) {
@@ -388,18 +580,18 @@ class VirtualMachine2 private constructor(
         return methodToGraph[method]!!
     }
 
-    fun spawnRootState(methodSignature: String): ExecutionState {
+    fun spawnEntrypointState(methodSignature: String): ExecutionState {
         val method = classManager.getMethod(methodSignature)
-        return spawnRootState(method)
+        return spawnEntrypointState(method)
     }
 
-    fun spawnRootState(className: String, methodDescriptor: String): ExecutionState {
+    fun spawnEntrypointState(className: String, methodDescriptor: String): ExecutionState {
         val klazz = classManager.getVirtualClass(className)
         val method = klazz.getMethod(methodDescriptor) ?: throw RuntimeException("Method signature not found: $className->$methodDescriptor")
-        return spawnRootState(method)
+        return spawnEntrypointState(method)
     }
 
-    fun spawnRootState(method: VirtualMethod): ExecutionState {
+    fun spawnEntrypointState(method: VirtualMethod): ExecutionState {
         if (!method.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
             throw IllegalArgumentException("No implementation for $method");

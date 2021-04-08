@@ -3,7 +3,6 @@ package org.cf.smalivm
 import org.apache.commons.beanutils.ConstructorUtils
 import org.apache.commons.beanutils.MethodUtils
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
@@ -21,10 +20,10 @@ class MethodReflector() {
         private val log = LoggerFactory.getLogger(MethodReflector::class.java.simpleName)
         private const val ENUM_INIT_SIGNATURE_PREFIX = "Ljava/lang/Enum;-><init>(Ljava/lang/String;"
 
-        fun reflect(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode, enumAnalyzer: EnumAnalyzer): UnresolvedChild {
+        fun reflect(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): UnresolvedChild {
             log.debug("Reflecting {} with state:\n{}", method, state)
             val returnRaw = try {
-                invoke(method, state, callerNode.classLoader, enumAnalyzer)
+                invoke(method, state, classLoader, enumAnalyzer)
             } catch (e: Exception) {
                 log.warn("Failed to reflect {}: ", method, e)
                 log.debug("Stack trace: ", e)

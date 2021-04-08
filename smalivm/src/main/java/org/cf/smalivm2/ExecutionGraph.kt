@@ -16,6 +16,7 @@ import java.util.function.Consumer
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 
+
 internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<ExecutionNode> {
     private val stack: Deque<ExecutionNode>
 
@@ -210,10 +211,25 @@ class ExecutionGraph2(
         return getNodePile(node.address).indexOf(node)
     }
 
-    private fun getNodePile(address: Int): MutableList<ExecutionNode> {
+    fun getNodePile(address: Int): MutableList<ExecutionNode> {
         val location = addressToLocation[address]
         return locationToNodePile[location]!!
     }
+
+//    fun getMutableParameterConsensus(addresses: IntArray, parameterRegister: Int): Value {
+//        val firstNode = getNodePile(addresses[0])[0]
+//        val value = firstNode.state.peekRegister(parameterRegister)!!
+//        for (address in addresses) {
+//            for (node in getNodePile(address)) {
+//                val otherValue = node.state.peekRegister(parameterRegister)!!
+//                if (value.value !== otherValue.value) {
+//                    log.trace("No consensus for r{}. Returning unknown.", parameterRegister)
+//                    return Value.unknown(value.type)
+//                }
+//            }
+//        }
+//        return value
+//    }
 
     fun getAllPossiblyInitializedClasses(addresses: IntArray): Set<VirtualType> {
         val allClasses: MutableSet<VirtualType> = HashSet()
@@ -285,8 +301,7 @@ class ExecutionGraph2(
     fun getHighestMethodSideEffectLevel(): SideEffect.Level {
         var result = SideEffect.Level.NONE
         for (node: ExecutionNode in this) {
-            val op = node.op
-            when (val level = op.sideEffectLevel) {
+            when (val level = node.sideEffectLevel) {
                 SideEffect.Level.STRONG -> return level
                 SideEffect.Level.WEAK -> result = level
                 SideEffect.Level.NONE -> {
@@ -352,12 +367,13 @@ class ExecutionGraph2(
         for (address in addresses) {
             values.addAll(getRegisterItems(address, register))
         }
+        // Values are equal if they have the same type and value
         if (values.size == 1 && values.first() != null) {
             return values.first()!!
         }
 
-        // Determine correct type for UnknownValue
-        log.trace("No consensus value for register {}; returning UnknownValue", register)
+        // Determine consensus type
+        log.trace("No consensus value for r{} @{}; returning unknown.", register, addresses)
         val types: MutableSet<String> = HashSet(values.size)
         for (item in values) {
             if (item == null) {
@@ -376,7 +392,7 @@ class ExecutionGraph2(
             if (type == CommonTypes.UNKNOWN) {
                 if (register == ExecutionState.RETURN_REGISTER) {
                     log.warn(
-                        "Strange: No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
+                        "No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
                         method.signature,
                         addresses,
                         register,

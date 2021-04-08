@@ -26,7 +26,8 @@ class IPutOp internal constructor(
         val value = node.state.readRegister(valueRegister)
         val instance = node.state.readRegister(instanceRegister)
         node.state.assignRegister(instanceRegister, instance)
-        return finish(sideEffectLevel = SideEffect.Level.WEAK)
+        node.sideEffectLevel = SideEffect.Level.WEAK
+        return finish()
     }
 
     override fun toString() = "$name r$valueRegister, r$instanceRegister, $fieldDescriptor"

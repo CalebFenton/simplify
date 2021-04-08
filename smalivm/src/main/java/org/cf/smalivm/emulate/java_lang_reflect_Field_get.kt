@@ -8,14 +8,15 @@ import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 
 internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode, vm: VirtualMachine2): UnresolvedChild {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
         val value = state.peekParameter(0)!!
         val instance = state.peekParameter(1)!!
         val field = value.value as Field
         val accessFlags = field.modifiers
         val fieldClassName: String = ClassNameUtils.toInternal(field.declaringClass)
         if (!field.isAccessible) {
-            val callingClass = callerNode.method.definingClass
+            // TODO: Caller node *may* be null if user executes as top level method. Handle more gracefully.
+            val callingClass = callerNode!!.method.definingClass
             val fieldClass = callerNode.classManager.getVirtualClass(fieldClassName)
             val accessException = checkForAccessException(callingClass, fieldClass, accessFlags)
             if (accessException != null) {
@@ -23,7 +24,7 @@ internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
             }
         }
 
-        val getValue = if (callerNode.configuration.isSafe(fieldClassName)) {
+        val getValue = if (callerNode!!.configuration.isSafe(fieldClassName)) {
             try {
                 val getObject = field[instance]
                 val type: String = ClassNameUtils.toInternal(field.type)

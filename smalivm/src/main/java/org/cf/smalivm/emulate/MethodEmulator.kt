@@ -57,11 +57,11 @@ class MethodEmulator {
             }
         }
 
-        fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode, vm: VirtualMachine2): UnresolvedChild {
+        fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
             return emulate(method.signature, state, callerNode, vm)
         }
 
-        fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode, vm: VirtualMachine2): UnresolvedChild {
+        fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
             val emulatedMethodCall = getMethod(methodSignature)
             return try {
                 emulatedMethodCall.execute(state, callerNode, vm)

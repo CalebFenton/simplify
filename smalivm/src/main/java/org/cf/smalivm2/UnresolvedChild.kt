@@ -1,48 +1,41 @@
 package org.cf.smalivm2
 
-import org.cf.smalivm.SideEffect
 import org.cf.smalivm.type.VirtualMethod
 
-abstract class UnresolvedChild(val sideEffectLevel: SideEffect.Level) {
+abstract class UnresolvedChild() {
     companion object {
         fun build(
             method: VirtualMethod,
-            state: ExecutionState?,
-            analyzedParameterTypes: Array<String>?,
-            sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE
-        ) = UnresolvedMethodInvocationChild(method, state, analyzedParameterTypes, sideEffectLevel)
+            state: ExecutionState,
+            analyzedParameterTypes: Array<String>,
+        ) = UnresolvedMethodInvocationChild(method, state, analyzedParameterTypes)
 
-        fun build(address: Int, sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE) =
-            UnresolvedAddressChild(address, sideEffectLevel)
+        fun build(address: Int) =
+            UnresolvedAddressChild(address)
 
-        fun build(exceptionClass: Class<out Throwable>, message: String? = null, sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE) =
-            UnresolvedExceptionChild(exceptionClass, message, sideEffectLevel)
+        fun build(exceptionClass: Class<out Throwable>, message: String? = null) =
+            UnresolvedExceptionChild(exceptionClass, message)
 
-        fun build(exception: Throwable, sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE) =
-            UnresolvedExceptionChild(exception.javaClass, exception.message, sideEffectLevel)
+        fun build(exception: Throwable) =
+            UnresolvedExceptionChild(exception.javaClass, exception.message)
 
-        fun build(sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE) = UnresolvedNopChild(sideEffectLevel)
+        fun build() = UnresolvedNopChild()
     }
 }
 
 class UnresolvedMethodInvocationChild(
     val method: VirtualMethod,
-    val state: ExecutionState?,
-    val analyzedParameterTypes: Array<String>?,
-    sideEffectLevel: SideEffect.Level
-) : UnresolvedChild(sideEffectLevel)
+    val state: ExecutionState,
+    val analyzedParameterTypes: Array<String>
+) : UnresolvedChild()
 
 class UnresolvedExceptionChild(
     val exceptionClass: Class<out Throwable>,
-    val message: String?,
-    sideEffectLevel: SideEffect.Level
-) : UnresolvedChild(sideEffectLevel)
+    val message: String?
+) : UnresolvedChild()
 
 class UnresolvedAddressChild(
-    val address: Int,
-    sideEffectLevel: SideEffect.Level
-) : UnresolvedChild(sideEffectLevel)
+    val address: Int
+) : UnresolvedChild()
 
-class UnresolvedNopChild(
-    sideEffectLevel: SideEffect.Level
-) : UnresolvedChild(sideEffectLevel)
+class UnresolvedNopChild : UnresolvedChild()

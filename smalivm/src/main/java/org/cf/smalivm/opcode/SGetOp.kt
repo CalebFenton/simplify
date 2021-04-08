@@ -5,6 +5,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c
@@ -22,8 +23,7 @@ class SGetOp internal constructor(
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         return if (!node.state.isClassInitialized(field.definingClass)) {
-            val clinit = field.definingClass.getMethod("<clinit>()V")!!
-            callMethod(clinit)
+            staticInitClass(field.definingClass, node.classManager, node.classLoader, node.configuration)
         } else {
             resume(node)
         }
