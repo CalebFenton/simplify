@@ -1,7 +1,6 @@
 package org.cf.smalivm.emulate
 
 import org.cf.smalivm.dex.CommonTypes
-import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
@@ -10,7 +9,7 @@ import org.cf.util.ClassNameUtils
 import org.slf4j.LoggerFactory
 
 internal class java_lang_Class_forName : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
         val binaryClassName = state.peekParameter(0)!!.value as String?
         val className = ClassNameUtils.binaryToInternal(binaryClassName)
         val value: Class<*>
@@ -26,21 +25,18 @@ internal class java_lang_Class_forName : EmulatedMethodCall() {
                  * is loaded and only the local values are used.
                  * Note: this is done *after* trying to load the class in case there's an exception
                  */
-                val virtualClass: VirtualClass
-                virtualClass = try {
+                val virtualClass = try {
                     vm.classManager.getVirtualClass(className)
                 } catch (e: RuntimeException) {
-                    throw ClassNotFoundException()
+                    return throwException(ClassNotFoundException::class.java, binaryClassName)
                 }
                 if (!state.isClassInitialized(virtualClass)) {
-                    // TODO: Emulated methods should be able to influence what the VM executes next!
-                    // TODO: this isn't finished! may need to modify directly
-                    staticInitClass(virtualClass, vm.classManager, vm.classLoader, vm.configuration)
+                    return staticInitClass(virtualClass, vm.classManager, vm.classLoader, vm.configuration)
                 }
             }
             state.assignReturnRegister(value, RETURN_TYPE)
         } catch (e: ClassNotFoundException) {
-            throwException(ClassNotFoundException::class.java, binaryClassName)
+            return throwException(ClassNotFoundException::class.java, binaryClassName)
         }
         return finish()
     }

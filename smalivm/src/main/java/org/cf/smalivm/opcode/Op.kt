@@ -1,21 +1,15 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.dex.SmaliClassLoader
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm.type.VirtualType
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
+import org.cf.smalivm2.UnresolvedChildProducer
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
-import java.util.*
 
 abstract class Op internal constructor(
     val location: MethodLocation,
-    exceptions: Array<Pair<Class<out Throwable>, String?>> = arrayOf(),
-) {
+    defaultExceptions: Array<Pair<Class<out Throwable>, String?>> = arrayOf(),
+) : UnresolvedChildProducer(defaultExceptions) {
     constructor(
         location: MethodLocation,
         vararg defaultExceptions: Class<out Throwable> = arrayOf()
@@ -24,7 +18,6 @@ abstract class Op internal constructor(
     abstract val registersReadCount: Int
     abstract val registersAssignedCount: Int
 
-    val exceptions = exceptions.map { UnresolvedChild.build(it.first, it.second) }
     val address: Int
         get() = location.codeAddress
     val index: Int
@@ -41,54 +34,8 @@ abstract class Op internal constructor(
     abstract fun execute(node: ExecutionNode): Array<out UnresolvedChild>
 
     open fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
-        var s: Stack<ExecutionNode>
         return finish()
     }
 
     abstract override fun toString(): String
-
-    fun throwException(t: Throwable): Array<out UnresolvedChild> {
-        return throwException(t.javaClass, t.message)
-    }
-
-    fun throwException(klazz: Class<out Throwable>, message: String? = null): Array<out UnresolvedChild> {
-        return arrayOf(UnresolvedChild.build(klazz, message))
-    }
-
-    fun staticInitClass(
-        virtualClass: VirtualType,
-        classManager: ClassManager,
-        classLoader: SmaliClassLoader,
-        configuration: Configuration
-    ): Array<out UnresolvedChild> {
-        // TODO: Don't some classes not have clinit? May need to just set field literals here or allow null methods OR have UnresolvedStaticInit
-        val staticInit = virtualClass.getMethod("<clinit>()V")!!
-        val state = ExecutionState.build(staticInit, classManager, classLoader, configuration)
-        return callMethod(staticInit, state, arrayOf())
-    }
-
-    fun callMethod(methodCall: VirtualMethod, state: ExecutionState, analyzedParameterTypes: Array<String>): Array<out UnresolvedChild> {
-        return arrayOf(UnresolvedChild.build(methodCall, state, analyzedParameterTypes))
-    }
-
-    fun finish(mayThrow: Boolean = false): Array<out UnresolvedChild> {
-        val children: MutableList<UnresolvedChild> = LinkedList()
-        val opcode = location.instruction!!.opcode
-        if (opcode.canContinue() && this !is SwitchOp) {
-            val child = UnresolvedChild.build(nextAddress)
-            children.add(child)
-        }
-        if (mayThrow) {
-            children.addAll(exceptions)
-        }
-        return children.toTypedArray()
-    }
-
-    fun finish(addresses: Array<Int>): Array<out UnresolvedChild> {
-        return addresses.map { UnresolvedChild.build(it) }.toTypedArray()
-    }
-
-    fun finish(address: Int): Array<out UnresolvedChild> {
-        return arrayOf(UnresolvedChild.build(address))
-    }
 }

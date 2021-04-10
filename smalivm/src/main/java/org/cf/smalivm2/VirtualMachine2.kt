@@ -25,7 +25,7 @@ import org.cf.smalivm.type.VirtualMethod
 
 
 
-data class ExecutionQueueEntry(val graph: ExecutionGraph2, val nodes: LinkedList<ExecutionNode>)
+data class ExecutionQueueEntry(val graph: ExecutionGraph2, val nodes: LinkedList<ExecutionNode>, val addressToVisitCount: MutableMap<Int, Long> = HashMap())
 
 class VirtualMachine2 private constructor(
     val maxAddressVisits: Int = 500,
@@ -40,6 +40,8 @@ class VirtualMachine2 private constructor(
     val configuration = Configuration.instance()
     val enumAnalyzer = EnumAnalyzer(this)
     var interactive = false
+    var executionStart: Long = 0
+    var methodToVisitCount: MutableMap<VirtualMethod, Long> = HashMap()
 
     private val executionQueue: Deque<ExecutionQueueEntry> = LinkedList()
     private val resumeNodes: MutableSet<ExecutionNode> = HashSet()
@@ -104,6 +106,9 @@ class VirtualMachine2 private constructor(
     }
 
     fun execute(method: VirtualMethod, state: ExecutionState? = null, parent: ExecutionNode? = null): ExecutionGraph2 {
+        methodToVisitCount.clear()
+        executionStart = System.currentTimeMillis()
+
         val graph = getExecutionGraph(method)
         val entrypointState = state ?: spawnEntrypointState(method)
         val entrypointNode = graph.spawnEntrypointNode(parent, entrypointState)
@@ -112,7 +117,15 @@ class VirtualMachine2 private constructor(
 
         executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
 
-        while (!this.interactive && executionQueue.isNotEmpty()) {
+        val endExecutionTime = executionStart + (maxExecutionTime * 1000)
+        while (!interactive && executionQueue.isNotEmpty()) {
+            if (endExecutionTime < System.currentTimeMillis()) {
+                val entry = executionQueue.peek()
+                val current = entry.nodes.poll()
+                log.warn("Exceeded execution time in ${current.method}")
+                break
+            }
+
             step()
         }
 
@@ -123,18 +136,59 @@ class VirtualMachine2 private constructor(
         val entry = executionQueue.peek()
         val current = entry.nodes.poll()
 
+        // TODO: don't throw an exception! clear this method from the queue, mark the graph as incomplete / aborted early
+        // if a graph has been aborted early, assume maximum unknown
+        // graphs may throw exceptions in some paths, so also consider tracking that at the graph level (graph.setException(node, unresolved child))
+        // ONLY if the exception isn't handled within the method -- if it's handled within the method go there
+        // if no handler can be found, bubble it up to the caller and see if the caller can handle it
+        // if there IS no caller, abort with a warning and mark graph as incomplete
+        // also collapsing graphs should move return values to result register if there's consensus
+        // TODO: optimization - consider blacklisting method + arguments that execute too long, record as stat
+        if (!interactive) {
+            if (maxAddressVisits > 0) {
+                val addressToVisitCount = entry.addressToVisitCount
+                val address = current.op.address
+                val newAddressVisitCount = (addressToVisitCount[address] ?: 0) + 1
+                if (newAddressVisitCount > maxAddressVisits) {
+                    log.warn("Exceeded maximum address visits in ${current.method} @$address")
+                    finishStep(entry, current, abortMethod = true)
+                    return
+                }
+                addressToVisitCount[address] = newAddressVisitCount
+            }
+
+            if (maxMethodVisits > 0) {
+                val newMethodVisitCount = (methodToVisitCount[current.method] ?: 0) + 1
+                if (newMethodVisitCount > maxMethodVisits) {
+                    log.warn("Exceeded maximum method visits for ${current.method} @${current.op.address}")
+                    finishStep(entry, current, abortMethod = true)
+                    return
+                }
+                methodToVisitCount[current.method] = newMethodVisitCount
+            }
+        }
+
         if (current.isEntrypoint) {
+            if (!interactive) {
+                if (maxCallDepth > 0 && current.callDepth > maxCallDepth) {
+                    log.warn("Exceeded maximum call depth at ${current.method} @${current.op.address}")
+                    finishStep(entry, current, abortMethod = true)
+                    return
+                }
+            }
+
             if (current.method.descriptor == "<clinit>()V") {
                 if (configuration.isSafe(current.method.definingClass)) {
                     // Safe classes are reflected so there's no reason to init on the VM.
                     current.state.setClassInitialized(current.method.definingClass)
-                    finishStep(entry, current, false)
+                    finishStep(entry, current, collapseMultiverse = false)
                     return
                 }
             }
             else {
                 val initializationQueued = queueStaticInitializationIfNecessary(current.method.definingClass, current)
                 if (initializationQueued) {
+                    // Need to initialize classes before executing this. Pretend it never happened.
                     entry.nodes.add(current)
                     return
                 }
@@ -144,7 +198,7 @@ class VirtualMachine2 private constructor(
                 if (isSafe || canEmulate) {
                     val allArgumentsKnown = current.state.allArgumentsKnown()
                     // TODO: how to deal with these childen?
-                    val child: UnresolvedChild? = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
+                    val unresolvedChildren = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
                         MethodEmulator.emulate(current.method, current.state, current.parent, this)
                     } else if (isSafe && allArgumentsKnown) {
                         MethodReflector.reflect(current.method, current.state, current.classLoader, enumAnalyzer)
@@ -152,8 +206,8 @@ class VirtualMachine2 private constructor(
                         log.trace("Not emulating / reflecting {}; all arguments are not known. Assuming maximum unknown.", current.method)
                         //callerState: ExecutionState, calleeState: ExecutionState, method: VirtualMethod, analyzedParameterTypes: Array<String>
 //                        assumeMaximumUnknown(parent.state, calleeState, method, analyzedParameterTypes)
-                        finishStep(entry, current, assumeMaximumUnknown = true)
-                        null
+                        finishStep(entry, current, abortMethod = true)
+                        return
                     }
                 }
             }
@@ -167,6 +221,18 @@ class VirtualMachine2 private constructor(
             current.execute()
         }
 
+        val opcode = location.instruction!!.opcode
+        if (opcode.canContinue() && this !is SwitchOp) {
+            val child = UnresolvedChild.build(nextAddress)
+            children.add(child)
+        }
+
+        // TODO: if it's a method invocation and it's a static init, then put current node back in nodes and return
+        // Do we even need resumes???
+        // ContinueOp can calculate the next location
+        // invoke-op doesn't need a resume either, vm can just setup result register and collapse multiverse
+        // invoke op should continue after everything is finished executing assuming there are no exceptions
+        // can check caller and if caller is an invoke op and you're not calling a static init, you should know to add a resume
         for (unresolvedChild in unresolvedChildren) {
             when (unresolvedChild) {
                 is UnresolvedMethodInvocationChild -> {
@@ -200,16 +266,19 @@ class VirtualMachine2 private constructor(
         finishStep(entry, current)
     }
 
-    private fun finishStep(entry: ExecutionQueueEntry, current: ExecutionNode, collapseMultiverse: Boolean = true, assumeMaximumUnknown: Boolean = false) {
+    private fun finishStep(entry: ExecutionQueueEntry, current: ExecutionNode, collapseMultiverse: Boolean = true, abortMethod: Boolean = false) {
+        if (abortMethod) {
+            entry.nodes.clear()
+        }
         if (entry.nodes.isEmpty()) {
             executionQueue.remove(entry)
             val caller = current.caller
             if (caller != null) {
-                val callerEntry = executionQueue.first { it.first.hasNode(caller) }
+                val callerEntry = executionQueue.first { it.graph.hasNode(caller) }
                 if (current.method.descriptor != "<clinit>()V") {
                     callerEntry.nodes.add(caller)
                 }
-                if (assumeMaximumUnknown) {
+                if (abortMethod) {
                     assumeMaximumUnknown(caller.state, current.state, current.method)
                 } else {
                     if (collapseMultiverse) {
@@ -373,7 +442,6 @@ class VirtualMachine2 private constructor(
         // classManager has all local classes. would be nice to keep track of all initialized classes
         // for each method execution, and use that to iterate instead
         val terminatingContexts = graph.getTerminatingStates()
-        hasOneInitialization@
         for (virtualClass in classManager.loadedClasses) {
             val isInitializedInCaller = callerState.isClassInitialized(virtualClass)
             if (!isInitializedInCaller) {

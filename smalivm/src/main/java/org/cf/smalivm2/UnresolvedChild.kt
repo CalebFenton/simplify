@@ -19,7 +19,7 @@ abstract class UnresolvedChild() {
         fun build(exception: Throwable) =
             UnresolvedExceptionChild(exception.javaClass, exception.message)
 
-        fun build() = UnresolvedNopChild()
+        fun build() = UnresolvedContinueChild()
     }
 }
 
@@ -38,4 +38,4 @@ class UnresolvedAddressChild(
     val address: Int
 ) : UnresolvedChild()
 
-class UnresolvedNopChild : UnresolvedChild()
+class UnresolvedContinueChild : UnresolvedChild()

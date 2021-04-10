@@ -5,6 +5,7 @@ import org.apache.commons.beanutils.MethodUtils
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
+import org.cf.smalivm2.UnresolvedChildProducer
 import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.EnumAnalyzer
@@ -19,15 +20,16 @@ class MethodReflector() {
     companion object {
         private val log = LoggerFactory.getLogger(MethodReflector::class.java.simpleName)
         private const val ENUM_INIT_SIGNATURE_PREFIX = "Ljava/lang/Enum;-><init>(Ljava/lang/String;"
+        private val childProducer = UnresolvedChildProducer()
 
-        fun reflect(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): UnresolvedChild {
+        fun reflect(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): Array<out UnresolvedChild> {
             log.debug("Reflecting {} with state:\n{}", method, state)
             val returnRaw = try {
                 invoke(method, state, classLoader, enumAnalyzer)
             } catch (e: Exception) {
                 log.warn("Failed to reflect {}: ", method, e)
                 log.debug("Stack trace: ", e)
-                return UnresolvedChild.build(e)
+                return childProducer.throwException(e)
             }
 
             if (!method.returnsVoid()) {
@@ -41,7 +43,7 @@ class MethodReflector() {
                 state.assignReturnRegister(returnValue)
             }
 
-            return UnresolvedChild.build()
+            return childProducer.finish()
         }
 
 

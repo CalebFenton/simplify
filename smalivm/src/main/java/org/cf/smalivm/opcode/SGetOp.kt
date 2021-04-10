@@ -25,14 +25,10 @@ class SGetOp internal constructor(
         return if (!node.state.isClassInitialized(field.definingClass)) {
             staticInitClass(field.definingClass, node.classManager, node.classLoader, node.configuration)
         } else {
-            resume(node)
+            val item = node.state.peekField(field)
+            node.state.assignRegister(destRegister, item)
+            finish()
         }
-    }
-
-    override fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
-        val item = node.state.peekField(field)
-        node.state.assignRegister(destRegister, item)
-        return finish()
     }
 
     override fun toString() = "$name r$destRegister, $field"

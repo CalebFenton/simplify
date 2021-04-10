@@ -8,7 +8,7 @@ import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 
 internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
         val value = state.peekParameter(0)!!
         val instance = state.peekParameter(1)!!
         val field = value.value as Field

@@ -315,57 +315,57 @@ class InvokeOp internal constructor(
         return finish()
     }
 
-    private fun executeNonLocalMethod(
-        methodDescriptor: String,
-        callerMethodState: MethodState,
-        calleeContext: ExecutionContext,
-        node: ExecutionNode
-    ) {
-        if (MethodEmulator.canEmulate(methodDescriptor)) {
-            val emulator = MethodEmulator(vm, calleeContext, methodDescriptor)
-            emulator.emulate(this)
-            sideEffectLevel = emulator.sideEffectLevel
-            if (emulator.exceptions.size > 0) {
-                node.clearChildren()
-                node.setExceptions(emulator.exceptions)
-                return
-            }
-        } else if (vm.configuration.isSafe(methodDescriptor)) {
-            val reflector = MethodReflector(vm, method)
-            try {
-                reflector.reflect(calleeContext.methodState) // playa play
-            } catch (e: Exception) {
-                node.addException(e)
-                node.clearChildren()
-                return
-            }
-
-            // Only safe, non-side-effect methods are allowed to be reflected.
-            sideEffectLevel = SideEffect.Level.NONE
-        }
-        if (!method.isStatic) {
-            // This is virtual and the instance parse may have been initialized or mutated.
-            val originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0])
-            val newInstanceItem = calleeContext.methodState.peekParameter(0)
-            if (originalInstanceItem!!.value !== newInstanceItem.value) {
-                // Instance has been initialized, i.e. was UninitializedInstance
-                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
-                // UninitializedInstance, and those need to be updated with the new instance.
-                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem)
-            } else {
-                val isMutable = !vm.configuration.isImmutable(newInstanceItem.type)
-                if (isMutable) {
-                    // The instance class is mutable so could have changed. Record that it was changed for the
-                    // optimizer.
-                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem)
-                }
-            }
-        }
-        if (!method.returnsVoid()) {
-            val returnItem = calleeContext.methodState.readReturnRegister()
-            callerMethodState.assignResultRegister(returnItem)
-        }
-    }
+//    private fun executeNonLocalMethod(
+//        methodDescriptor: String,
+//        callerMethodState: MethodState,
+//        calleeContext: ExecutionContext,
+//        node: ExecutionNode
+//    ) {
+//        if (MethodEmulator.canEmulate(methodDescriptor)) {
+//            val emulator = MethodEmulator(vm, calleeContext, methodDescriptor)
+//            emulator.emulate(this)
+//            sideEffectLevel = emulator.sideEffectLevel
+//            if (emulator.exceptions.size > 0) {
+//                node.clearChildren()
+//                node.setExceptions(emulator.exceptions)
+//                return
+//            }
+//        } else if (vm.configuration.isSafe(methodDescriptor)) {
+//            val reflector = MethodReflector(vm, method)
+//            try {
+//                reflector.reflect(calleeContext.methodState) // playa play
+//            } catch (e: Exception) {
+//                node.addException(e)
+//                node.clearChildren()
+//                return
+//            }
+//
+//            // Only safe, non-side-effect methods are allowed to be reflected.
+//            sideEffectLevel = SideEffect.Level.NONE
+//        }
+//        if (!method.isStatic) {
+//            // This is virtual and the instance parse may have been initialized or mutated.
+//            val originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0])
+//            val newInstanceItem = calleeContext.methodState.peekParameter(0)
+//            if (originalInstanceItem!!.value !== newInstanceItem.value) {
+//                // Instance has been initialized, i.e. was UninitializedInstance
+//                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
+//                // UninitializedInstance, and those need to be updated with the new instance.
+//                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem)
+//            } else {
+//                val isMutable = !vm.configuration.isImmutable(newInstanceItem.type)
+//                if (isMutable) {
+//                    // The instance class is mutable so could have changed. Record that it was changed for the
+//                    // optimizer.
+//                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem)
+//                }
+//            }
+//        }
+//        if (!method.returnsVoid()) {
+//            val returnItem = calleeContext.methodState.readReturnRegister()
+//            callerMethodState.assignResultRegister(returnItem)
+//        }
+//    }
 
     private fun resolveTargetMethod(virtualReference: Any?, classManager: ClassManager): VirtualMethod {
         /*

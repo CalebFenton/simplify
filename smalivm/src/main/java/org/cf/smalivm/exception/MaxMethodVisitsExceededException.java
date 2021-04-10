@@ -1,17 +1,10 @@
 package org.cf.smalivm.exception;
 
-import org.cf.smalivm.context.ExecutionNode;
-
 public class MaxMethodVisitsExceededException extends VirtualMachineException {
 
     private static final long serialVersionUID = 2782400703961403297L;
 
-    public MaxMethodVisitsExceededException(ExecutionNode node, String methodDescriptor) {
-        this("Exceeded max method visits @" + node.getAddress() + " " + node + " in " + methodDescriptor);
+    public MaxMethodVisitsExceededException(String methodSignature, int address) {
+        super("Exceeded max method visits in " + methodSignature + " @" + address);
     }
-
-    private MaxMethodVisitsExceededException(String message) {
-        super(message);
-    }
-
 }

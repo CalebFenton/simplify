@@ -5,7 +5,9 @@ import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.VirtualMachine2
+import org.jf.dexlib2.builder.MethodLocation
 import org.slf4j.LoggerFactory
+
 
 class MethodEmulator {
     companion object {
@@ -57,11 +59,11 @@ class MethodEmulator {
             }
         }
 
-        fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
+        fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
             return emulate(method.signature, state, callerNode, vm)
         }
 
-        fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): UnresolvedChild {
+        fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
             val emulatedMethodCall = getMethod(methodSignature)
             return try {
                 emulatedMethodCall.execute(state, callerNode, vm)
