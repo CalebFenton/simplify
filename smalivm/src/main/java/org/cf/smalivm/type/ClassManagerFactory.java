@@ -14,17 +14,14 @@ public class ClassManagerFactory {
 
     private static File disassemble(File file) throws IOException {
         Path tempDir = Files.createTempDirectory(TEMP_DIR_NAME);
-        String[] args = new String[]{
-            "disassemble", "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(), "--output", tempDir.toString(),
-        };
+        String[] args = new String[]{"disassemble", "--use-locals", "--sequential-labels", "--code-offsets", file.getAbsolutePath(), "--output", tempDir.toString(),};
         org.jf.baksmali.Main.main(args);
 
         return tempDir.toFile();
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain parse library
-     * classes.
+     * Create a ClassManager with no input Smali classes. It will only contain parse library classes.
      */
     public ClassManager build() throws IOException {
         DexBuilder dexBuilder = new DexBuilder(Opcodes.getDefault());
@@ -33,8 +30,7 @@ public class ClassManagerFactory {
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain parse library
-     * classes.
+     * Create a ClassManager with no input Smali classes. It will only contain parse library classes.
      */
     public ClassManager build(int outputAPILevel) throws IOException {
         DexBuilder dexBuilder = new DexBuilder(Opcodes.forApi(outputAPILevel));
@@ -43,11 +39,10 @@ public class ClassManagerFactory {
     }
 
     /**
-     * Create a ClassManager with no input Smali classes. It will only contain input library
-     * classes.
+     * Create a ClassManager with no input Smali classes. It will only contain input library classes.
      */
-    public ClassManager build(DexBuilder dexBuilder)  {
-        return new ClassManagerImpl(dexBuilder);
+    public ClassManager build(DexBuilder dexBuilder) {
+        return new ClassManager2(null, dexBuilder);
     }
 
     public ClassManager build(File inFile, DexBuilder dexBuilder) throws IOException {
@@ -61,7 +56,7 @@ public class ClassManagerFactory {
             smaliPath = inFile;
         }
 
-        return new ClassManagerImpl(dexBuilder, smaliPath);
+        return new ClassManager2(smaliPath, dexBuilder);
     }
 
     /**

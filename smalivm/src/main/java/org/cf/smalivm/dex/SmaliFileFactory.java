@@ -1,13 +1,11 @@
 package org.cf.smalivm.dex;
 
 import org.cf.smalivm.configuration.Configuration;
-import org.cf.smalivm.configuration.ConfigurationLoader;
 import org.cf.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -39,8 +37,8 @@ public class SmaliFileFactory {
     private static Map<String, SmaliFile> parseFramework() {
         Map<String, SmaliFile> frameworkFiles = new HashMap<>();
         // framework_classes.cfg is built by FrameworkCacheBuilder
-        List<String> frameworkClassesCfg = ConfigurationLoader.load(Configuration.FRAMEWORK_CLASSES_PATH);
-        Set<String> safeFrameworkClasses = new HashSet<>(ConfigurationLoader.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH));
+        List<String> frameworkClassesCfg = Configuration.load(Configuration.FRAMEWORK_CLASSES_PATH);
+        Set<String> safeFrameworkClasses = new HashSet<>(Configuration.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH));
         for (String line : frameworkClassesCfg) {
             String[] parts = line.split(":");
             String className = parts[0];

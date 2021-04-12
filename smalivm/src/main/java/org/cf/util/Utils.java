@@ -5,7 +5,6 @@ import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.dex.CommonTypes;
 import org.jf.dexlib2.builder.BuilderInstruction;
 import org.jf.dexlib2.builder.MethodLocation;
@@ -19,11 +18,9 @@ import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 import java.nio.file.PathMatcher;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -188,8 +185,7 @@ public class Utils {
     }
 
     /**
-     * Determine parameter types by parsing the method descriptor.
-     * Note: For local methods, there's ClassManager#getParameterTypes.
+     * Determine parameter types by parsing the method descriptor. Note: For local methods, there's ClassManager#getParameterTypes.
      *
      * @return list of parameter types in internal form
      */
@@ -228,17 +224,17 @@ public class Utils {
         return CommonTypes.LONG.equals(typeName) || CommonTypes.DOUBLE.equals(typeName) ? 2 : 1;
     }
 
-    public static Set<String> getDeclaredAndValueTypeNames(HeapItem item) {
-        Set<String> types = new HashSet<>(3);
-        types.add(item.getType());
-
-        Object value = item.getValue();
-        if (!item.isUnknown() && value != null) {
-            types.add(ClassNameUtils.toInternal(value.getClass()));
-        }
-
-        return types;
-    }
+    //    public static Set<String> getDeclaredAndValueTypeNames(HeapItem item) {
+    //        Set<String> types = new HashSet<>(3);
+    //        types.add(item.getType());
+    //
+    //        Object value = item.getValue();
+    //        if (!item.isUnknown() && value != null) {
+    //            types.add(ClassNameUtils.toInternal(value.getClass()));
+    //        }
+    //
+    //        return types;
+    //    }
 
     public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
         if (shift == 0) {

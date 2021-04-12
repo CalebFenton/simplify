@@ -17,7 +17,6 @@ dependencies {
 
     implementation depends.guava
     implementation depends.commons_cli
-    implementation depends.trove4j
     implementation depends.slf4j_api
     implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'

@@ -1,6 +1,5 @@
 package org.cf.smalivm.type;
 
-import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.iface.reference.TypeReference;
 
 import java.util.Collection;

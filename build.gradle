@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlin_version = '1.4.10'
+    ext.kotlin_version = '1.4.32'
     repositories {
         mavenCentral()
         jcenter()
@@ -31,19 +31,17 @@ subprojects {
 
     ext {
         depends = [
-                commons_lang   : 'org.apache.commons:commons-lang3:3.10',
+                commons_lang   : 'org.apache.commons:commons-lang3:3.12.0',
                 commons_cli    : 'commons-cli:commons-cli:1.4',
-                findbugs       : 'com.google.code.findbugs:jsr305:3.0.1',
-                guava          : 'com.google.guava:guava:28.2-jre',
-                junit_compile  : 'org.junit.jupiter:junit-jupiter-api:5.7.0',
-                junit_engine   : 'org.junit.jupiter:junit-jupiter-engine:5.7.0',
-                junit_runner   : 'org.junit.platform:junit-platform-runner:1.7.0',
-                mockito        : 'org.mockito:mockito-junit-jupiter:3.6.0',
+                guava          : 'com.google.guava:guava:30.1.1-jre',
+                junit_compile  : 'org.junit.jupiter:junit-jupiter-api:5.7.1',
+                junit_engine   : 'org.junit.jupiter:junit-jupiter-engine:5.7.1',
+                junit_runner   : 'org.junit.platform:junit-platform-runner:1.7.1',
+                mockito        : 'org.mockito:mockito-junit-jupiter:3.9.0',
                 perfidix       : 'org.perfidix:perfidix:3.6.9',
                 proguard_gradle: 'net.sf.proguard:proguard-gradle:6.2.2',
                 slf4j_api      : 'org.slf4j:slf4j-api:1.7.30',
                 slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.30',
-                trove4j        : 'net.sf.trove4j:trove4j:3.0.3',
         ]
     }
 
@@ -52,7 +50,7 @@ subprojects {
         apply plugin: 'application'
     } else if (project.name == 'smalivm') {
         apply plugin: 'java-library'
-        version = '1.3.0'
+        version = '2.0.0'
     } else {
         apply plugin: 'org.jetbrains.kotlin.jvm'
         apply plugin: 'application'

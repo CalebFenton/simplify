@@ -14,15 +14,14 @@ plugins {
 }
 
 dependencies {
-    api group: 'org.smali', name: 'dexlib2', version: '2.4.0'
-    api group: 'org.smali', name: 'smali', version: '2.4.0'
-    api group: 'org.smali', name: 'baksmali', version: '2.4.0'
+    api group: 'org.smali', name: 'dexlib2', version: '2.5.2'
+    api group: 'org.smali', name: 'smali', version: '2.5.2'
+    api group: 'org.smali', name: 'baksmali', version: '2.5.2'
     implementation group: 'org.agrona', name: 'agrona', version: '1.9.0'
     implementation group: 'io.github.kostaskougios', name: 'cloning', version: '1.10.3'
     implementation group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
     implementation depends.commons_lang
     implementation depends.guava
-    implementation depends.trove4j
     implementation depends.slf4j_api
     implementation group: 'org.ow2.asm', name: 'asm', version: '8.0.1'
 

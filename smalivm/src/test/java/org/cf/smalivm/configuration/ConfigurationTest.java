@@ -50,7 +50,7 @@ public class ConfigurationTest {
 
     @Test
     public void immutableClassesCanBeLoaded() throws IOException, ClassNotFoundException {
-        List<String> lines = ConfigurationLoader.load(Configuration.IMMUTABLE_CLASSES_PATH);
+        List<String> lines = Configuration.load(Configuration.IMMUTABLE_CLASSES_PATH);
         // Ignore primitives and inner classes
         List<String> classNames = lines.stream().filter(l -> l.startsWith("L") && !l.contains("$")).collect(Collectors.toList());
         ensureClassesExist(classNames, Configuration.IMMUTABLE_CLASSES_PATH, SmaliClassLoader.FRAMEWORK_STUBS_JAR);
@@ -58,19 +58,19 @@ public class ConfigurationTest {
 
     @Test
     public void safeFrameworkClassesExist() throws IOException, ClassNotFoundException {
-        List<String> lines = ConfigurationLoader.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH);
+        List<String> lines = Configuration.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH);
         ensureClassesExist(lines, Configuration.SAFE_FRAMEWORK_CLASSES_PATH, SmaliClassLoader.FRAMEWORK_STUBS_JAR);
     }
 
     @Test
     public void frameworkClassesExist() throws IOException, ClassNotFoundException {
-        List<String> lines = ConfigurationLoader.load(Configuration.FRAMEWORK_CLASSES_PATH);
+        List<String> lines = Configuration.load(Configuration.FRAMEWORK_CLASSES_PATH);
         List<String> configClasses = lines.stream().map(l -> l.substring(0, l.indexOf(':'))).collect(Collectors.toList());
         ensureClassesExist(configClasses, Configuration.FRAMEWORK_CLASSES_PATH, SmaliClassLoader.FRAMEWORK_STUBS_JAR);
     }
 
     private void ensureClassesExist(String configResPath) throws ClassNotFoundException {
-        List<String> classNames = ConfigurationLoader.load(configResPath);
+        List<String> classNames = Configuration.load(configResPath);
         for (String className : classNames) {
             String sourceName = ClassNameUtils.internalToSource(className);
             ConfigurationTest.class.getClassLoader().loadClass(sourceName);

@@ -5,7 +5,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.List;
 import org.cf.smalivm.configuration.Configuration;
-import org.cf.smalivm.configuration.ConfigurationLoader;
 import org.cf.util.ClassNameUtils;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +12,7 @@ public class FrameworkJarBuilderTest {
 
     @Test
     public void frameworkClassesExistAndCanBeLoaded() throws IOException, ClassNotFoundException {
-        List<String> lines = ConfigurationLoader.load(Configuration.FRAMEWORK_CLASSES_PATH);
+        List<String> lines = Configuration.load(Configuration.FRAMEWORK_CLASSES_PATH);
         URL jarURL = FrameworkJarBuilderTest.class.getResource(SmaliClassLoader.FRAMEWORK_STUBS_JAR);
         URLClassLoader jarLoader = new URLClassLoader(new URL[]{jarURL});
         for (String line : lines) {

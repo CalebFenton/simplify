@@ -240,5 +240,4 @@ public class ClassNameUtilsTest {
         assertEquals("int", ClassNameUtils.toFormat("I", TypeFormat.BINARY));
         assertEquals("[I", ClassNameUtils.toFormat("[I", TypeFormat.BINARY));
     }
-
 }
