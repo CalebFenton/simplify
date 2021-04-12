@@ -53,7 +53,7 @@ class APutOp internal constructor(
             }
         }
         node.state.assignRegister(arrayRegister, array)
-        return finish(mayThrow)
+        return finishOp(mayThrow)
     }
 
 

@@ -22,7 +22,7 @@ class NopOp internal constructor(location: MethodLocation) : Op(location) {
         // A little op who wasn't there,
         // It wasn't there again today
         // Oh, how I wish it'd go away...
-        return finish()
+        return finishOp()
     }
 
     override fun toString() = name

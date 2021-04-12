@@ -60,7 +60,7 @@ class BinaryMathOp internal constructor(
             return throwException(result)
         }
         node.state.assignRegister(destRegister, result, mathOperandType.type)
-        return finish()
+        return finishOp()
     }
 
     override fun toString(): String {

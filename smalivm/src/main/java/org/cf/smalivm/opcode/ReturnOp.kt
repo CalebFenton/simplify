@@ -17,7 +17,7 @@ class ReturnOp internal constructor(location: MethodLocation, private val regist
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val value = node.state.readRegister(register)
         node.state.assignReturnRegister(value)
-        return finish()
+        return finishOp()
     }
 
     override fun toString() = "$name r$register"

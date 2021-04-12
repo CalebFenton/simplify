@@ -34,7 +34,7 @@ abstract class Op internal constructor(
     abstract fun execute(node: ExecutionNode): Array<out UnresolvedChild>
 
     open fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
-        return finish()
+        return finishOp()
     }
 
     abstract override fun toString(): String

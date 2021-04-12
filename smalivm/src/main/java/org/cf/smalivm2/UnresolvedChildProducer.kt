@@ -10,14 +10,14 @@ import java.util.*
 open class UnresolvedChildProducer(
     defaultExceptions: Array<Pair<Class<out Throwable>, String?>> = arrayOf()
 ) {
-    val defaultExceptions = defaultExceptions.map { UnresolvedChild.build(it.first, it.second) }
+    val defaultExceptions = defaultExceptions.map { UnresolvedChild.build(it.first, it.second, false) }
 
-    fun throwException(t: Throwable): Array<out UnresolvedChild> {
-        return throwException(t.javaClass, t.message)
+    fun throwException(t: Throwable, unhandled: Boolean = false): Array<out UnresolvedChild> {
+        return throwException(t.javaClass, t.message, unhandled)
     }
 
-    fun throwException(klazz: Class<out Throwable>, message: String? = null): Array<out UnresolvedChild> {
-        return arrayOf(UnresolvedChild.build(klazz, message))
+    fun throwException(klazz: Class<out Throwable>, message: String? = null, unhandled: Boolean = false): Array<out UnresolvedChild> {
+        return arrayOf(UnresolvedChild.build(klazz, message, unhandled))
     }
 
     fun staticInitClass(
@@ -36,7 +36,11 @@ open class UnresolvedChildProducer(
         return arrayOf(UnresolvedChild.build(methodCall, state, analyzedParameterTypes))
     }
 
-    fun finish(mayThrow: Boolean = false): Array<out UnresolvedChild> {
+    fun finishMethod() : Array<out UnresolvedChild> {
+        return arrayOf()
+    }
+
+    fun finishOp(mayThrow: Boolean = false): Array<out UnresolvedChild> {
         val children: MutableList<UnresolvedChild> = LinkedList()
         children.add(UnresolvedChild.build())
         if (mayThrow) {
@@ -45,11 +49,11 @@ open class UnresolvedChildProducer(
         return children.toTypedArray()
     }
 
-    fun finish(addresses: Array<Int>): Array<out UnresolvedChild> {
+    fun finishOp(addresses: Array<Int>): Array<out UnresolvedChild> {
         return addresses.map { UnresolvedChild.build(it) }.toTypedArray()
     }
 
-    fun finish(address: Int): Array<out UnresolvedChild> {
+    fun finishOp(address: Int): Array<out UnresolvedChild> {
         return arrayOf(UnresolvedChild.build(address))
     }
 }

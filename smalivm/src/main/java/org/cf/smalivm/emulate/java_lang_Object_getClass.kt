@@ -14,12 +14,11 @@ internal class java_lang_Object_getClass : EmulatedMethodCall() {
         return try {
             val value = vm.classLoader.loadClass(virtualType.binaryName)
             state.assignReturnRegister(value, RETURN_TYPE)
-            finish()
+            finishMethod()
         } catch (e: ClassNotFoundException) {
-            throwException(e.javaClass, "Class not found: $argumentType")
+            throwException(e.javaClass, "Class not found: $argumentType", unhandled = true)
         }
     }
-
 
     companion object {
         private val log = LoggerFactory.getLogger(java_lang_Object_getClass::class.java.simpleName)

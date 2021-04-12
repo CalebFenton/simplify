@@ -14,7 +14,7 @@ class ReturnVoidOp internal constructor(location: MethodLocation) : Op(location)
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // If you look long enough into the void, the void begins to look back through you.
-        return finish()
+        return finishOp()
     }
 
     override fun toString() = name

@@ -40,7 +40,7 @@ class ArrayLengthOp internal constructor(
             }
         }
         node.state.assignRegister(destRegister, length, CommonTypes.INTEGER)
-        return finish(mayThrow)
+        return finishOp(mayThrow)
     }
 
     override fun toString() = "$name r$destRegister, r$arrayRegister"

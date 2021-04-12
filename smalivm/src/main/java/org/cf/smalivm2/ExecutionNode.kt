@@ -71,7 +71,7 @@ open class ExecutionNode(
 //
 //    fun getClassSideEffectLevel(classSignature: String) = getClassSideEffectLevel(classManager.getVirtualClass(classSignature))
 
-    fun resume(): Array<ExecutionNode> {
+    fun resume(): Array<out UnresolvedChild> {
         // TODO: this is for invoke ops
         return arrayOf()
     }

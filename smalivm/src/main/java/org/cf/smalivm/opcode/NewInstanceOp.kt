@@ -7,7 +7,6 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UninitializedInstance
 import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.jf.dexlib2.builder.MethodLocation
@@ -34,7 +33,7 @@ class NewInstanceOp internal constructor(
             val instance = Value.wrap(rawInstance, virtualClass.name)
             node.state.assignRegister(destRegister, instance)
             node.sideEffectLevel = sideEffectLevel
-            finish()
+            finishOp()
         }
     }
 

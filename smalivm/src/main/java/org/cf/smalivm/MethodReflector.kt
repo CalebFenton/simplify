@@ -43,7 +43,7 @@ class MethodReflector() {
                 state.assignReturnRegister(returnValue)
             }
 
-            return childProducer.finish()
+            return childProducer.finishOp()
         }
 
 

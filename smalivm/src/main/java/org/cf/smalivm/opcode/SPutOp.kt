@@ -29,7 +29,7 @@ class SPutOp internal constructor(
             // TODO: check if this is <clinit> and only allow static final fields to be initialized here
             node.state.assignField(field, item)
             node.sideEffectLevel = SideEffect.Level.WEAK
-            finish()
+            finishOp()
         }
     }
 

@@ -2,19 +2,16 @@ package org.cf.smalivm2
 
 import com.google.common.primitives.Ints
 import org.cf.smalivm.SideEffect
+import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.opcode.*
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.VirtualField
-import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm.type.VirtualType
+import org.cf.smalivm.type.*
 import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.*
+import org.jf.dexlib2.writer.builder.DexBuilder
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.function.Consumer
-import kotlin.collections.HashMap
-import kotlin.collections.HashSet
 
 
 internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<ExecutionNode> {
@@ -40,25 +37,29 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
     }
 }
 
+data class UnhandledVirtualException(val node: ExecutionNode, val exceptionClass: VirtualClass, val message: String?)
+
 class ExecutionGraph2(
     val method: VirtualMethod,
     val vm: VirtualMachine2,
 ) : Iterable<ExecutionNode> {
+//    var aborted = false
+
     val classManager
         get() = vm.classManager
     val classLoader
         get() = vm.classLoader
-    val configuration
+    val configuration: Configuration
         get() = vm.configuration
-    val dexBuilder
+    val dexBuilder: DexBuilder
         get() = classManager.dexBuilder
     val locationToOp
         get() = vm.methodToTemplateOps[method]!!
-    val addressToLocation = buildAddressToLocation(method.implementation)
-
     // TODO: should terminating addresses be recalculated when graphs are rebuilt? same with address -> location
     val terminatingAddresses = buildTerminatingAddresses(method.implementation.instructions)
+    val addressToLocation = buildAddressToLocation(method.implementation)
     val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
+    val unhandledVirtualException: MutableList<UnhandledVirtualException> = LinkedList()
 
     //    val implementation: MutableMethodImplementation = method.implementation
     //    val opCreator: OpCreator = OpCreator(addressToLocation, classManager, classLoader, configuration)
@@ -71,7 +72,6 @@ class ExecutionGraph2(
     val reexecuteLocations: MutableSet<MethodLocation> = HashSet()
     val recreateLocations: MutableSet<MethodLocation> = HashSet()
     var recreateOrExecuteAgain = false
-
 
 //    fun shallowClone(): ExecutionGraph2 {
 //        // TODO: all the cloning is to avoid the work of rebuilding ops. is it really worth it?
@@ -907,10 +907,12 @@ class ExecutionGraph2(
             val addresses: MutableList<Int> = LinkedList()
             for (instruction in instructions) {
                 val address = instruction.location.codeAddress
-                if (instruction.opcode == Opcode.RETURN_VOID || instruction.opcode == Opcode.RETURN || instruction.opcode == Opcode.RETURN_WIDE || instruction.opcode == Opcode.RETURN_OBJECT || instruction.opcode == Opcode.THROW) {
+                if (instruction.opcode == Opcode.RETURN_VOID || instruction.opcode == Opcode.RETURN ||
+                    instruction.opcode == Opcode.RETURN_WIDE || instruction.opcode == Opcode.RETURN_OBJECT ||
+                    instruction.opcode == Opcode.THROW
+                ) {
                     addresses.add(address)
                 }
-
             }
             return addresses.toIntArray()
         }

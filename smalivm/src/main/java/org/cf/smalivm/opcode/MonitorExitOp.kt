@@ -16,7 +16,7 @@ class MonitorExitOp internal constructor(location: MethodLocation, private val d
     override val registersAssignedCount = 0
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        return finish()
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister"

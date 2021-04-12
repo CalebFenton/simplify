@@ -42,7 +42,7 @@ class IfOp internal constructor(
 
         // Ambiguous predicate. Return to add both possible branches as children.
         if (lhs.isUnknown || rhs.isUnknown) {
-            return finish(arrayOf(nextAddress, targetAddress))
+            return finishOp(arrayOf(nextAddress, targetAddress))
         }
         val cmp = if (compareToZero) {
             if (lhs.value == null) {
@@ -71,7 +71,7 @@ class IfOp internal constructor(
             isTrue(ifType, cmp) -> targetAddress
             else -> nextAddress
         }
-        return finish(childAddress)
+        return finishOp(childAddress)
     }
 
     override fun toString(): String {

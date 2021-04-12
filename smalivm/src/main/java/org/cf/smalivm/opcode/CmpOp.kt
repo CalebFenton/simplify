@@ -34,7 +34,7 @@ class CmpOp internal constructor(
             Value.wrap(cmp, CommonTypes.INTEGER)
         }
         node.state.assignRegister(destRegister, item)
-        return finish()
+        return finishOp()
     }
 
     override fun toString(): String = "$name r$destRegister, r$lhsRegister, r$rhsRegister"

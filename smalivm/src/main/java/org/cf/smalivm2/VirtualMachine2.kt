@@ -1,9 +1,7 @@
 package org.cf.smalivm2
 
 import org.cf.smalivm.MethodReflector
-import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.emulate.MethodEmulator
@@ -16,16 +14,13 @@ import org.slf4j.LoggerFactory
 import java.io.File
 import java.lang.reflect.Modifier
 import java.util.*
-import kotlin.collections.HashMap
-
-import org.cf.smalivm.type.VirtualClass
-
-import org.cf.smalivm.type.VirtualMethod
 
 
-
-
-data class ExecutionQueueEntry(val graph: ExecutionGraph2, val nodes: LinkedList<ExecutionNode>, val addressToVisitCount: MutableMap<Int, Long> = HashMap())
+data class ExecutionQueueEntry(
+    val graph: ExecutionGraph2,
+    val nodes: LinkedList<ExecutionNode>,
+    val addressToVisitCount: MutableMap<Int, Long> = HashMap()
+)
 
 class VirtualMachine2 private constructor(
     val maxAddressVisits: Int = 500,
@@ -121,8 +116,8 @@ class VirtualMachine2 private constructor(
         while (!interactive && executionQueue.isNotEmpty()) {
             if (endExecutionTime < System.currentTimeMillis()) {
                 val entry = executionQueue.peek()
-                val current = entry.nodes.poll()
-                log.warn("Exceeded execution time in ${current.method}")
+                val current = entry.nodes.peek()
+                log.warn("Exceeded execution time for top-level method $method in ${current.method}")
                 break
             }
 
@@ -136,9 +131,7 @@ class VirtualMachine2 private constructor(
         val entry = executionQueue.peek()
         val current = entry.nodes.poll()
 
-        // TODO: don't throw an exception! clear this method from the queue, mark the graph as incomplete / aborted early
-        // if a graph has been aborted early, assume maximum unknown
-        // graphs may throw exceptions in some paths, so also consider tracking that at the graph level (graph.setException(node, unresolved child))
+        // graphs may throw exceptions in some paths, so also consider tracking (unhandled?) at the graph level (graph.setException(node, unresolved child))
         // ONLY if the exception isn't handled within the method -- if it's handled within the method go there
         // if no handler can be found, bubble it up to the caller and see if the caller can handle it
         // if there IS no caller, abort with a warning and mark graph as incomplete
@@ -168,6 +161,8 @@ class VirtualMachine2 private constructor(
             }
         }
 
+        // TODO: change to val and check if it's initialized later
+        var unresolvedChildren: Array<out UnresolvedChild>? = null
         if (current.isEntrypoint) {
             if (!interactive) {
                 if (maxCallDepth > 0 && current.callDepth > maxCallDepth) {
@@ -177,35 +172,40 @@ class VirtualMachine2 private constructor(
                 }
             }
 
-            if (current.method.descriptor == "<clinit>()V") {
-                if (configuration.isSafe(current.method.definingClass)) {
-                    // Safe classes are reflected so there's no reason to init on the VM.
+            val isSafe = configuration.isSafe(current.method)
+            val isStaticInit = current.method.descriptor == "<clinit>()V"
+            if (isStaticInit) {
+                if (isSafe) {
+                    // No need to execute on the VM since Safe class methods and fields are reflected
                     current.state.setClassInitialized(current.method.definingClass)
                     finishStep(entry, current, collapseMultiverse = false)
                     return
                 }
-            }
-            else {
-                val initializationQueued = queueStaticInitializationIfNecessary(current.method.definingClass, current)
+            } else {
+                val initializationQueued = enqueueStaticInitializationIfNecessary(current.method.definingClass, current)
                 if (initializationQueued) {
                     // Need to initialize classes before executing this. Pretend it never happened.
                     entry.nodes.add(current)
                     return
                 }
 
-                val isSafe = configuration.isSafe(current.method)
                 val canEmulate = MethodEmulator.canEmulate(current.method)
                 if (isSafe || canEmulate) {
                     val allArgumentsKnown = current.state.allArgumentsKnown()
-                    // TODO: how to deal with these childen?
-                    val unresolvedChildren = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
+                    unresolvedChildren = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
                         MethodEmulator.emulate(current.method, current.state, current.parent, this)
                     } else if (isSafe && allArgumentsKnown) {
                         MethodReflector.reflect(current.method, current.state, current.classLoader, enumAnalyzer)
                     } else {
                         log.trace("Not emulating / reflecting {}; all arguments are not known. Assuming maximum unknown.", current.method)
-                        //callerState: ExecutionState, calleeState: ExecutionState, method: VirtualMethod, analyzedParameterTypes: Array<String>
-//                        assumeMaximumUnknown(parent.state, calleeState, method, analyzedParameterTypes)
+                        finishStep(entry, current, abortMethod = true)
+                        return
+                    }
+                } else {
+                    if (classManager.isFrameworkClass(current.method.definingClass) &&
+                        !classManager.isSafeFrameworkClass(current.method.definingClass)
+                    ) {
+                        log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", current.method)
                         finishStep(entry, current, abortMethod = true)
                         return
                     }
@@ -213,57 +213,68 @@ class VirtualMachine2 private constructor(
             }
         }
 
-        entry.graph.addNode(current)
-        val unresolvedChildren = if (resumeNodes.contains(current)) {
-            resumeNodes.remove(current)
-            current.resume()
+        var emulatedOrReflected = false
+        if (unresolvedChildren == null) {
+            if (resumeNodes.contains(current)) {
+                resumeNodes.remove(current)
+                current.resume()
+            } else {
+                current.execute()
+            }
         } else {
-            current.execute()
+            emulatedOrReflected = true
         }
-
-        val opcode = location.instruction!!.opcode
-        if (opcode.canContinue() && this !is SwitchOp) {
-            val child = UnresolvedChild.build(nextAddress)
-            children.add(child)
-        }
+        entry.graph.addNode(current)
 
         // TODO: if it's a method invocation and it's a static init, then put current node back in nodes and return
-        // Do we even need resumes???
-        // ContinueOp can calculate the next location
         // invoke-op doesn't need a resume either, vm can just setup result register and collapse multiverse
         // invoke op should continue after everything is finished executing assuming there are no exceptions
         // can check caller and if caller is an invoke op and you're not calling a static init, you should know to add a resume
-        for (unresolvedChild in unresolvedChildren) {
+        // NEW: emulated + reflected methods should return child for "finish method" which has a sideEffectLevel
+        for (unresolvedChild in unresolvedChildren!!) {
             when (unresolvedChild) {
+                is UnresolvedContinueChild -> {
+                    val opcode = current.op.instruction!!.opcode
+                    if (opcode.canContinue() && current.op !is SwitchOp) {
+                        enqueueChildNode(current, current.op.nextAddress, entry.graph, entry.nodes)
+                    }
+                }
                 is UnresolvedMethodInvocationChild -> {
-                    handleMethodExecution(unresolvedChild.method, unresolvedChild.state, unresolvedChild.analyzedParameterTypes, current)
+                    enqueueMethodInvocation(unresolvedChild.method, unresolvedChild.state, current)
                 }
                 is UnresolvedAddressChild -> {
-                    val location = entry.graph.getLocation(unresolvedChild.address)!!
-                    val op = methodToTemplateOps[current.method]!![location]!!
-                    val child = ExecutionNode(op, current.method, classManager, classLoader, configuration, parent = current)
-                    entry.nodes.add(child)
+                    enqueueChildNode(current, unresolvedChild.address, entry.graph, entry.nodes)
                 }
                 is UnresolvedExceptionChild -> {
-                    // TODO: Hard - Should anything be done with the exception message here? Maybe it'll be more obvious elsewhere.
-                    // TODO: Hard - exception resolution probably doesn't work in try/catch blocks outside current method!
-                    // TODO: Medium - concept of entrypoint isn't sufficient. Shouldn't reach back beyond thrown exceptions when traversing state ancestory
+                    // TODO: Should anything be done with the exception message here? Maybe it'll be more obvious elsewhere.
+                    // TODO: How does the finally concept work here? Any special handling needed?
                     val exceptionClass = classManager.getVirtualClass(unresolvedChild.exceptionClass)
-                    val handlerAddress = findExceptionHandlerAddress(exceptionClass, current.address, current.method)
-                    if (handlerAddress < 0) {
-                        throw RuntimeException("Unhandled real exception $unresolvedChild thrown executing $current. Possible bug!")
+                    val handlerAddress = if (unresolvedChild.unhandled) {
+                        -1
                     } else {
-                        log.warn("{} threw exception {} but was caught by exception handler", current, unresolvedChild)
+                        findExceptionHandlerAddress(exceptionClass, current.address, current.method)
                     }
-                    val location = entry.graph.getLocation(handlerAddress)!!
-                    val op = methodToTemplateOps[current.method]!![location]!!
-                    val child = ExecutionNode(op, current.method, classManager, classLoader, configuration, parent = current)
-                    entry.nodes.add(child)
+                    if (handlerAddress < 0) {
+                        log.trace("{} threw unhandled exception {}; will bubble up to caller.")
+                        val e = UnhandledVirtualException(current, exceptionClass, unresolvedChild.message)
+                        entry.graph.unhandledVirtualException.add(e)
+                    } else {
+                        log.warn("{} threw exception {} and is handled by exception handler @{}", current, unresolvedChild, handlerAddress)
+                    }
+                    enqueueChildNode(current, handlerAddress, entry.graph, entry.nodes)
                 }
             }
         }
 
         finishStep(entry, current)
+    }
+
+    private fun enqueueChildNode(parent: ExecutionNode, address: Int, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>) {
+        val location = graph.getLocation(address)!!
+        val op = methodToTemplateOps[parent.method]!![location]!!
+        val child = ExecutionNode(op, parent.method, classManager, classLoader, configuration, parent = parent)
+        parent.children.add(child)
+        methodNodes.add(child)
     }
 
     private fun finishStep(entry: ExecutionQueueEntry, current: ExecutionNode, collapseMultiverse: Boolean = true, abortMethod: Boolean = false) {
@@ -279,6 +290,7 @@ class VirtualMachine2 private constructor(
                     callerEntry.nodes.add(caller)
                 }
                 if (abortMethod) {
+//                    entry.graph.aborted = true
                     assumeMaximumUnknown(caller.state, current.state, current.method)
                 } else {
                     if (collapseMultiverse) {
@@ -293,125 +305,126 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    private fun finishLocalMethodExecution(
-        calleeContext: ExecutionContext?,
-        callerContext: ExecutionContext?,
-        node: ExecutionNode?,
-        graph: ExecutionGraph?
-    ) {
-        if (graph == null) {
-            // Maybe node visits or call depth exceeded?
-            InvokeOp.log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
-            assumeMaximumUnknown(callerContext!!.methodState)
-            return
-        }
-        var hasOneNonThrow = false
-        for (endAddress in graph.connectedTerminatingAddresses) {
-            val endOp = graph.getTemplateNode(endAddress)!!.op
-            if (endOp is ThrowOp) {
-                // At least one execution path leads to throwing an exception.
-                val items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister)
-                for (item in items) {
-                    if (item.value is Throwable) {
-                        val exception = item.value as Throwable?
-                        addException(exception!!)
-                    } else {
-                        // Possibly UninitializedInstance
-                        if (InvokeOp.log.isWarnEnabled) {
-                            if (item.isUnknown) {
-                                InvokeOp.log.warn(
-                                    "Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}",
-                                    item
-                                )
-                            } else {
-                                // May just need to whitelist Exception class
-                                InvokeOp.log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item)
-                            }
-                        }
-                    }
-                }
-            } else {
-                hasOneNonThrow = true
-            }
-        }
-        if (!hasOneNonThrow) {
-            // Everything was an exception; don't go execute any normal children
-            node.clearChildren()
-        } else {
-            if (method.returnType != CommonTypes.VOID) {
-                // Terminating addresses may include throw ops which may not have a return register set
-                val returnOpAddresses: TIntList = TIntLinkedList()
-                for (address in graph.connectedTerminatingAddresses) {
-                    if (graph.getOp(address) is ReturnOp) {
-                        returnOpAddresses.add(address)
-                    }
-                }
-                val consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister)
-                callerContext!!.methodState.assignResultRegister(consensus)
-            } else {
-                if (calleeContext!!.method.descriptor.startsWith("<init>(")) {
-                    // This was a call to a local parent <init> method
-                    val calleeInstanceRegister = calleeContext.methodState.parameterStart
-                    val newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister)
-                    val instanceRegister = parameterRegisters[0]
-                    callerContext!!.methodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstance)
-                }
-            }
-        }
-        sideEffectLevel = graph.highestSideEffectLevel
-    }
+//    private fun finishLocalMethodExecution(
+//        calleeContext: ExecutionContext?,
+//        callerContext: ExecutionContext?,
+//        node: ExecutionNode?,
+//        graph: ExecutionGraph?
+//    ) {
+//        if (graph == null) {
+//            // Maybe node visits or call depth exceeded?
+//            InvokeOp.log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
+//            assumeMaximumUnknown(callerContext!!.methodState)
+//            return
+//        }
+//        var hasOneNonThrow = false
+//        for (endAddress in graph.connectedTerminatingAddresses) {
+//            val endOp = graph.getTemplateNode(endAddress)!!.op
+//            if (endOp is ThrowOp) {
+//                // At least one execution path leads to throwing an exception.
+//                val items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister)
+//                for (item in items) {
+//                    if (item.value is Throwable) {
+//                        val exception = item.value as Throwable?
+//                        addException(exception!!)
+//                    } else {
+//                        // Possibly UninitializedInstance
+//                        if (InvokeOp.log.isWarnEnabled) {
+//                            if (item.isUnknown) {
+//                                InvokeOp.log.warn(
+//                                    "Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}",
+//                                    item
+//                                )
+//                            } else {
+//                                // May just need to whitelist Exception class
+//                                InvokeOp.log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item)
+//                            }
+//                        }
+//                    }
+//                }
+//            } else {
+//                hasOneNonThrow = true
+//            }
+//        }
+//        if (!hasOneNonThrow) {
+//            // Everything was an exception; don't go execute any normal children
+//            node.clearChildren()
+//        } else {
+//            if (method.returnType != CommonTypes.VOID) {
+//                // Terminating addresses may include throw ops which may not have a return register set
+//                val returnOpAddresses: TIntList = TIntLinkedList()
+//                for (address in graph.connectedTerminatingAddresses) {
+//                    if (graph.getOp(address) is ReturnOp) {
+//                        returnOpAddresses.add(address)
+//                    }
+//                }
+//                val consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister)
+//                callerContext!!.methodState.assignResultRegister(consensus)
+//            } else {
+//                if (calleeContext!!.method.descriptor.startsWith("<init>(")) {
+//                    // This was a call to a local parent <init> method
+//                    val calleeInstanceRegister = calleeContext.methodState.parameterStart
+//                    val newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister)
+//                    val instanceRegister = parameterRegisters[0]
+//                    callerContext!!.methodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstance)
+//                }
+//            }
+//        }
+//        sideEffectLevel = graph.highestSideEffectLevel
+//    }
+//
+//    private fun executeNonLocalMethod(
+//        methodDescriptor: String,
+//        callerMethodState: MethodState,
+//        calleeContext: ExecutionContext,
+//        node: ExecutionNode
+//    ) {
+//        if (MethodEmulator.canEmulate(methodDescriptor)) {
+//            val emulator = MethodEmulator(vm, calleeContext, methodDescriptor)
+//            emulator.emulate(this)
+//            sideEffectLevel = emulator.sideEffectLevel
+//            if (emulator.exceptions.size > 0) {
+//                node.clearChildren()
+//                node.setExceptions(emulator.exceptions)
+//                return
+//            }
+//        } else if (vm.configuration.isSafe(methodDescriptor)) {
+//            val reflector = MethodReflector(vm, method)
+//            try {
+//                reflector.reflect(calleeContext.methodState) // playa play
+//            } catch (e: Exception) {
+//                node.addException(e)
+//                node.clearChildren()
+//                return
+//            }
+//
+//            // Only safe, non-side-effect methods are allowed to be reflected.
+//            sideEffectLevel = SideEffect.Level.NONE
+//        }
+//        if (!method.isStatic) {
+//            // This is virtual and the instance parse may have been initialized or mutated.
+//            val originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0])
+//            val newInstanceItem = calleeContext.methodState.peekParameter(0)
+//            if (originalInstanceItem!!.value !== newInstanceItem.value) {
+//                // Instance has been initialized, i.e. was UninitializedInstance
+//                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
+//                // UninitializedInstance, and those need to be updated with the new instance.
+//                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem)
+//            } else {
+//                val isMutable = !vm.configuration.isImmutable(newInstanceItem.type)
+//                if (isMutable) {
+//                    // The instance class is mutable so could have changed. Record that it was changed for the
+//                    // optimizer.
+//                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem)
+//                }
+//            }
+//        }
+//        if (!method.returnsVoid()) {
+//            val returnItem = calleeContext.methodState.readReturnRegister()
+//            callerMethodState.assignResultRegister(returnItem)
+//        }
+//    }
 
-    private fun executeNonLocalMethod(
-        methodDescriptor: String,
-        callerMethodState: MethodState,
-        calleeContext: ExecutionContext,
-        node: ExecutionNode
-    ) {
-        if (MethodEmulator.canEmulate(methodDescriptor)) {
-            val emulator = MethodEmulator(vm, calleeContext, methodDescriptor)
-            emulator.emulate(this)
-            sideEffectLevel = emulator.sideEffectLevel
-            if (emulator.exceptions.size > 0) {
-                node.clearChildren()
-                node.setExceptions(emulator.exceptions)
-                return
-            }
-        } else if (vm.configuration.isSafe(methodDescriptor)) {
-            val reflector = MethodReflector(vm, method)
-            try {
-                reflector.reflect(calleeContext.methodState) // playa play
-            } catch (e: Exception) {
-                node.addException(e)
-                node.clearChildren()
-                return
-            }
-
-            // Only safe, non-side-effect methods are allowed to be reflected.
-            sideEffectLevel = SideEffect.Level.NONE
-        }
-        if (!method.isStatic) {
-            // This is virtual and the instance parse may have been initialized or mutated.
-            val originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0])
-            val newInstanceItem = calleeContext.methodState.peekParameter(0)
-            if (originalInstanceItem!!.value !== newInstanceItem.value) {
-                // Instance has been initialized, i.e. was UninitializedInstance
-                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
-                // UninitializedInstance, and those need to be updated with the new instance.
-                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem)
-            } else {
-                val isMutable = !vm.configuration.isImmutable(newInstanceItem.type)
-                if (isMutable) {
-                    // The instance class is mutable so could have changed. Record that it was changed for the
-                    // optimizer.
-                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem)
-                }
-            }
-        }
-        if (!method.returnsVoid()) {
-            val returnItem = calleeContext.methodState.readReturnRegister()
-            callerMethodState.assignResultRegister(returnItem)
-        }
-    }
     /*
      * Get the consensus of mutable objects of method and class states of called context and merge them into
      * the context of the caller. In other words, reflect changes to objects that happen in the called method back
@@ -423,6 +436,11 @@ class VirtualMachine2 private constructor(
         callerState: ExecutionState,
         parameterRegisters: IntArray? = null
     ) {
+        /*
+        TODO: if every path in the graph is a throw (there are no connected returns), then what?
+        a graph may have multiple unhandled virtual exceptions that need to be handled here or potentially bubbled up
+        meaning a caller could have several children: unhandled exceptions and normal stuff
+         */
         val terminatingAddresses = graph.getConnectedTerminatingAddresses()
         if (parameterRegisters != null) {
             val parameterTypes = calledMethod.parameterTypeNames
@@ -477,55 +495,21 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    private fun handleMethodExecution(method: VirtualMethod, calleeState: ExecutionState, parent: ExecutionNode) {
-        val isSafe = configuration.isSafe(method)
-        val canEmulate = MethodEmulator.canEmulate(method)
-
-        // TODO: consider adding this to the entrypoint check in step
-        if (isSafe || canEmulate) {
-            val allArgumentsKnown = calleeState.allArgumentsKnown()
-            val child: UnresolvedChild? = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(method))) {
-                MethodEmulator.emulate(method, calleeState, parent, this)
-            } else if (isSafe && allArgumentsKnown) {
-                MethodReflector.reflect(method, calleeState, classLoader, enumAnalyzer)
-            } else {
-                log.trace("Not emulating / reflecting {}; all arguments are not known. Assuming maximum ambiguity.", method)
-                assumeMaximumUnknown(parent.state, calleeState, method)
-                null
-            }
-
-            if (child != null) {
-                // Could be a nop or an exception
-            }
-        } else {
-            if (classManager.isFrameworkClass(method.definingClass) && !classManager.isSafeFrameworkClass(method.definingClass)) {
-                log.debug("Not executing unsafe framework method: {}. Assuming maximum ambiguity.", method)
-                assumeMaximumUnknown(parent.state, calleeState, method)
-                return
-            }
-
-            // This can happen if a method returns an object which implements an interface
-            // but the object is unknown, so the real class of the invocation target
-            // can't be determined. That's why this is a warning and not an error.
-            if (!method.hasImplementation()) {
-                log.warn("Unable to execute method without implementation: {}, isNative={}", method, method.isNative)
-                assumeMaximumUnknown(parent.state, calleeState, method)
-                return
-            }
-
-            val graph = getExecutionGraph(method)
-            val entrypointNode = graph.spawnEntrypointNode(parent = parent)
-            val methodNodes = LinkedList<ExecutionNode>()
-            methodNodes.add(entrypointNode)
-            executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
-            resumeNodes.add(parent)
-
-            // TODO: Set the caller parent so multiverse can be collapsed!
-            val calleeContext = buildLocalCalleeContext(context, targetMethod)
-            executeLocalMethod(calleeContext, context, node)
-            return finishOp()
-
+    private fun enqueueMethodInvocation(method: VirtualMethod, calleeState: ExecutionState, parent: ExecutionNode) {
+        // This can happen if a method returns an unknown value of a type which implements an interface
+        // Since the "real" value is unknown, the real class of the invocation target can't be determined.
+        if (!method.hasImplementation()) {
+            log.warn("Unable to execute method without implementation: {}, isNative={}", method, method.isNative)
+            assumeMaximumUnknown(parent.state, calleeState, method)
+            return
         }
+
+        val graph = getExecutionGraph(method)
+        val entrypointNode = graph.spawnEntrypointNode(parent = parent)
+        val methodNodes = LinkedList<ExecutionNode>()
+        methodNodes.add(entrypointNode)
+        executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
+        resumeNodes.add(parent)
     }
 
     private fun assumeMaximumUnknown(callerState: ExecutionState, calleeState: ExecutionState, method: VirtualMethod) {
@@ -581,7 +565,7 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    private fun queueStaticInitializationIfNecessary(virtualClass: VirtualType, parent: ExecutionNode) : Boolean {
+    private fun enqueueStaticInitializationIfNecessary(virtualClass: VirtualType, parent: ExecutionNode): Boolean {
         /*
          * Classed should be statically initialized when:
          * 1.) The invocation of a method declared by the class (not inherited from a superclass)
@@ -600,7 +584,7 @@ class VirtualMachine2 private constructor(
             if (Modifier.isAbstract(accessFlags) || Modifier.isInterface(accessFlags) || Modifier.isNative(accessFlags)) {
                 continue
             }
-            queueStaticInitializationIfNecessary(ancestor, parent)
+            enqueueStaticInitializationIfNecessary(ancestor, parent)
         }
 
         val method = virtualClass.getMethod("<clinit>()V")
@@ -612,13 +596,10 @@ class VirtualMachine2 private constructor(
         }
 
         val calleeState = ExecutionState.build(method, classManager, classLoader, configuration)
-        handleMethodExecution(method, calleeState, arrayOf(), parent)
+        enqueueMethodInvocation(method, calleeState, parent)
         return true
     }
 
-    private fun pushNodeToExecutionQueue(node: ExecutionNode) {
-        executionQueue.peek().second.add(node)
-    }
 
 //    fun startDebug(calleeContext: ExecutionContext?, callerContext: ExecutionContext?): MethodExecutor {
 //        TODO("Not yet implemented")

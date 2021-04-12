@@ -35,7 +35,7 @@ class ConstOp internal constructor(
             return throwException(constant)
         }
         node.state.assignRegister(destRegister, constant, constantTypeString)
-        return finish()
+        return finishOp()
     }
 
     override fun toString(): String {

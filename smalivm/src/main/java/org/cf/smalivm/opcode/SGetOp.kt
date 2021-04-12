@@ -5,7 +5,6 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualField
 import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction21c
@@ -27,7 +26,7 @@ class SGetOp internal constructor(
         } else {
             val item = node.state.peekField(field)
             node.state.assignRegister(destRegister, item)
-            finish()
+            finishOp()
         }
     }
 

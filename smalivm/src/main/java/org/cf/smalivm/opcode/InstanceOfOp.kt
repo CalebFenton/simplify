@@ -29,13 +29,13 @@ class InstanceOfOp internal constructor(
         val instance = node.state.readRegister(arg1Register)
         if (instance.value == null) {
             state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOL))
-            return finish()
+            return finishOp()
         }
         for (typeName in instance.declaredAndValueTypeNames) {
             val itemType = classManager.getVirtualType(typeName)
             if (itemType.instanceOf(referenceType)) {
                 state.assignRegister(destRegister, Value.wrap(true, CommonTypes.BOOL))
-                return finish()
+                return finishOp()
             }
         }
         if (instance.isUnknown) {
@@ -44,7 +44,7 @@ class InstanceOfOp internal constructor(
         } else {
             state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOL))
         }
-        return finish()
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister, $arg1Register, $referenceType"

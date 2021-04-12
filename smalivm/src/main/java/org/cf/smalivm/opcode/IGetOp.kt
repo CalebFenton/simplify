@@ -27,7 +27,7 @@ class IGetOp(
         val instance = node.state.readRegister(instanceRegister)
         val type = fieldDescriptor.split(":").toTypedArray()[1]
         node.state.assignRegister(destRegister, Value.unknown(type))
-        return finish()
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister, r$instanceRegister, $fieldDescriptor"

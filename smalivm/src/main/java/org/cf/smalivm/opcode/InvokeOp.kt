@@ -1,7 +1,6 @@
 package org.cf.smalivm.opcode
 
 import org.cf.smalivm.ObjectInstantiator
-import org.cf.smalivm.SideEffect
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -120,7 +119,7 @@ class InvokeOp internal constructor(
             }
         }
         node.state.assignResultRegister(clone, arrayItem.type)
-        return finish()
+        return finishOp()
     }
 
     private fun analyzeParameterTypes(node: ExecutionNode): Array<String> {
@@ -312,7 +311,7 @@ class InvokeOp internal constructor(
         }
         node.state.assignRegister(instanceRegister, newInstanceItem, updateIdentities = true)
 
-        return finish()
+        return finishOp()
     }
 
 //    private fun executeNonLocalMethod(
