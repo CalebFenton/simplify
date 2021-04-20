@@ -1,5 +1,9 @@
 # IDEA SCRATCH PAD
 
+what happens when you try to static init a class which doesn't exist?
+what happens if you try this with emulated Class.forName
+make test for op which could potentially throw multiple exceptions
+
 Better tests for class generation:
   - inner classes and enclosing methods (needs more research)
   - annotations

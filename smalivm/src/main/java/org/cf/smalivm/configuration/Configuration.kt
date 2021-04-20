@@ -61,7 +61,7 @@ class Configuration private constructor() {
         const val UNSAFE_METHODS_PATH = "unsafe_methods.cfg"
         const val FRAMEWORK_CLASSES_PATH = "framework_classes.cfg"
         const val SAFE_FRAMEWORK_CLASSES_PATH = "safe_framework_classes.cfg"
-        private var instance: Configuration? = null
+        var instance: Configuration? = null
 
         fun instance(): Configuration {
             if (instance == null) {

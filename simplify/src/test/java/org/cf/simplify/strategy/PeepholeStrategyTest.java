@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
-import org.cf.smalivm.VMState;
+import org.cf.smalivm.TestState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.type.UninitializedInstance;
@@ -37,7 +37,7 @@ public class PeepholeStrategyTest {
     }
 
     private static ExecutionGraphManipulator getOptimizedGraph(VirtualMachine vm, String methodName, Object... args) {
-        VMState initial = new VMState();
+        TestState initial = new TestState();
         initial.setRegisters(args);
         ExecutionGraphManipulator manipulator;
         if (vm == null) {

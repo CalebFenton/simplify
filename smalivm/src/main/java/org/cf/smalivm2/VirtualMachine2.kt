@@ -215,7 +215,7 @@ class VirtualMachine2 private constructor(
 
         var emulatedOrReflected = false
         if (unresolvedChildren == null) {
-            if (resumeNodes.contains(current)) {
+            unresolvedChildren = if (resumeNodes.contains(current)) {
                 resumeNodes.remove(current)
                 current.resume()
             } else {
@@ -231,7 +231,7 @@ class VirtualMachine2 private constructor(
         // invoke op should continue after everything is finished executing assuming there are no exceptions
         // can check caller and if caller is an invoke op and you're not calling a static init, you should know to add a resume
         // NEW: emulated + reflected methods should return child for "finish method" which has a sideEffectLevel
-        for (unresolvedChild in unresolvedChildren!!) {
+        for (unresolvedChild in unresolvedChildren) {
             when (unresolvedChild) {
                 is UnresolvedContinueChild -> {
                     val opcode = current.op.instruction!!.opcode
@@ -248,6 +248,7 @@ class VirtualMachine2 private constructor(
                 is UnresolvedExceptionChild -> {
                     // TODO: Should anything be done with the exception message here? Maybe it'll be more obvious elsewhere.
                     // TODO: How does the finally concept work here? Any special handling needed?
+                    buildAndSetException(current, unresolvedChild.exceptionClass, unresolvedChild.message)
                     val exceptionClass = classManager.getVirtualClass(unresolvedChild.exceptionClass)
                     val handlerAddress = if (unresolvedChild.unhandled) {
                         -1
@@ -259,14 +260,29 @@ class VirtualMachine2 private constructor(
                         val e = UnhandledVirtualException(current, exceptionClass, unresolvedChild.message)
                         entry.graph.unhandledVirtualException.add(e)
                     } else {
-                        log.warn("{} threw exception {} and is handled by exception handler @{}", current, unresolvedChild, handlerAddress)
+                        log.trace("{} threw exception {} and is handled by exception handler @{}", current, unresolvedChild, handlerAddress)
+                        enqueueChildNode(current, handlerAddress, entry.graph, entry.nodes)
                     }
-                    enqueueChildNode(current, handlerAddress, entry.graph, entry.nodes)
                 }
             }
         }
 
         finishStep(entry, current)
+    }
+
+    private fun buildAndSetException(current: ExecutionNode, exceptionClass: Class<out Throwable>, message: String?) {
+        // TODO: Hard - Spoof the stack trace here. Probably will require reflection and messing with some private data structures.
+        val rawException = try {
+            val ctor = exceptionClass.getDeclaredConstructor(String::class.java)
+            ctor.isAccessible = true
+            ctor.newInstance(message)
+        } catch (e: Exception) {
+            Exception()
+            log.error("Exception building exception $exceptionClass for $current", e)
+        }
+
+        val exception = Value.wrap(rawException, exceptionClass)
+        current.state.assignExceptionRegister(exception)
     }
 
     private fun enqueueChildNode(parent: ExecutionNode, address: Int, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>) {

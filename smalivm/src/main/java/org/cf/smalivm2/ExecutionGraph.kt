@@ -73,6 +73,11 @@ class ExecutionGraph2(
     val recreateLocations: MutableSet<MethodLocation> = HashSet()
     var recreateOrExecuteAgain = false
 
+    init {
+        for (location in addressToLocation.values) {
+            locationToNodePile[location] = ArrayList()
+        }
+    }
 //    fun shallowClone(): ExecutionGraph2 {
 //        // TODO: all the cloning is to avoid the work of rebuilding ops. is it really worth it?
 //        // Need to make shallow clones when spawning an instruction graph from a template
@@ -128,9 +133,6 @@ class ExecutionGraph2(
 
     fun addNode(node: ExecutionNode) {
         val location = node.op.instruction!!.location
-        if (!locationToNodePile.containsKey(location)) {
-            locationToNodePile[location] = ArrayList()
-        }
         locationToNodePile[location]!!.add(node)
     }
 
@@ -482,12 +484,9 @@ class ExecutionGraph2(
 
     fun wasAddressReached(address: Int): Boolean {
         // If this address was reached during execution there will be clones in the pile.
+
         val nodePile = getNodePile(address)
-        if (nodePile.size < 1) {
-            log.warn("Node pile @{} has no template node.", address)
-            return false
-        }
-        return nodePile.size > 1
+        return nodePile.size > 0
     }
 
     fun toSmali(): String {

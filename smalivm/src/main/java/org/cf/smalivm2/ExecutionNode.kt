@@ -8,7 +8,7 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualMethod
 import java.util.*
 
-open class ExecutionNode(
+class ExecutionNode(
     val op: Op,
     val method: VirtualMethod,
     val classManager: ClassManager,
@@ -26,6 +26,10 @@ open class ExecutionNode(
     var sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE
 ) {
     var children: MutableList<ExecutionNode> = LinkedList()
+
+    init {
+        state.node = this
+    }
 
     val address: Int
         get() = op.address
@@ -60,6 +64,8 @@ open class ExecutionNode(
             }
             return null
         }
+
+    override fun toString() = "ExecutionNode{op=$op, addr=$address, method=$method}"
 
 //    def shallowClone() : ExecutionNode {
 //        if (this is EntrypointNode) {

@@ -1,9 +1,5 @@
 package org.cf.util;
 
-import gnu.trove.list.TIntList;
-import gnu.trove.list.array.TIntArrayList;
-import gnu.trove.map.TIntObjectMap;
-
 import org.apache.commons.lang3.ClassUtils;
 import org.cf.smalivm.dex.CommonTypes;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -236,29 +232,29 @@ public class Utils {
     //        return types;
     //    }
 
-    public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
-        if (shift == 0) {
-            return;
-        }
-
-        TIntList keysToShift = new TIntArrayList(intToObject.keys());
-        // Exclude anything before and including startKey
-        for (int currentKey : keysToShift.toArray()) {
-            if (currentKey <= startKey) {
-                keysToShift.remove(currentKey);
-            }
-        }
-
-        keysToShift.sort();
-        if (shift > 0) {
-            // Shifting keys up, so start at the end to avoid overwriting keys.
-            keysToShift.reverse();
-        }
-
-        for (int currentKey : keysToShift.toArray()) {
-            T obj = intToObject.get(currentKey);
-            intToObject.remove(currentKey);
-            intToObject.put(currentKey + shift, obj);
-        }
-    }
+//    public static <T> void shiftIntegerMapKeys(int startKey, int shift, TIntObjectMap<T> intToObject) {
+    //        if (shift == 0) {
+    //            return;
+    //        }
+    //
+    //        TIntList keysToShift = new TIntArrayList(intToObject.keys());
+    //        // Exclude anything before and including startKey
+    //        for (int currentKey : keysToShift.toArray()) {
+    //            if (currentKey <= startKey) {
+    //                keysToShift.remove(currentKey);
+    //            }
+    //        }
+    //
+    //        keysToShift.sort();
+    //        if (shift > 0) {
+    //            // Shifting keys up, so start at the end to avoid overwriting keys.
+    //            keysToShift.reverse();
+    //        }
+    //
+    //        for (int currentKey : keysToShift.toArray()) {
+    //            T obj = intToObject.get(currentKey);
+    //            intToObject.remove(currentKey);
+    //            intToObject.put(currentKey + shift, obj);
+    //        }
+    //    }
 }

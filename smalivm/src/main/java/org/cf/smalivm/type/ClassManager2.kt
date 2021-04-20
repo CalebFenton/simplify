@@ -1,9 +1,9 @@
 package org.cf.smalivm.type
 
-import org.cf.smalivm2.VirtualMachine2
 import org.cf.smalivm.dex.SmaliFile
 import org.cf.smalivm.dex.SmaliFileFactory
 import org.cf.smalivm.dex.SmaliParser
+import org.cf.smalivm2.VirtualMachine2
 import org.cf.util.ClassNameUtils
 import org.jf.baksmali.Main
 import org.jf.dexlib2.Opcodes
@@ -13,8 +13,8 @@ import org.jf.dexlib2.writer.builder.DexBuilder
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.nio.file.Files
-import java.util.stream.Collectors
 
+//import org.jf.util.jcommander.Command
 // TODO: EASY - once the interface is removed, can make these vals again and use implicit getters
 class ClassManager2(
     val inputPath: File?,
@@ -96,14 +96,11 @@ class ClassManager2(
      *
      * @return all framework class names
      */
-    override fun getFrameworkClassNames(): Set<String?>? {
+    override fun getFrameworkClassNames(): Set<String> {
         if (frameworkClassNames == null) {
-            frameworkClassNames = classNameToSmaliFile.keys
-                .parallelStream()
-                .filter { className: String? -> smaliFileFactory.isFrameworkClass(className) }
-                .collect(Collectors.toSet())
+            frameworkClassNames = classNameToSmaliFile.keys.filter { smaliFileFactory.isFrameworkClass(it) }.toSet()
         }
-        return frameworkClassNames
+        return frameworkClassNames!!
     }
 
     override fun getLoadedClasses(): Collection<VirtualClass?> {
@@ -127,14 +124,11 @@ class ClassManager2(
      *
      * @return all local class names which are not part of the framework
      */
-    override fun getNonFrameworkClassNames(): Set<String?>? {
+    override fun getNonFrameworkClassNames(): Set<String> {
         if (nonFrameworkClassNames == null) {
-            nonFrameworkClassNames = classNameToSmaliFile.keys
-                .parallelStream()
-                .filter { className: String? -> !smaliFileFactory.isFrameworkClass(className) }
-                .collect(Collectors.toSet())
+            nonFrameworkClassNames = classNameToSmaliFile.keys.filterNot { smaliFileFactory.isFrameworkClass(it) }.toSet()
         }
-        return nonFrameworkClassNames
+        return nonFrameworkClassNames!!
     }
 
     // todo: easy - either getVirtualMethod or getClass, make consistent

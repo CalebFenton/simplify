@@ -52,15 +52,19 @@ class BinaryMathOp internal constructor(
             hasLiteral -> Value.wrap(narrowLiteral, CommonTypes.INTEGER)
             else -> node.state.readRegister(arg2Register)
         }
-        val result = when {
+        val rawResult = when {
             lhs.isKnown && rhs.isKnown -> getResult(lhs, rhs)
             else -> UnknownValue()
         }
-        if (result is Throwable) {
-            return throwException(result)
+        if (rawResult is Throwable) {
+            return throwException(rawResult)
         }
-        node.state.assignRegister(destRegister, result, mathOperandType.type)
-        return finishOp()
+        val result = Value.wrap(rawResult, mathOperandType.type)
+        node.state.assignRegister(destRegister, result)
+        val mayThrow = result.isUnknown
+                && (mathOperator == MathOperator.DIV)
+                && (mathOperandType == MathOperandType.INT || mathOperandType == MathOperandType.LONG)
+        return finishOp(mayThrow = mayThrow)
     }
 
     override fun toString(): String {

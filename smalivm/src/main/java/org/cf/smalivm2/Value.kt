@@ -14,6 +14,10 @@ data class Value(val value: Any?, val type: String) {
             return wrap(value, ClassNameUtils.toInternal(value.javaClass))
         }
 
+        fun wrap(value: Any, klazz: Class<*>): Value {
+            return wrap(value, ClassNameUtils.toInternal(klazz))
+        }
+
         fun wrap(value: Any?, type: String): Value {
             return Value(value, type)
         }

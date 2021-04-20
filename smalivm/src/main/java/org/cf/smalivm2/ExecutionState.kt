@@ -83,8 +83,11 @@ class ExecutionState internal constructor(
         private fun getReassignedKeysBetweenChildAndAncestor(child: ExecutionState, ancestor: ExecutionState): Set<String?> {
             val reassigned: MutableSet<String> = HashSet()
             var current: ExecutionState = child
-            while (current !== ancestor) {
+            while (true) {
                 reassigned.addAll(current.values.keys)
+                if (child == ancestor) {
+                    break
+                }
                 val parent = current.getParent() ?: break
                 current = parent
             }
@@ -119,6 +122,18 @@ class ExecutionState internal constructor(
         pokeKey(register.toString(), value, updateIdentities)
     }
 
+    fun assignRegisters(vararg params: Any?) {
+        var i = 0
+        while (i < params.size) {
+            val register = params[i] as Int
+            val rawValue = params[i + 1]
+            val type = params[i + 2] as String
+            val value = Value.wrap(rawValue, type)
+            assignRegister(register, value)
+            i += 3
+        }
+    }
+
     fun assignField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
         pokeField(field, value, updateIdentities)
     }
@@ -141,6 +156,10 @@ class ExecutionState internal constructor(
 
     fun assignReturnRegister(v: Any?, type: String) {
         pokeRegister(RETURN_REGISTER, Value.wrap(v, type))
+    }
+
+    fun assignExceptionRegister(value: Value) {
+        pokeRegister(EXCEPTION_REGISTER, value)
     }
 
     fun assignThrowRegister(value: Value) {
@@ -190,8 +209,8 @@ class ExecutionState internal constructor(
         return peekRegister(firstParameterRegister + parameterRegisterOffset)
     }
 
-    fun peekRegister(register: Int): Value? {
-        return peekKey(register.toString())
+    fun peekRegister(register: Int, methodLocal: Boolean = true): Value? {
+        return peekKey(register.toString(), methodLocal)
     }
 
     fun peekField(fieldSignature: String): Value {
@@ -213,7 +232,7 @@ class ExecutionState internal constructor(
     }
 
     fun peekExceptionRegister(): Value? {
-        return peekRegister(EXCEPTION_REGISTER)
+        return peekRegister(EXCEPTION_REGISTER, methodLocal = false)
     }
 
     fun peekResultRegister(): Value? {
@@ -377,13 +396,13 @@ class ExecutionState internal constructor(
             return values[key]
         }
 
-        val ancestor = getAncestorWithKey(key, methodLocal)
+        val ancestor = findNearestAncestorWithKey(key, methodLocal)
         if (ancestor == null) {
             log.trace("Undefined value: {}; possible mistake!", key, Exception())
             return null
         }
 
-        val targetItem = ancestor.peekKey(key)!!
+        val targetItem = ancestor.values[key]!!
         val clone = cloneValue(targetItem)
         val reassigned = getReassignedKeysBetweenChildAndAncestor(this, ancestor)
         val potential = ancestor.values.keys
@@ -391,7 +410,7 @@ class ExecutionState internal constructor(
             if (reassigned.contains(currentKey)) {
                 continue
             }
-            val currentItem = ancestor.peekKey(currentKey)!!
+            val currentItem = ancestor.values[currentKey]!!
             if (targetItem.value === currentItem.value) {
                 pokeKey(currentKey, clone)
             }
@@ -434,7 +453,7 @@ class ExecutionState internal constructor(
         return Value.wrap(cloneValue, original.type)
     }
 
-    private fun getAncestorWithKey(key: String, methodLocal: Boolean = true): ExecutionState? {
+    private fun findNearestAncestorWithKey(key: String, methodLocal: Boolean = true): ExecutionState? {
         var ancestor: ExecutionState? = this
         do {
             if (ancestor!!.hasKey(key)) {
@@ -506,19 +525,4 @@ class ExecutionState internal constructor(
         val virtualClass = classManager.getVirtualClass(classSignature)
         return isClassInitialized(virtualClass)
     }
-
-
-//    private fun keys(): Set<String> {
-//        // Note: mutating this directly alters keyToHeapItem's keys
-//        return keyToValues.keys
-//    }
-//
-//    private fun remove(key: String) {
-//        keyToValues.remove(key)
-//    }
-
-//    private fun set(key: String, value: Value) {
-//        values[key] = value
-//    }
-
 }

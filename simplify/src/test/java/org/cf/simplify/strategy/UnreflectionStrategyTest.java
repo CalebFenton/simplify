@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
-import org.cf.smalivm.VMState;
+import org.cf.smalivm.TestState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
@@ -40,7 +40,7 @@ public class UnreflectionStrategyTest {
     }
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
-        VMState initial = new VMState();
+        TestState initial = new TestState();
         if (args.length > 0) {
             initial.setRegisters(args);
         }

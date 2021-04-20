@@ -8,7 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
-import org.cf.smalivm.VMState;
+import org.cf.smalivm.TestState;
 import org.cf.smalivm.VMTester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
@@ -28,7 +28,7 @@ public class DeadRemovalStrategyTest {
     private static final Logger log = LoggerFactory.getLogger(DeadRemovalStrategyTest.class.getSimpleName());
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
-        VMState initial = new VMState();
+        TestState initial = new TestState();
         if (args.length > 0) {
             initial.setRegisters(args);
         }
@@ -55,7 +55,7 @@ public class DeadRemovalStrategyTest {
     public void doesNotDetectInstanceInitializer() {
         VirtualMachine vm = VMTester.spawnVM(true);
         VirtualClass virtualClass = vm.getClassManager().getVirtualClass(CLASS_NAME);
-        VMState initial = new VMState();
+        TestState initial = new TestState();
         initial.setRegisters(0, new UninitializedInstance(virtualClass), CLASS_NAME);
 
         String methodName = "<init>()V";

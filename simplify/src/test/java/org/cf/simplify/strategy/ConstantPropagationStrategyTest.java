@@ -9,7 +9,7 @@ import static org.mockito.Mockito.withSettings;
 import org.cf.simplify.ConstantBuilder;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
-import org.cf.smalivm.VMState;
+import org.cf.smalivm.TestState;
 import org.cf.smalivm.dex.CommonTypes;
 import org.cf.smalivm.type.UnknownValue;
 import org.jf.dexlib2.builder.BuilderInstruction;
@@ -31,7 +31,7 @@ public class ConstantPropagationStrategyTest {
     private static final Logger log = LoggerFactory.getLogger(ConstantPropagationStrategyTest.class.getSimpleName());
 
     private static ExecutionGraphManipulator getOptimizedGraph(String methodName, Object... args) {
-        VMState initial = new VMState();
+        TestState initial = new TestState();
         if (args.length > 0) {
             initial.setRegisters(args);
         }
@@ -39,7 +39,7 @@ public class ConstantPropagationStrategyTest {
         return getOptimizedGraph(methodName, initial);
     }
 
-    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, VMState initial) {
+    private static ExecutionGraphManipulator getOptimizedGraph(String methodName, TestState initial) {
         ExecutionGraphManipulator manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, methodName, initial);
         ConstantPropagationStrategy strategy = new ConstantPropagationStrategy(manipulator);
         strategy.perform();
@@ -185,11 +185,11 @@ public class ConstantPropagationStrategyTest {
 
     public static class UnknownValues {
 
-        private VMState initial;
+        private TestState initial;
 
         @BeforeEach
         public void setUp() {
-            initial = new VMState();
+            initial = new TestState();
         }
 
         @Test
