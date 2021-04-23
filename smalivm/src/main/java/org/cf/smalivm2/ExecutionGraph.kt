@@ -470,10 +470,14 @@ class ExecutionGraph2(
     }
 
     fun getTerminatingRegisterConsensus(registers: IntArray): Map<Int, Value> {
-        val addresses = getConnectedTerminatingAddresses()
         val registerToValue: MutableMap<Int, Value> = HashMap(registers.size)
-        for (register in registers) {
-            registerToValue[register] = getRegisterConsensus(addresses, register)
+        val addresses = getConnectedTerminatingAddresses()
+        if (addresses.isNotEmpty()) {
+            for (register in registers) {
+                registerToValue[register] = getRegisterConsensus(addresses, register)
+            }
+        } else {
+            log.warn("No connected terminating addresses for register consensus; registers=$registers")
         }
         return registerToValue
     }

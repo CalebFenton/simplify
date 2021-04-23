@@ -5,16 +5,18 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
+import org.jf.dexlib2.builder.BuilderOffsetInstruction
 import org.jf.dexlib2.builder.MethodLocation
 
-class GotoOp internal constructor(location: MethodLocation) : Op(location) {
+
+class GotoOp internal constructor(location: MethodLocation, val targetAddress: Int) : Op(location) {
 
     override val registersReadCount = 0
     override val registersAssignedCount = 0
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         // https://xkcd.com/292/
-        return finishOp()
+        return finishOp(targetAddress)
     }
 
     override fun toString(): String {
@@ -30,7 +32,9 @@ class GotoOp internal constructor(location: MethodLocation) : Op(location) {
             classLoader: SmaliClassLoader,
             configuration: Configuration
         ): Op {
-            return GotoOp(location)
+            val target = (location.instruction as BuilderOffsetInstruction).target
+            val targetAddress = target.getCodeAddress()
+            return GotoOp(location, targetAddress)
         }
     }
 }
