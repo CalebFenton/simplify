@@ -285,7 +285,7 @@ class ExecutionState internal constructor(
                 continue
             }
             val currentValue = peekRegister(currentRegister)!!
-            if (value.value === currentValue.value) {
+            if (value.raw === currentValue.raw) {
                 return true
             }
         }
@@ -411,7 +411,7 @@ class ExecutionState internal constructor(
                 continue
             }
             val currentItem = ancestor.values[currentKey]!!
-            if (targetItem.value === currentItem.value) {
+            if (targetItem.raw === currentItem.raw) {
                 pokeKey(currentKey, clone)
             }
         }
@@ -436,12 +436,12 @@ class ExecutionState internal constructor(
      */
     fun update(key: String, newValue: Value) {
         val oldValue = peekKey(key)!!
-        if (oldValue.value == null) {
+        if (oldValue.raw == null) {
             values[key] = newValue
         } else {
             for (currentKey in values.keys) {
                 val currentValue = peekKey(currentKey)!!
-                if (oldValue.value == currentValue.value) {
+                if (oldValue.raw == currentValue.raw) {
                     values[currentKey] = newValue
                 }
             }
@@ -449,7 +449,7 @@ class ExecutionState internal constructor(
     }
 
     private fun cloneValue(original: Value): Value {
-        val cloneValue = cloner.deepClone(original.value)
+        val cloneValue = cloner.deepClone(original.raw)
         return Value.wrap(cloneValue, original.type)
     }
 
@@ -465,7 +465,7 @@ class ExecutionState internal constructor(
     }
 
     fun getPsuedoInstructionReturnAddress(): Int {
-        return (peekKey(PSEUDO_RETURN_ADDRESS_KEY)?.value!! as Int)
+        return (peekKey(PSEUDO_RETURN_ADDRESS_KEY)?.raw!! as Int)
     }
 
     fun setPseudoInstructionReturnAddress(address: Int) {

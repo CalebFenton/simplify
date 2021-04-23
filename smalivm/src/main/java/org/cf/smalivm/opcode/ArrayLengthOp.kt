@@ -29,13 +29,13 @@ class ArrayLengthOp internal constructor(
         var mayThrow = true
         val length: Any = when {
             array.isUnknown -> UnknownValue()
-            array.value!!.javaClass.isArray -> {
+            array.raw!!.javaClass.isArray -> {
                 mayThrow = false
-                Array.getLength(array.value)
+                Array.getLength(array.raw)
             }
             else -> {
                 // How'd this happen? The code won't pass DEX verifier if it's not an array class.
-                log.error("Unexpected non-array class: {}, {}; assuming unknown", array.value.javaClass, array.value)
+                log.error("Unexpected non-array class: {}, {}; assuming unknown", array.raw.javaClass, array.raw)
                 UnknownValue()
             }
         }

@@ -27,7 +27,7 @@ class InstanceOfOp internal constructor(
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val state = node.state
         val instance = node.state.readRegister(arg1Register)
-        if (instance.value == null) {
+        if (instance.raw == null) {
             state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOL))
             return finishOp()
         }

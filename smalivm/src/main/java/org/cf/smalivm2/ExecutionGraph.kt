@@ -417,12 +417,12 @@ class ExecutionGraph2(
 
     fun getRegisterConsensusValue(address: Int, register: Int): Any? {
         val value = getRegisterConsensus(address, register)
-        return value.value
+        return value.raw
     }
 
     fun getRegisterConsensusValue(addresses: IntArray, register: Int): Any? {
         val value = getRegisterConsensus(addresses, register)
-        return value.value
+        return value.raw
     }
 
     /**

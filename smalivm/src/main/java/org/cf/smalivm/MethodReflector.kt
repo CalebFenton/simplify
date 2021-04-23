@@ -62,7 +62,7 @@ class MethodReflector() {
             var register = registerOffset
             while (i < parameterTypeNames.size) {
                 val argItem = state.peekParameter(register)!!
-                args[i] = argItem.value
+                args[i] = argItem.raw
                 val parameterTypeName = parameterTypeNames[i]
                 val parameterType: Class<*> = if (argItem.isPrimitive) {
                     ClassNameUtils.getPrimitiveClass(parameterTypeName)
@@ -99,7 +99,7 @@ class MethodReflector() {
                 } else {
                     val targetItem = state.peekRegister(0)!!
                     log.debug("Reflecting virtual method {}, target={} args={}", method, targetItem, args.contentToString())
-                    MethodUtils.invokeMethod(targetItem.value!!, method.name, args, invocationArgs.parameterTypes)
+                    MethodUtils.invokeMethod(targetItem.raw!!, method.name, args, invocationArgs.parameterTypes)
                 }
             }
         }

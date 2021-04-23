@@ -8,7 +8,7 @@ import org.cf.smalivm.type.VirtualType
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 
-data class Value(val value: Any?, val type: String) {
+data class Value(val raw: Any?, val type: String) {
     companion object {
         fun wrap(value: Any): Value {
             return wrap(value, ClassNameUtils.toInternal(value.javaClass))
@@ -32,7 +32,7 @@ data class Value(val value: Any?, val type: String) {
         }
 
         private fun wrap(other: Value): Value {
-            return Value(other.value, other.type)
+            return Value(other.raw, other.type)
         }
     }
 
@@ -47,7 +47,7 @@ data class Value(val value: Any?, val type: String) {
         get() = !isImmutable
 
     val isNull: Boolean
-        get() = value == null
+        get() = raw == null
 
     val isNotNull: Boolean
         get() = !isNull
@@ -65,7 +65,7 @@ data class Value(val value: Any?, val type: String) {
         get() = ClassNameUtils.isWrapper(type)
 
     val isUnknown: Boolean
-        get() = value is UnknownValue
+        get() = raw is UnknownValue
 
     val isKnown: Boolean
         get() = !isUnknown
@@ -80,11 +80,11 @@ data class Value(val value: Any?, val type: String) {
         get() = ClassNameUtils.getPrimitive(valueType) ?: valueType
 
     val valueType: String
-        get() = if (isNull) type else ClassNameUtils.toInternal(value!!.javaClass)
+        get() = if (isNull) type else ClassNameUtils.toInternal(raw!!.javaClass)
 
     val declaredAndValueTypeNames: Set<String>
         get() = if (!isNull && !isUnknown) {
-            setOf(type, ClassNameUtils.toInternal(value!!.javaClass))
+            setOf(type, ClassNameUtils.toInternal(raw!!.javaClass))
         } else {
             setOf(type)
         }
@@ -93,42 +93,42 @@ data class Value(val value: Any?, val type: String) {
         get() = if (CommonTypes.LONG == type || CommonTypes.DOUBLE == type) 2 else 1
 
     fun toDouble(): Double {
-        return Utils.getDoubleValue(value)
+        return Utils.getDoubleValue(raw)
     }
 
     fun toFloat(): Float {
-        return Utils.getFloatValue(value)
+        return Utils.getFloatValue(raw)
     }
 
     fun toInteger(): Int {
-        return Utils.getIntegerValue(value)
+        return Utils.getIntegerValue(raw)
     }
 
     fun toLong(): Long {
-        return Utils.getLongValue(value)
+        return Utils.getLongValue(raw)
     }
 
     override fun toString(): String {
         val sb = StringBuilder("type=")
         sb.append(type).append(", value=")
-        if (value == null) {
+        if (raw == null) {
             sb.append("null")
         } else {
-            if (value.javaClass.isArray) {
+            if (raw.javaClass.isArray) {
                 val objArray: Array<Any?>
-                if (value.javaClass.componentType.isPrimitive) {
-                    val arrayLen = java.lang.reflect.Array.getLength(value)
+                if (raw.javaClass.componentType.isPrimitive) {
+                    val arrayLen = java.lang.reflect.Array.getLength(raw)
                     objArray = arrayOfNulls(arrayLen)
                     for (i in 0 until arrayLen) {
-                        objArray[i] = java.lang.reflect.Array.get(value, i)
+                        objArray[i] = java.lang.reflect.Array.get(raw, i)
                     }
                 } else {
-                    objArray = value as Array<Any?>
+                    objArray = raw as Array<Any?>
                 }
                 val arrayString = objArray.contentDeepToString()
                 sb.append(arrayString)
             } else {
-                sb.append(value)
+                sb.append(raw)
             }
         }
         return sb.toString()

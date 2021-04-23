@@ -35,8 +35,8 @@ class FilledNewArrayOp internal constructor(
         for (i in dimensionRegisters.indices) {
             val register = dimensionRegisters[i]
             val item = node.state.readRegister(register)
-            if (item.value is Number) {
-                dimensions[i] = item.value.toInt()
+            if (item.raw is Number) {
+                dimensions[i] = item.raw.toInt()
             } else {
                 if (item.isKnown) {
                     log.warn("Unexpected dimension argument type for {}: {}", toString(), item)

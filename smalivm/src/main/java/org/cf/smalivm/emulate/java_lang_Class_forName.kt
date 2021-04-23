@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory
 
 internal class java_lang_Class_forName : EmulatedMethodCall() {
     override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
-        val binaryClassName = state.peekParameter(0)!!.value as String?
+        val binaryClassName = state.peekParameter(0)!!.raw as String?
         val className = ClassNameUtils.binaryToInternal(binaryClassName)
         val value: Class<*>
         try {

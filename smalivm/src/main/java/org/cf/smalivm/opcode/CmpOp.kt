@@ -28,9 +28,9 @@ class CmpOp internal constructor(
         val item = if (lhs.isUnknown || rhs.isUnknown) {
             Value.unknown(CommonTypes.INTEGER)
         } else {
-            assert(lhs.value!!.javaClass == rhs.value!!.javaClass)
+            assert(lhs.raw!!.javaClass == rhs.raw!!.javaClass)
             assert(lhs.type == rhs.type)
-            val cmp = cmp(lhs.value as Number, rhs.value as Number)
+            val cmp = cmp(lhs.raw as Number, rhs.raw as Number)
             Value.wrap(cmp, CommonTypes.INTEGER)
         }
         node.state.assignRegister(destRegister, item)

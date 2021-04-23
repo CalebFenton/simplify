@@ -124,9 +124,9 @@ class AGetOpTest {
 
         private fun testException(methodDescriptor: String, exceptionClass: Class<*>, initial: TestState) {
             val graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial)
-            val item = graph.getTerminatingRegisterConsensus(0)!!
-            assertEquals(exceptionClass, item.value!!.javaClass)
-            assertEquals(ClassNameUtils.toInternal(exceptionClass), item.type)
+            val value = graph.getTerminatingRegisterConsensus(0)!!
+            assertEquals(exceptionClass, value.raw!!.javaClass)
+            assertEquals(ClassNameUtils.toInternal(exceptionClass), value.type)
             assertFalse(graph.wasAddressReached(2), "Should not reach next instruction in non-exception execution path")
             val node = graph.getNodePile(0)[0]
             assertEquals(0, node.state.registersAssigned.size)

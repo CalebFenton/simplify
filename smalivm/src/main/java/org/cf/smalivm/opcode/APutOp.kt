@@ -43,11 +43,11 @@ class APutOp internal constructor(
                 if (array.isNull) {
                     return throwException(NullPointerException::class.java)
                 }
-                if (index.toInteger() >= Array.getLength(array.value)) {
+                if (index.toInteger() >= Array.getLength(array.raw)) {
                     return throwException(ArrayIndexOutOfBoundsException::class.java)
                 } else {
-                    val set = castValue(name, store.value)
-                    Array.set(array.value, index.toInteger(), set)
+                    val set = castValue(name, store.raw)
+                    Array.set(array.raw, index.toInteger(), set)
                     mayThrow = false
                 }
             }
@@ -94,8 +94,7 @@ class APutOp internal constructor(
                         // const/4 v0, 0x0 is null
                         null
                     } else {
-                        log.warn("Unexpected aput-* postfix during numerical cast; returning null")
-                        null
+                        value
                     }
                 }
             }

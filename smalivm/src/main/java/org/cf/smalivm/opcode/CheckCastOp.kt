@@ -25,7 +25,7 @@ class CheckCastOp internal constructor(
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val target = node.state.readRegister(targetRegister)
         if (isInstance(target, castType, node.classManager)) {
-            node.state.assignRegister(targetRegister, target.value, castType.name)
+            node.state.assignRegister(targetRegister, target.raw, castType.name)
             return finishOp(mayThrow = false)
         } else {
             // E.g. java.lang.ClassCastException: java.lang.String cannot be cast to java.io.File

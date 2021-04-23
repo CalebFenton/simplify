@@ -248,7 +248,6 @@ class VirtualMachine2 private constructor(
                 is UnresolvedExceptionChild -> {
                     // TODO: Should anything be done with the exception message here? Maybe it'll be more obvious elsewhere.
                     // TODO: How does the finally concept work here? Any special handling needed?
-                    buildAndSetException(current, unresolvedChild.exceptionClass, unresolvedChild.message)
                     val exceptionClass = classManager.getVirtualClass(unresolvedChild.exceptionClass)
                     val handlerAddress = if (unresolvedChild.unhandled) {
                         -1
@@ -261,7 +260,9 @@ class VirtualMachine2 private constructor(
                         entry.graph.unhandledVirtualException.add(e)
                     } else {
                         log.trace("{} threw exception {} and is handled by exception handler @{}", current, unresolvedChild, handlerAddress)
-                        enqueueChildNode(current, handlerAddress, entry.graph, entry.nodes)
+                        val child = enqueueChildNode(current, handlerAddress, entry.graph, entry.nodes)
+                        val exception = buildException(current, unresolvedChild.exceptionClass, unresolvedChild.message)
+                        child.state.assignExceptionRegister(exception)
                     }
                 }
             }
@@ -270,7 +271,7 @@ class VirtualMachine2 private constructor(
         finishStep(entry, current)
     }
 
-    private fun buildAndSetException(current: ExecutionNode, exceptionClass: Class<out Throwable>, message: String?) {
+    private fun buildException(current: ExecutionNode, exceptionClass: Class<out Throwable>, message: String?): Value {
         // TODO: Hard - Spoof the stack trace here. Probably will require reflection and messing with some private data structures.
         val rawException = try {
             val ctor = exceptionClass.getDeclaredConstructor(String::class.java)
@@ -281,16 +282,16 @@ class VirtualMachine2 private constructor(
             log.error("Exception building exception $exceptionClass for $current", e)
         }
 
-        val exception = Value.wrap(rawException, exceptionClass)
-        current.state.assignExceptionRegister(exception)
+        return Value.wrap(rawException, exceptionClass)
     }
 
-    private fun enqueueChildNode(parent: ExecutionNode, address: Int, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>) {
+    private fun enqueueChildNode(parent: ExecutionNode, address: Int, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>): ExecutionNode {
         val location = graph.getLocation(address)!!
         val op = methodToTemplateOps[parent.method]!![location]!!
         val child = ExecutionNode(op, parent.method, classManager, classLoader, configuration, parent = parent)
         parent.children.add(child)
         methodNodes.add(child)
+        return child
     }
 
     private fun finishStep(entry: ExecutionQueueEntry, current: ExecutionNode, collapseMultiverse: Boolean = true, abortMethod: Boolean = false) {

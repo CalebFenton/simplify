@@ -30,7 +30,7 @@ class SwitchPayloadOp internal constructor(
             childAddresses.add(returnAddress)
             return finishOp(childAddresses.toTypedArray())
         }
-        val targetKey = Utils.getIntegerValue(result.value)
+        val targetKey = Utils.getIntegerValue(result.raw)
         if (targetKeyToOffset.containsKey(targetKey)) {
             val targetAddress = branchFromAddress + targetKeyToOffset[targetKey]!!
             return finishOp(targetAddress)

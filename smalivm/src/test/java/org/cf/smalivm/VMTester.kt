@@ -172,8 +172,8 @@ object VMTester {
 //    }
 
     private fun testValueEquals(expected: Value, consensus: Value) {
-        val expectedValue = expected.value
-        val consensusValue = consensus.value
+        val expectedValue = expected.raw
+        val consensusValue = consensus.raw
         if (expectedValue != null) {
             Assertions.assertNotNull(consensusValue, "No consensus for value")
         }

@@ -45,28 +45,28 @@ class IfOp internal constructor(
             return finishOp(arrayOf(nextAddress, targetAddress))
         }
         val cmp = if (compareToZero) {
-            if (lhs.value == null) {
+            if (lhs.raw == null) {
                 // if-*z ops are used to check for null refs
                 0
-            } else if ((lhs.value is Number || lhs.value is Boolean || lhs.value is Char) &&
-                (rhs.value is Number || rhs.value is Boolean || rhs.value is Char)
+            } else if ((lhs.raw is Number || lhs.raw is Boolean || lhs.raw is Char) &&
+                (rhs.raw is Number || rhs.raw is Boolean || rhs.raw is Char)
             ) {
                 val aIntValue = lhs.toInteger()
-                aIntValue.compareTo(rhs.value as Int)
+                aIntValue.compareTo(rhs.raw as Int)
             } else {
-                if (lhs.value === rhs.value) 0 else 1
+                if (lhs.raw === rhs.raw) 0 else 1
             }
-        } else if ((lhs.value is Number || lhs.value is Boolean || lhs.value is Char) &&
-            (rhs.value is Number || rhs.value is Boolean || rhs.value is Char)
+        } else if ((lhs.raw is Number || lhs.raw is Boolean || lhs.raw is Char) &&
+            (rhs.raw is Number || rhs.raw is Boolean || rhs.raw is Char)
         ) {
             val aIntValue = lhs.toInteger()
             val bIntValue = rhs.toInteger()
             aIntValue.compareTo(bIntValue)
         } else {
-            if (lhs.value === rhs.value) 0 else 1
+            if (lhs.raw === rhs.raw) 0 else 1
         }
 
-        log.trace("IF compare: {} vs {} = {}", lhs.value, rhs.value, cmp)
+        log.trace("IF compare: {} vs {} = {}", lhs.raw, rhs.raw, cmp)
         val childAddress = when {
             isTrue(ifType, cmp) -> targetAddress
             else -> nextAddress

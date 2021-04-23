@@ -40,10 +40,10 @@ class AGetOp internal constructor(
                     return throwException(NullPointerException::class.java)
                 }
                 val innerType = array.type.replaceFirst("\\[".toRegex(), "")
-                if (index.toInteger() >= Array.getLength(array.value)) {
+                if (index.toInteger() >= Array.getLength(array.raw)) {
                     return throwException(ArrayIndexOutOfBoundsException::class.java)
                 } else {
-                    val raw = Array.get(array.value, index.toInteger())
+                    val raw = Array.get(array.raw, index.toInteger())
                     indexed = Value.wrap(raw, innerType)
                     mayThrow = false
                 }

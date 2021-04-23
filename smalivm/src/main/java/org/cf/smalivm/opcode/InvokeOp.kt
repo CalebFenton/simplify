@@ -66,7 +66,7 @@ class InvokeOp internal constructor(
         val targetMethod = if (name.startsWith("invoke-virtual") && !method.isFinal) {
             val targetRegister = parameterRegisters[0]
             val target = node.state.peekRegister(targetRegister)!!
-            resolveTargetMethod(target.value, node.classManager)
+            resolveTargetMethod(target.raw, node.classManager)
         } else {
             method
         }
@@ -111,7 +111,7 @@ class InvokeOp internal constructor(
                 try {
                     val m = Any::class.java.getDeclaredMethod("clone")
                     m.isAccessible = true
-                    m.invoke(arrayItem.value)
+                    m.invoke(arrayItem.raw)
                 } catch (e: Exception) {
                     log.error("Real exception initializing Object; returning unknown", e)
                     UnknownValue()
@@ -160,7 +160,7 @@ class InvokeOp internal constructor(
             val callerRegister = parameterRegisters[i]
             val item = callerState.readRegister(callerRegister)
             val parameterType = analyzedParameterTypes[i]
-            var value = item.value
+            var value = item.raw
             if (item.isPrimitive && !item.isUnknown) {
                 val hasNullByteValue = item.type == CommonTypes.INTEGER && value is Number && item.toInteger() == 0
                 value = if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
@@ -298,7 +298,7 @@ class InvokeOp internal constructor(
         // TODO: Is there a problem if the VERY first OP invokes this? Is Ljava/lang/Object; clinit'ed?
         val instanceRegister = parameterRegisters[0]
         val instanceItem = node.state.peekRegister(instanceRegister)!!
-        val uninitializedInstance = instanceItem.value as UninitializedInstance
+        val uninitializedInstance = instanceItem.raw as UninitializedInstance
         val instanceType = uninitializedInstance.type
         val newInstanceItem = try {
             // Create a Java class of the true type

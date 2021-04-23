@@ -18,9 +18,9 @@ class ArrayLengthOpTest {
         private fun testException(methodDescriptor: String, exceptionClass: Class<*>, exceptionMessage: String, initial: TestState) {
             val graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial)
             val item = graph.getTerminatingRegisterConsensus(0)!!
-            assertEquals(exceptionClass, item.value!!.javaClass)
+            assertEquals(exceptionClass, item.raw!!.javaClass)
             assertEquals(ClassNameUtils.toInternal(exceptionClass), item.type)
-            assertEquals(exceptionMessage, (item.value as Throwable).message)
+            assertEquals(exceptionMessage, (item.raw as Throwable).message)
             assertFalse(graph.wasAddressReached(1), "Should not reach next instruction in non-exception execution path")
             val node = graph.getNodePile(0)[0]
             assertEquals(0, node.state.registersAssigned.size)

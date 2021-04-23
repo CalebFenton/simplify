@@ -25,11 +25,11 @@ class FillArrayDataPayloadOp internal constructor(
         val targetRegister = parent.registersAssigned.toList()[0]
         val array = node.state.peekRegister(targetRegister)!!
         if (array.isKnown) {
-            val expectedClass = array.value!!.javaClass.componentType
+            val expectedClass = array.raw!!.javaClass.componentType
             for (i in arrayElements.indices) {
                 val number = arrayElements[i]
                 val value = getProperValue(number, expectedClass)
-                Array.set(array.value, i, value)
+                Array.set(array.raw, i, value)
             }
             node.state.pokeRegister(targetRegister, array)
         }
