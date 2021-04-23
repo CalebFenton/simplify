@@ -14,8 +14,17 @@ class APutOpTest {
     private lateinit var initial: TestState
     private lateinit var expected: TestState
 
+    companion object {
+        private const val CLASS_NAME = "Laput_test;"
+    }
+
+    @BeforeEach
+    fun setUp() {
+        initial = TestState()
+        expected = TestState()
+    }
+
     @Test
-    @Throws(ClassNotFoundException::class)
     fun canInsertLocalClassAndClassIntoSameArray() {
         val valueType: String = CommonTypes.CLASS
         val arrayType = "[$valueType"
@@ -228,37 +237,37 @@ class APutOpTest {
     @Test
     fun nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, null, "[I", 1, 0, "I", 2, 0, "I")
-        testException("putWithCatch()V", NullPointerException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "putWithCatch()V", NullPointerException::class.java, initial, 2)
     }
 
     @Test
     fun outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, IntArray(5), "[I", 1, 10, "I", 2, 0, "I")
-        testException("putWithCatch()V", ArrayIndexOutOfBoundsException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "putWithCatch()V", ArrayIndexOutOfBoundsException::class.java, initial, 2)
     }
 
     @Test
     fun incompatibleValueTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, IntArray(5), "[I", 1, 0, "I", 2, "wrong type", "Ljava/lang/String;")
-        testException("putWithCatch()V", ArrayStoreException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "putWithCatch()V", ArrayStoreException::class.java, initial, 2)
     }
 
     @Test
     fun outOfBoundsIndexAndIncompatibleValueTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, IntArray(5), "[I", 1, 10, "I", 2, "wrong type", "Ljava/lang/String;")
-        testException("putWithCatch()V", ArrayStoreException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "putWithCatch()V", ArrayStoreException::class.java, initial, 2)
     }
 
     @Test
     fun unknownValueItemWithIncompatibleTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, IntArray(5), "[I", 1, 10, "I", 2, UnknownValue(), "Ljava/lang/String;")
-        testException("putWithCatch()V", ArrayStoreException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "putWithCatch()V", ArrayStoreException::class.java, initial, 2)
     }
 
     @Test
     fun unknownArrayWithIncompatibleTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, UnknownValue(), "[I", 1, 0, "I", 2, "wrong type", "Ljava/lang/String;")
-        testException("putWithCatch()V", ArrayStoreException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "putWithCatch()V", ArrayStoreException::class.java, initial, 2)
     }
 
     @Test
@@ -274,24 +283,5 @@ class APutOpTest {
         val exceptionClasses = exceptions.map { it.raw!!.javaClass }
         val expectedClasses = listOf(ArrayIndexOutOfBoundsException::class.java, NullPointerException::class.java)
         assertTrue(exceptionClasses.containsAll(expectedClasses))
-    }
-
-    @BeforeEach
-    fun setUp() {
-        initial = TestState()
-        expected = TestState()
-    }
-
-    companion object {
-        private const val CLASS_NAME = "Laput_test;"
-        private fun testException(methodDescriptor: String, exceptionClass: Class<*>, initial: TestState) {
-            val graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial)
-            val item = graph.getTerminatingRegisterConsensus(0)!!
-            assertEquals(exceptionClass, item.raw!!.javaClass)
-            assertEquals(ClassNameUtils.toInternal(exceptionClass), item.type)
-            assertFalse(graph.wasAddressReached(2), "Should not reach next instruction in non-exception execution path")
-            val node = graph.getNodePile(0)[0]
-            assertEquals(0, node.state.registersAssigned.size)
-        }
     }
 }

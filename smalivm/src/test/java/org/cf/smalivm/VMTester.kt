@@ -3,6 +3,7 @@ package org.cf.smalivm
 
 import com.google.common.primitives.Ints
 import org.cf.smalivm.dex.SmaliParser
+import org.cf.smalivm.opcode.ArrayLengthOpTest
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
 import org.cf.smalivm.type.VirtualMethod
@@ -10,17 +11,21 @@ import org.cf.smalivm2.ExecutionGraph2
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.Value
 import org.cf.smalivm2.VirtualMachine2
+import org.cf.util.ClassNameUtils
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.*
 import java.io.IOException
 import java.util.*
 
 
 object VMTester {
     const val TEST_CLASS_PATH = "src/test/resources/smali"
+
     @JvmStatic
     val dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
+
     @JvmStatic
     var classManager: ClassManager = ClassManagerFactory().build(TEST_CLASS_PATH, dexBuilder)
 
@@ -171,46 +176,66 @@ object VMTester {
 //            .assignRegister(ArgumentMatchers.any(Int::class.java), ArgumentMatchers.any(HeapItem::class.java))
 //    }
 
+    fun testSimpleException(
+        className: String,
+        methodDescriptor: String,
+        exceptionClass: Class<*>,
+        initial: TestState,
+        nextAddress: Int,
+        exceptionMessage: String? = null
+    ) {
+        val graph = execute(className, methodDescriptor, initial)
+        val value = graph.getTerminatingRegisterConsensus(0)!!
+        assertEquals(exceptionClass, value.raw!!.javaClass)
+        assertEquals(ClassNameUtils.toInternal(exceptionClass), value.type)
+        if (exceptionMessage != null) {
+            assertEquals(exceptionMessage, (value.raw as Throwable).message)
+        }
+        assertFalse(graph.wasAddressReached(nextAddress), "Should not reach next address of non-exceptional execution path")
+        val node = graph.getNodePile(0)[0]
+        assertEquals(0, node.state.registersAssigned.size)
+    }
+
     private fun testValueEquals(expected: Value, consensus: Value) {
         val expectedValue = expected.raw
         val consensusValue = consensus.raw
         if (expectedValue != null) {
-            Assertions.assertNotNull(consensusValue, "No consensus for value")
+            assertNotNull(consensusValue, "No consensus for value")
         }
         if (expectedValue == null) {
-            Assertions.assertEquals(expected, consensus)
+            assertEquals(expected, consensus)
         } else if (expected.isUnknown) {
             // Normally unknown doesn't equal anything, including itself, but tests are more relaxed.
-            Assertions.assertEquals(expected.toString(), consensus.toString())
+            assertEquals(expected.toString(), consensus.toString())
         } else if (expectedValue.javaClass.isArray) {
-            Assertions.assertEquals(expected.type, consensus.type)
-            Assertions.assertEquals(expectedValue.javaClass, consensusValue!!.javaClass)
+            assertEquals(expected.type, consensus.type)
+            assertEquals(expectedValue.javaClass, consensusValue!!.javaClass)
             if (expectedValue is Array<*> && consensusValue is Array<*>) {
-                Assertions.assertArrayEquals(expectedValue as Array<Any?>?, consensusValue as Array<Any?>?)
+                assertArrayEquals(expectedValue as Array<Any?>?, consensusValue as Array<Any?>?)
             } else if (expectedValue is ByteArray && consensusValue is ByteArray) {
-                Assertions.assertArrayEquals(expectedValue as ByteArray?, consensusValue as ByteArray?)
+                assertArrayEquals(expectedValue as ByteArray?, consensusValue as ByteArray?)
             } else if (expectedValue is ShortArray && consensusValue is ShortArray) {
-                Assertions.assertArrayEquals(expectedValue as ShortArray?, consensusValue as ShortArray?)
+                assertArrayEquals(expectedValue as ShortArray?, consensusValue as ShortArray?)
             } else if (expectedValue is IntArray && consensusValue is IntArray) {
-                Assertions.assertArrayEquals(expectedValue as IntArray?, consensusValue as IntArray?)
+                assertArrayEquals(expectedValue as IntArray?, consensusValue as IntArray?)
             } else if (expectedValue is LongArray && consensusValue is LongArray) {
-                Assertions.assertArrayEquals(expectedValue as LongArray?, consensusValue as LongArray?)
+                assertArrayEquals(expectedValue as LongArray?, consensusValue as LongArray?)
             } else if (expectedValue is CharArray && consensusValue is CharArray) {
-                Assertions.assertArrayEquals(expectedValue as CharArray?, consensusValue as CharArray?)
+                assertArrayEquals(expectedValue as CharArray?, consensusValue as CharArray?)
             } else if (expectedValue is FloatArray && consensusValue is FloatArray) {
-                Assertions.assertArrayEquals(expectedValue as FloatArray?, consensusValue as FloatArray?, 0.001f)
+                assertArrayEquals(expectedValue as FloatArray?, consensusValue as FloatArray?, 0.001f)
             } else if (expectedValue is DoubleArray && consensusValue is DoubleArray) {
-                Assertions.assertArrayEquals(expectedValue as DoubleArray?, consensusValue as DoubleArray?, 0.001)
+                assertArrayEquals(expectedValue as DoubleArray?, consensusValue as DoubleArray?, 0.001)
             } else if (expectedValue is BooleanArray && consensusValue is BooleanArray) {
-                Assertions.assertArrayEquals(expectedValue as BooleanArray?, consensusValue as BooleanArray?)
+                assertArrayEquals(expectedValue as BooleanArray?, consensusValue as BooleanArray?)
             } else {
-                Assertions.assertEquals(expectedValue, consensusValue)
+                assertEquals(expectedValue, consensusValue)
             }
         } else if (expectedValue is StringBuilder) {
-            Assertions.assertEquals(expectedValue.toString(), consensusValue.toString())
+            assertEquals(expectedValue.toString(), consensusValue.toString())
         } else {
-            Assertions.assertEquals(expectedValue, consensusValue)
-            Assertions.assertEquals(expected.type, consensus.type)
+            assertEquals(expectedValue, consensusValue)
+            assertEquals(expected.type, consensus.type)
         }
     }
 }

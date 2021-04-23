@@ -3,9 +3,6 @@ package org.cf.smalivm.opcode
 import org.cf.smalivm.TestState
 import org.cf.smalivm.VMTester
 import org.cf.smalivm.type.UnknownValue
-import org.cf.util.ClassNameUtils
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -14,17 +11,6 @@ import org.junit.jupiter.api.Test
 class ArrayLengthOpTest {
     companion object {
         private const val CLASS_NAME = "Larray_length_test;"
-
-        private fun testException(methodDescriptor: String, exceptionClass: Class<*>, exceptionMessage: String, initial: TestState) {
-            val graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial)
-            val item = graph.getTerminatingRegisterConsensus(0)!!
-            assertEquals(exceptionClass, item.raw!!.javaClass)
-            assertEquals(ClassNameUtils.toInternal(exceptionClass), item.type)
-            assertEquals(exceptionMessage, (item.raw as Throwable).message)
-            assertFalse(graph.wasAddressReached(1), "Should not reach next instruction in non-exception execution path")
-            val node = graph.getNodePile(0)[0]
-            assertEquals(0, node.state.registersAssigned.size)
-        }
     }
 
     @Nested
@@ -32,6 +18,12 @@ class ArrayLengthOpTest {
     inner class ObjectArrays {
         private lateinit var initial: TestState
         private lateinit var expected: TestState
+
+        @BeforeEach
+        fun setUp() {
+            initial = TestState()
+            expected = TestState()
+        }
 
         @Test
         fun canGetLengthForEmptyIntegerArray() {
@@ -67,12 +59,6 @@ class ArrayLengthOpTest {
             expected.setRegisters(0, UnknownValue(), "I")
             VMTester.test(CLASS_NAME, "getLength()V", initial, expected)
         }
-
-        @BeforeEach
-        fun setUp() {
-            initial = TestState()
-            expected = TestState()
-        }
     }
 
     @Nested
@@ -80,6 +66,12 @@ class ArrayLengthOpTest {
     inner class PrimitiveArrays {
         private lateinit var initial: TestState
         private lateinit var expected: TestState
+
+        @BeforeEach
+        fun setUp() {
+            initial = TestState()
+            expected = TestState()
+        }
 
         @Test
         fun canGetLengthForEmptyIntArray() {
@@ -112,13 +104,14 @@ class ArrayLengthOpTest {
         @Test
         fun nullArrayThrowsExpectedException() {
             initial.setRegisters(0, null, "[S")
-            testException("getLengthWithCatch()V", NullPointerException::class.java, "Attempt to get length of null array", initial)
-        }
-
-        @BeforeEach
-        fun setUp() {
-            initial = TestState()
-            expected = TestState()
+            VMTester.testSimpleException(
+                CLASS_NAME,
+                "getLengthWithCatch()V",
+                NullPointerException::class.java,
+                initial,
+                1,
+                "Attempt to get length of null array"
+            )
         }
     }
 }

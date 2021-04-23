@@ -3,15 +3,22 @@ package org.cf.smalivm.opcode
 import org.cf.smalivm.TestState
 import org.cf.smalivm.VMTester
 import org.cf.smalivm.type.UnknownValue
-import org.cf.util.ClassNameUtils
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class AGetOpTest {
     private lateinit var expected: TestState
     private lateinit var initial: TestState
+
+    companion object {
+        private const val CLASS_NAME = "Laget_test;"
+    }
+
+    @BeforeEach
+    fun setUp() {
+        initial = TestState()
+        expected = TestState()
+    }
 
     @Test
     fun canGet() {
@@ -104,32 +111,12 @@ class AGetOpTest {
     @Test
     fun nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, null, "[I", 1, 0, "I")
-        testException("getWithCatch()V", NullPointerException::class.java, initial)
+        VMTester.testSimpleException(CLASS_NAME, "getWithCatch()V", NullPointerException::class.java, initial, 2)
     }
 
     @Test
     fun outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
         initial.setRegisters(0, IntArray(5), "[I", 1, 10, "I")
-        testException("getWithCatch()V", ArrayIndexOutOfBoundsException::class.java, initial)
-    }
-
-    @BeforeEach
-    fun setUp() {
-        initial = TestState()
-        expected = TestState()
-    }
-
-    companion object {
-        private const val CLASS_NAME = "Laget_test;"
-
-        private fun testException(methodDescriptor: String, exceptionClass: Class<*>, initial: TestState) {
-            val graph = VMTester.execute(CLASS_NAME, methodDescriptor, initial)
-            val value = graph.getTerminatingRegisterConsensus(0)!!
-            assertEquals(exceptionClass, value.raw!!.javaClass)
-            assertEquals(ClassNameUtils.toInternal(exceptionClass), value.type)
-            assertFalse(graph.wasAddressReached(2), "Should not reach next instruction in non-exception execution path")
-            val node = graph.getNodePile(0)[0]
-            assertEquals(0, node.state.registersAssigned.size)
-        }
+        VMTester.testSimpleException(CLASS_NAME, "getWithCatch()V", ArrayIndexOutOfBoundsException::class.java, initial, 2)
     }
 }

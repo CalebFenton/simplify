@@ -21,6 +21,12 @@ class BinaryMathOpTest {
         private lateinit var initial: TestState
         private lateinit var expected: TestState
 
+        @BeforeEach
+        fun setUp() {
+            expected = TestState()
+            initial = TestState()
+        }
+
         @Test
         fun canAddDouble() {
             initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
@@ -98,12 +104,6 @@ class BinaryMathOpTest {
             expected.setRegisters(0, 0.5 - 20.5, "D")
             test(CLASS_NAME, "subDouble2Addr()V", initial, expected)
         }
-
-        @BeforeEach
-        fun setUp() {
-            expected = TestState()
-            initial = TestState()
-        }
     }
 
     @Nested
@@ -111,6 +111,12 @@ class BinaryMathOpTest {
     inner class FloatMath {
         private lateinit var initial: TestState
         private lateinit var expected: TestState
+
+        @BeforeEach
+        fun setUp() {
+            initial = TestState()
+            expected = TestState()
+        }
 
         @Test
         fun canAddFloat() {
@@ -188,12 +194,6 @@ class BinaryMathOpTest {
             initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
             expected.setRegisters(0, 0.5f - 20.5f, "F")
             test(CLASS_NAME, "subFloat2Addr()V", initial, expected)
-        }
-
-        @BeforeEach
-        fun setUp() {
-            initial = TestState()
-            expected = TestState()
         }
     }
 
@@ -571,6 +571,12 @@ class BinaryMathOpTest {
         private lateinit var initial: TestState
         private lateinit var expected: TestState
 
+        @BeforeEach
+        fun setUp() {
+            initial = TestState()
+            expected = TestState()
+        }
+
         @Test
         fun canAddLong() {
             initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J")
@@ -732,14 +738,10 @@ class BinaryMathOpTest {
             test(CLASS_NAME, "xorLong2Addr()V", initial, expected)
         }
 
-        @BeforeEach
-        fun setUp() {
-            initial = TestState()
-            expected = TestState()
-        }
     }
 
-//    class UnitTest {
+    @Nested
+    inner class UnitTest {
 //        private var addressToLocation: TIntObjectMap<MethodLocation>? = null
 //        private var location: MethodLocation? = null
 //        private var mState: MethodState? = null
@@ -899,5 +901,5 @@ class BinaryMathOpTest {
 //            private const val ARG2_REGISTER = 4
 //            private const val DEST_REGISTER = 0
 //        }
-//    }
+    }
 }
