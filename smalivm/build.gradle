@@ -19,7 +19,7 @@ dependencies {
     api group: 'org.smali', name: 'baksmali', version: '2.5.2'
     api group: 'org.smali', name: 'util', version: '2.5.2'
 //    api group: 'com.beust', name: 'jcommander', version: '1.48'
-    implementation group: 'org.agrona', name: 'agrona', version: '1.9.0'
+//    implementation group: 'org.agrona', name: 'agrona', version: '1.9.0'
     implementation group: 'io.github.kostaskougios', name: 'cloning', version: '1.10.3'
     implementation group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
     implementation depends.commons_lang
@@ -33,6 +33,7 @@ dependencies {
     implementation files('libs/android-local.jar')
 
     testImplementation depends.mockito
+    testImplementation depends.mockito_kotlin
     testImplementation depends.perfidix
     testImplementation depends.junit_compile
     testRuntimeOnly depends.junit_engine
