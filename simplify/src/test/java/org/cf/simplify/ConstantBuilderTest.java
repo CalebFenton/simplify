@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
-import org.cf.smalivm.VMTester;
+import org.cf.smalivm.Tester;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
@@ -315,7 +315,7 @@ public class ConstantBuilderTest {
 
         @BeforeEach
         public void setUp() {
-            dexBuilder = VMTester.getDexBuilder();
+            dexBuilder = Tester.getDexBuilder();
         }
 
         @Test

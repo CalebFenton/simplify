@@ -9,7 +9,7 @@ import java.util.List;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.TestState;
-import org.cf.smalivm.VMTester;
+import org.cf.smalivm.Tester;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualMethod;
@@ -54,7 +54,7 @@ public class UnreflectionStrategyTest {
     private static Class<?> getTestClass() {
         try {
             String binaryName = ClassNameUtils.internalToBinary(CLASS_NAME);
-            return VMTester.spawnVM().getClassLoader().loadClass(binaryName);
+            return Tester.spawnVM().getClassLoader().loadClass(binaryName);
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
             return null;

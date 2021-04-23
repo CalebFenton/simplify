@@ -20,7 +20,7 @@ import java.io.IOException
 import java.util.*
 
 
-object VMTester {
+object Tester {
     const val TEST_CLASS_PATH = "src/test/resources/smali"
 
     @JvmStatic

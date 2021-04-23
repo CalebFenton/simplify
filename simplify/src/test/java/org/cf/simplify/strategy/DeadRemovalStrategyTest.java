@@ -9,7 +9,7 @@ import java.util.List;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.TestState;
-import org.cf.smalivm.VMTester;
+import org.cf.smalivm.Tester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.MethodState;
 import org.cf.smalivm.type.UninitializedInstance;
@@ -53,7 +53,7 @@ public class DeadRemovalStrategyTest {
 
     @Test
     public void doesNotDetectInstanceInitializer() {
-        VirtualMachine vm = VMTester.spawnVM(true);
+        VirtualMachine vm = Tester.spawnVM(true);
         VirtualClass virtualClass = vm.getClassManager().getVirtualClass(CLASS_NAME);
         TestState initial = new TestState();
         initial.setRegisters(0, new UninitializedInstance(virtualClass), CLASS_NAME);

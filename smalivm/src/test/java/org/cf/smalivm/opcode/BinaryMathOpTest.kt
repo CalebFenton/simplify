@@ -1,8 +1,8 @@
 package org.cf.smalivm.opcode
 
 import org.cf.smalivm.TestState
-import org.cf.smalivm.VMTester.test
-import org.cf.smalivm.VMTester.testVisitation
+import org.cf.smalivm.Tester.test
+import org.cf.smalivm.Tester.testVisitation
 import org.cf.smalivm.type.UnknownValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName

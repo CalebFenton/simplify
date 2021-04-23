@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.TestState;
-import org.cf.smalivm.VMTester;
+import org.cf.smalivm.Tester;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.type.UninitializedInstance;
 import org.cf.smalivm.type.UnknownValue;
@@ -168,7 +168,7 @@ public class PeepholeStrategyTest {
 
         @BeforeEach
         public void setUp() {
-            vm = VMTester.spawnVM(true);
+            vm = Tester.spawnVM(true);
         }
 
         @Test
@@ -211,7 +211,7 @@ public class PeepholeStrategyTest {
 
         @BeforeEach
         public void setUp() {
-            vm = VMTester.spawnVM(true);
+            vm = Tester.spawnVM(true);
             thisReference = vm.getClassManager().getVirtualClass(CLASS_NAME);
         }
 

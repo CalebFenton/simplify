@@ -1,6 +1,6 @@
 package org.cf.smalivm.dex
 
-import org.cf.smalivm.VMTester
+import org.cf.smalivm.Tester
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
 import org.junit.jupiter.api.Assertions
@@ -230,6 +230,6 @@ class SmaliClassLoaderTest {
             "public java.lang.String java.lang.Object.toString()",
             "public native int java.lang.Object.hashCode()"
         )
-        private const val TEST_SMALI_PATH = VMTester.TEST_CLASS_PATH + "/class_builder"
+        private const val TEST_SMALI_PATH = Tester.TEST_CLASS_PATH + "/class_builder"
     }
 }

@@ -1,7 +1,7 @@
 package org.cf.smalivm.opcode
 
 import org.cf.smalivm.TestState
-import org.cf.smalivm.VMTester
+import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UnknownValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -22,70 +22,70 @@ class CmpOpTest {
         fun canCmpgDoubleWithEqual() {
             initial.setRegisters(0, 4.5, "D", 2, 4.5, "D")
             expected.setRegisters(0, 0, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }
 
         @Test
         fun canCmpgDoubleWithGreaterThan() {
             initial.setRegisters(0, 20.5, "D", 2, 0.5, "D")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }
 
         @Test
         fun canCmpgDoubleWithLessThan() {
             initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }
 
         @Test
         fun canCmpgDoubleWithNaN() {
             initial.setRegisters(0, 0.5, "D", 2, Double.NaN, "D")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }
 
         @Test
         fun canCmpgDoubleWithUnknownArgment() {
             initial.setRegisters(0, 0.5f, "D", 2, UnknownValue(), "D")
             expected.setRegisters(0, UnknownValue(), "I")
-            VMTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }
 
         @Test
         fun canCmplDoubleWithEqual() {
             initial.setRegisters(0, 4.5, "D", 2, 4.5, "D")
             expected.setRegisters(0, 0, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
         }
 
         @Test
         fun canCmplDoubleWithGreaterThan() {
             initial.setRegisters(0, 20.5, "D", 2, 0.5, "D")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
         }
 
         @Test
         fun canCmplDoubleWithLessThan() {
             initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
         }
 
         @Test
         fun canCmplDoubleWithNaN() {
             initial.setRegisters(0, 0.5, "D", 2, Double.NaN, "D")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
         }
 
         @Test
         fun canCmplDoubleWithUnknownArgment() {
             initial.setRegisters(0, 0.5f, "D", 2, UnknownValue(), "D")
             expected.setRegisters(0, UnknownValue(), "I")
-            VMTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
+            Tester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
         }
 
         @BeforeEach
@@ -104,70 +104,70 @@ class CmpOpTest {
         fun canCmpgFloatWithEqual() {
             initial.setRegisters(0, 4.5f, "F", 1, 4.5f, "F")
             expected.setRegisters(0, 0, "I")
-            VMTester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
         }
 
         @Test
         fun canCmpgFloatWithGreaterThan() {
             initial.setRegisters(0, 20.5f, "F", 1, 0.5f, "F")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
         }
 
         @Test
         fun canCmpgFloatWithLessThan() {
             initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
         }
 
         @Test
         fun canCmpgFloatWithNaN() {
             initial.setRegisters(0, 0.5f, "F", 1, Float.NaN, "F")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
         }
 
         @Test
         fun canCmpgFloatWithUnknownArgment() {
             initial.setRegisters(0, 0.5f, "F", 1, UnknownValue(), "F")
             expected.setRegisters(0, UnknownValue(), "I")
-            VMTester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpgFloat()V", initial, expected)
         }
 
         @Test
         fun canCmplFloatWithEqual() {
             initial.setRegisters(0, 4.5f, "F", 1, 4.5f, "F")
             expected.setRegisters(0, 0, "I")
-            VMTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
         }
 
         @Test
         fun canCmplFloatWithGreaterThan() {
             initial.setRegisters(0, 20.5f, "F", 1, 0.5f, "F")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
         }
 
         @Test
         fun canCmplFloatWithLessThan() {
             initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
         }
 
         @Test
         fun canCmplFloatWithNaN() {
             initial.setRegisters(0, 0.5f, "F", 1, Float.NaN, "F")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
         }
 
         @Test
         fun canCmplFloatWithUnknownArgment() {
             initial.setRegisters(0, 0.5f, "F", 1, UnknownValue(), "F")
             expected.setRegisters(0, UnknownValue(), "I")
-            VMTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
         }
 
         @BeforeEach
@@ -186,28 +186,28 @@ class CmpOpTest {
         fun canCmplLongWithEqual() {
             initial.setRegisters(0, 0x100L, "J", 2, 0x100L, "J")
             expected.setRegisters(0, 0, "I")
-            VMTester.test(CLASS_NAME, "cmpLong()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpLong()V", initial, expected)
         }
 
         @Test
         fun canCmplLongWithGreaterThan() {
             initial.setRegisters(0, 0x100000L, "J", 2, 0x10L, "J")
             expected.setRegisters(0, 1, "I")
-            VMTester.test(CLASS_NAME, "cmpLong()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpLong()V", initial, expected)
         }
 
         @Test
         fun canCmplLongWithUnknownArgument() {
             initial.setRegisters(0, 0x100L, "J", 2, UnknownValue(), "J")
             expected.setRegisters(0, UnknownValue(), "I")
-            VMTester.test(CLASS_NAME, "cmpLong()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpLong()V", initial, expected)
         }
 
         @Test
         fun canCmpLongWithLessThan() {
             initial.setRegisters(0, 0x10L, "J", 2, 0x100000L, "J")
             expected.setRegisters(0, -1, "I")
-            VMTester.test(CLASS_NAME, "cmpLong()V", initial, expected)
+            Tester.test(CLASS_NAME, "cmpLong()V", initial, expected)
         }
 
         @BeforeEach

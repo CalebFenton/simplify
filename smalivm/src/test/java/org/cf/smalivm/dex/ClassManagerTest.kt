@@ -1,6 +1,6 @@
 package org.cf.smalivm.dex
 
-import org.cf.smalivm.VMTester
+import org.cf.smalivm.Tester
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
 import org.cf.smalivm.type.VirtualArray
@@ -59,7 +59,7 @@ class ClassManagerTest {
         @JvmStatic
         @Throws(IOException::class)
         fun getClassManager() {
-            classManager = ClassManagerFactory().build(VMTester.TEST_CLASS_PATH)
+            classManager = ClassManagerFactory().build(Tester.TEST_CLASS_PATH)
         }
     }
 }
