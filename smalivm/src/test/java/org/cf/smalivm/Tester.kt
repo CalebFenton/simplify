@@ -3,7 +3,6 @@ package org.cf.smalivm
 
 import com.google.common.primitives.Ints
 import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.opcode.ArrayLengthOpTest
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
 import org.cf.smalivm.type.VirtualMethod
@@ -54,7 +53,7 @@ object Tester {
 
     @JvmStatic
     fun testState(graph: ExecutionGraph2, expected: TestState) {
-        Assertions.assertNotNull(graph, "Graph is null; method execution failed?")
+        assertNotNull(graph, "Graph is null; method execution failed?")
 
         for ((register, value) in expected.registers) {
             val actual = graph.getTerminatingRegisterConsensus(register)
@@ -95,7 +94,7 @@ object Tester {
         val actualAddresses = Ints.toArray(visitedAddresses)
         Arrays.sort(expectedAddresses)
         Arrays.sort(actualAddresses)
-        Assertions.assertArrayEquals(expectedAddresses, actualAddresses)
+        assertArrayEquals(expectedAddresses, actualAddresses)
     }
 
     private fun buildInitialExecutionState(vm: VirtualMachine2, method: VirtualMethod, initial: TestState): ExecutionState {
@@ -180,11 +179,16 @@ object Tester {
         className: String,
         methodDescriptor: String,
         exceptionClass: Class<*>,
-        initial: TestState,
+        initial: TestState? = null,
         nextAddress: Int,
         exceptionMessage: String? = null
     ) {
-        val graph = execute(className, methodDescriptor, initial)
+
+        val graph = if (initial != null) {
+            execute(className, methodDescriptor, initial)
+        } else {
+            execute(className, methodDescriptor)
+        }
         val value = graph.getTerminatingRegisterConsensus(0)!!
         assertEquals(exceptionClass, value.raw!!.javaClass)
         assertEquals(ClassNameUtils.toInternal(exceptionClass), value.type)

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory
 
 class FillArrayDataOp internal constructor(
     location: MethodLocation,
+    private val payloadAddress: Int,
     private val returnAddress: Int,
     private val register: Int
 ) : Op(location) {
@@ -26,12 +27,11 @@ class FillArrayDataOp internal constructor(
         node.state.assignRegister(register, value)
         // Payload op needs to know return address when finished.
         node.state.setPseudoInstructionReturnAddress(returnAddress)
-        return arrayOf()
+        return finishOp(payloadAddress)
     }
 
     override fun toString(): String {
-        val branchOffset = (instruction as OffsetInstruction).codeOffset
-        return "$name r$register, :addr_${address + branchOffset}"
+        return "$name r$register, :addr_${payloadAddress}"
     }
 
     companion object : OpFactory {
@@ -46,9 +46,10 @@ class FillArrayDataOp internal constructor(
             val instruction = location.instruction as BuilderInstruction
             val address = instruction.location.codeAddress
             val returnAddress = address + instruction.codeUnits
-            val instr = location.instruction as Instruction31t
-            val register = instr.registerA
-            return FillArrayDataOp(location, returnAddress, register)
+            val branchOffset = (instruction as OffsetInstruction).codeOffset
+            val payloadAddress = address + branchOffset
+            val register = (location.instruction as Instruction31t).registerA
+            return FillArrayDataOp(location, payloadAddress, returnAddress, register)
         }
     }
 }

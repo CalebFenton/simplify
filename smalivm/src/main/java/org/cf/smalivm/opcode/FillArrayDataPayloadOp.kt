@@ -54,13 +54,16 @@ class FillArrayDataPayloadOp internal constructor(
         private fun getProperValue(number: Number, expectedClass: Class<*>): Any {
             val klazz = ClassUtils.wrapperToPrimitive(number.javaClass)
 
-            // Dexlib will only ever make byte (t), int, long (l), or short (s)
+            // Dexlib2 will only ever make byte (t), int, long (l), or short (s)
             val classValue = when (klazz) {
                 Byte::class.javaPrimitiveType -> number.toByte()
                 Short::class.javaPrimitiveType -> number.toShort()
                 Int::class.javaPrimitiveType -> number.toInt()
                 Long::class.javaPrimitiveType -> number.toLong()
-                else -> throw IllegalArgumentException("Unexpected array data payload type: $klazz")
+                else -> {
+                    log.warn("Unexpected array data payload class: $klazz")
+                    number
+                }
             }
 
             return when (expectedClass) {
@@ -71,7 +74,7 @@ class FillArrayDataPayloadOp internal constructor(
                 Long::class.javaPrimitiveType -> number.toLong()
                 Float::class.javaPrimitiveType -> java.lang.Float.intBitsToFloat(number.toInt())
                 Double::class.javaPrimitiveType -> java.lang.Double.longBitsToDouble(number.toLong())
-                else -> throw IllegalArgumentException("Unexpected array data payload expected type: $expectedClass")
+                else -> classValue
             }
         }
 

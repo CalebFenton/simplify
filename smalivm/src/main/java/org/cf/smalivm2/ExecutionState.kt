@@ -12,8 +12,6 @@ import org.cf.smalivm.type.VirtualMethod
 import org.cf.smalivm.type.VirtualType
 import org.cf.util.Utils
 import org.slf4j.LoggerFactory
-import java.util.*
-import kotlin.collections.HashMap
 
 class ExecutionState internal constructor(
     val cloner: Cloner,
@@ -80,24 +78,25 @@ class ExecutionState internal constructor(
             )
         }
 
-        private fun getReassignedKeysBetweenChildAndAncestor(child: ExecutionState, ancestor: ExecutionState): Set<String?> {
+        private fun getReassignedKeysBetweenChildAndAncestor(child: ExecutionState, ancestor: ExecutionState): Set<String> {
             val reassigned: MutableSet<String> = HashSet()
             var current: ExecutionState = child
-            while (true) {
+            while (current != ancestor) {
+                /*
+                 * This assumes that just because a register exists in a state it must have been reassigned to a different value.
+                 * However, it's strictly possible that a register could be assigned to itself but this seems like such an edge case
+                 * that it won't be considered here.
+                 */
                 reassigned.addAll(current.values.keys)
-                if (child == ancestor) {
-                    break
-                }
-                val parent = current.getParent() ?: break
-                current = parent
+                current = current.getParent() ?: break
             }
             return reassigned
         }
     }
 
     fun getParent(methodLocal: Boolean = true): ExecutionState? {
-        // For registry states, shouldn't reach beyond entry points.
-        // But for fields and class initialization, will want to reach all the way back
+        // Registers are method local so shouldn't reach beyond a method's entry point
+        // Fields and class initialization are not method local, and should reach all the way back
         if (methodLocal && (node == null || node!!.isEntrypoint)) {
             return null
         }
@@ -232,7 +231,7 @@ class ExecutionState internal constructor(
     }
 
     fun peekExceptionRegister(): Value? {
-        return peekRegister(EXCEPTION_REGISTER, methodLocal = false)
+        return peekRegister(EXCEPTION_REGISTER)
     }
 
     fun peekResultRegister(): Value? {
