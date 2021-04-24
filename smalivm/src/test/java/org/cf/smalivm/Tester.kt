@@ -2,18 +2,16 @@ package org.cf.smalivm
 
 
 import com.google.common.primitives.Ints
+import io.mockk.every
+import io.mockk.mockk
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.ExecutionGraph2
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.Value
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm2.*
 import org.cf.util.ClassNameUtils
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.writer.builder.DexBuilder
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.*
 import java.io.IOException
 import java.util.*
@@ -115,19 +113,23 @@ object Tester {
     }
 
 
-//    @JvmStatic
-//    fun setRegisterMock(mState: MethodState, register: Int, value: Any?, type: String) {
-//        val item: HeapItem = Mockito.mock(HeapItem::class.java)
-//        Mockito.`when`(item.getValue()).thenReturn(value)
-//        if (CommonTypes.INTEGER == type && value is Number) {
-//            Mockito.`when`(item.asInteger()).thenReturn(value as Int?)
-//        } else if (value is UnknownValue) {
-//            Mockito.`when`(item.isUnknown()).thenReturn(true)
+    @JvmStatic
+    fun setRegisterMock(state: ExecutionState, register: Int, mockRaw: Any?, mockType: String) {
+//        val value: Value = mockk() {
+//            every { raw } returns mockRaw
+//            every { type } returns mockType
+//
+//            // TODO: call actual methods for most of this?
+//            every { componentBase } returns ClassNameUtils.getComponentBase(mockType)
+//            every { toInteger() } answers { callOriginal() }
+//            every { isUnknown } answers { callOriginal() }
 //        }
-//        Mockito.`when`(item.getComponentBase()).thenReturn(ClassNameUtils.getComponentBase(type))
-//        Mockito.`when`(item.getType()).thenReturn(type)
-//        Mockito.`when`(mState.readRegister(ArgumentMatchers.eq(register))).thenReturn(item)
-//    }
+//
+//        every { value }
+//        value
+//        every { value.isKnown } answers { callOriginal() }
+//        every { state.readRegister(register) } returns value
+    }
 
     /**
      * Create a new [VirtualMachineImpl] for testing. Since this is heavily used, it tries to avoid the main cost of creating a [ ] by reusing the same [ClassManagerImpl] by default.
@@ -150,30 +152,17 @@ object Tester {
         return VirtualMachine2.build(classManager)
     }
 
+    fun verifyContinueChild(children: Array<out UnresolvedChild>) {
+        assertEquals(1, children.size)
+        assertTrue(children[0] is UnresolvedContinueChild)
+    }
 
-//    fun verifyExceptionHandling(expectedExceptions: Set<Throwable?>?, node: ExecutionNode?, mState: MethodState?) {
-//        Mockito.verify<Any>(node).setExceptions(ArgumentMatchers.eq(expectedExceptions))
-//        Mockito.verify<Any>(node).clearChildren()
-//        Mockito.verify<Any>(node, Mockito.times(0)).setChildLocations(ArgumentMatchers.any(Array<MethodLocation>::class.java))
-//        Mockito.verify<Any>(mState, Mockito.times(0))
-//            .assignRegister(ArgumentMatchers.any(Int::class.java), ArgumentMatchers.any(HeapItem::class.java))
-//    }
-//
-//    fun verifyExceptionHandling(exceptionClass: Class<out Throwable?>?, node: ExecutionNode?, mState: MethodState?) {
-//        verifyExceptionHandling(exceptionClass, null, node, mState)
-//    }
-//
-//    @JvmStatic
-//    fun verifyExceptionHandling(exceptionClass: Class<out Throwable?>?, message: String?, node: ExecutionNode?, mState: MethodState?) {
-//        val argument: ArgumentCaptor<Throwable> = ArgumentCaptor.forClass<Throwable, Throwable>(Throwable::class.java)
-//        Mockito.verify<Any>(node).setException(argument.capture())
-//        Assertions.assertEquals(exceptionClass, argument.getValue().javaClass)
-//        Assertions.assertEquals(message, argument.getValue().message)
-//        Mockito.verify<Any>(node).clearChildren()
-//        Mockito.verify<Any>(node, Mockito.times(0)).setChildLocations(ArgumentMatchers.any(Array<MethodLocation>::class.java))
-//        Mockito.verify<Any>(mState, Mockito.times(0))
-//            .assignRegister(ArgumentMatchers.any(Int::class.java), ArgumentMatchers.any(HeapItem::class.java))
-//    }
+    fun verifyExceptionChild(children: Array<out UnresolvedChild>, exceptionClass: Class<out Throwable>, message: String? = null) {
+        assertEquals(1, children.size)
+        assertTrue(children[0] is UnresolvedExceptionChild)
+        assertEquals(exceptionClass, (children[0] as UnresolvedExceptionChild).exceptionClass)
+        assertEquals(message, (children[0] as UnresolvedExceptionChild).message)
+    }
 
     fun testSimpleException(
         className: String,

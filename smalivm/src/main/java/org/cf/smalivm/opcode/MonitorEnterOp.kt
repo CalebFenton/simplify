@@ -27,7 +27,7 @@ class MonitorEnterOp internal constructor(location: MethodLocation, private val 
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
+        ): MonitorEnterOp {
             val instruction = location.instruction as BuilderInstruction
             val destRegister = (instruction as OneRegisterInstruction).registerA
             return MonitorEnterOp(location, destRegister)

@@ -38,7 +38,7 @@ subprojects {
                 junit_engine   : 'org.junit.jupiter:junit-jupiter-engine:5.7.1',
                 junit_runner   : 'org.junit.platform:junit-platform-runner:1.7.1',
                 mockito        : 'org.mockito:mockito-junit-jupiter:3.9.0',
-                mockito_kotlin : 'org.mockito.kotlin:mockito-kotlin:3.1.0',
+                mockk          : 'io.mockk:mockk:1.10.6',
                 perfidix       : 'org.perfidix:perfidix:3.6.9',
                 proguard_gradle: 'net.sf.proguard:proguard-gradle:6.2.2',
                 slf4j_api      : 'org.slf4j:slf4j-api:1.7.30',

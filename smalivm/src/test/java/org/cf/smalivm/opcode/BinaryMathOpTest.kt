@@ -1,9 +1,21 @@
 package org.cf.smalivm.opcode
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.cf.smalivm.TestState
+import org.cf.smalivm.Tester
 import org.cf.smalivm.Tester.test
 import org.cf.smalivm.Tester.testVisitation
 import org.cf.smalivm.type.UnknownValue
+import org.cf.smalivm2.*
+import org.jf.dexlib2.Opcode
+import org.jf.dexlib2.builder.BuilderInstruction
+import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.builder.instruction.BuilderInstruction12x
+import org.jf.dexlib2.builder.instruction.BuilderInstruction22s
+import org.jf.dexlib2.builder.instruction.BuilderInstruction23x
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
@@ -742,164 +754,166 @@ class BinaryMathOpTest {
 
     @Nested
     inner class UnitTest {
-//        private var addressToLocation: TIntObjectMap<MethodLocation>? = null
-//        private var location: MethodLocation? = null
-//        private var mState: MethodState? = null
-//        private var node: ExecutionNode? = null
-//        private var op: BinaryMathOp? = null
-//        private var opFactory: BinaryMathOpFactory? = null
-//        private var vm: VirtualMachine? = null
-//        @Test
-//        fun doubleDivisionWithTwoRegistersEqualsExpected() {
-//            val value1 = 1586.2
-//            val value2 = 2536.9
-//            val expected = value1 / value2
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "D")
-//            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "D")
-//            buildInstruction12x(Opcode.DIV_DOUBLE)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("D"))
-//        }
-//
-//        @Test
-//        fun floatDivisionWithTwoRegistersEqualsExpected() {
-//            val value1 = 1120403456.43f
-//            val value2 = 1149239296.32f
-//            val expected = value1 / value2
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "F")
-//            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "F")
-//            buildInstruction12x(Opcode.DIV_FLOAT)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            verify(mState, times(1)).assignRegister(eq(ARG1_REGISTER), eq(expected), eq("F"))
-//        }
-//
-//        @Test
-//        fun intDivisionWithLiteralEqualsExpected() {
-//            val value1 = 10
-//            val value2 = 4
-//            val expected = value1 / value2
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "I")
-//            buildInstruction22s(Opcode.DIV_INT, value2)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("I"))
-//        }
-//
-//        @Test
-//        fun integerDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
-//            val value1 = 10
-//            val value2 = 0
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "I")
-//            buildInstruction22s(Opcode.DIV_INT_LIT16, value2)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            VMTester.verifyExceptionHandling(ArithmeticException::class.java, "/ by zero", node, mState)
-//        }
-//
-//        @Test
-//        fun integerModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
-//            val value1 = 10
-//            val value2 = 0
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "I")
-//            buildInstruction22s(Opcode.REM_INT_LIT16, value2)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            VMTester.verifyExceptionHandling(ArithmeticException::class.java, "/ by zero", node, mState)
-//        }
-//
-//        @Test
-//        fun longDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
-//            val value1 = 1120403456L
-//            val value2 = 0L
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "J")
-//            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "J")
-//            buildInstruction23x(Opcode.DIV_LONG)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            VMTester.verifyExceptionHandling(ArithmeticException::class.java, "/ by zero", node, mState)
-//        }
-//
-//        @Test
-//        fun longDivisionWithThreeArgumentsAndResultLessThanOneEqualsZero() {
-//            val value1 = 1120403456L
-//            val value2 = 1149239296L
-//            val expected = value1 / value2 // 0 since long division drops decimal value
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "J")
-//            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "J")
-//            buildInstruction23x(Opcode.DIV_LONG)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            verify(mState, times(1)).assignRegister(eq(DEST_REGISTER), eq(expected), eq("J"))
-//            assertEquals("div-long r" + DEST_REGISTER + ", r" + ARG1_REGISTER + ", r" + ARG2_REGISTER, op.toString())
-//        }
-//
-//        @Test
-//        fun longModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
-//            val value1 = 1120403456L
-//            val value2 = 0L
-//            VMTester.setRegisterMock(mState, ARG1_REGISTER, value1, "J")
-//            VMTester.setRegisterMock(mState, ARG2_REGISTER, value2, "J")
-//            buildInstruction23x(Opcode.REM_LONG)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            VMTester.verifyExceptionHandling(ArithmeticException::class.java, "/ by zero", node, mState)
-//        }
-//
-//        @BeforeEach
-//        @JvmStatic
-//        fun setUp() {
-//            vm = Mockito.mock(VirtualMachine2::class.java)
-//            mState = Mockito.mock(MethodState::class.java)
-//            node = Mockito.mock(ExecutionNode::class.java)
-//            location = Mockito.mock(MethodLocation::class.java)
-//            Mockito.`when`(location.getCodeAddress()).thenReturn(ADDRESS)
-//            val exceptionFactory: ExceptionFactory = Mockito.mock(ExceptionFactory::class.java)
-//            Mockito.`when`(vm.getExceptionFactory()).thenReturn(exceptionFactory)
-//            addressToLocation = TIntObjectHashMap()
-//            addressToLocation.put(ADDRESS, location)
-//            opFactory = BinaryMathOpFactory()
-//        }
-//
-//        private fun buildInstruction12x(opcode: Opcode): BuilderInstruction12x {
-//            val instruction: BuilderInstruction12x = Mockito.mock(BuilderInstruction12x::class.java)
-//            setupInstruction(instruction, opcode)
-//            Mockito.`when`((instruction as Instruction12x).getRegisterA()).thenReturn(ARG1_REGISTER)
-//            Mockito.`when`((instruction as Instruction12x).getRegisterB()).thenReturn(ARG2_REGISTER)
-//            return instruction
-//        }
-//
-//        private fun buildInstruction22s(opcode: Opcode, value: Int): BuilderInstruction22s {
-//            val instruction: BuilderInstruction22s = Mockito.mock(BuilderInstruction22s::class.java)
-//            setupInstruction(instruction, opcode)
-//            Mockito.`when`((instruction as Instruction22s).getRegisterA()).thenReturn(DEST_REGISTER)
-//            Mockito.`when`((instruction as Instruction22s).getRegisterB()).thenReturn(ARG1_REGISTER)
-//            Mockito.`when`((instruction as Instruction22s).getNarrowLiteral()).thenReturn(value)
-//            return instruction
-//        }
-//
-//        private fun buildInstruction23x(opcode: Opcode): BuilderInstruction23x {
-//            val instruction = Mockito.mock(BuilderInstruction23x::class.java)
-//            setupInstruction(instruction, opcode)
-//            Mockito.`when`((instruction as Instruction23x).registerA).thenReturn(DEST_REGISTER)
-//            Mockito.`when`((instruction as Instruction23x).registerB).thenReturn(ARG1_REGISTER)
-//            Mockito.`when`((instruction as Instruction23x).registerC).thenReturn(ARG2_REGISTER)
-//            return instruction
-//        }
-//
-//        private fun setupInstruction(instruction: BuilderInstruction, opcode: Opcode) {
-//            Mockito.`when`(location!!.instruction).thenReturn(instruction)
-//            Mockito.`when`(instruction.location).thenReturn(location)
-//            Mockito.`when`(instruction.codeUnits).thenReturn(0)
-//            Mockito.`when`(instruction.opcode).thenReturn(opcode)
-//        }
-//
-//        companion object {
-//            private const val ADDRESS = 0
-//            private const val ARG1_REGISTER = 2
-//            private const val ARG2_REGISTER = 4
-//            private const val DEST_REGISTER = 0
-//        }
+        private lateinit var addressToLocation: MutableMap<Int, MethodLocation>
+        private lateinit var location: MethodLocation
+        private lateinit var state: ExecutionState
+        private lateinit var node: ExecutionNode
+        private lateinit var op: BinaryMathOp
+        private lateinit var vm: VirtualMachine2
+        private val ADDRESS = 0
+        private val ARG1_REGISTER = 2
+        private val ARG2_REGISTER = 4
+        private val DEST_REGISTER = 0
+
+        @BeforeEach
+        fun setUp() {
+            vm = mockk()
+            state = mockk(relaxed = true)
+            node = mockk()
+            every { node.state } returns state
+            location = mockk {
+                every { codeAddress } returns ADDRESS
+            }
+            addressToLocation = HashMap()
+            addressToLocation[ADDRESS] = location
+        }
+
+        @Test
+        fun doubleDivisionWithTwoRegistersEqualsExpected() {
+            val value1 = 1586.2
+            val value2 = 2536.9
+            val expected = value1 / value2
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "D")
+            every { state.readRegister(ARG2_REGISTER) } returns Value.wrap(value2, "D")
+            setupLocationAsInstruction12x(Opcode.DIV_DOUBLE)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            verify(exactly = 1) { state.assignRegister(ARG1_REGISTER, Value.wrap(expected, "D")) }
+            Tester.verifyContinueChild(children)
+        }
+
+        @Test
+        fun floatDivisionWithTwoRegistersEqualsExpected() {
+            val value1 = 1120403456.43f
+            val value2 = 1149239296.32f
+            val expected = value1 / value2
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "F")
+            every { state.readRegister(ARG2_REGISTER) } returns Value.wrap(value2, "F")
+            setupLocationAsInstruction12x(Opcode.DIV_FLOAT)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            verify(exactly = 1) { state.assignRegister(ARG1_REGISTER, Value.wrap(expected, "F")) }
+            Tester.verifyContinueChild(children)
+        }
+
+        @Test
+        fun intDivisionWithLiteralEqualsExpected() {
+            val value1 = 10
+            val value2 = 4
+            val expected = value1 / value2
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "I")
+            setupLocationAsInstruction22s(Opcode.DIV_INT, value2)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            verify(exactly = 1) { state.assignRegister(DEST_REGISTER, Value.wrap(expected, "I")) }
+            Tester.verifyContinueChild(children)
+        }
+
+        @Test
+        fun longDivisionWithThreeArgumentsAndResultLessThanOneEqualsZero() {
+            val value1 = 1120403456L
+            val value2 = 1149239296L
+            val expected = value1 / value2 // 0 since long division drops decimal value
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "J")
+            every { state.readRegister(ARG2_REGISTER) } returns Value.wrap(value2, "J")
+            setupLocationAsInstruction23x(Opcode.DIV_LONG)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            verify(exactly = 1) { state.assignRegister(DEST_REGISTER, Value.wrap(expected, "J")) }
+            assertEquals("div-long r$DEST_REGISTER, r$ARG1_REGISTER, r$ARG2_REGISTER", op.toString())
+            Tester.verifyContinueChild(children)
+        }
+
+        @Test
+        fun integerDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            val value1 = 10
+            val value2 = 0
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "I")
+            setupLocationAsInstruction22s(Opcode.DIV_INT_LIT16, value2)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+        }
+
+        @Test
+        fun integerModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            val value1 = 10
+            val value2 = 0
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "I")
+            setupLocationAsInstruction22s(Opcode.REM_INT_LIT16, value2)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+        }
+
+        @Test
+        fun longDivisionByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            val value1 = 1120403456L
+            val value2 = 0L
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "J")
+            every { state.readRegister(ARG2_REGISTER) } returns Value.wrap(value2, "J")
+            setupLocationAsInstruction23x(Opcode.DIV_LONG)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+        }
+
+        @Test
+        fun longModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters() {
+            val value1 = 1120403456L
+            val value2 = 0L
+            every { state.readRegister(ARG1_REGISTER) } returns Value.wrap(value1, "J")
+            every { state.readRegister(ARG2_REGISTER) } returns Value.wrap(value2, "J")
+            setupLocationAsInstruction23x(Opcode.DIV_LONG)
+            op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+        }
+
+        private fun setupLocationAsInstruction12x(opcode: Opcode): BuilderInstruction12x {
+            val instruction: BuilderInstruction12x = mockk {
+                every { registerA } returns ARG1_REGISTER
+                every { registerB } returns ARG2_REGISTER
+            }
+            setupInstruction(instruction, opcode)
+            return instruction
+        }
+
+        private fun setupLocationAsInstruction22s(opcode: Opcode, value: Int): BuilderInstruction22s {
+            val instruction: BuilderInstruction22s = mockk {
+                every { registerA } returns DEST_REGISTER
+                every { registerB } returns ARG1_REGISTER
+                every { narrowLiteral } returns value
+            }
+            setupInstruction(instruction, opcode)
+            return instruction
+        }
+
+        private fun setupLocationAsInstruction23x(opcode: Opcode): BuilderInstruction23x {
+            val instruction: BuilderInstruction23x = mockk {
+                every { registerA } returns DEST_REGISTER
+                every { registerB } returns ARG1_REGISTER
+                every { registerC } returns ARG2_REGISTER
+            }
+            setupInstruction(instruction, opcode)
+            return instruction
+        }
+
+        private fun setupInstruction(instruction: BuilderInstruction, opcode: Opcode) {
+            every { location.instruction } returns instruction
+            every { instruction.location } returns location
+            every { instruction.codeUnits } returns 0
+            every { instruction.opcode } returns opcode
+        }
     }
 }

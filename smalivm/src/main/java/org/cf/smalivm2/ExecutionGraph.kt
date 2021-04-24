@@ -487,8 +487,6 @@ class ExecutionGraph2(
     }
 
     fun wasAddressReached(address: Int): Boolean {
-        // If this address was reached during execution there will be clones in the pile.
-
         val nodePile = getNodePile(address)
         return nodePile.size > 0
     }

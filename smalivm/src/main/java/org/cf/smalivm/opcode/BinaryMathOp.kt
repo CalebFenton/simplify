@@ -20,7 +20,7 @@ class BinaryMathOp internal constructor(
     location: MethodLocation,
     private val destRegister: Int,
     private val arg1Register: Int,
-) : Op(location, arrayOf(Pair(ArithmeticException::class.java, "/ by zero"))) {
+) : Op(location, arrayOf(Pair(ArithmeticException::class.java, "divide by zero"))) {
 
     private val mathOperandType = getMathOperandType(name)
     private val mathOperator = getMathOp(name)
@@ -109,7 +109,7 @@ class BinaryMathOp internal constructor(
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
+        ): BinaryMathOp {
             val instruction = location.instruction as BuilderInstruction
             val instr = location.instruction as TwoRegisterInstruction
             val destRegister = instr.registerA

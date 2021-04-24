@@ -33,7 +33,7 @@ dependencies {
     implementation files('libs/android-local.jar')
 
     testImplementation depends.mockito
-    testImplementation depends.mockito_kotlin
+    testImplementation depends.mockk
     testImplementation depends.perfidix
     testImplementation depends.junit_compile
     testRuntimeOnly depends.junit_engine

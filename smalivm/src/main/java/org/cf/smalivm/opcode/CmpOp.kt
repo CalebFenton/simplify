@@ -78,7 +78,7 @@ class CmpOp internal constructor(
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
+        ): CmpOp {
             val instr = location.instruction as Instruction23x
             val destRegister = instr.registerA
             val lhsRegister = instr.registerB
