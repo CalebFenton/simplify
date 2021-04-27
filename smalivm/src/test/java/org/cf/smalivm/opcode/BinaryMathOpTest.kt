@@ -842,7 +842,7 @@ class BinaryMathOpTest {
             setupLocationAsInstruction22s(Opcode.DIV_INT_LIT16, value2)
             op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
             val children = op.execute(node)
-            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "/ by zero")
         }
 
         @Test
@@ -853,7 +853,7 @@ class BinaryMathOpTest {
             setupLocationAsInstruction22s(Opcode.REM_INT_LIT16, value2)
             op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
             val children = op.execute(node)
-            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "/ by zero")
         }
 
         @Test
@@ -865,7 +865,7 @@ class BinaryMathOpTest {
             setupLocationAsInstruction23x(Opcode.DIV_LONG)
             op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
             val children = op.execute(node)
-            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "/ by zero")
         }
 
         @Test
@@ -877,7 +877,7 @@ class BinaryMathOpTest {
             setupLocationAsInstruction23x(Opcode.DIV_LONG)
             op = BinaryMathOp.build(location, mockk(), mockk(), mockk())
             val children = op.execute(node)
-            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "divide by zero")
+            Tester.verifyExceptionChild(children, ArithmeticException::class.java, "/ by zero")
         }
 
         private fun setupLocationAsInstruction12x(opcode: Opcode): BuilderInstruction12x {

@@ -114,7 +114,7 @@ class UnaryMathOp internal constructor(location: MethodLocation, val destRegiste
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
+        ): UnaryMathOp {
             val instr = location.instruction as Instruction12x
             val destRegister = instr.registerA
             val srcRegister = instr.registerB

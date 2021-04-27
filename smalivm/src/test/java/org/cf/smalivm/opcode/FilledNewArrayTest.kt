@@ -1,9 +1,15 @@
 package org.cf.smalivm.opcode
 
+import io.mockk.every
+import io.mockk.mockk
 import org.cf.smalivm.TestState
 import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UnknownValue
+import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.VirtualMachine2
+import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.builder.instruction.BuilderInstruction35c
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -61,9 +67,23 @@ class FilledNewArrayTest {
         }
     }
 
-//    @ExtendWith(MockitoExtension::class)
+    //    @ExtendWith(MockitoExtension::class)
 //    @MockitoSettings(strictness = Strictness.LENIENT)
-//    class UnitTestFilledNewArray {
+    @Nested
+    inner class UnitTestFilledNewArray {
+        private lateinit var instruction: BuilderInstruction35c
+        private lateinit var location: MethodLocation
+        private lateinit var state: ExecutionState
+        private lateinit var node: ExecutionNode
+        private lateinit var op: UnaryMathOp
+        private lateinit var vm: VirtualMachine2
+        private val ADDRESS = 0
+        private val REGISTER_C = 0
+        private val REGISTER_D = 1
+        private val REGISTER_E = 2
+        private val REGISTER_F = 3
+        private val REGISTER_G = 4
+
 //        private var addressToLocation: TIntObjectMap<MethodLocation>? = null
 //        private var instruction: BuilderInstruction? = null
 //        private var itemC: HeapItem? = null
@@ -77,9 +97,24 @@ class FilledNewArrayTest {
 //        private var op: FilledNewArrayOp? = null
 //        private var opFactory: FilledNewArrayOpFactory? = null
 //        private var vm: VirtualMachine? = null
-//
-//        @BeforeEach
-//        fun setUp() {
+
+        @BeforeEach
+        fun setUp() {
+            vm = mockk()
+            state = mockk(relaxed = true)
+            node = mockk()
+            every { node.state } returns state
+            instruction = mockk {
+                every { codeUnits } returns 0
+//                every { registerA } returns REGISTER_A
+//                every { registerB } returns REGISTER_B
+            }
+            location = mockk {
+                every { codeAddress } returns ADDRESS
+            }
+            every { location.instruction } returns instruction
+            every { instruction.location } returns location
+
 //            vm = Mockito.mock(VirtualMachineImpl::class.java)
 //            mState = Mockito.mock(MethodState::class.java)
 //            node = Mockito.mock(ExecutionNode::class.java)
@@ -119,8 +154,8 @@ class FilledNewArrayTest {
 //            addressToLocation = TIntObjectHashMap<MethodLocation>()
 //            addressToLocation.put(ADDRESS, location)
 //            opFactory = FilledNewArrayOpFactory()
-//        }
-//
+        }
+
 //        @Test
 //        fun testFiveIntegersGivesExpectedArray() {
 //            doTest(42, -42, 42, -42, 42)
@@ -234,14 +269,6 @@ class FilledNewArrayTest {
 //            Mockito.verify<Any>(mState, Mockito.times(1)).assignResultRegister(ArgumentMatchers.eq(expected), ArgumentMatchers.eq("[I"))
 //        }
 //
-//        companion object {
-//            private const val ADDRESS = 0
-//            private const val REGISTER_C = 0
-//            private const val REGISTER_D = 1
-//            private const val REGISTER_E = 2
-//            private const val REGISTER_F = 3
-//            private const val REGISTER_G = 4
-//        }
 //    }
 //
 //    @ExtendWith(MockitoExtension::class)
@@ -326,9 +353,5 @@ class FilledNewArrayTest {
 //            }
 //            Mockito.verify<Any>(mState, Mockito.times(1)).assignResultRegister(ArgumentMatchers.eq(expected), ArgumentMatchers.eq("[I"))
 //        }
-//
-//        companion object {
-//            private const val ADDRESS = 0
-//        }
-//    }
+    }
 }

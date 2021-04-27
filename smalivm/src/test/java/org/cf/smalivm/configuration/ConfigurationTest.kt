@@ -74,11 +74,15 @@ class ConfigurationTest {
 
     @Throws(IOException::class)
     private fun ensureClassesExist(classNames: List<String>, configResPath: String, jarResourcePath: String) {
-        val `is` = ConfigurationTest::class.java.getResourceAsStream(jarResourcePath)
-        val jis = JarInputStream(`is`)
-        var je: JarEntry
+        val inputStream = ConfigurationTest::class.java.getResourceAsStream(jarResourcePath)
+        val jis = JarInputStream(inputStream)
+        var je: JarEntry?
         val jarClasses: MutableSet<String> = HashSet()
-        while (jis.nextJarEntry.also { je = it } != null) {
+        while (true) {
+            je = jis.nextJarEntry
+            if (je == null) {
+                break
+            }
             val entryName = je.name
             if (entryName.endsWith(".class")) {
                 val className = "L" + entryName.substring(0, entryName.indexOf('.')) + ";"
@@ -86,7 +90,7 @@ class ConfigurationTest {
             }
         }
         val nonExistentClasses = classNames.stream().filter { l: String -> !jarClasses.contains(l) }.collect(Collectors.toList())
-        val msg = "Classes in " + configResPath + " don't exist: " + Arrays.toString(nonExistentClasses.toTypedArray())
+        val msg = "Classes in $configResPath don't exist: ${nonExistentClasses.toTypedArray().contentToString()}"
         Assertions.assertEquals(0, nonExistentClasses.size, msg)
     }
 }

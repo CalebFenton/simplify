@@ -1,8 +1,19 @@
 package org.cf.smalivm.opcode
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.cf.smalivm.TestState
 import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UnknownValue
+import org.cf.smalivm2.ExecutionNode
+import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.Value
+import org.cf.smalivm2.VirtualMachine2
+import org.jf.dexlib2.Opcode
+import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.builder.instruction.BuilderInstruction12x
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -297,165 +308,125 @@ class UnaryMathOpTest {
         }
     }
 
-//    @ExtendWith(MockitoExtension::class)
-//    @MockitoSettings(strictness = Strictness.LENIENT)
-//    class UnitTest {
-//        private var addressToLocation: TIntObjectMap<MethodLocation>? = null
-//        private var instruction: BuilderInstruction? = null
-//        private var item: HeapItem? = null
-//        private var location: MethodLocation? = null
-//        private var mState: MethodState? = null
-//        private var node: ExecutionNode? = null
-//        private var op: UnaryMathOp? = null
-//        private var opFactory: UnaryMathOpFactory? = null
-//        private var vm: VirtualMachine? = null
-//
-//        @Test
-//        fun canDoubleToFloat() {
-//            val value = 11204.0345612345
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("D")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_FLOAT)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toFloat(), "F")))
-//            Assertions.assertEquals("double-to-float r" + REGISTER_A + ", r" + REGISTER_B, op.toString())
-//        }
-//
-//        @Test
-//        fun canDoubleToInt() {
-//            val value = 11204.0345612345
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("D")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_INT)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toInt(), "I")))
-//        }
-//
-//        @Test
-//        fun canDoubleToLong() {
-//            val value = 11204.0345612345
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("D")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.DOUBLE_TO_LONG)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toLong(), "J")))
-//        }
-//
-//        @Test
-//        fun canFloatToDouble() {
-//            val value = 11204.0345f
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("F")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_DOUBLE)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toDouble(), "D")))
-//        }
-//
-//        @Test
-//        fun canFloatToInt() {
-//            val value = 11204.0345f
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("F")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_INT)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toInt(), "I")))
-//        }
-//
-//        @Test
-//        fun canFloatToLong() {
-//            val value = 11204.0345f
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("F")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FLOAT_TO_LONG)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toLong(), "J")))
-//        }
-//
-//        @Test
-//        fun canIntToByte() {
-//            val value = 10
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("I")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.INT_TO_BYTE)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toByte(), "B")))
-//        }
-//
-//        @Test
-//        fun canLongToDouble() {
-//            val value = 112040345L
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("J")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_DOUBLE)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toDouble(), "D")))
-//        }
-//
-//        @Test
-//        fun canLongToFloat() {
-//            val value = 112040345L
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("J")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_FLOAT)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toFloat(), "F")))
-//        }
-//
-//        @Test
-//        fun canLongToInt() {
-//            val value = 112040345L
-//            Mockito.`when`(item.getValue()).thenReturn(value)
-//            Mockito.`when`(item.getType()).thenReturn("J")
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.LONG_TO_INT)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1))
-//                .assignRegister(ArgumentMatchers.eq(REGISTER_A), ArgumentMatchers.eq(HeapItem(value.toInt(), "I")))
-//        }
-//
-//        @BeforeEach
-//        fun setUp() {
-//            vm = Mockito.mock(VirtualMachineImpl::class.java)
-//            mState = Mockito.mock(MethodState::class.java)
-//            node = Mockito.mock(ExecutionNode::class.java)
-//            item = Mockito.mock(HeapItem::class.java)
-//            Mockito.`when`(mState.readRegister(REGISTER_B)).thenReturn(item)
-//            location = Mockito.mock<MethodLocation>(MethodLocation::class.java)
-//            instruction =
-//                Mockito.mock<BuilderInstruction>(BuilderInstruction::class.java, Mockito.withSettings().extraInterfaces(Instruction12x::class.java))
-//            Mockito.`when`<Instruction>(location.getInstruction()).thenReturn(instruction)
-//            Mockito.`when`<Int>(location.getCodeAddress()).thenReturn(ADDRESS)
-//            Mockito.`when`<MethodLocation>(instruction.getLocation()).thenReturn(location)
-//            Mockito.`when`<Int>(instruction.getCodeUnits()).thenReturn(0)
-//            Mockito.`when`<Int>((instruction as Instruction12x?).getRegisterA()).thenReturn(REGISTER_A)
-//            Mockito.`when`<Int>((instruction as Instruction12x?).getRegisterB()).thenReturn(REGISTER_B)
-//            addressToLocation = TIntObjectHashMap<MethodLocation>()
-//            addressToLocation.put(ADDRESS, location)
-//            opFactory = UnaryMathOpFactory()
-//        }
-//
-//        companion object {
-//            private const val ADDRESS = 0
-//            private const val REGISTER_A = 0
-//            private const val REGISTER_B = 0
-//        }
-//    }
+    @Nested
+    inner class UnitTest {
+        private lateinit var instruction: BuilderInstruction12x
+        private lateinit var location: MethodLocation
+        private lateinit var state: ExecutionState
+        private lateinit var node: ExecutionNode
+        private lateinit var op: UnaryMathOp
+        private lateinit var vm: VirtualMachine2
+        private val ADDRESS = 0
+        private val REGISTER_A = 0
+        private val REGISTER_B = 0
+
+        @BeforeEach
+        fun setUp() {
+            vm = mockk()
+            state = mockk(relaxed = true)
+            node = mockk()
+            every { node.state } returns state
+            instruction = mockk {
+                every { codeUnits } returns 0
+                every { registerA } returns REGISTER_A
+                every { registerB } returns REGISTER_B
+            }
+            location = mockk {
+                every { codeAddress } returns ADDRESS
+            }
+            every { location.instruction } returns instruction
+            every { instruction.location } returns location
+        }
+
+        private fun doTest(startValue: Value, endValue: Value, opcode: Opcode) {
+            every { state.readRegister(REGISTER_B) } returns startValue
+            every { instruction.opcode } returns opcode
+            op = UnaryMathOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+            verify(exactly = 1) { state.assignRegister(REGISTER_A, endValue) }
+            Tester.verifyContinueChild(children)
+
+        }
+
+        @Test
+        fun canDoubleToFloat() {
+            val value = 11204.0345612345
+            val startValue = Value.wrap(value, "D")
+            val endValue = Value.wrap(value.toFloat(), "F")
+            doTest(startValue, endValue, Opcode.DOUBLE_TO_FLOAT)
+            assertEquals("double-to-float r$REGISTER_A, r$REGISTER_B", op.toString())
+        }
+
+        @Test
+        fun canDoubleToInt() {
+            val value = 11204.0345612345
+            val startValue = Value.wrap(value, "D")
+            val endValue = Value.wrap(value.toInt(), "I")
+            doTest(startValue, endValue, Opcode.DOUBLE_TO_INT)
+        }
+
+        @Test
+        fun canDoubleToLong() {
+            val value = 11204.0345612345
+            val startValue = Value.wrap(value, "D")
+            val endValue = Value.wrap(value.toLong(), "J")
+            doTest(startValue, endValue, Opcode.DOUBLE_TO_LONG)
+        }
+
+        @Test
+        fun canFloatToDouble() {
+            val value = 11204.0345f
+            val startValue = Value.wrap(value, "F")
+            val endValue = Value.wrap(value.toDouble(), "D")
+            doTest(startValue, endValue, Opcode.FLOAT_TO_DOUBLE)
+        }
+
+        @Test
+        fun canFloatToInt() {
+            val value = 11204.0345f
+            val startValue = Value.wrap(value, "F")
+            val endValue = Value.wrap(value.toInt(), "I")
+            doTest(startValue, endValue, Opcode.FLOAT_TO_INT)
+        }
+
+        @Test
+        fun canFloatToLong() {
+            val value = 11204.0345f
+            val startValue = Value.wrap(value, "F")
+            val endValue = Value.wrap(value.toLong(), "J")
+            doTest(startValue, endValue, Opcode.FLOAT_TO_LONG)
+        }
+
+        @Test
+        fun canIntToByte() {
+            val value = 10
+            val startValue = Value.wrap(value, "I")
+            val endValue = Value.wrap(value.toByte(), "B")
+            doTest(startValue, endValue, Opcode.INT_TO_BYTE)
+        }
+
+        @Test
+        fun canLongToDouble() {
+            val value = 112040345L
+            val startValue = Value.wrap(value, "J")
+            val endValue = Value.wrap(value.toDouble(), "D")
+            doTest(startValue, endValue, Opcode.LONG_TO_DOUBLE)
+        }
+
+        @Test
+        fun canLongToFloat() {
+            val value = 112040345L
+            val startValue = Value.wrap(value, "J")
+            val endValue = Value.wrap(value.toFloat(), "F")
+            doTest(startValue, endValue, Opcode.LONG_TO_FLOAT)
+        }
+
+        @Test
+        fun canLongToInt() {
+            val value = 112040345L
+            val startValue = Value.wrap(value, "J")
+            val endValue = Value.wrap(value.toInt(), "I")
+            doTest(startValue, endValue, Opcode.LONG_TO_INT)
+        }
+    }
 }

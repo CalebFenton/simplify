@@ -230,8 +230,6 @@ class CmpOpTest {
         }
     }
 
-    //    @ExtendWith(MockitoExtension::class)
-//    @MockitoSettings(strictness = Strictness.LENIENT)
     @Nested
     inner class UnitTest {
         private lateinit var instruction: BuilderInstruction23x
