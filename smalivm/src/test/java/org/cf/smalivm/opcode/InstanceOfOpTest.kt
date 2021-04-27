@@ -8,10 +8,11 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 
-object InstanceOfOpTest {
-    private const val CLASS_NAME = "Linstanceof_test;"
+class InstanceOfOpTest {
+    private val CLASS_NAME = "Linstanceof_test;"
 
-    class IntegrationTest {
+    @Nested
+    inner class IntegrationTest {
         private lateinit var expected: TestState
         private lateinit var initial: TestState
 

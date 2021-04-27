@@ -113,23 +113,23 @@ object Tester {
     }
 
 
-    @JvmStatic
-    fun setRegisterMock(state: ExecutionState, register: Int, mockRaw: Any?, mockType: String) {
-//        val value: Value = mockk() {
-//            every { raw } returns mockRaw
-//            every { type } returns mockType
-//
-//            // TODO: call actual methods for most of this?
-//            every { componentBase } returns ClassNameUtils.getComponentBase(mockType)
-//            every { toInteger() } answers { callOriginal() }
-//            every { isUnknown } answers { callOriginal() }
-//        }
-//
-//        every { value }
-//        value
-//        every { value.isKnown } answers { callOriginal() }
-//        every { state.readRegister(register) } returns value
-    }
+//    @JvmStatic
+//    fun setRegisterMock(state: ExecutionState, register: Int, mockRaw: Any?, mockType: String) {
+////        val value: Value = mockk() {
+////            every { raw } returns mockRaw
+////            every { type } returns mockType
+////
+////            // TODO: call actual methods for most of this?
+////            every { componentBase } returns ClassNameUtils.getComponentBase(mockType)
+////            every { toInteger() } answers { callOriginal() }
+////            every { isUnknown } answers { callOriginal() }
+////        }
+////
+////        every { value }
+////        value
+////        every { value.isKnown } answers { callOriginal() }
+////        every { state.readRegister(register) } returns value
+//    }
 
     /**
      * Create a new [VirtualMachineImpl] for testing. Since this is heavily used, it tries to avoid the main cost of creating a [ ] by reusing the same [ClassManagerImpl] by default.

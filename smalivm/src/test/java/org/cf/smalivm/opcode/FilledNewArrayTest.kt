@@ -2,14 +2,22 @@ package org.cf.smalivm.opcode
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import org.cf.smalivm.TestState
 import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm2.Value
 import org.cf.smalivm2.VirtualMachine2
+import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.builder.instruction.BuilderInstruction35c
+import org.jf.dexlib2.builder.instruction.BuilderInstruction3rc
+import org.jf.dexlib2.immutable.reference.ImmutableTypeReference
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -67,15 +75,12 @@ class FilledNewArrayTest {
         }
     }
 
-    //    @ExtendWith(MockitoExtension::class)
-//    @MockitoSettings(strictness = Strictness.LENIENT)
     @Nested
     inner class UnitTestFilledNewArray {
         private lateinit var instruction: BuilderInstruction35c
         private lateinit var location: MethodLocation
         private lateinit var state: ExecutionState
         private lateinit var node: ExecutionNode
-        private lateinit var op: UnaryMathOp
         private lateinit var vm: VirtualMachine2
         private val ADDRESS = 0
         private val REGISTER_C = 0
@@ -84,274 +89,168 @@ class FilledNewArrayTest {
         private val REGISTER_F = 3
         private val REGISTER_G = 4
 
-//        private var addressToLocation: TIntObjectMap<MethodLocation>? = null
-//        private var instruction: BuilderInstruction? = null
-//        private var itemC: HeapItem? = null
-//        private var itemD: HeapItem? = null
-//        private var itemE: HeapItem? = null
-//        private var itemF: HeapItem? = null
-//        private var itemG: HeapItem? = null
-//        private var location: MethodLocation? = null
-//        private var mState: MethodState? = null
-//        private var node: ExecutionNode? = null
-//        private var op: FilledNewArrayOp? = null
-//        private var opFactory: FilledNewArrayOpFactory? = null
-//        private var vm: VirtualMachine? = null
-
         @BeforeEach
         fun setUp() {
-            vm = mockk()
             state = mockk(relaxed = true)
             node = mockk()
             every { node.state } returns state
             instruction = mockk {
                 every { codeUnits } returns 0
-//                every { registerA } returns REGISTER_A
-//                every { registerB } returns REGISTER_B
+                every { registerC } returns REGISTER_C
+                every { registerD } returns REGISTER_D
+                every { registerE } returns REGISTER_E
+                every { registerF } returns REGISTER_F
+                every { registerG } returns REGISTER_G
+                every { opcode } returns Opcode.FILLED_NEW_ARRAY
+                every { reference } returns ImmutableTypeReference("[I")
             }
+
             location = mockk {
                 every { codeAddress } returns ADDRESS
             }
             every { location.instruction } returns instruction
             every { instruction.location } returns location
-
-//            vm = Mockito.mock(VirtualMachineImpl::class.java)
-//            mState = Mockito.mock(MethodState::class.java)
-//            node = Mockito.mock(ExecutionNode::class.java)
-//            itemC = Mockito.mock(HeapItem::class.java)
-//            itemD = Mockito.mock(HeapItem::class.java)
-//            itemE = Mockito.mock(HeapItem::class.java)
-//            itemF = Mockito.mock(HeapItem::class.java)
-//            itemG = Mockito.mock(HeapItem::class.java)
-//            Mockito.`when`(mState.readRegister(REGISTER_C)).thenReturn(itemC)
-//            Mockito.`when`(mState.readRegister(REGISTER_D)).thenReturn(itemD)
-//            Mockito.`when`(mState.readRegister(REGISTER_E)).thenReturn(itemE)
-//            Mockito.`when`(mState.readRegister(REGISTER_F)).thenReturn(itemF)
-//            Mockito.`when`(mState.readRegister(REGISTER_G)).thenReturn(itemG)
-//            Mockito.`when`(itemC.isUnknown()).thenReturn(false)
-//            Mockito.`when`(itemD.isUnknown()).thenReturn(false)
-//            Mockito.`when`(itemE.isUnknown()).thenReturn(false)
-//            Mockito.`when`(itemF.isUnknown()).thenReturn(false)
-//            Mockito.`when`(itemG.isUnknown()).thenReturn(false)
-//            location = Mockito.mock<MethodLocation>(MethodLocation::class.java)
-//            instruction = Mockito.mock<BuilderInstruction>(
-//                BuilderInstruction::class.java, Mockito.withSettings().extraInterfaces(
-//                    Instruction35c::class.java,
-//                    VariableRegisterInstruction::class.java, ReferenceInstruction::class.java
-//                )
-//            )
-//            Mockito.`when`<Instruction>(location.getInstruction()).thenReturn(instruction)
-//            Mockito.`when`<Int>(location.getCodeAddress()).thenReturn(ADDRESS)
-//            Mockito.`when`<MethodLocation>(instruction.getLocation()).thenReturn(location)
-//            Mockito.`when`<Int>(instruction.getCodeUnits()).thenReturn(0)
-//            Mockito.`when`<Int>((instruction as Instruction35c?).getRegisterC()).thenReturn(REGISTER_C)
-//            Mockito.`when`<Int>((instruction as Instruction35c?).getRegisterD()).thenReturn(REGISTER_D)
-//            Mockito.`when`<Int>((instruction as Instruction35c?).getRegisterE()).thenReturn(REGISTER_E)
-//            Mockito.`when`<Int>((instruction as Instruction35c?).getRegisterF()).thenReturn(REGISTER_F)
-//            Mockito.`when`<Int>((instruction as Instruction35c?).getRegisterG()).thenReturn(REGISTER_G)
-//            val ref: Reference = ImmutableTypeReference("[I")
-//            Mockito.`when`<Reference>((instruction as ReferenceInstruction?).getReference()).thenReturn(ref)
-//            addressToLocation = TIntObjectHashMap<MethodLocation>()
-//            addressToLocation.put(ADDRESS, location)
-//            opFactory = FilledNewArrayOpFactory()
         }
 
-//        @Test
-//        fun testFiveIntegersGivesExpectedArray() {
-//            doTest(42, -42, 42, -42, 42)
-//        }
-//
-//        @Test
-//        fun testFourIntegersGivesExpectedArray() {
-//            doTest(3, 5, 7, 11)
-//        }
-//
-//        @Test
-//        fun testOneIntegerGivesExpectedArray() {
-//            doTest(1)
-//        }
-//
-//        @Test
-//        fun testThreeIntegersGivesExpectedArray() {
-//            doTest(1, 2, 3)
-//        }
-//
-//        @Test
-//        fun testThreeNumbersGivesExpectedArray() {
-//            val number1: Short = 42
-//            val number2: Byte = 35
-//            val number3 = 10
-//            doTest(number1, number2, number3)
-//        }
-//
-//        @Test
-//        fun testTwoIntegersGivesExpectedArray() {
-//            doTest(1, 2)
-//        }
-//
-//        @Test
-//        fun testUnknownValueGivesUnknownArray() {
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FILLED_NEW_ARRAY)
-//            Mockito.`when`<Int>((instruction as VariableRegisterInstruction?).getRegisterCount()).thenReturn(2)
-//            Mockito.`when`(itemD.getValue()).thenReturn(UnknownValue())
-//            Mockito.`when`(itemD.isUnknown()).thenReturn(true)
-//            Mockito.`when`(itemC.getValue()).thenReturn(3)
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_D))
-//            Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_C))
-//            val setItem: ArgumentCaptor<HeapItem> = ArgumentCaptor.forClass(HeapItem::class.java)
-//            Mockito.verify<Any>(mState, Mockito.times(1)).assignResultRegister(setItem.capture())
-//            assertEquals(UnknownValue::class.java, setItem.getValue().getValue().getClass())
-//            assertEquals("[I", setItem.getValue().getType())
-//            Assertions.assertEquals("filled-new-array {r0, r1}, [I", op.toString())
-//        }
-//
-//        private fun doTest(vararg values: Number) {
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FILLED_NEW_ARRAY)
-//            Mockito.`when`<Int>((instruction as VariableRegisterInstruction?).getRegisterCount()).thenReturn(values.size)
-//            when (values.size) {
-//                5 -> {
-//                    Mockito.`when`(itemG.getValue()).thenReturn(values[4])
-//                    Mockito.`when`(itemF.getValue()).thenReturn(values[3])
-//                    Mockito.`when`(itemE.getValue()).thenReturn(values[2])
-//                    Mockito.`when`(itemD.getValue()).thenReturn(values[1])
-//                    Mockito.`when`(itemC.getValue()).thenReturn(values[0])
-//                }
-//                4 -> {
-//                    Mockito.`when`(itemF.getValue()).thenReturn(values[3])
-//                    Mockito.`when`(itemE.getValue()).thenReturn(values[2])
-//                    Mockito.`when`(itemD.getValue()).thenReturn(values[1])
-//                    Mockito.`when`(itemC.getValue()).thenReturn(values[0])
-//                }
-//                3 -> {
-//                    Mockito.`when`(itemE.getValue()).thenReturn(values[2])
-//                    Mockito.`when`(itemD.getValue()).thenReturn(values[1])
-//                    Mockito.`when`(itemC.getValue()).thenReturn(values[0])
-//                }
-//                2 -> {
-//                    Mockito.`when`(itemD.getValue()).thenReturn(values[1])
-//                    Mockito.`when`(itemC.getValue()).thenReturn(values[0])
-//                }
-//                1 -> Mockito.`when`(itemC.getValue()).thenReturn(values[0])
-//            }
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            when (values.size) {
-//                5 -> {
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_G))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_F))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_E))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_D))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_C))
-//                }
-//                4 -> {
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_F))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_E))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_D))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_C))
-//                }
-//                3 -> {
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_E))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_D))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_C))
-//                }
-//                2 -> {
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_D))
-//                    Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_C))
-//                }
-//                1 -> Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(REGISTER_C))
-//            }
-//            val expected = IntArray(values.size)
-//            for (i in expected.indices) {
-//                expected[i] = values[i].toInt()
-//            }
-//            Mockito.verify<Any>(mState, Mockito.times(1)).assignResultRegister(ArgumentMatchers.eq(expected), ArgumentMatchers.eq("[I"))
-//        }
-//
-//    }
-//
-//    @ExtendWith(MockitoExtension::class)
-//    @MockitoSettings(strictness = Strictness.LENIENT)
-//    class UnitTestFilledNewArrayRange {
-//        private var addressToLocation: TIntObjectMap<MethodLocation>? = null
-//        private var instruction: BuilderInstruction? = null
-//        private var location: MethodLocation? = null
-//        private var mState: MethodState? = null
-//        private var node: ExecutionNode? = null
-//        private var op: FilledNewArrayOp? = null
-//        private var opFactory: FilledNewArrayOpFactory? = null
-//        private var vm: VirtualMachine? = null
-//
-//        @BeforeEach
-//        fun setUp() {
-//            vm = Mockito.mock(VirtualMachineImpl::class.java)
-//            node = Mockito.mock(ExecutionNode::class.java)
-//            mState = Mockito.mock(MethodState::class.java)
-//            location = Mockito.mock<MethodLocation>(MethodLocation::class.java)
-//            instruction = Mockito.mock<BuilderInstruction>(
-//                BuilderInstruction::class.java, Mockito.withSettings().extraInterfaces(
-//                    Instruction3rc::class.java,
-//                    VariableRegisterInstruction::class.java, ReferenceInstruction::class.java, RegisterRangeInstruction::class.java
-//                )
-//            )
-//            Mockito.`when`<Instruction>(location.getInstruction()).thenReturn(instruction)
-//            Mockito.`when`<Int>(location.getCodeAddress()).thenReturn(ADDRESS)
-//            Mockito.`when`<MethodLocation>(instruction.getLocation()).thenReturn(location)
-//            Mockito.`when`<Int>(instruction.getCodeUnits()).thenReturn(0)
-//            val ref: Reference = ImmutableTypeReference("[I")
-//            Mockito.`when`<Reference>((instruction as ReferenceInstruction?).getReference()).thenReturn(ref)
-//            addressToLocation = TIntObjectHashMap<MethodLocation>()
-//            addressToLocation.put(ADDRESS, location)
-//            opFactory = FilledNewArrayOpFactory()
-//        }
-//
-//        @Test
-//        fun testSixIntegersGivesExpectedArray() {
-//            doTest(42, -42, 42, -42, 42, -42)
-//        }
-//
-//        @Test
-//        fun testUnknownValueGivesUnknownArray() {
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FILLED_NEW_ARRAY_RANGE)
-//            Mockito.`when`<Int>((instruction as VariableRegisterInstruction?).getRegisterCount()).thenReturn(6)
-//            Mockito.`when`<Int>((instruction as RegisterRangeInstruction?).getStartRegister()).thenReturn(0)
-//            for (i in 0..5) {
-//                val item: HeapItem = Mockito.mock(HeapItem::class.java)
-//                Mockito.`when`(item.getValue()).thenReturn(if (i == 3) UnknownValue() else i)
-//                Mockito.`when`(item.getType()).thenReturn("I")
-//                Mockito.`when`(mState.readRegister(i)).thenReturn(item)
-//            }
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            for (i in 0..5) {
-//                Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(i))
-//            }
-//            val setItem: ArgumentCaptor<HeapItem> = ArgumentCaptor.forClass(HeapItem::class.java)
-//            Mockito.verify<Any>(mState, Mockito.times(1)).assignResultRegister(setItem.capture())
-//            assertEquals(UnknownValue::class.java, setItem.getValue().getValue().getClass())
-//            assertEquals("[I", setItem.getValue().getType())
-//            Assertions.assertEquals("filled-new-array/range {r0 .. r5}, [I", op.toString())
-//        }
-//
-//        private fun doTest(vararg values: Number) {
-//            Mockito.`when`<Opcode>(instruction.getOpcode()).thenReturn(Opcode.FILLED_NEW_ARRAY_RANGE)
-//            Mockito.`when`<Int>((instruction as VariableRegisterInstruction?).getRegisterCount()).thenReturn(values.size)
-//            Mockito.`when`<Int>((instruction as RegisterRangeInstruction?).getStartRegister()).thenReturn(0)
-//            val expected = IntArray(values.size)
-//            for (i in expected.indices) {
-//                expected[i] = values[i].toInt()
-//                val item: HeapItem = Mockito.mock(HeapItem::class.java)
-//                Mockito.`when`(item.getValue()).thenReturn(expected[i])
-//                Mockito.`when`(item.getType()).thenReturn("I")
-//                Mockito.`when`(mState.readRegister(i)).thenReturn(item)
-//            }
-//            op = opFactory.create(location, addressToLocation, vm)
-//            op!!.execute(node, mState)
-//            for (i in expected.indices) {
-//                Mockito.verify<Any>(mState, Mockito.times(1)).readRegister(ArgumentMatchers.eq(i))
-//            }
-//            Mockito.verify<Any>(mState, Mockito.times(1)).assignResultRegister(ArgumentMatchers.eq(expected), ArgumentMatchers.eq("[I"))
-//        }
+        @Test
+        fun testFiveIntegersGivesExpectedArray() {
+            doTest(42, -42, 42, -42, 42)
+        }
+
+        @Test
+        fun testFourIntegersGivesExpectedArray() {
+            doTest(3, 5, 7, 11)
+        }
+
+        @Test
+        fun testOneIntegerGivesExpectedArray() {
+            doTest(1)
+        }
+
+        @Test
+        fun testThreeIntegersGivesExpectedArray() {
+            doTest(1, 2, 3)
+        }
+
+        @Test
+        fun testThreeNumbersGivesExpectedArray() {
+            val number1: Short = 42
+            val number2: Byte = 35
+            val number3 = 10
+            doTest(number1, number2, number3)
+        }
+
+        @Test
+        fun testTwoIntegersGivesExpectedArray() {
+            doTest(1, 2)
+        }
+
+        @Test
+        fun testUnknownValueGivesUnknownArray() {
+            every { instruction.registerCount } returns 2
+            every { state.readRegister(REGISTER_C) } returns Value.wrap(3, "I")
+            every { state.readRegister(REGISTER_D) } returns Value.unknown("I")
+
+            val op = FilledNewArrayOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+
+            Tester.verifyContinueChild(children)
+            verify(exactly = 1) { state.readRegister(REGISTER_C) }
+            verify(exactly = 1) { state.readRegister(REGISTER_D) }
+            val resultRegister = slot<Value>()
+            verify(exactly = 1) { state.assignResultRegister(capture(resultRegister)) }
+            assertTrue(resultRegister.captured.raw is UnknownValue)
+            assertEquals("[I", resultRegister.captured.type)
+            assertEquals("filled-new-array {r0, r1}, [I", op.toString())
+        }
+
+        private fun doTest(vararg values: Number) {
+            every { instruction.registerCount } returns values.size
+            val registers = arrayOf(REGISTER_C, REGISTER_D, REGISTER_E, REGISTER_F, REGISTER_G)
+            values.forEachIndexed { index, number ->
+                every { state.readRegister(registers[index]) } returns Value.wrap(number, "I")
+            }
+
+            val op = FilledNewArrayOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+
+            Tester.verifyContinueChild(children)
+            values.forEachIndexed { index, _ ->
+                verify(exactly = 1) { state.readRegister(registers[index]) }
+            }
+            val expected = values.map { it.toInt() }.toIntArray()
+            verify(exactly = 1) { state.assignResultRegister(expected, "[I") }
+        }
+    }
+
+    @Nested
+    inner class UnitTestFilledNewArrayRange {
+        private lateinit var instruction: BuilderInstruction3rc
+        private lateinit var location: MethodLocation
+        private lateinit var state: ExecutionState
+        private lateinit var node: ExecutionNode
+        private val ADDRESS = 0
+
+        @BeforeEach
+        fun setUp() {
+            state = mockk(relaxed = true)
+            node = mockk()
+            every { node.state } returns state
+            instruction = mockk {
+                every { codeUnits } returns 0
+                every { opcode } returns Opcode.FILLED_NEW_ARRAY_RANGE
+                every { reference } returns ImmutableTypeReference("[I")
+                every { startRegister } returns 0
+            }
+
+            location = mockk {
+                every { codeAddress } returns ADDRESS
+            }
+            every { location.instruction } returns instruction
+            every { instruction.location } returns location
+        }
+
+        @Test
+        fun testSixIntegersGivesExpectedArray() {
+            doTest(42, -42, 42, -42, 42, -42)
+        }
+
+        @Test
+        fun testUnknownValueGivesUnknownArray() {
+            every { instruction.registerCount } returns 6
+            for (i in 0..5) {
+                every { state.readRegister(i) } returns if (i == 3) Value.unknown("I") else Value.wrap(i, "I")
+            }
+            val op = FilledNewArrayOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+
+            Tester.verifyContinueChild(children)
+            for (i in 0..5) {
+                verify(exactly = 1) { state.readRegister(i) }
+            }
+            val resultRegister = slot<Value>()
+            verify(exactly = 1) { state.assignResultRegister(capture(resultRegister)) }
+            assertTrue(resultRegister.captured.raw is UnknownValue)
+            assertEquals("[I", resultRegister.captured.type)
+        }
+
+        private fun doTest(vararg values: Number) {
+            every { instruction.registerCount } returns values.size
+            val expected = IntArray(values.size)
+            for (index in expected.indices) {
+                expected[index] = values[index].toInt()
+                val value = Value.wrap(expected[index], "I")
+                every { state.readRegister(index) } returns value
+            }
+            val op = FilledNewArrayOp.build(location, mockk(), mockk(), mockk())
+            val children = op.execute(node)
+
+            Tester.verifyContinueChild(children)
+            for (i in expected.indices) {
+                verify(exactly = 1) { state.readRegister(i) }
+            }
+            verify(exactly = 1) { state.assignResultRegister(expected, "[I") }
+            assertEquals("filled-new-array/range {r0 .. r5}, [I", op.toString())
+        }
     }
 }

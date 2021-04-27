@@ -6,13 +6,11 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
-import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
-import org.jf.dexlib2.iface.instruction.ReferenceInstruction
-import org.jf.dexlib2.iface.instruction.VariableRegisterInstruction
+import org.jf.dexlib2.builder.instruction.BuilderInstruction35c
+import org.jf.dexlib2.formatter.DexFormatter
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc
-import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class FilledNewArrayOp internal constructor(
@@ -34,15 +32,15 @@ class FilledNewArrayOp internal constructor(
         var foundUnknown = false
         for (i in dimensionRegisters.indices) {
             val register = dimensionRegisters[i]
-            val item = node.state.readRegister(register)
-            if (item.raw is Number) {
-                dimensions[i] = item.raw.toInt()
+            val value = node.state.readRegister(register)
+            if (value.raw is Number) {
+                dimensions[i] = value.raw.toInt()
             } else {
-                if (item.isKnown) {
-                    log.warn("Unexpected dimension argument type for {}: {}", toString(), item)
+                if (value.isKnown) {
+                    log.warn("Unexpected dimension argument type for {}: {}", toString(), value)
                 }
                 foundUnknown = true
-                break
+                // Not going to break here since we want to signify that all registers are read here!
             }
         }
         if (foundUnknown) {
@@ -77,12 +75,16 @@ class FilledNewArrayOp internal constructor(
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
-            val instruction = location.instruction as BuilderInstruction
-            val reference = (instruction as ReferenceInstruction).reference
-            val typeReference = ReferenceUtil.getReferenceString(reference)!!
-            val registerCount = (instruction as VariableRegisterInstruction).registerCount
-            val opName = instruction.getOpcode().name
+        ): FilledNewArrayOp {
+            val opName = location.instruction!!.opcode.name
+            val instruction = if (opName.endsWith("/range")) {
+                location.instruction as Instruction3rc
+            } else {
+                location.instruction as BuilderInstruction35c
+            }
+            val reference = instruction.reference
+            val typeReference = DexFormatter.INSTANCE.getReference(reference)
+            val registerCount = instruction.registerCount
             val dimensionRegisters = IntArray(registerCount)
             if (opName.endsWith("/range")) {
                 val instr = location.instruction as Instruction3rc

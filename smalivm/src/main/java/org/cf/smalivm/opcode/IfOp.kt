@@ -111,11 +111,11 @@ class IfOp internal constructor(
         ): Op {
             val instruction = location.instruction as BuilderInstruction
             val address = instruction.location.codeAddress
-            val branchOffset = (instruction as OffsetInstruction?)!!.codeOffset
+            val branchOffset = (instruction as OffsetInstruction).codeOffset
             val targetAddress = address + branchOffset
             val opName = instruction.getOpcode().name
             val ifType = getIfType(opName)
-            val register1 = (instruction as OneRegisterInstruction?)!!.registerA
+            val register1 = (instruction as OneRegisterInstruction).registerA
             return if (instruction is Instruction22t) {
                 // if-* vA, vB, :label
                 IfOp(location, ifType, targetAddress, register1, instruction.registerB)
