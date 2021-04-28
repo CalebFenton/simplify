@@ -77,11 +77,6 @@ class ExecutionNode(
 //
 //    fun getClassSideEffectLevel(classSignature: String) = getClassSideEffectLevel(classManager.getVirtualClass(classSignature))
 
-    fun resume(): Array<out UnresolvedChild> {
-        // TODO: this is for invoke ops
-        return arrayOf()
-    }
-
 //    open fun getCallDepth(): Int {
 //        return context.getCallDepth()
 //    }
@@ -115,6 +110,10 @@ class ExecutionNode(
 
     fun execute(): Array<out UnresolvedChild> {
         return op.execute(this)
+    }
+
+    fun resume(): Array<out UnresolvedChild> {
+        return op.resume(this)
     }
 
     fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {

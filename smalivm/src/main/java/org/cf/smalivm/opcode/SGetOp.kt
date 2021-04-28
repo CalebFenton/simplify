@@ -22,12 +22,16 @@ class SGetOp internal constructor(
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         return if (!node.state.isClassInitialized(field.definingClass)) {
-            staticInitClass(field.definingClass, node.classManager, node.classLoader, node.configuration)
+            staticInitClass(field.definingClass)
         } else {
-            val item = node.state.peekField(field)
-            node.state.assignRegister(destRegister, item)
-            finishOp()
+            resume(node)
         }
+    }
+
+    override fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
+        val item = node.state.peekField(field)
+        node.state.assignRegister(destRegister, item)
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister, $field"

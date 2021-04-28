@@ -31,7 +31,7 @@ internal class java_lang_Class_forName : EmulatedMethodCall() {
                     return throwException(ClassNotFoundException::class.java, binaryClassName, unhandled = true)
                 }
                 if (!state.isClassInitialized(virtualClass)) {
-                    return staticInitClass(virtualClass, vm.classManager, vm.classLoader, vm.configuration)
+                    return staticInitClass(virtualClass)
                 }
             }
             state.assignReturnRegister(value, RETURN_TYPE)

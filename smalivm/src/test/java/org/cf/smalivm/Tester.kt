@@ -61,7 +61,7 @@ object Tester {
         for ((className, fieldDescriptorToItem) in expected.fields) {
             val virtualClass = graph.classManager.getVirtualClass(className)
             for ((fieldDescriptor, value) in fieldDescriptorToItem) {
-                val fieldName = fieldDescriptor.split(":").toTypedArray()[0]
+                val fieldName = fieldDescriptor.split(":").first()
                 val field = virtualClass.getField(fieldName)!!
                 val actual = graph.getTerminatingFieldConsensus(field)
                 testValueEquals(value, actual)
@@ -149,7 +149,7 @@ object Tester {
                 throw RuntimeException("Exception building class manager for $TEST_CLASS_PATH", e)
             }
         }
-        return VirtualMachine2.build(classManager)
+        return VirtualMachine2.build(classManager, maxExecutionTime = 0)
     }
 
     fun verifyContinueChild(children: Array<out UnresolvedChild>) {

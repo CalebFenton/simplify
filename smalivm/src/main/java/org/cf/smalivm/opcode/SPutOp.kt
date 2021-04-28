@@ -23,14 +23,18 @@ class SPutOp internal constructor(
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         return if (!node.state.isClassInitialized(field.definingClass)) {
-            staticInitClass(field.definingClass, node.classManager, node.classLoader, node.configuration)
+            staticInitClass(field.definingClass)
         } else {
-            val item = node.state.readRegister(valueRegister)
-            // TODO: check if this is <clinit> and only allow static final fields to be initialized here
-            node.state.assignField(field, item)
-            node.sideEffectLevel = SideEffect.Level.WEAK
-            finishOp()
+            resume(node)
         }
+    }
+
+    override fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
+        val item = node.state.readRegister(valueRegister)
+        // TODO: check if this is <clinit> and only allow static final fields to be initialized here
+        node.state.assignField(field, item)
+        node.sideEffectLevel = SideEffect.Level.WEAK
+        return finishOp()
     }
 
     override fun toString() = "$name r$valueRegister, $field"

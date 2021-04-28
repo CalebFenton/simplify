@@ -1,14 +1,15 @@
 package org.cf.smalivm2
 
 import org.cf.smalivm.type.VirtualMethod
+import org.cf.smalivm.type.VirtualType
 
 abstract class UnresolvedChild() {
     companion object {
-        fun build(
-            method: VirtualMethod,
-            state: ExecutionState,
-            analyzedParameterTypes: Array<String>,
-        ) = UnresolvedMethodInvocationChild(method, state, analyzedParameterTypes)
+        fun build(method: VirtualMethod,state: ExecutionState) =
+            UnresolvedMethodInvocationChild(method, state)
+
+        fun build(virtualClass: VirtualType) =
+            UnresolvedStaticClassInit(virtualClass)
 
         fun build(address: Int) =
             UnresolvedAddressChild(address)
@@ -23,20 +24,22 @@ abstract class UnresolvedChild() {
     }
 }
 
-class UnresolvedMethodInvocationChild(
+data class UnresolvedMethodInvocationChild(
     val method: VirtualMethod,
     val state: ExecutionState,
-    // TODO: remove this? are they not needed anymore?
-    val analyzedParameterTypes: Array<String>
 ) : UnresolvedChild()
 
-class UnresolvedExceptionChild(
+data class UnresolvedStaticClassInit(
+    val virtualClass: VirtualType
+) : UnresolvedChild()
+
+data class UnresolvedExceptionChild(
     val exceptionClass: Class<out Throwable>,
     val message: String?,
     val unhandled: Boolean,
 ) : UnresolvedChild()
 
-class UnresolvedAddressChild(
+data class UnresolvedAddressChild(
     val address: Int
 ) : UnresolvedChild()
 

@@ -23,22 +23,22 @@ class NewInstanceOpTest {
         vm = Tester.spawnVM()
     }
 
-//    @Test
-//    @Throws(ClassNotFoundException::class)
-//    fun canCreateLocalInstance() {
-//        initial.setRegisters(0, 1, "I")
-//        val graph = Tester.execute(CLASS_NAME, "newLocalInstance()V", initial, vm)
-//        val instanceType = vm.classManager.getVirtualType(CLASS_NAME)
-//        expected.setRegisters(0, UninitializedInstance(instanceType), CLASS_NAME)
-//        Tester.testState(graph, expected)
-//    }
-//
-//    @Test
-//    fun canCreateNonLocalInstance() {
-//        initial.setRegisters(0, 1, "I")
-//        val graph = Tester.execute(CLASS_NAME, "newNonLocalInstance()V", initial, vm)
-//        val instanceType = vm.classManager.getVirtualType("Ljava/lang/Integer;")
-//        expected.setRegisters(0, UninitializedInstance(instanceType), "Ljava/lang/Integer;")
-//        Tester.testState(graph, expected)
-//    }
+    @Test
+    @Throws(ClassNotFoundException::class)
+    fun canCreateLocalInstance() {
+        initial.setRegisters(0, 1, "I")
+        val graph = Tester.execute(CLASS_NAME, "newLocalInstance()V", initial, vm)
+        val instanceType = vm.classManager.getVirtualType(CLASS_NAME)
+        expected.setRegisters(0, UninitializedInstance(instanceType), CLASS_NAME)
+        Tester.testState(graph, expected)
+    }
+
+    @Test
+    fun canCreateNonLocalInstance() {
+        initial.setRegisters(0, 1, "I")
+        val graph = Tester.execute(CLASS_NAME, "newNonLocalInstance()V", initial, vm)
+        val instanceType = vm.classManager.getVirtualType("Ljava/lang/Integer;")
+        expected.setRegisters(0, UninitializedInstance(instanceType), "Ljava/lang/Integer;")
+        Tester.testState(graph, expected)
+    }
 }

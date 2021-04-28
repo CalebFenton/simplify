@@ -74,7 +74,7 @@ class InvokeOp internal constructor(
         val analyzedParameterTypes = analyzeParameterTypes(node)
         val calleeState = ExecutionState.build(targetMethod, node.classManager, node.classLoader, node.configuration)
         assignCalleeMethodArguments(node.state, calleeState, analyzedParameterTypes)
-        return callMethod(targetMethod, calleeState, analyzedParameterTypes)
+        return callMethod(targetMethod, calleeState)
     }
 
     val returnType: String

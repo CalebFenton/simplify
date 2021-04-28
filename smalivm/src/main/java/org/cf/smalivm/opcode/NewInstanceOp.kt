@@ -27,14 +27,18 @@ class NewInstanceOp internal constructor(
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         return if (!node.state.isClassInitialized(virtualClass)) {
             // New-instance causes static initialization (but not new-array!)
-            staticInitClass(virtualClass, node.classManager, node.classLoader, node.configuration)
+            staticInitClass(virtualClass)
         } else {
-            val rawInstance = UninitializedInstance(virtualClass)
-            val instance = Value.wrap(rawInstance, virtualClass.name)
-            node.state.assignRegister(destRegister, instance)
-            node.sideEffectLevel = sideEffectLevel
-            finishOp()
+            resume(node)
         }
+    }
+
+    override fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
+        val rawInstance = UninitializedInstance(virtualClass)
+        val instance = Value.wrap(rawInstance, virtualClass.name)
+        node.state.assignRegister(destRegister, instance)
+        node.sideEffectLevel = sideEffectLevel
+        return finishOp()
     }
 
     override fun toString() = "$name r$destRegister, $virtualClass"

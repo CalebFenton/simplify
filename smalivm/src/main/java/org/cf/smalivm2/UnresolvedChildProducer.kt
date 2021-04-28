@@ -20,20 +20,12 @@ open class UnresolvedChildProducer(
         return arrayOf(UnresolvedChild.build(klazz, message, unhandled))
     }
 
-    fun staticInitClass(
-        virtualClass: VirtualType,
-        classManager: ClassManager,
-        classLoader: SmaliClassLoader,
-        configuration: Configuration
-    ): Array<out UnresolvedChild> {
-        // TODO: Don't some classes not have clinit? May need to just set field literals here or allow null methods OR have UnresolvedStaticInit
-        val staticInit = virtualClass.getMethod("<clinit>()V")!!
-        val state = ExecutionState.build(staticInit, classManager, classLoader, configuration)
-        return callMethod(staticInit, state, arrayOf())
+    fun staticInitClass(virtualClass: VirtualType): Array<out UnresolvedChild> {
+        return arrayOf(UnresolvedChild.build(virtualClass))
     }
 
-    fun callMethod(methodCall: VirtualMethod, state: ExecutionState, analyzedParameterTypes: Array<String>): Array<out UnresolvedChild> {
-        return arrayOf(UnresolvedChild.build(methodCall, state, analyzedParameterTypes))
+    fun callMethod(methodCall: VirtualMethod, state: ExecutionState): Array<out UnresolvedChild> {
+        return arrayOf(UnresolvedChild.build(methodCall, state))
     }
 
     fun finishMethod() : Array<out UnresolvedChild> {

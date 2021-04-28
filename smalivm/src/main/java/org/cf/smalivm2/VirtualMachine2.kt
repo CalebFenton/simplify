@@ -5,7 +5,10 @@ import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.emulate.MethodEmulator
-import org.cf.smalivm.opcode.*
+import org.cf.smalivm.opcode.InvokeOp
+import org.cf.smalivm.opcode.Op
+import org.cf.smalivm.opcode.OpBuilder
+import org.cf.smalivm.opcode.SwitchOp
 import org.cf.smalivm.type.*
 import org.cf.util.EnumAnalyzer
 import org.cf.util.Utils
@@ -114,7 +117,7 @@ class VirtualMachine2 private constructor(
 
         val endExecutionTime = executionStart + (maxExecutionTime * 1000)
         while (!interactive && executionQueue.isNotEmpty()) {
-            if (endExecutionTime < System.currentTimeMillis()) {
+            if (maxExecutionTime > 0 && endExecutionTime < System.currentTimeMillis()) {
                 val entry = executionQueue.peek()
                 val current = entry.nodes.peek()
                 log.warn("Exceeded execution time for top-level method $method in ${current.method}")
@@ -128,8 +131,8 @@ class VirtualMachine2 private constructor(
     }
 
     fun step() {
-        val entry = executionQueue.peek()
-        val current = entry.nodes.poll()
+        val entry = executionQueue.peekLast()
+        val current = entry.nodes.pollLast()
 
         // graphs may throw exceptions in some paths, so also consider tracking (unhandled?) at the graph level (graph.setException(node, unresolved child))
         // ONLY if the exception isn't handled within the method -- if it's handled within the method go there
@@ -219,12 +222,13 @@ class VirtualMachine2 private constructor(
                 resumeNodes.remove(current)
                 current.resume()
             } else {
+                entry.graph.addNode(current)
                 current.execute()
             }
         } else {
+            entry.graph.addNode(current)
             emulatedOrReflected = true
         }
-        entry.graph.addNode(current)
 
         // TODO: if it's a method invocation and it's a static init, then put current node back in nodes and return
         // invoke-op doesn't need a resume either, vm can just setup result register and collapse multiverse
@@ -234,12 +238,18 @@ class VirtualMachine2 private constructor(
         for (unresolvedChild in unresolvedChildren) {
             when (unresolvedChild) {
                 is UnresolvedContinueChild -> {
-                    val opcode = current.op.instruction!!.opcode
-                    if (opcode.canContinue() && current.op !is SwitchOp) {
-                        enqueueChildNode(current, current.op.nextAddress, entry.graph, entry.nodes)
-                    }
+                    enqueueContinueChildNode(current, entry.graph, entry.nodes)
+                }
+                is UnresolvedStaticClassInit -> {
+                    // This child is only returned if an Op *knows* a class should be initialized.
+                    // But sometimes a class doesn't have a <clinit> method so always mark this node to be resumed
+                    resumeNodes.add(current)
+                    // TODO: consider putting this in enqueueMethodInvocation (and when resolving method invocation children)
+                    entry.nodes.add(current)
+                    enqueueStaticInitializationIfNecessary(unresolvedChild.virtualClass, current)
                 }
                 is UnresolvedMethodInvocationChild -> {
+                    entry.nodes.add(current)
                     enqueueMethodInvocation(unresolvedChild.method, unresolvedChild.state, current)
                 }
                 is UnresolvedAddressChild -> {
@@ -285,7 +295,19 @@ class VirtualMachine2 private constructor(
         return Value.wrap(rawException, exceptionClass)
     }
 
-    private fun enqueueChildNode(parent: ExecutionNode, address: Int, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>): ExecutionNode {
+    private fun enqueueContinueChildNode(current: ExecutionNode, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>) {
+        val opcode = current.op.instruction!!.opcode
+        if (opcode.canContinue() && current.op !is SwitchOp) {
+            enqueueChildNode(current, current.op.nextAddress, graph, methodNodes)
+        }
+    }
+
+    private fun enqueueChildNode(
+        parent: ExecutionNode,
+        address: Int,
+        graph: ExecutionGraph2,
+        methodNodes: MutableList<ExecutionNode>
+    ): ExecutionNode {
         val location = graph.getLocation(address)!!
         val op = methodToTemplateOps[parent.method]!![location]!!
         val child = ExecutionNode(op, parent.method, classManager, classLoader, configuration, parent = parent)
@@ -303,9 +325,9 @@ class VirtualMachine2 private constructor(
             val caller = current.caller
             if (caller != null) {
                 val callerEntry = executionQueue.first { it.graph.hasNode(caller) }
-                if (current.method.descriptor != "<clinit>()V") {
-                    callerEntry.nodes.add(caller)
-                }
+//                if (current.method.descriptor != "<clinit>()V") {
+//                    callerEntry.nodes.add(caller)
+//                }
                 if (abortMethod) {
 //                    entry.graph.aborted = true
                     assumeMaximumUnknown(caller.state, current.state, current.method)
@@ -609,6 +631,7 @@ class VirtualMachine2 private constructor(
             // Class has no static initializer but still need to set any literal fields, e.g.
             // .field public static myInt:I = 0x4
             initializeClassState(parent.state, virtualClass)
+            parent.state.setClassInitialized(virtualClass)
             return false
         }
 
