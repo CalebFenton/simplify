@@ -8,10 +8,7 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UninitializedInstance
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.Value
+import org.cf.smalivm2.*
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
@@ -174,6 +171,64 @@ class InvokeOp internal constructor(
             calleeState.assignRegister(parameterRegister, parameterItem)
             parameterRegister += Utils.getRegisterSize(parameterType)
         }
+    }
+
+    override fun resume(node: ExecutionNode, calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
+//        if (calleeGraph == null) {
+//            // Maybe node visits or call depth exceeded?
+//            log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
+//            assumeMaximumUnknown(callerContext!!.methodState)
+//            return
+//        }
+
+
+        var hasOneNonThrow = false
+        val endAddresses = if (calleeGraph.emulatedOrReflected) {
+            intArrayOf(0)
+        } else {
+            calleeGraph.getConnectedTerminatingAddresses()
+        }
+        for (endAddress in endAddresses) {
+            val endOp = calleeGraph.getOp(endAddress)
+            if (endOp !is ThrowOp) {
+                hasOneNonThrow = true
+                break
+            }
+        }
+        if (hasOneNonThrow) {
+            if (method.returnType != CommonTypes.VOID) {
+                // Terminating addresses may include throw ops which may not have a return register set
+                val checkReturnAddresses = if (calleeGraph.emulatedOrReflected) {
+                    endAddresses
+                } else {
+                    val returnOpAddresses = LinkedList<Int>()
+                    for (endAddress in endAddresses) {
+                        if (calleeGraph.getOp(endAddress) is ReturnOp) {
+                            returnOpAddresses.add(endAddress)
+                        }
+                    }
+                    returnOpAddresses.toIntArray()
+                }
+                val consensus = calleeGraph.getRegisterConsensus(checkReturnAddresses, ExecutionState.RETURN_REGISTER)
+                node.state.assignResultRegister(consensus)
+            } else {
+                if (calleeGraph.method.descriptor.startsWith("<init>(")) {
+                    // This was a call to a local parent <init> method
+                    val calleeInstanceRegister = calleeGraph.root.state.firstParameterRegister
+                    val newInstance = calleeGraph.getTerminatingRegisterConsensus(calleeInstanceRegister)
+                    val instanceRegister = parameterRegisters[0]
+                    node.state.assignRegister(instanceRegister, newInstance, updateIdentities = true)
+                }
+            }
+        }
+        node.sideEffectLevel = calleeGraph.getHighestSideEffectLevel()
+
+        if (!method.returnsVoid()) {
+            val returnValue = calleeGraph.getRegisterConsensus(endAddresses, ExecutionState.RETURN_REGISTER)
+            node.state.assignResultRegister(returnValue)
+        }
+
+        return finishOp()
     }
 
 //    private fun buildLocalCalleeContext(callerContext: ExecutionContext, method: VirtualMethod?): ExecutionContext {

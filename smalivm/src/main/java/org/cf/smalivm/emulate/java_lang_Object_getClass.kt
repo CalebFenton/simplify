@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 internal class java_lang_Object_getClass : EmulatedMethodCall() {
     override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
-        val argumentType = state.peekParameter(0)!!.type
+        val argumentType = state.peekParameterOffset(0)!!.type
         val virtualType = vm.classManager.getVirtualType(argumentType)
         return try {
             val value = vm.classLoader.loadClass(virtualType.binaryName)

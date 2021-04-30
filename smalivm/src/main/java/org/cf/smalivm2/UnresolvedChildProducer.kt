@@ -1,8 +1,5 @@
 package org.cf.smalivm2
 
-import org.cf.smalivm.configuration.Configuration
-import org.cf.smalivm.dex.SmaliClassLoader
-import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.smalivm.type.VirtualType
 import java.util.*
@@ -28,7 +25,7 @@ open class UnresolvedChildProducer(
         return arrayOf(UnresolvedChild.build(methodCall, state))
     }
 
-    fun finishMethod() : Array<out UnresolvedChild> {
+    fun finishMethod(): Array<out UnresolvedChild> {
         return arrayOf()
     }
 

@@ -9,8 +9,8 @@ import java.lang.reflect.Modifier
 
 internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
     override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
-        val value = state.peekParameter(0)!!
-        val instance = state.peekParameter(1)!!
+        val value = state.peekParameterOffset(0)!!
+        val instance = state.peekParameterOffset(1)!!
         val field = value.raw as Field
         val accessFlags = field.modifiers
         val fieldClassName: String = ClassNameUtils.toInternal(field.declaringClass)

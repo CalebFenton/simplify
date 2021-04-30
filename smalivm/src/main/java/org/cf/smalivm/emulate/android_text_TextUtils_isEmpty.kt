@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 internal class android_text_TextUtils_isEmpty : EmulatedMethodCall() {
     override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
-        val charSequence = state.peekParameter(0)!!.raw as CharSequence?
+        val charSequence = state.peekParameterOffset(0)!!.raw as CharSequence?
         // https://developer.android.com/reference/android/text/TextUtils#isEmpty(java.lang.CharSequence)
         val isEmpty = charSequence == null || charSequence.isEmpty()
         state.assignReturnRegister(isEmpty, RETURN_TYPE)

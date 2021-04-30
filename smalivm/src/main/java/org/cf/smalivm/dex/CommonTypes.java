@@ -25,6 +25,6 @@ public class CommonTypes {
     public static final String BOOLEAN_OBJ = "Ljava/lang/Boolean;";
     public static final String CHARACTER_OBJ = "Ljava/lang/Character;";
 
-    public static final String UNKNOWN = "?";
+    public static final String UNKNOWN_TYPE = "?";
 
 }

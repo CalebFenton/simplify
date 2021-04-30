@@ -29,10 +29,10 @@ class ExecutionState internal constructor(
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
     val values = HashMap<String, Value>(registerCount + fieldCount)
     val initializedClasses: MutableMap<VirtualType, SideEffectLevel> = HashMap(initializedClassesSize)
-    val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
+    val mutableParameters: MutableSet<Int> = HashSet(mutableParametersSize)
     val firstParameterRegister = registerCount - parameterSize
-    val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
-    val registersRead: MutableSet<Int> = HashSet<Int>(registersReadSize)
+    val registersAssigned: MutableSet<Int> = HashSet(registersAssignedSize)
+    val registersRead: MutableSet<Int> = HashSet(registersReadSize)
     var node: ExecutionNode? = null
 
     companion object {
@@ -204,7 +204,7 @@ class ExecutionState internal constructor(
         }
     }
 
-    fun peekParameter(parameterRegisterOffset: Int): Value? {
+    fun peekParameterOffset(parameterRegisterOffset: Int): Value? {
         return peekRegister(firstParameterRegister + parameterRegisterOffset)
     }
 
@@ -293,8 +293,8 @@ class ExecutionState internal constructor(
 
     fun allArgumentsKnown(): Boolean {
         var parameterRegister = firstParameterRegister
-        while (parameterRegister < registerCount) {
-            val value = peekParameter(parameterRegister)!!
+        while (parameterRegister < firstParameterRegister + parameterSize) {
+            val value = peekRegister(parameterRegister)!!
             if (value.isUnknown) {
                 return false
             }
@@ -346,7 +346,7 @@ class ExecutionState internal constructor(
                 inner.append("(p").append(register - firstParameterRegister).append(')')
             }
             val value = peekRegister(register)!!
-            inner.append("`: ").append(value).append('\n')
+            inner.append(": ").append(value).append('\n')
             val registerSize = Utils.getRegisterSize(value.type)
             register += registerSize
         }

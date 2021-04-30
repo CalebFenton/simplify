@@ -116,6 +116,10 @@ class ExecutionNode(
         return op.resume(this)
     }
 
+    fun resume(calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
+        return op.resume(this, calleeGraph)
+    }
+
     fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
         val childState = ExecutionState.build(childMethod, classManager, classLoader, configuration)
         val child = ExecutionNode(

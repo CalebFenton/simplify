@@ -61,7 +61,7 @@ class ExecutionGraph2(
     val addressToLocation = buildAddressToLocation(method.implementation)
     val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
     val unhandledVirtualException: MutableList<UnhandledVirtualException> = LinkedList()
-
+    var emulatedOrReflected: Boolean = false
     //    val implementation: MutableMethodImplementation = method.implementation
     //    val opCreator: OpCreator = OpCreator(addressToLocation, classManager, classLoader, configuration)
 //    val addressToLocation = buildAddressToLocation(method.implementation)
@@ -144,10 +144,13 @@ class ExecutionGraph2(
     }
 
     private fun getConsensusType(types: MutableSet<String>, values: Set<Value?>): String {
+        if (types.isEmpty()) {
+            return CommonTypes.UNKNOWN_TYPE
+        }
         if (types.size == 1) {
             return types.first()
         }
-        var newAncestors = 0
+        var newAncestors: Int
         do {
             /*
              * Collapse type hierarchies to get the most common type. For example, if types includes ChildClass and ParentClass, then the consensus
@@ -179,7 +182,7 @@ class ExecutionGraph2(
             newAncestors = newTypes.size
             collapseTypeHierarchies(types, classManager)
         } while (newAncestors > 0)
-        return CommonTypes.UNKNOWN
+        return CommonTypes.UNKNOWN_TYPE
     }
 
     /**
@@ -357,12 +360,12 @@ class ExecutionGraph2(
      * because `IfOp` won't be able to evaluate the predicate. This means `return v1` could either be `1` or `0`. There is no consensus. In this case,
      * an [UnknownValue] will be returned.
      *
-     * @return consensus value for `register` at each address in `addresses`, `UnknownValue` if register had multiple values, or null if no values were present
+     * @return consensus value for `register` at each address in `addresses`, `UnknownValue` if there was no consensus
      */
     fun getRegisterConsensus(addresses: IntArray, register: Int): Value {
         val values: MutableSet<Value?> = HashSet()
         for (address in addresses) {
-            values.addAll(getRegisterItems(address, register))
+            values.addAll(getRegisterValues(address, register))
         }
         // Values are equal if they have the same type and value
         if (values.size == 1 && values.first() != null) {
@@ -379,35 +382,29 @@ class ExecutionGraph2(
             }
             types.add(value.type)
         }
-        if (types.isEmpty()) {
-            // E.g. checking return register but exception was thrown
-            // TODO: If checking return register, use the return type of the method as a hint
-            log.warn("No consensus types; using *unknown* type! method={}, addresses={}, register={}", method.signature, addresses, register)
-            return Value.unknown(CommonTypes.UNKNOWN)
-        } else {
-            var type = getConsensusType(types, values)
-            if (type == CommonTypes.UNKNOWN) {
-                if (register == ExecutionState.RETURN_REGISTER) {
-                    log.warn(
-                        "No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
-                        method.signature,
-                        addresses,
-                        register,
-                        type
-                    )
-                    type = method.returnType
-                } else {
-                    log.warn(
-                        "No consensus type; using *unknown* type! method={}, addresses={}, register={}, types={}",
-                        method.signature,
-                        addresses,
-                        register,
-                        types
-                    )
-                }
+
+        var type = getConsensusType(types, values)
+        if (type == CommonTypes.UNKNOWN_TYPE) {
+            if (register == ExecutionState.RETURN_REGISTER) {
+                log.warn(
+                    "No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
+                    method.signature,
+                    addresses,
+                    register,
+                    type
+                )
+                type = method.returnType
+            } else {
+                log.warn(
+                    "No consensus type; using *unknown* type! method={}, addresses={}, register={}, types={}",
+                    method.signature,
+                    addresses,
+                    register,
+                    types
+                )
             }
-            return Value.unknown(type)
         }
+        return Value.unknown(type)
     }
 
     fun getRegisterConsensusValue(address: Int, register: Int): Any? {
@@ -425,7 +422,7 @@ class ExecutionGraph2(
      *
      * @return returns items at `address` in `register` for every execution path
      */
-    fun getRegisterItems(address: Int, register: Int): Set<Value?> {
+    fun getRegisterValues(address: Int, register: Int): Set<Value?> {
         val nodePile = getNodePile(address)
         val values: MutableSet<Value?> = HashSet(nodePile.size)
         for (node in nodePile) {
@@ -436,8 +433,12 @@ class ExecutionGraph2(
     }
 
     fun getTerminatingStates(): Collection<ExecutionState> {
+        return getStates(getConnectedTerminatingAddresses())
+    }
+
+    fun getStates(addresses: IntArray): Collection<ExecutionState> {
         val states: MutableList<ExecutionState> = LinkedList()
-        for (address in getConnectedTerminatingAddresses()) {
+        for (address in addresses) {
             states.addAll(
                 getNodePile(address).map { obj: ExecutionNode -> obj.state }
             )
@@ -459,9 +460,9 @@ class ExecutionGraph2(
         return fieldToValue
     }
 
-    fun getTerminatingRegisterConsensus(register: Int): Value? {
+    fun getTerminatingRegisterConsensus(register: Int): Value {
         val registerToValue = getTerminatingRegisterConsensus(intArrayOf(register))
-        return registerToValue[register]
+        return registerToValue[register]!!
     }
 
     fun getTerminatingRegisterConsensus(registers: IntArray): Map<Int, Value> {
@@ -473,6 +474,9 @@ class ExecutionGraph2(
             }
         } else {
             log.warn("No connected terminating addresses for register consensus; registers=$registers")
+            for (register in registers) {
+                registerToValue[register] = Value.unknown(CommonTypes.UNKNOWN_TYPE)
+            }
         }
         return registerToValue
     }

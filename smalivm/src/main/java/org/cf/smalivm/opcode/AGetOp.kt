@@ -60,8 +60,8 @@ class AGetOp internal constructor(
 
         private fun getUnknownArrayInnerType(array: Value): String {
             val outerType = array.type
-            return if (CommonTypes.UNKNOWN == outerType) {
-                CommonTypes.UNKNOWN
+            return if (CommonTypes.UNKNOWN_TYPE == outerType) {
+                CommonTypes.UNKNOWN_TYPE
             } else {
                 outerType.replaceFirst("\\[".toRegex(), "")
             }

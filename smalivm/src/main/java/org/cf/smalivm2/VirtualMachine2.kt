@@ -43,6 +43,7 @@ class VirtualMachine2 private constructor(
 
     private val executionQueue: Deque<ExecutionQueueEntry> = LinkedList()
     private val resumeNodes: MutableSet<ExecutionNode> = HashSet()
+    private val invokeToCalleeGraph: MutableMap<ExecutionNode, ExecutionGraph2> = HashMap()
 
     companion object {
         private val log = LoggerFactory.getLogger(VirtualMachine2::class.java.simpleName)
@@ -92,6 +93,7 @@ class VirtualMachine2 private constructor(
     fun reset() {
         executionQueue.clear()
         resumeNodes.clear()
+        invokeToCalleeGraph.clear()
     }
 
     fun execute(className: String, methodDescriptor: String): ExecutionGraph2 {
@@ -165,7 +167,7 @@ class VirtualMachine2 private constructor(
         }
 
         // TODO: change to val and check if it's initialized later
-        var unresolvedChildren: Array<out UnresolvedChild>? = null
+        var emulatedOrReflected: Boolean = false
         if (current.isEntrypoint) {
             if (!interactive) {
                 if (maxCallDepth > 0 && current.callDepth > maxCallDepth) {
@@ -180,7 +182,8 @@ class VirtualMachine2 private constructor(
             if (isStaticInit) {
                 if (isSafe) {
                     // No need to execute on the VM since Safe class methods and fields are reflected
-                    current.state.setClassInitialized(current.method.definingClass)
+                    // Set this class as initialized in the caller since we're not going to collapse the multiverse
+                    current?.caller?.state?.setClassInitialized(current.method.definingClass)
                     finishStep(entry, current, collapseMultiverse = false)
                     return
                 }
@@ -195,10 +198,12 @@ class VirtualMachine2 private constructor(
                 val canEmulate = MethodEmulator.canEmulate(current.method)
                 if (isSafe || canEmulate) {
                     val allArgumentsKnown = current.state.allArgumentsKnown()
-                    unresolvedChildren = if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
+                    if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
                         MethodEmulator.emulate(current.method, current.state, current.parent, this)
+                        emulatedOrReflected = true
                     } else if (isSafe && allArgumentsKnown) {
                         MethodReflector.reflect(current.method, current.state, current.classLoader, enumAnalyzer)
+                        emulatedOrReflected = true
                     } else {
                         log.trace("Not emulating / reflecting {}; all arguments are not known. Assuming maximum unknown.", current.method)
                         finishStep(entry, current, abortMethod = true)
@@ -216,18 +221,24 @@ class VirtualMachine2 private constructor(
             }
         }
 
-        var emulatedOrReflected = false
-        if (unresolvedChildren == null) {
-            unresolvedChildren = if (resumeNodes.contains(current)) {
-                resumeNodes.remove(current)
-                current.resume()
+        if (emulatedOrReflected) {
+            entry.graph.addNode(current)
+            entry.graph.emulatedOrReflected = true
+            entry.nodes.clear()
+            finishStep(entry, current)
+        }
+
+        val unresolvedChildren = if (resumeNodes.contains(current)) {
+            resumeNodes.remove(current)
+            if (current.op is InvokeOp) {
+                val calleeGraph = invokeToCalleeGraph.remove(current)!!
+                current.resume(calleeGraph)
             } else {
-                entry.graph.addNode(current)
-                current.execute()
+                current.resume()
             }
         } else {
             entry.graph.addNode(current)
-            emulatedOrReflected = true
+            current.execute()
         }
 
         // TODO: if it's a method invocation and it's a static init, then put current node back in nodes and return
@@ -316,7 +327,12 @@ class VirtualMachine2 private constructor(
         return child
     }
 
-    private fun finishStep(entry: ExecutionQueueEntry, current: ExecutionNode, collapseMultiverse: Boolean = true, abortMethod: Boolean = false) {
+    private fun finishStep(
+        entry: ExecutionQueueEntry,
+        current: ExecutionNode,
+        collapseMultiverse: Boolean = true,
+        abortMethod: Boolean = false,
+    ) {
         if (abortMethod) {
             entry.nodes.clear()
         }
@@ -324,7 +340,8 @@ class VirtualMachine2 private constructor(
             executionQueue.remove(entry)
             val caller = current.caller
             if (caller != null) {
-                val callerEntry = executionQueue.first { it.graph.hasNode(caller) }
+                // If callerEntry actually needed, consider datastructure for nodes with faster lookup
+//                val callerEntry = executionQueue.first { it.graph.hasNode(caller) } ?: executionQueue.first { it.nodes.contains(caller) }
 //                if (current.method.descriptor != "<clinit>()V") {
 //                    callerEntry.nodes.add(caller)
 //                }
@@ -473,14 +490,20 @@ class VirtualMachine2 private constructor(
         calledMethod: VirtualMethod,
         graph: ExecutionGraph2,
         callerState: ExecutionState,
-        parameterRegisters: IntArray? = null
+        parameterRegisters: IntArray? = null,
     ) {
         /*
         TODO: if every path in the graph is a throw (there are no connected returns), then what?
         a graph may have multiple unhandled virtual exceptions that need to be handled here or potentially bubbled up
         meaning a caller could have several children: unhandled exceptions and normal stuff
          */
-        val terminatingAddresses = graph.getConnectedTerminatingAddresses()
+        val terminatingAddresses = if (graph.emulatedOrReflected) {
+            intArrayOf(0)
+        } else {
+            graph.getConnectedTerminatingAddresses()
+        }
+
+        // Mutable parameters may have been changed. Need to merge changes back into caller.
         if (!(parameterRegisters == null || parameterRegisters.isEmpty())) {
             val parameterTypes = calledMethod.parameterTypeNames
             var parameterRegister = graph.getNodePile(0)[0].state.firstParameterRegister
@@ -495,10 +518,11 @@ class VirtualMachine2 private constructor(
             }
         }
 
+        // Class states (initialized, field values) may have changed. Merge into caller.
         // TODO: performance: this is expensive and happens frequently.
         // classManager has all local classes. would be nice to keep track of all initialized classes
         // for each method execution, and use that to iterate instead
-        val terminatingStates = graph.getTerminatingStates()
+        val terminatingStates = graph.getStates(terminatingAddresses)
         for (virtualClass in classManager.loadedClasses) {
             val isInitializedInCaller = callerState.isClassInitialized(virtualClass)
             if (!isInitializedInCaller) {
@@ -544,11 +568,14 @@ class VirtualMachine2 private constructor(
         }
 
         val graph = getExecutionGraph(method)
-        val entrypointNode = graph.spawnEntrypointNode(parent = parent)
+        val entrypointNode = graph.spawnEntrypointNode(parent = parent, state = calleeState)
         val methodNodes = LinkedList<ExecutionNode>()
         methodNodes.add(entrypointNode)
         executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
         resumeNodes.add(parent)
+        if (parent.op is InvokeOp) {
+            invokeToCalleeGraph[parent] = graph
+        }
     }
 
     private fun assumeMaximumUnknown(callerState: ExecutionState, calleeState: ExecutionState, method: VirtualMethod) {

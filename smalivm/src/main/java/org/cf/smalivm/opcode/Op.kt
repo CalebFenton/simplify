@@ -1,5 +1,6 @@
 package org.cf.smalivm.opcode
 
+import org.cf.smalivm2.ExecutionGraph2
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.UnresolvedChildProducer
@@ -34,6 +35,10 @@ abstract class Op internal constructor(
     abstract fun execute(node: ExecutionNode): Array<out UnresolvedChild>
 
     open fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
+        return finishOp()
+    }
+
+    open fun resume(node: ExecutionNode, calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
         return finishOp()
     }
 

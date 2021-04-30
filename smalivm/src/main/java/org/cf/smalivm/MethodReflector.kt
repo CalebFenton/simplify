@@ -13,9 +13,9 @@ import org.cf.util.Utils
 import org.slf4j.LoggerFactory
 import java.util.*
 
-class MethodReflector() {
+class MethodReflector {
 
-    private class InvocationArguments constructor(val args: Array<Any?>, val parameterTypes: Array<Class<*>>)
+    private class InvocationArguments constructor(val args: Array<Any?>, val parameterTypes: Array<Class<*>?>)
 
     companion object {
         private val log = LoggerFactory.getLogger(MethodReflector::class.java.simpleName)
@@ -43,9 +43,8 @@ class MethodReflector() {
                 state.assignReturnRegister(returnValue)
             }
 
-            return childProducer.finishOp()
+            return childProducer.finishMethod()
         }
-
 
         @Throws(ClassNotFoundException::class)
         private fun buildInvocationArguments(method: VirtualMethod, state: ExecutionState): InvocationArguments {
@@ -57,11 +56,10 @@ class MethodReflector() {
                 parameterTypeNames.removeFirst()
             }
             val args = arrayOfNulls<Any>(parameterTypeNames.size)
-            val parameterTypes: MutableList<Class<*>> = LinkedList()
+            val parameterTypes = arrayOfNulls<Class<*>>(parameterTypeNames.size)
             var i = 0
-            var register = registerOffset
             while (i < parameterTypeNames.size) {
-                val argItem = state.peekParameter(register)!!
+                val argItem = state.peekParameterOffset(registerOffset)!!
                 args[i] = argItem.raw
                 val parameterTypeName = parameterTypeNames[i]
                 val parameterType: Class<*> = if (argItem.isPrimitive) {
@@ -72,10 +70,10 @@ class MethodReflector() {
                     Class.forName(ClassNameUtils.internalToBinary(parameterTypeName))
                 }
                 parameterTypes[i] = parameterType
-                register += Utils.getRegisterSize(parameterTypeName)
+                registerOffset += Utils.getRegisterSize(parameterTypeName)
                 i++
             }
-            return InvocationArguments(args, parameterTypes.toTypedArray())
+            return InvocationArguments(args, parameterTypes)
         }
 
         private operator fun invoke(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): Any? {
@@ -112,7 +110,7 @@ class MethodReflector() {
              * http://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.9
              */
             var name = name
-            val instance = state.peekParameter(0)!!
+            val instance = state.peekParameterOffset(0)!!
             val enumType: String = ClassNameUtils.internalToSource(instance.type)
             val enumClass = classLoader.loadClass(enumType) as Class<out Enum<*>?>
             return try {
