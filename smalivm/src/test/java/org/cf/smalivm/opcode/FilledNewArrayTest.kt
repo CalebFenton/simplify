@@ -104,7 +104,6 @@ class FilledNewArrayTest {
                 every { opcode } returns Opcode.FILLED_NEW_ARRAY
                 every { reference } returns ImmutableTypeReference("[I")
             }
-
             location = mockk {
                 every { codeAddress } returns ADDRESS
             }

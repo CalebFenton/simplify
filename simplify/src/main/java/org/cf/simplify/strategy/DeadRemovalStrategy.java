@@ -1,7 +1,7 @@
 package org.cf.simplify.strategy;
 
 import org.cf.simplify.ExecutionGraphManipulator;
-import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.SideEffectLevel;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionNode;
 import org.cf.smalivm.context.MethodState;
@@ -30,7 +30,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
     private int unvisitedCount;
     private int nopCount;
     private int unusedResultCount;
-    private SideEffect.Level sideEffectThreshold = SideEffect.Level.NONE;
+    private SideEffectLevel sideEffectThreshold = SideEffectLevel.NONE;
 
     public DeadRemovalStrategy(ExecutionGraphManipulator manipulator) {
         this.manipulator = manipulator;
@@ -210,7 +210,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
 
     public void setRemoveWeak(boolean removeWeak) {
         if (removeWeak) {
-            sideEffectThreshold = SideEffect.Level.WEAK;
+            sideEffectThreshold = SideEffectLevel.WEAK;
         }
     }
 
@@ -416,7 +416,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         return false;
     }
 
-    private boolean isSideEffectAboveThreshold(SideEffect.Level level) {
+    private boolean isSideEffectAboveThreshold(SideEffectLevel level) {
         return level.compareTo(sideEffectThreshold) > 0;
     }
 

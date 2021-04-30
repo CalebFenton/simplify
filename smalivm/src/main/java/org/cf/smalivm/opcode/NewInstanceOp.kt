@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
@@ -17,7 +17,7 @@ class NewInstanceOp internal constructor(
     location: MethodLocation,
     private val destRegister: Int,
     private val virtualClass: VirtualClass,
-    val sideEffectLevel: SideEffect.Level
+    val sideEffectLevel: SideEffectLevel
 ) :
     Op(location) {
 
@@ -56,8 +56,8 @@ class NewInstanceOp internal constructor(
             val className = typeRef.type
             val virtualClass = classManager.getVirtualClass(className)
             val sideEffectLevel = when {
-                configuration.isSafe(virtualClass) -> SideEffect.Level.NONE
-                else -> SideEffect.Level.STRONG
+                configuration.isSafe(virtualClass) -> SideEffectLevel.NONE
+                else -> SideEffectLevel.STRONG
             }
             return NewInstanceOp(location, destRegister, virtualClass, sideEffectLevel)
         }

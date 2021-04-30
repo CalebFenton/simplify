@@ -2,8 +2,6 @@ package org.cf.smalivm
 
 
 import com.google.common.primitives.Ints
-import io.mockk.every
-import io.mockk.mockk
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
@@ -107,7 +105,7 @@ object Tester {
                 val field = virtualClass.getField(fieldName)!!
                 state.pokeField(field, item)
             }
-            state.setClassInitialized(virtualClass, SideEffect.Level.NONE)
+            state.setClassInitialized(virtualClass, SideEffectLevel.NONE)
         }
         return state
     }

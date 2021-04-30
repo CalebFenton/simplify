@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
@@ -33,7 +33,7 @@ class SPutOp internal constructor(
         val item = node.state.readRegister(valueRegister)
         // TODO: check if this is <clinit> and only allow static final fields to be initialized here
         node.state.assignField(field, item)
-        node.sideEffectLevel = SideEffect.Level.WEAK
+        node.sideEffectLevel = SideEffectLevel.WEAK
         return finishOp()
     }
 

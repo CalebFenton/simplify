@@ -4,7 +4,8 @@ import com.google.common.primitives.Ints;
 import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
-import org.cf.smalivm.SideEffect;
+
+import org.cf.smalivm.SideEffectLevel;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
 import org.cf.smalivm.context.ExecutionGraphImpl;
@@ -289,7 +290,7 @@ public class ExecutionGraphManipulator extends ExecutionGraphImpl {
                 ExecutionNode node = pile.get(0);
 
                 try {
-                    SideEffect.Level originalLevel = node.getOp().getSideEffectLevel();
+                    SideEffectLevel originalLevel = node.getOp().getSideEffectLevel();
                     Class<? extends Op> klazz;
                     if (op instanceof NewInstanceOp) {
                         klazz = NewInstanceOp.class;

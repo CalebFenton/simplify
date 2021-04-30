@@ -2,7 +2,7 @@ package org.cf.smalivm2
 
 import com.rits.cloning.Cloner
 import org.apache.commons.lang3.reflect.FieldUtils
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -28,7 +28,7 @@ class ExecutionState internal constructor(
 ) {
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
     val values = HashMap<String, Value>(registerCount + fieldCount)
-    val initializedClasses: MutableMap<VirtualType, SideEffect.Level> = HashMap(initializedClassesSize)
+    val initializedClasses: MutableMap<VirtualType, SideEffectLevel> = HashMap(initializedClassesSize)
     val mutableParameters: MutableSet<Int> = HashSet<Int>(mutableParametersSize)
     val firstParameterRegister = registerCount - parameterSize
     val registersAssigned: MutableSet<Int> = HashSet<Int>(registersAssignedSize)
@@ -487,17 +487,17 @@ class ExecutionState internal constructor(
     }
 
 
-    fun getClassSideEffectLevel(virtualClass: VirtualType): SideEffect.Level? {
+    fun getClassSideEffectLevel(virtualClass: VirtualType): SideEffectLevel? {
         val ancestor = getAncestorWithClass(virtualClass) ?: return null
         return ancestor.initializedClasses[virtualClass]!!
     }
 
-    fun setClassInitialized(classSignature: String, level: SideEffect.Level = SideEffect.Level.NONE) {
+    fun setClassInitialized(classSignature: String, level: SideEffectLevel = SideEffectLevel.NONE) {
         val virtualClass = classManager.getVirtualClass(classSignature)
         setClassInitialized(virtualClass, level)
     }
 
-    fun setClassInitialized(virtualClass: VirtualType, level: SideEffect.Level = SideEffect.Level.NONE) {
+    fun setClassInitialized(virtualClass: VirtualType, level: SideEffectLevel = SideEffectLevel.NONE) {
         initializedClasses[virtualClass] = level
     }
 

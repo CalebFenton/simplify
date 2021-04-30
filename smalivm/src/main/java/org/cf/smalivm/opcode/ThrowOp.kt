@@ -15,8 +15,8 @@ class ThrowOp internal constructor(location: MethodLocation, private val registe
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        val item = node.state.readRegister(register)
-        node.state.assignThrowRegister(item)
+        val value = node.state.readRegister(register)
+        node.state.assignThrowRegister(value)
         return finishOp()
     }
 

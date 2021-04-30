@@ -481,7 +481,7 @@ class VirtualMachine2 private constructor(
         meaning a caller could have several children: unhandled exceptions and normal stuff
          */
         val terminatingAddresses = graph.getConnectedTerminatingAddresses()
-        if (parameterRegisters != null) {
+        if (!(parameterRegisters == null || parameterRegisters.isEmpty())) {
             val parameterTypes = calledMethod.parameterTypeNames
             var parameterRegister = graph.getNodePile(0)[0].state.firstParameterRegister
             for (parameterIndex in parameterTypes.indices) {
@@ -498,14 +498,14 @@ class VirtualMachine2 private constructor(
         // TODO: performance: this is expensive and happens frequently.
         // classManager has all local classes. would be nice to keep track of all initialized classes
         // for each method execution, and use that to iterate instead
-        val terminatingContexts = graph.getTerminatingStates()
+        val terminatingStates = graph.getTerminatingStates()
         for (virtualClass in classManager.loadedClasses) {
             val isInitializedInCaller = callerState.isClassInitialized(virtualClass)
             if (!isInitializedInCaller) {
                 // Not initialized in caller, but maybe initialized in callee multiverse.
                 var isInitializedInCallee = false
-                for (context in terminatingContexts) {
-                    if (context.isClassInitialized(virtualClass)) {
+                for (state in terminatingStates) {
+                    if (state.isClassInitialized(virtualClass)) {
                         isInitializedInCallee = true
                         break
                     }
@@ -524,11 +524,11 @@ class VirtualMachine2 private constructor(
                 callerState.setClassInitialized(virtualClass, level)
             }
             for (field in virtualClass.fields) {
-                val item = graph.getFieldConsensus(terminatingAddresses, field)
-                if (item.isPrimitive) {
-                    callerState.pokeField(field, item)
+                val consensus = graph.getFieldConsensus(terminatingAddresses, field)
+                if (consensus.isPrimitive) {
+                    callerState.pokeField(field, consensus)
                 } else {
-                    callerState.pokeField(field, item, updateIdentities = true)
+                    callerState.pokeField(field, consensus, updateIdentities = true)
                 }
             }
         }

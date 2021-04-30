@@ -73,7 +73,7 @@ class SwitchPayloadOp internal constructor(
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
+        ): SwitchPayloadOp {
             val instr = location.instruction as SwitchPayload
             val targetKeyToOffset: HashMap<Int, Int> = HashMap()
             for (element in instr.switchElements) {

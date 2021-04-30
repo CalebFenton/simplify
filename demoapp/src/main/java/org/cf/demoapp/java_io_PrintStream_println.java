@@ -1,6 +1,6 @@
 package org.cf.demoapp;
 
-import org.cf.smalivm.SideEffect;
+import org.cf.smalivm.SideEffectLevel;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.context.MethodState;
@@ -13,7 +13,7 @@ public class java_io_PrintStream_println extends MethodStateMethod implements Un
         super();
         // Writing bytes over any kind of IO affects state outside of the VM.
         // Set the side effect level so the optimizer knows not to remove this method call.
-        level = SideEffect.Level.STRONG;
+        level = SideEffectLevel.STRONG;
     }
 
     @Override

@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
@@ -25,8 +25,11 @@ class IPutOp internal constructor(
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
         val value = node.state.readRegister(valueRegister)
         val instance = node.state.readRegister(instanceRegister)
+        // Note: Instance member (fieldDescriptor) is not actually modified here.
+        // Need to spend a lot more time thinking about how to maintain instance state correctly.
+        // It may be impossible to do generally.
         node.state.assignRegister(instanceRegister, instance)
-        node.sideEffectLevel = SideEffect.Level.WEAK
+        node.sideEffectLevel = SideEffectLevel.WEAK
         return finishOp()
     }
 

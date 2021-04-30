@@ -1,7 +1,7 @@
 package org.cf.smalivm2
 
 import com.google.common.primitives.Ints
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.opcode.*
@@ -55,6 +55,7 @@ class ExecutionGraph2(
         get() = classManager.dexBuilder
     val locationToOp
         get() = vm.methodToTemplateOps[method]!!
+
     // TODO: should terminating addresses be recalculated when graphs are rebuilt? same with address -> location
     val terminatingAddresses = buildTerminatingAddresses(method.implementation.instructions)
     val addressToLocation = buildAddressToLocation(method.implementation)
@@ -144,7 +145,7 @@ class ExecutionGraph2(
 
     private fun getConsensusType(types: MutableSet<String>, values: Set<Value?>): String {
         if (types.size == 1) {
-            return types.toTypedArray()[0]
+            return types.first()
         }
         var newAncestors = 0
         do {
@@ -154,7 +155,7 @@ class ExecutionGraph2(
              */
             collapseTypeHierarchies(types, classManager)
             if (types.size == 1) {
-                return types.toTypedArray()[0]
+                return types.first()
             }
             if (types.size == 2 && types.contains(CommonTypes.INTEGER)) {
                 // Dalvik uses 0 constant to represent null value
@@ -282,17 +283,17 @@ class ExecutionGraph2(
         return values
     }
 
-    fun getHighestClassSideEffectLevel(virtualClass: VirtualType): SideEffect.Level {
+    fun getHighestClassSideEffectLevel(virtualClass: VirtualType): SideEffectLevel {
         val addresses = getConnectedTerminatingAddresses()
-        var result = SideEffect.Level.NONE
+        var result = SideEffectLevel.NONE
         for (address: Int in addresses) {
             for (node in getNodePile(address)) {
                 // If null, class hasn't been initialized yet
                 val level = node.state.getClassSideEffectLevel(virtualClass) ?: continue
                 when (level) {
-                    SideEffect.Level.STRONG -> return level
-                    SideEffect.Level.WEAK -> result = level
-                    SideEffect.Level.NONE -> {
+                    SideEffectLevel.STRONG -> return level
+                    SideEffectLevel.WEAK -> result = level
+                    SideEffectLevel.NONE -> {
                     }
                 }
             }
@@ -300,31 +301,31 @@ class ExecutionGraph2(
         return result
     }
 
-    fun getHighestMethodSideEffectLevel(): SideEffect.Level {
-        var result = SideEffect.Level.NONE
+    fun getHighestMethodSideEffectLevel(): SideEffectLevel {
+        var result = SideEffectLevel.NONE
         for (node: ExecutionNode in this) {
             when (val level = node.sideEffectLevel) {
-                SideEffect.Level.STRONG -> return level
-                SideEffect.Level.WEAK -> result = level
-                SideEffect.Level.NONE -> {
+                SideEffectLevel.STRONG -> return level
+                SideEffectLevel.WEAK -> result = level
+                SideEffectLevel.NONE -> {
                 }
             }
         }
         return result
     }
 
-    fun getHighestSideEffectLevel(): SideEffect.Level {
+    fun getHighestSideEffectLevel(): SideEffectLevel {
         var result = getHighestMethodSideEffectLevel()
-        if (result == SideEffect.Level.STRONG) {
+        if (result == SideEffectLevel.STRONG) {
             return result
         }
         val addresses = getConnectedTerminatingAddresses()
         val allClasses = getAllPossiblyInitializedClasses(addresses)
         for (virtualClass in allClasses) {
             when (val level = getHighestClassSideEffectLevel(virtualClass)) {
-                SideEffect.Level.STRONG -> return level
-                SideEffect.Level.WEAK -> result = level
-                SideEffect.Level.NONE -> {
+                SideEffectLevel.STRONG -> return level
+                SideEffectLevel.WEAK -> result = level
+                SideEffectLevel.NONE -> {
                 }
             }
         }
@@ -341,28 +342,22 @@ class ExecutionGraph2(
     }
 
     /**
-     * Look at the value in `register` at each of the `addresses`. If all values are
-     * identical, that means there is a consensus. It means every exeuction path had the same value
-     * at those particular `addresses` for that particular `register`. If there is more
-     * than one value, it means it's not possible to know with certainty what the value is. For
-     * example, consider the following method:
+     * Check if all of the values for `register` at each address in `addresses` are identical. If they are, there is a consensus -- every execution
+     * path had the same value for that register. If there is more than one value, there is no consensus. Consider the following method:
      *
      * <pre>`foo()I
-     * v0 = readStringFromNetwork()Ljava/lang/String; // won't be executed because unsafe
-     * if v0 == "the spice must flow":
-     * v1 = 1
-     * else:
-     * v1 = 0
-     * return v1`</pre>
+     *  v0 = readStringFromNetwork()Ljava/lang/String; // won't be executed because unsafe
+     *  if v0 == "the spice must flow":
+     *    v1 = 1
+     *  else:
+     *    v1 = 0
+     *   return v1`</pre>
      *
+     * Since the return value of `readStringFromNetwork()Ljava/lang/String;` will be `UnknownValue', the `if v0` must take both execution paths
+     * because `IfOp` won't be able to evaluate the predicate. This means `return v1` could either be `1` or `0`. There is no consensus. In this case,
+     * an [UnknownValue] will be returned.
      *
-     * Since the result of `readStringFromNetwork()Ljava/lang/String;` won't be known, because
-     * it's probably unsafe to virtually execute, the `if v0` will be ambiguous and every
-     * possible execution path will be taken. This means `return v1` could either be `1`
-     * or `0`. This means there is no consensus. In this case, an [UnknownValue] will
-     * be returned.
-     *
-     * @return consensus value over all `addresses` in `register` or unknown value if a consensus doesn't exist
+     * @return consensus value for `register` at each address in `addresses`, `UnknownValue` if register had multiple values, or null if no values were present
      */
     fun getRegisterConsensus(addresses: IntArray, register: Int): Value {
         val values: MutableSet<Value?> = HashSet()
@@ -377,12 +372,12 @@ class ExecutionGraph2(
         // Determine consensus type
         log.trace("No consensus value for r{} @{}; returning unknown.", register, addresses)
         val types: MutableSet<String> = HashSet(values.size)
-        for (item in values) {
-            if (item == null) {
+        for (value in values) {
+            if (value == null) {
                 // Register was not assigned in this execution path.
                 continue
             }
-            types.add(item.type)
+            types.add(value.type)
         }
         if (types.isEmpty()) {
             // E.g. checking return register but exception was thrown
@@ -466,7 +461,7 @@ class ExecutionGraph2(
 
     fun getTerminatingRegisterConsensus(register: Int): Value? {
         val registerToValue = getTerminatingRegisterConsensus(intArrayOf(register))
-        return registerToValue[register]!!
+        return registerToValue[register]
     }
 
     fun getTerminatingRegisterConsensus(registers: IntArray): Map<Int, Value> {

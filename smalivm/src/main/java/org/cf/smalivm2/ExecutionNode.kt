@@ -1,6 +1,6 @@
 package org.cf.smalivm2
 
-import org.cf.smalivm.SideEffect
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
@@ -23,7 +23,7 @@ class ExecutionNode(
         op.registersAssignedCount
     ),
     var parent: ExecutionNode? = null,
-    var sideEffectLevel: SideEffect.Level = SideEffect.Level.NONE
+    var sideEffectLevel: SideEffectLevel = SideEffectLevel.NONE
 ) {
     var children: MutableList<ExecutionNode> = LinkedList()
 
