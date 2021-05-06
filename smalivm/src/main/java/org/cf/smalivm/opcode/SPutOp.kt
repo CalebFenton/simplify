@@ -22,7 +22,7 @@ class SPutOp internal constructor(
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        return if (!node.state.isClassInitialized(field.definingClass)) {
+        return if (node.shouldInitializeClass(field.definingClass)) {
             staticInitClass(field.definingClass)
         } else {
             resume(node)

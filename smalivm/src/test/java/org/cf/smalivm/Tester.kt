@@ -19,7 +19,7 @@ object Tester {
     const val TEST_CLASS_PATH = "src/test/resources/smali"
 
     @JvmStatic
-    val dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
+    var dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
 
     @JvmStatic
     var classManager: ClassManager = ClassManagerFactory().build(TEST_CLASS_PATH, dexBuilder)
@@ -101,7 +101,7 @@ object Tester {
         for ((className, fieldDescriptorToItem) in initial.fields) {
             val virtualClass = vm.classManager.getVirtualClass(className)
             for ((fieldNameAndType, item) in fieldDescriptorToItem) {
-                val fieldName = fieldNameAndType.split(":").toTypedArray()[0]
+                val fieldName = fieldNameAndType.split(":")[0]
                 val field = virtualClass.getField(fieldName)!!
                 state.pokeField(field, item)
             }
@@ -142,6 +142,7 @@ object Tester {
     fun spawnVM(reloadClasses: Boolean = false): VirtualMachine2 {
         if (reloadClasses) {
             try {
+                dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
                 classManager = ClassManagerFactory().build(TEST_CLASS_PATH, dexBuilder)
             } catch (e: IOException) {
                 throw RuntimeException("Exception building class manager for $TEST_CLASS_PATH", e)

@@ -21,6 +21,9 @@ class MethodEmulator {
             addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", java_lang_Class_forName::class.java)
             addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;", java_lang_reflect_Field_get::class.java)
             addMethod("Ljava/lang/Object;->getClass()Ljava/lang/Class;", java_lang_Object_getClass::class.java, true)
+            addMethod("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V", java_lang_Enum_init::class.java)
+            addMethod("Ljava/lang/Object;-><init>()V", java_lang_Object_init::class.java)
+            addMethod("Ljava/lang/Object;->clone()Ljava/lang/Object;", java_lang_Object_clone::class.java, true)
         }
 
         fun addMethod(methodSignature: String, methodClass: Class<out EmulatedMethodCall>, canHandleUnknownValues: Boolean = false) {

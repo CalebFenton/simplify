@@ -20,7 +20,7 @@ internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
             val fieldClass = callerNode.classManager.getVirtualClass(fieldClassName)
             val accessException = checkForAccessException(callingClass, fieldClass, accessFlags)
             if (accessException != null) {
-                throwException(accessException.first, accessException.second, unhandled = true)
+                throwException(accessException.first, accessException.second, emulatedOrReflected = true)
             }
         }
 
@@ -32,7 +32,7 @@ internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
             } catch (e: Exception) {
                 val callingClass = callerNode.method.definingClass
                 val message = e.message!!.replace(java_lang_reflect_Field_get::class.java.name, callingClass.binaryName)
-                return throwException(e.javaClass, message, unhandled = true)
+                return throwException(e.javaClass, message, emulatedOrReflected = true)
             }
         } else {
             if (!Modifier.isStatic(accessFlags)) {

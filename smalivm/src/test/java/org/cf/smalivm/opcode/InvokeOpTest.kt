@@ -169,23 +169,23 @@ class InvokeOpTest {
         @Test
         fun invokeMutateStringBuilderWithMultipleCallerCopiesOfStringBuilderDoesMutateParameterAndCopy() {
             val type = "Ljava/lang/StringBuilder;"
-            initial.setRegisters(0, StringBuilder("i have been"), type)
-            val expectedValue = StringBuilder("i have been mutated")
+            initial.setRegisters(0, StringBuilder("duty is heavy as a mountain"), type)
+            val expectedValue = StringBuilder("duty is heavy as a mountain, death as light as a feather")
             expected.setRegisters(0, expectedValue, type, 1, expectedValue, type)
             Tester.test(CLASS_NAME, "invokeMutateStringBuilderWithMultipleCallerCopiesOfStringBuilder()V", initial, expected)
         }
 
         @Test
         fun invokeMutateStringBuilderDoesMutateParameter() {
-            initial.setRegisters(0, StringBuilder("i have been"), "Ljava/lang/StringBuilder;")
-            expected.setRegisters(0, StringBuilder("i have been mutated"), "Ljava/lang/StringBuilder;")
+            initial.setRegisters(0, StringBuilder("duty is heavy as a mountain"), "Ljava/lang/StringBuilder;")
+            expected.setRegisters(0, StringBuilder("duty is heavy as a mountain, death as light as a feather"), "Ljava/lang/StringBuilder;")
             Tester.test(CLASS_NAME, "invokeMutateStringBuilder()V", initial, expected)
         }
 
         @Test
         fun invokeMutateStringBuilderAsThirdParameterAndFirstMutableParameterDoesMutateParameter() {
-            initial.setRegisters(0, 0x10, "I", 1, 0x20, "I", 2, StringBuilder("i have been"), "Ljava/lang/StringBuilder;")
-            expected.setRegisters(0, 0x10, "I", 1, 0x20, "I", 2, StringBuilder("i have been mutated"), "Ljava/lang/StringBuilder;")
+            initial.setRegisters(0, 0x10, "I", 1, 0x20, "I", 2, StringBuilder("duty is heavy as a mountain"), "Ljava/lang/StringBuilder;")
+            expected.setRegisters(0, 0x10, "I", 1, 0x20, "I", 2, StringBuilder("duty is heavy as a mountain, death as light as a feather"), "Ljava/lang/StringBuilder;")
             Tester.test(CLASS_NAME, "invokeMutateStringBuilderAsThirdParameterAndFirstMutableParameter()V", initial, expected)
         }
 

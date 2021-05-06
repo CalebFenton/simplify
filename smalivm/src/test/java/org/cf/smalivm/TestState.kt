@@ -3,22 +3,22 @@ package org.cf.smalivm
 import org.cf.smalivm2.Value
 
 class TestState {
-    private val classNameToFieldDescriptorToItem: MutableMap<String, MutableMap<String, Value>> = HashMap()
-    private val registerToItem: MutableMap<Int, Value> = HashMap()
+    private val classNameToFieldDescriptorToValue: MutableMap<String, MutableMap<String, Value>> = HashMap()
+    private val registerToValue: MutableMap<Int, Value> = HashMap()
 
     fun getField(className: String, fieldName: String): Value? {
-        return classNameToFieldDescriptorToItem[className]!![fieldName]
+        return classNameToFieldDescriptorToValue[className]!![fieldName]
     }
 
     val fields: Map<String, MutableMap<String, Value>>
-        get() = classNameToFieldDescriptorToItem
+        get() = classNameToFieldDescriptorToValue
 
     fun getRegister(register: Int): Value? {
-        return registerToItem[register]
+        return registerToValue[register]
     }
 
     val registers: Map<Int, Value>
-        get() = registerToItem
+        get() = registerToValue
 
     fun setRegisters(vararg params: Any?) {
         // register, value, type
@@ -38,24 +38,24 @@ class TestState {
     }
 
     fun setField(className: String, fieldDescriptor: String, item: Value) {
-        if (!classNameToFieldDescriptorToItem.containsKey(className)) {
-            classNameToFieldDescriptorToItem[className] = HashMap()
+        if (!classNameToFieldDescriptorToValue.containsKey(className)) {
+            classNameToFieldDescriptorToValue[className] = HashMap()
         }
-        classNameToFieldDescriptorToItem[className]!![fieldDescriptor] = item
+        classNameToFieldDescriptorToValue[className]!![fieldDescriptor] = item
     }
 
     fun setFields(className: String, vararg params: Any) {
         var i = 0
         while (i < params.size) {
             val fieldDescriptor = params[i] as String
-            val type = fieldDescriptor.split(":").toTypedArray()[1]
+            val type = fieldDescriptor.split(":")[1]
             val item = Value.wrap(params[i + 1], type)
             setField(className, fieldDescriptor, item)
             i += 2
         }
     }
 
-    fun setRegister(register: Int, item: Value) {
-        registerToItem[register] = item
+    fun setRegister(register: Int, value: Value) {
+        registerToValue[register] = value
     }
 }

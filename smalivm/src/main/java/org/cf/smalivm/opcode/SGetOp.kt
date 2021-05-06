@@ -21,7 +21,7 @@ class SGetOp internal constructor(
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        return if (!node.state.isClassInitialized(field.definingClass)) {
+        return if (node.shouldInitializeClass(field.definingClass)) {
             staticInitClass(field.definingClass)
         } else {
             resume(node)
@@ -29,8 +29,8 @@ class SGetOp internal constructor(
     }
 
     override fun resume(node: ExecutionNode): Array<out UnresolvedChild> {
-        val item = node.state.peekField(field)
-        node.state.assignRegister(destRegister, item)
+        val value = node.state.peekField(field)
+        node.state.assignRegister(destRegister, value)
         return finishOp()
     }
 

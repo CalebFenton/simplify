@@ -6,6 +6,7 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualMethod
+import org.cf.smalivm.type.VirtualType
 import java.util.*
 
 class ExecutionNode(
@@ -37,6 +38,9 @@ class ExecutionNode(
     val index: Int
         get() = op.index
 
+    // It's not enough to just check if the current node is the method entrypoint.
+    // An execution path may throw an exception, and nodes after the exception will have ancestory (parents)
+    // reaching back before the exception but register lookups should not reach beyond the throw.
     val isEntrypoint: Boolean
         get() = address == 0 && (parent == null || parent!!.method != method)
 
@@ -66,6 +70,24 @@ class ExecutionNode(
         }
 
     override fun toString() = "ExecutionNode{op=$op, addr=$address, method=$method}"
+
+    fun shouldInitializeClass(virtualClass: VirtualType): Boolean {
+        if (!state.isClassInitialized(virtualClass) && !isStaticallyInitializing(virtualClass)) {
+            return true
+        }
+        return false
+    }
+
+    private fun isStaticallyInitializing(virtualClass: VirtualType): Boolean {
+        var current: ExecutionNode? = this
+        while (current != null) {
+            if (current.method.name == "<clinit>" && current.method.definingClass == virtualClass) {
+                return true
+            }
+            current = current.caller
+        }
+        return false
+    }
 
 //    def shallowClone() : ExecutionNode {
 //        if (this is EntrypointNode) {

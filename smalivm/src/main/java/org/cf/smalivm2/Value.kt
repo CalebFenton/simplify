@@ -64,6 +64,9 @@ data class Value(val raw: Any?, val type: String) {
     val isPrimitiveWrapper: Boolean
         get() = ClassNameUtils.isWrapper(type)
 
+    val isArray: Boolean
+        get() = type.startsWith("[")
+    
     val isUnknown: Boolean
         get() = raw is UnknownValue
 
@@ -77,9 +80,9 @@ data class Value(val raw: Any?, val type: String) {
         get() = ClassNameUtils.getPrimitive(type) ?: type
 
     val unboxedValueType: String
-        get() = ClassNameUtils.getPrimitive(valueType) ?: valueType
+        get() = ClassNameUtils.getPrimitive(rawType) ?: rawType
 
-    val valueType: String
+    val rawType: String
         get() = if (isNull) type else ClassNameUtils.toInternal(raw!!.javaClass)
 
     val declaredAndValueTypeNames: Set<String>

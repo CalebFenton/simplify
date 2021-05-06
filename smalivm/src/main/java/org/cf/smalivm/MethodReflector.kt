@@ -15,17 +15,16 @@ import java.util.*
 
 class MethodReflector {
 
-    private class InvocationArguments constructor(val args: Array<Any?>, val parameterTypes: Array<Class<*>?>)
+    private data class ReflectionArguments constructor(val args: Array<Any?>, val parameterTypes: Array<Class<*>?>)
 
     companion object {
         private val log = LoggerFactory.getLogger(MethodReflector::class.java.simpleName)
-        private const val ENUM_INIT_SIGNATURE_PREFIX = "Ljava/lang/Enum;-><init>(Ljava/lang/String;"
         private val childProducer = UnresolvedChildProducer()
 
-        fun reflect(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): Array<out UnresolvedChild> {
+        fun reflect(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader): Array<out UnresolvedChild> {
             log.debug("Reflecting {} with state:\n{}", method, state)
             val returnRaw = try {
-                invoke(method, state, classLoader, enumAnalyzer)
+                invoke(method, state, classLoader)
             } catch (e: Exception) {
                 log.warn("Failed to reflect {}: ", method, e)
                 log.debug("Stack trace: ", e)
@@ -47,7 +46,7 @@ class MethodReflector {
         }
 
         @Throws(ClassNotFoundException::class)
-        private fun buildInvocationArguments(method: VirtualMethod, state: ExecutionState): InvocationArguments {
+        private fun buildReflectionArguments(method: VirtualMethod, state: ExecutionState): ReflectionArguments {
             var registerOffset = 0
             val parameterTypeNames = LinkedList(method.parameterTypeNames)
             if (!method.isStatic) {
@@ -73,52 +72,28 @@ class MethodReflector {
                 registerOffset += Utils.getRegisterSize(parameterTypeName)
                 i++
             }
-            return InvocationArguments(args, parameterTypes)
+            return ReflectionArguments(args, parameterTypes)
         }
 
-        private operator fun invoke(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): Any? {
+        private operator fun invoke(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader): Any? {
             val klazz = Class.forName(method.binaryClassName)
-            val invocationArgs = buildInvocationArguments(method, state)
+            val invocationArgs = buildReflectionArguments(method, state)
             val args = invocationArgs.args
             return if (method.isStatic) {
                 log.debug("Reflecting static method {}, clazz={} args={}", method, klazz, args.contentToString())
                 MethodUtils.invokeStaticMethod(klazz, method.name, args, invocationArgs.parameterTypes)
             } else {
-                if ("<init>" == method.name) {
+                if (method.name == "<init>") {
                     log.debug("Reflecting constructor {}, class={} args={}", method, klazz, args.contentToString())
-                    val instance = if (method.signature.startsWith(ENUM_INIT_SIGNATURE_PREFIX)) {
-                        invokeEnumInit(state, args[0] as String, classLoader, enumAnalyzer)
-                    } else {
-                        ConstructorUtils.invokeConstructor(klazz, args)
-                    }
-                    val instanceItem = Value.wrap(instance)
-                    state.assignRegister(0, instanceItem)
-                    instance
+                    val rawInstance = ConstructorUtils.invokeConstructor(klazz, args)
+                    val instance = Value.wrap(rawInstance)
+                    state.assignRegister(state.firstParameterRegister, instance, updateIdentities = true)
+                    rawInstance
                 } else {
-                    val targetItem = state.peekRegister(0)!!
-                    log.debug("Reflecting virtual method {}, target={} args={}", method, targetItem, args.contentToString())
-                    MethodUtils.invokeMethod(targetItem.raw!!, method.name, args, invocationArgs.parameterTypes)
+                    val instance = state.peekParameterOffset(0)!!
+                    log.debug("Reflecting virtual method {}, target={} args={}", method, instance, args.contentToString())
+                    MethodUtils.invokeMethod(instance.raw!!, method.name, args, invocationArgs.parameterTypes)
                 }
-            }
-        }
-
-        @Throws(ClassNotFoundException::class)
-        private fun invokeEnumInit(state: ExecutionState, name: String, classLoader: ClassLoader, enumAnalyzer: EnumAnalyzer): Any {
-            /*
-             * Enums can't be instantiated by calling newInstance() on the constructor,
-             * even with setAccessible(true). It fails with InstantiationException.
-             * http://docs.oracle.com/javase/specs/jls/se7/html/jls-8.html#jls-8.9
-             */
-            var name = name
-            val instance = state.peekParameterOffset(0)!!
-            val enumType: String = ClassNameUtils.internalToSource(instance.type)
-            val enumClass = classLoader.loadClass(enumType) as Class<out Enum<*>?>
-            return try {
-                java.lang.Enum.valueOf(enumClass, name)!!
-            } catch (e: IllegalArgumentException) {
-                enumAnalyzer.analyze(enumClass)
-                name = enumAnalyzer.getObfuscatedName(name)!!
-                java.lang.Enum.valueOf(enumClass, name)!!
             }
         }
     }

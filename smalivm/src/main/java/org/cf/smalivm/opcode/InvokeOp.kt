@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.ObjectInstantiator
+import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -45,22 +45,22 @@ class InvokeOp internal constructor(
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        if (method.signature == CommonTypes.OBJECT + "-><init>()V") {
-            // Object.<init> is a special little snow flake
-            return executeLocalObjectInit(node)
-        }
-
-        if (method.name == "clone" && parameterRegisters.size == 1 && method.signature[0] == '[') {
-            val targetRegister = parameterRegisters[0]
-            val item = node.state.peekRegister(targetRegister)!!
-            if (item.isNotNull && item.valueType[0] == '[') {
-                // [Object;->clone()Ljava/lang/Object; is also a special snow flake
-                return executeObjectArrayClone(node)
-            }
-        }
+//        if (method.signature == CommonTypes.OBJECT + "-><init>()V") {
+//            // Object.<init> is a special little snow flake
+//            return executeLocalObjectInit(node)
+//        }
+//
+//        if (method.name == "clone" && parameterRegisters.size == 1 && method.signature[0] == '[') {
+//            val targetRegister = parameterRegisters[0]
+//            val value = node.state.peekRegister(targetRegister)!!
+//            if (value.isNotNull && value.rawType[0] == '[') {
+//                // Ljava/lang/Object;->clone()Ljava/lang/Object; is also a special snow flake
+//                return executeObjectArrayClone(node)
+//            }
+//        }
 
         // Must do this at run time to take advantage of extra type information
-        val targetMethod = if (name.startsWith("invoke-virtual") && !method.isFinal) {
+        val targetMethod = if (!method.isFinal && (name.startsWith("invoke-virtual") || name.startsWith("invoke-interface"))) {
             val targetRegister = parameterRegisters[0]
             val target = node.state.peekRegister(targetRegister)!!
             resolveTargetMethod(target.raw, node.classManager)
@@ -95,29 +95,29 @@ class InvokeOp internal constructor(
         return sb.toString()
     }
 
-    private fun executeObjectArrayClone(node: ExecutionNode): Array<out UnresolvedChild> {
-        val instanceRegister = parameterRegisters[0]
-        val arrayItem = node.state.peekRegister(instanceRegister)!!
-        if (arrayItem.isNull) {
-            // This operation would have thrown a null pointer exception, and nothing else.
-            return throwException(NullPointerException::class.java)
-        }
-        val clone = when {
-            arrayItem.isUnknown -> UnknownValue()
-            else -> {
-                try {
-                    val m = Any::class.java.getDeclaredMethod("clone")
-                    m.isAccessible = true
-                    m.invoke(arrayItem.raw)
-                } catch (e: Exception) {
-                    log.error("Real exception initializing Object; returning unknown", e)
-                    UnknownValue()
-                }
-            }
-        }
-        node.state.assignResultRegister(clone, arrayItem.type)
-        return finishOp()
-    }
+//    private fun executeObjectArrayClone(node: ExecutionNode): Array<out UnresolvedChild> {
+//        val instanceRegister = parameterRegisters[0]
+//        val arrayItem = node.state.peekRegister(instanceRegister)!!
+//        if (arrayItem.isNull) {
+//            // This operation would have thrown a null pointer exception, and nothing else.
+//            return throwException(NullPointerException::class.java)
+//        }
+//        val clone = when {
+//            arrayItem.isUnknown -> UnknownValue()
+//            else -> {
+//                try {
+//                    val m = Any::class.java.getDeclaredMethod("clone")
+//                    m.isAccessible = true
+//                    m.invoke(arrayItem.raw)
+//                } catch (e: Exception) {
+//                    log.error("Real exception initializing Object; returning unknown", e)
+//                    UnknownValue()
+//                }
+//            }
+//        }
+//        node.state.assignResultRegister(clone, arrayItem.type)
+//        return finishOp()
+//    }
 
     private fun analyzeParameterTypes(node: ExecutionNode): Array<String> {
         /*
@@ -135,7 +135,9 @@ class InvokeOp internal constructor(
             val argument = node.state.readRegister(parameterRegisters[i])
             val parameterTypeName = parameterTypes[i]
             val baseTypeName = argument.componentBase
-            val type = if (argument.isPrimitive || ClassNameUtils.isPrimitive(baseTypeName)) {
+            val type = if (parameterTypeName == CommonTypes.OBJECT && argument.isArray) {
+                argument.type
+            } else if (argument.isPrimitive || ClassNameUtils.isPrimitive(baseTypeName)) {
                 parameterTypeName
             } else {
                 val baseType = node.classManager.getVirtualType(baseTypeName)
@@ -155,48 +157,58 @@ class InvokeOp internal constructor(
         var parameterRegister = calleeState.firstParameterRegister
         for (i in parameterRegisters.indices) {
             val callerRegister = parameterRegisters[i]
-            val item = callerState.readRegister(callerRegister)
+            val value = callerState.readRegister(callerRegister)
             val parameterType = analyzedParameterTypes[i]
-            var value = item.raw
-            if (item.isPrimitive && !item.isUnknown) {
-                val hasNullByteValue = item.type == CommonTypes.INTEGER && value is Number && item.toInteger() == 0
-                value = if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
+            var raw = value.raw
+            if (value.isPrimitive && !value.isUnknown) {
+                val hasNullByteValue = value.type == CommonTypes.INTEGER && raw is Number && value.toInteger() == 0
+                raw = if (hasNullByteValue && ClassNameUtils.isObject(parameterType)) {
                     null
                 } else {
                     // The "I" type may actually be "S", "B", "C", "Z", etc. Cast to the given parameter type.
-                    Utils.castToPrimitive(value, parameterType)
+                    Utils.castToPrimitive(raw, parameterType)
                 }
             }
-            val parameterItem = Value.wrap(value, parameterType)
-            calleeState.assignRegister(parameterRegister, parameterItem)
+            val argument = Value.wrap(raw, parameterType)
+            calleeState.assignParameter(parameterRegister, argument)
             parameterRegister += Utils.getRegisterSize(parameterType)
         }
     }
 
     override fun resume(node: ExecutionNode, calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
-//        if (calleeGraph == null) {
-//            // Maybe node visits or call depth exceeded?
-//            log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
-//            assumeMaximumUnknown(callerContext!!.methodState)
-//            return
-//        }
+        if (calleeGraph.aborted) {
+            assumeMaximumUnknown(node, calleeGraph.method)
+            return finishOp()
+        }
 
+        // Mutable parameters may have been changed. Need to merge changes back into caller.
+        // Reflection mutates parameters directly. No need to merge them ourselves.
+        if (calleeGraph.executionType != ExecutionGraph2.ExecutionType.REFLECT) {
+            val parameterTypes = calleeGraph.method.parameterTypeNames
+            var parameterRegister = calleeGraph.root.state.firstParameterRegister
+            for (parameterIndex in parameterTypes.indices) {
+                val type = parameterTypes[parameterIndex]
+                if (node.configuration.isMutable(type)) {
+                    val value = calleeGraph.getTerminatingParameterConsensus(parameterRegister)
+                    val register = parameterRegisters[parameterIndex]
+                    node.state.assignParameter(register, value, updateIdentities = true)
+                }
+                parameterRegister += Utils.getRegisterSize(type)
+            }
+        }
 
         var hasOneNonThrow = false
-        val endAddresses = if (calleeGraph.emulatedOrReflected) {
-            intArrayOf(0)
-        } else {
-            calleeGraph.getConnectedTerminatingAddresses()
-        }
+        val endAddresses = calleeGraph.getConnectedTerminatingAddresses()
         for (endAddress in endAddresses) {
             val endOp = calleeGraph.getOp(endAddress)
             if (endOp !is ThrowOp) {
+                // Has at least one non-throw execution path so either the return value
                 hasOneNonThrow = true
                 break
             }
         }
         if (hasOneNonThrow) {
-            if (method.returnType != CommonTypes.VOID) {
+            if (!method.returnsVoid()) {
                 // Terminating addresses may include throw ops which may not have a return register set
                 val checkReturnAddresses = if (calleeGraph.emulatedOrReflected) {
                     endAddresses
@@ -209,13 +221,13 @@ class InvokeOp internal constructor(
                     }
                     returnOpAddresses.toIntArray()
                 }
-                val consensus = calleeGraph.getRegisterConsensus(checkReturnAddresses, ExecutionState.RETURN_REGISTER)
-                node.state.assignResultRegister(consensus)
+                val result = calleeGraph.getRegisterConsensus(checkReturnAddresses, ExecutionState.RETURN_REGISTER)
+                node.state.assignResultRegister(result)
             } else {
-                if (calleeGraph.method.descriptor.startsWith("<init>(")) {
+                if (calleeGraph.method.name == "<init>") {
                     // This was a call to a local parent <init> method
                     val calleeInstanceRegister = calleeGraph.root.state.firstParameterRegister
-                    val newInstance = calleeGraph.getTerminatingRegisterConsensus(calleeInstanceRegister)
+                    val newInstance = calleeGraph.getRegisterConsensus(endAddresses, calleeInstanceRegister)
                     val instanceRegister = parameterRegisters[0]
                     node.state.assignRegister(instanceRegister, newInstance, updateIdentities = true)
                 }
@@ -223,203 +235,46 @@ class InvokeOp internal constructor(
         }
         node.sideEffectLevel = calleeGraph.getHighestSideEffectLevel()
 
-        if (!method.returnsVoid()) {
-            val returnValue = calleeGraph.getRegisterConsensus(endAddresses, ExecutionState.RETURN_REGISTER)
-            node.state.assignResultRegister(returnValue)
-        }
-
         return finishOp()
     }
 
-//    private fun buildLocalCalleeContext(callerContext: ExecutionContext, method: VirtualMethod?): ExecutionContext {
-//        val calleeContext = vm.spawnRootContext(method, callerContext, address)
-//        val callerMethodState = callerContext.methodState
-//        val calleeMethodState = calleeContext.methodState
-//        assignCalleeMethodArguments(callerMethodState, calleeMethodState)
-//
-//        // VirtualClass state merging is handled by the VM.
-//        return calleeContext
-//    }
-//
-//    private fun buildNonLocalCalleeContext(callerContext: ExecutionContext): ExecutionContext {
-//        val calleeContext = ExecutionContext(vm, method)
-//        val parameterSize = method.parameterSize
-//        val calleeMethodState = MethodState(calleeContext, parameterSize, method.parameterTypeNames.size, parameterSize)
-//        assignCalleeMethodArguments(callerContext.methodState, calleeMethodState)
-//        calleeContext.methodState = calleeMethodState
-//        calleeContext.registerCaller(callerContext, address)
-//        return calleeContext
-//    }
-
-//    private fun finishLocalMethodExecution(
-//        calleeContext: ExecutionContext?,
-//        callerContext: ExecutionContext?,
-//        node: ExecutionNode?,
-//        graph: ExecutionGraph?
-//    ) {
-//        if (graph == null) {
-//            // Maybe node visits or call depth exceeded?
-//            log.info("Problem executing {}, propagating ambiguity.", calleeContext!!.method)
-//            assumeMaximumUnknown(callerContext!!.methodState)
-//            return
-//        }
-//        var hasOneNonThrow = false
-//        for (endAddress in graph.connectedTerminatingAddresses) {
-//            val endOp = graph.getTemplateNode(endAddress)!!.op
-//            if (endOp is ThrowOp) {
-//                // At least one execution path leads to throwing an exception.
-//                val items = graph.getRegisterItems(endAddress, MethodState.ThrowRegister)
-//                for (item in items) {
-//                    if (item.value is Throwable) {
-//                        val exception = item.value as Throwable?
-//                        addException(exception!!)
-//                    } else {
-//                        // Possibly UninitializedInstance
-//                        if (log.isWarnEnabled) {
-//                            if (item.isUnknown) {
-//                                log.warn(
-//                                    "Method had possible execution path which throws an exception but cannot instantiate it because the value is unknown. Exception item: {}",
-//                                    item
-//                                )
-//                            } else {
-//                                // May just need to whitelist Exception class
-//                                log.warn("Refusing to instantiate potentially unsafe thrown exception: {}.", item)
-//                            }
-//                        }
-//                    }
-//                }
-//            } else {
-//                hasOneNonThrow = true
-//            }
-//        }
-//        if (!hasOneNonThrow) {
-//            // Everything was an exception; don't go execute any normal children
-//            node.clearChildren()
-//        } else {
-//            if (method.returnType != CommonTypes.VOID) {
-//                // Terminating addresses may include throw ops which may not have a return register set
-//                val returnOpAddresses: TIntList = TIntLinkedList()
-//                for (address in graph.connectedTerminatingAddresses) {
-//                    if (graph.getOp(address) is ReturnOp) {
-//                        returnOpAddresses.add(address)
-//                    }
-//                }
-//                val consensus = graph.getRegisterConsensus(returnOpAddresses.toArray(), MethodState.ReturnRegister)
-//                callerContext!!.methodState.assignResultRegister(consensus)
-//            } else {
-//                if (calleeContext!!.method.descriptor.startsWith("<init>(")) {
-//                    // This was a call to a local parent <init> method
-//                    val calleeInstanceRegister = calleeContext.methodState.parameterStart
-//                    val newInstance = graph.getTerminatingRegisterConsensus(calleeInstanceRegister)
-//                    val instanceRegister = parameterRegisters[0]
-//                    callerContext!!.methodState.assignRegisterAndUpdateIdentities(instanceRegister, newInstance)
-//                }
-//            }
-//        }
-//        sideEffectLevel = graph.highestSideEffectLevel
-//    }
-
-//    private fun executeLocalMethod(calleeContext: ExecutionContext, callerContext: ExecutionContext, node: ExecutionNode) {
-//        if (isDebugMode) {
-//            startDebugLocalMethod(calleeContext, callerContext, node)
-//        } else {
-//            var graph: ExecutionGraph? = null
-//            try {
-//                graph = vm.execute(calleeContext, callerContext, parameterRegisters)
-//            } catch (e: VirtualMachineException) {
-//                log.warn(e.toString())
-//                if (e is UnhandledVirtualException) {
-//                    // An exception was thrown but there was no exception handler to catch it.
-//                    // It's not clear if it's smalivm's fault or the app's code.
-//                    // TODO: bubble this up to the calling method
-//                }
-//            }
-//            finishLocalMethodExecution(calleeContext, callerContext, node, graph)
-//        }
-//    }
-//
-//    fun startDebugLocalMethod(calleeContext: ExecutionContext?, callerContext: ExecutionContext?, node: ExecutionNode?) {
-//        debuggedMethodExecutor = vm.startDebug(calleeContext, callerContext)
-//        debuggedCalleeContext = calleeContext
-//        debuggedCallerContext = callerContext
-//        debuggedNode = node
-//    }
-//
-//    fun finishDebugLocalMethod(graph: ExecutionGraph?) {
-//        finishLocalMethodExecution(debuggedCalleeContext, debuggedCallerContext, debuggedNode, graph)
-//    }
-
-    private fun executeLocalObjectInit(node: ExecutionNode): Array<out UnresolvedChild> {
-        // TODO: Is there a problem if the VERY first OP invokes this? Is Ljava/lang/Object; clinit'ed?
-        val instanceRegister = parameterRegisters[0]
-        val instanceItem = node.state.peekRegister(instanceRegister)!!
-        val uninitializedInstance = instanceItem.raw as UninitializedInstance
-        val instanceType = uninitializedInstance.type
-        val newInstanceItem = try {
-            // Create a Java class of the true type
-            val klazz = node.classLoader.loadClass(instanceType.binaryName)
-            val newInstance = ObjectInstantiator.newInstance(klazz)
-            Value.wrap(newInstance, instanceType.name)
-        } catch (e: Exception) {
-            log.error("Real exception initializing Object; returning unknown", e)
-            Value.unknown(instanceType.name)
+    private fun assumeMaximumUnknown(node: ExecutionNode, calledMethod: VirtualMethod) {
+        // TODO: add option to mark all class states unknown instead of just method state
+        // This is heavy handed in most cases, and maybe there's a way to optimize. It's hard to tell if the method we're
+        // failing to execute modifies class state. If it did, we aren't capturing it here.
+        node.sideEffectLevel = SideEffectLevel.STRONG
+        for (i in parameterRegisters.indices) {
+            val register = parameterRegisters[i]
+            val arg = node.state.readRegister(register)
+            if (arg.isNull) {
+                // Null is immutable. No need to mark unknown.
+                continue
+            }
+            if (i == 0 && calledMethod.name == "<init>") {
+                // Instance initialization failed so mark unknown. Note this happens even if arg is immutable because state can change in <init>
+                node.state.pokeRegister(register, Value.unknown(arg.type))
+                continue
+            } else if (arg.isImmutable) {
+                // Could not have possibly mutated in aborted method.
+                continue
+            }
+            node.state.pokeRegister(register, Value.unknown(arg.type))
         }
-        node.state.assignRegister(instanceRegister, newInstanceItem, updateIdentities = true)
 
-        return finishOp()
+        if (!calledMethod.returnsVoid()) {
+            val result = Value.unknown(calledMethod.returnType)
+            node.state.assignResultRegister(result)
+        }
+
+        // TODO: add tests for this
+        if (calledMethod.name == "<clinit>") {
+            node.state.setClassInitialized(calledMethod.definingClass, SideEffectLevel.STRONG)
+            for (field in calledMethod.definingClass.fields) {
+                val value = Value.unknown(field.type)
+                node.state.pokeField(field, value)
+            }
+        }
     }
-
-//    private fun executeNonLocalMethod(
-//        methodDescriptor: String,
-//        callerMethodState: MethodState,
-//        calleeContext: ExecutionContext,
-//        node: ExecutionNode
-//    ) {
-//        if (MethodEmulator.canEmulate(methodDescriptor)) {
-//            val emulator = MethodEmulator(vm, calleeContext, methodDescriptor)
-//            emulator.emulate(this)
-//            sideEffectLevel = emulator.sideEffectLevel
-//            if (emulator.exceptions.size > 0) {
-//                node.clearChildren()
-//                node.setExceptions(emulator.exceptions)
-//                return
-//            }
-//        } else if (vm.configuration.isSafe(methodDescriptor)) {
-//            val reflector = MethodReflector(vm, method)
-//            try {
-//                reflector.reflect(calleeContext.methodState) // playa play
-//            } catch (e: Exception) {
-//                node.addException(e)
-//                node.clearChildren()
-//                return
-//            }
-//
-//            // Only safe, non-side-effect methods are allowed to be reflected.
-//            sideEffectLevel = SideEffect.Level.NONE
-//        }
-//        if (!method.isStatic) {
-//            // This is virtual and the instance parse may have been initialized or mutated.
-//            val originalInstanceItem = callerMethodState.peekRegister(parameterRegisters[0])
-//            val newInstanceItem = calleeContext.methodState.peekParameter(0)
-//            if (originalInstanceItem!!.value !== newInstanceItem.value) {
-//                // Instance has been initialized, i.e. was UninitializedInstance
-//                // Use assignRegisterAndUpdateIdentities because multiple registers may have an identical
-//                // UninitializedInstance, and those need to be updated with the new instance.
-//                callerMethodState.assignRegisterAndUpdateIdentities(parameterRegisters[0], newInstanceItem)
-//            } else {
-//                val isMutable = !vm.configuration.isImmutable(newInstanceItem.type)
-//                if (isMutable) {
-//                    // The instance class is mutable so could have changed. Record that it was changed for the
-//                    // optimizer.
-//                    callerMethodState.assignRegister(parameterRegisters[0], newInstanceItem)
-//                }
-//            }
-//        }
-//        if (!method.returnsVoid()) {
-//            val returnItem = calleeContext.methodState.readReturnRegister()
-//            callerMethodState.assignResultRegister(returnItem)
-//        }
-//    }
 
     private fun resolveTargetMethod(virtualReference: Any?, classManager: ClassManager): VirtualMethod {
         /*
@@ -517,7 +372,7 @@ class InvokeOp internal constructor(
             val className = methodReference.definingClass
             val type = classManager.getVirtualType(className)
             val methodSignature = ReferenceUtil.getMethodDescriptor(methodReference)
-            val methodDescriptor = methodSignature.split("->").toTypedArray()[1]
+            val methodDescriptor = methodSignature.split("->")[1]
             val method = type.getMethod(methodDescriptor) ?: throw RuntimeException("Method doesn't exist: $methodSignature")
             val parameterRegisters = buildParameterRegisters(method.parameterTypeNames, registers)
             return InvokeOp(location, method, parameterRegisters)

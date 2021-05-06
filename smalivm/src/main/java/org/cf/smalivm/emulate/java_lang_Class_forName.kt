@@ -28,7 +28,7 @@ internal class java_lang_Class_forName : EmulatedMethodCall() {
                 val virtualClass = try {
                     vm.classManager.getVirtualClass(className)
                 } catch (e: RuntimeException) {
-                    return throwException(ClassNotFoundException::class.java, binaryClassName, unhandled = true)
+                    return throwException(ClassNotFoundException::class.java, binaryClassName, emulatedOrReflected = true)
                 }
                 if (!state.isClassInitialized(virtualClass)) {
                     return staticInitClass(virtualClass)
@@ -36,7 +36,7 @@ internal class java_lang_Class_forName : EmulatedMethodCall() {
             }
             state.assignReturnRegister(value, RETURN_TYPE)
         } catch (e: ClassNotFoundException) {
-            return throwException(ClassNotFoundException::class.java, binaryClassName, unhandled = true)
+            return throwException(ClassNotFoundException::class.java, binaryClassName, emulatedOrReflected = true)
         }
         return finishMethod()
     }

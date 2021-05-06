@@ -3,7 +3,7 @@ package org.cf.smalivm2
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.smalivm.type.VirtualType
 
-abstract class UnresolvedChild() {
+abstract class UnresolvedChild {
     companion object {
         fun build(method: VirtualMethod,state: ExecutionState) =
             UnresolvedMethodInvocationChild(method, state)
@@ -14,11 +14,11 @@ abstract class UnresolvedChild() {
         fun build(address: Int) =
             UnresolvedAddressChild(address)
 
-        fun build(exceptionClass: Class<out Throwable>, message: String?, unhandled: Boolean) =
-            UnresolvedExceptionChild(exceptionClass, message, unhandled)
+        fun build(exceptionClass: Class<out Throwable>, message: String?, emulatedOrReflected: Boolean) =
+            UnresolvedExceptionChild(exceptionClass, message, emulatedOrReflected)
 
-        fun build(exception: Throwable, unhandled: Boolean) =
-            UnresolvedExceptionChild(exception.javaClass, exception.message, unhandled)
+        fun build(exception: Throwable, emulatedOrReflected: Boolean) =
+            UnresolvedExceptionChild(exception.javaClass, exception.message, emulatedOrReflected)
 
         fun build() = UnresolvedContinueChild()
     }
@@ -36,7 +36,7 @@ data class UnresolvedStaticClassInit(
 data class UnresolvedExceptionChild(
     val exceptionClass: Class<out Throwable>,
     val message: String?,
-    val unhandled: Boolean,
+    val emulatedOrReflected: Boolean,
 ) : UnresolvedChild()
 
 data class UnresolvedAddressChild(

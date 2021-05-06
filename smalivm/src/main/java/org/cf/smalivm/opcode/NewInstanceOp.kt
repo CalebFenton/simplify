@@ -25,7 +25,9 @@ class NewInstanceOp internal constructor(
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        return if (!node.state.isClassInitialized(virtualClass)) {
+        // Enum <clinit>s may call new-instance on itself, which means the class won't be initialized yet.
+        // This can lead to infinite loops.
+        return if (node.shouldInitializeClass(virtualClass)) {
             // New-instance causes static initialization (but not new-array!)
             staticInitClass(virtualClass)
         } else {
@@ -49,7 +51,7 @@ class NewInstanceOp internal constructor(
             classManager: ClassManager,
             classLoader: SmaliClassLoader,
             configuration: Configuration
-        ): Op {
+        ): NewInstanceOp {
             val instr = location.instruction as Instruction21c
             val destRegister = instr.registerA
             val typeRef = instr.reference as TypeReference

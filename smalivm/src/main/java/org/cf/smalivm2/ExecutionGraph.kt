@@ -33,7 +33,9 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
 
     init {
         stack = LinkedList()
-        stack.push(graph.root)
+        if (graph.getNodePile(0).size > 0) {
+            stack.push(graph.root)
+        }
     }
 }
 
@@ -43,8 +45,6 @@ class ExecutionGraph2(
     val method: VirtualMethod,
     val vm: VirtualMachine2,
 ) : Iterable<ExecutionNode> {
-//    var aborted = false
-
     val classManager
         get() = vm.classManager
     val classLoader
@@ -57,22 +57,21 @@ class ExecutionGraph2(
         get() = vm.methodToTemplateOps[method]!!
 
     // TODO: should terminating addresses be recalculated when graphs are rebuilt? same with address -> location
-    val terminatingAddresses = buildTerminatingAddresses(method.implementation.instructions)
-    val addressToLocation = buildAddressToLocation(method.implementation)
+    val terminatingAddresses = buildTerminatingAddresses(vm.methodToTemplateOps[method]!!.keys)
+    val addressToLocation = buildAddressToLocation(vm.methodToTemplateOps[method]!!.keys)
     val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
     val unhandledVirtualException: MutableList<UnhandledVirtualException> = LinkedList()
-    var emulatedOrReflected: Boolean = false
-    //    val implementation: MutableMethodImplementation = method.implementation
-    //    val opCreator: OpCreator = OpCreator(addressToLocation, classManager, classLoader, configuration)
-//    val addressToLocation = buildAddressToLocation(method.implementation)
-//    val terminatingAddresses = buildTerminatingAddresses(implementation.instructions)
-//    val exceptionFactory = ExceptionFactory(classLoader)
 
     // When ops are added, such as when unreflecting, need to execute in order to ensure
     // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
     val reexecuteLocations: MutableSet<MethodLocation> = HashSet()
     val recreateLocations: MutableSet<MethodLocation> = HashSet()
     var recreateOrExecuteAgain = false
+
+    var executionType: ExecutionType = ExecutionType.VIRTUAL
+    val emulatedOrReflected: Boolean
+        get() = executionType == ExecutionType.REFLECT || executionType == ExecutionType.EMULATE
+    var aborted = false
 
     init {
         for (location in addressToLocation.values) {
@@ -248,6 +247,11 @@ class ExecutionGraph2(
     }
 
     fun getConnectedTerminatingAddresses(): IntArray {
+        if (emulatedOrReflected) {
+            // Emulated and reflected methods won't have populated graphs.
+            // For emulated methods, all state changes happen in root node.
+            return intArrayOf(METHOD_ROOT_ADDRESS)
+        }
         val addresses = LinkedList<Int>()
         for (address in terminatingAddresses) {
             if (wasAddressReached(address)) {
@@ -273,7 +277,12 @@ class ExecutionGraph2(
                 return Value.unknown(field.type)
             }
         }
-        return values.first()
+        return if (values.size > 0) {
+            values.first()
+        } else {
+            log.trace("No values found for {}, addresses={}, returning Unknown.", field)
+            return Value.unknown(field.type)
+        }
     }
 
     fun getFieldItems(address: Int, field: VirtualField): Set<Value> {
@@ -305,6 +314,9 @@ class ExecutionGraph2(
     }
 
     fun getHighestMethodSideEffectLevel(): SideEffectLevel {
+        if (emulatedOrReflected) {
+            return SideEffectLevel.NONE
+        }
         var result = SideEffectLevel.NONE
         for (node: ExecutionNode in this) {
             when (val level = node.sideEffectLevel) {
@@ -362,10 +374,10 @@ class ExecutionGraph2(
      *
      * @return consensus value for `register` at each address in `addresses`, `UnknownValue` if there was no consensus
      */
-    fun getRegisterConsensus(addresses: IntArray, register: Int): Value {
+    fun getRegisterConsensus(addresses: IntArray, register: Int, treatAsParameter: Boolean = false): Value {
         val values: MutableSet<Value?> = HashSet()
         for (address in addresses) {
-            values.addAll(getRegisterValues(address, register))
+            values.addAll(getRegisterValues(address, register, treatAsParameter))
         }
         // Values are equal if they have the same type and value
         if (values.size == 1 && values.first() != null) {
@@ -422,11 +434,15 @@ class ExecutionGraph2(
      *
      * @return returns items at `address` in `register` for every execution path
      */
-    fun getRegisterValues(address: Int, register: Int): Set<Value?> {
+    fun getRegisterValues(address: Int, register: Int, treatAsParameter: Boolean = false): Set<Value?> {
         val nodePile = getNodePile(address)
         val values: MutableSet<Value?> = HashSet(nodePile.size)
         for (node in nodePile) {
-            val value = node.state.peekRegister(register)
+            val value = if (treatAsParameter) {
+                node.state.peekParameter(register)
+            } else {
+                node.state.peekRegister(register)
+            }
             values.add(value)
         }
         return values
@@ -460,17 +476,21 @@ class ExecutionGraph2(
         return fieldToValue
     }
 
-    fun getTerminatingRegisterConsensus(register: Int): Value {
-        val registerToValue = getTerminatingRegisterConsensus(intArrayOf(register))
+    fun getTerminatingParameterConsensus(register: Int): Value {
+        return getTerminatingRegisterConsensus(register, treatAsParameter = true)
+    }
+
+    fun getTerminatingRegisterConsensus(register: Int, treatAsParameter: Boolean = false): Value {
+        val registerToValue = getTerminatingRegisterConsensus(intArrayOf(register), treatAsParameter = treatAsParameter)
         return registerToValue[register]!!
     }
 
-    fun getTerminatingRegisterConsensus(registers: IntArray): Map<Int, Value> {
+    fun getTerminatingRegisterConsensus(registers: IntArray, treatAsParameter: Boolean = false): Map<Int, Value> {
         val registerToValue: MutableMap<Int, Value> = HashMap(registers.size)
         val addresses = getConnectedTerminatingAddresses()
         if (addresses.isNotEmpty()) {
             for (register in registers) {
-                registerToValue[register] = getRegisterConsensus(addresses, register)
+                registerToValue[register] = getRegisterConsensus(addresses, register, treatAsParameter = treatAsParameter)
             }
         } else {
             log.warn("No connected terminating addresses for register consensus; registers=$registers")
@@ -768,7 +788,7 @@ class ExecutionGraph2(
         val removedLocations: MutableSet<MethodLocation> = HashSet(staleLocations)
         removedLocations.removeAll(implementationLocations)
         removedLocations.forEach(Consumer { location: MethodLocation -> removeFromNodePile(location) })
-        val newAddressToLocation = buildAddressToLocation(method.implementation)
+        val newAddressToLocation = buildAddressToLocation(method.implementation.instructions.map { it.location })
         addressToLocation.clear()
         addressToLocation.putAll(newAddressToLocation)
         recreateAndExecute()
@@ -869,44 +889,19 @@ class ExecutionGraph2(
 
         private val log = LoggerFactory.getLogger(ExecutionGraph2::class.java.simpleName)
 
-        protected fun buildAddressToLocation(implementation: MutableMethodImplementation): MutableMap<Int, MethodLocation> {
-            val instructions = implementation.instructions
-            val addressToLocation: MutableMap<Int, MethodLocation> = HashMap(instructions.size)
-            for (instruction in instructions) {
-                val location = instruction.location
-                addressToLocation[location.codeAddress] = instruction.location
+        protected fun buildAddressToLocation(locations: Collection<MethodLocation>): MutableMap<Int, MethodLocation> {
+            val addressToLocation: MutableMap<Int, MethodLocation> = HashMap(locations.size)
+            for (location in locations) {
+                addressToLocation[location.codeAddress] = location
             }
             return addressToLocation
         }
 
-//        private fun buildLocationToNodePile(
-//            addressToLocation: Map<Int, MethodLocation>,
-//            method: VirtualMethod,
-//            vm: VirtualMachine2
-//        ): MutableMap<MethodLocation, MutableList<ExecutionNode>> {
-//            val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
-//            for (location in addressToLocation.values) {
-//                val op = locationToOp[location]!!
-//                val node = if (location.codeAddress == METHOD_ROOT_ADDRESS) {
-//                    ExecutionGraph2.spawnEntrypointNode()
-//                    val state = vm.spawnRootState(method)
-//                    ExecutionNode(op, method, vm.classManager, vm.classLoader, vm.configuration, state)
-//                } else {
-//                    ExecutionNode(op, method, vm.classManager, vm.classLoader, vm.configuration)
-//                }
-//
-//                // Most node piles will be a template node and 1+ ExecutionNodes.
-//                val pile: MutableList<ExecutionNode> = ArrayList(2)
-//                pile.add(node)
-//                locationToNodePile[location] = pile
-//            }
-//            return locationToNodePile
-//        }
-
-        private fun buildTerminatingAddresses(instructions: List<BuilderInstruction>): IntArray {
+        private fun buildTerminatingAddresses(locations: Collection<MethodLocation>): IntArray {
             val addresses: MutableList<Int> = LinkedList()
-            for (instruction in instructions) {
-                val address = instruction.location.codeAddress
+            for (location in locations) {
+                val address = location.codeAddress
+                val instruction = location.instruction!!
                 if (instruction.opcode == Opcode.RETURN_VOID || instruction.opcode == Opcode.RETURN ||
                     instruction.opcode == Opcode.RETURN_WIDE || instruction.opcode == Opcode.RETURN_OBJECT ||
                     instruction.opcode == Opcode.THROW
@@ -936,5 +931,9 @@ class ExecutionGraph2(
                 }
             }
         }
+    }
+
+    enum class ExecutionType {
+        VIRTUAL, EMULATE, REFLECT
     }
 }

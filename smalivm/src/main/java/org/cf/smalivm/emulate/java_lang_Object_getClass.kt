@@ -16,7 +16,7 @@ internal class java_lang_Object_getClass : EmulatedMethodCall() {
             state.assignReturnRegister(value, RETURN_TYPE)
             finishMethod()
         } catch (e: ClassNotFoundException) {
-            throwException(e.javaClass, "Class not found: $argumentType", unhandled = true)
+            throwException(e.javaClass, "Class not found: $argumentType", emulatedOrReflected = true)
         }
     }
 

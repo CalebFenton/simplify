@@ -248,7 +248,7 @@
 .method private static mutateStringBuilderAndReuseParameterRegister(Ljava/lang/StringBuilder;)V
   .locals 1
 
-  const-string v0, " mutated"
+  const-string v0, ", death as light as a feather"
   invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
   # Reusing the parameter register ensures we're not just looking at end-state register values but
@@ -261,7 +261,7 @@
 .method private static mutateStringBuilderAsThirdParameterAndFirstMutableParameter(IILjava/lang/StringBuilder;)V
   .locals 1
 
-  const-string v0, " mutated"
+  const-string v0, ", death as light as a feather"
   invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
   const/4 p2, 0x1

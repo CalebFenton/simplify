@@ -9,12 +9,12 @@ open class UnresolvedChildProducer(
 ) {
     val defaultExceptions = defaultExceptions.map { UnresolvedChild.build(it.first, it.second, false) }
 
-    fun throwException(t: Throwable, unhandled: Boolean = false): Array<out UnresolvedChild> {
-        return throwException(t.javaClass, t.message, unhandled)
+    fun throwException(t: Throwable, emulatedOrReflected: Boolean = false): Array<out UnresolvedChild> {
+        return throwException(t.javaClass, t.message, emulatedOrReflected)
     }
 
-    fun throwException(klazz: Class<out Throwable>, message: String? = null, unhandled: Boolean = false): Array<out UnresolvedChild> {
-        return arrayOf(UnresolvedChild.build(klazz, message, unhandled))
+    fun throwException(klazz: Class<out Throwable>, message: String? = null, emulatedOrReflected: Boolean = false): Array<out UnresolvedChild> {
+        return arrayOf(UnresolvedChild.build(klazz, message, emulatedOrReflected))
     }
 
     fun staticInitClass(virtualClass: VirtualType): Array<out UnresolvedChild> {

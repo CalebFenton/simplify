@@ -24,12 +24,11 @@ class ExecutionState internal constructor(
     initializedClassesSize: Int = 0,
     registersReadSize: Int = 0,
     registersAssignedSize: Int = 0,
-    mutableParametersSize: Int = 0
 ) {
     // TODO: should be able to look at op and decide how many registers are assigned and read, should save in future allocations
     val values = HashMap<String, Value>(registerCount + fieldCount)
     val initializedClasses: MutableMap<VirtualType, SideEffectLevel> = HashMap(initializedClassesSize)
-    val mutableParameters: MutableSet<Int> = HashSet(mutableParametersSize)
+    var mutableParameterRegisters: MutableSet<Int>? = null
     val firstParameterRegister = registerCount - parameterSize
     val registersAssigned: MutableSet<Int> = HashSet(registersAssignedSize)
     val registersRead: MutableSet<Int> = HashSet(registersReadSize)
@@ -43,6 +42,7 @@ class ExecutionState internal constructor(
         const val THROW_REGISTER = -3
         const val EXCEPTION_REGISTER = -4
         const val PSEUDO_RETURN_ADDRESS_KEY = "*pseudo-return*"
+        const val MUTABLE_PARAMETER_POSTFIX = "_*mutable_param*"
 
         fun build(
             method: VirtualMethod,
@@ -52,13 +52,15 @@ class ExecutionState internal constructor(
             registersReadCount: Int = 0,
             registersAssignedCount: Int = 0
         ): ExecutionState {
-            if (!method.hasImplementation()) {
-                // May be native or abstract and thus no implementation and thus shouldn't execute
-                throw IllegalArgumentException("No implementation for $method");
-            }
-
             val cloner = ClonerFactory.instance(classManager, classLoader, configuration)
-            val registerCount = method.registerCount
+
+            val registerCount = if (method.hasImplementation()) {
+                method.registerCount
+            } else {
+                // May be native or abstract and thus no implementation and thus shouldn't execute
+                log.warn("Creating state for method without implementation: {}. Hopefully reflecting or emulating native method!", method)
+                0
+            }
             val parameterTypeNames = method.parameterTypeNames
             val parameterCount = parameterTypeNames.size
             val parameterSize = Utils.getRegisterSize(parameterTypeNames)
@@ -100,6 +102,7 @@ class ExecutionState internal constructor(
         if (methodLocal && (node == null || node!!.isEntrypoint)) {
             return null
         }
+
         return this.node?.parent?.state
     }
 
@@ -112,26 +115,52 @@ class ExecutionState internal constructor(
         return assignRegister(register, value, updateIdentities)
     }
 
+    fun assignParameter(register: Int, value: Value, updateIdentities: Boolean = false) {
+        assignRegister(register, value, updateIdentities)
+
+        if (value.isMutable) {
+            if (mutableParameterRegisters == null) {
+                mutableParameterRegisters = HashSet()
+            }
+            mutableParameterRegisters!!.add(register)
+            pokeKey(buildMutableParameterKey(register), value)
+        }
+    }
+
+    fun isMutableParameter(register: Int): Boolean {
+        if (mutableParameterRegisters == null) {
+            var current = this.getParent()
+            while (current != null) {
+                if (current.mutableParameterRegisters != null) {
+                    mutableParameterRegisters = HashSet(current.mutableParameterRegisters)
+                    break
+                }
+                current = current.getParent()
+            }
+        }
+        if (mutableParameterRegisters != null && mutableParameterRegisters!!.contains(register)) {
+            return true
+        }
+        return false
+    }
+
     fun assignRegister(register: Int, value: Value, updateIdentities: Boolean = false) {
         registersAssigned.add(register)
-        if (register >= firstParameterRegister && value.isMutable) {
-            mutableParameters.add(register)
-        }
 
         pokeKey(register.toString(), value, updateIdentities)
     }
 
-    fun assignRegisters(vararg params: Any?) {
-        var i = 0
-        while (i < params.size) {
-            val register = params[i] as Int
-            val rawValue = params[i + 1]
-            val type = params[i + 2] as String
-            val value = Value.wrap(rawValue, type)
-            assignRegister(register, value)
-            i += 3
-        }
-    }
+//    fun assignRegisters(vararg params: Any?) {
+//        var i = 0
+//        while (i < params.size) {
+//            val register = params[i] as Int
+//            val rawValue = params[i + 1]
+//            val type = params[i + 2] as String
+//            val value = Value.wrap(rawValue, type)
+//            assignRegister(register, value)
+//            i += 3
+//        }
+//    }
 
     fun assignField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
         pokeField(field, value, updateIdentities)
@@ -189,7 +218,7 @@ class ExecutionState internal constructor(
     fun pokeField(field: VirtualField, value: Value, updateIdentities: Boolean = false) {
         if (configuration.isSafe(field.definingClass)) {
             // TODO: consider enabling this, is it safe?
-            log.warn("Ignoring static assignment of non-local field: {} = {}", field, value)
+            log.warn("Ignoring static assignment of safe field: {} = {}", field, value)
         } else {
             pokeKey(field.toString(), value, updateIdentities)
         }
@@ -205,7 +234,15 @@ class ExecutionState internal constructor(
     }
 
     fun peekParameterOffset(parameterRegisterOffset: Int): Value? {
-        return peekRegister(firstParameterRegister + parameterRegisterOffset)
+        return peekParameter(firstParameterRegister + parameterRegisterOffset)
+    }
+
+    fun peekParameter(register: Int): Value? {
+        return if (isMutableParameter(register)) {
+            peekKey(buildMutableParameterKey(register), true)
+        } else {
+            peekRegister(register)
+        }
     }
 
     fun peekRegister(register: Int, methodLocal: Boolean = true): Value? {
@@ -364,7 +401,7 @@ class ExecutionState internal constructor(
         inner.clear()
         for (key in values.keys) {
             val isRegister = key.toIntOrNull() != null
-            if (isRegister) {
+            if (isRegister || key.endsWith(MUTABLE_PARAMETER_POSTFIX)) {
                 continue
             }
             inner.append(key).append(" = ").append(peekField(key)).append('\n')
@@ -422,7 +459,7 @@ class ExecutionState internal constructor(
     }
 
     /**
-     * This behaves like [set][.set] and also updates values for all keys
+     * This behaves like updating values but it also updates values for all keys
      * which point to values identical to what was stored in `key` originally. This is
      * necessary because the same item may exist under multiple mappings that need to be updated.
      * For example, when an uninitialized instance is stored under multiple mappings and is
@@ -434,8 +471,8 @@ class ExecutionState internal constructor(
      * @param newValue
      */
     fun update(key: String, newValue: Value) {
-        val oldValue = peekKey(key)!!
-        if (oldValue.raw == null) {
+        val oldValue = peekKey(key)
+        if (oldValue == null) {
             values[key] = newValue
         } else {
             for (currentKey in values.keys) {
@@ -498,24 +535,23 @@ class ExecutionState internal constructor(
     }
 
     fun setClassInitialized(virtualClass: VirtualType, level: SideEffectLevel = SideEffectLevel.NONE) {
+        log.debug("statically initializing {}, level={}", virtualClass, level)
         initializedClasses[virtualClass] = level
     }
 
     fun isClassInitialized(virtualClass: VirtualType): Boolean {
-        return when {
-            initializedClasses.contains(virtualClass) -> true
-            getParent() != null -> getParent()!!.isClassInitialized(virtualClass)
-            else -> false
-        }
+        return getAncestorWithClass(virtualClass) != null
     }
 
     private fun getAncestorWithClass(virtualClass: VirtualType): ExecutionState? {
         var ancestor: ExecutionState? = this
         do {
             if (ancestor!!.initializedClasses.containsKey(virtualClass)) {
+                // Cache this in current state for faster lookups
+                initializedClasses[virtualClass] = ancestor.initializedClasses[virtualClass]!!
                 return ancestor
             }
-            ancestor = ancestor.getParent()
+            ancestor = ancestor.getParent(methodLocal = false)
         } while (ancestor != null)
         return null
     }
@@ -524,4 +560,6 @@ class ExecutionState internal constructor(
         val virtualClass = classManager.getVirtualClass(classSignature)
         return isClassInitialized(virtualClass)
     }
+
+    private fun buildMutableParameterKey(register: Int): String = "$register$MUTABLE_PARAMETER_POSTFIX"
 }
