@@ -177,13 +177,14 @@ class InvokeOp internal constructor(
 
     override fun resume(node: ExecutionNode, calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
         if (calleeGraph.aborted) {
+            // VM either aborted execution because of some limit or it couldn't be reflected or emulated.
             assumeMaximumUnknown(node, calleeGraph.method)
             return finishOp()
         }
 
         // Mutable parameters may have been changed. Need to merge changes back into caller.
         // Reflection mutates parameters directly. No need to merge them ourselves.
-        if (calleeGraph.executionType != ExecutionGraph2.ExecutionType.REFLECT) {
+        if (!calleeGraph.reflected) {
             val parameterTypes = calleeGraph.method.parameterTypeNames
             var parameterRegister = calleeGraph.root.state.firstParameterRegister
             for (parameterIndex in parameterTypes.indices) {
@@ -197,37 +198,17 @@ class InvokeOp internal constructor(
             }
         }
 
-        var hasOneNonThrow = false
-        val endAddresses = calleeGraph.getConnectedTerminatingAddresses()
-        for (endAddress in endAddresses) {
-            val endOp = calleeGraph.getOp(endAddress)
-            if (endOp !is ThrowOp) {
-                // Has at least one non-throw execution path so either the return value
-                hasOneNonThrow = true
-                break
-            }
-        }
-        if (hasOneNonThrow) {
+        val hasOneReturnPath = calleeGraph.hasAtLeastOneReturnPath()
+        if (hasOneReturnPath) {
             if (!method.returnsVoid()) {
                 // Terminating addresses may include throw ops which may not have a return register set
-                val checkReturnAddresses = if (calleeGraph.emulatedOrReflected) {
-                    endAddresses
-                } else {
-                    val returnOpAddresses = LinkedList<Int>()
-                    for (endAddress in endAddresses) {
-                        if (calleeGraph.getOp(endAddress) is ReturnOp) {
-                            returnOpAddresses.add(endAddress)
-                        }
-                    }
-                    returnOpAddresses.toIntArray()
-                }
-                val result = calleeGraph.getRegisterConsensus(checkReturnAddresses, ExecutionState.RETURN_REGISTER)
+                val result = calleeGraph.getRegisterConsensus(calleeGraph.connectedReturnAddresses, ExecutionState.RETURN_REGISTER)
                 node.state.assignResultRegister(result)
             } else {
                 if (calleeGraph.method.name == "<init>") {
                     // This was a call to a local parent <init> method
                     val calleeInstanceRegister = calleeGraph.root.state.firstParameterRegister
-                    val newInstance = calleeGraph.getRegisterConsensus(endAddresses, calleeInstanceRegister)
+                    val newInstance = calleeGraph.getRegisterConsensus(calleeGraph.terminatingAddresses, calleeInstanceRegister)
                     val instanceRegister = parameterRegisters[0]
                     node.state.assignRegister(instanceRegister, newInstance, updateIdentities = true)
                 }
@@ -235,7 +216,13 @@ class InvokeOp internal constructor(
         }
         node.sideEffectLevel = calleeGraph.getHighestSideEffectLevel()
 
-        return finishOp()
+        // Unhandled exceptions in callee are handled by VM when the step is finished
+        return if (hasOneReturnPath) {
+            finishOp()
+        } else {
+            // This method never returns so it must only ever throw exceptions.
+            finishOpWithoutChildren()
+        }
     }
 
     private fun assumeMaximumUnknown(node: ExecutionNode, calledMethod: VirtualMethod) {

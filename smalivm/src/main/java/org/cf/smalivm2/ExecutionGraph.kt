@@ -4,6 +4,7 @@ import com.google.common.primitives.Ints
 import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
+import org.cf.smalivm.emulate.MethodEmulator
 import org.cf.smalivm.opcode.*
 import org.cf.smalivm.type.*
 import org.jf.dexlib2.Opcode
@@ -39,7 +40,7 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
     }
 }
 
-data class UnhandledVirtualException(val node: ExecutionNode, val exceptionClass: VirtualClass, val message: String?)
+data class UnhandledVirtualException(val node: ExecutionNode, val unresolvedChild: UnresolvedExceptionChild)
 
 class ExecutionGraph2(
     val method: VirtualMethod,
@@ -58,19 +59,41 @@ class ExecutionGraph2(
 
     // TODO: should terminating addresses be recalculated when graphs are rebuilt? same with address -> location
     val terminatingAddresses = buildTerminatingAddresses(vm.methodToTemplateOps[method]!!.keys)
+        get() = if (emulatedOrReflected) {
+            // Emulated and reflected methods won't have populated graphs.
+            // For emulated methods, all state changes happen in root node.
+            intArrayOf(METHOD_ROOT_ADDRESS)
+        } else {
+            field
+        }
+    val connectedReturnAddresses
+        get() = if (emulatedOrReflected) {
+            terminatingAddresses
+        } else {
+            terminatingAddresses.filter { wasAddressReached((it)) && getOp(it) is ReturnOp }.toIntArray()
+        }
     val addressToLocation = buildAddressToLocation(vm.methodToTemplateOps[method]!!.keys)
     val locationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
-    val unhandledVirtualException: MutableList<UnhandledVirtualException> = LinkedList()
+    val unhandledExceptions: MutableList<UnhandledVirtualException> = LinkedList()
 
     // When ops are added, such as when unreflecting, need to execute in order to ensure
-    // correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
+// correct contexts for each op. Executing out of order may read registers that haven't been assigned yet.
     val reexecuteLocations: MutableSet<MethodLocation> = HashSet()
     val recreateLocations: MutableSet<MethodLocation> = HashSet()
     var recreateOrExecuteAgain = false
 
-    var executionType: ExecutionType = ExecutionType.VIRTUAL
+    val executionType: ExecutionType = when {
+        MethodEmulator.canEmulate(method) -> ExecutionType.EMULATE
+        configuration.isSafe(method) -> ExecutionType.REFLECT
+        else -> ExecutionType.VIRTUAL
+    }
+    val emulated: Boolean
+        get() = executionType == ExecutionType.EMULATE
+    val reflected: Boolean
+        get() = executionType == ExecutionType.REFLECT
     val emulatedOrReflected: Boolean
         get() = executionType == ExecutionType.REFLECT || executionType == ExecutionType.EMULATE
+
     var aborted = false
 
     init {
@@ -78,53 +101,6 @@ class ExecutionGraph2(
             locationToNodePile[location] = ArrayList()
         }
     }
-//    fun shallowClone(): ExecutionGraph2 {
-//        // TODO: all the cloning is to avoid the work of rebuilding ops. is it really worth it?
-//        // Need to make shallow clones when spawning an instruction graph from a template
-//        // This is to avoid the cost of re-creating the graph (with most of the cost being creating ops)
-//        val newLocationToNodePile: MutableMap<MethodLocation, MutableList<ExecutionNode>> = HashMap()
-//        locationToNodePile.entries.forEach {
-//            val nodePile: MutableList<ExecutionNode> = ArrayList(it.value.size)
-//            for (n in it.value) {
-//                nodePile.add(ExecutionNode(n))
-//            }
-//            newLocationToNodePile[it.key] = nodePile
-//        }
-//        for (location in locationToNodePile.keys) {
-//            val otherNodePile = locationToNodePile[location]!!
-//            val nodePile: MutableList<ExecutionNode> = ArrayList(otherNodePile.size)
-//            for (n in otherNodePile) {
-//                nodePile.add(ExecutionNode(n))
-//            }
-//            locationToNodePile[location] = nodePile
-//        }
-//        val clone = ExecutionGraph2(this.method, this.vm, this.addressToLocation, this.terminatingAddresses)
-//
-//    }
-
-//    constructor(other: ExecutionGraph2, shallowClone: Boolean = true) {
-//        classManager = other.classManager
-//        method = other.method
-//        classLoader = other.classLoader
-//        terminatingAddresses = other.terminatingAddresses
-//        addressToLocation = other.addressToLocation
-//
-//        if (shallowClone) {
-//            // Need to make shallow clones when spawning an instruction graph from a template
-//            // This is to avoid the cost of re-creating the graph (with most of the cost being creating ops)
-//            locationToNodePile = HashMap()
-//            for (location: MethodLocation in other.locationToNodePile.keys) {
-//                val otherNodePile = other.locationToNodePile[location]!!
-//                val nodePile: MutableList<ExecutionNode> = ArrayList(otherNodePile.size)
-//                for (n in otherNodePile) {
-//                    nodePile.add(ExecutionNode(n))
-//                }
-//                locationToNodePile[location] = nodePile
-//            }
-//        } else {
-//            locationToNodePile = other.locationToNodePile
-//        }
-//    }
 
     override fun toString() = "ExecutionGraph{$method}"
 
@@ -204,15 +180,17 @@ class ExecutionGraph2(
         return locationToOp[location]!!
     }
 
-    fun spawnEntrypointNode(parent: ExecutionNode? = null, state: ExecutionState? = null): ExecutionNode {
+    fun spawnEntrypointNode(caller: ExecutionNode? = null, state: ExecutionState? = null): ExecutionNode {
         val op = getOp(METHOD_ROOT_ADDRESS)
-        return when (state) {
-            null -> ExecutionNode(op, method, classManager, classLoader, configuration, parent = parent)
-            else -> ExecutionNode(op, method, classManager, classLoader, configuration, state, parent)
+        val node = when (state) {
+            null -> ExecutionNode(op, method, classManager, classLoader, configuration, parent = caller)
+            else -> ExecutionNode(op, method, classManager, classLoader, configuration, state = state, parent = caller)
         }
+        node.caller = caller
+        return node
     }
 
-    protected fun getNodeIndex(node: ExecutionNode): Int {
+    fun getNodeIndex(node: ExecutionNode): Int {
         return getNodePile(node.address).indexOf(node)
     }
 
@@ -246,12 +224,22 @@ class ExecutionGraph2(
         return allClasses
     }
 
-    fun getConnectedTerminatingAddresses(): IntArray {
+    fun hasAtLeastOneReturnPath(): Boolean {
         if (emulatedOrReflected) {
-            // Emulated and reflected methods won't have populated graphs.
-            // For emulated methods, all state changes happen in root node.
-            return intArrayOf(METHOD_ROOT_ADDRESS)
+            // This assumes emulated methods will never result in multiple execution paths, i.e. they either return or throw an exception.
+            return unhandledExceptions.isEmpty()
+        } else {
+            for (address in getConnectedTerminatingAddresses()) {
+                val op = getOp(address)
+                if (op !is ThrowOp) {
+                    return true
+                }
+            }
         }
+        return false
+    }
+
+    fun getConnectedTerminatingAddresses(): IntArray {
         val addresses = LinkedList<Int>()
         for (address in terminatingAddresses) {
             if (wasAddressReached(address)) {

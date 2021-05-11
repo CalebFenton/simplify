@@ -77,6 +77,11 @@ public class SmaliClassLoader extends URLClassLoader {
     public Class<?> findClass(String name) throws ClassNotFoundException {
         if (name.startsWith("java.")) {
             try {
+                // TODO: fix this!
+                System.out.println("loading " + name);
+                if (name.equals("java.lang.BootClassLoader")) {
+                    System.out.println("fix me");
+                }
                 return super.loadClass(name, false);
             } catch (ClassNotFoundException e) {
             }

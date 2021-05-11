@@ -29,6 +29,10 @@ open class UnresolvedChildProducer(
         return arrayOf()
     }
 
+    fun finishOpWithoutChildren(): Array<out UnresolvedChild> {
+        return arrayOf()
+    }
+
     fun finishOp(mayThrow: Boolean = false): Array<out UnresolvedChild> {
         val children: MutableList<UnresolvedChild> = LinkedList()
         children.add(UnresolvedChild.build())

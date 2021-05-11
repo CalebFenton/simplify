@@ -1,7 +1,6 @@
 package org.cf.smalivm2
 
 import org.cf.smalivm.MethodReflector
-import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -14,6 +13,7 @@ import org.cf.smalivm.opcode.SwitchOp
 import org.cf.smalivm.type.*
 import org.cf.util.EnumAnalyzer
 import org.cf.util.Utils
+import org.jf.dexlib2.builder.BuilderTryBlock
 import org.jf.dexlib2.builder.MethodLocation
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -182,11 +182,10 @@ class VirtualMachine2 private constructor(
                 }
             }
 
-            val isSafe = configuration.isSafe(current.method)
-            val isStaticInit = current.method.descriptor == "<clinit>()V"
+            val isStaticInit = current.method.name == "<clinit>"
             if (isStaticInit) {
-                if (isSafe) {
-                    // No need to execute on the VM since Safe class methods and fields are reflected
+                if (entry.graph.reflected) {
+                    // No need to execute on the VM since this class is reflected
                     // Set this class as initialized in the caller since we're not going to collapse the multiverse
                     current?.caller?.state?.setClassInitialized(current.method.definingClass)
                     finishStep(entry, current, mergeChildClassStates = false)
@@ -200,19 +199,16 @@ class VirtualMachine2 private constructor(
                     return
                 }
 
-                val canEmulate = MethodEmulator.canEmulate(current.method)
-                if (isSafe || canEmulate) {
+                if (entry.graph.emulatedOrReflected) {
                     val allArgumentsKnown = current.state.allArgumentsKnown()
-                    if (canEmulate && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
-                        entry.graph.executionType = ExecutionGraph2.ExecutionType.EMULATE
+                    if (entry.graph.emulated && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
                         log.debug("emulating {}", current.method)
                         unresolvedChildren = MethodEmulator.emulate(current.method, current.state, current.parent, this)
-                    } else if (isSafe && allArgumentsKnown) {
-                        entry.graph.executionType = ExecutionGraph2.ExecutionType.REFLECT
+                    } else if (entry.graph.reflected && allArgumentsKnown) {
                         log.debug("reflecting {}", current.method)
                         unresolvedChildren = MethodReflector.reflect(current.method, current.state, current.classLoader)
                     } else {
-                        log.trace("All arguments not known for safe / emulation method {}; assuming maximum unknown.", current.method)
+                        log.trace("All arguments not known for emulated or reflected method {}; assuming maximum unknown.", current.method)
                         finishStep(entry, current, abortMethod = true)
                         return
                     }
@@ -270,7 +266,8 @@ class VirtualMachine2 private constructor(
                 }
                 is UnresolvedExceptionChild -> {
                     // TODO: How does the finally work exactly? Any special handling needed?
-                    enqueueExceptionChild(current, unresolvedChild)
+                    // TODO: if all children are exceptional, remove caller from resume and execution queue (should be most recent, last index of)
+                    enqueueExceptionChild(current, unresolvedChild, entry.graph)
                 }
             }
         }
@@ -278,83 +275,32 @@ class VirtualMachine2 private constructor(
         finishStep(entry, current)
     }
 
-//    private fun executeObjectArrayClone(current: ExecutionNode): Array<out UnresolvedChild> {
-//        current.op as InvokeOp
-//        val instanceRegister = current.op.parameterRegisters[0]
-//        val arrayItem = current.state.peekRegister(instanceRegister)!!
-//        if (arrayItem.isNull) {
-//            // This operation would have thrown a null pointer exception, and nothing else.
-//            return arrayOf(UnresolvedChild.build(NullPointerException::class.java, null, false))
-//        }
-//        val clone = when {
-//            arrayItem.isUnknown -> UnknownValue()
-//            else -> {
-//                try {
-//                    val m = Any::class.java.getDeclaredMethod("clone")
-//                    m.isAccessible = true
-//                    m.invoke(arrayItem.raw)
-//                } catch (e: Exception) {
-//                    log.error("Real exception initializing Object; returning unknown", e)
-//                    UnknownValue()
-//                }
-//            }
-//        }
-//        current.state.assignResultRegister(clone, arrayItem.type)
-//        return arrayOf(UnresolvedChild.build())
-//    }
+    private fun enqueueExceptionChild(exceptional: ExecutionNode, unresolvedChild: UnresolvedExceptionChild, graph: ExecutionGraph2) {
+        enqueueExceptionChild(exceptional, exceptional, unresolvedChild, graph)
+    }
 
-//    private fun executeLocalObjectInit(current: ExecutionNode): Array<out UnresolvedChild> {
-//        // TODO: Is there a problem if the VERY first OP invokes this? Is Ljava/lang/Object; clinit'ed?
-//        current.op as InvokeOp
-//        val instanceRegister = current.op.parameterRegisters[0]
-//        val instanceItem = current.state.peekRegister(instanceRegister)!!
-//        val uninitializedInstance = instanceItem.raw as UninitializedInstance
-//        val instanceType = uninitializedInstance.type
-//        val newInstanceItem = try {
-//            // Create a Java class of the true type
-//            val klazz = current.classLoader.loadClass(instanceType.binaryName)
-//            val newInstance = ObjectInstantiator.newInstance(klazz)
-//            Value.wrap(newInstance, instanceType.name)
-//        } catch (e: Exception) {
-//            log.error("Real exception initializing Object; returning unknown", e)
-//            Value.unknown(instanceType.name)
-//        }
-//        current.state.assignRegister(instanceRegister, newInstanceItem, updateIdentities = true)
-//
-//        return arrayOf(UnresolvedChild.build())
-//    }
-
-    private fun enqueueExceptionChild(exceptional: ExecutionNode, unresolvedChild: UnresolvedExceptionChild) {
+    private fun enqueueExceptionChild(
+        exceptional: ExecutionNode,
+        current: ExecutionNode,
+        unresolvedChild: UnresolvedExceptionChild,
+        graph: ExecutionGraph2
+    ) {
         val exceptionClass = classManager.getVirtualClass(unresolvedChild.exceptionClass)
-        var potentialHandler: ExecutionNode? = if (unresolvedChild.emulatedOrReflected) {
-            // Exception was within emulated or reflected method. Current node won't be able to handle it. Need to check caller.
-            exceptional.caller
+        val handlerAddress = if (graph.emulatedOrReflected) {
+            // Exception was within emulated or reflected method so shouldn't use graph's try handlers.
+            // Add to unhandled exceptions and it'll get bubbled up in calling methods.
+            -1
         } else {
-            exceptional
-        }
-        var handlerAddress: Int = -1
-        while (potentialHandler != null) {
-            handlerAddress = findExceptionHandlerAddress(exceptionClass, potentialHandler.address, potentialHandler.method)
-            if (handlerAddress > 0) {
-                break
-            }
-            potentialHandler = potentialHandler.caller
+            findExceptionHandlerAddress(exceptionClass, current.address, current.method)
         }
 
-        if (handlerAddress < 0 || potentialHandler == null) {
-            log.debug("{} threw unhandled exception {}", exceptional, unresolvedChild)
+        if (handlerAddress < 0) {
+            log.debug("{} threw exception {} which is unhandled at {}", exceptional, unresolvedChild, current)
+            graph.unhandledExceptions.add(UnhandledVirtualException(exceptional, unresolvedChild))
         } else {
-            log.trace(
-                "{} threw exception {} and is handled by exception handler {} @{}",
-                exceptional,
-                unresolvedChild,
-                potentialHandler,
-                handlerAddress
-            )
-
+            log.trace("{} threw exception {} which is handled in {} @{}", exceptional, unresolvedChild, current, handlerAddress)
             // TODO: Consider nodes data structure with faster lookup (LinkedHashSet)
-            val handlerEntry =
-                executionQueue.first { it.graph.hasNode(potentialHandler) } ?: executionQueue.first { it.nodes.contains(potentialHandler) }
+            val handlerEntry = getEntryForNode(current)
             val child = enqueueChildNode(exceptional, handlerAddress, handlerEntry.graph, handlerEntry.nodes)
             val exception = buildException(exceptional, unresolvedChild.exceptionClass, unresolvedChild.message)
             child.state.assignExceptionRegister(exception)
@@ -375,6 +321,10 @@ class VirtualMachine2 private constructor(
         return Value.wrap(rawException, exceptionClass)
     }
 
+    private fun getEntryForNode(node: ExecutionNode): ExecutionQueueEntry {
+        return executionQueue.first { it.graph.hasNode(node) } ?: executionQueue.first { it.nodes.contains(node) }
+    }
+
     private fun enqueueContinueChildNode(current: ExecutionNode, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>) {
         val opcode = current.op.instruction!!.opcode
         if (opcode.canContinue() && current.op !is SwitchOp) {
@@ -389,8 +339,8 @@ class VirtualMachine2 private constructor(
         methodNodes: MutableList<ExecutionNode>
     ): ExecutionNode {
         val location = graph.getLocation(address)!!
-        val op = methodToTemplateOps[parent.method]!![location]!!
-        val child = ExecutionNode(op, parent.method, classManager, classLoader, configuration, parent = parent)
+        val op = methodToTemplateOps[graph.method]!![location]!!
+        val child = ExecutionNode(op, graph.method, classManager, classLoader, configuration, parent = parent)
         parent.children.add(child)
         methodNodes.add(child)
         return child
@@ -409,11 +359,15 @@ class VirtualMachine2 private constructor(
             executionQueue.remove(entry)
             val caller = current.caller
             if (caller != null) {
+                for (unhandledException in entry.graph.unhandledExceptions) {
+                    val callerEntry = getEntryForNode(caller)
+                    enqueueExceptionChild(unhandledException.node, caller, unhandledException.unresolvedChild, callerEntry.graph)
+                }
                 if (abortMethod) {
                     entry.graph.aborted = true
                 }
                 if (mergeChildClassStates) {
-                    mergeChildClassStates(current.method, entry.graph, caller.state)
+                    mergeClassStates(current.method, entry.graph, caller.state)
                 }
             }
         }
@@ -424,7 +378,7 @@ class VirtualMachine2 private constructor(
      * the context of the caller. In other words, reflect changes to objects that happen in the called method back
      * into the caller method.
      */
-    private fun mergeChildClassStates(
+    private fun mergeClassStates(
         calledMethod: VirtualMethod,
         graph: ExecutionGraph2,
         callerState: ExecutionState,
@@ -480,7 +434,7 @@ class VirtualMachine2 private constructor(
     private fun enqueueMethodInvocation(method: VirtualMethod, calleeState: ExecutionState, parent: ExecutionNode) {
         log.debug("enqueuing method {}, parent={}", method, parent)
         val graph = getExecutionGraph(method)
-        val entrypointNode = graph.spawnEntrypointNode(parent = parent, state = calleeState)
+        val entrypointNode = graph.spawnEntrypointNode(caller = parent, state = calleeState)
         val methodNodes = LinkedList<ExecutionNode>()
         methodNodes.add(entrypointNode)
         executionQueue.add(ExecutionQueueEntry(graph, methodNodes))
@@ -488,7 +442,6 @@ class VirtualMachine2 private constructor(
             invokeToCalleeGraph[parent] = graph
         }
     }
-
 
     private fun enqueueStaticInitializationIfNecessary(virtualClass: VirtualType, parent: ExecutionNode): Boolean {
         /*
@@ -629,39 +582,43 @@ class VirtualMachine2 private constructor(
      * parent, and so on. If catchAll is true, it'll look for catch-all exception handlers.
      */
     private fun findExceptionHandlerAddress(exceptionClass: VirtualClass, address: Int, method: VirtualMethod, catchAll: Boolean): Int {
-        val lineage: MutableList<VirtualClass> = LinkedList()
-        lineage.add(exceptionClass)
-        lineage.addAll(exceptionClass.ancestors)
-        for (currentExceptionClass in lineage) {
-            val className = currentExceptionClass.name
-            for (tryBlock in method.tryBlocks) {
-                val startAddress = tryBlock.startCodeAddress
-                val endAddress = tryBlock.startCodeAddress + tryBlock.codeUnitCount
-                val inTryBlock = address >= startAddress && address < endAddress
-                if (!inTryBlock) {
-                    continue
+        val enclosingTryBlocks: MutableList<BuilderTryBlock> = LinkedList()
+        for (tryBlock in method.tryBlocks) {
+            val startAddress = tryBlock.startCodeAddress
+            val endAddress = tryBlock.startCodeAddress + tryBlock.codeUnitCount
+            if (address in startAddress until endAddress) {
+                enclosingTryBlocks.add(tryBlock)
+            }
+        }
+        if (enclosingTryBlocks.isEmpty()) {
+            return -1
+        }
+
+        if (catchAll) {
+            for (tryBlock in enclosingTryBlocks) {
+                // The catchall handler will be last with a null type
+                val handler = tryBlock.exceptionHandlers.last()
+                if (handler.exceptionType == null) {
+                    return handler.handlerCodeAddress
                 }
-                val handlers = tryBlock.exceptionHandlers
-                if (catchAll) {
-                    // If it's the last handler and it's null, it's a catchall
-                    val handler = handlers[handlers.size - 1]
-                    if (null == handler.exceptionType) {
-                        return handler.handlerCodeAddress
-                    }
-                } else {
+            }
+        } else {
+            val exceptionClassLineage: MutableList<VirtualType> = LinkedList()
+            exceptionClassLineage.add(exceptionClass)
+            exceptionClassLineage.addAll(exceptionClass.ancestors)
+            for (currentExceptionClass in exceptionClassLineage) {
+                for (tryBlock in enclosingTryBlocks) {
+                    val handlers = tryBlock.exceptionHandlers
                     for (handler in handlers) {
                         val handlerType = handler.exceptionType
-                        if (className == handlerType) {
+                        if (currentExceptionClass.name == handlerType) {
                             return handler.handlerCodeAddress
                         }
                     }
                 }
             }
-            if (catchAll) {
-                // This loop is unnecessary for catch-all because it doesn't look at the exception class.
-                return -1
-            }
         }
+
         return -1
     }
 

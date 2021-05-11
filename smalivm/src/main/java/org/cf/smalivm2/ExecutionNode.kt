@@ -28,6 +28,27 @@ class ExecutionNode(
 ) {
     var children: MutableList<ExecutionNode> = LinkedList()
 
+    var _caller: ExecutionNode? = null
+    var caller: ExecutionNode?
+        set(value) {
+            _caller = value
+        }
+        get() {
+            var current: ExecutionNode? = this
+            val startingMethod = this.method
+            while (current != null) {
+                while (current?.method != startingMethod) {
+                    current = current?.parent ?: return null
+                }
+                if (current._caller != null) {
+                    return current._caller
+                }
+                current = current.parent
+            }
+            return null
+        }
+
+
     init {
         state.node = this
     }
@@ -57,7 +78,7 @@ class ExecutionNode(
             return callDepth
         }
 
-    val caller: ExecutionNode?
+    val previousMethod: ExecutionNode?
         get() {
             var ancestor: ExecutionNode? = this
             while (ancestor != null) {
@@ -107,7 +128,6 @@ class ExecutionNode(
 //        return children.any { c -> c is ExceptionChild }
 //    }
 
-
     fun clearChildren() {
         children.forEach { c -> c.parent = null }
         children.clear()
@@ -142,20 +162,20 @@ class ExecutionNode(
         return op.resume(this, calleeGraph)
     }
 
-    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
-        val childState = ExecutionState.build(childMethod, classManager, classLoader, configuration)
-        val child = ExecutionNode(
-            op = childOp,
-            method = method,
-            classManager = classManager,
-            classLoader = classLoader,
-            configuration = configuration,
-            state = childState,
-            parent = this,
-        )
-        children.add(child)
-        return child
-    }
+//    fun spawnChild(childOp: Op, childMethod: VirtualMethod = method): ExecutionNode {
+//        val childState = ExecutionState.build(childMethod, classManager, classLoader, configuration)
+//        val child = ExecutionNode(
+//            op = childOp,
+//            method = method,
+//            classManager = classManager,
+//            classLoader = classLoader,
+//            configuration = configuration,
+//            state = childState,
+//            parent = this,
+//        )
+//        children.add(child)
+//        return child
+//    }
 
     // TODO: make this work
 //    override fun toString(): String {
