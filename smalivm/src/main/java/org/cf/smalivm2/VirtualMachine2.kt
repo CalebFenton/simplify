@@ -36,7 +36,7 @@ class VirtualMachine2 private constructor(
     lateinit var classManager: ClassManager
     lateinit var classLoader: SmaliClassLoader
     val methodToTemplateOps: MutableMap<VirtualMethod, Map<MethodLocation, Op>> = HashMap()
-    val methodToGraph: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
+//    val methodToGraph: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
     val configuration = Configuration.instance()
     val enumAnalyzer = EnumAnalyzer(this)
     var interactive = false
@@ -486,13 +486,10 @@ class VirtualMachine2 private constructor(
     }
 
     fun getExecutionGraph(method: VirtualMethod): ExecutionGraph2 {
-        if (!methodToGraph.containsKey(method)) {
-            if (!methodToTemplateOps.containsKey(method)) {
-                updateTemplateOps(method)
-            }
-            methodToGraph[method] = ExecutionGraph2(method, this)
+        if (!methodToTemplateOps.containsKey(method)) {
+            updateTemplateOps(method)
         }
-        return methodToGraph[method]!!
+        return ExecutionGraph2(method, this)
     }
 
     fun spawnEntrypointState(methodSignature: String): ExecutionState {

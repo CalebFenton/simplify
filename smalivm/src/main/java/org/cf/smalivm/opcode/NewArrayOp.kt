@@ -24,8 +24,8 @@ class NewArrayOp internal constructor(
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-        val lengthItem = node.state.readRegister(lengthRegister)
-        val instance = buildInstance(lengthItem, node.classLoader)
+        val length = node.state.readRegister(lengthRegister)
+        val instance = buildInstance(length, node.classLoader)
         if (instance is Throwable) {
             return throwException(instance)
         }
