@@ -12,12 +12,12 @@ import org.cf.smalivm2.*
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.formatter.DexFormatter
 import org.jf.dexlib2.iface.instruction.Instruction
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction
 import org.jf.dexlib2.iface.instruction.formats.Instruction35c
 import org.jf.dexlib2.iface.instruction.formats.Instruction3rc
 import org.jf.dexlib2.iface.reference.MethodReference
-import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 import java.util.*
 
@@ -27,38 +27,10 @@ class InvokeOp internal constructor(
     val parameterRegisters: IntArray,
 ) : Op(location) {
 
-//    var isDebugMode: Boolean
-//    var debuggedMethodExecutor: MethodExecutor? = null
-//        private set
-//    private var debuggedCallerContext: ExecutionContext? = null
-//    private var debuggedCalleeContext: ExecutionContext? = null
-//    private var debuggedNode: ExecutionNode? = null
-
-//    init {
-//        analyzedParameterTypes = arrayOfNulls(method.parameterTypeNames.size)
-//        // TODO: set these in the node!
-////        sideEffectLevel = SideEffect.Level.STRONG
-//        isDebugMode = false
-//    }
-
     override val registersReadCount = parameterRegisters.size
     override val registersAssignedCount = 1
 
     override fun execute(node: ExecutionNode): Array<out UnresolvedChild> {
-//        if (method.signature == CommonTypes.OBJECT + "-><init>()V") {
-//            // Object.<init> is a special little snow flake
-//            return executeLocalObjectInit(node)
-//        }
-//
-//        if (method.name == "clone" && parameterRegisters.size == 1 && method.signature[0] == '[') {
-//            val targetRegister = parameterRegisters[0]
-//            val value = node.state.peekRegister(targetRegister)!!
-//            if (value.isNotNull && value.rawType[0] == '[') {
-//                // Ljava/lang/Object;->clone()Ljava/lang/Object; is also a special snow flake
-//                return executeObjectArrayClone(node)
-//            }
-//        }
-
         // Must do this at run time to take advantage of extra type information
         val targetMethod = if (!method.isFinal && (name.startsWith("invoke-virtual") || name.startsWith("invoke-interface"))) {
             val targetRegister = parameterRegisters[0]
@@ -94,30 +66,6 @@ class InvokeOp internal constructor(
         sb.append("}, ").append(method)
         return sb.toString()
     }
-
-//    private fun executeObjectArrayClone(node: ExecutionNode): Array<out UnresolvedChild> {
-//        val instanceRegister = parameterRegisters[0]
-//        val arrayItem = node.state.peekRegister(instanceRegister)!!
-//        if (arrayItem.isNull) {
-//            // This operation would have thrown a null pointer exception, and nothing else.
-//            return throwException(NullPointerException::class.java)
-//        }
-//        val clone = when {
-//            arrayItem.isUnknown -> UnknownValue()
-//            else -> {
-//                try {
-//                    val m = Any::class.java.getDeclaredMethod("clone")
-//                    m.isAccessible = true
-//                    m.invoke(arrayItem.raw)
-//                } catch (e: Exception) {
-//                    log.error("Real exception initializing Object; returning unknown", e)
-//                    UnknownValue()
-//                }
-//            }
-//        }
-//        node.state.assignResultRegister(clone, arrayItem.type)
-//        return finishOp()
-//    }
 
     private fun analyzeParameterTypes(node: ExecutionNode): Array<String> {
         /*
@@ -359,7 +307,7 @@ class InvokeOp internal constructor(
             val registers = buildRegisters(location.instruction)
             val className = methodReference.definingClass
             val type = classManager.getVirtualType(className)
-            val methodSignature = ReferenceUtil.getMethodDescriptor(methodReference)
+            val methodSignature = DexFormatter.INSTANCE.getMethodDescriptor(methodReference)
             val methodDescriptor = methodSignature.split("->")[1]
             val method = type.getMethod(methodDescriptor) ?: throw RuntimeException("Method doesn't exist: $methodSignature")
             val parameterRegisters = buildParameterRegisters(method.parameterTypeNames, registers)

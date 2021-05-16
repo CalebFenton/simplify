@@ -10,12 +10,12 @@ import org.cf.smalivm2.UnresolvedChild
 import org.cf.util.ClassNameUtils
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.formatter.DexFormatter
 import org.jf.dexlib2.iface.instruction.NarrowLiteralInstruction
 import org.jf.dexlib2.iface.instruction.OneRegisterInstruction
 import org.jf.dexlib2.iface.instruction.ReferenceInstruction
 import org.jf.dexlib2.iface.instruction.WideLiteralInstruction
 import org.jf.dexlib2.iface.reference.StringReference
-import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class ConstOp internal constructor(
@@ -41,25 +41,25 @@ class ConstOp internal constructor(
     override fun toString(): String {
         val sb = StringBuilder(name)
         sb.append(" r").append(destRegister).append(", ")
-        var `val`: String
+        var value: String
         when (constantType) {
             ConstantType.CLASS -> sb.append(literal)
             ConstantType.NARROW -> {
-                `val` = Integer.toString(literal as Int, 16)
-                if (`val`.startsWith("-")) {
+                value = (literal as Int).toString(16)
+                if (value.startsWith("-")) {
                     sb.append('-')
-                    `val` = `val`.substring(1)
+                    value = value.substring(1)
                 }
-                sb.append("0x").append(`val`)
+                sb.append("0x").append(value)
             }
             ConstantType.STRING -> sb.append('"').append(literal as String).append('"')
             ConstantType.WIDE -> {
-                `val` = java.lang.Long.toString(literal as Long, 16)
-                if (`val`.startsWith("-")) {
+                value = java.lang.Long.toString(literal as Long, 16)
+                if (value.startsWith("-")) {
                     sb.append('-')
-                    `val` = `val`.substring(1)
+                    value = value.substring(1)
                 }
-                sb.append("0x").append(`val`)
+                sb.append("0x").append(value)
             }
         }
         return sb.toString()
@@ -128,7 +128,7 @@ class ConstOp internal constructor(
                     // Defer to actual execution to handle any possible exceptions.
                     val instr = location.instruction as ReferenceInstruction
                     val classRef = instr.reference
-                    literal = ReferenceUtil.getReferenceString(classRef)!!
+                    literal = DexFormatter.INSTANCE.getReference(classRef)
                     constantType = ConstantType.CLASS
                 }
                 opName.contains("-wide") -> {

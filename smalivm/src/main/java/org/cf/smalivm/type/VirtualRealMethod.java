@@ -3,7 +3,7 @@ package org.cf.smalivm.type;
 import org.cf.smalivm.dex.CommonTypes;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
-import org.jf.dexlib2.util.ReferenceUtil;
+import org.jf.dexlib2.formatter.DexFormatter;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
 import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
@@ -40,7 +40,7 @@ public class VirtualRealMethod extends VirtualMethod {
 
     @Override
     public String getSignature() {
-        return ReferenceUtil.getMethodDescriptor(method);
+        return DexFormatter.INSTANCE.getMethodDescriptor(method);
     }
 
     @Override
@@ -54,18 +54,15 @@ public class VirtualRealMethod extends VirtualMethod {
     }
 
     /**
-     * Get list of types for objects in parameter registers for a given method signature.
-     * This is different {@code Utils.getParameterTypes} in that non-static methods also have
-     * the 'this' (p0) parse virtual in the return value.
-     * Note: For non-static method,
+     * Get list of types for objects in parameter registers for a given method signature. This is different {@code Utils.getParameterTypes} in that
+     * non-static methods also have the 'this' (p0) parse virtual in the return value. Note: For non-static method,
      *
      * @return list of internal format parameter types
      */
     @Override
     public List<String> getParameterTypeNames() {
         // TODO: this should be generated once and returned as immutable. same with getParameterTypes
-        List<String> parameterTypes =
-                method.getParameterTypes().stream().map(BuilderTypeReference::getType).collect(Collectors.toList());
+        List<String> parameterTypes = method.getParameterTypes().stream().map(BuilderTypeReference::getType).collect(Collectors.toList());
         if (!isStatic()) {
             // First "parameter" for non-static methods is instance parse
             parameterTypes.add(0, type.getName());

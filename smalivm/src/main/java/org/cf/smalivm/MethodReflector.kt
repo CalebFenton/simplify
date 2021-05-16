@@ -21,10 +21,10 @@ class MethodReflector {
         private val log = LoggerFactory.getLogger(MethodReflector::class.java.simpleName)
         private val childProducer = UnresolvedChildProducer()
 
-        fun reflect(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader): Array<out UnresolvedChild> {
+        fun reflect(method: VirtualMethod, state: ExecutionState): Array<out UnresolvedChild> {
             log.debug("Reflecting {} with state:\n{}", method, state)
             val returnRaw = try {
-                invoke(method, state, classLoader)
+                invoke(method, state)
             } catch (e: Exception) {
                 log.warn("Failed to reflect {}: ", method, e)
                 log.debug("Stack trace: ", e)
@@ -75,7 +75,7 @@ class MethodReflector {
             return ReflectionArguments(args, parameterTypes)
         }
 
-        private operator fun invoke(method: VirtualMethod, state: ExecutionState, classLoader: ClassLoader): Any? {
+        private operator fun invoke(method: VirtualMethod, state: ExecutionState): Any? {
             val klazz = Class.forName(method.binaryClassName)
             val invocationArgs = buildReflectionArguments(method, state)
             val args = invocationArgs.args

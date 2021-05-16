@@ -9,8 +9,8 @@ import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.formatter.DexFormatter
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c
-import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class NewArrayOp internal constructor(
@@ -61,7 +61,7 @@ class NewArrayOp internal constructor(
             val instr = location.instruction as Instruction22c
             val destRegister = instr.registerA
             val sizeRegister = instr.registerB
-            val arrayType = ReferenceUtil.getReferenceString(instr.reference)!!
+            val arrayType = DexFormatter.INSTANCE.getReference(instr.reference)
             return NewArrayOp(location, destRegister, sizeRegister, arrayType)
         }
     }

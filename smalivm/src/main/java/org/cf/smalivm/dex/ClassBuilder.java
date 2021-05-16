@@ -5,6 +5,7 @@ import com.google.common.primitives.Ints;
 import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.ClassManagerFactory;
 import org.cf.smalivm.type.VirtualClass;
+import org.jf.dexlib2.formatter.DexFormatter;
 import org.jf.dexlib2.iface.Annotation;
 import org.jf.dexlib2.iface.AnnotationElement;
 import org.jf.dexlib2.iface.ClassDef;
@@ -13,7 +14,6 @@ import org.jf.dexlib2.iface.Field;
 import org.jf.dexlib2.iface.Method;
 import org.jf.dexlib2.iface.TryBlock;
 import org.jf.dexlib2.iface.value.EncodedValue;
-import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderEncodedValues;
 import org.jf.dexlib2.writer.builder.BuilderMethodReference;
 import org.objectweb.asm.ClassWriter;
@@ -51,8 +51,7 @@ public class ClassBuilder {
         byte[] classBytes = builder.build(virtualClass.getClassDef());
 
         new FileOutputStream(new java.io.File("temp.class")).write(classBytes);
-        System.out.println(
-                "Generated class bytes for " + virtualClass + ", size=" + classBytes.length);
+        System.out.println("Generated class bytes for " + virtualClass + ", size=" + classBytes.length);
         SmaliClassLoader classLoader = new SmaliClassLoader(classManager);
         classLoader.loadClass(virtualClass.getSourceName());
     }
@@ -82,8 +81,7 @@ public class ClassBuilder {
             }
             StringBuilder sb = new StringBuilder();
             for (AnnotationElement e : annotation.getElements()) {
-                BuilderEncodedValues.BuilderArrayEncodedValue ev = (BuilderEncodedValues.BuilderArrayEncodedValue) e
-                        .getValue();
+                BuilderEncodedValues.BuilderArrayEncodedValue ev = (BuilderEncodedValues.BuilderArrayEncodedValue) e.getValue();
                 for (EncodedValue v : ev.getValue()) {
                     BuilderEncodedValues.BuilderStringEncodedValue value = (BuilderEncodedValues.BuilderStringEncodedValue) v;
                     sb.append(value.getValue());
@@ -112,8 +110,7 @@ public class ClassBuilder {
         }
 
         Set<String> exceptionTypes = new HashSet<>();
-        for (TryBlock<? extends ExceptionHandler> tryBlock : method.getImplementation()
-                .getTryBlocks()) {
+        for (TryBlock<? extends ExceptionHandler> tryBlock : method.getImplementation().getTryBlocks()) {
             for (ExceptionHandler handler : tryBlock.getExceptionHandlers()) {
                 String type = handler.getExceptionType();
                 if (type == null) {
@@ -131,16 +128,14 @@ public class ClassBuilder {
     private String[] buildInterfaces(ClassDef classDef) {
         List<String> interfaces = classDef.getInterfaces();
 
-        return interfaces.stream().map(this::stripName)
-                .toArray(size -> new String[interfaces.size()]);
+        return interfaces.stream().map(this::stripName).toArray(size -> new String[interfaces.size()]);
     }
 
     private String stripName(String internalName) {
         return internalName.substring(1, internalName.length() - 1);
     }
 
-    private void visitInnerClasses(BuilderEncodedValues.BuilderTypeEncodedValue value,
-                                   ClassWriter classWriter) {
+    private void visitInnerClasses(BuilderEncodedValues.BuilderTypeEncodedValue value, ClassWriter classWriter) {
         // String name, String outerName, String innerName, int access
         String internalName = value.getValue();
         String fullName = stripName(value.getValue());
@@ -155,24 +150,21 @@ public class ClassBuilder {
         classWriter.visitInnerClass(fullName, outerName, innerName, innerAccess);
     }
 
-    private void visitEnclosingMethod(BuilderEncodedValues.BuilderMethodEncodedValue value,
-                                      ClassWriter classWriter) {
+    private void visitEnclosingMethod(BuilderEncodedValues.BuilderMethodEncodedValue value, ClassWriter classWriter) {
         BuilderMethodReference methodRef = value.getValue();
         String owner = stripName(methodRef.getDefiningClass());
         String name = methodRef.getName();
-        String descriptor = ReferenceUtil.getMethodDescriptor(methodRef).split("->")[1];
+        String descriptor = DexFormatter.INSTANCE.getMethodDescriptor(methodRef).split("->")[1];
         String desc = descriptor.substring(descriptor.indexOf('('));
         classWriter.visitOuterClass(owner, name, desc);
     }
 
-    private void visitClassAnnotations(Set<? extends Annotation> annotations,
-                                       ClassWriter classWriter) {
+    private void visitClassAnnotations(Set<? extends Annotation> annotations, ClassWriter classWriter) {
         for (Annotation annotation : annotations) {
             switch (annotation.getType()) {
                 case "Ldalvik/annotation/EnclosingMethod;":
                     for (AnnotationElement e : annotation.getElements()) {
-                        BuilderEncodedValues.BuilderMethodEncodedValue v = (BuilderEncodedValues.BuilderMethodEncodedValue) e
-                                .getValue();
+                        BuilderEncodedValues.BuilderMethodEncodedValue v = (BuilderEncodedValues.BuilderMethodEncodedValue) e.getValue();
                         visitEnclosingMethod(v, classWriter);
                         // There should only ever be one enclosing method.
                         break;
@@ -180,8 +172,7 @@ public class ClassBuilder {
                     break;
                 case "Ldalvik/annotation/MemberClasses;":
                     for (AnnotationElement e : annotation.getElements()) {
-                        BuilderEncodedValues.BuilderArrayEncodedValue ev = (BuilderEncodedValues.BuilderArrayEncodedValue) e
-                                .getValue();
+                        BuilderEncodedValues.BuilderArrayEncodedValue ev = (BuilderEncodedValues.BuilderArrayEncodedValue) e.getValue();
                         for (EncodedValue v : ev.getValue()) {
                             BuilderEncodedValues.BuilderTypeEncodedValue value = (BuilderEncodedValues.BuilderTypeEncodedValue) v;
                             visitInnerClasses(value, classWriter);
@@ -225,8 +216,7 @@ public class ClassBuilder {
         mv.visitEnd();
     }
 
-    private void visitFields(Iterable<? extends Field> fields, ClassWriter classWriter,
-                             int classAccessFlags) {
+    private void visitFields(Iterable<? extends Field> fields, ClassWriter classWriter, int classAccessFlags) {
         for (Field field : fields) {
             /*
              * It's possible to declare a Smali interface with private fields. Android doesn't seem to mind, but
@@ -267,23 +257,20 @@ public class ClassBuilder {
         mv.visitEnd();
     }
 
-    private void visitEnumMethods(ClassDef classDef, Iterable<? extends Field> fields,
-                                  ClassWriter classWriter) {
+    private void visitEnumMethods(ClassDef classDef, Iterable<? extends Field> fields, ClassWriter classWriter) {
         String name = stripName(classDef.getType());
 
         int access = Opcodes.ACC_PUBLIC + Opcodes.ACC_FINAL + Opcodes.ACC_STATIC + Opcodes.ACC_ENUM;
         classWriter.visitField(access, "$shadow_instance", classDef.getType(), null, null);
 
-        MethodVisitor mv = classWriter
-                .visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
+        MethodVisitor mv = classWriter.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
         mv.visitCode();
 
         List<Field> fieldList = new LinkedList<>();
         fields.forEach(fieldList::add);
 
         // Set the fields for each enum value
-        List<String> fieldNames = fieldList.stream()
-                .filter(f -> (f.getAccessFlags() & Opcodes.ACC_ENUM) != 0).map(Field::getName)
+        List<String> fieldNames = fieldList.stream().filter(f -> (f.getAccessFlags() & Opcodes.ACC_ENUM) != 0).map(Field::getName)
                 .collect(Collectors.toList());
         fieldNames.add("$shadow_instance");
         int fieldCount = fieldNames.size();
@@ -293,8 +280,7 @@ public class ClassBuilder {
             mv.visitInsn(Opcodes.DUP);
             mv.visitLdcInsn(fieldName);
             mv.visitIntInsn(Opcodes.BIPUSH, i);
-            mv.visitMethodInsn(Opcodes.INVOKESPECIAL, name, "<init>", "(Ljava/lang/String;I)V",
-                               false);
+            mv.visitMethodInsn(Opcodes.INVOKESPECIAL, name, "<init>", "(Ljava/lang/String;I)V", false);
             mv.visitFieldInsn(Opcodes.PUTSTATIC, name, fieldName, classDef.getType());
         }
 
@@ -320,7 +306,8 @@ public class ClassBuilder {
              * which looks right and use that name.
              */
             int fieldFlags = field.getAccessFlags();
-            if ((fieldFlags & Opcodes.ACC_SYNTHETIC) != 0 && (fieldFlags & Opcodes.ACC_PRIVATE) != 0 && (fieldFlags & Opcodes.ACC_STATIC) != 0 && (fieldFlags & Opcodes.ACC_FINAL) != 0 && field.getType().charAt(0) == '[') {
+            if ((fieldFlags & Opcodes.ACC_SYNTHETIC) != 0 && (fieldFlags & Opcodes.ACC_PRIVATE) != 0 && (fieldFlags & Opcodes.ACC_STATIC) != 0 && (fieldFlags & Opcodes.ACC_FINAL) != 0 && field
+                    .getType().charAt(0) == '[') {
                 valuesFieldName = field.getName();
                 break;
             }
@@ -331,20 +318,17 @@ public class ClassBuilder {
         mv.visitMaxs(0, 0);
         mv.visitEnd();
 
-        mv = classWriter
-                .visitMethod(Opcodes.ACC_PRIVATE, "<init>", "(Ljava/lang/String;I)V", null, null);
+        mv = classWriter.visitMethod(Opcodes.ACC_PRIVATE, "<init>", "(Ljava/lang/String;I)V", null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitVarInsn(Opcodes.ALOAD, 1);
         mv.visitVarInsn(Opcodes.ILOAD, 2);
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Enum", "<init>",
-                           "(Ljava/lang/String;I)V", false);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Enum", "<init>", "(Ljava/lang/String;I)V", false);
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();
 
-        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values",
-                                     "()[" + classDef.getType(), null, null);
+        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "values", "()[" + classDef.getType(), null, null);
         mv.visitCode();
         mv.visitFieldInsn(Opcodes.GETSTATIC, name, valuesFieldName, "[" + classDef.getType());
         mv.visitInsn(Opcodes.DUP);
@@ -359,28 +343,24 @@ public class ClassBuilder {
         mv.visitVarInsn(Opcodes.ASTORE, 2);
         mv.visitInsn(Opcodes.ICONST_0);
         mv.visitVarInsn(Opcodes.ILOAD, 1);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "arraycopy",
-                           "(Ljava/lang/Object;ILjava/lang/Object;II)V", false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V", false);
         mv.visitVarInsn(Opcodes.ALOAD, 2);
         mv.visitInsn(Opcodes.ARETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();
 
-        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "valueOf",
-                                     "(Ljava/lang/String;)" + classDef.getType(), null, null);
+        mv = classWriter.visitMethod(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC, "valueOf", "(Ljava/lang/String;)" + classDef.getType(), null, null);
         mv.visitCode();
         mv.visitLdcInsn(Type.getType(classDef.getType()));
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Enum", "valueOf",
-                           "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;", false);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Enum", "valueOf", "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;", false);
         mv.visitTypeInsn(Opcodes.CHECKCAST, name);
         mv.visitInsn(Opcodes.ARETURN);
         mv.visitMaxs(0, 0);
         mv.visitEnd();
     }
 
-    private void visitMethods(ClassDef classDef, Iterable<? extends Method> methods,
-                              ClassWriter classWriter) {
+    private void visitMethods(ClassDef classDef, Iterable<? extends Method> methods, ClassWriter classWriter) {
         boolean hasDefaultConstructor = false;
         for (Method method : methods) {
             int access = method.getAccessFlags();

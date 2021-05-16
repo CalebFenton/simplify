@@ -7,9 +7,9 @@ import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.Value
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.formatter.DexFormatter
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c
 import org.jf.dexlib2.iface.reference.FieldReference
-import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class IGetOp(
@@ -45,7 +45,7 @@ class IGetOp(
             val destRegister = instr.registerA
             val instanceRegister = instr.registerB
             val reference = instr.reference as FieldReference
-            val fieldDescriptor = ReferenceUtil.getFieldDescriptor(reference)
+            val fieldDescriptor = DexFormatter.INSTANCE.getFieldDescriptor(reference)
             return IGetOp(location, destRegister, instanceRegister, fieldDescriptor)
         }
     }

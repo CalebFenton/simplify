@@ -7,9 +7,9 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
+import org.jf.dexlib2.formatter.DexFormatter
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c
 import org.jf.dexlib2.iface.reference.FieldReference
-import org.jf.dexlib2.util.ReferenceUtil
 import org.slf4j.LoggerFactory
 
 class IPutOp internal constructor(
@@ -48,7 +48,7 @@ class IPutOp internal constructor(
             val valueRegister = instr.registerA
             val instanceRegister = instr.registerB
             val reference = instr.reference as FieldReference
-            val fieldDescriptor = ReferenceUtil.getFieldDescriptor(reference)
+            val fieldDescriptor = DexFormatter.INSTANCE.getFieldDescriptor(reference)
             return IPutOp(location, valueRegister, instanceRegister, fieldDescriptor)
         }
     }

@@ -70,7 +70,7 @@ class Configuration private constructor() {
             return instance!!
         }
 
-        fun load(path: String?): List<String> {
+        fun load(path: String): List<String> {
             val url = Resources.getResource(path)
             var lines: MutableList<String> = LinkedList()
             try {

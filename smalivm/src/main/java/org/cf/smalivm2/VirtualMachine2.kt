@@ -209,7 +209,7 @@ class VirtualMachine2 private constructor(
                         MethodEmulator.emulate(current.method, current.state, current.parent, this)
                     } else if (entry.graph.reflected && allArgumentsKnown) {
                         log.debug("reflecting {}", current.method)
-                        MethodReflector.reflect(current.method, current.state, current.classLoader)
+                        MethodReflector.reflect(current.method, current.state)
                     } else {
                         log.trace("All arguments not known for emulated or reflected method {}; assuming maximum unknown.", current.method)
                         finishStep(entry, current, abortMethod = true)
