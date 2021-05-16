@@ -146,6 +146,9 @@ class SmaliClassLoaderTest {
         val expectedClassNames = arrayOf(
             PBEKeySpec::class.java.name, PBEKey::class.java.name, CipherSpi::class.java.name
         )
+        val expectedClasses = arrayOf(
+            PBEKeySpec::class.java, PBEKey::class.java, CipherSpi::class.java
+        )
         for (expectedClassName in expectedClassNames) {
             val actual = classLoader.loadClass(expectedClassName)
             assertEquals(expectedClassName, actual.name)

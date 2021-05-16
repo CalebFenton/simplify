@@ -190,7 +190,7 @@ class InvokeOp internal constructor(
             for (parameterIndex in parameterTypes.indices) {
                 val type = parameterTypes[parameterIndex]
                 if (node.configuration.isMutable(type)) {
-                    val value = calleeGraph.getTerminatingParameterConsensus(parameterRegister)
+                    val value = calleeGraph.getTerminatingParameterConsensus(parameterRegister)!!
                     val register = parameterRegisters[parameterIndex]
                     node.state.assignParameter(register, value, updateIdentities = true)
                 }
@@ -202,13 +202,13 @@ class InvokeOp internal constructor(
         if (hasOneReturnPath) {
             if (!method.returnsVoid()) {
                 // Terminating addresses may include throw ops which may not have a return register set
-                val result = calleeGraph.getRegisterConsensus(calleeGraph.connectedReturnAddresses, ExecutionState.RETURN_REGISTER)
+                val result = calleeGraph.getRegisterConsensus(calleeGraph.connectedReturnAddresses, ExecutionState.RETURN_REGISTER)!!
                 node.state.assignResultRegister(result)
             } else {
                 if (calleeGraph.method.name == "<init>") {
                     // This was a call to a local parent <init> method
                     val calleeInstanceRegister = calleeGraph.root.state.firstParameterRegister
-                    val newInstance = calleeGraph.getRegisterConsensus(calleeGraph.terminatingAddresses, calleeInstanceRegister)
+                    val newInstance = calleeGraph.getRegisterConsensus(calleeGraph.terminatingAddresses, calleeInstanceRegister)!!
                     val instanceRegister = parameterRegisters[0]
                     node.state.assignRegister(instanceRegister, newInstance, updateIdentities = true)
                 }
@@ -256,7 +256,8 @@ class InvokeOp internal constructor(
         // TODO: add tests for this
         if (calledMethod.name == "<clinit>") {
             node.state.setClassInitialized(calledMethod.definingClass, SideEffectLevel.STRONG)
-            for (field in calledMethod.definingClass.fields) {
+            val staticFields = calledMethod.definingClass.fields.filter { it.isStatic }
+            for (field in staticFields) {
                 val value = Value.unknown(field.type)
                 node.state.pokeField(field, value)
             }

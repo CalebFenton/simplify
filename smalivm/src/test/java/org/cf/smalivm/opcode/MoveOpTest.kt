@@ -41,7 +41,7 @@ class MoveOpTest {
         val register0 = graph.getRegisterConsensus(1, 0)
         val register1 = graph.getRegisterConsensus(1, 1)
         assertSame(register0, register1)
-        assertTrue(register0.raw is Any)
+        assertTrue(register0?.raw is Any)
     }
 
     @Test

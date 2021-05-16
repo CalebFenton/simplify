@@ -3,9 +3,14 @@ package org.cf.smalivm.type;
 import org.cf.smalivm.dex.CommonTypes;
 import org.jf.dexlib2.builder.BuilderTryBlock;
 import org.jf.dexlib2.builder.MutableMethodImplementation;
+import org.jf.dexlib2.formatter.DexFormatter;
 import org.jf.dexlib2.iface.reference.Reference;
+import org.jf.dexlib2.util.ReferenceUtil;
 import org.jf.dexlib2.writer.builder.BuilderMethod;
+import org.jf.dexlib2.writer.builder.BuilderStringReference;
+import org.jf.dexlib2.writer.builder.BuilderTypeReference;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -95,7 +100,17 @@ public class VirtualArrayMethod extends VirtualMethod {
 
     @Override
     public String getSignature() {
-        return reference.toString();
+        try {
+            // Note: Fairly sure there's a bug in how dexlib2 handles array field references, e.g. [I->clone()Ljava/lang/Object;
+            // It could be that I'm not interning a class somewhere or something. If I don't do it this way, I get stack overflow
+            // exceptions because of an infinite loop -- even using DexFormatter.
+            Field f = reference.getClass().getDeclaredField("stringReference");
+            f.setAccessible(true);
+            return ((BuilderStringReference) f.get(reference)).getString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "unknown";
     }
 
 }

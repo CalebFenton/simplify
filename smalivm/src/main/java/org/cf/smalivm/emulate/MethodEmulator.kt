@@ -5,31 +5,39 @@ import org.cf.smalivm2.ExecutionNode
 import org.cf.smalivm2.ExecutionState
 import org.cf.smalivm2.UnresolvedChild
 import org.cf.smalivm2.VirtualMachine2
-import org.jf.dexlib2.builder.MethodLocation
 import org.slf4j.LoggerFactory
 
 
 class MethodEmulator {
     companion object {
         private val log = LoggerFactory.getLogger(MethodEmulator::class.java.simpleName)
-        private val EMULATED_METHOD_CALLS: MutableMap<String, Class<out EmulatedMethodCall>> = HashMap()
-        private val UNKNOWN_HANDLERS: MutableSet<String> = HashSet()
+        private val EMULATED_METHOD_SIGNATURES: MutableMap<String, EmulatedMethodCall> = HashMap()
+        private val EMULATED_METHOD_MATCHES: MutableMap<(methodSignature: String) -> Boolean, EmulatedMethodCall> = HashMap()
+        private val UNKNOWN_HANDLER_SIGNATURES: MutableSet<String> = HashSet()
+        private val UNKNOWN_HANDLER_MATCHES: MutableSet<(methodSignature: String) -> Boolean> = HashSet()
 
         init {
-            addMethod("Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z", android_text_TextUtils_isEmpty::class.java)
-            addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", org_cf_simplify_Utils_breakpoint::class.java)
-            addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", java_lang_Class_forName::class.java)
-            addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;", java_lang_reflect_Field_get::class.java)
-            addMethod("Ljava/lang/Object;->getClass()Ljava/lang/Class;", java_lang_Object_getClass::class.java, true)
-            addMethod("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V", java_lang_Enum_init::class.java)
-            addMethod("Ljava/lang/Object;-><init>()V", java_lang_Object_init::class.java)
-            addMethod("Ljava/lang/Object;->clone()Ljava/lang/Object;", java_lang_Object_clone::class.java, true)
+            addMethod("Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z", android_text_TextUtils_isEmpty())
+            addMethod("Lorg/cf/simplify/Utils;->breakpoint()V", org_cf_simplify_Utils_breakpoint())
+            addMethod("Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;", java_lang_Class_forName())
+            addMethod("Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;", java_lang_reflect_Field_get())
+            addMethod("Ljava/lang/Object;->getClass()Ljava/lang/Class;", java_lang_Object_getClass())
+            addMethod("Ljava/lang/Enum;-><init>(Ljava/lang/String;I)V", java_lang_Enum_init())
+            addMethod("Ljava/lang/Object;-><init>()V", java_lang_Object_init())
+            addMethod({ signature: String -> signature.endsWith("->clone()Ljava/lang/Object;") }, java_lang_Object_clone())
         }
 
-        fun addMethod(methodSignature: String, methodClass: Class<out EmulatedMethodCall>, canHandleUnknownValues: Boolean = false) {
-            EMULATED_METHOD_CALLS[methodSignature] = methodClass
-            if (canHandleUnknownValues) {
-                UNKNOWN_HANDLERS.add(methodSignature)
+        private fun addMethod(match: (methodSignature: String) -> Boolean, method: EmulatedMethodCall) {
+            EMULATED_METHOD_MATCHES[match] = method
+            if (method.canHandleUnknownValues) {
+                UNKNOWN_HANDLER_MATCHES.add(match)
+            }
+        }
+
+        fun addMethod(methodSignature: String, method: EmulatedMethodCall) {
+            EMULATED_METHOD_SIGNATURES[methodSignature] = method
+            if (method.canHandleUnknownValues) {
+                UNKNOWN_HANDLER_SIGNATURES.add(methodSignature)
             }
         }
 
@@ -38,7 +46,17 @@ class MethodEmulator {
         }
 
         fun canEmulate(methodSignature: String): Boolean {
-            return EMULATED_METHOD_CALLS.containsKey(methodSignature)
+            if (EMULATED_METHOD_SIGNATURES.containsKey(methodSignature)) {
+                return true
+            }
+            for ((match, method) in EMULATED_METHOD_MATCHES) {
+                if (match.invoke(methodSignature)) {
+                    // Cache this signature for faster lookups later
+                    addMethod(methodSignature, method)
+                    return true
+                }
+            }
+            return false
         }
 
         fun canHandleUnknownValues(method: VirtualMethod): Boolean {
@@ -46,28 +64,28 @@ class MethodEmulator {
         }
 
         fun canHandleUnknownValues(methodSignature: String): Boolean {
-            return UNKNOWN_HANDLERS.contains(methodSignature)
+            return UNKNOWN_HANDLER_SIGNATURES.contains(methodSignature)
         }
 
         fun clearMethods() {
-            EMULATED_METHOD_CALLS.clear()
+            EMULATED_METHOD_SIGNATURES.clear()
         }
 
-        private fun getMethod(methodSignature: String): EmulatedMethodCall {
-            val methodClass = EMULATED_METHOD_CALLS[methodSignature]!!
-            return try {
-                methodClass.newInstance()
-            } catch (e: Exception) {
-                throw RuntimeException("Exception instantiating emulated method $methodSignature", e)
-            }
-        }
+//        private fun getMethod(methodSignature: String): EmulatedMethodCall {
+//            val methodClass = EMULATED_METHOD_SIGNATURES[methodSignature]!!
+//            return try {
+//                methodClass.newInstance()
+//            } catch (e: Exception) {
+//                throw RuntimeException("Exception instantiating emulated method $methodSignature", e)
+//            }
+//        }
 
         fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
             return emulate(method.signature, state, callerNode, vm)
         }
 
         fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
-            val emulatedMethodCall = getMethod(methodSignature)
+            val emulatedMethodCall = EMULATED_METHOD_SIGNATURES[methodSignature]!!
             return try {
                 emulatedMethodCall.execute(state, callerNode, vm)
             } catch (e: Exception) {

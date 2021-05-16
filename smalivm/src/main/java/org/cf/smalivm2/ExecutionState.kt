@@ -512,12 +512,14 @@ class ExecutionState internal constructor(
         val className = field.definingClass.binaryName
         try {
             val klazz = Class.forName(className)
-            val realField = FieldUtils.getField(klazz, field.name)
-            val fieldValue = realField[null]
+//            val realField = FieldUtils.getField(klazz, field.name)
+            val realField = klazz.getDeclaredField(field.name)
+            realField.isAccessible = true
+            val fieldValue = realField.get(null)
             return Value.wrap(fieldValue, field.type)
         } catch (e: Exception) {
             // TODO: medium - throw these exceptions and handle them by setting correct virtual exceptions
-            log.warn("Couldn't access field: {}", field.toString())
+            log.warn("Exception accessing {} from {}: {}", field.toString(), node, e.toString())
             log.debug("Stack trace:", e)
         }
         return Value.unknown(field.type)

@@ -148,9 +148,6 @@ class VirtualMachine2 private constructor(
         if (!interactive) {
             if (maxAddressVisits > 0) {
                 val addressToVisitCount = entry.addressToVisitCount
-                if (current == null || current.op == null || current.op.address == null) {
-                    println("asf")
-                }
                 val address = current.op.address
                 val newAddressVisitCount = (addressToVisitCount[address] ?: 0) + 1
                 if (newAddressVisitCount > maxAddressVisits) {
@@ -176,7 +173,7 @@ class VirtualMachine2 private constructor(
         if (current.isEntrypoint) {
             if (!interactive) {
                 if (maxCallDepth > 0 && current.callDepth > maxCallDepth) {
-                    log.warn("Exceeded maximum call depth at ${current.method} @${current.op.address}")
+                    log.warn("Exceeded maximum call depth at {} @{}", current.method, current.op.address)
                     finishStep(entry, current, abortMethod = true)
                     return
                 }
@@ -184,6 +181,12 @@ class VirtualMachine2 private constructor(
 
             val isStaticInit = current.method.name == "<clinit>"
             if (isStaticInit) {
+                if (configuration.isUnsafeMethod(current.method.signature)) {
+                    log.warn("Refusing to initialize unsafe class: {}", current.method)
+                    finishStep(entry, current, abortMethod = true)
+                    return
+                }
+
                 if (entry.graph.reflected) {
                     // No need to execute on the VM since this class is reflected
                     // Set this class as initialized in the caller since we're not going to collapse the multiverse
@@ -192,7 +195,7 @@ class VirtualMachine2 private constructor(
                     return
                 }
             } else {
-                val initializationQueued = enqueueStaticInitializationIfNecessary(current.method.definingClass, current)
+                val initializationQueued = enqueueClassInitializationIfNecessary(current.method.definingClass, current)
                 if (initializationQueued) {
                     // Need to initialize classes before executing this. Pretend it never happened.
                     entry.nodes.add(current)
@@ -201,12 +204,12 @@ class VirtualMachine2 private constructor(
 
                 if (entry.graph.emulatedOrReflected) {
                     val allArgumentsKnown = current.state.allArgumentsKnown()
-                    if (entry.graph.emulated && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
+                    unresolvedChildren = if (entry.graph.emulated && (allArgumentsKnown || MethodEmulator.canHandleUnknownValues(current.method))) {
                         log.debug("emulating {}", current.method)
-                        unresolvedChildren = MethodEmulator.emulate(current.method, current.state, current.parent, this)
+                        MethodEmulator.emulate(current.method, current.state, current.parent, this)
                     } else if (entry.graph.reflected && allArgumentsKnown) {
                         log.debug("reflecting {}", current.method)
-                        unresolvedChildren = MethodReflector.reflect(current.method, current.state, current.classLoader)
+                        MethodReflector.reflect(current.method, current.state, current.classLoader)
                     } else {
                         log.trace("All arguments not known for emulated or reflected method {}; assuming maximum unknown.", current.method)
                         finishStep(entry, current, abortMethod = true)
@@ -254,7 +257,7 @@ class VirtualMachine2 private constructor(
                     // But sometimes a class doesn't have a <clinit> method so always mark this node to be resumed
                     resumeNodes.add(current)
                     entry.nodes.add(current)
-                    enqueueStaticInitializationIfNecessary(unresolvedChild.virtualClass, current)
+                    enqueueClassInitializationIfNecessary(unresolvedChild.virtualClass, current)
                 }
                 is UnresolvedMethodInvocationChild -> {
                     resumeNodes.add(current)
@@ -419,7 +422,8 @@ class VirtualMachine2 private constructor(
                 continue
             }
 
-            for (field in virtualClass.fields) {
+            val staticFields = virtualClass.fields.filter { it.isStatic }
+            for (field in staticFields) {
                 val consensus = graph.getTerminatingFieldConsensus(field)
                 // TODO: Should this also include immutable types?
                 if (consensus.isPrimitive) {
@@ -443,9 +447,9 @@ class VirtualMachine2 private constructor(
         }
     }
 
-    private fun enqueueStaticInitializationIfNecessary(virtualClass: VirtualType, parent: ExecutionNode): Boolean {
+    private fun enqueueClassInitializationIfNecessary(virtualClass: VirtualType, parent: ExecutionNode): Boolean {
         /*
-         * Classed should be statically initialized when:
+         * On the JVM, classed should be statically initialized when:
          * 1.) The invocation of a method declared by the class (not inherited from a superclass)
          * 2.) The invocation of a constructor of the class (covered by #1)
          * 3.) The use or assignment of a field declared by a class (not inherited from a superclass), except for fields
@@ -462,7 +466,7 @@ class VirtualMachine2 private constructor(
             if (Modifier.isAbstract(accessFlags) || Modifier.isInterface(accessFlags) || Modifier.isNative(accessFlags)) {
                 continue
             }
-            enqueueStaticInitializationIfNecessary(ancestor, parent)
+            enqueueClassInitializationIfNecessary(ancestor, parent)
         }
 
         val method = virtualClass.getMethod("<clinit>()V")
@@ -474,7 +478,6 @@ class VirtualMachine2 private constructor(
             parent.state.setClassInitialized(virtualClass)
             return false
         }
-
         val calleeState = ExecutionState.build(method, classManager, classLoader, configuration)
         enqueueMethodInvocation(method, calleeState, parent)
         return true
@@ -537,7 +540,8 @@ class VirtualMachine2 private constructor(
     }
 
     private fun initializeClassState(state: ExecutionState, virtualClass: VirtualType) {
-        for (field in virtualClass.fields) {
+        val staticFields = virtualClass.fields.filter { it.isStatic }
+        for (field in staticFields) {
             val value = Value.wrap(field.initialValue, field.type)
             state.pokeField(field, value)
         }

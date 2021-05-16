@@ -49,8 +49,8 @@ class Configuration private constructor() {
         return isSafe(virtualClass.toString())
     }
 
-    fun isUnsafeMethod(methodDescriptor: String): Boolean {
-        return unsafeMethods.contains(methodDescriptor)
+    fun isUnsafeMethod(methodSignature: String): Boolean {
+        return unsafeMethods.contains(methodSignature)
     }
 
     companion object {

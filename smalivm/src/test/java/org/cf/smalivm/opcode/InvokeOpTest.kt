@@ -346,7 +346,7 @@ class InvokeOpTest {
         }
 
         @Test
-        fun cloningArrayWithArrayCloneWorksAsExpected() {
+        fun cloningArrayWithArrayCloneCloneWorksAsExpected() {
             initial.setRegisters(0, UnknownValue(), "[I")
             expected.setRegisters(0, UnknownValue(), "[I", 1, UnknownValue(), "[I")
             Tester.test(CLASS_NAME, "invokeArrayClone()V", initial, expected)

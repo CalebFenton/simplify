@@ -27,7 +27,7 @@ class IPutOp internal constructor(
         val instance = node.state.readRegister(instanceRegister)
         // Note: Instance member (fieldDescriptor) is not actually modified here.
         // Need to spend a lot more time thinking about how to maintain instance state correctly.
-        // It may be impossible to do generally.
+        // It's non-trivial to do and maintain correctness.
         node.state.assignRegister(instanceRegister, instance)
         node.sideEffectLevel = SideEffectLevel.WEAK
         return finishOp()

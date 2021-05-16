@@ -36,6 +36,9 @@ dependencies {
     testImplementation depends.mockk
     testImplementation depends.perfidix
     testImplementation depends.junit_compile
+    testImplementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
+    testImplementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+
     testRuntimeOnly depends.junit_engine
     testRuntimeOnly depends.junit_runner
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"

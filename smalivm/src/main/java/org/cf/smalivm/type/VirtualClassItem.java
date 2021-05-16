@@ -37,5 +37,4 @@ public abstract class VirtualClassItem {
         return getSignature();
     }
 
-
 }

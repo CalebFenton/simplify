@@ -119,9 +119,6 @@ class ExecutionGraph2(
     }
 
     private fun getConsensusType(types: MutableSet<String>, values: Set<Value?>): String {
-        if (types.isEmpty()) {
-            return CommonTypes.UNKNOWN_TYPE
-        }
         if (types.size == 1) {
             return types.first()
         }
@@ -340,7 +337,7 @@ class ExecutionGraph2(
      *
      * @return consensus value over all `addresses` in `register` or [ ] if a consensus doesn't exist
      */
-    fun getRegisterConsensus(address: Int, register: Int): Value {
+    fun getRegisterConsensus(address: Int, register: Int): Value? {
         return getRegisterConsensus(intArrayOf(address), register)
     }
 
@@ -357,12 +354,13 @@ class ExecutionGraph2(
      *   return v1`</pre>
      *
      * Since the return value of `readStringFromNetwork()Ljava/lang/String;` will be `UnknownValue', the `if v0` must take both execution paths
-     * because `IfOp` won't be able to evaluate the predicate. This means `return v1` could either be `1` or `0`. There is no consensus. In this case,
-     * an [UnknownValue] will be returned.
+     * because `IfOp` won't be able to evaluate the predicate. This means `return v1` could either be `1` or `0`. The value is set but there is no
+     * consensus. In this case, an [UnknownValue] will be returned.
      *
-     * @return consensus value for `register` at each address in `addresses`, `UnknownValue` if there was no consensus
+     * @return consensus value for `register` at each address in `addresses`, `UnknownValue` if `register` was assigned but there was no consensus,
+     * null if the register was never set.
      */
-    fun getRegisterConsensus(addresses: IntArray, register: Int, treatAsParameter: Boolean = false): Value {
+    fun getRegisterConsensus(addresses: IntArray, register: Int, treatAsParameter: Boolean = false): Value? {
         val values: MutableSet<Value?> = HashSet()
         for (address in addresses) {
             values.addAll(getRegisterValues(address, register, treatAsParameter))
@@ -383,25 +381,36 @@ class ExecutionGraph2(
             types.add(value.type)
         }
 
+        if (types.isEmpty()) {
+            if (log.isWarnEnabled) {
+                log.warn("Register {} was never set in {} at addresses {}", register, this, addresses.contentToString())
+                return null
+            }
+        }
+
         var type = getConsensusType(types, values)
         if (type == CommonTypes.UNKNOWN_TYPE) {
             if (register == ExecutionState.RETURN_REGISTER) {
-                log.warn(
-                    "No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
-                    method.signature,
-                    addresses,
-                    register,
-                    type
-                )
+                if (log.isWarnEnabled) {
+                    log.warn(
+                        "No consensus type for return register; using method return type, method={}, addresses={}, register={}, types={}",
+                        method.signature,
+                        addresses.contentToString(),
+                        register,
+                        type
+                    )
+                }
                 type = method.returnType
             } else {
-                log.warn(
-                    "No consensus type; using *unknown* type! method={}, addresses={}, register={}, types={}",
-                    method.signature,
-                    addresses,
-                    register,
-                    types
-                )
+                if (log.isWarnEnabled) {
+                    log.warn(
+                        "No consensus type; using *unknown* type! method={}, addresses={}, register={}, types={}",
+                        method.signature,
+                        addresses.contentToString(),
+                        register,
+                        types
+                    )
+                }
             }
         }
         return Value.unknown(type)
@@ -409,12 +418,12 @@ class ExecutionGraph2(
 
     fun getRegisterConsensusValue(address: Int, register: Int): Any? {
         val value = getRegisterConsensus(address, register)
-        return value.raw
+        return value!!.raw
     }
 
     fun getRegisterConsensusValue(addresses: IntArray, register: Int): Any? {
         val value = getRegisterConsensus(addresses, register)
-        return value.raw
+        return value!!.raw
     }
 
     /**
@@ -464,17 +473,17 @@ class ExecutionGraph2(
         return fieldToValue
     }
 
-    fun getTerminatingParameterConsensus(register: Int): Value {
+    fun getTerminatingParameterConsensus(register: Int): Value? {
         return getTerminatingRegisterConsensus(register, treatAsParameter = true)
     }
 
-    fun getTerminatingRegisterConsensus(register: Int, treatAsParameter: Boolean = false): Value {
+    fun getTerminatingRegisterConsensus(register: Int, treatAsParameter: Boolean = false): Value? {
         val registerToValue = getTerminatingRegisterConsensus(intArrayOf(register), treatAsParameter = treatAsParameter)
-        return registerToValue[register]!!
+        return registerToValue[register]
     }
 
-    fun getTerminatingRegisterConsensus(registers: IntArray, treatAsParameter: Boolean = false): Map<Int, Value> {
-        val registerToValue: MutableMap<Int, Value> = HashMap(registers.size)
+    fun getTerminatingRegisterConsensus(registers: IntArray, treatAsParameter: Boolean = false): Map<Int, Value?> {
+        val registerToValue: MutableMap<Int, Value?> = HashMap(registers.size)
         val addresses = getConnectedTerminatingAddresses()
         if (addresses.isNotEmpty()) {
             for (register in registers) {
@@ -483,7 +492,7 @@ class ExecutionGraph2(
         } else {
             log.warn("No connected terminating addresses for register consensus; registers=$registers")
             for (register in registers) {
-                registerToValue[register] = Value.unknown(CommonTypes.UNKNOWN_TYPE)
+                registerToValue[register] = null
             }
         }
         return registerToValue
