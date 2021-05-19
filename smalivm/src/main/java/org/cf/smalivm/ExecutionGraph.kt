@@ -1,7 +1,6 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
 import com.google.common.primitives.Ints
-import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.emulate.MethodEmulator
@@ -44,7 +43,7 @@ data class UnhandledVirtualException(val node: ExecutionNode, val unresolvedChil
 
 class ExecutionGraph2(
     val method: VirtualMethod,
-    val vm: VirtualMachine2,
+    val vm: VirtualMachine,
 ) : Iterable<ExecutionNode> {
     val classManager
         get() = vm.classManager

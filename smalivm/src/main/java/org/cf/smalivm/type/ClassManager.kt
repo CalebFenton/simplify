@@ -3,7 +3,7 @@ package org.cf.smalivm.type
 import org.cf.smalivm.dex.SmaliFile
 import org.cf.smalivm.dex.SmaliFileFactory
 import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm.VirtualMachine
 import org.cf.util.ClassNameUtils
 import org.jf.baksmali.Main
 import org.jf.dexlib2.Opcodes
@@ -16,12 +16,12 @@ import java.nio.file.Files
 
 //import org.jf.util.jcommander.Command
 // TODO: EASY - once the interface is removed, can make these vals again and use implicit getters
-class ClassManager2(
+class ClassManager(
     val inputPath: File?,
-    val outputAPILevel: Int = VirtualMachine2.DEFAULT_OUTPUT_API_LEVEL,
-    private val dexBuilder: DexBuilder = DexBuilder(Opcodes.forApi(outputAPILevel))
-) : ClassManager {
-    private val log = LoggerFactory.getLogger(ClassManager2::class.java.simpleName)
+    val outputAPILevel: Int = VirtualMachine.DEFAULT_OUTPUT_API_LEVEL,
+    val dexBuilder: DexBuilder = DexBuilder(Opcodes.forApi(outputAPILevel))
+)  {
+    private val log = LoggerFactory.getLogger(ClassManager::class.java.simpleName)
 
     private val classNameToClass: HashMap<String, VirtualClass> = HashMap()
     private val classNameToSmaliFile: HashMap<String, SmaliFile> = HashMap()
@@ -80,15 +80,8 @@ class ClassManager2(
      *
      * @return all local class names, including framework
      */
-    override fun getClassNames(): Set<String?> {
+    fun getClassNames(): Set<String?> {
         return classNameToSmaliFile.keys
-    }
-
-    /**
-     * @return DexBuilder
-     */
-    override fun getDexBuilder(): DexBuilder {
-        return dexBuilder
     }
 
     /**
@@ -96,27 +89,27 @@ class ClassManager2(
      *
      * @return all framework class names
      */
-    override fun getFrameworkClassNames(): Set<String> {
+    fun getFrameworkClassNames(): Set<String> {
         if (frameworkClassNames == null) {
             frameworkClassNames = classNameToSmaliFile.keys.filter { smaliFileFactory.isFrameworkClass(it) }.toSet()
         }
         return frameworkClassNames!!
     }
 
-    override fun getLoadedClasses(): Collection<VirtualClass?> {
+    fun getLoadedClasses(): Collection<VirtualClass> {
         return classNameToClass.values
     }
 
-    override fun getMethod(methodSignature: String): VirtualMethod? {
+    fun getVirtualMethod(methodSignature: String): VirtualMethod? {
         val parts = methodSignature.split("->".toRegex()).toTypedArray()
         val className = parts[0]
         val methodDescriptor = parts[1]
-        return getMethod(className, methodDescriptor)
+        return getVirtualMethod(className, methodDescriptor)
     }
 
-    override fun getMethod(className: String, methodDescriptor: String): VirtualMethod? {
-        val virtualClass: VirtualType? = getVirtualClass(className)
-        return virtualClass!!.getMethod(methodDescriptor)
+    fun getVirtualMethod(className: String, methodDescriptor: String): VirtualMethod? {
+        val virtualClass= getVirtualClass(className)
+        return virtualClass.getMethod(methodDescriptor)
     }
 
     /**
@@ -124,7 +117,7 @@ class ClassManager2(
      *
      * @return all local class names which are not part of the framework
      */
-    override fun getNonFrameworkClassNames(): Set<String> {
+    fun getNonFrameworkClassNames(): Set<String> {
         if (nonFrameworkClassNames == null) {
             nonFrameworkClassNames = classNameToSmaliFile.keys.filterNot { smaliFileFactory.isFrameworkClass(it) }.toSet()
         }
@@ -132,31 +125,31 @@ class ClassManager2(
     }
 
     // todo: easy - either getVirtualMethod or getClass, make consistent
-    override fun getVirtualClass(klazz: Class<*>): VirtualClass? {
+    fun getVirtualClass(klazz: Class<*>): VirtualClass {
         return getVirtualClass(ClassNameUtils.toInternal(klazz))
     }
 
-    override fun getVirtualClass(className: String): VirtualClass? {
-        return getVirtualType(className) as VirtualClass?
+    fun getVirtualClass(className: String): VirtualClass {
+        return getVirtualType(className) as VirtualClass
     }
 
-    override fun getVirtualField(fieldSignature: String): VirtualField {
+    fun getVirtualField(fieldSignature: String): VirtualField {
         val parts = fieldSignature.split("->")
         val className = parts[0]
         val name = parts[1].split(":")[0]
-        val fieldClass = getVirtualClass(className)!!
+        val fieldClass = getVirtualClass(className)
         return fieldClass.getField(name)!!
     }
 
     // todo: Should this thrown an exception ONLY for non-existent types? Or let the caller deal with it.
     // OR throw exceptions for missing classes also (probably best)
-    override fun getVirtualType(typeReference: TypeReference): VirtualType? {
+    fun getVirtualType(typeReference: TypeReference): VirtualType {
         val first = typeReference[0]
         return when {
             first == 'L' -> {
                 val className = typeReference.type
                 parseClassIfNecessary(className)
-                classNameToClass[className]
+                classNameToClass[className]!!
             }
             first == '[' -> {
                 VirtualArray(typeReference, this)
@@ -171,25 +164,25 @@ class ClassManager2(
         }
     }
 
-    override fun getVirtualType(typeClass: Class<*>?): VirtualType? {
+    fun getVirtualType(typeClass: Class<*>?): VirtualType {
         return getVirtualType(ClassNameUtils.toInternal(typeClass))
     }
 
-    override fun getVirtualType(typeSignature: String?): VirtualType? {
+    fun getVirtualType(typeSignature: String?): VirtualType {
         // TODO: consider validating the type Signature here rather than in getVirtualType
         val typeReference: TypeReference = getFrameworkDexBuilder().internTypeReference(typeSignature!!)
         return getVirtualType(typeReference)
     }
 
-    override fun isFrameworkClass(virtualClass: VirtualType): Boolean {
+    fun isFrameworkClass(virtualClass: VirtualType): Boolean {
         return smaliFileFactory.isFrameworkClass(virtualClass.name)
     }
 
-    override fun isSafeFrameworkClass(virtualClass: VirtualType): Boolean {
+    fun isSafeFrameworkClass(virtualClass: VirtualType): Boolean {
         return smaliFileFactory.isSafeFrameworkClass(virtualClass.name)
     }
 
-    override fun getFrameworkDexBuilder(): DexBuilder {
+    fun getFrameworkDexBuilder(): DexBuilder {
         return frameworkDexBuilder
     }
 

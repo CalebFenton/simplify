@@ -1,11 +1,8 @@
 package org.cf.smalivm.dex
 
-import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.ClassManager2
 import org.cf.util.ClassNameUtils
 import org.jf.dexlib2.Opcodes
-import org.jf.dexlib2.iface.ClassDef
 import org.jf.dexlib2.writer.builder.DexBuilder
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -25,7 +22,7 @@ class SmaliClassLoader(val classManager: ClassManager) : URLClassLoader(arrayOf(
          * and methods between Android and JVM.
          */
         val internalName = ClassNameUtils.binaryToInternal(name)
-        if (!classManager.frameworkClassNames.contains(internalName)) {
+        if (!classManager.getFrameworkClassNames().contains(internalName)) {
             return super.loadClass(name, resolve)
         }
         var klazz = cachedClasses[name]
@@ -72,12 +69,12 @@ class SmaliClassLoader(val classManager: ClassManager) : URLClassLoader(arrayOf(
 //        }
 
         val internalName = ClassNameUtils.binaryToInternal(name)
-        if (!classManager.classNames.contains(internalName)) {
+        if (!classManager.getClassNames().contains(internalName)) {
             throw ClassNotFoundException(name)
         }
         val b = loadClassData(name)
         klazz = defineClass(name, b, 0, b.size)
-        cachedClasses[name] = klazz;
+        cachedClasses[name] = klazz
 
         // No one ever tells you this is also necessary or you'll have a null package for the class.
         val packageName = getPackageName(name)
@@ -107,7 +104,7 @@ class SmaliClassLoader(val classManager: ClassManager) : URLClassLoader(arrayOf(
             val smaliPath = args[0] // e.g. src/test/resources/smali
             val className = args[1] // e.g. "Linvoke_static_test;"
             println("Loading $className from $smaliPath")
-            val classManager: ClassManager = ClassManager2(File(smaliPath), DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
+            val classManager = ClassManager(File(smaliPath), DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
             val virtualClass = classManager.getVirtualClass(className)
             val classLoader = SmaliClassLoader(classManager)
             val klazz = classLoader.loadClass(virtualClass.sourceName)

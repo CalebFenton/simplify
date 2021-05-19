@@ -3,7 +3,6 @@ package org.cf.smalivm
 
 import com.google.common.primitives.Ints
 import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.ClassManagerFactory
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.smalivm2.*
@@ -22,16 +21,16 @@ object Tester {
     var dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
 
     @JvmStatic
-    var classManager: ClassManager = ClassManagerFactory().build(TEST_CLASS_PATH, dexBuilder)
+    var classManager = ClassManagerFactory().build(TEST_CLASS_PATH, dexBuilder)
 
     @JvmStatic
-    fun execute(className: String, methodDescriptor: String, vm: VirtualMachine2 = spawnVM()): ExecutionGraph2 {
+    fun execute(className: String, methodDescriptor: String, vm: VirtualMachine = spawnVM()): ExecutionGraph2 {
         return vm.execute(className, methodDescriptor)
     }
 
     @JvmStatic
-    fun execute(className: String, methodDescriptor: String, initial: TestState, vm: VirtualMachine2 = spawnVM()): ExecutionGraph2 {
-        val method = classManager.getMethod(className, methodDescriptor)
+    fun execute(className: String, methodDescriptor: String, initial: TestState, vm: VirtualMachine = spawnVM()): ExecutionGraph2 {
+        val method = classManager.getVirtualMethod(className, methodDescriptor)!!
         val state = buildInitialExecutionState(vm, method, initial)
         return vm.execute(method, state)
     }
@@ -93,7 +92,7 @@ object Tester {
         assertArrayEquals(expectedAddresses, actualAddresses)
     }
 
-    private fun buildInitialExecutionState(vm: VirtualMachine2, method: VirtualMethod, initial: TestState): ExecutionState {
+    private fun buildInitialExecutionState(vm: VirtualMachine, method: VirtualMethod, initial: TestState): ExecutionState {
         val state = vm.spawnEntrypointState(method)
         for ((register, value) in initial.registers) {
             state.pokeRegister(register, value)
@@ -139,7 +138,7 @@ object Tester {
      * @param reloadClasses if true, rebuild [ClassManagerImpl], otherwise reuse existing
      * @return [VirtualMachineImpl] for tests
      */
-    fun spawnVM(reloadClasses: Boolean = false): VirtualMachine2 {
+    fun spawnVM(reloadClasses: Boolean = false): VirtualMachine {
         if (reloadClasses) {
             try {
                 dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
@@ -148,7 +147,7 @@ object Tester {
                 throw RuntimeException("Exception building class manager for $TEST_CLASS_PATH", e)
             }
         }
-        return VirtualMachine2.build(classManager, maxExecutionTime = 0)
+        return VirtualMachine.build(classManager, maxExecutionTime = 0)
     }
 
     fun verifyContinueChild(children: Array<out UnresolvedChild>) {

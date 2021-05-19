@@ -3,14 +3,14 @@ package org.cf.smalivm.opcode
 import org.cf.smalivm.TestState
 import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UninitializedInstance
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm.VirtualMachine
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class NewInstanceOpTest {
     private lateinit var expected: TestState
     private lateinit var initial: TestState
-    private lateinit var vm: VirtualMachine2
+    private lateinit var vm: VirtualMachine
 
     companion object {
         private const val CLASS_NAME = "Lnew_instance_test;"

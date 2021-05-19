@@ -5,9 +5,9 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualType
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.Value
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.UnresolvedChild
+import org.cf.smalivm.Value
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction22c
 import org.jf.dexlib2.iface.reference.TypeReference
@@ -28,21 +28,21 @@ class InstanceOfOp internal constructor(
         val state = node.state
         val instance = node.state.readRegister(arg1Register)
         if (instance.raw == null) {
-            state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOL))
+            state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOLEAN))
             return finishOp()
         }
         for (typeName in instance.declaredAndValueTypeNames) {
             val itemType = classManager.getVirtualType(typeName)
             if (itemType.instanceOf(referenceType)) {
-                state.assignRegister(destRegister, Value.wrap(true, CommonTypes.BOOL))
+                state.assignRegister(destRegister, Value.wrap(true, CommonTypes.BOOLEAN))
                 return finishOp()
             }
         }
         if (instance.isUnknown) {
             // Since value is unknown, we can't get the actual type of the value and declared type isn't specific enough.
-            state.assignRegister(destRegister, Value.unknown(CommonTypes.BOOL))
+            state.assignRegister(destRegister, Value.unknown(CommonTypes.BOOLEAN))
         } else {
-            state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOL))
+            state.assignRegister(destRegister, Value.wrap(false, CommonTypes.BOOLEAN))
         }
         return finishOp()
     }

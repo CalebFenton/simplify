@@ -1,15 +1,10 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
 import com.rits.cloning.Cloner
-import org.apache.commons.lang3.reflect.FieldUtils
-import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.context.ClonerFactory
 import org.cf.smalivm.dex.SmaliClassLoader
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.VirtualField
-import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm.type.VirtualType
+import org.cf.smalivm.type.*
 import org.cf.util.Utils
 import org.slf4j.LoggerFactory
 

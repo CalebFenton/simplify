@@ -5,8 +5,8 @@ import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UnknownValue
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.UnresolvedChild
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.Instruction12x
 import org.slf4j.LoggerFactory

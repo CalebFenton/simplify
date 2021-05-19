@@ -1,11 +1,11 @@
 package org.cf.smalivm.emulate
 
-import org.cf.smalivm2.*
+import org.cf.smalivm.*
 import org.cf.util.ClassNameUtils
 import org.slf4j.LoggerFactory
 
 internal class java_lang_Enum_init : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine): Array<out UnresolvedChild> {
         /*
          * Enums can't be instantiated by calling newInstance() on the constructor,
          * even with setAccessible(true). It fails with InstantiationException.

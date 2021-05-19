@@ -1,4 +1,4 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
 import org.cf.smalivm.type.VirtualMethod
 import org.cf.smalivm.type.VirtualType

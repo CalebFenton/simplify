@@ -25,49 +25,49 @@ class InstanceOfOpTest {
         @Test
         fun intArray2DIsInstanceOfObjectArray() {
             initial.setRegisters(0, arrayOfNulls<IntArray>(0), CommonTypes.OBJECT)
-            expected.setRegisters(0, arrayOfNulls<IntArray>(0), CommonTypes.OBJECT, 1, true, CommonTypes.BOOL)
+            expected.setRegisters(0, arrayOfNulls<IntArray>(0), CommonTypes.OBJECT, 1, true, CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOfObjectArray()V", initial, expected)
         }
 
         @Test
         fun intArray2DIsNotInstanceOf2DObjectArray() {
             initial.setRegisters(0, arrayOfNulls<IntArray>(0), CommonTypes.OBJECT)
-            expected.setRegisters(0, arrayOfNulls<IntArray>(0), CommonTypes.OBJECT, 1, false, CommonTypes.BOOL)
+            expected.setRegisters(0, arrayOfNulls<IntArray>(0), CommonTypes.OBJECT, 1, false, CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOf2DObjectArray()V", initial, expected)
         }
 
         @Test
         fun intArrayWithObjectAsDeclaredTypeIsInstanceOfIntArray() {
             initial.setRegisters(0, IntArray(0), CommonTypes.OBJECT)
-            expected.setRegisters(0, IntArray(0), CommonTypes.OBJECT, 1, true, CommonTypes.BOOL)
+            expected.setRegisters(0, IntArray(0), CommonTypes.OBJECT, 1, true, CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOfIntArray()V", initial, expected)
         }
 
         @Test
         fun objectIsNotInstanceOfString() {
             initial.setRegisters(0, IntArray(0), CommonTypes.OBJECT)
-            expected.setRegisters(0, IntArray(0), CommonTypes.OBJECT, 1, false, CommonTypes.BOOL)
+            expected.setRegisters(0, IntArray(0), CommonTypes.OBJECT, 1, false, CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOfString()V", initial, expected)
         }
 
         @Test
         fun stringArray2DIsInstanceOf2DObjectArray() {
             initial.setRegisters(0, arrayOfNulls<Array<String>>(0), CommonTypes.STRING)
-            expected.setRegisters(0, arrayOfNulls<Array<String>>(0), CommonTypes.STRING, 1, true, CommonTypes.BOOL)
+            expected.setRegisters(0, arrayOfNulls<Array<String>>(0), CommonTypes.STRING, 1, true, CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOf2DObjectArray()V", initial, expected)
         }
 
         @Test
         fun stringIsInstanceOfObject() {
             initial.setRegisters(0, "great maker", CommonTypes.STRING)
-            expected.setRegisters(0, "great maker", CommonTypes.STRING, 1, true, CommonTypes.BOOL)
+            expected.setRegisters(0, "great maker", CommonTypes.STRING, 1, true, CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOfObject()V", initial, expected)
         }
 
         @Test
         fun unknownValueWithObjectAsDeclaredTypeIsUnknownIfStringType() {
             initial.setRegisters(0, UnknownValue(), CommonTypes.OBJECT)
-            expected.setRegisters(0, UnknownValue(), CommonTypes.OBJECT, 1, UnknownValue(), CommonTypes.BOOL)
+            expected.setRegisters(0, UnknownValue(), CommonTypes.OBJECT, 1, UnknownValue(), CommonTypes.BOOLEAN)
             test(CLASS_NAME, "instanceOfString()V", initial, expected)
         }
     }

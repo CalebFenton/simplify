@@ -7,10 +7,10 @@ import io.mockk.verify
 import org.cf.smalivm.TestState
 import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UnknownValue
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.Value
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.ExecutionState
+import org.cf.smalivm.Value
+import org.cf.smalivm.VirtualMachine
 import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.builder.instruction.BuilderInstruction23x
@@ -237,7 +237,7 @@ class CmpOpTest {
         private lateinit var state: ExecutionState
         private lateinit var node: ExecutionNode
         private lateinit var op: CmpOp
-        private lateinit var vm: VirtualMachine2
+        private lateinit var vm: VirtualMachine
         private val ADDRESS = 0
         private val CMP_TYPE = "I"
         private val REGISTER_A = 0

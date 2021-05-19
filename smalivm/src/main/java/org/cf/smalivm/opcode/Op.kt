@@ -1,9 +1,9 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm2.ExecutionGraph2
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.UnresolvedChildProducer
+import org.cf.smalivm.ExecutionGraph2
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.UnresolvedChild
+import org.cf.smalivm.UnresolvedChildProducer
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
 

@@ -1,6 +1,5 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
-import org.cf.smalivm.SideEffectLevel
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.opcode.Op

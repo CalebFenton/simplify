@@ -8,7 +8,6 @@ import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraphImpl;
 import org.cf.smalivm.exception.VirtualMachineException;
 import org.cf.smalivm.VirtualMachineFactory;
-import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;

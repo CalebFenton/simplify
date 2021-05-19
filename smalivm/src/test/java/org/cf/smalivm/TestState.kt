@@ -1,7 +1,5 @@
 package org.cf.smalivm
 
-import org.cf.smalivm2.Value
-
 class TestState {
     private val classNameToFieldDescriptorToValue: MutableMap<String, MutableMap<String, Value>> = HashMap()
     private val registerToValue: MutableMap<Int, Value> = HashMap()

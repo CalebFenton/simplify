@@ -1,15 +1,15 @@
 package org.cf.smalivm.emulate
 
 import org.cf.smalivm.dex.CommonTypes
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.ExecutionState
+import org.cf.smalivm.UnresolvedChild
+import org.cf.smalivm.VirtualMachine
 import org.cf.util.ClassNameUtils
 import org.slf4j.LoggerFactory
 
 internal class java_lang_Class_forName : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine): Array<out UnresolvedChild> {
         val binaryClassName = state.peekParameterOffset(0)!!.raw as String?
         val className = ClassNameUtils.binaryToInternal(binaryClassName)
         val value: Class<*>

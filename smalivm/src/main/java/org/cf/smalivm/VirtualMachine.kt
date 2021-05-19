@@ -1,6 +1,5 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
-import org.cf.smalivm.MethodReflector
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -27,7 +26,7 @@ data class ExecutionQueueEntry(
     val addressToVisitCount: MutableMap<Int, Long> = HashMap()
 )
 
-class VirtualMachine2 private constructor(
+class VirtualMachine private constructor(
     val maxAddressVisits: Int = 500,
     val maxCallDepth: Int = 20,
     val maxMethodVisits: Int = 1_000_000,
@@ -36,7 +35,8 @@ class VirtualMachine2 private constructor(
     lateinit var classManager: ClassManager
     lateinit var classLoader: SmaliClassLoader
     val methodToTemplateOps: MutableMap<VirtualMethod, Map<MethodLocation, Op>> = HashMap()
-//    val methodToGraph: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
+
+    //    val methodToGraph: MutableMap<VirtualMethod, ExecutionGraph2> = HashMap()
     val configuration = Configuration.instance()
     val enumAnalyzer = EnumAnalyzer(this)
     var interactive = false
@@ -48,7 +48,7 @@ class VirtualMachine2 private constructor(
     private val invokeToCalleeGraph: MutableMap<ExecutionNode, ExecutionGraph2> = HashMap()
 
     companion object {
-        private val log = LoggerFactory.getLogger(VirtualMachine2::class.java.simpleName)
+        private val log = LoggerFactory.getLogger(VirtualMachine::class.java.simpleName)
 
         const val DEFAULT_MAX_ADDRESS_VISITS = 500
         const val DEFAULT_MAX_CALL_DEPTH = 20
@@ -63,7 +63,7 @@ class VirtualMachine2 private constructor(
             maxMethodVisits: Int = DEFAULT_MAX_METHOD_VISTS,
             maxExecutionTime: Int = DEFAULT_MAX_EXECUTION_TIME,
             outputAPILevel: Int = DEFAULT_OUTPUT_API_LEVEL
-        ): VirtualMachine2 {
+        ): VirtualMachine {
             return build(File(inputPath), maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime, outputAPILevel)
         }
 
@@ -74,8 +74,8 @@ class VirtualMachine2 private constructor(
             maxMethodVisits: Int = DEFAULT_MAX_METHOD_VISTS,
             maxExecutionTime: Int = DEFAULT_MAX_EXECUTION_TIME,
             outputAPILevel: Int = DEFAULT_OUTPUT_API_LEVEL
-        ): VirtualMachine2 {
-            return build(ClassManager2(inputPath, outputAPILevel), maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime)
+        ): VirtualMachine {
+            return build(ClassManager(inputPath, outputAPILevel), maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime)
         }
 
         fun build(
@@ -84,8 +84,8 @@ class VirtualMachine2 private constructor(
             maxCallDepth: Int = DEFAULT_MAX_CALL_DEPTH,
             maxMethodVisits: Int = DEFAULT_MAX_METHOD_VISTS,
             maxExecutionTime: Int = DEFAULT_MAX_EXECUTION_TIME,
-        ): VirtualMachine2 {
-            val vm = VirtualMachine2(maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime)
+        ): VirtualMachine {
+            val vm = VirtualMachine(maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime)
             vm.classManager = classManager
             vm.classLoader = SmaliClassLoader(vm.classManager)
             return vm
@@ -103,7 +103,7 @@ class VirtualMachine2 private constructor(
     }
 
     fun execute(methodSignature: String): ExecutionGraph2 {
-        val method = classManager.getMethod(methodSignature) ?: throw IllegalArgumentException("Method signature not found: $methodSignature")
+        val method = classManager.getVirtualMethod(methodSignature) ?: throw IllegalArgumentException("Method signature not found: $methodSignature")
         return execute(method)
     }
 
@@ -399,7 +399,7 @@ class VirtualMachine2 private constructor(
         // Class states (initialized, field values) may have changed. Merge into caller.
         // TODO: performance: this is expensive and happens frequently.
         val terminatingStates = graph.getTerminatingStates()
-        for (virtualClass in classManager.loadedClasses) {
+        for (virtualClass in classManager.getLoadedClasses()) {
             val isInitializedInCaller = callerState.isClassInitialized(virtualClass)
             if (!isInitializedInCaller) {
                 // Not initialized in caller, but maybe initialized in callee multiverse.
@@ -496,7 +496,7 @@ class VirtualMachine2 private constructor(
     }
 
     fun spawnEntrypointState(methodSignature: String): ExecutionState {
-        val method = classManager.getMethod(methodSignature)
+        val method = classManager.getVirtualMethod(methodSignature)!!
         return spawnEntrypointState(method)
     }
 
@@ -555,7 +555,8 @@ class VirtualMachine2 private constructor(
             // This is a bit of a hack. Need to create "placeholder" graph for those without implementations since the VM expects to be able step
             // into any method before deciding if it should be executed. Using Object;-><init>()V is nice because it's empty. The step function
             // will check if there's an implementation if it can't be reflected or emulated.
-            classManager.getMethod("${CommonTypes.OBJECT}-><init>()V").implementation.instructions
+            val initMethod = classManager.getVirtualMethod("${CommonTypes.OBJECT}-><init>()V")!!
+            initMethod.implementation.instructions
         }
         val locationToOp: MutableMap<MethodLocation, Op> = HashMap(instructions.size)
         for (instruction in instructions) {
@@ -622,13 +623,4 @@ class VirtualMachine2 private constructor(
 
         return -1
     }
-
-    object Main {
-        @JvmStatic
-        fun main(args: Array<String>) {
-            // TODO: remove this :D
-            println("hey");
-        }
-    }
-
 }

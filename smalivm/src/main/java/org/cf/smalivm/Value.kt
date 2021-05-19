@@ -1,4 +1,4 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
@@ -35,10 +35,6 @@ data class Value(val raw: Any?, val type: String) {
             return Value(other.raw, other.type)
         }
     }
-
-//    fun hasSameID(other: Value): Boolean {
-//        return id.contentEquals(other.id)
-//    }
 
     val isImmutable: Boolean
         get() = Configuration.instance().isImmutable(type)
@@ -136,24 +132,4 @@ data class Value(val raw: Any?, val type: String) {
         }
         return sb.toString()
     }
-
-//    override fun equals(other: Any?): Boolean {
-//        if (this === other) return true
-//        if (javaClass != other?.javaClass) return false
-//
-//        other as Value
-//
-//        if (value != other.value) return false
-//        if (type != other.type) return false
-//        if (!id.contentEquals(other.id)) return false
-//
-//        return true
-//    }
-//
-//    override fun hashCode(): Int {
-//        var result = value.hashCode()
-//        result = 31 * result + type.hashCode()
-//        result = 31 * result + id.contentHashCode()
-//        return result
-//    }
 }

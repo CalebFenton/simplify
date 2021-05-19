@@ -23,7 +23,6 @@ import java.util.zip.ZipEntry
  * be enumerated when smalivm starts. Then, it generates Java .class files for each framework class and creates an android-##.jar. This is also used
  * as a cache so smalivm doesn't have to generate Java classes when framework class objects are instantiated.
  *
- * @author caleb
  */
 object FrameworkJarBuilder {
     private const val FRAMEWORK_ROOT = "/framework/smali"
@@ -82,7 +81,7 @@ object FrameworkJarBuilder {
 
     @Throws(IOException::class)
     private fun buildJar(classManager: ClassManager, builder: ClassBuilder, outPath: String): Set<String> {
-        val classNames = classManager.frameworkClassNames
+        val classNames = classManager.getFrameworkClassNames()
         val out = JarOutputStream(FileOutputStream(outPath))
         for (className in classNames) {
             val virtualClass = classManager.getVirtualClass(className)

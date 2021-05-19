@@ -1,10 +1,10 @@
 package org.cf.smalivm.emulate
 
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.ExecutionState
+import org.cf.smalivm.UnresolvedChild
+import org.cf.smalivm.VirtualMachine
 import org.slf4j.LoggerFactory
 
 
@@ -80,11 +80,11 @@ class MethodEmulator {
 //            }
 //        }
 
-        fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
+        fun emulate(method: VirtualMethod, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine): Array<out UnresolvedChild> {
             return emulate(method.signature, state, callerNode, vm)
         }
 
-        fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
+        fun emulate(methodSignature: String, state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine): Array<out UnresolvedChild> {
             val emulatedMethodCall = EMULATED_METHOD_SIGNATURES[methodSignature]!!
             return try {
                 emulatedMethodCall.execute(state, callerNode, vm)

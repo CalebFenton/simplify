@@ -14,7 +14,7 @@ class SmaliFileFactory {
         val smaliFiles = smaliFiles
         for (file in files) {
             val matches = Utils.getFilesWithSmaliExtension(file)
-            matches.parallelStream().forEach { match: File? ->
+            matches.forEach { match: File ->
                 val smaliFile = SmaliFile(match)
                 // DalvikVM rejects classes in an APK that are already defined.
                 // Framework classes take precedence over local classes.
@@ -86,12 +86,12 @@ class SmaliFileFactory {
             val frameworkClassesCfg = Configuration.load(Configuration.FRAMEWORK_CLASSES_PATH)
             val safeFrameworkClasses = HashSet(Configuration.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH))
             for (line in frameworkClassesCfg) {
-                val parts = line.split(":").toTypedArray()
+                val parts = line.split(":")
                 val className = parts[0]
                 val path = parts[1]
                 val smaliFile = SmaliFile(path, className)
-                smaliFile.setIsResource(true)
-                smaliFile.setIsSafeFramework(safeFrameworkClasses.contains(className))
+                smaliFile.isResource = true
+                smaliFile.isSafeFrameworkClass = safeFrameworkClasses.contains(className)
                 frameworkFiles[smaliFile.className] = smaliFile
             }
             return frameworkFiles

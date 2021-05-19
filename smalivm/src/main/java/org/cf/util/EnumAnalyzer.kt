@@ -2,14 +2,12 @@ package org.cf.util
 
 import org.cf.smalivm.opcode.ConstOp
 import org.cf.smalivm.opcode.SPutOp
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.VirtualClass
-import org.cf.smalivm2.VirtualMachine2
+import org.cf.smalivm.VirtualMachine
 
-class EnumAnalyzer(val vm: VirtualMachine2) {
+class EnumAnalyzer(val vm: VirtualMachine) {
     private val originalNameToObfuscatedName: MutableMap<String, String> = HashMap()
 
-    fun analyze(enumClass: Class<out Enum<*>?>?) {
+    fun analyze(enumClass: Class<out Enum<*>>) {
         /*
          * If an enum is obfuscated, say with Proguard, the field names change. This is a problem
          * because it's not possible to instantiate Enums using reflection. Instead, you must use
@@ -20,8 +18,8 @@ class EnumAnalyzer(val vm: VirtualMachine2) {
          * string maps to which field name. Then, when the code asks for the original, we look up
          * the mapped, obfuscated field name and use that instead.
          */
-        val classManager: ClassManager = vm.classManager
-        val virtualClass: VirtualClass = classManager.getVirtualClass(enumClass)
+        val classManager = vm.classManager
+        val virtualClass = classManager.getVirtualClass(enumClass)
         val method = virtualClass.getMethod(METHOD_DESCRIPTOR)!!
         val graph = vm.getExecutionGraph(method)
         //val fields: List<VirtualField> = ArrayList(virtualClass.getFields())

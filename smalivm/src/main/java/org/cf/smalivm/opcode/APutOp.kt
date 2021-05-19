@@ -6,9 +6,9 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualArray
 import org.cf.smalivm.type.VirtualClass
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.Value
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.UnresolvedChild
+import org.cf.smalivm.Value
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation

@@ -4,8 +4,8 @@ import org.apache.commons.lang3.ClassUtils
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.UnresolvedChild
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.UnresolvedChild
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.iface.instruction.formats.ArrayPayload
 import org.slf4j.LoggerFactory

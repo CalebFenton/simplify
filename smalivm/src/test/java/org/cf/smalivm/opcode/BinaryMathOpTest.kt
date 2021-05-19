@@ -3,12 +3,10 @@ package org.cf.smalivm.opcode
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.cf.smalivm.TestState
-import org.cf.smalivm.Tester
+import org.cf.smalivm.*
 import org.cf.smalivm.Tester.test
 import org.cf.smalivm.Tester.testVisitation
 import org.cf.smalivm.type.UnknownValue
-import org.cf.smalivm2.*
 import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.BuilderInstruction
 import org.jf.dexlib2.builder.MethodLocation
@@ -759,7 +757,7 @@ class BinaryMathOpTest {
         private lateinit var state: ExecutionState
         private lateinit var node: ExecutionNode
         private lateinit var op: BinaryMathOp
-        private lateinit var vm: VirtualMachine2
+        private lateinit var vm: VirtualMachine
         private val ADDRESS = 0
         private val ARG1_REGISTER = 2
         private val ARG2_REGISTER = 4

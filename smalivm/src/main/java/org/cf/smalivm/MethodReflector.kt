@@ -3,12 +3,7 @@ package org.cf.smalivm
 import org.apache.commons.beanutils.ConstructorUtils
 import org.apache.commons.beanutils.MethodUtils
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.UnresolvedChild
-import org.cf.smalivm2.UnresolvedChildProducer
-import org.cf.smalivm2.Value
 import org.cf.util.ClassNameUtils
-import org.cf.util.EnumAnalyzer
 import org.cf.util.Utils
 import org.slf4j.LoggerFactory
 import java.util.*

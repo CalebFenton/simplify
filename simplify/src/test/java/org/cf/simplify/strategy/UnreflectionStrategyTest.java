@@ -10,7 +10,6 @@ import org.cf.simplify.ExecutionGraphManipulator;
 import org.cf.simplify.OptimizerTester;
 import org.cf.smalivm.TestState;
 import org.cf.smalivm.Tester;
-import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.UnknownValue;
 import org.cf.smalivm.type.VirtualMethod;
 import org.cf.util.ClassNameUtils;

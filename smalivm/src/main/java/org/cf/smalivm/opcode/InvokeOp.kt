@@ -1,6 +1,6 @@
 package org.cf.smalivm.opcode
 
-import org.cf.smalivm.SideEffectLevel
+import org.cf.smalivm.*
 import org.cf.smalivm.configuration.Configuration
 import org.cf.smalivm.dex.CommonTypes
 import org.cf.smalivm.dex.SmaliClassLoader
@@ -8,7 +8,6 @@ import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.UninitializedInstance
 import org.cf.smalivm.type.UnknownValue
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.*
 import org.cf.util.ClassNameUtils
 import org.cf.util.Utils
 import org.jf.dexlib2.builder.MethodLocation

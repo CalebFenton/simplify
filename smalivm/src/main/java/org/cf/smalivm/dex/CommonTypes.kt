@@ -1,0 +1,25 @@
+package org.cf.smalivm.dex
+
+object CommonTypes {
+    const val OBJECT = "Ljava/lang/Object;"
+    const val STRING = "Ljava/lang/String;"
+    const val CLASS = "Ljava/lang/Class;"
+    const val BOOLEAN = "Z"
+    const val VOID = "V"
+    const val FLOAT = "F"
+    const val DOUBLE = "D"
+    const val LONG = "J"
+    const val INTEGER = "I"
+    const val SHORT = "S"
+    const val CHARACTER = "C"
+    const val BYTE = "B"
+    const val DOUBLE_OBJ = "Ljava/lang/Double;"
+    const val FLOAT_OBJ = "Ljava/lang/Float;"
+    const val INTEGER_OBJ = "Ljava/lang/Integer;"
+    const val SHORT_OBJ = "Ljava/lang/Short;"
+    const val LONG_OBJ = "Ljava/lang/Long;"
+    const val BYTE_OBJ = "Ljava/lang/Byte;"
+    const val BOOLEAN_OBJ = "Ljava/lang/Boolean;"
+    const val CHARACTER_OBJ = "Ljava/lang/Character;"
+    const val UNKNOWN_TYPE = "?"
+}

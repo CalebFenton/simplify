@@ -2,7 +2,7 @@ package org.cf.smalivm.opcode
 
 import org.cf.smalivm.TestState
 import org.cf.smalivm.Tester
-import org.cf.smalivm2.ExecutionState
+import org.cf.smalivm.ExecutionState
 import org.cf.util.ClassNameUtils
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

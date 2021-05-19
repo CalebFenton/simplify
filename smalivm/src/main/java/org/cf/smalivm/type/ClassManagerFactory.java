@@ -42,7 +42,7 @@ public class ClassManagerFactory {
      * Create a ClassManager with no input Smali classes. It will only contain input library classes.
      */
     public ClassManager build(DexBuilder dexBuilder) {
-        return new ClassManager2(null, dexBuilder);
+        return new ClassManager(null, dexBuilder);
     }
 
     public ClassManager build(File inFile, DexBuilder dexBuilder) throws IOException {
@@ -56,7 +56,7 @@ public class ClassManagerFactory {
             smaliPath = inFile;
         }
 
-        return new ClassManager2(smaliPath, dexBuilder);
+        return new ClassManager(smaliPath, dexBuilder);
     }
 
     /**

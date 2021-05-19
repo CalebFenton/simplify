@@ -1,9 +1,8 @@
-package org.cf.smalivm2
+package org.cf.smalivm
 
 import org.cf.smalivm.type.ClassManager
 import org.cf.smalivm.type.VirtualClass
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.util.ClassNameUtils
 import org.jf.dexlib2.builder.BuilderTryBlock
 import java.util.*
 

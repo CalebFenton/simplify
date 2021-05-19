@@ -6,9 +6,9 @@ import io.mockk.slot
 import io.mockk.verify
 import org.cf.smalivm.Tester
 import org.cf.smalivm.type.UnknownValue
-import org.cf.smalivm2.ExecutionNode
-import org.cf.smalivm2.ExecutionState
-import org.cf.smalivm2.Value
+import org.cf.smalivm.ExecutionNode
+import org.cf.smalivm.ExecutionState
+import org.cf.smalivm.Value
 import org.jf.dexlib2.Opcode
 import org.jf.dexlib2.builder.MethodLocation
 import org.jf.dexlib2.builder.instruction.BuilderInstruction22c

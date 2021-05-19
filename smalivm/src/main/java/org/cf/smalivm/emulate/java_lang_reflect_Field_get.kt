@@ -1,14 +1,14 @@
 package org.cf.smalivm.emulate
 
+import org.cf.smalivm.*
 import org.cf.smalivm.type.VirtualType
-import org.cf.smalivm2.*
 import org.cf.util.ClassNameUtils
 import org.slf4j.LoggerFactory
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
 
 internal class java_lang_reflect_Field_get : EmulatedMethodCall() {
-    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine2): Array<out UnresolvedChild> {
+    override fun execute(state: ExecutionState, callerNode: ExecutionNode?, vm: VirtualMachine): Array<out UnresolvedChild> {
         val value = state.peekParameterOffset(0)!!
         val instance = state.peekParameterOffset(1)!!
         val field = value.raw as Field
