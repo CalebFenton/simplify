@@ -5,6 +5,7 @@ import gnu.trove.list.TIntList;
 import gnu.trove.list.array.TIntArrayList;
 import gnu.trove.map.TIntObjectMap;
 
+import org.cf.smalivm.ExecutionGraph;
 import org.cf.smalivm.SideEffectLevel;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionContext;
@@ -40,7 +41,7 @@ public class ExecutionGraphManipulator extends ExecutionGraphImpl {
     private final OpBuilder opBuilder;
     private boolean recreateOrExecuteAgain;
 
-    public ExecutionGraphManipulator(ExecutionGraphImpl graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
+    public ExecutionGraphManipulator(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder) {
         super(graph, true);
 
         this.dexBuilder = dexBuilder;

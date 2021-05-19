@@ -157,7 +157,7 @@ class ExecutionNode(
         return op.resume(this)
     }
 
-    fun resume(calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
+    fun resume(calleeGraph: ExecutionGraph): Array<out UnresolvedChild> {
         return op.resume(this, calleeGraph)
     }
 

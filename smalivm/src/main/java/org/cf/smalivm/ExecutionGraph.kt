@@ -14,7 +14,7 @@ import java.util.*
 import java.util.function.Consumer
 
 
-internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<ExecutionNode> {
+internal class ExecutionGraphIterator(graph: ExecutionGraph) : MutableIterator<ExecutionNode> {
     private val stack: Deque<ExecutionNode>
 
     override fun hasNext(): Boolean {
@@ -41,7 +41,7 @@ internal class ExecutionGraphIterator(graph: ExecutionGraph2) : MutableIterator<
 
 data class UnhandledVirtualException(val node: ExecutionNode, val unresolvedChild: UnresolvedExceptionChild)
 
-class ExecutionGraph2(
+class ExecutionGraph(
     val method: VirtualMethod,
     val vm: VirtualMachine,
 ) : Iterable<ExecutionNode> {
@@ -883,7 +883,7 @@ class ExecutionGraph2(
         protected val TEMPLATE_NODE_INDEX = 0
         protected val METHOD_ROOT_ADDRESS = 0
 
-        private val log = LoggerFactory.getLogger(ExecutionGraph2::class.java.simpleName)
+        private val log = LoggerFactory.getLogger(ExecutionGraph::class.java.simpleName)
 
         protected fun buildAddressToLocation(locations: Collection<MethodLocation>): MutableMap<Int, MethodLocation> {
             val addressToLocation: MutableMap<Int, MethodLocation> = HashMap(locations.size)

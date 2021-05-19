@@ -21,7 +21,7 @@ import java.util.*
 
 
 data class ExecutionQueueEntry(
-    val graph: ExecutionGraph2,
+    val graph: ExecutionGraph,
     val nodes: LinkedList<ExecutionNode>,
     val addressToVisitCount: MutableMap<Int, Long> = HashMap()
 )
@@ -45,7 +45,7 @@ class VirtualMachine private constructor(
 
     private val executionQueue: Deque<ExecutionQueueEntry> = LinkedList()
     private val resumeNodes: MutableSet<ExecutionNode> = HashSet()
-    private val invokeToCalleeGraph: MutableMap<ExecutionNode, ExecutionGraph2> = HashMap()
+    private val invokeToCalleeGraph: MutableMap<ExecutionNode, ExecutionGraph> = HashMap()
 
     companion object {
         private val log = LoggerFactory.getLogger(VirtualMachine::class.java.simpleName)
@@ -56,6 +56,8 @@ class VirtualMachine private constructor(
         const val DEFAULT_MAX_EXECUTION_TIME = 5 * 60
         const val DEFAULT_OUTPUT_API_LEVEL = SmaliParser.DEX_API_LEVEL
 
+        @JvmStatic
+        @JvmOverloads
         fun build(
             inputPath: String,
             maxAddressVisits: Int = DEFAULT_MAX_ADDRESS_VISITS,
@@ -67,6 +69,8 @@ class VirtualMachine private constructor(
             return build(File(inputPath), maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime, outputAPILevel)
         }
 
+        @JvmStatic
+        @JvmOverloads
         fun build(
             inputPath: File,
             maxAddressVisits: Int = DEFAULT_MAX_ADDRESS_VISITS,
@@ -78,6 +82,8 @@ class VirtualMachine private constructor(
             return build(ClassManager(inputPath, outputAPILevel), maxAddressVisits, maxCallDepth, maxMethodVisits, maxExecutionTime)
         }
 
+        @JvmStatic
+        @JvmOverloads
         fun build(
             classManager: ClassManager,
             maxAddressVisits: Int = DEFAULT_MAX_ADDRESS_VISITS,
@@ -98,16 +104,17 @@ class VirtualMachine private constructor(
         invokeToCalleeGraph.clear()
     }
 
-    fun execute(className: String, methodDescriptor: String): ExecutionGraph2 {
+    fun execute(className: String, methodDescriptor: String): ExecutionGraph {
         return execute("$className->$methodDescriptor")
     }
 
-    fun execute(methodSignature: String): ExecutionGraph2 {
+    fun execute(methodSignature: String): ExecutionGraph {
         val method = classManager.getVirtualMethod(methodSignature) ?: throw IllegalArgumentException("Method signature not found: $methodSignature")
         return execute(method)
     }
 
-    fun execute(method: VirtualMethod, state: ExecutionState? = null, parent: ExecutionNode? = null): ExecutionGraph2 {
+    @JvmOverloads
+    fun execute(method: VirtualMethod, state: ExecutionState? = null, parent: ExecutionNode? = null): ExecutionGraph {
         methodToVisitCount.clear()
         executionStart = System.currentTimeMillis()
 
@@ -278,7 +285,7 @@ class VirtualMachine private constructor(
         finishStep(entry, current)
     }
 
-    private fun enqueueExceptionChild(exceptional: ExecutionNode, unresolvedChild: UnresolvedExceptionChild, graph: ExecutionGraph2) {
+    private fun enqueueExceptionChild(exceptional: ExecutionNode, unresolvedChild: UnresolvedExceptionChild, graph: ExecutionGraph) {
         enqueueExceptionChild(exceptional, exceptional, unresolvedChild, graph)
     }
 
@@ -286,7 +293,7 @@ class VirtualMachine private constructor(
         exceptional: ExecutionNode,
         current: ExecutionNode,
         unresolvedChild: UnresolvedExceptionChild,
-        graph: ExecutionGraph2
+        graph: ExecutionGraph
     ) {
         val exceptionClass = classManager.getVirtualClass(unresolvedChild.exceptionClass)
         val handlerAddress = if (graph.emulatedOrReflected) {
@@ -328,7 +335,7 @@ class VirtualMachine private constructor(
         return executionQueue.first { it.graph.hasNode(node) } ?: executionQueue.first { it.nodes.contains(node) }
     }
 
-    private fun enqueueContinueChildNode(current: ExecutionNode, graph: ExecutionGraph2, methodNodes: MutableList<ExecutionNode>) {
+    private fun enqueueContinueChildNode(current: ExecutionNode, graph: ExecutionGraph, methodNodes: MutableList<ExecutionNode>) {
         val opcode = current.op.instruction!!.opcode
         if (opcode.canContinue() && current.op !is SwitchOp) {
             enqueueChildNode(current, current.op.nextAddress, graph, methodNodes)
@@ -338,7 +345,7 @@ class VirtualMachine private constructor(
     private fun enqueueChildNode(
         parent: ExecutionNode,
         address: Int,
-        graph: ExecutionGraph2,
+        graph: ExecutionGraph,
         methodNodes: MutableList<ExecutionNode>
     ): ExecutionNode {
         val location = graph.getLocation(address)!!
@@ -383,7 +390,7 @@ class VirtualMachine private constructor(
      */
     private fun mergeClassStates(
         calledMethod: VirtualMethod,
-        graph: ExecutionGraph2,
+        graph: ExecutionGraph,
         callerState: ExecutionState,
     ) {
         if (calledMethod.descriptor == "<clinit>()V") {
@@ -391,7 +398,7 @@ class VirtualMachine private constructor(
             callerState.setClassInitialized(calledMethod.definingClass, sideEffectLevel)
         }
 
-        if (graph.executionType == ExecutionGraph2.ExecutionType.REFLECT) {
+        if (graph.executionType == ExecutionGraph.ExecutionType.REFLECT) {
             // Reflection doesn't initialize any classes in our VM
             return
         }
@@ -483,16 +490,16 @@ class VirtualMachine private constructor(
         return true
     }
 
-    fun getExecutionGraph(className: String, methodDescriptor: String): ExecutionGraph2 {
+    fun getExecutionGraph(className: String, methodDescriptor: String): ExecutionGraph {
         val method = classManager.getVirtualClass(className).getMethod(methodDescriptor)!!
         return getExecutionGraph(method)
     }
 
-    fun getExecutionGraph(method: VirtualMethod): ExecutionGraph2 {
+    fun getExecutionGraph(method: VirtualMethod): ExecutionGraph {
         if (!methodToTemplateOps.containsKey(method)) {
             updateTemplateOps(method)
         }
-        return ExecutionGraph2(method, this)
+        return ExecutionGraph(method, this)
     }
 
     fun spawnEntrypointState(methodSignature: String): ExecutionState {
@@ -547,7 +554,7 @@ class VirtualMachine private constructor(
         }
     }
 
-    private fun updateTemplateOps(method: VirtualMethod) {
+    fun updateTemplateOps(method: VirtualMethod) {
         val opBuilder = OpBuilder(classManager, classLoader, configuration)
         val instructions = if (method.hasImplementation()) {
             method.implementation.instructions

@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import org.cf.smalivm.Tester;
+import org.cf.smalivm.Value;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.util.ClassNameUtils;
 import org.jf.dexlib2.Opcode;
@@ -36,7 +37,7 @@ public class ConstantBuilderTest {
     private static final Logger log = LoggerFactory.getLogger(ConstantBuilderTest.class.getSimpleName());
     private static final int REGISTER = 0;
 
-    private static ExecutionGraphManipulator getMockedGraph(int address, HeapItem value) {
+    private static ExecutionGraphManipulator getMockedGraph(int address, Value value) {
         ExecutionGraphManipulator manipulator = mock(ExecutionGraphManipulator.class);
         BuilderInstruction instruction =
                 mock(BuilderInstruction.class, withSettings().extraInterfaces(OneRegisterInstruction.class));

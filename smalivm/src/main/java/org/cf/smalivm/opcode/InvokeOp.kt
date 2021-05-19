@@ -122,7 +122,7 @@ class InvokeOp internal constructor(
         }
     }
 
-    override fun resume(node: ExecutionNode, calleeGraph: ExecutionGraph2): Array<out UnresolvedChild> {
+    override fun resume(node: ExecutionNode, calleeGraph: ExecutionGraph): Array<out UnresolvedChild> {
         if (calleeGraph.aborted) {
             // VM either aborted execution because of some limit or it couldn't be reflected or emulated.
             assumeMaximumUnknown(node, calleeGraph.method)

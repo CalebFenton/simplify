@@ -1,13 +1,11 @@
 package org.cf.simplify;
 
-import ch.qos.logback.classic.Level;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.cf.smalivm.ExecutionGraph;
 import org.cf.smalivm.VirtualMachine;
-import org.cf.smalivm.context.ExecutionGraphImpl;
-import org.cf.smalivm.exception.VirtualMachineException;
-import org.cf.smalivm.VirtualMachineFactory;
+import org.cf.smalivm.type.ClassManager;
 import org.cf.smalivm.type.VirtualMethod;
 import org.jf.dexlib2.writer.builder.DexBuilder;
 import org.jf.dexlib2.writer.io.FileDataStore;
@@ -18,9 +16,20 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.AccessMode;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
+
+import ch.qos.logback.classic.Level;
 
 public class Launcher {
 
@@ -28,11 +37,9 @@ public class Launcher {
 
     private static final Pattern SUPPORT_LIBRARY_PATTERN = Pattern.compile("Landroid/support/(annotation|design|v\\d{1,2})/");
 
-    private final VirtualMachineFactory vmFactory;
     private SimplifyOptions opts;
 
-    public Launcher(VirtualMachineFactory vmFactory) {
-        this.vmFactory = vmFactory;
+    public Launcher() {
     }
 
     private static void filterMethods(Collection<VirtualMethod> methods, Pattern positive, Pattern negative) {
@@ -123,7 +130,7 @@ public class Launcher {
         RuntimeStats stats = new RuntimeStats();
         stats.begin();
 
-        vm = vmFactory.build(
+        vm = VirtualMachine.build(
                 opts.getInFile(), opts.getOutputAPILevel(), opts.getMaxAddressVisits(),
                 opts.getMaxCallDepth(), opts.getMaxMethodVisits(), opts.getMaxExecutionTime()
         );
@@ -188,17 +195,15 @@ public class Launcher {
             boolean executeAgain;
             do {
                 System.out.println("(" + stats.getCurrentMethodIndex() + " / " + stats.getTotalMethods() + ") Executing top level method: " + method);
-                ExecutionGraphImpl graph = null;
+                ExecutionGraph graph = null;
                 try {
                     graph = vm.execute(method);
-                } catch (VirtualMachineException e) {
-                    System.err.println("Aborting execution; exception: " + e);
                 } catch (Throwable e1) {
                     if (opts.ignoreErrors()) {
                         System.err.println("Unexpected, non-virtual exception executing " + method + "; skipping");
                         e1.printStackTrace();
                         stats.incrementFailedMethodCount();
-                        vm = vmFactory.build(
+                        vm = VirtualMachine.build(
                                 classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(),
                                 opts.getMaxMethodVisits(), opts.getMaxExecutionTime()
                         );
@@ -222,7 +227,7 @@ public class Launcher {
                         System.err.println("Exception optimizing " + method + ", skipping");
                         e1.printStackTrace();
                         stats.incrementFailedMethodCount();
-                        vm = vmFactory
+                        vm = VirtualMachine
                                 .build(classManager, opts.getMaxAddressVisits(), opts.getMaxCallDepth(), opts.getMaxMethodVisits(),
                                         opts.getMaxExecutionTime());
                         break;
@@ -232,7 +237,7 @@ public class Launcher {
                 }
                 if (optimizer.madeChanges()) {
                     // Optimizer changed the implementation. Re-build graph to include changes.
-                    vm.updateInstructionGraph(method);
+                    vm.updateTemplateOps(method);
                 }
                 System.out.println(optimizer.getOptimizationCounts());
 

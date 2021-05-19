@@ -1,18 +1,18 @@
 package org.cf.simplify;
 
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import java.io.IOException;
-import org.cf.smalivm.exception.UnhandledVirtualException;
-import org.junit.jupiter.api.Test;
-
 public class MainTest {
 
     @Test
-    public void runsLauncher() throws IOException, UnhandledVirtualException {
+    public void runsLauncher() throws IOException {
         Launcher launcher = mock(Launcher.class);
         Main.setLauncher(launcher);
         String[] args = new String[0];

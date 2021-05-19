@@ -5,6 +5,7 @@ import org.cf.simplify.strategy.DeadRemovalStrategy;
 import org.cf.simplify.strategy.OptimizationStrategy;
 import org.cf.simplify.strategy.PeepholeStrategy;
 import org.cf.simplify.strategy.UnreflectionStrategy;
+import org.cf.smalivm.ExecutionGraph;
 import org.cf.smalivm.VirtualMachine;
 import org.cf.smalivm.context.ExecutionGraphImpl;
 import org.cf.smalivm.type.VirtualMethod;
@@ -36,7 +37,7 @@ public class Optimizer {
     private boolean shouldReexecute;
     private Map<String, Integer> optimizationCounts;
 
-    public Optimizer(ExecutionGraphImpl graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder,
+    public Optimizer(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder,
                      SimplifyOptions opts) {
         manipulator = new ExecutionGraphManipulator(graph, method, vm, dexBuilder);
         this.method = method;

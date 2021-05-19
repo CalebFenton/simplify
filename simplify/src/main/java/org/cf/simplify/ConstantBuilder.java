@@ -1,5 +1,6 @@
 package org.cf.simplify;
 
+import org.cf.smalivm.Value;
 import org.cf.smalivm.context.HeapItem;
 import org.cf.smalivm.opcode.AGetOp;
 import org.cf.smalivm.opcode.BinaryMathOp;
@@ -193,7 +194,7 @@ public class ConstantBuilder implements Dependency {
         DexBuilder dexBuilder = manipulator.getDexBuilder();
         OneRegisterInstruction instruction = (OneRegisterInstruction) manipulator.getInstruction(address);
         int register = instruction.getRegisterA();
-        HeapItem item = manipulator.getRegisterConsensus(address, register);
+        Value item = manipulator.getRegisterConsensus(address, register);
         Object value = item.getValue();
         String type = item.isPrimitive() ? item.getType() : item.getUnboxedValueType();
         BuilderInstruction constant = buildConstant(value, type, register, dexBuilder);

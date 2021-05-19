@@ -5,7 +5,6 @@ import com.google.common.primitives.Ints
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.type.ClassManagerFactory
 import org.cf.smalivm.type.VirtualMethod
-import org.cf.smalivm2.*
 import org.cf.util.ClassNameUtils
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.writer.builder.DexBuilder
@@ -24,12 +23,12 @@ object Tester {
     var classManager = ClassManagerFactory().build(TEST_CLASS_PATH, dexBuilder)
 
     @JvmStatic
-    fun execute(className: String, methodDescriptor: String, vm: VirtualMachine = spawnVM()): ExecutionGraph2 {
+    fun execute(className: String, methodDescriptor: String, vm: VirtualMachine = spawnVM()): ExecutionGraph {
         return vm.execute(className, methodDescriptor)
     }
 
     @JvmStatic
-    fun execute(className: String, methodDescriptor: String, initial: TestState, vm: VirtualMachine = spawnVM()): ExecutionGraph2 {
+    fun execute(className: String, methodDescriptor: String, initial: TestState, vm: VirtualMachine = spawnVM()): ExecutionGraph {
         val method = classManager.getVirtualMethod(className, methodDescriptor)!!
         val state = buildInitialExecutionState(vm, method, initial)
         return vm.execute(method, state)
@@ -47,7 +46,7 @@ object Tester {
     }
 
     @JvmStatic
-    fun testState(graph: ExecutionGraph2, expected: TestState) {
+    fun testState(graph: ExecutionGraph, expected: TestState) {
         assertNotNull(graph, "Graph is null; method execution failed?")
 
         for ((register, value) in expected.registers) {
@@ -78,7 +77,7 @@ object Tester {
     }
 
     @JvmStatic
-    fun testVisitation(graph: ExecutionGraph2, expectedAddresses: IntArray) {
+    fun testVisitation(graph: ExecutionGraph, expectedAddresses: IntArray) {
         val addresses: IntArray = graph.getAddresses()
         val visitedAddresses: MutableList<Int> = LinkedList<Int>()
         for (address in addresses) {
@@ -138,6 +137,7 @@ object Tester {
      * @param reloadClasses if true, rebuild [ClassManagerImpl], otherwise reuse existing
      * @return [VirtualMachineImpl] for tests
      */
+    @JvmStatic
     fun spawnVM(reloadClasses: Boolean = false): VirtualMachine {
         if (reloadClasses) {
             try {

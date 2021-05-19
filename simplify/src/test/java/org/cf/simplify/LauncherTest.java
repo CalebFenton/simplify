@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 public class LauncherTest {
 
     @Test
-    public void runsWithoutMajorFailureWithSmaliFolder() throws IOException, UnhandledVirtualException {
+    public void runsWithoutMajorFailureWithSmaliFolder() throws IOException {
         Launcher launcher = new Launcher(new VirtualMachineFactory());
         File outFile = File.createTempFile("simplify-test", ".tmp");
         launcher.run(new String[] { "src/test/resources/obfuscated-example", "-it", "WhiteNoise", "-o", outFile.getAbsolutePath() });
