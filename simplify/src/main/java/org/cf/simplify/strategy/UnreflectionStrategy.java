@@ -286,11 +286,9 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         String opName = nextInstr.getOpcode().name;
         if (!opName.startsWith("move-result")) {
             int[] available = manipulator.getAvailableRegisters(address);
-            if (available.length == 0) {
-                // How often do you see field lookup where the result isn't used
-                // and there are no available registers?
-                return false;
-            }
+            // How often do you see field lookup where the result isn't used
+            // and there are no available registers?
+            return available.length != 0;
         }
 
         return true;
@@ -324,11 +322,7 @@ public class UnreflectionStrategy implements OptimizationStrategy {
         String declaringClass = ClassNameUtils.toInternal(method.getDeclaringClass());
 
         boolean isPrivate = Modifier.isPrivate(methodAccessFlags);
-        if (isPrivate && !declaringClass.equals(className) && !method.isAccessible()) {
-            return false;
-        }
-
-        return true;
+        return !isPrivate || declaringClass.equals(className) || method.isAccessible();
     }
 
     int[] getValidAddresses(ExecutionGraphManipulator manipulator) {

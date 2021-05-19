@@ -35,7 +35,7 @@ public class Optimizer {
 
     private boolean madeAnyChanges;
     private boolean shouldReexecute;
-    private Map<String, Integer> optimizationCounts;
+    private final Map<String, Integer> optimizationCounts;
 
     public Optimizer(ExecutionGraph graph, VirtualMethod method, VirtualMachine vm, DexBuilder dexBuilder,
                      SimplifyOptions opts) {

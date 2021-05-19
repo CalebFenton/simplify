@@ -157,12 +157,8 @@ public class PeepholeStrategy implements OptimizationStrategy {
         }
 
         String referenceType = ReferenceUtil.getReferenceString(original.getReference());
-        if (!preCastType.equals(referenceType)) {
-            // Item was cast to new class
-            return false;
-        }
-
-        return true;
+        // Item was cast to new class
+        return preCastType.equals(referenceType);
     }
 
     boolean canPeepClassForName(int address) {
@@ -181,11 +177,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         int[] parameterRegisters = ((InvokeOp) op).getParameterRegisters();
         int registerA = parameterRegisters[0];
         HeapItem className = manipulator.getRegisterConsensus(address, registerA);
-        if (className.isUnknown()) {
-            return false;
-        }
-
-        return true;
+        return !className.isUnknown();
     }
 
     boolean canPeepStringInit(int address) {
@@ -203,11 +195,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
 
         int instanceRegister = instr.getRegisterC();
         HeapItem item = manipulator.getRegisterConsensus(address, instanceRegister);
-        if (!(item.getValue() instanceof String)) {
-            return false;
-        }
-
-        return true;
+        return item.getValue() instanceof String;
     }
 
     boolean canPeepUninitializedInstanceThisReference(int address) {
@@ -238,11 +226,7 @@ public class PeepholeStrategy implements OptimizationStrategy {
         }
 
         BuilderInstruction nextInstruction = manipulator.getInstruction(nextAddress);
-        if (!nextInstruction.getOpcode().name.startsWith("move-result")) {
-            return false;
-        }
-
-        return true;
+        return nextInstruction.getOpcode().name.startsWith("move-result");
     }
 
     List<Integer> getValidAddresses(ExecutionGraphManipulator manipulator) {

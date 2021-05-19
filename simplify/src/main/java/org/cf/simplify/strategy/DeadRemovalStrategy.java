@@ -301,10 +301,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         if (op instanceof NopOp) {
             int nextAddress = address + op.getLocation().getInstruction().getCodeUnits();
             Opcode nextOp = manipulator.getLocation(nextAddress).getInstruction().getOpcode();
-            if (nextOp == Opcode.ARRAY_PAYLOAD) {
-                // Necessary nop padding
-                return false;
-            }
+            // Necessary nop padding
+            return nextOp != Opcode.ARRAY_PAYLOAD;
         }
 
         return true;
@@ -346,11 +344,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         log.debug("Dead assignments test @{} for: {}", address, op);
-        if (isAnyRegisterUsed(address, assigned, manipulator)) {
-            return false;
-        }
-
-        return true;
+        return !isAnyRegisterUsed(address, assigned, manipulator);
     }
 
     private boolean isDeadResult(int address) {
@@ -390,10 +384,8 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         MethodState mState = context.getMethodState();
         Set<Integer> assigned = getNormalRegistersAssigned(mState);
         if (0 < assigned.size()) {
-            if (isAnyRegisterUsed(address, assigned, manipulator)) {
-                // Result may not be used, but assignments *are* used
-                return false;
-            }
+            // Result may not be used, but assignments *are* used
+            return !isAnyRegisterUsed(address, assigned, manipulator);
         }
 
         return true;
@@ -409,11 +401,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         }
 
         Op op = manipulator.getOp(address);
-        if (op instanceof NopOp) {
-            return true;
-        }
-
-        return false;
+        return op instanceof NopOp;
     }
 
     private boolean isSideEffectAboveThreshold(SideEffectLevel level) {
@@ -429,11 +417,7 @@ public class DeadRemovalStrategy implements OptimizationStrategy {
         // Branch is useless if it branches to the next instruction.
         OffsetInstruction instruction = (OffsetInstruction) manipulator.getInstruction(address);
         int branchOffset = instruction.getCodeOffset();
-        if (branchOffset != instruction.getCodeUnits()) {
-            return false;
-        }
-
-        return true;
+        return branchOffset == instruction.getCodeUnits();
     }
 
 }

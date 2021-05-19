@@ -25,7 +25,7 @@ class PrintCommand : DebuggerCommand() {
         if (target == null) {
             return PrintTargetInvalid
         }
-        val guessedType = ClassNameUtils.guessReferenceType(target);
+        val guessedType = ClassNameUtils.guessReferenceType(target)
         return when {
             guessedType == ClassNameUtils.ReferenceType.INTERNAL_CLASS_DESCRIPTOR -> {
                 val parts = target.split("->".toRegex(), 2)
@@ -65,7 +65,7 @@ class PrintCommand : DebuggerCommand() {
             }
             is PrintTargetRegister -> {
                 val methodState = debugger.currentNode.context.methodState
-                val item = methodState.peekRegister(parsedTarget.register);
+                val item = methodState.peekRegister(parsedTarget.register)
                 parent.out.println("${parsedTarget.name}: $item")
             }
             is PrintTargetInvalid -> {

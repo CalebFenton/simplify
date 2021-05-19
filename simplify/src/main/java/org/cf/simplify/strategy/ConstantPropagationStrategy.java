@@ -95,11 +95,7 @@ public class ConstantPropagationStrategy implements OptimizationStrategy {
         }
 
         String type = consensus.isPrimitive() ? consensus.getType() : consensus.getValueType();
-        if (!constantBuilder.canConstantizeType(type)) {
-            return false;
-        }
-
-        return true;
+        return constantBuilder.canConstantizeType(type);
     }
 
     private List<Integer> getValidAddresses() {

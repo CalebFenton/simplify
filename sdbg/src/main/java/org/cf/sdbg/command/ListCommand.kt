@@ -62,7 +62,7 @@ class ListCommand : DebuggerCommand() {
         options.sequentialLabels = true
         options.codeOffsets = true
         options.localsDirective = true
-        val classDefinition = ClassDefinition(options, classDef);
+        val classDefinition = ClassDefinition(options, classDef)
         val methodDefinition = MethodDefinition(classDefinition, method.methodDefinition, method.methodDefinition.implementation!!)
         val writer = IndentingWriter(parent.out)
         methodDefinition.writeTo2(writer, debugger, start, realStop)

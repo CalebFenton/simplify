@@ -7,7 +7,7 @@ public class Base64 {
         while (data[tail - 1] == '=') {
             tail--;
         }
-        byte dest[] = new byte[tail - (data.length / 4)];
+        byte[] dest = new byte[tail - (data.length / 4)];
 
         for (int idx = 0; idx < data.length; idx++) {
             if (data[idx] == '=') {
@@ -45,7 +45,7 @@ public class Base64 {
         if (str == null) {
             return null;
         }
-        byte data[] = str.getBytes();
+        byte[] data = str.getBytes();
 
         return decode(data);
     }
@@ -54,9 +54,9 @@ public class Base64 {
         if (d == null) {
             return null;
         }
-        byte data[] = new byte[d.length + 2];
+        byte[] data = new byte[d.length + 2];
         System.arraycopy(d, 0, data, 0, d.length);
-        byte dest[] = new byte[(data.length / 3) * 4];
+        byte[] dest = new byte[(data.length / 3) * 4];
 
         for (int sidx = 0, didx = 0; sidx < d.length; sidx += 3, didx += 4) {
             dest[didx] = (byte) ((data[sidx] >>> 2) & 077);

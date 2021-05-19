@@ -516,7 +516,7 @@ class VirtualMachine private constructor(
     fun spawnEntrypointState(method: VirtualMethod): ExecutionState {
         if (!method.hasImplementation()) {
             // Native or abstract methods have no implementation. Shouldn't be executing them.
-            throw IllegalArgumentException("No implementation for $method");
+            throw IllegalArgumentException("No implementation for $method")
         }
 
         val state = ExecutionState.build(method, classManager, classLoader, configuration)

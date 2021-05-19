@@ -44,7 +44,7 @@ class InfoCommand : DebuggerCommand() {
         parent.out.println("breakpoint count=${breakpoints.size}")
         if (breakpoints.isNotEmpty()) {
             val lines = breakpoints.joinToString("\n")
-            parent.out.println(lines);
+            parent.out.println(lines)
         }
     }
 
