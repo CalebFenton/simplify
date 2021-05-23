@@ -23,6 +23,7 @@ import org.jf.dexlib2.builder.instruction.BuilderInstruction21s;
 import org.jf.dexlib2.builder.instruction.BuilderInstruction30t;
 import org.jf.dexlib2.writer.io.FileDataStore;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class ExecutionGraphManipulatorTest {
 
@@ -289,7 +290,7 @@ public class ExecutionGraphManipulatorTest {
     }
 
     @Test
-    public void emptyingATryBlockWithTwoHandlersWhichCreatesNullStartAndEndLocationsIsRemovedWithoutIncident()
+    public void emptyingATryBlockWithTwoHandlersWhichCreatesNullStartAndEndLocationsIsRemovedWithoutIncident(@TempDir File tempDir)
             throws IOException {
         manipulator = OptimizerTester.getGraphManipulator(CLASS_NAME, "tryBlockWithTwoCatches()V");
         assertEquals(2, manipulator.getTryBlocks().size());
@@ -299,9 +300,8 @@ public class ExecutionGraphManipulatorTest {
 
         // Exception is thrown when saving. Make sure doesn't happen.
         ClassManager classManager = manipulator.getVM().getClassManager();
-        File out = File.createTempFile("test", "simplify");
+        File out = tempDir.createTempFile("test", "simplify");
         classManager.getDexBuilder().writeTo(new FileDataStore(out));
-        out.delete();
     }
 
     @Test
