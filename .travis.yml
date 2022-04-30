@@ -29,7 +29,7 @@ before_script:
 - ps -e -o pid,vsz,comm= | sort -n -k 2
 - sudo free -m -t
 script:
-- ./gradlew test --no-daemon
+- ./gradlew test 
 after_success:
 - "./gradlew jacocoRootReport coveralls"
 before_cache:
