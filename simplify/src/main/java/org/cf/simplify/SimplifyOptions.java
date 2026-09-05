@@ -61,6 +61,14 @@ public class SimplifyOptions implements Serializable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        // The argument parser sets -o (setOutFile) before the input file, so the
+        // out dex file may have been chosen with a not-yet-known input type -- in
+        // which case isZip() was false and outDexFile was set to outFile itself.
+        // For a zip input that makes the Launcher copy the input archive into the
+        // output's classes.dex. Now that the input type is known, recompute it.
+        if (outFile != null) {
+            setOutFile(outFile);
+        }
     }
 
     public int getMaxAddressVisits() {
