@@ -112,8 +112,8 @@ internal object MethodLayoutSolver {
                 }
                 buildList {
                     var chunkStart = start
-                    while (end - chunkStart > MAX_TRY_RANGE_CODE_UNITS) {
-                        val maximumEnd = chunkStart + MAX_TRY_RANGE_CODE_UNITS
+                    while (end - chunkStart > DexLimits.MAX_TRY_RANGE_CODE_UNITS) {
+                        val maximumEnd = chunkStart + DexLimits.MAX_TRY_RANGE_CODE_UNITS
                         val chunkEnd = instructionBoundaries.asSequence()
                             .filter { it > chunkStart && it <= maximumEnd }
                             .maxOrNull()
@@ -412,5 +412,4 @@ internal object MethodLayoutSolver {
         Opcode.IF_LEZ to Opcode.IF_GTZ,
     )
     private const val EXPANDED_CONDITIONAL_CODE_UNITS = 5
-    private const val MAX_TRY_RANGE_CODE_UNITS = 65_535
 }

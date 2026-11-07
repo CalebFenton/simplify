@@ -159,7 +159,7 @@ internal object ScratchRegisterAllocator {
         var hiddenWordCount = 0
         while (true) {
             val addedWordCount = scratchWordCount.toLong() + hiddenWordCount
-            if (body.registerCount.toLong() + addedWordCount > MAX_REGISTER_COUNT) {
+            if (body.registerCount.toLong() + addedWordCount > DexLimits.MAX_REGISTER_COUNT) {
                 return registerOverflow(body.registerCount.toLong() + addedWordCount)
             }
             var requiredHiddenWords = hiddenWordCount
@@ -1065,7 +1065,6 @@ internal object ScratchRegisterAllocator {
         Opcode.INVOKE_CUSTOM to Opcode.INVOKE_CUSTOM_RANGE,
     )
 
-    private const val MAX_REGISTER_COUNT = 65_535L
     private const val U4_MAX = 15
     private const val U8_MAX = 255
 }

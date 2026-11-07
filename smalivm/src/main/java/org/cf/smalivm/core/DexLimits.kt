@@ -1,7 +1,34 @@
 package org.cf.smalivm.core
 
-/** DEX section limits that an edit can project without creating an output builder. */
-internal object DexReferenceLimits {
+/** DEX format limits that an edit must respect before an output builder exists. */
+internal object DexLimits {
+    /** `code_item.registers_size` is a `ushort`. */
+    const val MAX_REGISTER_COUNT = 65_535
+
+    /** Instruction operands index the type, field, method and proto sections with 16 bits. */
+    const val MAX_INDEXED_ITEMS = 65_536
+
+    /** `const-string` holds a 16-bit string index; more strings need `const-string/jumbo`. */
+    const val MAX_NON_JUMBO_STRING_COUNT = 65_536
+
+    /** `code_item.tries_size`, `try_item.insn_count` and `try_item.handler_off` are each a `ushort`. */
+    const val MAX_TRY_ITEMS = 65_535
+    const val MAX_TRY_RANGE_CODE_UNITS = 65_535
+    const val MAX_HANDLER_OFFSET = 65_535L
+
+    /** A switch payload's `size` is a `ushort`. */
+    const val MAX_SWITCH_ELEMENTS = 65_535
+
+    private const val MAX_UNSIGNED_INT = 0xffff_ffffL
+
+    /** Jumbo encoding is permanent for a program: once required it stays required. */
+    fun stringEncoding(stringCount: Int, current: StringInstructionEncoding): StringInstructionEncoding =
+        if (current == StringInstructionEncoding.CONST_STRING_JUMBO || stringCount > MAX_NON_JUMBO_STRING_COUNT) {
+            StringInstructionEncoding.CONST_STRING_JUMBO
+        } else {
+            StringInstructionEncoding.CONST_STRING
+        }
+
     fun validate(
         closure: DexReferenceClosure,
         applicationClasses: Collection<ApplicationClassDefinition>,
@@ -39,7 +66,4 @@ internal object DexReferenceLimits {
         MethodEditRejectionReason.DexReferenceLimit("type_list").takeIf { bytes > MAX_UNSIGNED_INT }
 
     private fun alignToFour(value: Long): Long = (value + 3L) and -4L
-
-    private const val MAX_INDEXED_ITEMS = 65_536
-    private const val MAX_UNSIGNED_INT = 0xffff_ffffL
 }

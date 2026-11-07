@@ -167,7 +167,7 @@ internal object MethodEditValidator {
         snapshot: ProgramSnapshot,
         projectedReferences: DexReferenceClosure = snapshot.dexReferenceClosure,
     ): MethodEditRejectionReason? {
-        if (layout.registerCount > MAX_REGISTER_COUNT) {
+        if (layout.registerCount > DexLimits.MAX_REGISTER_COUNT) {
             return MethodEditRejectionReason.RegisterOverflow(layout.registerCount - 1)
         }
         val opcodes = snapshot.outputApiPolicy.opcodes()
@@ -322,7 +322,7 @@ internal object MethodEditValidator {
                 "An edit cannot reduce the method register count",
             )
         }
-        if (body.registerCount > MAX_REGISTER_COUNT) {
+        if (body.registerCount > DexLimits.MAX_REGISTER_COUNT) {
             return MethodEditRejectionReason.RegisterOverflow(body.registerCount - 1)
         }
         val executableInstructions = body.instructions.filter {
@@ -423,7 +423,7 @@ internal object MethodEditValidator {
         if (descriptor.startsWith('L')) return isValidClassDescriptor(descriptor)
         if (!descriptor.startsWith('[')) return false
         val dimensions = descriptor.indexOfFirst { it != '[' }.let { if (it < 0) descriptor.length else it }
-        if (dimensions !in 1..MAX_ARRAY_DIMENSIONS) return false
+        if (dimensions !in 1..VirtualType.MAX_ARRAY_DIMENSIONS) return false
         val component = descriptor.substring(dimensions)
         return (component.length == 1 && component[0] in NON_VOID_PRIMITIVE_TYPES) ||
             isValidClassDescriptor(component)
@@ -467,7 +467,7 @@ internal object MethodEditValidator {
         layout: MethodLayout,
         projectedReferences: DexReferenceClosure,
     ): MethodEditRejectionReason? {
-        if (layout.tryBlocks.size > MAX_TRY_ITEMS) {
+        if (layout.tryBlocks.size > DexLimits.MAX_TRY_ITEMS) {
             return MethodEditRejectionReason.InvalidTryRegion("The method exceeds the DEX try-item limit")
         }
         if (layout.tryBlocks.isEmpty()) return null
@@ -482,7 +482,7 @@ internal object MethodEditValidator {
 
         var offset = unsignedLeb128Size(handlerLists.size).toLong()
         for (handlers in handlerLists) {
-            if (offset > MAX_HANDLER_OFFSET) {
+            if (offset > DexLimits.MAX_HANDLER_OFFSET) {
                 return MethodEditRejectionReason.InvalidTryRegion(
                     "An encoded exception-handler offset exceeds the DEX unsigned 16-bit limit",
                 )
@@ -598,9 +598,9 @@ internal object MethodEditValidator {
             )
         }
         if (payload !is SwitchPayload) return null
-        if (payload.switchElements.size > MAX_SWITCH_ELEMENTS) {
+        if (payload.switchElements.size > DexLimits.MAX_SWITCH_ELEMENTS) {
             return MethodEditRejectionReason.StructuralValidationFailure(
-                "A switch payload cannot contain more than $MAX_SWITCH_ELEMENTS elements",
+                "A switch payload cannot contain more than ${DexLimits.MAX_SWITCH_ELEMENTS} elements",
             )
         }
         val keys = payload.switchElements.map { it.key }
@@ -1142,10 +1142,5 @@ internal object MethodEditValidator {
         Opcode.SHR_LONG_2ADDR,
         Opcode.USHR_LONG_2ADDR,
     )
-    private const val MAX_TRY_ITEMS = 65_535
-    private const val MAX_HANDLER_OFFSET = 65_535L
-    private const val MAX_REGISTER_COUNT = 65_535
-    private const val MAX_SWITCH_ELEMENTS = 65_535
-    private const val MAX_ARRAY_DIMENSIONS = 255
     private val NON_VOID_PRIMITIVE_TYPES = setOf('Z', 'B', 'S', 'C', 'I', 'J', 'F', 'D')
 }

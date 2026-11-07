@@ -145,8 +145,8 @@ class MethodEditTransaction internal constructor(
 
     fun reserveScratchRegisters(wordCount: Int): ScratchRegisterRange {
         ensureOpen()
-        require(wordCount in 1..MAX_REGISTER_COUNT) {
-            "Scratch-register word count must be in 1..$MAX_REGISTER_COUNT: $wordCount"
+        require(wordCount in 1..DexLimits.MAX_REGISTER_COUNT) {
+            "Scratch-register word count must be in 1..${DexLimits.MAX_REGISTER_COUNT}: $wordCount"
         }
         check(scratchWordCount <= Int.MAX_VALUE - wordCount) { "Scratch-register reservation count overflow" }
         val firstOffset = scratchWordCount
@@ -351,17 +351,13 @@ class MethodEditTransaction internal constructor(
             currentMethod.methodSignature,
             logicalCandidateReferences,
         )
-        DexReferenceLimits.validate(projectedReferences, currentSnapshot.applicationClasses.values)?.let {
+        DexLimits.validate(projectedReferences, currentSnapshot.applicationClasses.values)?.let {
             return reject(it)
         }
-        val candidateEncoding = if (
-            currentSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING_JUMBO ||
-            projectedReferences.strings.size > MAX_NON_JUMBO_STRING_COUNT
-        ) {
-            StringInstructionEncoding.CONST_STRING_JUMBO
-        } else {
-            StringInstructionEncoding.CONST_STRING
-        }
+        val candidateEncoding = DexLimits.stringEncoding(
+            projectedReferences.strings.size,
+            currentSnapshot.stringInstructionEncoding,
+        )
         val triggersJumboRelayout =
             currentSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING &&
                 candidateEncoding == StringInstructionEncoding.CONST_STRING_JUMBO
@@ -855,10 +851,5 @@ class MethodEditTransaction internal constructor(
 
     private fun ensureOpen() {
         check(state == MethodEditTransactionState.OPEN) { "Method edit transaction is already closed: $state" }
-    }
-
-    private companion object {
-        const val MAX_NON_JUMBO_STRING_COUNT = 65_536
-        const val MAX_REGISTER_COUNT = 65_535
     }
 }

@@ -176,7 +176,7 @@ class ProgramDexWriter {
             "Program snapshot has an incorrect call-site reference closure"
         }
         if (snapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING) {
-            check(supplied.strings.size <= MAX_NON_JUMBO_STRING_COUNT) {
+            check(supplied.strings.size <= DexLimits.MAX_NON_JUMBO_STRING_COUNT) {
                 "Program snapshot exceeds the const-string index limit without jumbo encoding"
             }
         }
@@ -189,10 +189,6 @@ class ProgramDexWriter {
                 },
             ) { "Program snapshot requires jumbo strings but contains a const-string instruction" }
         }
-    }
-
-    private companion object {
-        const val MAX_NON_JUMBO_STRING_COUNT = 65_536
     }
 
     private fun reboundImplementation(builder: DexBuilder, body: MethodBody): MethodImplementation {

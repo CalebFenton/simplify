@@ -36,7 +36,7 @@ class ProgramWorkspace private constructor(
                 candidateSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING_JUMBO,
         ) { "Cannot reduce jumbo string encoding after publication" }
         require(
-            DexReferenceLimits.validate(
+            DexLimits.validate(
                 candidateSnapshot.dexReferenceClosure,
                 candidateSnapshot.applicationClasses.values,
             ) == null,
