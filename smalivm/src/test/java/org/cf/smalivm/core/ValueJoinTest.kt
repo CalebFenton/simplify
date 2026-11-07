@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 class ValueJoinTest {
     private val int = VirtualType.of("I")
     private val long = VirtualType.of("J")
+    private val byte = VirtualType.of("B")
     private val str = VirtualType.of("Ljava/lang/String;")
     private val sb = VirtualType.of("Ljava/lang/StringBuilder;")
     private val num = VirtualType.of("Ljava/lang/Number;")
@@ -198,6 +199,45 @@ class ValueJoinTest {
         assertEquals(
             Value.Top,
             joinAll(listOf(Value.Known(5, int), Value.Known(5L, long), Value.Known(5, int)), hierarchy),
+        )
+    }
+
+    @Test
+    fun anIntZeroJoinedWithAReferenceIsThatReferencesNull() {
+        // Dalvik bytecode reference, "General design": `(Object) null == (int) 0`. `const/4 vA, 0` is how
+        // bytecode writes null, and ART's verifier types that constant Zero, which `IsReferenceTypes()` admits,
+        // so it merges with a reference into that reference.
+        val zero = Value.Known(0, int)
+        assertEquals(Value.Unknown(str), join(zero, Value.Unknown(str), hierarchy))
+        assertEquals(Value.Unknown(str), join(Value.Unknown(str), zero, hierarchy))
+        assertEquals(Value.Known(null, str), join(zero, Value.Known(null, str), hierarchy))
+        assertEquals(Value.Known(null, str), join(Value.Known(null, str), zero, hierarchy))
+        assertEquals(Value.Unknown(str), join(zero, Value.Known(HeapRef(1), str), hierarchy))
+    }
+
+    @Test
+    fun onlyAKnownIntZeroIsTheNullIdiom() {
+        // A non-zero int, an unproven int, and a zero no `const` opcode produces (wide `J`, narrow `B`) are
+        // not null; each still disagrees with a reference.
+        assertEquals(Value.Top, join(Value.Known(1, int), Value.Unknown(str), hierarchy))
+        assertEquals(Value.Top, join(Value.Unknown(int), Value.Unknown(str), hierarchy))
+        assertEquals(Value.Top, join(Value.Known(0L, long), Value.Unknown(str), hierarchy))
+        assertEquals(Value.Top, join(Value.Known(0.toByte(), byte), Value.Unknown(str), hierarchy))
+    }
+
+    @Test
+    fun theNullIdiomKeepsTheJoinAssociative() {
+        // Two differently tagged zeros meet a reference: both groupings must agree.
+        val intZero = Value.Known(0, int)
+        val byteZero = Value.Known(0.toByte(), byte)
+        val nullString = Value.Known(null, str)
+        assertEquals(
+            join(join(intZero, byteZero, hierarchy), nullString, hierarchy),
+            join(intZero, join(byteZero, nullString, hierarchy), hierarchy),
+        )
+        assertEquals(
+            join(join(nullString, intZero, hierarchy), Value.Known(5, int), hierarchy),
+            join(nullString, join(intZero, Value.Known(5, int), hierarchy), hierarchy),
         )
     }
 }

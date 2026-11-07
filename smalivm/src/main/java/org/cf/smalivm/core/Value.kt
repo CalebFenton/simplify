@@ -41,7 +41,8 @@ val Value.isNull: Boolean get() = this is Value.Known && raw == null
  *
  * Both predicates exist rather than one, because they answer different questions: [isNull] is "this is
  * the null reference as a reference", which is what handler resolution and consensus need, while this is
- * "the runtime would treat these bits as null", which is what an op dereferencing a register needs.
+ * "the runtime would treat these bits as null", which is what an op dereferencing a register needs and
+ * what [join] uses to read an `I`-tagged zero as the null of a reference it meets.
  *
  * **Where the boundary is drawn, and why.** Integral means [JLS] §4.2's integral types -- `byte`,
  * `short`, `int`, `long` **and** `char`. `Boolean`, `Float` and `Double` are deliberately excluded even
