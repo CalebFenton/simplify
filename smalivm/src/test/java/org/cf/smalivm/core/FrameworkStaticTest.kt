@@ -1,6 +1,6 @@
 package org.cf.smalivm.core
 
-import com.google.common.Config
+import android.util.DisplayMetrics
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
@@ -37,7 +37,7 @@ class FrameworkStaticTest {
         val mutable = arrayListOf("owned")
         val service = recordingService { request ->
             when (request.field.name) {
-                "UNKNOWN" -> HostStaticResult.Returned(HostValue.Primitive(7, intType))
+                "DENSITY_DEVICE_STABLE" -> HostStaticResult.Returned(HostValue.Primitive(7, intType))
                 "loader" -> HostStaticResult.Returned(HostValue.TypedNull(request.field.type))
                 "TRUE" -> HostStaticResult.Returned(HostValue.Reference(java.lang.Boolean.TRUE, VirtualType.of("Ljava/lang/Boolean;")))
                 "EMPTY_LIST" -> HostStaticResult.Returned(HostValue.Reference(mutable, VirtualType.of("Ljava/util/ArrayList;")))
@@ -129,9 +129,9 @@ class FrameworkStaticTest {
     @Test
     fun exactUnsafeAncestorInitializerBlocksChildFieldBeforeHostInitialization() {
         Task40HostSentinel.unsafeParentInitialized = false
-        val parent = VirtualType.of("Lcom/google/protobuf/nano/MessageNano;")
+        val parent = VirtualType.of("Lcom/android/framework/protobuf/nano/MessageNano;")
         val child = VirtualType.of(
-            "Lcom/android/server/connectivity/metrics/IpConnectivityLogClass\$DefaultNetworkEvent;",
+            "Lcom/android/server/connectivity/metrics/nano/IpConnectivityLogClass\$DefaultNetworkEvent;",
         )
         val childField = StaticFieldDescriptor(child, "NONE", intType)
         val service = recordingService { error("unsafe ancestor must deny before host service execution") }
@@ -401,8 +401,8 @@ class FrameworkStaticTest {
 
     @Test
     fun realHostInitializerErrorIsClassifiedAsTargetThrow() {
-        val field = field("Lcom/google/common/Config;", "KEY_BACK", "I")
-        val actual = hostStaticService(Config::class.java.classLoader)
+        val field = field("Landroid/util/DisplayMetrics;", "DENSITY_DEVICE_STABLE", "I")
+        val actual = hostStaticService(DisplayMetrics::class.java.classLoader)
         var serviceResult: HostStaticResult? = null
         val service = recordingService { request -> actual.read(request).also { serviceResult = it } }
         val graph = run(
@@ -503,7 +503,7 @@ class FrameworkStaticTest {
     private companion object {
         const val TEST_CLASS = "Lframework_static_test;"
         val PROJECTED_FIELDS = setOf(
-            StaticFieldDescriptor(VirtualType.of("Lsun/net/www/MimeEntry;"), "UNKNOWN", VirtualType.of("I")),
+            StaticFieldDescriptor(VirtualType.of("Landroid/util/DisplayMetrics;"), "DENSITY_DEVICE_STABLE", VirtualType.of("I")),
             StaticFieldDescriptor(
                 VirtualType.of("Ljava/lang/ClassLoader\$SystemClassLoader;"),
                 "loader",

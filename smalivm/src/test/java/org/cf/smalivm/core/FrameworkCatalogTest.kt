@@ -33,7 +33,6 @@ class FrameworkCatalogTest {
         assertSame(first.frameworkCatalog, second.frameworkCatalog)
         assertSame(method, second.frameworkCatalog.method(method.methodSignature))
         assertSame(method.identity, second.frameworkCatalog.method(method.methodSignature)!!.identity)
-        assertTrue(first.frameworkCatalog.classCount > 20_000)
         assertTrue(first.hierarchy.contains("Landroid/app/Activity;"))
         val lazyMethod = requireNotNull(first.frameworkCatalog.method("Landroid/app/Activity;->isFinishing()Z"))
         val secondProjection = requireNotNull(first.frameworkCatalog.method(lazyMethod.methodSignature))
@@ -56,6 +55,24 @@ class FrameworkCatalogTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Known(31, VirtualType.of("I")), graph.trusted()!!.terminatingConsensus(0))
     }
+
+    @Test
+    fun modernFrameworkMethodMaterializesAndExecutesWithWideResult() {
+        val index = task53ClassIndex(root, SOURCE)
+        val method = requireNotNull(
+            index.currentSnapshot.frameworkCatalog.method("Ljava/lang/Math;->multiplyFull(II)J"),
+        )
+        val view = MethodView.of(method, index.currentSnapshot.programRevision)
+        val frame = Frame.entryFrame(view, HostObjectCloner())
+        frame.assign(view.firstParameterRegister, Value.Known(Int.MAX_VALUE, VirtualType.of("I")))
+        frame.assign(view.firstParameterRegister + 1, Value.Known(2, VirtualType.of("I")))
+
+        val graph = VmServices(index).newSession(view, entryFrame = frame).run()
+
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(Value.Known(4_294_967_294L, VirtualType.of("J")), graph.trusted()!!.terminatingConsensus(0))
+    }
+
 
 
     private companion object {

@@ -1,6 +1,6 @@
-package com.android.server.connectivity.metrics;
+package com.android.server.connectivity.metrics.nano;
 
-import com.google.protobuf.nano.MessageNano;
+import com.android.framework.protobuf.nano.MessageNano;
 
 public final class IpConnectivityLogClass {
     private IpConnectivityLogClass() {

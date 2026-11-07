@@ -1,5 +1,6 @@
 package org.cf.smalivm.type
 
+import org.cf.smalivm.core.FrameworkArtifact
 import org.cf.smalivm.dex.SmaliFile
 import org.cf.smalivm.dex.SmaliFileFactory
 import org.cf.smalivm.dex.SmaliParser
@@ -31,7 +32,7 @@ class ClassManager(
     private var initialApplicationClassDefinitions: Map<String, ImmutableClassDef>? = null
 
     // Need a separate DexBuilder for interning framework classes to avoid including in output dex
-    private val frameworkDexBuilder = DexBuilder(Opcodes.getDefault())
+    private val frameworkDexBuilder = DexBuilder(FrameworkArtifact.load().opcodes)
 
     init {
         if (inputPath != null) {
@@ -183,19 +184,15 @@ class ClassManager(
         return smaliFileFactory.isFrameworkClass(virtualClass.name)
     }
 
-    fun isSafeFrameworkClass(virtualClass: VirtualType): Boolean {
-        return smaliFileFactory.isSafeFrameworkClass(virtualClass.name)
-    }
-
     fun getFrameworkDexBuilder(): DexBuilder {
         return frameworkDexBuilder
     }
 
-    private fun parseClass(className: String, builder: DexBuilder): BuilderClassDef {
+    private fun parseClass(className: String, builder: DexBuilder, apiLevel: Int): BuilderClassDef {
         val classDef: BuilderClassDef
         try {
             val smaliFile = classNameToSmaliFile[className]!!
-            smaliFile.open().use { classDef = SmaliParser.parse(smaliFile.path, it, builder, outputAPILevel) }
+            smaliFile.open().use { classDef = SmaliParser.parse(smaliFile.path, it, builder, apiLevel) }
         } catch (e: NullPointerException) {
             throw RuntimeException("Can't find Smali file for $className")
         } catch (e: Exception) {
@@ -210,7 +207,8 @@ class ClassManager(
         }
         val isFramework = smaliFileFactory.isFrameworkClass(className)
         val builder = if (isFramework) frameworkDexBuilder else dexBuilder
-        val classDef = parseClass(className, builder)
+        val apiLevel = if (isFramework) FrameworkArtifact.load().opcodes.api else outputAPILevel
+        val classDef = parseClass(className, builder, apiLevel)
         val virtualClass = VirtualClass(classDef, this)
         classNameToClass[className] = virtualClass
     }

@@ -9,18 +9,9 @@ import java.io.IOException
 import java.util.*
 
 class Configuration private constructor() {
-    val immutableClasses: Set<String> = HashSet(load(IMMUTABLE_CLASSES_PATH))
     val safeClasses: Set<String> = HashSet(load(SAFE_CLASSES_PATH))
     private val safeMethods: Set<String> = HashSet(load(SAFE_METHODS_PATH))
     private val unsafeMethods: Set<String> = HashSet(load(UNSAFE_METHODS_PATH))
-
-    fun isImmutable(className: String): Boolean {
-        return immutableClasses.contains(className)
-    }
-
-    fun isMutable(className: String): Boolean {
-        return !isImmutable(className)
-    }
 
     /**
      * Safe classes are Java API classes which are safe to instantiate, load, and statically initialize. Safe methods are methods of Java classes
@@ -55,12 +46,10 @@ class Configuration private constructor() {
 
     companion object {
         private val log = LoggerFactory.getLogger(Configuration::class.java.simpleName)
-        const val IMMUTABLE_CLASSES_PATH = "immutable_classes.cfg"
         const val SAFE_CLASSES_PATH = "safe_classes.cfg"
         const val SAFE_METHODS_PATH = "safe_methods.cfg"
         const val UNSAFE_METHODS_PATH = "unsafe_methods.cfg"
         const val FRAMEWORK_CLASSES_PATH = "framework_classes.cfg"
-        const val SAFE_FRAMEWORK_CLASSES_PATH = "safe_framework_classes.cfg"
         var instance: Configuration? = null
 
         fun instance(): Configuration {

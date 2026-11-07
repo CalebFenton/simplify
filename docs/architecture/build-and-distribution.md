@@ -101,15 +101,35 @@ optimization policy. It is not signing or publication approval.
 
 ## Framework and Android execution inputs
 
-The framework Smali submodule supplies the Android-25 corpus. `generateFrameworkCatalog` produces
-catalog resources during `processResources`, including source hashes and method declarations.
-`updateReferenceFramework` is a separate, mutating maintenance command for the tracked framework
-index/stub JAR. It is not part of ordinary `build` and must not be run as a harmless packaging check.
+The framework Smali submodule supplies the selected Android 16 / API 36 corpus from
+`android-36/smali/`. `generateFrameworkCatalog` produces catalog resources during
+`processResources`, including source hashes and method declarations. Catalog schema 2 records
+Android API 36 separately from DEX version 039. Framework parsers derive the opcode table from
+the DEX version (Smali API 29), not the device API. Application input/output API selection is unchanged.
+
+`updateReferenceFramework` regenerates the tracked `framework_classes.cfg` and
+`framework/android-framework.jar` from that catalog and the selected sources:
+
+```sh
+./gradlew :smalivm:updateReferenceFramework
+```
+
+It parses one class at a time, builds JVM reference shapes with deterministic entry ordering/times,
+and replaces the tracked outputs only after all classes generate. It does not read the previous
+class index to determine its inputs. This is a mutating maintenance command, not part of ordinary
+`build`; commit its outputs when changing the selected corpus.
 
 The submodule's standalone `make_reflib` generator captures a booted emulator's framework separately.
-Its generated captures, Gradle tooling and caches are not runtime resources: `processResources`
-includes only `android-25/**/*.smali` from the submodule. Generating a newer API does not change
-Simplify's selected corpus, catalog API or tracked reference JAR.
+The tracked API 36 capture retains original JARs/DEX, manifests, image metadata and notices.
+`processResources` includes only `android-36/smali/**/*.smali` from the submodule as executable
+framework resources; API 25, raw extraction inputs, trial captures, tooling and caches are excluded.
+The legal bundle separately includes API 36 provenance, boot/source manifests and original notices.
+Generating another capture does not automatically change the selected framework.
+
+The Kotlin engine uses `ReflectionPolicy` for host-call authorization and tracked heap identities
+for mutable values. The old `safe_framework_classes.cfg` and `immutable_classes.cfg` lists did not
+control this engine and are removed, along with their unused accessors. Active method/class
+reflection policies remain unchanged; framework availability is not permission to execute host code.
 
 The ART assembler uses the same resolved Smali dependency and explicit DEX API level as SmaliVM.
 It asks Gradle for its classpath each time rather than retaining a second dependency cache. Fresh
@@ -132,10 +152,10 @@ Travis/Coveralls/Coverity hooks are removed; no coverage-trend or external stati
 is claimed. Local workflow validation is not evidence of a successful hosted run.
 
 The Android framework corpus and derived reference artifacts remain under their upstream terms,
-separate from Simplify's Apache license. The existing API 25 corpus is retained; its original
-source-image fingerprint was not recorded. New framework captures must retain their image metadata,
-source hashes and original notices. See `THIRD_PARTY_NOTICES` for the license boundary and historical
-source information. New capture records do not establish the old corpus's exact source image.
+separate from Simplify's Apache license. The API 36 capture records its image fingerprint and
+source/tool hashes. The historical API 25 corpus is retained only in the submodule; its original
+source-image fingerprint was not recorded. See `THIRD_PARTY_NOTICES` for the license boundary
+and capture records. New capture records do not establish the old corpus's exact source image.
 
 Before release, verify a hosted CI run, review the complete public diff and legal bundle, and remove
 `-SNAPSHOT` only when tagging the release.

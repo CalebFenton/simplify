@@ -53,11 +53,6 @@ class SmaliFileFactory {
         return getSmaliFiles(files)
     }
 
-    fun isSafeFrameworkClass(className: String): Boolean {
-        val smaliFile = frameworkClassNameToSmaliFile!![className]
-        return null != smaliFile && smaliFile.isSafeFrameworkClass
-    }
-
     companion object {
         private val log = LoggerFactory.getLogger(SmaliFileFactory::class.java.simpleName)
         private var frameworkClassNameToSmaliFile: Map<String, SmaliFile>? = null
@@ -82,16 +77,14 @@ class SmaliFileFactory {
 
         private fun parseFramework(): Map<String, SmaliFile> {
             val frameworkFiles: MutableMap<String, SmaliFile> = HashMap()
-            // framework_classes.cfg is built by FrameworkCacheBuilder
+            // framework_classes.cfg is generated alongside the JVM reference JAR.
             val frameworkClassesCfg = Configuration.load(Configuration.FRAMEWORK_CLASSES_PATH)
-            val safeFrameworkClasses = HashSet(Configuration.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH))
             for (line in frameworkClassesCfg) {
                 val parts = line.split(":")
                 val className = parts[0]
                 val path = parts[1]
                 val smaliFile = SmaliFile(path, className)
                 smaliFile.isResource = true
-                smaliFile.isSafeFrameworkClass = safeFrameworkClasses.contains(className)
                 frameworkFiles[smaliFile.className] = smaliFile
             }
             return frameworkFiles

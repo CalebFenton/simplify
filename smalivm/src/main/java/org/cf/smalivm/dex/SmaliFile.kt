@@ -10,7 +10,6 @@ import java.util.regex.Pattern
 
 class SmaliFile internal constructor(val path: String, val className: String) {
     var isResource = false
-    var isSafeFrameworkClass = false
 
     internal constructor(file: File) : this(file.absolutePath, getClassName(file))
 

@@ -61,11 +61,9 @@ class NewInstanceOpTest {
 
     @Test
     fun canCreateNonLocalInstance() {
-        // Migrated. `Ljava/lang/Integer;` is a framework class with a REAL `<clinit>`
-        // (`framework/smali/android-25/java/lang/Integer.smali:69`), so this lands on resolved
-        // decision 7's framework-conservative init -- which is invisible to THIS test's claim on
-        // purpose (the oracle's claim is only about r0) and pinned separately by
-        // [theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit].
+        // Integer has a framework <clinit>, so allocation uses conservative initialization.
+        // This test checks the instance; theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit
+        // separately checks the initialization policy.
         val initial = CoreState().apply { setRegisters(0, 1, "I") }
         val graph = CoreTester.execute(CLASS_NAME, "newNonLocalInstance()V", initial)
         assertUninitializedInstance(graph, register = 0, type = VirtualType.of("Ljava/lang/Integer;"))

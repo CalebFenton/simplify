@@ -3,7 +3,6 @@ package org.cf.smalivm.configuration
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.util.ClassNameUtils
 import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.util.*
@@ -12,47 +11,10 @@ import java.util.jar.JarInputStream
 import java.util.stream.Collectors
 
 class ConfigurationTest {
-    private var configuration: Configuration? = null
-    @BeforeEach
-    fun setUp() {
-        configuration = Configuration.instance()
-    }
-
-    @Test
-    fun stringIsImmutable() {
-        Assertions.assertTrue(configuration!!.isImmutable("Ljava/lang/String;"))
-    }
-
-    @Test
-    fun stringArrayIsImmutable() {
-        Assertions.assertFalse(configuration!!.isImmutable("[Ljava/lang/String;"))
-    }
-
-    @Test
-    fun stringBuilderIsImmutable() {
-        Assertions.assertFalse(configuration!!.isImmutable("Ljava/lang/StringBuilder;"))
-    }
-
     @Test
     @Throws(IOException::class, ClassNotFoundException::class)
     fun safeClassesCanBeLoaded() {
         ensureClassesExist(Configuration.SAFE_CLASSES_PATH)
-    }
-
-    @Test
-    @Throws(IOException::class)
-    fun immutableClassesCanBeLoaded() {
-        val lines = Configuration.load(Configuration.IMMUTABLE_CLASSES_PATH)
-        // Ignore primitives and inner classes
-        val classNames = lines.stream().filter { l: String -> l.startsWith("L") && !l.contains("$") }.collect(Collectors.toList())
-        ensureClassesExist(classNames, Configuration.IMMUTABLE_CLASSES_PATH, SmaliClassLoader.FRAMEWORK_STUBS_JAR)
-    }
-
-    @Test
-    @Throws(IOException::class)
-    fun safeFrameworkClassesExist() {
-        val lines = Configuration.load(Configuration.SAFE_FRAMEWORK_CLASSES_PATH)
-        ensureClassesExist(lines, Configuration.SAFE_FRAMEWORK_CLASSES_PATH, SmaliClassLoader.FRAMEWORK_STUBS_JAR)
     }
 
     @Test

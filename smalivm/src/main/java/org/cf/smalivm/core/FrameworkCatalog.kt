@@ -1,7 +1,6 @@
 package org.cf.smalivm.core
 
 import org.cf.smalivm.dex.SmaliParser
-import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
@@ -55,9 +54,9 @@ class FrameworkCatalog private constructor(
         }
         val source = artifact.openClassSource(type) ?: return null
         val materialized = try {
-            val builder = DexBuilder(Opcodes.forApi(artifact.apiLevel))
+            val builder = DexBuilder(artifact.opcodes)
             val definition = source.inputStream().use { input ->
-                ImmutableClassDef.of(SmaliParser.parse("$type.smali", input, builder, artifact.apiLevel))
+                ImmutableClassDef.of(SmaliParser.parse("$type.smali", input, builder, artifact.opcodes.api))
             }
             MaterializedClass.Loaded(definition)
         } catch (fatal: VirtualMachineError) {

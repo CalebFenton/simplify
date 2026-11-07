@@ -5,6 +5,10 @@ plugins {
 def legalFiles = copySpec {
     from rootProject.file('LICENSE'), rootProject.file('THIRD_PARTY_NOTICES')
     from(rootProject.file('licenses')) { into 'licenses' }
+    from(rootProject.file('smalivm/src/main/resources/framework/smali/android-36')) {
+        include 'provenance.json', 'boot-dex.tsv', 'shadowed-classes.tsv', 'notices/**'
+        into 'licenses/android-framework/android-36'
+    }
 }
 
 allprojects {

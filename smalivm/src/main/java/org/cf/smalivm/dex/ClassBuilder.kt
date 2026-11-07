@@ -20,7 +20,9 @@ import java.io.IOException
 import java.util.*
 import java.util.stream.Collectors
 
-class ClassBuilder(private val classManager: ClassManager) {
+class ClassBuilder internal constructor(private val classAccessFlags: (String) -> Int) {
+    constructor(classManager: ClassManager) : this({ type -> classManager.getVirtualClass(type).classDef.accessFlags })
+
     fun build(classDef: ClassDef): ByteArray {
         log.debug("Building input class: {}", classDef)
         val classWriter = ClassWriter(ClassWriter.COMPUTE_MAXS)
@@ -77,7 +79,7 @@ class ClassBuilder(private val classManager: ClassManager) {
                 exceptionTypes.add(stripName(type))
             }
         }
-        return exceptionTypes.toTypedArray()
+        return exceptionTypes.sorted().toTypedArray()
     }
 
     private fun buildInterfaces(classDef: ClassDef): Array<String?> {
@@ -100,7 +102,7 @@ class ClassBuilder(private val classManager: ClassManager) {
         if (isAnonymous) {
             innerName = null
         }
-        val innerAccess = classManager.getVirtualClass(internalName).classDef.accessFlags
+        val innerAccess = classAccessFlags(internalName)
         classWriter.visitInnerClass(fullName, outerName, innerName, innerAccess)
     }
 

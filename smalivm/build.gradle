@@ -15,9 +15,11 @@ plugins {
 }
 
 def generatedFrameworkCatalogDir = layout.buildDirectory.dir('generated/resources/frameworkCatalog')
+def selectedFrameworkDir = file('src/main/resources/framework/smali/android-36/smali')
+def selectedFrameworkResourcePath = 'framework/smali/android-36/smali'
 
 tasks.register('generateFrameworkCatalog') {
-    def frameworkDir = file('src/main/resources/framework/smali/android-25')
+    def frameworkDir = selectedFrameworkDir
     def outputFile = generatedFrameworkCatalogDir.map { it.file('framework_catalog.tsv') }
     inputs.dir(frameworkDir)
     outputs.file(outputFile)
@@ -26,7 +28,8 @@ tasks.register('generateFrameworkCatalog') {
         def destination = outputFile.get().asFile
         destination.parentFile.mkdirs()
         destination.withWriter('UTF-8') { writer ->
-            writer.write('V\t1\t25\n')
+            // Catalog schema, Android API, and original DEX version are separate identities.
+            writer.write('V\t2\t36\t39\n')
             fileTree(frameworkDir).matching { include '**/*.smali' }.files.sort { it.path }.each { source ->
                 def className = null
                 def accessFlags = ''
@@ -65,7 +68,7 @@ tasks.register('generateFrameworkCatalog') {
                 if (methods.toSet().size() != methods.size()) {
                     throw new GradleException("Duplicate method descriptor in ${source}")
                 }
-                def relativePath = 'framework/smali/android-25/' + frameworkDir.toPath().relativize(source.toPath())
+                def relativePath = selectedFrameworkResourcePath + '/' + frameworkDir.toPath().relativize(source.toPath())
                     .toString().replace(File.separatorChar, '/' as char)
                 def digest = MessageDigest.getInstance('SHA-256').digest(source.bytes).encodeHex().toString()
                 writer.write(['C', className, relativePath, digest, accessFlags, superclass, interfaces.join(',')]
@@ -85,9 +88,9 @@ sourceSets.main.resources {
 }
 tasks.named('processResources') {
     dependsOn tasks.named('generateFrameworkCatalog')
-    from('src/main/resources/framework/smali/android-25') {
+    from(selectedFrameworkDir) {
         include '**/*.smali'
-        into 'framework/smali/android-25'
+        into selectedFrameworkResourcePath
     }
 }
 
@@ -121,12 +124,19 @@ tasks.register('fatJar', Jar) {
 }
 
 tasks.register('updateReferenceFramework', JavaExec) {
-    description = 'Update Android reference framework artifacts. Use -PsmaliPath to specify path in resources/smali/, e.g. -PsmaliPath=android-25'
-    classpath = sourceSets.main.runtimeClasspath
+    description = 'Regenerate the tracked class index and JVM reference JAR from the selected Android 36 framework.'
+    dependsOn tasks.named('compileKotlin'), tasks.named('compileJava'), tasks.named('generateFrameworkCatalog')
+    // Read selected sources directly; processed resources may still contain the previous tracked index.
+    classpath = files(sourceSets.main.output.classesDirs, generatedFrameworkCatalogDir, 'src/main/resources') +
+        configurations.runtimeClasspath
     mainClass = 'org.cf.smalivm.dex.FrameworkJarBuilder'
-    def smaliPath = project.hasProperty('smaliPath') ? project.getProperty('smaliPath') : 'android-25'
+    maxHeapSize = '2g'
+    workingDir projectDir
+    args 'src/main/resources/framework_classes.cfg', 'src/main/resources/framework/android-framework.jar'
+}
 
-    args smaliPath, 'src/main/resources/framework/android-framework.jar'
+tasks.named('processResources') {
+    mustRunAfter tasks.named('updateReferenceFramework')
 }
 
 // Tooling-only, and deliberately inert: it configures nothing, depends on nothing, and no

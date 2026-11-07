@@ -59,6 +59,11 @@ The DEX toolchain now uses Google's maintained Smali 3.0.10 fork. Public DEX typ
 See [build and distribution details](docs/architecture/build-and-distribution.md) for dependency,
 logging, artifact, and separate historical Android-fixture boundaries.
 
+The bundled framework is Android 16 / API 36, captured from an AOSP emulator image.
+Its DEX 039 sources are parsed independently of the application's output API setting.
+The submodule retains the historical API 25 corpus, but runtime artifacts package only API 36.
+Use a case-sensitive filesystem for the checkout: API 36 contains class filenames differing only by case.
+
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
 ```bash

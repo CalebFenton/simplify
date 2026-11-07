@@ -9,7 +9,7 @@
 
 .method public static primitive()I
     .locals 1
-    sget v0, Lsun/net/www/MimeEntry;->UNKNOWN:I
+    sget v0, Landroid/util/DisplayMetrics;->DENSITY_DEVICE_STABLE:I
     return v0
 .end method
 
@@ -45,14 +45,14 @@
 
 .method public static unsafeAncestorField()I
     .locals 1
-    sget v0, Lcom/android/server/connectivity/metrics/IpConnectivityLogClass$DefaultNetworkEvent;->NONE:I
+    sget v0, Lcom/android/server/connectivity/metrics/nano/IpConnectivityLogClass$DefaultNetworkEvent;->NONE:I
     return v0
 .end method
 
 .method public static realInitializerError()I
     .locals 2
     :try_start
-    sget v0, Lcom/google/common/Config;->KEY_BACK:I
+    sget v0, Landroid/util/DisplayMetrics;->DENSITY_DEVICE_STABLE:I
     :try_end
     const/4 v1, 0x0
     return v1

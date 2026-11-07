@@ -18,15 +18,28 @@ listed: the component's terms apply when that component is included.
 
 ANDROID FRAMEWORK REFERENCE DATA
 --------------------------------
-The framework corpus at smalivm/src/main/resources/framework/smali/android-25/
-comes from https://github.com/CalebFenton/AndroidFrameworkSmali.git . Android,
-Java/libcore, and other incorporated components retain their upstream copyright
-and license terms. Simplify's Apache-2.0 license does not relicense this corpus
-or the derived framework/android-framework.jar and framework indexes/catalogs.
+The selected framework corpus at
+smalivm/src/main/resources/framework/smali/android-36/
+comes from https://github.com/CalebFenton/AndroidFrameworkSmali.git . It captures
+the Android 16 boot classpath from system-images;android-36;default;x86_64
+revision 2, with fingerprint:
+Android/sdk_phone64_x86_64/emu64x:16/BE2A.250530.026.D1/13818094:userdebug/test-keys
+
+Android, Java/libcore, and other incorporated components retain their upstream
+copyright and license terms. Simplify's Apache-2.0 license does not relicense
+this corpus or the derived framework/android-framework.jar and indexes/catalogs.
 Those terms continue to apply when framework resources accompany a VM or
 application artifact.
 
-The existing API 25 corpus is retained. Its original import was contributed in
+The submodule retains original JARs and DEX files, source/class hashes, image/tool
+metadata and four original notice files. Every project JAR includes the capture's
+provenance.json, boot-dex.tsv, shadowed-classes.tsv and notices/ under
+META-INF/licenses/android-framework/android-36/. Application ZIP/TAR distributions
+also include them under licenses/android-framework/android-36/. The notice inventory
+can cover components beyond the boot classpath; it is not a complete source inventory.
+
+The API 25 corpus is retained in the submodule but is not packaged by Simplify.
+Its original import was contributed in
 November 2016 at 495030b9fd9aa428662bd5b203b4f2d6d3f04f88. The extraction method
 is recorded, but the exact device/system-image fingerprint and a component
 notice inventory were not recorded with that import. This historical provenance

@@ -1,4 +1,4 @@
-package com.google.protobuf.nano;
+package com.android.framework.protobuf.nano;
 
 import org.cf.smalivm.core.Task40HostSentinel;
 

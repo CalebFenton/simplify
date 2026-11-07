@@ -104,15 +104,9 @@ class ClassInitTest {
 
     @Test
     fun aFrameworkClassIsSettledWithoutRunningItsInitializerAndDeclaresStrong() {
-        // Resolved decision 7. `Ljava/lang/Integer;` is a framework class with a REAL `<clinit>`
-        // (`resources/framework/smali/android-25/java/lang/Integer.smali:69`), and it is not hypothetical:
-        // `core/op/NewInstanceOpTest.canCreateNonLocalInstance` does `new-instance Ljava/lang/Integer;`, so
-        // without this row that test pulls the whole framework initializer into virtual execution. (Cited
-        // at its MIGRATED path -- Task 17 landed the opcode and deleted the `opcode/` original, which this
-        // line used to name; a citation to a deleted file resolves against whatever now answers to it.) The
-        // op-level twin of this test is
-        // `core/op/NewInstanceOpTest.theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit`,
-        // which asserts the same policy through the REAL op rather than through the planner.
+        // Integer declares <clinit> in the captured framework, but framework initialization is suppressed.
+        // NewInstanceOpTest.theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit checks
+        // the same policy through new-instance rather than directly through the planner.
         assertTrue(classIndex.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
         assertFalse(classIndex.isFrameworkClass(WITNESS), "a fixture class is an application class")
         val plan = Invoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), INTEGER)
