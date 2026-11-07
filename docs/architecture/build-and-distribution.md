@@ -90,6 +90,8 @@ dependency signature files. Every project JAR carries the project `META-INF/LICE
 Application ZIP/TAR distributions expose these legal files at their top level as well.
 Component directories preserve distinct upstream notices even when the original dependency JAR
 paths collide. Thin ZIP/TAR distributions also retain dependency JARs separately.
+JAR tasks enable ZIP64 because the API 36 framework plus runtime dependencies exceeds ZIP's
+65,535-entry limit. JDK 21 reads these archives directly.
 
 The maintained legal bundle describes this release's dependency versions. Dependency updates must
 update the matching component texts, copyright notices, and source locations; Maven license labels

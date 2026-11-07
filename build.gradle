@@ -53,6 +53,7 @@ subprojects {
     }
 
     tasks.withType(Jar).configureEach {
+        zip64 = true
         into('META-INF') { with legalFiles }
         manifest.attributes('Implementation-Version': project.version)
     }

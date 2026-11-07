@@ -22,12 +22,12 @@ public class VirtualArrayTest {
     }
 
     @Test
-    public void twoDimensionalStringArrayHasExpectedImmediateAncestors() {
-        String arrayType = "[[" + CommonTypes.STRING;
+    public void twoDimensionalClassArrayHasExpectedImmediateAncestors() {
+        String arrayType = "[[Lgrandparent_class;";
         virtualArray = (VirtualArray) classManager.getVirtualType(arrayType);
 
         String[] expectedImmediateAncestorNames =
-                new String[]{ "[[Ljava/lang/Object;", "[[Ljava/lang/CharSequence;", "[[Ljava/lang/Comparable;", "[[Ljava/io/Serializable;" };
+                new String[]{ "[[Ljava/lang/Object;", "[[Lgrandparent_interface;" };
         Set<VirtualType> expectedImmediateAncestors =
                 Arrays.stream(expectedImmediateAncestorNames).map(a -> classManager.getVirtualType(a)).collect(Collectors.toSet());
         Set<? extends VirtualType> ancestors = virtualArray.getImmediateAncestors();
@@ -36,12 +36,12 @@ public class VirtualArrayTest {
     }
 
     @Test
-    public void oneDimensionalStringArrayHasExpectedImmediateAncestors() {
-        String arrayType = "[" + CommonTypes.STRING;
+    public void oneDimensionalClassArrayHasExpectedImmediateAncestors() {
+        String arrayType = "[Lgrandparent_class;";
         virtualArray = (VirtualArray) classManager.getVirtualType(arrayType);
 
         String[] expectedImmediateAncestorNames =
-                new String[]{ "[Ljava/lang/Object;", "[Ljava/lang/CharSequence;", "[Ljava/lang/Comparable;", "[Ljava/io/Serializable;" };
+                new String[]{ "[Ljava/lang/Object;", "[Lgrandparent_interface;" };
         Set<VirtualType> expectedImmediateAncestors =
                 Arrays.stream(expectedImmediateAncestorNames).map(a -> classManager.getVirtualType(a)).collect(Collectors.toSet());
         Set<? extends VirtualType> ancestors = virtualArray.getImmediateAncestors();
@@ -50,12 +50,12 @@ public class VirtualArrayTest {
     }
 
     @Test
-    public void threeDimensionalStringArrayHasExpectedAncestors() {
-        String arrayType = "[[[" + CommonTypes.STRING;
+    public void threeDimensionalClassArrayHasExpectedAncestors() {
+        String arrayType = "[[[Lgrandparent_class;";
         virtualArray = (VirtualArray) classManager.getVirtualType(arrayType);
 
         String[] expectedAncestorNames =
-                new String[]{ "[[[Ljava/lang/Object;", "[[[Ljava/lang/CharSequence;", "[[[Ljava/lang/Comparable;", "[[[Ljava/io/Serializable;",
+                new String[]{ "[[[Ljava/lang/Object;", "[[[Lgrandparent_interface;",
                               "[[Ljava/lang/Object;", "[Ljava/lang/Object;", "Ljava/lang/Object;" };
         Set<VirtualType> expectedAncestors =
                 Arrays.stream(expectedAncestorNames).map(a -> classManager.getVirtualType(a)).collect(Collectors.toSet());

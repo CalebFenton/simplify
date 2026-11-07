@@ -257,7 +257,7 @@ class BackendCorpusMigrationTest {
     }
 
     @Test
-    fun provenHostCallsRetainNoSideEffects() {
+    fun provenHostCallsOnInitializedClassesRetainNoSideEffects() {
         // Bug class: safe-class authorization either implies blanket NONE or leaves these three proven calls STRONG.
         // Oracle: P11-SE-001 names this exact constructor/append/toString composition and no other safe-class call.
         val targets = setOf(
@@ -273,7 +273,12 @@ class BackendCorpusMigrationTest {
             "safe-class authorization is not a purity proof",
         )
 
-        val run = execute(SIDE_EFFECT_FIXTURE, "provenHostCalls()Ljava/lang/String;", VmServices(classIndex, policy))
+        val vm = VmServices(classIndex, policy)
+        val view = view(SIDE_EFFECT_FIXTURE, "provenHostCalls()Ljava/lang/String;")
+        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        // Measure the calls' effects, not skipped framework initialization on first allocation.
+        generateSequence(BUILDER, classIndex::superclassOf).forEach(frame::completeClassInit)
+        val run = execute(view, vm, frame)
 
         assertEquals(Value.Known("seed-value", STRING), run.graph.returnedValue())
         assertEquals(SideEffectLevel.NONE, run.graph.methodSideEffectLevelOverExploredPaths())

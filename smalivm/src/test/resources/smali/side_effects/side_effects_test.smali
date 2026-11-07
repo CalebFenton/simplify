@@ -53,10 +53,10 @@
   return-void
 .end method
 
-.method public static newInstanceNonLocalWhitelistedClass()V
+.method public static newInstanceFrameworkClassWithoutInitializer()V
   .locals 1
 
-  new-instance v0, Ljava/lang/StringBuilder;
+  new-instance v0, Ljava/lang/Object;
 
   return-void
 .end method

@@ -32,8 +32,8 @@ class SideEffectsTest {
         assertEffect("modifyInstanceMember()V", SideEffectLevel.WEAK)
 
     @Test
-    fun newInstanceNonLocalWhitelistedClassHasNoSideEffects() =
-        assertEffect("newInstanceNonLocalWhitelistedClass()V", SideEffectLevel.NONE)
+    fun newInstanceFrameworkClassWithoutInitializerHasNoSideEffects() =
+        assertEffect("newInstanceFrameworkClassWithoutInitializer()V", SideEffectLevel.NONE)
 
     @Test
     fun newInstanceOfClassWithStaticInitializerWithStrongSideEffectsHasStrongSideEffects() =
