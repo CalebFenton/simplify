@@ -27,9 +27,8 @@ class OptimizerTest {
         val file = temporaryDirectory.resolve("unchanged.dex").toFile()
         ProgramDexWriter().write(services.currentSnapshot, file)
         assertEquals(services.currentSnapshot.concreteApplicationMethodSignatures(), OptimizerTester.services(file).currentSnapshot.concreteApplicationMethodSignatures())
-        assertEquals(1, result.executionCount)
         assertEquals(0, result.committedEditCount)
-        assertSame(MethodEditCommitResult.Unchanged, result.terminalCommitResult)
+        assertEquals(emptyList<Optimizer.Rejection>(), result.rejections)
     }
 
     @Test fun commitRestartsAtFirstStrategyWithFreshGraphAndMethod() {
@@ -42,7 +41,6 @@ class OptimizerTest {
             if (secondGraphs.size == 1) replace(it, 1)
         }
         val result = optimizer(services, first, second).optimize(CHANGED)
-        assertEquals(2, result.executionCount)
         assertEquals(1, result.committedEditCount)
         assertEquals(2, firstGraphs.size)
         assertEquals(2, secondGraphs.size)
@@ -67,21 +65,28 @@ class OptimizerTest {
         val later = OptimizationStrategy { if (attempts++ == 0) replace(it, 2) }
         val result = optimizer(services, rejected, unchanged, later).optimize(CHANGED)
         assertEquals(1, result.committedEditCount)
-        assertEquals(2, result.executionCount)
-        assertTrue(result.terminalCommitResult is MethodEditCommitResult.Rejected)
+        assertEquals(listOf(Optimizer.Rejection(rejected.name, MethodEditRejectionReason.InvalidCodeAddress(99))), result.rejections)
         assertEquals(mapOf("constants" to 1), result.optimizationCounts)
+    }
+
+    @Test fun rejectionBeforeACommitSurvivesThePassLimit() {
+        val rejected = OptimizationStrategy { it.transaction.removeInstruction(99) }
+        val result = optimizer(services(), rejected, OptimizationStrategy { replace(it, 2) }, passes = 1).optimize(CHANGED)
+        assertTrue(result.passLimitReached)
+        assertEquals(listOf(Optimizer.Rejection(rejected.name, MethodEditRejectionReason.InvalidCodeAddress(99))), result.rejections)
     }
 
     @Test fun rejectedEditDoesNotPublishOrRetry() {
         val services = services()
         val snapshot = services.currentSnapshot
         var attempts = 0
-        val result = optimizer(services, OptimizationStrategy { attempts++; it.transaction.removeInstruction(99) }).optimize(CHANGED)
+        val rejecting = OptimizationStrategy { attempts++; it.transaction.removeInstruction(99) }
+        val result = optimizer(services, rejecting).optimize(CHANGED)
         assertSame(snapshot, services.currentSnapshot)
         assertEquals(1, attempts)
         assertEquals(0, result.committedEditCount)
         assertFalse(result.passLimitReached)
-        assertTrue(result.terminalCommitResult is MethodEditCommitResult.Rejected)
+        assertEquals(listOf(Optimizer.Rejection(rejecting.name, MethodEditRejectionReason.InvalidCodeAddress(99))), result.rejections)
     }
 
     @Test fun strategyFailureDiscardsOpenTransaction() {
@@ -103,19 +108,29 @@ class OptimizerTest {
         val result = Optimizer(services, Limits(1, 100, 0, 20), 5, listOf(OptimizationStrategy { attempts++ })).optimize(LOOP)
         assertEquals(0, attempts)
         assertTrue(result.completionStatus is CompletionStatus.Partial)
-        assertNull(result.terminalCommitResult)
         assertEquals(0, result.committedEditCount)
     }
 
-    @Test fun passLimitStillExecutesLatestCommittedRevision() {
+    @Test fun passLimitStopsStrategiesAndKeepsTheLastCommit() {
         val services = services()
         var attempts = 0
         val result = optimizer(services, OptimizationStrategy { replace(it, ++attempts) }, passes = 2).optimize(CHANGED)
         assertEquals(2, attempts)
         assertEquals(2, result.committedEditCount)
-        assertEquals(3, result.executionCount)
         assertTrue(result.passLimitReached)
         assertEquals(2, (OptimizerTester.execute(services, CHANGED).trusted()!!.terminatingConsensus(0) as Value.Known).raw)
+    }
+
+    @Test fun lastAllowedCommitIsExecutedBeforeCompletionIsReported() {
+        var attempts = 0
+        val growing = OptimizationStrategy {
+            val constant = InstructionTemplate.Encoded(ImmutableInstruction11n(Opcode.CONST_4, 0, 1))
+            it.transaction.replaceInstruction(0, List(if (++attempts == 1) 1 else 4) { constant })
+        }
+        // changed() takes two steps; the second revision takes five, which exceeds the three-step limit.
+        val result = Optimizer(services(), Limits(500, 3, 0, 20), 2, listOf(growing)).optimize(CHANGED)
+        assertEquals(2, result.committedEditCount)
+        assertTrue(result.completionStatus is CompletionStatus.Partial, "${result.completionStatus}")
     }
 
     companion object {

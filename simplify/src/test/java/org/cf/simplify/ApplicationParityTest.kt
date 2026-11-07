@@ -27,10 +27,11 @@ class ApplicationParityTest {
         )
         val expected = witnesses.associateWith { result(before, it) }
         val output = temporaryDirectory.resolve("application.dex")
-        val report = Launcher().run(arrayOf(fixture.path, "--include-types", "Plan14Witness|WhiteNoise;->convolutedMethod", "--output", output.toString(), "--quiet"))
+        val report = Launcher().run(SimplifyOptionsParser.parse(arrayOf(fixture.path, "--include-types", "Plan14Witness|WhiteNoise;->convolutedMethod", "--output", output.toString(), "--quiet")))
         val after = OptimizerTester.services(output.toFile())
         witnesses.forEach { assertEquals(expected[it], result(after, it), it) }
         assertEquals(0, report.failedMethodCount)
+        assertEquals(0, report.skippedMethodCount)
         assertTrue(report.passLimitReachedMethods.isEmpty())
         assertEquals(8, report.targetMethodCount)
         assertEquals(8, report.optimizedMethodCount)
@@ -46,7 +47,7 @@ class ApplicationParityTest {
         assertTrue(report.optimizationCounts.getValue("constantized ops") > 0)
         assertTrue(report.optimizationCounts.getValue("constantized ifs") > 0)
         val second = temporaryDirectory.resolve("application-second.dex")
-        val fixpoint = Launcher().run(arrayOf(output.toString(), "--include-types", "Plan14Witness|WhiteNoise;->convolutedMethod", "--output", second.toString(), "--quiet"))
+        val fixpoint = Launcher().run(SimplifyOptionsParser.parse(arrayOf(output.toString(), "--include-types", "Plan14Witness|WhiteNoise;->convolutedMethod", "--output", second.toString(), "--quiet")))
         assertTrue(fixpoint.optimizationCounts.values.all { it == 0 })
         val reloaded = OptimizerTester.services(second.toFile())
         witnesses.forEach { assertEquals(expected[it], result(reloaded, it), it) }
