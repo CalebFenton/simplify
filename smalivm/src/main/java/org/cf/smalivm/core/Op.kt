@@ -456,23 +456,18 @@ internal object OpBuilder {
     }
 
     private fun invoke(kind: InvokeKind): Decoder = { d ->
-        val instruction = d.instruction
-        val count = (instruction as VariableRegisterInstruction).registerCount
-        val registers = when (instruction) {
-            is RegisterRangeInstruction -> IntArray(count) { instruction.startRegister + it }
-            is FiveRegisterInstruction -> intArrayOf(
-                instruction.registerC, instruction.registerD, instruction.registerE,
-                instruction.registerF, instruction.registerG,
-            ).copyOf(count)
-            else -> error("Unsupported invoke instruction shape: ${instruction::class.java.name}")
+        val registers = d.registerList
+        if (registers == null) {
+            d.unsupported
+        } else {
+            val reference = d.reference as MethodReference
+            val proto = "(${reference.parameterTypes.joinToString("")})${reference.returnType}"
+            InvokeOp(
+                d.address, d.name,
+                MethodDescriptor(d.classIndex.typeOf(reference.definingClass), reference.name, proto),
+                registers, kind,
+            )
         }
-        val reference = d.reference as MethodReference
-        val proto = "(${reference.parameterTypes.joinToString("")})${reference.returnType}"
-        InvokeOp(
-            d.address, d.name,
-            MethodDescriptor(d.classIndex.typeOf(reference.definingClass), reference.name, proto),
-            registers, kind,
-        )
     }
 
     private val INT = VirtualType.of("I")
