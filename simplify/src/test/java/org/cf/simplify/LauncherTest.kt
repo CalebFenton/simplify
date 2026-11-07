@@ -2,6 +2,7 @@ package org.cf.simplify
 
 import org.apache.commons.cli.ParseException
 import org.cf.simplify.strategy.OptimizationStrategy
+import org.cf.simplify.strategy.StrategyInput
 import org.cf.smalivm.core.*
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11n
@@ -87,12 +88,39 @@ class LauncherTest {
         assertEquals(0, returned(output.toFile()))
     }
 
-    @Test fun incompleteAnalysisIsReportedWithoutApplyingStrategy() {
+    @Test fun incompleteAnalysisIsReportedWithoutApplyingStrategyAndFailsTheCommandLine() {
         var attempts = 0
-        val result = Launcher(listOf(OptimizationStrategy { attempts++ })).run(arrayOf(fixture, "--include-types", "loop", "--max-address-visits", "1", "--output", temporaryDirectory.resolve("partial.dex").toString(), "--quiet"))
+        val launcher = Launcher(listOf(OptimizationStrategy { attempts++ }))
+        val args = arrayOf(fixture, "--include-types", "loop", "--max-address-visits", "1", "--output", temporaryDirectory.resolve("partial.dex").toString(), "--quiet")
+        val result = launcher.run(args)
         assertEquals(0, attempts)
         assertEquals(listOf(OptimizerTest.LOOP), result.failedMethods)
         assertEquals(0, result.optimizedMethodCount)
+        assertEquals(1, Main.run(args, launcher, PrintStream(ByteArrayOutputStream())))
+    }
+
+    @Test fun rejectedStrategyEditFailsTheMethodAndTheCommandLineUnlessErrorsAreIgnored() {
+        val invalidEdit = object : OptimizationStrategy {
+            override val name = "InvalidEdit"
+            override fun perform(input: StrategyInput) = input.transaction.removeInstruction(99)
+        }
+        val errors = ByteArrayOutputStream()
+        val launcher = Launcher(listOf(invalidEdit), PrintStream(ByteArrayOutputStream()), PrintStream(errors))
+        val args = arrayOf(fixture, "--include-types", "changed", "--output", temporaryDirectory.resolve("rejected.dex").toString())
+        val result = launcher.run(args)
+        assertEquals(listOf(OptimizerTest.CHANGED), result.failedMethods)
+        assertEquals(0, result.optimizedMethodCount)
+        // The fixture's changed() is two code units long, so code address 99 names no instruction.
+        assertTrue(errors.toString().contains("InvalidEdit"), errors.toString())
+        assertTrue(errors.toString().contains("${MethodEditRejectionReason.InvalidCodeAddress(99)}"), errors.toString())
+        assertEquals(1, Main.run(args, launcher, PrintStream(ByteArrayOutputStream())))
+        assertEquals(0, Main.run(args + "--ignore-errors", launcher, PrintStream(ByteArrayOutputStream())))
+    }
+
+    @Test fun mainReportsParseErrorsWithStatusOne() {
+        val errors = ByteArrayOutputStream()
+        assertEquals(1, Main.run(emptyArray(), launcher(), PrintStream(errors)))
+        assertTrue(errors.toString().startsWith("Error: Missing input file."), errors.toString())
     }
 
     @Test fun ignoredFailureContinuesOtherMethodsWhileFatalFailurePublishesNoOutput() {

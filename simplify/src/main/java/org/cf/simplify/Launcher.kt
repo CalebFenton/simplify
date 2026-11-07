@@ -99,10 +99,10 @@ class Launcher(
                 categories.forEach { (key, value) -> target[key] = (target[key] ?: 0) + value }
             }
             if (result.passLimitReached) passLimits += signature
-            if (result.completionStatus is CompletionStatus.Complete) optimized++ else {
-                failures += signature
-                reporter.verbose(1, "Skipping optimization after partial execution: $signature (${result.completionStatus})")
-            }
+            result.rejections.forEach { reporter.rejectedEdit(signature, it) }
+            val complete = result.completionStatus is CompletionStatus.Complete
+            if (!complete) reporter.verbose(1, "Skipping optimization after partial execution: $signature (${result.completionStatus})")
+            if (complete && result.rejections.isEmpty()) optimized++ else failures += signature
             reporter.verbose(2, formatCounts("Optimizations for $signature", result.optimizationCounts))
         }
         val finalCount = instructionCount(classIndex, targets)
@@ -181,6 +181,9 @@ class Launcher(
         fun methodFailure(signature: String, failure: Throwable) {
             error.println("Exception executing or optimizing $signature; skipping")
             failure.printStackTrace(error)
+        }
+        fun rejectedEdit(signature: String, rejection: Optimizer.Rejection) {
+            error.println("${rejection.strategy} produced an edit of $signature that the method editor rejected: ${rejection.reason}")
         }
     }
 

@@ -16,10 +16,10 @@ object Main {
             SimplifyOptionsParser.parse(args)
         } catch (exception: ParseException) {
             error.println("Error: ${exception.message}")
-            Launcher.usage(SimplifyOptionsParser.options)
+            Launcher.usage(SimplifyOptionsParser.options, error)
             return 1
         }
-        launcher.run(options)
-        return 0
+        val result = launcher.run(options)
+        return if (result.failedMethodCount == 0 || options.ignoreErrors) 0 else 1
     }
 }
