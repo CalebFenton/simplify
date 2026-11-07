@@ -250,7 +250,13 @@ internal class OpUpdate private constructor(
                 is Change.Assign -> frame.assignFrameValue(change.register, change.value)
                 is Change.AllocateArray -> {
                     val allocated = when (val data = change.data) {
-                        is ArrayData.Defaults -> frame.allocateArray(change.type, data.length)
+                        // `Unknown` drops what is known about the array but claims nothing false, so it
+                        // stands in for an array too long for the heap to track.
+                        is ArrayData.Defaults -> if (data.length > MAX_TRACKED_ARRAY_LENGTH) {
+                            Value.Unknown(change.type)
+                        } else {
+                            frame.allocateArray(change.type, data.length)
+                        }
                         is ArrayData.Values -> frame.allocateArray(change.type, data.elements)
                     }
                     when (val target = change.target) {

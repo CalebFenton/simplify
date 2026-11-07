@@ -1,10 +1,12 @@
 package org.cf.smalivm.core.op
 
+import java.util.concurrent.TimeUnit
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
+import org.cf.smalivm.core.MAX_TRACKED_ARRAY_LENGTH
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
@@ -14,12 +16,13 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 
 /**
  * `new-array` (spec §4.2). Migrated from `org.cf.smalivm.opcode.NewArrayOpTest` -- all seven of its
  * tests, with `TestState`/`Tester`/`UnknownValue()` swapped for `CoreState`/[CoreTester]/
- * [CoreState.UNKNOWN] -- plus the cases the corpus never covered (a negative length, and the
- * deliberate choice not to fork on an unknown one).
+ * [CoreState.UNKNOWN] -- plus the cases the corpus never covered (a negative or unprovable length, and a
+ * length too large to track).
  *
  * Grounding, with tiers, is `docs/DALVIK-SEMANTICS.md#new-array-op-23-22c`. [BC]'s complete text for
  * this opcode is *"Construct a new array of the indicated type and size. The type must be an array
@@ -116,9 +119,7 @@ class NewArrayOpTest {
 
     @Test
     fun canCreateIntegerArrayWithUnknownLengthValue() {
-        // The migrated form of the unknown-length case: an unknown length means an unknown array, and the
-        // register keeps the instruction's declared type. `anUnknownLengthYieldsAnUnknownArrayWithoutForking`
-        // below is this claim PLUS the fork half, which `CoreTester.test` cannot see.
+        // An unknown length means an unknown array, and the register keeps the instruction's declared type.
         initial.setRegisters(0, CoreState.UNKNOWN, "I")
         expected.setRegisters(0, CoreState.UNKNOWN, "[I")
         CoreTester.test(CLASS_NAME, "createIntegerArray()V", initial, expected)
@@ -264,82 +265,96 @@ class NewArrayOpTest {
     }
 
     /**
-     * Bug class: an unknown length forking NegativeArraySizeException on every allocation. This test pins a
-     * DROPPED FEASIBLE PATH, which is unique in this plan and must be labelled as such rather than dressed
-     * up as soundness: a negative length really is possible under an unknown, so the throw really is
-     * reachable, and the core deliberately does not explore it. Tier: ENGINE CHOICE resting on an
-     * UNMEASURED empirical premise (that obfuscators do not emit catch(NegativeArraySizeException)); the
-     * cost argument is that forking doubles the path count of every unknown-length allocation. It is also
-     * the oracle's answer (`NewArrayOp.kt:39-40` returns unknown and does not fork), so the differential
-     * agrees -- which proves only that the two engines agree, per DALVIK-SEMANTICS.md's rule 1.
-     *
-     * The asymmetry with ArrayLengthOp's NPE fork is deliberate and is argued, not assumed: there a
-     * possibly-null array is pervasive AND catch(Exception) catches an NPE, so the handler is routinely
-     * live. Counting NASE handlers across the corpus and an APK sample would upgrade this to CORPUS; until
-     * someone does, it is a recorded liability. Written down so a later plan changes it on purpose rather
-     * than by reflex.
+     * Bug class: dropping a feasible NegativeArraySizeException. An unknown length may be negative, and ART
+     * throws NegativeArraySizeException for any negative count (`CheckArrayAlloc`, cited in
+     * docs/DALVIK-SEMANTICS.md's new-array section), so both the allocation and the throw are feasible.
+     * `createIntegerArray()V` has no handler, so the speculative throw escapes and is visible in `outcomes`.
      */
     @Test
-    fun anUnknownLengthYieldsAnUnknownArrayWithoutForking() {
+    fun anUnknownLengthForksNegativeArraySizeExceptionBesideAnUnknownArray() {
         val expected = CoreState().apply { setRegister(0, Value.Unknown(VirtualType.of("[I"))) }
         val seed = CoreState().apply { setRegisters(0, CoreState.UNKNOWN, "I") }
         CoreTester.test(CLASS_NAME, "createIntegerArray()V", seed, expected)
-        // STRENGTHENING over the brief, because the brief's version did not assert what its own name
-        // claims: `CoreTester.test` reads the consensus of RETURNING paths, so a `[Continue, Throw]` here
-        // would leave the returning path's value at `Unknown([I)` and pass unchanged. The dropped fork is
-        // the whole point of the test, so it is asserted rather than described.
-        val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", seed)
-        assertEquals(1, graph.nodePile(0).first().children.size, "exactly one successor -- the fork is dropped")
-        assertTrue(
-            graph.outcomes.filterIsInstance<Outcome.Threw>().isEmpty(),
-            "the NegativeArraySizeException fork is deliberately not explored under an unknown length",
-        )
+        CoreTester.testThrows(CLASS_NAME, "createIntegerArray()V", seed, NEGATIVE_ARRAY_SIZE)
     }
 
     /**
-     * **The length half of the bit-vs-value boundary `Coerce.toProvableInt` draws, and the Critical this fix
-     * closed.** A length register holding `Known(-0.5f, "F")` used to reach `Coerce.toInt`, which truncates BY
-     * VALUE: `(-0.5f).toInt()` is **0**, so the negative-length row's `length < 0` test was FALSE, the op
-     * allocated a **zero-length `[I`** and reported `Complete`. A device reads the register's 32 bits --
-     * `-0.5f` is `0xBF000000`, i.e. **-1090519040** -- and throws `NegativeArraySizeException`. So the old
-     * answer invented a constant no runtime produces, and it invented the most misleading one available: a
-     * fully `Known` empty array, which every later `array-length` folds to 0 and every later `aget`/`aput`
-     * turns into a *definite* bounds exception (`APutOpTest.aZeroLengthArrayCannotBeStoredIntoAtAnyIndexSoTheFallThroughIsInfeasible`
-     * is that row).
-     *
-     * **VERIFIER -> engine's choice**, so spec §2.2 decides it: a float cannot reach a `new-array` size
-     * register in verified dex ([CON] B1's general *"arguments... must always match the instruction"*), so
-     * there is no Dalvik behaviour to match. **No [ART] verifier symbol is named on purpose** -- there is no
-     * `VerifyNewArray` in ART (see [FilledNewArrayOp]'s KDoc, which records the word-boundary grep), and
-     * naming a plausible-looking one is how this plan family shipped an invented citation before.
-     *
-     * **WHICH ASSERTION DISCRIMINATES, and an honest statement of what this fix does NOT do.** The
-     * `CoreTester.test` call is the whole of the fix's witness: pre-fix v0 held `Known(HeapRef, "[I")` for a
-     * length-0 array, so it fails there and passes here. The fork-shape lines below **passed before the fix
-     * too**, and they are kept for a different reason: they pin that a refused length lands on the SAME row an
-     * `Unknown` length lands on ([anUnknownLengthYieldsAnUnknownArrayWithoutForking]), which deliberately does
-     * **not** fork `NegativeArraySizeException`. So this fix removes an invented constant; it does **not** add
-     * the throw. The NASE for a non-provable length remains a knowingly dropped feasible path, filed in
-     * `CARRY-FORWARD.md` under the unknown-length entry, and the measurement that would settle it (counting
-     * `catch (NegativeArraySizeException)` clauses in a real APK) is unchanged by this test.
+     * Bug class: truncating a float length by value. `Known(-0.5f, "F")` truncates to 0, which would allocate
+     * a fully `Known` empty array; a device reads the register's bits (`0xBF000000`, negative) and throws.
+     * A float cannot reach a `new-array` size register in verified dex, so the length is not provable and
+     * takes the unknown-length row: an unknown array plus the speculative NegativeArraySizeException.
      */
     @Test
     fun aFloatLengthIsNotProvableRatherThanTruncatedToZero() {
         val seed = CoreState().apply { setRegisters(0, -0.5f, "F") }
         val want = CoreState().apply { setRegister(0, Value.Unknown(VirtualType.of("[I"))) }
         CoreTester.test(CLASS_NAME, "createIntegerArray()V", seed, want)
+        CoreTester.testThrows(CLASS_NAME, "createIntegerArray()V", seed, NEGATIVE_ARRAY_SIZE)
+    }
+
+    /**
+     * Bug class: an absent component class hiding the speculative NegativeArraySizeException. The size is
+     * checked before the class (see [aNegativeLengthBeatsAnAbsentComponentClassBecauseArtChecksTheSizeFirst]),
+     * so an unknown length makes both throws feasible. The fixture's `Ljava/lang/Exception;` handler catches
+     * the NegativeArraySizeException and cannot catch the NoClassDefFoundError, which escapes.
+     */
+    @Test
+    fun anUnknownLengthWithAnAbsentComponentForksBothThrows() {
+        val seed = CoreState().apply { setRegisters(0, CoreState.UNKNOWN, "I") }
+        CoreTester.testCaught(
+            CLASS_NAME, "createBothBadArrayClass()V", seed,
+            exceptionType = NEGATIVE_ARRAY_SIZE,
+            caughtInRegister = 0,
+            unreachedAddress = 2,
+        )
+        CoreTester.testThrows(
+            CLASS_NAME, "createBothBadArrayClass()V", seed,
+            exceptionType = "Ljava/lang/NoClassDefFoundError;",
+            message = "does.not.exist",
+        )
+    }
+
+    /**
+     * Bug class: allocating one slot per element for a hostile length. `0x7fffffff` slots exhaust the host;
+     * the `OutOfMemoryError` is a `VirtualMachineError`, which kills the whole run instead of one path.
+     * Over [MAX_TRACKED_ARRAY_LENGTH] the array is not tracked, and the length is provably non-negative, so
+     * nothing forks.
+     */
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    fun theLargestIntLengthYieldsAnUnknownArrayInsteadOfExhaustingTheHost() {
+        assertLengthIsNotTracked(Int.MAX_VALUE)
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    fun aLengthJustOverTheTrackedBoundYieldsAnUnknownArray() {
+        assertLengthIsNotTracked(MAX_TRACKED_ARRAY_LENGTH + 1)
+    }
+
+    /** Bug class: an off-by-one bound that refuses the largest length it admits. */
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    fun aLengthAtTheTrackedBoundIsAllocated() {
+        val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", CoreState().apply {
+            setRegisters(0, MAX_TRACKED_ARRAY_LENGTH, "I")
+        })
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        val trusted = graph.trusted()!!
+        val consensus = trusted.terminatingConsensus(0)
+        assertTrue(consensus is Value.Known && consensus.raw is HeapRef, "must be a tracked array: $consensus")
+        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef)
+        assertEquals(MAX_TRACKED_ARRAY_LENGTH, (array as HeapObject.TrackedArray).length)
+    }
+
+    private fun assertLengthIsNotTracked(length: Int) {
+        val seed = CoreState().apply { setRegisters(0, length, "I") }
+        val want = CoreState().apply { setRegister(0, Value.Unknown(VirtualType.of("[I"))) }
+        CoreTester.test(CLASS_NAME, "createIntegerArray()V", seed, want)
         val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", seed)
-        assertEquals(
-            CompletionStatus.Complete, graph.completion(),
-            "and it completes -- a silent zero-length array on a Complete run was the whole defect",
-        )
-        assertEquals(
-            1, graph.nodePile(0).first().children.size,
-            "a refused length takes the unknown-length row, which forks nothing (filed, not fixed here)",
-        )
         assertTrue(
             graph.outcomes.filterIsInstance<Outcome.Threw>().isEmpty(),
-            "so no NegativeArraySizeException escapes either -- see this test's KDoc",
+            "a non-negative length cannot throw",
         )
     }
 
@@ -375,5 +390,6 @@ class NewArrayOpTest {
 
     private companion object {
         private const val CLASS_NAME = "Lnew_array_test;"
+        private const val NEGATIVE_ARRAY_SIZE = "Ljava/lang/NegativeArraySizeException;"
     }
 }
