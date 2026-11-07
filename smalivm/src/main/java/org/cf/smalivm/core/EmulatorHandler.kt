@@ -143,22 +143,16 @@ internal fun defaultEmulatorRegistrations(
             SideEffectLevel.NONE,
             ArrayCloneEmulator(),
         ),
-        EmulatorRegistration(
-            EmulatorMatcher.Predicate("throwable-get-cause") { target ->
-                (target.name == "getCause" || (
-                    target.definingClass == VirtualType.of("Ljava/lang/ExceptionInInitializerError;") &&
-                        target.name == "getException"
-                    )) &&
-                    target.proto == "()Ljava/lang/Throwable;" &&
-                    try {
-                        classIndex.isSubtypeOf(target.definingClass, VirtualType.of("Ljava/lang/Throwable;"))
-                    } catch (_: ClassLoadFailure) {
-                        false
-                    }
-            },
-            EmulatorCapability(handlesUnknownArguments = true, receivesTrackedReferences = true),
-            SideEffectLevel.NONE,
-            ThrowableGetCauseEmulator(),
+        // An override of getCause is ordinary bytecode; only the Throwable implementations read the cause slot.
+        throwableCauseRegistration(
+            MethodDescriptor(VirtualType.of("Ljava/lang/Throwable;"), "getCause", "()Ljava/lang/Throwable;"),
+        ),
+        throwableCauseRegistration(
+            MethodDescriptor(
+                VirtualType.of("Ljava/lang/ExceptionInInitializerError;"),
+                "getException",
+                "()Ljava/lang/Throwable;",
+            ),
         ),
         EmulatorRegistration(
             EmulatorMatcher.Predicate("object-get-class") { target ->
@@ -202,3 +196,10 @@ internal fun defaultEmulatorRegistrations(
         ),
     )
 }
+
+private fun throwableCauseRegistration(target: MethodDescriptor) = EmulatorRegistration(
+    EmulatorMatcher.Exact(target),
+    EmulatorCapability(handlesUnknownArguments = true, receivesTrackedReferences = true),
+    SideEffectLevel.NONE,
+    ThrowableGetCauseEmulator(),
+)
