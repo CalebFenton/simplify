@@ -165,10 +165,30 @@ class LauncherTest {
                 assertThrows(ParseException::class.java) { SimplifyOptionsParser.parse(arrayOf(fixture, "--$option", invalid)) }
             }
         }
-        val options = SimplifyOptionsParser.parse(arrayOf(fixture, "--max-execution-time", "11", "--max-address-visits", "12", "--max-call-depth", "13", "--max-method-visits", "14", "--max-passes", "15", "--output-api-level", "19", "--ignore-errors", "--verbose", "2"))
+        val options = SimplifyOptionsParser.parse(arrayOf(fixture, "--max-execution-time", "11", "--max-address-visits", "12", "--max-call-depth", "13", "--max-method-visits", "14", "--max-passes", "15", "--output-api-level", "19", "--ignore-errors"))
         assertEquals(listOf(11, 12, 13, 14, 15, 19), listOf(options.maxExecutionTime, options.maxAddressVisits, options.maxCallDepth, options.maxMethodVisits, options.maxOptimizationPasses, options.outputAPILevel))
         assertTrue(options.ignoreErrors)
-        assertEquals(2, options.verbosity)
+    }
+
+    @Test fun unusableInputsAndPatternsAreParseErrors() {
+        val missing = temporaryDirectory.resolve("missing.dex").toString()
+        val elf = temporaryDirectory.resolve("program.so")
+        Files.write(elf, byteArrayOf(0x7f, 0x45, 0x4c, 0x46))
+        for (args in listOf(arrayOf(missing), arrayOf(elf.toString()), arrayOf(fixture, "--include-types", "["), arrayOf(fixture, "--exclude-types", "("))) {
+            assertThrows(ParseException::class.java, { SimplifyOptionsParser.parse(args) }, args.joinToString(" "))
+        }
+        val errors = ByteArrayOutputStream()
+        assertEquals(1, Main.run(arrayOf(missing), launcher(), PrintStream(errors)))
+        assertTrue(errors.toString().startsWith("Error: "), errors.toString())
+    }
+
+    @Test fun verboseIsACountingFlagThatNeverConsumesTheInputPath() {
+        val single = SimplifyOptionsParser.parse(arrayOf("-v", fixture))
+        assertEquals(File(fixture), single.inFile)
+        assertEquals(1, single.verbosity)
+        assertEquals(2, SimplifyOptionsParser.parse(arrayOf("-vv", fixture)).verbosity)
+        assertEquals(3, SimplifyOptionsParser.parse(arrayOf(fixture, "-v", "--verbose", "-v")).verbosity)
+        assertThrows(ParseException::class.java) { SimplifyOptionsParser.parse(arrayOf(fixture, "-v", "2")) }
     }
 
     @Test fun quietAndVerboseReportsDoNotLeakBetweenRuns() {
@@ -176,7 +196,7 @@ class LauncherTest {
         Launcher(listOf(OptimizationStrategy {}), PrintStream(quiet)).run(arrayOf(fixture, "--include-types", "aNoOp", "--quiet", "--output", temporaryDirectory.resolve("quiet.dex").toString()))
         assertEquals("", quiet.toString())
         val verbose = ByteArrayOutputStream()
-        Launcher(listOf(OptimizationStrategy {}), PrintStream(verbose)).run(arrayOf(fixture, "--include-types", "aNoOp", "--verbose", "2", "--output", temporaryDirectory.resolve("verbose.dex").toString()))
+        Launcher(listOf(OptimizationStrategy {}), PrintStream(verbose)).run(arrayOf(fixture, "--include-types", "aNoOp", "-vv", "--output", temporaryDirectory.resolve("verbose.dex").toString()))
         assertTrue(verbose.toString().contains("Executing ${OptimizerTest.NO_OP}"))
         assertTrue(verbose.toString().contains("Optimizations for ${OptimizerTest.NO_OP}"))
     }

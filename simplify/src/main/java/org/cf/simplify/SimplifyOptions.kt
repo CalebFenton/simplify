@@ -1,7 +1,9 @@
 package org.cf.simplify
 
+import org.apache.commons.cli.ParseException
 import org.cf.smalivm.dex.SmaliParser
 import java.io.File
+import java.io.IOException
 import java.io.Serializable
 import java.util.regex.Pattern
 
@@ -28,12 +30,20 @@ class SimplifyOptions : Serializable {
 
     internal fun readInput(file: File) {
         inFile = file
-        inputType = if (file.isDirectory) InputType.DIRECTORY else {
-            val magic = file.inputStream().use { it.readNBytes(3) }
-            when {
-                magic.contentEquals(byteArrayOf(0x64, 0x65, 0x78)) -> InputType.DEX
-                magic.contentEquals(byteArrayOf(0x50, 0x4b, 0x03)) -> InputType.ZIP
-                else -> throw IllegalArgumentException("Unknown input file type; magic: ${magic.contentToString()}")
+        inputType = when {
+            file.isDirectory -> InputType.DIRECTORY
+            !file.exists() -> throw ParseException("Input file does not exist: $file")
+            else -> {
+                val magic = try {
+                    file.inputStream().use { it.readNBytes(3) }
+                } catch (exception: IOException) {
+                    throw ParseException("Cannot read input file $file: ${exception.message}")
+                }
+                when {
+                    magic.contentEquals(byteArrayOf(0x64, 0x65, 0x78)) -> InputType.DEX
+                    magic.contentEquals(byteArrayOf(0x50, 0x4b, 0x03)) -> InputType.ZIP
+                    else -> throw ParseException("Unknown input file type: $file; magic: ${magic.contentToString()}")
+                }
             }
         }
     }
