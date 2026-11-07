@@ -194,8 +194,7 @@ class MethodView internal constructor(
          *
          * `internal` rather than private so the differential's `ResultProjection.payloadAddressesOf` --
          * the ONE function that decides the projection convention for BOTH engines -- can filter on this
-         * same set rather than hand-writing a second copy that would drift. `OpBuilder.supportedOpcodes`
-         * is `internal` for the same reason.
+         * same set rather than hand-writing a second copy that would drift.
          */
         internal val PAYLOAD_OPCODES = setOf(
             Opcode.ARRAY_PAYLOAD, Opcode.PACKED_SWITCH_PAYLOAD, Opcode.SPARSE_SWITCH_PAYLOAD,

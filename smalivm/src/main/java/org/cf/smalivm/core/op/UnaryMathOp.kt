@@ -10,95 +10,55 @@ import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 
 /**
- * `neg-*`, `not-*`, and the eighteen `*-to-*` conversions: one source register, one destination, no
- * way to throw.
- *
- * [resultType] is resolved at decode time from the mnemonic's last segment (`int-to-byte` -> `B`),
- * because that is the one thing the op's *name* states unambiguously while its operand's declared
- * type may be a lie (Dalvik reuses `const` across int/char/byte/short/float). The source is coerced
- * into the domain the mnemonic's FIRST segment names, then converted -- `int-to-byte` coerces to Int
- * and truncates, never reading the raw as whatever host box it happens to be.
+ * One `neg-*`, `not-*` or `*-to-*` instruction. The source is read by its bits at the width the instruction
+ * names and converted by value, so `int-to-float` of a register holding a computed `5.9f` converts the int
+ * 1086115021. [convert] answers null when the source has no reading at that width.
  */
+internal enum class UnaryOperation(resultDescriptor: String, private val convert: (Any?) -> Any?) {
+    NEG_INT("I", { raw -> Coerce.toInt(raw)?.let { -it } }),
+    NOT_INT("I", { raw -> Coerce.toInt(raw)?.inv() }),
+    NEG_LONG("J", { raw -> Coerce.toLong(raw)?.let { -it } }),
+    NOT_LONG("J", { raw -> Coerce.toLong(raw)?.inv() }),
+    NEG_FLOAT("F", { raw -> Coerce.toFloat(raw)?.let { -it } }),
+    NEG_DOUBLE("D", { raw -> Coerce.toDouble(raw)?.let { -it } }),
+    INT_TO_LONG("J", { raw -> Coerce.toInt(raw)?.toLong() }),
+    INT_TO_FLOAT("F", { raw -> Coerce.toInt(raw)?.toFloat() }),
+    INT_TO_DOUBLE("D", { raw -> Coerce.toInt(raw)?.toDouble() }),
+    LONG_TO_INT("I", { raw -> Coerce.toLong(raw)?.toInt() }),
+    LONG_TO_FLOAT("F", { raw -> Coerce.toLong(raw)?.toFloat() }),
+    LONG_TO_DOUBLE("D", { raw -> Coerce.toLong(raw)?.toDouble() }),
+    FLOAT_TO_INT("I", { raw -> Coerce.toFloat(raw)?.toInt() }),
+    FLOAT_TO_LONG("J", { raw -> Coerce.toFloat(raw)?.toLong() }),
+    FLOAT_TO_DOUBLE("D", { raw -> Coerce.toFloat(raw)?.toDouble() }),
+    DOUBLE_TO_INT("I", { raw -> Coerce.toDouble(raw)?.toInt() }),
+    DOUBLE_TO_LONG("J", { raw -> Coerce.toDouble(raw)?.toLong() }),
+    DOUBLE_TO_FLOAT("F", { raw -> Coerce.toDouble(raw)?.toFloat() }),
+    INT_TO_BYTE("B", { raw -> Coerce.toInt(raw)?.toByte() }),
+    INT_TO_CHAR("C", { raw -> Coerce.toInt(raw)?.toChar() }),
+    INT_TO_SHORT("S", { raw -> Coerce.toInt(raw)?.toShort() }),
+    ;
+
+    val resultType: VirtualType = VirtualType.of(resultDescriptor)
+
+    fun applyTo(source: Value): Value =
+        (source as? Value.Known)?.let { convert(it.raw) }?.let { Value.Known(it, resultType) } ?: Value.Unknown(resultType)
+}
+
+/** `neg-*`, `not-*` and the `*-to-*` conversions: one source register, one destination, no way to throw. */
 internal class UnaryMathOp(
     address: Int,
     override val name: String,
     val destRegister: Int,
     val srcRegister: Int,
-    private val resultType: VirtualType,
+    private val operation: UnaryOperation,
 ) : Op(address) {
 
     override val registersRead: Set<Int> = setOf(srcRegister)
 
-    // Both halves for a wide result: the high half is not free scratch (see
-    // ExecutionGraph.availableRegisters).
-    override val registersAssigned: Set<Int> = destinationRegisters(destRegister, resultType.isWide)
+    override val registersAssigned: Set<Int> = destinationRegisters(destRegister, operation.resultType.isWide)
 
-    override fun execute(frame: Frame): OpExecution {
-        val source = frame.read(srcRegister)
-        val result = computed(source) ?: Value.Unknown(resultType)
-        return OpExecution.single(OpArm.Continue(OpUpdate.assign(destRegister, result)))
-    }
-
-    /**
-     * Null when the source is unknown or not readable at the width the mnemonic's first segment names (see
-     * [Coerce]). The read is by bits and the conversion by value: `int-to-float` of a register holding a
-     * computed `5.9f` converts the int 1086115021, its bit pattern.
-     */
-    private fun computed(source: Value): Value? {
-        if (source !is Value.Known) return null
-        val raw = source.raw
-        val computed: Any = when (val domain = name.substringBefore('-')) {
-            "neg" -> when (resultType.descriptor) {
-                "I" -> -(Coerce.toInt(raw) ?: return null)
-                "J" -> -(Coerce.toLong(raw) ?: return null)
-                "F" -> -(Coerce.toFloat(raw) ?: return null)
-                "D" -> -(Coerce.toDouble(raw) ?: return null)
-                else -> error("neg with non-numeric result type ${resultType.descriptor} in $name")
-            }
-            "not" -> when (resultType.descriptor) {
-                "I" -> (Coerce.toInt(raw) ?: return null).inv()
-                "J" -> (Coerce.toLong(raw) ?: return null).inv()
-                else -> error("not with non-integral result type ${resultType.descriptor} in $name")
-            }
-            "int" -> convertFromInt(Coerce.toInt(raw) ?: return null)
-            "long" -> convertFromLong(Coerce.toLong(raw) ?: return null)
-            "float" -> convertFromFloat(Coerce.toFloat(raw) ?: return null)
-            "double" -> convertFromDouble(Coerce.toDouble(raw) ?: return null)
-            else -> error("Unexpected unary math mnemonic domain '$domain' in $name")
-        }
-        return Value.Known(computed, resultType)
-    }
-
-    private fun convertFromInt(value: Int): Any = when (resultType.descriptor) {
-        "B" -> value.toByte()
-        "C" -> value.toChar()
-        "S" -> value.toShort()
-        "J" -> value.toLong()
-        "F" -> value.toFloat()
-        "D" -> value.toDouble()
-        else -> error("Unexpected int-to-${resultType.descriptor} in $name")
-    }
-
-    private fun convertFromLong(value: Long): Any = when (resultType.descriptor) {
-        "I" -> value.toInt()
-        "F" -> value.toFloat()
-        "D" -> value.toDouble()
-        else -> error("Unexpected long-to-${resultType.descriptor} in $name")
-    }
-
-    private fun convertFromFloat(value: Float): Any = when (resultType.descriptor) {
-        "I" -> value.toInt()
-        "J" -> value.toLong()
-        "D" -> value.toDouble()
-        else -> error("Unexpected float-to-${resultType.descriptor} in $name")
-    }
-
-    private fun convertFromDouble(value: Double): Any = when (resultType.descriptor) {
-        "I" -> value.toInt()
-        "J" -> value.toLong()
-        "F" -> value.toFloat()
-        else -> error("Unexpected double-to-${resultType.descriptor} in $name")
-    }
+    override fun execute(frame: Frame): OpExecution =
+        OpExecution.single(OpArm.Continue(OpUpdate.assign(destRegister, operation.applyTo(frame.read(srcRegister)))))
 
     override fun toString(): String = "$name r$destRegister, r$srcRegister"
 }

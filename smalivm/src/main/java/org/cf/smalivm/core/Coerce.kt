@@ -29,12 +29,6 @@ internal object Coerce {
         else -> null
     }
 
-    /** [toInt] under the name the array ops use for a stored value, length or element. */
-    fun toProvableInt(raw: Any?): Int? = toInt(raw)
-
-    /** [toInt] under the name `AGetOp` and `APutOp` use for an index. */
-    fun toArrayIndex(raw: Any?): Int? = toInt(raw)
-
     /** The register pair's 64 bits as a `Long`, or null for a 32-bit raw. */
     fun toLong(raw: Any?): Long? = when (raw) {
         is Long -> raw

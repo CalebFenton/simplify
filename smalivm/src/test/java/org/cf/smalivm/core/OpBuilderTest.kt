@@ -2,6 +2,7 @@ package org.cf.smalivm.core
 
 import org.cf.smalivm.core.op.CheckCastOp
 import org.cf.smalivm.core.op.ConstOp
+import org.cf.smalivm.core.op.ConstClassOp
 import org.cf.smalivm.core.op.GotoOp
 import org.cf.smalivm.core.op.InstanceOfOp
 import org.cf.smalivm.core.op.MoveOp
@@ -156,147 +157,20 @@ class OpBuilderTest {
         )
     }
 
+    /**
+     * An opcode without a decoder row decodes to an [UnsupportedOp] with no other signal, and most opcodes
+     * appear in no fixture, so this pins the unsupported set independently of the table: it is exactly what
+     * dexlib2's own metadata marks as payload data or ODEX-only, plus the method-handle family.
+     */
     @Test
-    fun opBuilderDispatchesExactlyTheOpcodesThisBuildImplements() {
-        // Bug class, and the one no fixture-driven test can catch: an opcode dropped from the
-        // dispatch table degrades *silently*. It falls to `else`, becomes an UnsupportedOp, and
-        // emits an Abort(UNSUPPORTED_OP) byte-for-byte identical to the fixture's deliberate
-        // wide-component filled-new-array -- so every method using that instruction aborts with no signal
-        // anywhere. Deleting `Opcode.MOVE_WIDE` today breaks nothing else in this suite, because
-        // spine.smali contains no move-wide: 15 of the dispatched opcodes appear in no fixture at
-        // all. Naming the supported set in production and pinning it here is therefore the only
-        // fixture-independent guard. Oracle: the plan's Task 4 dispatch table (plan lines
-        // 1190-1204), transcribed literally below -- NOT read back from OpBuilder.
-        val expected = setOf(
-            Opcode.NOP,
-            Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32,
-            Opcode.IF_EQ, Opcode.IF_NE, Opcode.IF_LT, Opcode.IF_GE, Opcode.IF_GT, Opcode.IF_LE,
-            Opcode.IF_EQZ, Opcode.IF_NEZ, Opcode.IF_LTZ, Opcode.IF_GEZ, Opcode.IF_GTZ, Opcode.IF_LEZ,
-            Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH,
-            Opcode.THROW,
-            Opcode.RETURN_VOID, Opcode.RETURN, Opcode.RETURN_WIDE, Opcode.RETURN_OBJECT,
-            Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16,
-            Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16,
-            Opcode.MOVE_WIDE, Opcode.MOVE_WIDE_FROM16, Opcode.MOVE_WIDE_16,
-            Opcode.MOVE_EXCEPTION,
-            Opcode.MOVE_RESULT, Opcode.MOVE_RESULT_WIDE, Opcode.MOVE_RESULT_OBJECT,
-            Opcode.CONST, Opcode.CONST_4, Opcode.CONST_16, Opcode.CONST_HIGH16,
-            Opcode.CONST_WIDE, Opcode.CONST_WIDE_16, Opcode.CONST_WIDE_32, Opcode.CONST_WIDE_HIGH16,
-            Opcode.CONST_STRING, Opcode.CONST_STRING_JUMBO,
-            Opcode.CONST_CLASS,
-            Opcode.NEG_INT, Opcode.NOT_INT, Opcode.NEG_LONG, Opcode.NOT_LONG,
-            Opcode.NEG_FLOAT, Opcode.NEG_DOUBLE,
-            Opcode.INT_TO_LONG, Opcode.INT_TO_FLOAT, Opcode.INT_TO_DOUBLE,
-            Opcode.LONG_TO_INT, Opcode.LONG_TO_FLOAT, Opcode.LONG_TO_DOUBLE,
-            Opcode.FLOAT_TO_INT, Opcode.FLOAT_TO_LONG, Opcode.FLOAT_TO_DOUBLE,
-            Opcode.DOUBLE_TO_INT, Opcode.DOUBLE_TO_LONG, Opcode.DOUBLE_TO_FLOAT,
-            Opcode.INT_TO_BYTE, Opcode.INT_TO_CHAR, Opcode.INT_TO_SHORT,
-            Opcode.ADD_INT, Opcode.ADD_INT_2ADDR, Opcode.ADD_INT_LIT8, Opcode.ADD_INT_LIT16,
-            Opcode.SUB_INT, Opcode.SUB_INT_2ADDR,
-            Opcode.RSUB_INT, Opcode.RSUB_INT_LIT8,
-            Opcode.MUL_INT, Opcode.MUL_INT_2ADDR, Opcode.MUL_INT_LIT8, Opcode.MUL_INT_LIT16,
-            Opcode.DIV_INT, Opcode.DIV_INT_2ADDR, Opcode.DIV_INT_LIT8, Opcode.DIV_INT_LIT16,
-            Opcode.REM_INT, Opcode.REM_INT_2ADDR, Opcode.REM_INT_LIT8, Opcode.REM_INT_LIT16,
-            Opcode.AND_INT, Opcode.AND_INT_2ADDR, Opcode.AND_INT_LIT8, Opcode.AND_INT_LIT16,
-            Opcode.OR_INT, Opcode.OR_INT_2ADDR, Opcode.OR_INT_LIT8, Opcode.OR_INT_LIT16,
-            Opcode.XOR_INT, Opcode.XOR_INT_2ADDR, Opcode.XOR_INT_LIT8, Opcode.XOR_INT_LIT16,
-            Opcode.SHL_INT, Opcode.SHL_INT_2ADDR, Opcode.SHL_INT_LIT8,
-            Opcode.SHR_INT, Opcode.SHR_INT_2ADDR, Opcode.SHR_INT_LIT8,
-            Opcode.USHR_INT, Opcode.USHR_INT_2ADDR, Opcode.USHR_INT_LIT8,
-            Opcode.ADD_LONG, Opcode.ADD_LONG_2ADDR, Opcode.SUB_LONG, Opcode.SUB_LONG_2ADDR,
-            Opcode.MUL_LONG, Opcode.MUL_LONG_2ADDR, Opcode.DIV_LONG, Opcode.DIV_LONG_2ADDR,
-            Opcode.REM_LONG, Opcode.REM_LONG_2ADDR, Opcode.AND_LONG, Opcode.AND_LONG_2ADDR,
-            Opcode.OR_LONG, Opcode.OR_LONG_2ADDR, Opcode.XOR_LONG, Opcode.XOR_LONG_2ADDR,
-            Opcode.SHL_LONG, Opcode.SHL_LONG_2ADDR, Opcode.SHR_LONG, Opcode.SHR_LONG_2ADDR,
-            Opcode.USHR_LONG, Opcode.USHR_LONG_2ADDR,
-            Opcode.ADD_FLOAT, Opcode.ADD_FLOAT_2ADDR, Opcode.SUB_FLOAT, Opcode.SUB_FLOAT_2ADDR,
-            Opcode.MUL_FLOAT, Opcode.MUL_FLOAT_2ADDR, Opcode.DIV_FLOAT, Opcode.DIV_FLOAT_2ADDR,
-            Opcode.REM_FLOAT, Opcode.REM_FLOAT_2ADDR,
-            Opcode.ADD_DOUBLE, Opcode.ADD_DOUBLE_2ADDR, Opcode.SUB_DOUBLE, Opcode.SUB_DOUBLE_2ADDR,
-            Opcode.MUL_DOUBLE, Opcode.MUL_DOUBLE_2ADDR, Opcode.DIV_DOUBLE, Opcode.DIV_DOUBLE_2ADDR,
-            Opcode.REM_DOUBLE, Opcode.REM_DOUBLE_2ADDR,
-            Opcode.CMP_LONG, Opcode.CMPL_FLOAT, Opcode.CMPG_FLOAT, Opcode.CMPL_DOUBLE, Opcode.CMPG_DOUBLE,
-            Opcode.NEW_ARRAY,
-            Opcode.NEW_INSTANCE,
-            Opcode.ARRAY_LENGTH,
-            Opcode.AGET, Opcode.AGET_WIDE, Opcode.AGET_OBJECT,
-            Opcode.AGET_BOOLEAN, Opcode.AGET_BYTE, Opcode.AGET_CHAR, Opcode.AGET_SHORT,
-            Opcode.APUT, Opcode.APUT_WIDE, Opcode.APUT_OBJECT,
-            Opcode.APUT_BOOLEAN, Opcode.APUT_BYTE, Opcode.APUT_CHAR, Opcode.APUT_SHORT,
-            Opcode.FILL_ARRAY_DATA,
-            Opcode.FILLED_NEW_ARRAY, Opcode.FILLED_NEW_ARRAY_RANGE,
-            Opcode.INSTANCE_OF,
-            Opcode.CHECK_CAST,
-            Opcode.SGET, Opcode.SGET_WIDE, Opcode.SGET_OBJECT,
-            Opcode.SGET_BOOLEAN, Opcode.SGET_BYTE, Opcode.SGET_CHAR, Opcode.SGET_SHORT,
-            Opcode.SPUT, Opcode.SPUT_WIDE, Opcode.SPUT_OBJECT,
-            Opcode.SPUT_BOOLEAN, Opcode.SPUT_BYTE, Opcode.SPUT_CHAR, Opcode.SPUT_SHORT,
-            Opcode.IGET, Opcode.IGET_WIDE, Opcode.IGET_OBJECT,
-            Opcode.IGET_BOOLEAN, Opcode.IGET_BYTE, Opcode.IGET_CHAR, Opcode.IGET_SHORT,
-            Opcode.IPUT, Opcode.IPUT_WIDE, Opcode.IPUT_OBJECT,
-            Opcode.IPUT_BOOLEAN, Opcode.IPUT_BYTE, Opcode.IPUT_CHAR, Opcode.IPUT_SHORT,
-            Opcode.INVOKE_STATIC, Opcode.INVOKE_STATIC_RANGE,
-            Opcode.INVOKE_DIRECT, Opcode.INVOKE_DIRECT_RANGE,
-            Opcode.INVOKE_SUPER, Opcode.INVOKE_SUPER_RANGE,
-            Opcode.INVOKE_VIRTUAL, Opcode.INVOKE_VIRTUAL_RANGE,
-            Opcode.INVOKE_INTERFACE, Opcode.INVOKE_INTERFACE_RANGE,
-            Opcode.MONITOR_ENTER, Opcode.MONITOR_EXIT,
+    fun exactlyPayloadsOdexFormsAndMethodHandleOpcodesAreUnsupported() {
+        val methodHandles = setOf(
+            Opcode.INVOKE_POLYMORPHIC, Opcode.INVOKE_POLYMORPHIC_RANGE,
+            Opcode.INVOKE_CUSTOM, Opcode.INVOKE_CUSTOM_RANGE,
+            Opcode.CONST_METHOD_HANDLE, Opcode.CONST_METHOD_TYPE,
         )
-        assertEquals(expected, OpBuilder.supportedOpcodes)
-        // Guards the same direction as the const-class line below, for the opcodes that must stay OUT:
-        // the `.array-data` pseudo-instruction and BOTH switch tables are DATA
-        // (MethodView.payloadAddresses), so dispatching one would give a payload an executable meaning --
-        // exactly what design decision 3 (arrays) and design decision 1 (switch) remove. **The two switch
-        // rows now bite for the first time**: Plan 8 Task 6 dispatches PACKED_SWITCH/SPARSE_SWITCH two
-        // lines above, so "the switch opcode is supported and its table is not" is a live distinction
-        // here rather than a pair of trivially-true assertions about an unimplemented family.
-        assertFalse(Opcode.ARRAY_PAYLOAD in OpBuilder.supportedOpcodes, "a payload is data, not code")
-        assertFalse(Opcode.PACKED_SWITCH_PAYLOAD in OpBuilder.supportedOpcodes, "and so are both switch tables")
-        assertFalse(Opcode.SPARSE_SWITCH_PAYLOAD in OpBuilder.supportedOpcodes, "and so are both switch tables")
-        assertTrue(Opcode.PACKED_SWITCH in OpBuilder.supportedOpcodes, "while the switch INSTRUCTION is code")
-        assertTrue(Opcode.SPARSE_SWITCH in OpBuilder.supportedOpcodes, "while the switch INSTRUCTION is code")
-        // The POSITIVE pin, flipped from the negative one in the same Task 10 commit that dispatched the
-        // opcode -- and added to the `expected` set literal above at the same time, or this test fails
-        // either way. `const-class` is its OWN family ([OpBuilder]'s `CONST_CLASS_OPCODES`/`buildConstClass`)
-        // rather than a case inside the plain `const` decode, because it is the one const form that resolves
-        // a type operand through the class model, the same shape `instance-of`/`check-cast` take. Its value
-        // is a HOST `Class` resolved WITHOUT initialization (Plan 8 Task 10, decisions 2-3); an unresolvable
-        // operand degrades to `UnsupportedOp`, pinned separately below.
-        assertTrue(Opcode.CONST_CLASS in OpBuilder.supportedOpcodes, "const-class landed in Plan 8 Task 10")
-        // The POSITIVE pin for the type op's sibling, flipped from a negative one by Plan 8 Task 9 in the
-        // same commit that dispatched the opcode. It shares `instance-of`'s predicate (`castOutcome`) and
-        // maps three of its five outcomes to different answers -- a null register PASSES a cast and FAILS an
-        // instance test, and an ambiguous one forks a cast while it merely un-folds an instance test. The
-        // two entries below are separate lines rather than one membership check over a "type ops" group,
-        // but that separateness does NOT catch a mis-wired build branch -- membership in `supportedOpcodes`
-        // is independent of the `when` dispatch. The branch is pinned behaviorally (`CheckCastOpTest`/
-        // `InstanceOfOpTest`, which build + execute through `CoreTester`) and by the `is CheckCastOp`/
-        // `is InstanceOfOp` controls in `aCheckCastAgainstAnAbsentTypeDecodesToAThrowingOpRatherThanARefusal`
-        // and `anInstanceOfAgainstAnAbsentTypeDecodesToAThrowingOpRatherThanARefusal`.
-        assertTrue(Opcode.CHECK_CAST in OpBuilder.supportedOpcodes, "check-cast landed in Plan 8 Task 9")
-        assertTrue(Opcode.INSTANCE_OF in OpBuilder.supportedOpcodes, "and its sibling in Task 8")
-        // The POSITIVE pin for the allocation half of Plan 9, flipped in the same commit that dispatched
-        // the opcode (Task 17). The INVOKE half is deliberately still absent -- `invoke-direct` on the
-        // freshly allocated instance is Task 20's, which is why `ratchet-new-instance` remains in the
-        // registry re-scoped to the `<init>` call rather than retiring here (see Fixtures.kt).
-        assertTrue(Opcode.NEW_INSTANCE in OpBuilder.supportedOpcodes, "new-instance landed in Plan 9 Task 17")
-        assertTrue(Opcode.INVOKE_DIRECT in OpBuilder.supportedOpcodes, "the <init> call landed in Task 20")
-        // The POSITIVE pins for the static-field family, flipped in the same commit that dispatched all
-        // twelve opcodes (Plan 9 Task 18) and added them to the `expected` set literal above. TWO pins
-        // because they are TWO `when` rows on purpose (`OpBuilder`'s SGET_OPCODES/SPUT_OPCODES KDoc): the
-        // ops share a preamble and not their answers, so one membership line could not witness both
-        // dispatches. The build BRANCHES are pinned behaviorally by
-        // `aSGetOrSPutAgainstAnAbsentTypeDecodesToAThrowingOpRatherThanARefusal`'s `is SGetOp`/`is SPutOp`
-        // controls -- membership here is independent of the `when` dispatch, as the check-cast note above
-        // says.
-        assertTrue(Opcode.SGET in OpBuilder.supportedOpcodes, "sget landed in Plan 9 Task 18")
-        assertTrue(Opcode.SPUT in OpBuilder.supportedOpcodes, "and its writing sibling in the same task")
-        assertTrue(Opcode.IGET in OpBuilder.supportedOpcodes, "iget landed in Plan 9 Task 19")
-        assertTrue(Opcode.IPUT in OpBuilder.supportedOpcodes, "and its writing sibling in the same task")
-        // ...and the ODEX-only forms stay OUT deliberately: never present in an APK's classes.dex, so
-        // dispatching one would claim coverage no input can exercise (SGET_OPCODES' KDoc names the rule).
-        assertFalse(Opcode.SGET_VOLATILE in OpBuilder.supportedOpcodes, "an ODEX form is not APK input")
-        assertFalse(Opcode.SPUT_VOLATILE in OpBuilder.supportedOpcodes, "an ODEX form is not APK input")
+        val documented = Opcode.values().filter { it.format.isPayloadFormat || it.odexOnly() }.toSet() + methodHandles
+        assertEquals(documented, Opcode.values().filterNot(OpBuilder::decodes).toSet())
     }
 
     /**
@@ -728,41 +602,17 @@ class OpBuilderTest {
     }
 
     /**
-     * The same decode-time refusal for `const-class`, and it needs its own test rather than riding on the
-     * type ops': `const-class` is decoded by a THIRD function ([OpBuilder]'s `buildConstClass`) and is its
-     * OWN family, so a missing resolution guard there is invisible to `instance-of`'s and `check-cast`'s
-     * tests.
-     *
-     * **This is also the build-BRANCH pin this task owes** (`CARRY-FORWARD.md` Plan 8 item 10; the plan adds
-     * the fifteenth family here). The dispatch-set test one method up covers the opcode SET, not the
-     * `in CONST_CLASS_OPCODES -> buildConstClass(...)` BRANCH -- Plan 7 measured that deleting a family's
-     * branch left the set test green while other tests died. **Option (b): a per-family assertion that the
-     * family's fixture decodes to the expected `Op` subclass** -- the CONTROL below. Deleting the branch
-     * drops `const-class` to `else -> UnsupportedOp`, so `is ConstOp` fails while the set stays intact.
-     * Option (a) -- a fixture sweep with an exclusion list -- was rejected: the file already has one
-     * (`everyFixtureAddressDecodesToASupportedOpThatEmitsAtLeastOneTransition`, over `Lspine/spine;`), and
-     * `const-class`'s witnesses live in `Lconst_test;`, several of which exist in order to THROW rather than
-     * to fall through; feeding them to a sweep would require growing an exclusion list to carry fixtures
-     * whose whole purpose is the answer this test asserts directly. (Before Plan 9 Task 15,
-     * `constClassUnknown` existed in order to decode to `UnsupportedOp`; it now decodes to a throwing
-     * `ConstOp`, which is the same reason for the same rejection.)
-     *
-     * `check-cast`'s stakes argument applies a third time: an absent type would make this fold a wrong
-     * `Class` (or invent one). 🔴 **Plan 9 Task 15 (ROW-23) replaced Plan 8's `Aborted(UNSUPPORTED_OP)`
-     * expectation with the measured device answer** -- a definite guest `NoClassDefFoundError`,
-     * `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)` cross-validated
-     * `[DEVICE](Tier B, nterp default, API 36)`,
-     * `tools/art-runner/fixtures/Fx_ConstClassAbsentType.smali` against `Fx_ConstClassPresentType.smali`.
-     * **The build-branch pin survives the change unaltered**, because it rides on the CONTROL (a resolvable
-     * `const-class` must decode to a `ConstOp`), not on the refusal.
+     * `const-class` has its own decoder row, so its resolution guard is invisible to the type ops' tests. An
+     * absent class decodes to an op that throws a guest `NoClassDefFoundError` at execute, as a device does
+     * (`tools/art-runner/fixtures/Fx_ConstClassAbsentType.smali`); the control shows a resolvable class
+     * decodes to the same op and falls through.
      */
     @Test
     fun aConstClassAgainstAnAbsentTypeDecodesToAThrowingOpRatherThanARefusal() {
         val present = view("constClassLocal()V", CONST)
         assertTrue(
-            OpBuilder.build(0, present, classIndex) is ConstOp,
-            "the CONTROL: a resolvable class-constant decodes to a real ConstOp, so the throw below is " +
-                "about the type -- and deleting the const-class build branch drops this to UnsupportedOp",
+            OpBuilder.build(0, present, classIndex) is ConstClassOp,
+            "the CONTROL: a resolvable class-constant decodes to a real ConstClassOp",
         )
         assertTrue(
             executeSingle(OpBuilder.build(0, present, classIndex), Frame.entryFrame(present)) is OpArm.Continue,
@@ -771,7 +621,7 @@ class OpBuilderTest {
 
         val v = view("constClassUnknown()V", CONST)
         val op = OpBuilder.build(0, v, classIndex)
-        assertTrue(op is ConstOp, "an unresolvable class-constant throws at execute; it is not refused")
+        assertTrue(op is ConstClassOp, "an unresolvable class-constant throws at execute; it is not refused")
         assertEquals("const-class", op.name, "and it reports the real opcode, not a placeholder")
         val transitions = op.execute(Frame.entryFrame(v)).arms
         assertEquals(1, transitions.size, "a definite throw, not a fork")
@@ -908,8 +758,8 @@ class OpBuilderTest {
         // a genuinely ABSENT class takes the other branch and throws. Same opcode, same builder, two answers.
         val absent = view("constClassUnknown()V", CONST)
         assertTrue(
-            OpBuilder.build(0, absent, classIndex) is ConstOp,
-            "an ABSENT class still decodes to a throwing ConstOp -- the two failure modes stay distinct",
+            OpBuilder.build(0, absent, classIndex) is ConstClassOp,
+            "an ABSENT class still decodes to a throwing ConstClassOp -- the two failure modes stay distinct",
         )
     }
 
