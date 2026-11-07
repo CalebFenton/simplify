@@ -1,0 +1,13 @@
+Coordinate: org.jspecify:jspecify:1.0.1
+Publisher POM: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.pom
+Binary: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar
+Binary SHA-256: 070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66
+Source archive: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1-sources.jar
+Source archive SHA-256: 230c491aac6d2a2b7e66b68d4331b1d2626f1bf3a372c33bbe2b077297e46c45
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1-sources.jar (and binary template resources where identified)
+- LICENSE
+  https://raw.githubusercontent.com/jspecify/jspecify/v1.0.1/LICENSE

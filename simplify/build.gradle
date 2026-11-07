@@ -1,92 +1,38 @@
-buildscript {
-    dependencies {
-        classpath depends.proguard_gradle
-    }
-    repositories {
-        mavenCentral()
-    }
+plugins {
+    id 'application'
+}
+
+
+application {
+    mainClass = 'org.cf.simplify.Main'
+    applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
 }
 
 dependencies {
-    // SmaliVM
-    compile project(':smalivm')
+    implementation project(':smalivm')
 
-    // Lazy
-    compile depends.guava
+    implementation depends.guava
+    implementation depends.commons_cli
+    implementation depends.slf4j_api
+    implementation depends.logback
 
-    // CLI parsing
-    compile 'commons-cli:commons-cli:1.3.1'
-
-    // Primitive collections
-    compile depends.trove4j
-
-    // Logging
-    compile depends.slf4j_api
-    compile 'ch.qos.logback:logback-core:1.1.7'
-    compile 'ch.qos.logback:logback-classic:1.1.7'
-
-    // Testing
-    testCompile depends.junit
-    testCompile depends.mockito
-    testCompile depends.perfidix // benchmarks
-    testCompile project(path: ':smalivm', configuration: 'testArtifacts')
+    testImplementation rootProject.project(':smalivm').sourceSets.test.output
+    testImplementation depends.junit_compile
+    testRuntimeOnly depends.junit_engine
+    testRuntimeOnly depends.junit_launcher
 }
 
-// Because of conflicting transitive dependencies (commons-cli), SmaliVM must be at the END of the classpath.
-eclipse.classpath.file {
-    withXml {
-        def node = it.asNode()
-        def smalivmNode
-        node.children().each { n ->
-            if ( n.attributes()['path'] == '/smalivm') {
-                smalivmNode = n
-                return
-            }
-        }
-        node.remove(smalivmNode)
-        node.append(smalivmNode)
-    }
-}
+test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
-// Build a separate jar that contains all dependencies
-task fatJar(type: Jar) {
-    from sourceSets.main.output
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-
+tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
+    archiveFileName = 'simplify.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
     manifest {
-        attributes('Main-Class': 'org.cf.simplify.Main')
+        attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
     }
-
-    doLast {
-        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDir}/simplify.jar"), resource: archivePath, overwrite: true)
-        }
-    }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }
-tasks.getByPath('build').dependsOn(fatJar)
 
-task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
-    def outFile = fatJar.destinationDir.getPath() + '/' + fatJar.baseName + '-' + fatJar.version + '-proguard' + '.' + fatJar.extension
-
-    injars fatJar.archivePath
-    outjars outFile
-
-    libraryjars "${System.properties['java.home']}/lib/rt.jar"
-
-    dontobfuscate
-    //dontoptimize
-    optimizations '!code/allocation/variable'
-
-    keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
-    keepattributes '*Annotation*,Signature,InnerClasses,EnclosingMethod'
-
-    keep 'public class org.cf.simplify.Main { public static void main(java.lang.String[]); }'
-    keep 'public class android.util.**  { *; }'
-
-    keep 'class org.apache.commons.logging.** { public protected *; }'
-    keep 'public class ch.qos.** { public protected *; }'
-    keep 'public class org.slf4j.** { public protected *; }'
-
-    dontwarn
-    verbose
-}

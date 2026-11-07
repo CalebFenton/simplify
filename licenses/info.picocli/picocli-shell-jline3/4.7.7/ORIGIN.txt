@@ -1,0 +1,11 @@
+Coordinate: info.picocli:picocli-shell-jline3:4.7.7
+Publisher POM: https://repo.maven.apache.org/maven2/info/picocli/picocli-shell-jline3/4.7.7/picocli-shell-jline3-4.7.7.pom
+Binary: https://repo.maven.apache.org/maven2/info/picocli/picocli-shell-jline3/4.7.7/picocli-shell-jline3-4.7.7.jar
+Binary SHA-256: a023435a3d175d07cedb30f25ac6d0eef07fcbdd00744df472f09af2f5fca701
+Source archive: https://repo.maven.apache.org/maven2/info/picocli/picocli-shell-jline3/4.7.7/picocli-shell-jline3-4.7.7-sources.jar
+Source archive SHA-256: 78b4775700ef68a4c7f45f335728654991a4bdb1530063e224deadf58e17cf2d
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- LICENSE
+  https://raw.githubusercontent.com/remkop/picocli/v4.7.7/LICENSE

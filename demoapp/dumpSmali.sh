@@ -1,2 +1,6 @@
-dx --dex --no-strict --output=bin/classes.dex bin/org/cf/demosmali
-baksmali --sequential-labels --code-offsets --use-locals bin/classes.dex -o resources/
+#!/usr/bin/env bash
+echo "Compiling Java classes to Dalvik executable"
+dx --dex --no-strict --output=build/classes.dex build/classes/java/main/org/cf/demosmali
+
+echo "Disassembling Dalvik executable"
+baksmali disassemble --sequential-labels --code-offsets --use-locals build/classes.dex -o resources/

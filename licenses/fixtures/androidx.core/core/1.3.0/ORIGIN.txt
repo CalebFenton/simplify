@@ -1,0 +1,9 @@
+Coordinate: androidx.core:core:1.3.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Version confirmed by APK META-INF version marker.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/core/core/1.3.0/core-1.3.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/core/core/1.3.0/core-1.3.0-sources.jar
+Source archive SHA-256: d63e4bcd7c70c86819c5a79ec9675f1285bc96fcfa919f90f0f9a9ff1b3cee54
+Binary: https://dl.google.com/dl/android/maven2/androidx/core/core/1.3.0/core-1.3.0.aar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

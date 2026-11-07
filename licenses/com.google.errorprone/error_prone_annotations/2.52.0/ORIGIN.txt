@@ -1,0 +1,13 @@
+Coordinate: com.google.errorprone:error_prone_annotations:2.52.0
+Publisher POM: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.52.0/error_prone_annotations-2.52.0.pom
+Binary: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.52.0/error_prone_annotations-2.52.0.jar
+Binary SHA-256: 24822b246a2da324006fc5a1c940b1d2cf9cd716e530155c39fea695d5ab01c4
+Source archive: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.52.0/error_prone_annotations-2.52.0-sources.jar
+Source archive SHA-256: 2d6b134d210323cd8ab391710d8c40d04794c272228efcb10d3b61e1be466717
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.52.0/error_prone_annotations-2.52.0-sources.jar (and binary template resources where identified)
+- COPYING
+  https://raw.githubusercontent.com/google/error-prone/v2.52.0/COPYING

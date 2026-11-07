@@ -1,0 +1,163 @@
+Original copyright and license comments from the publisher source archive.
+Repeated identical comments are reproduced once; example paths identify their origin.
+
+Example source: org/jline/builtins/Commands.java
+/*
+ * Copyright (c) 2002-2023, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/Completers.java
+/*
+ * Copyright (c) 2002-2021, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/ConfigurationPath.java
+/*
+ * Copyright (c) 2002-2019, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/InputRC.java
+/*
+ * Copyright (c) 2002-2018, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/Options.java
+/*
+ * Copyright (c) 2002-2020, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/ScreenTerminal.java
+/*
+ * Copyright (c) 2002-2016, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/Source.java
+/*
+ * Copyright (c) 2002-2022, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/builtins/ssh/ShellCommand.java
+/*
+ * Copyright (c) 2002-2017, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/console/impl/DefaultPrinter.java
+/*
+ * Copyright (c) 2002-2024, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/console/impl/SimpleSystemRegistryImpl.java
+/*
+ * Copyright (c) 2024, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/jansi/Ansi.java
+/*
+ * Copyright (c) 2009-2023, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/nativ/JLineLibrary.java
+/*
+ * Copyright (c) 2023, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/reader/impl/completer/package-info.java
+/*
+ * Copyright (c) 2002-2016, the original author or authors.
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/terminal/impl/Diag.java
+/*
+ * Copyright (c) 2022, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/terminal/impl/ffm/CLibrary.java
+/*
+ * Copyright (c) 2022-2023, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+
+Example source: org/jline/terminal/impl/jansi/win/WindowsAnsiWriter.java
+/*
+ * Copyright (c) 2009-2018, the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ */
+

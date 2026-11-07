@@ -1,0 +1,17 @@
+Coordinate: com.google.code.findbugs:jsr305:3.0.2
+Publisher POM: https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom
+Binary: https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar
+Binary SHA-256: 766ad2a0783f2687962c8ad74ceecc38a28b9f72a2d085ee438b7813e928d0c7
+Source archive: https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2-sources.jar
+Source archive SHA-256: 1c9e85e272d0708c6a591dc74828c71603053b48cc75ae83cce56912a2aa063b
+License selection: Apache-2.0 (POM) AND CC-BY-2.5 (javax.annotation.concurrent source notices)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2-sources.jar (and binary template resources where identified)
+- LICENSE-APACHE-2.0.txt
+  https://www.apache.org/licenses/LICENSE-2.0.txt
+- LICENSE-CC-BY-2.5.html
+  https://creativecommons.org/licenses/by/2.5/legalcode.en
+
+Brian Goetz (2005), Java Concurrency in Practice annotations: GuardedBy, Immutable, NotThreadSafe and ThreadSafe (javax.annotation.concurrent). Original work: http://www.jcip.net ; license: https://creativecommons.org/licenses/by/2.5/ . These source-specific grants are not replaced by the POM-level Apache declaration.

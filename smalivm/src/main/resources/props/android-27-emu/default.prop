@@ -1,0 +1,14 @@
+#
+# ADDITIONAL_DEFAULT_PROPERTIES
+#
+ro.secure=1
+security.perf_harden=1
+ro.allow.mock.location=0
+ro.debuggable=1
+#
+# BOOTIMAGE_BUILD_PROPERTIES
+#
+ro.bootimage.build.date=Tue Apr 24 21:52:13 UTC 2018
+ro.bootimage.build.date.utc=1524606733
+ro.bootimage.build.fingerprint=google/sdk_gphone_x86/generic_x86:8.1.0/OSM1.180201.021/4741582:userdebug/dev-keys
+persist.sys.usb.config=adb

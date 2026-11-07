@@ -1,0 +1,15 @@
+Coordinate: org.jcommander:jcommander:1.85
+Publisher POM: https://repo.maven.apache.org/maven2/org/jcommander/jcommander/1.85/jcommander-1.85.pom
+Binary: https://repo.maven.apache.org/maven2/org/jcommander/jcommander/1.85/jcommander-1.85.jar
+Binary SHA-256: fa7552d2831a2b20778d86851d093edca68fbc0a77f792b6223110e4fae67a70
+Source archive: https://repo.maven.apache.org/maven2/org/jcommander/jcommander/1.85/jcommander-1.85-sources.jar
+Source archive SHA-256: 99174ced79ced88359155c343bcb762bb815bd6b55e2296a2afe4bb4453e3247
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/jcommander/jcommander/1.85/jcommander-1.85-sources.jar (and binary template resources where identified)
+- license.txt
+  https://raw.githubusercontent.com/cbeust/jcommander/1.85/license.txt
+- notice.md
+  https://raw.githubusercontent.com/cbeust/jcommander/1.85/notice.md

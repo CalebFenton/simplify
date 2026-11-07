@@ -4,7 +4,7 @@ public class TestExceptionHandling {
 
     // Trick compilers / IDE into not optimizing away dead code
     // Since value is not final, compiler doesn't know if it'll change.
-    private static int ONE = 1;
+    private static final int ONE = 1;
 
     public static void main(String... argv) {
         System.out.println("val = " + catchParentButNotGrandparentException());

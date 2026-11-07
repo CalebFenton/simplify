@@ -1,0 +1,13 @@
+Coordinate: org.ow2.asm:asm:9.11.1
+Publisher POM: https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1.pom
+Binary: https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1.jar
+Binary SHA-256: ae4e6e10d59d0a1500317764b21881ad883f8550e33c66e6142f7032c6fb566c
+Source archive: https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1-sources.jar
+Source archive SHA-256: 3cfc56ad047260d8ccff50cd55af8922a9c9e2b0439c6eba801dbfaf0870a3ae
+License selection: BSD-3-Clause (original component and source notices retained)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1-sources.jar (and binary template resources where identified)
+- LICENSE-BSD.txt
+  https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1-sources.jar!/org/objectweb/asm/AnnotationVisitor.java

@@ -1,7 +1,5 @@
 # Simplify
 
-[![Build Status](https://travis-ci.org/CalebFenton/simplify.svg?branch=master)](https://travis-ci.org/CalebFenton/simplify) [![Coverage Status](https://img.shields.io/coveralls/CalebFenton/simplify.svg)](https://coveralls.io/r/CalebFenton/simplify) [![Coverity Scan Build Status](https://img.shields.io/coverity/scan/7022.svg)](https://scan.coverity.com/projects/calebfenton-simplify)
-
 ## Generic Android Deobfuscator
 
 Simplify virtually executes an app to understand its behavior and then tries to optimize the code so that it behaves identically but is easier for a human to understand. Each optimization type is simple and generic, so it doesn't matter what the specific type of obfuscation is used.
@@ -18,11 +16,12 @@ The code on the left is a decompilation of an obfuscated app, and the code on th
 
 ## Overview
 
-There are three parts to the project: smalivm, simplify, and the demo app.
+The project has four modules:
 
-1. **smalivm**: Virtual machine library which can execute Android apps. It executes a method and returns a graph which contains the register and class values at every instruction for every possible execution path. It works even if certain values are unknown such as a network response from a server. If it encounters an `if` and doesn't know the values of the conditional, it assumes either branch could happen and executes both paths.
-2. **simplify**: Analyzes the graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and specific peephole optimizations. The optimizations are fairly simple, but when applied together and in succession, it can decrypt strings, peel back layers of obfuscation, and greatly simplify code.
-3. **demoapp**: Contains simple, heavily commented examples of how to use **smalivm**. It's a good place to start if you want to use smalivm in your own projects.
+1. **smalivm**: Provides a virtual machine sandbox for executing Dalvik methods. After executing a method, it returns a graph containing all possible register and class values for every execution path. It works even if some values are unknown, such as file and network I/O. For example, any `if` or `switch` conditional with an unknown value results in both branches being taken.
+2. **simplify**: Analyzes the execution graphs from **smalivm** and applies optimizations such as constant propagation, dead code removal, unreflection, and some peephole optimizations. These are fairly simple, but when applied together repeatedly, they'll decrypt strings, remove reflection, and greatly simplify code. It does *not* rename methods and classes.
+3. **demoapp**: Contains simple, heavily commented examples for using **smalivm** in your own project. If you're building something that needs to execute Dalvik code, check it out.
+4. **sdbg**: An interactive debugger for inspecting VM execution, breakpoints, and register values.
 
 ## Usage
 
@@ -31,22 +30,39 @@ usage: java -jar simplify.jar <input> [options]
 deobfuscates a dalvik executable
  -et,--exclude-types <pattern>   Exclude classes and methods which include REGEX, eg: "com/android", applied after include-types
  -h,--help                       Display this message
+ -ie,--ignore-errors             Ignore errors while executing and optimizing methods. This may lead to unexpected behavior.
     --include-support            Attempt to execute and optimize classes in Android support library packages, default: false
  -it,--include-types <pattern>   Limit execution to classes and methods which include REGEX, eg: ";->targetMethod\("
     --max-address-visits <N>     Give up executing a method after visiting the same address N times, limits loops, default: 10000
-    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method chains, default:
-                                 50
+    --max-call-depth <N>         Do not call methods after reaching a call depth of N, limits recursion and long method chains, default: 50
     --max-execution-time <N>     Give up executing a method after N seconds, default: 300
-    --max-method-vists <N>       Give up executing a method after executing N instructions in that method, default: 1000000
+    --max-method-visits <N>      Give up executing a method after executing N instructions in that method, default: 1000000
     --max-passes <N>             Do not run optimizers on a method more than N times, default: 100
  -o,--output <file>              Output simplified input to FILE
-    --output-api-level <LEVEL>   Set output DEX API compatibility to LEVEL, default: 15
+    --output-api-level <LEVEL>   Set output DEX API compatibility to LEVEL, default: 20
  -q,--quiet                      Be quiet
-    --remove-weak                Remove code even if there are weak side effects, default: true
  -v,--verbose <LEVEL>            Set verbosity to LEVEL, default: 0
 ```
 
 ## Building
+
+Building uses a JDK 21 toolchain; running the applications requires JDK 21 or later. Set `JAVA_HOME`
+to JDK 21 for the build. The wrapper pins Gradle 9.7.0 with a verified distribution checksum, and
+the Kotlin compiler is 2.4.21.
+
+The next public release is **2.0.0-SNAPSHOT**. The Kotlin execution engine replaces the old VM API.
+Embedding applications must migrate to `VmServices`, immutable method snapshots, and execution sessions.
+This public release is distinct from the separate commercial product.
+
+The DEX toolchain now uses Google's maintained Smali 3.0.10 fork. Public DEX types use
+`com.android.tools.smali` rather than `org.jf`; embedding callers must update their imports.
+See [build and distribution details](docs/architecture/build-and-distribution.md) for dependency,
+logging, artifact, and separate historical Android-fixture boundaries.
+
+The bundled framework is Android 16 / API 36, captured from an AOSP emulator image.
+Its DEX 039 sources are parsed independently of the application's output API setting.
+The submodule retains the historical API 25 corpus, but runtime artifacts package only API 36.
+Use a case-sensitive filesystem for the checkout: API 36 contains class filenames differing only by case.
 
 Because this project contains submodules for Android frameworks, either clone with `--recursive`:
 
@@ -60,26 +76,51 @@ Or update submodules at any time with:
 git submodule update --init --recursive
 ```
 
-Then, to build a single jar:
+Then, to build a single jar which contains all dependencies:
 
 ```bash
-./gradlew fatjar
+./gradlew :simplify:fatJar
 ```
 
-The Simplify jar will be in `simplify/build/libs/simplify.jar`. You can test it's working by simplifying the obfuscated-example app:
+The standalone jar is `simplify/build/libs/simplify.jar`. To simplify the provided [obfuscated example app](/simplify/ObfuscatedApp):
 
 ```bash
-java -jar simplify/build/libs/simplify.jar -it 'org/cf' simplify/obfuscated-example
+java -jar simplify/build/libs/simplify.jar -it "org/cf/obfuscated" -et "MainActivity" simplify/obfuscated-app.apk
 ```
+
+Smali directories, DEX files, and APKs are supported. APK output replaces `classes.dex`.
+Other entries retain their bytes, compression methods, timestamps, and comments; the archive comment
+also survives. Modified APKs must be signed again before installation.
+
+To understand what's getting deobfuscated, check out [Obfuscated App's README](/simplify/ObfuscatedApp/README.md).
+
+### Demo and debugger
+
+```bash
+./gradlew :demoapp:fatJar :sdbg:fatJar
+java -jar demoapp/build/libs/demoapp.jar demoapp/resources
+java -jar sdbg/build/libs/sdbg.jar sdbg/resources 'LTest;->addNumbers()V'
+```
+
+The Kotlin demo shows VM-local emulator registration and execution with known and unknown inputs.
+Its explicit reflection policy permits only the host operations needed by the examples.
+The Java files under `org.cf.demosmali` remain guest fixture sources, not the host application.
+
+SDBG supports breakpoints, step/next/continue, register and static-field inspection, and disassembly
+through the Kotlin debugger. See [SDBG usage](sdbg/README.md). Exit the console with Ctrl-D.
 
 ## Troubleshooting
 
-Simplify is in early stages of development. If you encounter a failure, try these recommendations, in order:
+If Simplify fails, try these recommendations, in order:
 
-1. Include only a few methods or classes with `-it`.
+1. Only target a few methods or classes by using `-it` option.
 2. If failure is because of maximum visits exceeded, try using higher `--max-address-visits`, `--max-call-depth`, and `--max-method-visits`.
-3. Try with `-v` or `-v 2` and report the issue with the logs.
+3. Try with `-v` or `-v 2` and report the issue with the logs and a hash of the DEX or APK.
 4. Try again, but do not break eye contact. Simplify can sense fear.
+
+If Gradle selects the wrong Java installation, set `JAVA_HOME` to JDK 21 and restart your shell.
+The packaged jar supplies the module opening required by host reflection. When embedding SmaliVM
+directly, run Java with `--add-opens=java.base/java.lang=ALL-UNNAMED`.
 
 ## Contributing
 
@@ -89,53 +130,39 @@ Don't be shy. I think virtual execution and deobfuscation are fascinating proble
 
 Please include a link to the APK or DEX and the full command you're using. This makes it much easier to reproduce (and thus _fix_) your issue.
 
-If you can't share the sample, please include the file hash (sha1, sha256, etc).
+If you can't share the sample, *please* include the file hash (SHA1, SHA256, etc).
 
 ## Optimization Strategies
 
 ### Constant Propagation
 
-If an op places a value of a type which can be turned into a constant such as a string, number, or boolean, this optimization will replace that op with the constant. For example:
+Constant propagation replaces proven numeric and boolean results with constants. For example:
 
 ```smali
-const-string v0, "VGVsbCBtZSBvZiB5b3VyIGhvbWV3b3JsZCwgVXN1bC4="
-invoke-static {v0}, Lmy/string/Decryptor;->decrypt(Ljava/lang/String;)Ljava/lang/String;
-# Decrypts to: "Tell me of your homeworld, Usul."
-move-result v0
+const/4 v0, 0x4
+const/4 v1, 0x3
+add-int v0, v0, v1
+return v0
 ```
 
-In this example, an encrypted string is decrypted and placed into `v0`. Since strings are "constantizable", the `move-result v0` can be replaced with a `const-string`:
-
-```smali
-const-string v0, "VGVsbCBtZSBvZiB5b3VyIGhvbWV3b3JsZCwgVXN1bC4="
-invoke-static {v0}, Lmy/string/Decryptor;->decrypt(Ljava/lang/String;)Ljava/lang/String;
-const-string v0, "Tell me of your homeworld, Usul."
-```
+The addition can become `const/4 v0, 0x7`. Dead code removal can then remove its unused inputs.
+String propagation is deliberately narrower: it requires a straight-line definition originating
+from `const-string`, possibly through object moves. Equal string contents do not prove equal
+object identity. Arbitrary decrypted or constructed strings are not replaced with interned literals.
 
 ### Dead Code Removal
 
-Code is dead if removing it cannot possibly alter the behavior of the app. The most obvious case is if the code is unreachable, e.g. `if (false) { // dead }`). If code is reachable, it may be considered dead if it doesn't affect any state outside of the method, i.e. it has no _side effect_. For example, code may not affect the return value for the method, alter any class variables, or perform any IO. This is a difficult to determine in static analysis. Luckily, smalivm doesn't have to be clever. It just stupidly executes everything it can and assumes there are side effects if it can't be sure. Consider the example from Constant Propagation:
+Dead code removal removes unreachable instructions and unused assignments only when complete
+analysis proves the removal safe. After constant propagation, the example above reduces to:
 
 ```smali
-const-string v0, "VGVsbCBtZSBvZiB5b3VyIGhvbWV3b3JsZCwgVXN1bC4="
-invoke-static {v0}, Lmy/string/Decryptor;->decrypt(Ljava/lang/String;)Ljava/lang/String;
-const-string v0, "Tell me of your homeworld, Usul."
+const/4 v0, 0x7
+return v0
 ```
 
-In this code, the `invoke-static` no longer affects the return value of the method and let's assume it doesn't do anything weird like write bytes to the file system or a network socket so it has no side effects. It can simply be removed.
-
-```smali
-const-string v0, "VGVsbCBtZSBvZiB5b3VyIGhvbWV3b3JsZCwgVXN1bC4="
-const-string v0, "Tell me of your homeworld, Usul."
-```
-
-Finally, the first `const-string` assigns a value to a register, but that value is never used, i.e. the assignment is dead. It can also be removed.
-
-```smali
-const-string v0, "Tell me of your homeworld, Usul."
-```
-
-Huzzah!
+Exceptions, synchronization, volatile accesses, and array writes are observable behavior.
+Unused results do not make those operations removable. There is no `--remove-weak` bypass.
+Partial analysis never authorizes a rewrite.
 
 ### Unreflection
 
@@ -145,11 +172,16 @@ One major challenge with static analysis of Java is reflection. It's just not po
 invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 ```
 
-It can know the values of `v0`, `v1`, and `v2`. If it's sure what the values are, it can replace the call to `Method.invoke()` with an actual non-reflected method invocation. The same applies for reflected field and class lookups.
+A direct call requires more than known arguments: all executions must continue normally, with
+no side effects, and the target, access, receiver, and argument shape must be proven.
+The default opaque `Method.invoke` policy does not supply that proof, so those calls stay reflective.
+Field lowering is limited to static fields declared by the current class.
 
 ### Peephole
 
-For everything that doesn't fit cleanly into a particular category, there's peephole optimizations. This includes removing useless `check-cast` ops, replacing `Ljava/lang/String;-><init>` calls with `const-string`, and so on.
+Peephole optimizations simplify proven constant branches, remove exact redundant casts, and replace
+eligible same-class `Class.forName` calls. String constructors are not replaced with `const-string`,
+because that can change object identity.
 
 ## Deobfuscation Example
 
@@ -214,18 +246,24 @@ Other examples of dead code:
 * unreferenced assignments - assigning registers and not using them
 * unreached / unreachable instructions - `if (false) { dead_code(); }`
 
+# License
+
+Simplify's project-owned code is licensed under the [Apache License, Version 2.0](LICENSE).
+There is no separate commercial-license requirement for that code.
+
+Bundled dependencies and third-party source retain their own licenses and attribution requirements.
+See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) and the component texts in [licenses](licenses/).
+The Android framework corpus and derived reference artifacts are third-party material, not
+relicensed by Simplify's Apache license. Their original terms and notices remain applicable;
+see the framework section of [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
+
 # Further Reading
 
 * [Dalvik Virtual Execution with SmaliVM](http://calebfenton.github.io/2016/04/30/dalvik-virtual-execution-with-smalivm/)
-
-# License
-
-This tool is available under a dual license: a commercial one suitable for closed source projects and a GPL license that can be used in open source software.
-
-Depending on your needs, you must choose one of them and follow its policies. A detail of the policies and agreements for each license type are available in the [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL) and [LICENSE.GPL](LICENSE.GPL) files.
-
-# Related / Inspirational
-
 * [Guillot, Yoann, and Alexandre Gazet. "Automatic Binary Deobfuscation." Journal in Computer Virology 6.3 (2010): 261-76](http://metasm.cr0.org/docs/sstic09-metasm-jcv.pdf)
 * [Unicorn - The ultimate CPU emulator](http://www.unicorn-engine.org/)
 * [Babak Yadegari, Saumya Debray. "Symbolic Execution of Obfuscated Code"](https://www.cs.arizona.edu/people/debray/Publications/ccs2015-symbolic.pdf)
+* Success stories:
+    * [Android Dynamic Class Loading with "AES/CFB/NoPadding" encryption. Take a peek before & after. Tool used: #simplify. #Android #obfuscation #classencryption #dex](https://twitter.com/enovella_/status/946899042973437952)
+    * [Decrypting Malware String Encryption](https://twitter.com/caleb_fenton/status/850400605340262400)
+

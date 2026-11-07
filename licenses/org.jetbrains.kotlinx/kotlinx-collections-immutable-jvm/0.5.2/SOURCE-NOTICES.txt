@@ -1,0 +1,21 @@
+Original copyright and license comments from the publisher source archive.
+Repeated identical comments are reproduced once; example paths identify their origin.
+
+Example source: jvmMain/internal/commonFunctions.kt
+/*
+ * Copyright 2016-2019 JetBrains s.r.o.
+ * Use of this source code is governed by the Apache 2.0 License that can be found in the LICENSE.txt file.
+ */
+
+Example source: commonMain/ImmutableCollection.kt
+/*
+ * Copyright 2016-2026 JetBrains s.r.o.
+ * Use of this source code is governed by the Apache 2.0 License that can be found in the LICENSE.txt file.
+ */
+
+Example source: commonMain/internal/ForEachOneBit.kt
+/*
+ * Copyright 2016-2020 JetBrains s.r.o.
+ * Use of this source code is governed by the Apache 2.0 License that can be found in the LICENSE.txt file.
+ */
+

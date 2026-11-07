@@ -1,0 +1,55 @@
+Original native source notices from JLine jline-3.29.0.
+
+Source: https://raw.githubusercontent.com/jline/jline3/jline-3.29.0/native/src/main/native/clibrary.c
+/*******************************************************************************
+ * Copyright (C) 2009-2017 the original author(s).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *******************************************************************************/
+
+Source: https://raw.githubusercontent.com/jline/jline3/jline-3.29.0/native/src/main/native/jlinenative.c
+/*******************************************************************************
+ * Copyright (C) 2023 the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ *******************************************************************************/
+
+Source: https://raw.githubusercontent.com/jline/jline3/jline-3.29.0/native/src/main/native/jlinenative.h
+/*******************************************************************************
+ * Copyright (C) 2023 the original author(s).
+ *
+ * This software is distributable under the BSD license. See the terms of the
+ * BSD license in the documentation provided with this software.
+ *
+ * https://opensource.org/licenses/BSD-3-Clause
+ *******************************************************************************/
+
+Source: https://raw.githubusercontent.com/jline/jline3/jline-3.29.0/native/src/main/native/kernel32.c
+/*******************************************************************************
+ * Copyright (C) 2009-2017 the original author(s).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *******************************************************************************/

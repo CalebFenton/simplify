@@ -1,11 +1,13 @@
 package org.cf.smalivm.type;
 
 import org.cf.smalivm.dex.CommonTypes;
-import org.jf.dexlib2.builder.BuilderTryBlock;
-import org.jf.dexlib2.builder.MutableMethodImplementation;
-import org.jf.dexlib2.iface.reference.Reference;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
+import com.android.tools.smali.dexlib2.builder.BuilderTryBlock;
+import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.iface.reference.Reference;
+import com.android.tools.smali.dexlib2.writer.builder.BuilderMethod;
+import com.android.tools.smali.dexlib2.writer.builder.BuilderStringReference;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,9 +15,9 @@ import java.util.List;
 public class VirtualArrayMethod extends VirtualMethod {
 
     private final Reference reference;
-    private final VirtualGeneric type;
+    private final VirtualType type;
 
-    VirtualArrayMethod(Reference reference, VirtualGeneric type) {
+    VirtualArrayMethod(Reference reference, VirtualType type) {
         super(reference, type);
         this.reference = reference;
         this.type = type;
@@ -95,7 +97,17 @@ public class VirtualArrayMethod extends VirtualMethod {
 
     @Override
     public String getSignature() {
-        return reference.toString();
+        try {
+            // Note: Fairly sure there's a bug in how dexlib2 handles array field references, e.g. [I->clone()Ljava/lang/Object;
+            // It could be that I'm not interning a class somewhere or something. If I don't do it this way, I get stack overflow
+            // exceptions because of an infinite loop -- even using DexFormatter.
+            Field f = reference.getClass().getDeclaredField("stringReference");
+            f.setAccessible(true);
+            return ((BuilderStringReference) f.get(reference)).getString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "unknown";
     }
 
 }

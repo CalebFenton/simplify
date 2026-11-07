@@ -1,0 +1,42 @@
+buildscript {
+    repositories {
+        jcenter()
+        google()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:4.0.1'
+    }
+}
+apply plugin: 'com.android.application'
+
+repositories {
+    jcenter()
+    maven {
+        url 'https://maven.google.com/'
+        name 'Google'
+    }
+}
+
+android {
+    compileSdkVersion 30
+    buildToolsVersion "29.0.2"
+
+    defaultConfig {
+        applicationId "org.cf.obfuscated"
+        minSdkVersion 14
+        targetSdkVersion 30
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation 'androidx.appcompat:appcompat:1.2.0'
+}

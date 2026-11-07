@@ -1,0 +1,413 @@
+THIRD-PARTY NOTICES — SIMPLIFY V1
+================================
+
+Scope and license boundaries
+----------------------------
+Simplify's project LICENSE applies to project-owned material only. The separately
+identified third-party material retains its own copyright and license terms.
+This file is an attribution/source index, not a grant of rights to unknown code.
+Full original texts are kept independently under licenses/ so equal upstream
+names such as LICENSE and META-INF/NOTICE.txt cannot overwrite each other.
+
+The host-runtime inventory below covers the resolved coordinates recorded in the
+existing SmaliVM/Simplify/SDBG/Demo runtime artifacts and launchers. Test/build-only
+dependencies (JUnit, Mockito, MockK, JaCoCo, ProGuard, Gradle plugins, etc.) are not
+represented as host-runtime components. Source fixture/tooling notices are a
+separate section. Shipping this legal bundle does not itself ship every component
+listed: the component's terms apply when that component is included.
+
+ANDROID FRAMEWORK REFERENCE DATA
+--------------------------------
+The selected framework corpus at
+smalivm/src/main/resources/framework/smali/android-36/
+comes from https://github.com/CalebFenton/AndroidFrameworkSmali.git . It captures
+the Android 16 boot classpath from system-images;android-36;default;x86_64
+revision 2, with fingerprint:
+Android/sdk_phone64_x86_64/emu64x:16/BE2A.250530.026.D1/13818094:userdebug/test-keys
+
+Android, Java/libcore, and other incorporated components retain their upstream
+copyright and license terms. Simplify's Apache-2.0 license does not relicense
+this corpus or the derived framework/android-framework.jar and indexes/catalogs.
+Those terms continue to apply when framework resources accompany a VM or
+application artifact.
+
+The submodule retains original JARs and DEX files, source/class hashes, image/tool
+metadata and four original notice files. Every project JAR includes the capture's
+provenance.json, boot-dex.tsv, shadowed-classes.tsv and notices/ under
+META-INF/licenses/android-framework/android-36/. Application ZIP/TAR distributions
+also include them under licenses/android-framework/android-36/. The notice inventory
+can cover components beyond the boot classpath; it is not a complete source inventory.
+
+The API 25 corpus is retained in the submodule but is not packaged by Simplify.
+Its original import was contributed in
+November 2016 at 495030b9fd9aa428662bd5b203b4f2d6d3f04f88. The extraction method
+is recorded, but the exact device/system-image fingerprint and a component
+notice inventory were not recorded with that import. This historical provenance
+limitation is not a determination that the material is unlicensed.
+Import discussion: https://github.com/CalebFenton/AndroidFrameworkSmali/pull/1
+
+New captures made by AndroidFrameworkSmali's generator retain image metadata,
+source hashes and original image notices separately from the generator's own
+license. Keep those records with the corresponding generated framework. A new
+capture does not retroactively identify the image used for the API 25 import.
+
+Host runtime components
+-----------------------
+For each coordinate, the directory shown contains its full legal texts and an
+ORIGIN.txt identifying primary publisher POM/source URLs, the inspected binary
+SHA-256 and (where used) exact source-archive SHA-256. Original notices control;
+short license/owner descriptions below do not replace them. SOURCE-NOTICES.txt
+preserves distinct original copyright/license comments with example source paths,
+including complete BSD/MIT-style grants where supplied as source headers.
+
+Common to SmaliVM and its application consumers:
+
+com.android.tools.smali:smali:3.0.10
+  Terms: BSD-3-Clause AND Apache-2.0 (complete upstream composite LICENSE)
+  Attribution: Ben Gruver; Google LLC; Android Open Source Project and incorporated authors (composite LICENSE).
+  Texts/provenance: licenses/com.android.tools.smali/smali/3.0.10/
+  Primary artifact metadata: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali/3.0.10/smali-3.0.10.pom
+
+com.android.tools.smali:smali-baksmali:3.0.10
+  Terms: BSD-3-Clause AND Apache-2.0 (complete upstream composite LICENSE)
+  Attribution: Ben Gruver; Google LLC; Android Open Source Project and incorporated authors (composite LICENSE).
+  Texts/provenance: licenses/com.android.tools.smali/smali-baksmali/3.0.10/
+  Primary artifact metadata: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-baksmali/3.0.10/smali-baksmali-3.0.10.pom
+
+com.android.tools.smali:smali-dexlib2:3.0.10
+  Terms: BSD-3-Clause AND Apache-2.0 (complete upstream composite LICENSE)
+  Attribution: Ben Gruver; Google LLC; Android Open Source Project and incorporated authors (composite LICENSE).
+  Texts/provenance: licenses/com.android.tools.smali/smali-dexlib2/3.0.10/
+  Primary artifact metadata: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-dexlib2/3.0.10/smali-dexlib2-3.0.10.pom
+
+com.android.tools.smali:smali-util:3.0.10
+  Terms: BSD-3-Clause AND Apache-2.0 (complete upstream composite LICENSE)
+  Attribution: Ben Gruver; Google LLC; Android Open Source Project and incorporated authors (composite LICENSE).
+  Texts/provenance: licenses/com.android.tools.smali/smali-util/3.0.10/
+  Primary artifact metadata: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-util/3.0.10/smali-util-3.0.10.pom
+
+org.jetbrains.kotlin:kotlin-stdlib:2.4.21
+  Terms: Apache-2.0
+  Attribution: JetBrains s.r.o. and Kotlin contributors.
+  Texts/provenance: licenses/org.jetbrains.kotlin/kotlin-stdlib/2.4.21/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21.pom
+
+org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.5.2
+  Terms: Apache-2.0
+  Attribution: JetBrains s.r.o..
+  Texts/provenance: licenses/org.jetbrains.kotlinx/kotlinx-collections-immutable-jvm/0.5.2/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-collections-immutable-jvm/0.5.2/kotlinx-collections-immutable-jvm-0.5.2.pom
+
+org.jetbrains:annotations:13.0
+  Terms: Apache-2.0
+  Attribution: JetBrains s.r.o.; Sascha Weinreuter.
+  Texts/provenance: licenses/org.jetbrains/annotations/13.0/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom
+
+org.apache.commons:commons-lang3:3.21.0
+  Terms: Apache-2.0
+  Attribution: The Apache Software Foundation.
+  Texts/provenance: licenses/org.apache.commons/commons-lang3/3.21.0/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.21.0/commons-lang3-3.21.0.pom
+
+org.ow2.asm:asm:9.11.1
+  Terms: BSD-3-Clause (original component and source notices retained)
+  Attribution: INRIA; France Telecom and contributors.
+  Texts/provenance: licenses/org.ow2.asm/asm/9.11.1/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1.pom
+
+org.slf4j:slf4j-api:2.0.20
+  Terms: MIT
+  Attribution: QOS.ch.
+  Texts/provenance: licenses/org.slf4j/slf4j-api/2.0.20/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.pom
+
+com.google.guava:guava:33.8.0-jre
+  Terms: Apache-2.0; incorporated public-domain MurmurHash3 and JSR-166 notices/CC0 terms retained
+  Attribution: Google Inc.; incorporated contributors named in source notices.
+  Texts/provenance: licenses/com.google.guava/guava/33.8.0-jre/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.8.0-jre/guava-33.8.0-jre.pom
+
+com.google.guava:failureaccess:1.0.3
+  Terms: Apache-2.0
+  Attribution: Google Inc.; incorporated contributors named in source notices.
+  Texts/provenance: licenses/com.google.guava/failureaccess/1.0.3/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.pom
+
+com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+  Terms: Apache-2.0
+  Attribution: Google Inc.; incorporated contributors named in source notices.
+  Texts/provenance: licenses/com.google.guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom
+
+org.jspecify:jspecify:1.0.1
+  Terms: Apache-2.0
+  Attribution: The JSpecify Authors.
+  Texts/provenance: licenses/org.jspecify/jspecify/1.0.1/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.pom
+
+com.google.errorprone:error_prone_annotations:2.52.0
+  Terms: Apache-2.0
+  Attribution: The Error Prone Authors.
+  Texts/provenance: licenses/com.google.errorprone/error_prone_annotations/2.52.0/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.52.0/error_prone_annotations-2.52.0.pom
+
+com.google.j2objc:j2objc-annotations:3.1
+  Terms: Apache-2.0
+  Attribution: Google Inc..
+  Texts/provenance: licenses/com.google.j2objc/j2objc-annotations/3.1/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.1/j2objc-annotations-3.1.pom
+
+com.google.code.findbugs:jsr305:3.0.2
+  Terms: Apache-2.0 (POM) AND CC-BY-2.5 (javax.annotation.concurrent source notices)
+  Attribution: FindBugs/JSR-305 contributors; Brian Goetz (JCIP annotations).
+  Texts/provenance: licenses/com.google.code.findbugs/jsr305/3.0.2/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.pom
+
+org.jcommander:jcommander:1.85
+  Terms: Apache-2.0
+  Attribution: Cedric Beust and original authors.
+  Texts/provenance: licenses/org.jcommander/jcommander/1.85/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/jcommander/jcommander/1.85/jcommander-1.85.pom
+
+org.antlr:antlr:3.5.2
+  Terms: BSD-3-Clause (original component and source notices retained)
+  Attribution: Terence Parr and additional authors named in source/template notices.
+  Texts/provenance: licenses/org.antlr/antlr/3.5.2/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/antlr/antlr/3.5.2/antlr-3.5.2.pom
+
+org.antlr:antlr-runtime:3.5.2
+  Terms: BSD-3-Clause (original component and source notices retained)
+  Attribution: Terence Parr and additional authors named in source/template notices.
+  Texts/provenance: licenses/org.antlr/antlr-runtime/3.5.2/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/antlr/antlr-runtime/3.5.2/antlr-runtime-3.5.2.pom
+
+org.antlr:ST4:4.0.8
+  Terms: BSD-3-Clause (original component and source notices retained)
+  Attribution: Terence Parr and additional authors named in source/template notices.
+  Texts/provenance: licenses/org.antlr/ST4/4.0.8/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/antlr/ST4/4.0.8/ST4-4.0.8.pom
+
+org.antlr:stringtemplate:3.2.1
+  Terms: BSD-3-Clause (original component and source notices retained)
+  Attribution: Terence Parr and additional authors named in source/template notices.
+  Texts/provenance: licenses/org.antlr/stringtemplate/3.2.1/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/antlr/stringtemplate/3.2.1/stringtemplate-3.2.1.pom
+
+antlr:antlr:2.7.7
+  Terms: Public-domain dedication and SOFTWARE RIGHTS text (not modern ANTLR BSD terms)
+  Attribution: Terence Parr.
+  Texts/provenance: licenses/antlr/antlr/2.7.7/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.pom
+
+Application-specific additions:
+
+commons-cli:commons-cli:1.11.0 — Simplify
+  Terms: Apache-2.0
+  Attribution: The Apache Software Foundation.
+  Texts/provenance: licenses/commons-cli/commons-cli/1.11.0/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/commons-cli/commons-cli/1.11.0/commons-cli-1.11.0.pom
+
+ch.qos.logback:logback-classic:1.6.6 — Simplify and SDBG
+  Terms: EPL-2.0 selected from upstream EPL-2.0 OR LGPL-2.1-only
+  Attribution: QOS.ch.
+  Texts/provenance: licenses/ch.qos.logback/logback-classic/1.6.6/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/ch/qos/logback/logback-classic/1.6.6/logback-classic-1.6.6.pom
+
+ch.qos.logback:logback-core:1.6.6 — Simplify and SDBG
+  Terms: EPL-2.0 selected from upstream EPL-2.0 OR LGPL-2.1-only
+  Attribution: QOS.ch.
+  Texts/provenance: licenses/ch.qos.logback/logback-core/1.6.6/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/ch/qos/logback/logback-core/1.6.6/logback-core-1.6.6.pom
+
+org.slf4j:slf4j-nop:2.0.20 — Demo
+  Terms: MIT
+  Attribution: QOS.ch.
+  Texts/provenance: licenses/org.slf4j/slf4j-nop/2.0.20/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-nop/2.0.20/slf4j-nop-2.0.20.pom
+
+info.picocli:picocli-shell-jline3:4.7.7 — SDBG
+  Terms: Apache-2.0
+  Attribution: Remko Popma.
+  Texts/provenance: licenses/info.picocli/picocli-shell-jline3/4.7.7/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/info/picocli/picocli-shell-jline3/4.7.7/picocli-shell-jline3-4.7.7.pom
+
+info.picocli:picocli:4.7.7 — SDBG
+  Terms: Apache-2.0
+  Attribution: Remko Popma.
+  Texts/provenance: licenses/info.picocli/picocli/4.7.7/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7.pom
+
+org.jline:jline:3.29.0 — SDBG
+  Terms: BSD-3-Clause AND Apache-2.0 (incorporated native clibrary.c/kernel32.c)
+  Attribution: Original JLine/native authors, as named by upstream.
+  Texts/provenance: licenses/org.jline/jline/3.29.0/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/jline/jline/3.29.0/jline-3.29.0.pom
+
+org.fusesource.jansi:jansi:2.4.3 — SDBG
+  Terms: Apache-2.0
+  Attribution: Original Jansi authors, as named by upstream.
+  Texts/provenance: licenses/org.fusesource.jansi/jansi/2.4.3/
+  Primary artifact metadata: https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3.pom
+
+Important component-specific notices
+------------------------------------
+* Commons CLI and Commons Lang are independent components. BOTH original notices
+  are retained, with their exact upstream years and text:
+  licenses/commons-cli/commons-cli/1.11.0/META-INF/NOTICE.txt
+  licenses/org.apache.commons/commons-lang3/3.21.0/META-INF/NOTICE.txt
+  Commons CLI: Copyright 2002-2025 The Apache Software Foundation.
+  Commons Lang: Copyright 2001-2026 The Apache Software Foundation.
+* Smali, baksmali, dexlib2 and util each retain their own full composite LICENSE.
+  A single POM "BSD" label is not a substitute for those incorporated Apache and
+  other author notices. Publisher source: https://github.com/google/smali .
+* ANTLR 2.7.7 is not licensed by substituting the current ANTLR website's BSD
+  text. Its own SOFTWARE RIGHTS text says the software is in the public domain
+  and requests acknowledgement. This product uses ANTLR software developed by
+  Terence Parr, partially supported by University of San Francisco and jGuru.com.
+  Original release source: https://www.antlr2.org/download/antlr-2.7.7.tar.gz .
+  ANTLR 3.5.2 tool AND runtime, StringTemplate 3.2.1 and ST4 4.0.8 have separate
+  BSD notices, all retained, including ANTLR's distributed template notices.
+* JSR-305's POM declares Apache-2.0, but its GuardedBy, Immutable, NotThreadSafe
+  and ThreadSafe classes (javax.annotation.concurrent) retain Copyright (c) 2005
+  Brian Goetz, Creative Commons Attribution 2.5, and original http://www.jcip.net
+  attribution. See SOURCE-NOTICES.txt and LICENSE-CC-BY-2.5.html in its directory.
+  License: https://creativecommons.org/licenses/by/2.5/ .
+* Guava, failureaccess and the empty listenablefuture conflict-avoidance JAR are
+  listed separately. Guava's incorporated Austin Appleby MurmurHash3 and Doug
+  Lea/JSR-166 public-domain notices are retained, with the referenced CC0 terms.
+* JLine's BSD license does not overwrite its incorporated Apache-licensed native
+  clibrary.c/kernel32.c notices. JLine and Jansi each have NATIVE-NOTICES.txt,
+  obtained from their pinned release source, in addition to Java source notices.
+  https://github.com/jline/jline3/tree/jline-3.29.0/native/src/main/native
+  https://github.com/fusesource/jansi/tree/jansi-2.4.3/src/main/native
+* Runtime JetBrains annotations are 13.0. The direct compile-only annotations
+  dependency is not a second shipped runtime coordinate. Kotlin's repository
+  NOTICE is reproduced with its original "Kotlin Compiler" title; the component
+  inventoried here is kotlin-stdlib, not the compiler distribution.
+
+Logback: EPL-2.0 election and source availability
+------------------------------------------------
+For logback-classic:1.6.6 and logback-core:1.6.6, this distribution expressly
+selects EPL-2.0 from upstream's EPL-2.0 OR LGPL-2.1-only alternatives. It does not
+select LGPL. Both component directories retain the original dual-license notice,
+full EPL-2.0 text, source copyright notices and SOURCE-AVAILABILITY.txt.
+Logback is not relicensed under Simplify's Apache-2.0 project license.
+
+The incorporated Logback source is available under EPL-2.0:
+  https://github.com/qos-ch/logback/tree/v_1.6.6
+  https://github.com/qos-ch/logback/archive/refs/tags/v_1.6.6.tar.gz
+Exact component -sources.jar URLs and SHA-256 values are in SOURCE-AVAILABILITY.txt.
+Publisher's license choice statement: https://logback.qos.ch/license.html
+Full selected license source: https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt
+The dependencies have no Simplify source modifications; the project build files
+describe packaging/optimization. The upstream contributor disclaimers remain in
+force, and no additional warranties are made on those contributors' behalf.
+
+Pinned Android Base64 source (not the framework corpus)
+-------------------------------------------------------
+File: smalivm/src/main/java/android/util/Base64.java
+Copyright (C) 2010 The Android Open Source Project; Apache-2.0.
+Source release: android-7.1.1_r1, core/java/android/util/Base64.java.
+Commit: b5375056fea6c40a2469f48e2497948fb5927b9b
+Source SHA-256: 2e114d78c7a51fd063a595e9ccb63c5643528ca6884b25cf130ba38f4666ac0e
+Immutable source:
+  https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/b5375056fea6c40a2469f48e2497948fb5927b9b/core/java/android/util/Base64.java
+The original source/header is retained unmodified. Full Apache text, tag/blob
+identity and provenance: licenses/aosp-base64/android-7.1.1_r1/ . This replaces
+the old unprovenanced android-local.jar; it is not a claim of byte identity with
+that JAR and does not establish the historical framework corpus's source image.
+
+Source and example APK fixture attributions
+-------------------------------------------
+These materials are not additional host-runtime Maven dependencies.
+
+1. Tozny AES-CBC-with-integrity and Google PRNG fixes
+   simplify/ObfuscatedApp/app/src/main/java/org/cf/crypto/AesCbcWithIntegrity.java
+   retains Copyright (c) 2014-2015 Tozny LLC and the full MIT grant. Its adapted
+   PRNG fix retains Google's separate as-is warranty disclaimer and permission
+   to use/alter/redistribute as long as the origin is not misrepresented.
+   These are third-party implementations used in the fixture, not original
+   Simplify cryptographic implementations. The existing source is authoritative
+   for the fixture's adaptations; no byte identity to current upstream is claimed.
+   Original full grants: licenses/fixtures/tozny-aes-cbc/LICENSE.txt and
+   licenses/fixtures/google-prng-fix/LICENSE.txt .
+   Upstream: https://github.com/tozny/java-aes-crypto
+   PRNG fix origin:
+   https://android-developers.googleblog.com/2013/08/some-securerandom-thoughts.html
+
+2. AndroidX components identified in simplify/obfuscated-app.apk
+   The following versions are confirmed by the APK's META-INF/*.version entries,
+   not inferred solely from the fixture's appcompat dependency declaration.
+   Each official version-specific Google Maven POM declares Apache-2.0 and names
+   The Android Open Source Project. Each component directory under
+   licenses/fixtures/<group>/<artifact>/<version>/ retains full Apache terms,
+   original source/resource copyright notices and ORIGIN.txt with exact official
+   POM, source-JAR and binary URLs and source-JAR SHA-256.
+   Primary repository: https://dl.google.com/dl/android/maven2/
+   Source repository: https://android.googlesource.com/platform/frameworks/support
+
+   androidx.activity:activity:1.0.0
+   androidx.appcompat:appcompat-resources:1.2.0
+   androidx.appcompat:appcompat:1.2.0
+   androidx.arch.core:core-runtime:2.0.0
+   androidx.core:core:1.3.0
+   androidx.cursoradapter:cursoradapter:1.0.0
+   androidx.customview:customview:1.0.0
+   androidx.drawerlayout:drawerlayout:1.0.0
+   androidx.fragment:fragment:1.1.0
+   androidx.interpolator:interpolator:1.0.0
+   androidx.lifecycle:lifecycle-livedata-core:2.0.0
+   androidx.lifecycle:lifecycle-livedata:2.0.0
+   androidx.lifecycle:lifecycle-runtime:2.1.0
+   androidx.lifecycle:lifecycle-viewmodel:2.1.0
+   androidx.loader:loader:1.0.0
+   androidx.savedstate:savedstate:1.0.0
+   androidx.vectordrawable:vectordrawable-animated:1.1.0
+   androidx.vectordrawable:vectordrawable:1.1.0
+   androidx.versionedparcelable:versionedparcelable:1.1.0
+   androidx.viewpager:viewpager:1.0.0
+
+   Additional AndroidX source-dependency notices are supplied for these versions
+   selected by the confirmed components' official POM graph. These are INFERRED
+   versions/presence, not APK-marker-confirmed identities:
+   androidx.annotation:annotation:1.1.0
+   androidx.collection:collection:1.1.0
+   androidx.arch.core:core-common:2.1.0
+   androidx.lifecycle:lifecycle-common:2.1.0
+
+   Inference basis: fragment 1.1.0 / vectordrawable 1.1.0 require collection 1.1.0;
+   lifecycle-runtime 2.1.0 requires lifecycle-common and core-common 2.1.0;
+   the newer confirmed components require annotation 1.1.0. Version markers
+   alone do not prove a complete post-shrinking embedded-code inventory or the
+   exact version of components without markers. These four mappings and any
+   unmarked/shrunk components remain a fixture provenance qualification, not a
+   claim that the APK's complete bill of materials has been established.
+   This uncertainty is separate from the historical framework provenance limits.
+
+3. Gradle wrappers in source distributions
+   Root gradlew/gradlew.bat retain their original Apache headers. The current
+   gradle/wrapper/gradle-wrapper.jar's original META-INF/LICENSE is independently
+   preserved at licenses/gradle-wrapper/current/LICENSE . The root wrapper is
+   configured to download Gradle 9.7.0; that downloaded distribution is not a
+   host-runtime dependency inventoried here.
+   The example fixture wrapper JAR manifest identifies Implementation-Version 4.1,
+   although its wrapper properties request Gradle 6.1.1. Full Apache terms for
+   the wrapper are supplied at licenses/fixtures/gradle-wrapper/4.1/ .
+   Upstream release source: https://github.com/gradle/gradle/tree/v4.1.0 .
+   This entry does not purport to inventory a separately redistributed complete
+   Gradle distribution or every downloaded build tool.
+
+4. External ART runner tooling
+   tools/art-runner/Dockerfile's Apache-2.0 AND GPL-3.0-only image label concerns
+   third-party image/tooling contents. It is not Simplify project GPL branding
+   and is not removed or relicensed by this bundle. Redistributing that external
+   image would require its own complete component/source-obligation inventory.
+
+Retention and changes
+----------------------
+Preserve this index and the component-specific licenses tree together. Keep both
+Commons notices and all other independent upstream notices even when fat-JAR
+resource names collide. Update coordinates, source provenance and legal assets
+when shipped dependencies or fixture contents change. Preserve original framework
+notices with the generated reference data; this index does not override their terms.

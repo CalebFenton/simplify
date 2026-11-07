@@ -1,0 +1,15 @@
+Coordinate: ch.qos.logback:logback-classic:1.6.6
+Publisher POM: https://repo.maven.apache.org/maven2/ch/qos/logback/logback-classic/1.6.6/logback-classic-1.6.6.pom
+Binary: https://repo.maven.apache.org/maven2/ch/qos/logback/logback-classic/1.6.6/logback-classic-1.6.6.jar
+Binary SHA-256: 5230217ccba7a9d31dda1dd878e5606037a7972282c7d3f8eac1efa80e9463d9
+Source archive: https://repo.maven.apache.org/maven2/ch/qos/logback/logback-classic/1.6.6/logback-classic-1.6.6-sources.jar
+Source archive SHA-256: e3a8a1a00701c54f0b23c2c1427c307e9481da6c0696a7abf3a38a77322288d0
+License selection: EPL-2.0 selected from upstream EPL-2.0 OR LGPL-2.1-only
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/ch/qos/logback/logback-classic/1.6.6/logback-classic-1.6.6-sources.jar (and binary template resources where identified)
+- LICENSE.txt
+  https://raw.githubusercontent.com/qos-ch/logback/v_1.6.6/LICENSE.txt
+- EPL-2.0.txt
+  https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.txt

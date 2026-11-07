@@ -1,0 +1,133 @@
+.class public Linvoke_virtual_test;
+.super Ljava/lang/Object;
+
+# direct methods
+.method public constructor <init>()V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method
+
+.method public static invokeReturnVoid()V
+  .locals 1
+
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
+  invoke-virtual {v0}, Linvoke_virtual_test;->returnVoid()V
+
+  return-void
+.end method
+
+.method public static invokeReturnInt()V
+  .locals 1
+
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
+  invoke-virtual {v0}, Linvoke_virtual_test;->returnInt()I
+  move-result v0
+
+  return-void
+.end method
+
+.method public static invokeReturnParameter()V
+  .locals 3
+
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
+  invoke-virtual {v0, v1}, Linvoke_virtual_test;->returnParameter(I)I
+  move-result v2
+
+  return-void
+.end method
+
+.method public static invokeGetComponentType()V
+  .locals 1
+
+  const-class v0, [I
+  invoke-virtual {v0}, Ljava/lang/Class;->getComponentType()Ljava/lang/Class;
+
+  return-void
+.end method
+
+.method public static invokeArrayClone()V
+  .locals 2
+
+  :try_start_1
+  invoke-virtual {v0}, [I->clone()Ljava/lang/Object;
+  move-result-object v1
+  :try_end_1
+  .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
+
+  return-void
+
+  :catch_1
+  move-exception v0
+  throw v0
+
+  return-void
+.end method
+
+.method public static invokeObjectClone()V
+  .locals 2
+
+  # Arrays may be referenced as Ljava/lang/Object; !
+  invoke-virtual {v0}, Ljava/lang/Object;->clone()Ljava/lang/Object;
+  move-result-object v1
+
+  return-void
+.end method
+
+.method public static invokeRangeManyParameters()V
+  .locals 9
+
+  # v0      - "this" instance
+  # v1 & v2 - J
+  # v3 & v4 - J
+  # v5 & v6 - J
+  # v7      - I
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
+  invoke-virtual/range {v0 .. v7}, Linvoke_virtual_test;->manyParametersReturnsLast(JJJI)I
+  move-result v8
+
+  return-void
+.end method
+
+.method public invokeGetClassOnThis()V
+    .locals 0
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    return-void
+.end method
+
+
+.method private returnVoid()V
+    .locals 0
+
+    return-void
+.end method
+
+.method private returnInt()I
+    .locals 1
+
+    const/4 v0, 0x7
+
+    return v0
+.end method
+
+.method private returnParameter(I)I
+    .locals 1
+
+    move v0, p1
+
+    return v0
+.end method
+
+.method private manyParametersReturnsLast(JJJI)I
+  .locals 0
+
+  return p7
+.end method

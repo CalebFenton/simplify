@@ -1,0 +1,16 @@
+Android Base64
+Copyright (C) 2010 The Android Open Source Project
+Licensed under the Apache License, Version 2.0.
+
+Vendored source: smalivm/src/main/java/android/util/Base64.java
+Upstream path: core/java/android/util/Base64.java
+Release tag: android-7.1.1_r1
+Annotated tag object: b1b26a80d388371e2745caafc368fd0fe6a7866f
+Commit: b5375056fea6c40a2469f48e2497948fb5927b9b
+Git blob SHA-1: 1f2a5a7ca9601821daba51beac3e2c655925b985
+Source SHA-256: 2e114d78c7a51fd063a595e9ccb63c5643528ca6884b25cf130ba38f4666ac0e
+Source bytes: 28599
+Immutable source: https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/b5375056fea6c40a2469f48e2497948fb5927b9b/core/java/android/util/Base64.java
+The source is vendored unmodified, including its original copyright and license
+header. It replaces the formerly unprovenanced smalivm/libs/android-local.jar;
+no claim of byte identity with that old JAR is made.

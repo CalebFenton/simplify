@@ -1,0 +1,11 @@
+Coordinate: commons-cli:commons-cli:1.11.0
+Publisher POM: https://repo.maven.apache.org/maven2/commons-cli/commons-cli/1.11.0/commons-cli-1.11.0.pom
+Binary: https://repo.maven.apache.org/maven2/commons-cli/commons-cli/1.11.0/commons-cli-1.11.0.jar
+Binary SHA-256: 8f7f8605d68e15bf32db61ec94eac6fdafc51b1bdbe1e0e0802b57d23f387792
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- META-INF/LICENSE.txt
+  https://repo.maven.apache.org/maven2/commons-cli/commons-cli/1.11.0/commons-cli-1.11.0.jar!/META-INF/LICENSE.txt
+- META-INF/NOTICE.txt
+  https://repo.maven.apache.org/maven2/commons-cli/commons-cli/1.11.0/commons-cli-1.11.0.jar!/META-INF/NOTICE.txt

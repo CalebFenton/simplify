@@ -1,0 +1,15 @@
+Coordinate: org.fusesource.jansi:jansi:2.4.3
+Publisher POM: https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3.pom
+Binary: https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3.jar
+Binary SHA-256: ec168cf31c4c3849348dfff7a04e90170615f7784f1255ee6747b98a854c04c5
+Source archive: https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3-sources.jar
+Source archive SHA-256: d1fe65ec75fa40bb1da3b1308c5954b626e891cff7908fb52fcc6f799a715e99
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/fusesource/jansi/jansi/2.4.3/jansi-2.4.3-sources.jar (and binary template resources where identified)
+- license.txt
+  https://raw.githubusercontent.com/fusesource/jansi/jansi-2.4.3/license.txt
+- NATIVE-NOTICES.txt
+  https://github.com/fusesource/jansi/tree/jansi-2.4.3/src/main/native

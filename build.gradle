@@ -1,133 +1,110 @@
-apply plugin: 'idea'
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.4.21' apply false
+}
 
-version = '1.1.0'
-def jarVersion = version
-
-buildscript {
-    repositories {
-        mavenCentral()
-        jcenter()
-    }
-
-    dependencies {
-        classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.5.0'
+def legalFiles = copySpec {
+    from rootProject.file('LICENSE'), rootProject.file('THIRD_PARTY_NOTICES')
+    from(rootProject.file('licenses')) { into 'licenses' }
+    from(rootProject.file('smalivm/src/main/resources/framework/smali/android-36')) {
+        include 'provenance.json', 'boot-dex.tsv', 'shadowed-classes.tsv', 'notices/**'
+        into 'licenses/android-framework/android-36'
     }
 }
 
 allprojects {
+    apply plugin: 'idea'
+    apply plugin: 'jacoco'
+
     repositories {
-        mavenLocal()
+        google()
         mavenCentral()
     }
 
-    gradle.projectsEvaluated {
-        tasks.withType(JavaCompile) {
-            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
-        }
+    jacoco {
+        toolVersion = '0.8.16'
     }
-
-    apply plugin: 'jacoco'
-    apply plugin: 'com.github.kt3k.coveralls'
 }
 
 subprojects {
-    apply plugin: 'java'
-    apply plugin: 'eclipse'
-    apply plugin: 'idea'
-
+    apply plugin: 'org.jetbrains.kotlin.jvm'
     group = 'org.cf'
-    sourceCompatibility = 1.8
-    version = parent.version
-
-    jar {
-        version = jarVersion
-    }
+    version = '2.0.0-SNAPSHOT'
 
     ext {
         depends = [
-            commons_lang: 'org.apache.commons:commons-lang3:3.5',
-            findbugs: 'com.google.code.findbugs:jsr305:3.0.1',
-            guava: 'com.google.guava:guava:19.0',
-            junit: 'junit:junit:4.12',
-            mockito: 'org.mockito:mockito-core:1.10.19',
-            perfidix: 'org.perfidix:perfidix:3.6.9',
-            proguard_gradle: 'net.sf.proguard:proguard-gradle:5.2.1',
-            slf4j_api: 'org.slf4j:slf4j-api:1.7.21',
-            slf4j_nop: 'org.slf4j:slf4j-nop:1.7.21',
-            trove4j: 'net.sf.trove4j:trove4j:3.0.3',
-         ]
+                commons_lang     : 'org.apache.commons:commons-lang3:3.21.0',
+                commons_cli      : 'commons-cli:commons-cli:1.11.0',
+                guava            : 'com.google.guava:guava:33.8.0-jre',
+                junit_compile    : 'org.junit.jupiter:junit-jupiter-api:6.1.3',
+                junit_engine     : 'org.junit.jupiter:junit-jupiter-engine:6.1.3',
+                junit_launcher   : 'org.junit.platform:junit-platform-launcher:6.1.3',
+                kotlinx_immutable: 'org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.5.2',
+                mockito          : 'org.mockito:mockito-junit-jupiter:5.24.0',
+                mockk            : 'io.mockk:mockk:1.14.11',
+                proguard_gradle : 'com.guardsquare:proguard-gradle:7.10.0',
+                slf4j_api        : 'org.slf4j:slf4j-api:2.0.20',
+                slf4j_nop        : 'org.slf4j:slf4j-nop:2.0.20',
+                logback          : 'ch.qos.logback:logback-classic:1.6.6',
+        ]
     }
 
-    tasks.withType(JavaCompile) {
+    kotlin {
+        jvmToolchain(21)
+    }
+
+    tasks.withType(Jar).configureEach {
+        zip64 = true
+        into('META-INF') { with legalFiles }
+        manifest.attributes('Implementation-Version': project.version)
+    }
+
+    plugins.withId('application') {
+        distributions.main.contents { with legalFiles }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 21
         options.fork = true
-        //options.incremental = true
+        options.compilerArgs.addAll(['-Xlint:unchecked', '-Xlint:deprecation'])
     }
 
-    /*
-     * Running tests takes up a lot of memory and TravisCI only has 3-4 gb available.
-     * Use a low value of forkEvery to ensure heap is started fresh every few classes.
-     * Limit max heap size to simulate TravisCI environment.
-     * Relevant TravisCI building issues:
-     *  - https://discuss.gradle.org/t/travis-ci-org-gradle-launcher-daemon-client-daemondisappearedexception-gradle-build-daemon-disappeared-unexpectedly-it-may-have-been-killed-or-may-have-crashed/13106/3
-     *  - https://github.com/urho3d/Urho3D/issues/651
-    */
-    tasks.withType(Test) {
-        // maxParallelForks = Runtime.runtime.availableProcessors()
-        maxParallelForks = 2
-        minHeapSize = '256m'
-        maxHeapSize = '1500m'
-        forkEvery = 10
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
+        maxParallelForks = Runtime.runtime.availableProcessors()
     }
 
-    // This is just to show off API usage. No tests needed.
-    if (!project.name.equals("demoapp")) {
-        jacocoTestReport {
-            reports {
-                html.enabled = true
-                xml.enabled = true
-                csv.enabled = false
-            }
+    if (project.name == 'simplify') {
+        tasks.withType(Test).configureEach {
+            maxParallelForks = 2
+            minHeapSize = '128m'
+            maxHeapSize = '4g'
+            jvmArgs '-XX:-UseGCOverheadLimit'
+        }
+    }
+
+    tasks.withType(JacocoReport).configureEach {
+        reports {
+            html.required = true
+            xml.required = true
+            csv.required = false
         }
     }
 }
 
-coveralls {
-    ext.targetProjects = subprojects - project(':demoapp')
-    sourceDirs = files(ext.targetProjects.sourceSets.main.allJava.srcDirs).files.absolutePath
-}
-
-task jacocoTestReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
-    ext.targetProjects = subprojects - project(':demoapp')
-
-    dependsOn = ext.targetProjects.test
-    sourceDirectories = files(ext.targetProjects.sourceSets.main.allJava.srcDirs)
-    classDirectories = files(ext.targetProjects.sourceSets.main.output.classesDir)
-    executionData = files(ext.targetProjects.jacocoTestReport.executionData)
-
+// Aggregate coverage focuses on the VM and optimizer, not the demo and debugger applications.
+def reportProjects = [project(':smalivm'), project(':simplify')]
+tasks.register('jacocoRootReport', JacocoReport) {
+    group = 'Coverage reports'
+    description = 'Generates an aggregate report from the VM and optimizer'
+    dependsOn(reportProjects.collect { it.tasks.named('test') })
+    sourceDirectories.from(reportProjects.collect { it.sourceSets.main.allSource.srcDirs })
+    classDirectories.from(reportProjects.collect { it.sourceSets.main.output.classesDirs })
+    executionData.from(reportProjects.collect { it.tasks.named('test').get().extensions.getByType(JacocoTaskExtension).destinationFile })
     reports {
-        html.enabled = true
-        xml.enabled = true
-        csv.enabled = false
-    }
-
-    onlyIf = {
-        true
-    }
-
-    doFirst {
-        executionData = files(executionData.findAll {
-            it.exists()
-        })
+        html.required = true
+        xml.required = true
+        csv.required = false
     }
 }
 
-if (System.env.TRAVIS == 'true') {
-    allprojects {
-        tasks.withType(Test) {
-            testLogging {
-                // Printing out status of each test makes following and debugging builds easier.
-                events "started", "passed", "skipped", "failed"
-            }
-        }
-    }
-}

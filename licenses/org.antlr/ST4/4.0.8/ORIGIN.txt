@@ -1,0 +1,13 @@
+Coordinate: org.antlr:ST4:4.0.8
+Publisher POM: https://repo.maven.apache.org/maven2/org/antlr/ST4/4.0.8/ST4-4.0.8.pom
+Binary: https://repo.maven.apache.org/maven2/org/antlr/ST4/4.0.8/ST4-4.0.8.jar
+Binary SHA-256: 58caabc40c9f74b0b5993fd868e0f64a50c0759094e6a251aaafad98edfc7a3b
+Source archive: https://repo.maven.apache.org/maven2/org/antlr/ST4/4.0.8/ST4-4.0.8-sources.jar
+Source archive SHA-256: 3ef0657835d918c2c2e982f917144ad29f528ba474565b1bc8191ee5fb6cdf1b
+License selection: BSD-3-Clause (original component and source notices retained)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/antlr/ST4/4.0.8/ST4-4.0.8-sources.jar (and binary template resources where identified)
+- LICENSE.txt
+  https://raw.githubusercontent.com/antlr/stringtemplate4/4.0.8/LICENSE.txt

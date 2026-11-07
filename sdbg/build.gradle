@@ -1,0 +1,34 @@
+plugins {
+    id 'application'
+}
+
+application {
+    mainClass = 'org.cf.sdbg.Main'
+    applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
+}
+
+dependencies {
+    implementation project(':smalivm')
+    implementation 'info.picocli:picocli-shell-jline3:4.7.7'
+    implementation 'org.fusesource.jansi:jansi:2.4.3'
+    implementation depends.slf4j_api
+    implementation depends.logback
+
+    testImplementation depends.junit_compile
+    testRuntimeOnly depends.junit_engine
+    testRuntimeOnly depends.junit_launcher
+}
+
+
+tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
+    archiveFileName = 'sdbg.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
+    manifest {
+        attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
+    }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+
+}

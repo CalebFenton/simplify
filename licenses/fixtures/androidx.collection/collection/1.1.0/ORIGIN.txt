@@ -1,0 +1,9 @@
+Coordinate: androidx.collection:collection:1.1.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Dependency-graph inference only: no corresponding APK version marker; presence/exact embedded version is not established.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.1.0/collection-1.1.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.1.0/collection-1.1.0-sources.jar
+Source archive SHA-256: 158ae7efee9c7394a241139ebf220751f8b812eda40269a38ef725dbe784b98d
+Binary: https://dl.google.com/dl/android/maven2/androidx/collection/collection/1.1.0/collection-1.1.0.jar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

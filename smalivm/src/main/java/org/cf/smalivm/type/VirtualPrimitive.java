@@ -1,24 +1,25 @@
 package org.cf.smalivm.type;
 
-import org.cf.util.ClassNameUtils;
-import org.jf.dexlib2.iface.reference.TypeReference;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
+import com.android.tools.smali.dexlib2.iface.reference.TypeReference;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
-public class VirtualPrimitive extends VirtualGeneric {
+public class VirtualPrimitive extends VirtualType {
 
     VirtualPrimitive(TypeReference typeReference) {
-        super(typeReference, typeReference.getType(), ClassNameUtils.internalToBinary(typeReference.getType()),
-                ClassNameUtils.internalToSource(typeReference.getType()));
+        super(typeReference, null);
+    }
+
+    @Override
+    public Set<VirtualPrimitive> getImmediateAncestors() {
+        return Collections.emptySet();
     }
 
     @Override
     public Set<VirtualPrimitive> getAncestors() {
-        return new HashSet<>(0);
+        return Collections.emptySet();
     }
 
     @Override
@@ -32,10 +33,10 @@ public class VirtualPrimitive extends VirtualGeneric {
     }
 
     @Override
-    public boolean instanceOf(VirtualGeneric targetType) {
+    public boolean instanceOf(VirtualType targetType) {
         // Not technically possible with primitives; will fail verification
         // But used to determine if primitive can fit in array
-        return this.equals(targetType);
+        return equals(targetType);
     }
 
     @Override
@@ -47,5 +48,4 @@ public class VirtualPrimitive extends VirtualGeneric {
     public boolean isPrimitive() {
         return true;
     }
-
 }

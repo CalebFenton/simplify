@@ -1,0 +1,154 @@
+.class Lmethod_reflector_test;
+.super Ljava/lang/Object;
+
+
+.method public static initCharacterWithChar()V
+  .locals 1
+
+  # Can't set v0 to "new-instance" at Java level
+  new-instance v0, Ljava/lang/Character;
+  invoke-direct {v0, v1}, Ljava/lang/Character;-><init>(C)V
+
+  return-void
+.end method
+
+.method public static initUUIDWithTwoLongs()V
+  .locals 5
+
+  new-instance v0, Ljava/util/UUID;
+
+  invoke-direct {v0, v1, v2, v3, v4}, Ljava/util/UUID;-><init>(JJ)V
+
+  return-void
+.end method
+
+.method public static intValueOfInteger()V
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Integer;->intValue()I
+  move-result v0
+
+  return-void
+.end method
+
+.method public static initBooleanWithBoolean()V
+  .locals 1
+
+  new-instance v0, Ljava/lang/Boolean;
+  invoke-direct {v0, v1}, Ljava/lang/Boolean;-><init>(Z)V
+
+  return-void
+.end method
+
+.method public static shortValueOfShort()V
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Short;->valueOf(S)Ljava/lang/Short;
+  move-result v0
+
+  return-void
+.end method
+
+.method public static byteValueOfByte()V
+  .locals 1
+
+  invoke-static {v0}, Ljava/lang/Byte;->valueOf(B)Ljava/lang/Byte;
+  move-result v0
+
+  return-void
+.end method
+
+.method public static getClassMethod()V
+  .locals 2
+
+  invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result v0
+
+  return-void
+.end method
+
+.method public static getStringLengthMethod()Ljava/lang/reflect/Method;
+  .locals 3
+
+  const-class v0, Ljava/lang/String;
+  const-string v1, "length"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static getPublicInstanceField()Ljava/lang/reflect/Field;
+  .locals 2
+
+  const-class v0, Lorg/cf/smalivm/DummyClass;
+  const-string v1, "publicInstanceField"
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static invokeStringLengthReflectively()Ljava/lang/Object;
+  .locals 3
+
+  const-class v0, Ljava/lang/String;
+  const-string v1, "length"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  const/4 v2, 0x1
+  invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+  move-result-object v2
+  const-string v1, "abc"
+  const/4 v2, 0x0
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static invokeOneOfTwoStringMethods(Z)Ljava/lang/Object;
+  .locals 4
+
+  const-string v1, "abc"
+  if-eqz p0, :is_empty
+
+  const-class v3, Ljava/lang/String;
+  const-string v0, "length"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v3, v0, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  const/4 v2, 0x0
+  goto :invoke
+
+  :is_empty
+  const-class v3, Ljava/lang/String;
+  const-string v0, "isEmpty"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v3, v0, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  const/4 v2, 0x0
+  goto :invoke
+
+  :invoke
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static stringLength()V
+  .locals 1
+
+  :try_start_1
+  invoke-virtual {v0}, Ljava/lang/String;->length()I
+  :try_end_1
+  .catch Ljava/lang/Exception; {:try_start_1 .. :try_end_1} :catch_1
+
+  nop
+
+  :catch_1
+  return-void
+.end method

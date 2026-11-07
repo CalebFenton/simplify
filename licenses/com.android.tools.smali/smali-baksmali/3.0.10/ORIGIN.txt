@@ -1,0 +1,9 @@
+Coordinate: com.android.tools.smali:smali-baksmali:3.0.10
+Publisher POM: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-baksmali/3.0.10/smali-baksmali-3.0.10.pom
+Binary: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-baksmali/3.0.10/smali-baksmali-3.0.10.jar
+Binary SHA-256: 7d6578dfe5c44f1984b64268e91834432b0942d49e08186a501039dd92b58213
+License selection: BSD-3-Clause AND Apache-2.0 (complete upstream composite LICENSE)
+
+Original legal texts and their sources:
+- LICENSE
+  https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali-baksmali/3.0.10/smali-baksmali-3.0.10.jar!/LICENSE

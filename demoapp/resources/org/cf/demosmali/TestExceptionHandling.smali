@@ -222,19 +222,18 @@
     const/4 v1, 0x3
 
     #@11
+    .line 110
     goto :goto_0
 
     #@12
-    .line 108
+    .line 109
     :catchall_0
     move-exception v2
 
     #@13
-    .line 109
     const/4 v1, 0x3
 
     #@14
-    .line 110
     throw v2
 .end method
 
@@ -298,19 +297,18 @@
     const/4 v1, 0x3
 
     #@11
+    .line 93
     goto :goto_0
 
     #@12
-    .line 91
+    .line 92
     :catchall_0
     move-exception v2
 
     #@13
-    .line 92
     const/4 v1, 0x3
 
     #@14
-    .line 93
     throw v2
 .end method
 
@@ -349,16 +347,14 @@
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
 
     #@b
-    .line 74
+    .line 75
     :catchall_0
     move-exception v1
 
     #@c
-    .line 75
     const/4 v0, 0x3
 
     #@d
-    .line 76
     throw v1
 
     #@e
@@ -388,33 +384,39 @@
     new-instance v1, Ljava/lang/StringBuilder;
 
     #@4
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    #@7
     const-string v2, "val = "
 
-    #@6
-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
     #@9
-    invoke-static {}, Lorg/cf/demosmali/TestExceptionHandling;->catchParentButNotGrandparentException()I
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     #@c
-    move-result v2
-
-    #@d
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    #@10
     move-result-object v1
 
+    #@d
+    invoke-static {}, Lorg/cf/demosmali/TestExceptionHandling;->catchParentButNotGrandparentException()I
+
+    #@10
+    move-result v2
+
     #@11
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     #@14
     move-result-object v1
 
     #@15
-    invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     #@18
+    move-result-object v1
+
+    #@19
+    invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+
+    #@1c
     .line 11
     return-void
 .end method
@@ -475,7 +477,7 @@
 
 
 # virtual methods
-.method public testTests()V
+.method public testCasting()V
     .locals 3
 
     #@0

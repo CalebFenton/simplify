@@ -1,0 +1,9 @@
+Coordinate: com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+Publisher POM: https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.pom
+Binary: https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar
+Binary SHA-256: b372a037d4230aa57fbeffdef30fd6123f9c0c2db85d0aced00c91b974f33f99
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- LICENSE-APACHE-2.0.txt
+  https://www.apache.org/licenses/LICENSE-2.0.txt

@@ -1,0 +1,13 @@
+Coordinate: org.antlr:antlr-runtime:3.5.2
+Publisher POM: https://repo.maven.apache.org/maven2/org/antlr/antlr-runtime/3.5.2/antlr-runtime-3.5.2.pom
+Binary: https://repo.maven.apache.org/maven2/org/antlr/antlr-runtime/3.5.2/antlr-runtime-3.5.2.jar
+Binary SHA-256: ce3fc8ecb10f39e9a3cddcbb2ce350d272d9cd3d0b1e18e6fe73c3b9389c8734
+Source archive: https://repo.maven.apache.org/maven2/org/antlr/antlr-runtime/3.5.2/antlr-runtime-3.5.2-sources.jar
+Source archive SHA-256: 3a8fde6cabadd1f6c6dcddc92edbe17501448e0553fee893cfc62becce57531a
+License selection: BSD-3-Clause (original component and source notices retained)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/antlr/antlr-runtime/3.5.2/antlr-runtime-3.5.2-sources.jar (and binary template resources where identified)
+- LICENSE-BSD.txt
+  https://repo.maven.apache.org/maven2/org/antlr/antlr-runtime/3.5.2/antlr-runtime-3.5.2-sources.jar!/org/antlr/runtime/ANTLRFileStream.java

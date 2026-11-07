@@ -1,1 +1,2 @@
-include 'smalivm', 'simplify', 'demoapp'
+rootProject.name = 'simplify'
+include 'smalivm', 'simplify', 'demoapp', 'sdbg'

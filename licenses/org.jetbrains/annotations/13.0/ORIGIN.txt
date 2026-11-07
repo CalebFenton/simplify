@@ -1,0 +1,13 @@
+Coordinate: org.jetbrains:annotations:13.0
+Publisher POM: https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.pom
+Binary: https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.jar
+Binary SHA-256: ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478
+Source archive: https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0-sources.jar
+Source archive SHA-256: 42a5e144b8e81d50d6913d1007b695e62e614705268d8cf9f13dbdc478c2c68e
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0-sources.jar (and binary template resources where identified)
+- LICENSE-APACHE-2.0.txt
+  https://www.apache.org/licenses/LICENSE-2.0.txt

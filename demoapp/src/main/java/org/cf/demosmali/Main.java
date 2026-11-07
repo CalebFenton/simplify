@@ -21,7 +21,7 @@ public class Main {
         sb.append('3');
         sb.append("abc");
 
-        System.out.println("stringBuilder(): " + sb.toString());
+        System.out.println("stringBuilder(): " + sb);
     }
 
     @SuppressWarnings("unused")

@@ -1,0 +1,13 @@
+Coordinate: com.google.j2objc:j2objc-annotations:3.1
+Publisher POM: https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.1/j2objc-annotations-3.1.pom
+Binary: https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.1/j2objc-annotations-3.1.jar
+Binary SHA-256: 84d3a150518485f8140ea99b8a985656749629f6433c92b80c75b36aba3b099b
+Source archive: https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.1/j2objc-annotations-3.1-sources.jar
+Source archive SHA-256: 295938307f4016b3f128f7347101b236ada1394808104519c9e93cd61b64602b
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/com/google/j2objc/j2objc-annotations/3.1/j2objc-annotations-3.1-sources.jar (and binary template resources where identified)
+- LICENSE-APACHE-2.0.txt
+  https://www.apache.org/licenses/LICENSE-2.0.txt

@@ -1,14 +1,29 @@
-project.version = '1.0.0'
+plugins {
+    id 'application'
+}
 
-apply plugin: 'application'
-mainClassName = 'org.cf.demoapp.Main'
+
+application {
+    mainClass = 'org.cf.demoapp.Main'
+    applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
+}
 
 dependencies {
-    compile project(':smalivm')
+    implementation project(':smalivm')
+    implementation depends.slf4j_api
+    implementation depends.slf4j_nop
+}
 
-    // Logging
-    compile depends.slf4j_api
-    compile depends.slf4j_nop
+tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
+    archiveFileName = 'demoapp.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
 
-    testCompile depends.junit
+    manifest {
+        attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
+    }
+
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }

@@ -76,443 +76,435 @@
     aget-byte v5, p0, v5
 
     #@7
-    if-eq v5, v7, :cond_2
+    if-ne v5, v7, :cond_0
 
     #@9
-    .line 10
-    array-length v5, p0
+    .line 8
+    add-int/lit8 v4, v4, -0x1
 
-    #@a
-    div-int/lit8 v5, v5, 0x4
+    #@b
+    goto :goto_0
 
     #@c
+    .line 10
+    :cond_0
+    array-length v5, p0
+
+    #@d
+    div-int/lit8 v5, v5, 0x4
+
+    #@f
     sub-int v5, v4, v5
 
-    #@e
+    #@11
     new-array v0, v5, [B
 
-    #@10
+    #@13
     .line 12
     .local v0, "dest":[B
     const/4 v2, 0x0
 
-    #@11
+    #@14
     .local v2, "idx":I
     :goto_1
     array-length v5, p0
 
-    #@12
-    if-lt v2, v5, :cond_3
-
-    #@14
-    .line 29
-    const/4 v3, 0x0
-
     #@15
-    .local v3, "sidx":I
-    const/4 v1, 0x0
-
-    #@16
-    .local v1, "didx":I
-    :goto_2
-    array-length v5, v0
+    if-ge v2, v5, :cond_7
 
     #@17
-    add-int/lit8 v5, v5, -0x2
-
-    #@19
-    if-lt v1, v5, :cond_a
-
-    #@1b
-    .line 34
-    array-length v5, v0
-
-    #@1c
-    if-ge v1, v5, :cond_0
-
-    #@1e
-    .line 35
-    aget-byte v5, p0, v3
-
-    #@20
-    shl-int/lit8 v5, v5, 0x2
-
-    #@22
-    and-int/lit16 v5, v5, 0xff
-
-    #@24
-    add-int/lit8 v6, v3, 0x1
-
-    #@26
-    aget-byte v6, p0, v6
-
-    #@28
-    ushr-int/lit8 v6, v6, 0x4
-
-    #@2a
-    and-int/lit8 v6, v6, 0x3
-
-    #@2c
-    or-int/2addr v5, v6
-
-    #@2d
-    int-to-byte v5, v5
-
-    #@2e
-    aput-byte v5, v0, v1
-
-    #@30
-    .line 37
-    :cond_0
-    add-int/lit8 v1, v1, 0x1
-
-    #@32
-    array-length v5, v0
-
-    #@33
-    if-ge v1, v5, :cond_1
-
-    #@35
-    .line 38
-    add-int/lit8 v5, v3, 0x1
-
-    #@37
-    aget-byte v5, p0, v5
-
-    #@39
-    shl-int/lit8 v5, v5, 0x4
-
-    #@3b
-    and-int/lit16 v5, v5, 0xff
-
-    #@3d
-    add-int/lit8 v6, v3, 0x2
-
-    #@3f
-    aget-byte v6, p0, v6
-
-    #@41
-    ushr-int/lit8 v6, v6, 0x2
-
-    #@43
-    and-int/lit8 v6, v6, 0xf
-
-    #@45
-    or-int/2addr v5, v6
-
-    #@46
-    int-to-byte v5, v5
-
-    #@47
-    aput-byte v5, v0, v1
-
-    #@49
-    .line 41
-    :cond_1
-    return-object v0
-
-    #@4a
-    .line 8
-    .end local v0    # "dest":[B
-    .end local v1    # "didx":I
-    .end local v2    # "idx":I
-    .end local v3    # "sidx":I
-    :cond_2
-    add-int/lit8 v4, v4, -0x1
-
-    #@4c
-    goto :goto_0
-
-    #@4d
     .line 13
-    .restart local v0    # "dest":[B
-    .restart local v2    # "idx":I
-    :cond_3
     aget-byte v5, p0, v2
 
-    #@4f
-    if-ne v5, v7, :cond_5
+    #@19
+    if-ne v5, v7, :cond_2
 
-    #@51
+    #@1b
     .line 14
     const/4 v5, 0x0
 
-    #@52
+    #@1c
     aput-byte v5, p0, v2
 
-    #@54
+    #@1e
     .line 12
-    :cond_4
-    :goto_3
+    :cond_1
+    :goto_2
     add-int/lit8 v2, v2, 0x1
 
-    #@56
+    #@20
     goto :goto_1
 
-    #@57
+    #@21
     .line 15
-    :cond_5
+    :cond_2
     aget-byte v5, p0, v2
 
-    #@59
+    #@23
     const/16 v6, 0x2f
 
-    #@5b
-    if-ne v5, v6, :cond_6
+    #@25
+    if-ne v5, v6, :cond_3
 
-    #@5d
+    #@27
     .line 16
     const/16 v5, 0x3f
 
-    #@5f
+    #@29
     aput-byte v5, p0, v2
 
-    #@61
-    goto :goto_3
+    #@2b
+    goto :goto_2
 
-    #@62
+    #@2c
     .line 17
-    :cond_6
+    :cond_3
     aget-byte v5, p0, v2
 
-    #@64
+    #@2e
     const/16 v6, 0x2b
 
-    #@66
-    if-ne v5, v6, :cond_7
+    #@30
+    if-ne v5, v6, :cond_4
 
-    #@68
+    #@32
     .line 18
     const/16 v5, 0x3e
 
-    #@6a
+    #@34
     aput-byte v5, p0, v2
 
-    #@6c
-    goto :goto_3
+    #@36
+    goto :goto_2
 
-    #@6d
+    #@37
     .line 19
-    :cond_7
+    :cond_4
     aget-byte v5, p0, v2
 
-    #@6f
+    #@39
     const/16 v6, 0x30
 
-    #@71
-    if-lt v5, v6, :cond_8
+    #@3b
+    if-lt v5, v6, :cond_5
 
-    #@73
+    #@3d
     aget-byte v5, p0, v2
 
-    #@75
+    #@3f
     const/16 v6, 0x39
 
-    #@77
-    if-gt v5, v6, :cond_8
+    #@41
+    if-gt v5, v6, :cond_5
 
-    #@79
+    #@43
     .line 20
     aget-byte v5, p0, v2
 
-    #@7b
+    #@45
     add-int/lit8 v5, v5, 0x4
 
-    #@7d
+    #@47
     int-to-byte v5, v5
 
-    #@7e
+    #@48
     aput-byte v5, p0, v2
 
-    #@80
-    goto :goto_3
+    #@4a
+    goto :goto_2
 
-    #@81
+    #@4b
     .line 21
-    :cond_8
+    :cond_5
     aget-byte v5, p0, v2
 
-    #@83
+    #@4d
     const/16 v6, 0x61
 
-    #@85
-    if-lt v5, v6, :cond_9
+    #@4f
+    if-lt v5, v6, :cond_6
 
-    #@87
+    #@51
     aget-byte v5, p0, v2
 
-    #@89
+    #@53
     const/16 v6, 0x7a
 
-    #@8b
-    if-gt v5, v6, :cond_9
+    #@55
+    if-gt v5, v6, :cond_6
 
-    #@8d
+    #@57
     .line 22
     aget-byte v5, p0, v2
 
-    #@8f
+    #@59
     add-int/lit8 v5, v5, -0x47
 
-    #@91
+    #@5b
     int-to-byte v5, v5
 
-    #@92
+    #@5c
     aput-byte v5, p0, v2
 
-    #@94
-    goto :goto_3
+    #@5e
+    goto :goto_2
 
-    #@95
+    #@5f
     .line 23
-    :cond_9
+    :cond_6
     aget-byte v5, p0, v2
 
-    #@97
+    #@61
     const/16 v6, 0x41
 
-    #@99
-    if-lt v5, v6, :cond_4
+    #@63
+    if-lt v5, v6, :cond_1
 
-    #@9b
+    #@65
     aget-byte v5, p0, v2
 
-    #@9d
+    #@67
     const/16 v6, 0x5a
 
-    #@9f
-    if-gt v5, v6, :cond_4
+    #@69
+    if-gt v5, v6, :cond_1
 
-    #@a1
+    #@6b
     .line 24
     aget-byte v5, p0, v2
 
-    #@a3
+    #@6d
     add-int/lit8 v5, v5, -0x41
 
-    #@a5
+    #@6f
     int-to-byte v5, v5
 
-    #@a6
+    #@70
     aput-byte v5, p0, v2
 
-    #@a8
-    goto :goto_3
+    #@72
+    goto :goto_2
 
-    #@a9
+    #@73
+    .line 29
+    :cond_7
+    const/4 v3, 0x0
+
+    #@74
+    .local v3, "sidx":I
+    const/4 v1, 0x0
+
+    #@75
+    .local v1, "didx":I
+    :goto_3
+    array-length v5, v0
+
+    #@76
+    add-int/lit8 v5, v5, -0x2
+
+    #@78
+    if-ge v1, v5, :cond_8
+
+    #@7a
     .line 30
-    .restart local v1    # "didx":I
-    .restart local v3    # "sidx":I
-    :cond_a
     aget-byte v5, p0, v3
 
-    #@ab
+    #@7c
     shl-int/lit8 v5, v5, 0x2
 
-    #@ad
+    #@7e
     and-int/lit16 v5, v5, 0xff
 
-    #@af
+    #@80
     add-int/lit8 v6, v3, 0x1
 
-    #@b1
+    #@82
     aget-byte v6, p0, v6
 
-    #@b3
+    #@84
     ushr-int/lit8 v6, v6, 0x4
 
-    #@b5
+    #@86
     and-int/lit8 v6, v6, 0x3
 
-    #@b7
+    #@88
     or-int/2addr v5, v6
 
-    #@b8
+    #@89
     int-to-byte v5, v5
 
-    #@b9
+    #@8a
     aput-byte v5, v0, v1
 
-    #@bb
+    #@8c
     .line 31
     add-int/lit8 v5, v1, 0x1
 
-    #@bd
+    #@8e
     add-int/lit8 v6, v3, 0x1
 
-    #@bf
+    #@90
     aget-byte v6, p0, v6
 
-    #@c1
+    #@92
     shl-int/lit8 v6, v6, 0x4
 
-    #@c3
+    #@94
     and-int/lit16 v6, v6, 0xff
 
-    #@c5
+    #@96
     add-int/lit8 v7, v3, 0x2
 
-    #@c7
+    #@98
     aget-byte v7, p0, v7
 
-    #@c9
+    #@9a
     ushr-int/lit8 v7, v7, 0x2
 
-    #@cb
+    #@9c
     and-int/lit8 v7, v7, 0xf
 
-    #@cd
+    #@9e
     or-int/2addr v6, v7
 
-    #@ce
+    #@9f
     int-to-byte v6, v6
 
-    #@cf
+    #@a0
     aput-byte v6, v0, v5
 
-    #@d1
+    #@a2
     .line 32
     add-int/lit8 v5, v1, 0x2
 
-    #@d3
+    #@a4
     add-int/lit8 v6, v3, 0x2
 
-    #@d5
+    #@a6
     aget-byte v6, p0, v6
 
-    #@d7
+    #@a8
     shl-int/lit8 v6, v6, 0x6
 
-    #@d9
+    #@aa
     and-int/lit16 v6, v6, 0xff
 
-    #@db
+    #@ac
     add-int/lit8 v7, v3, 0x3
 
-    #@dd
+    #@ae
     aget-byte v7, p0, v7
 
-    #@df
+    #@b0
     and-int/lit8 v7, v7, 0x3f
 
-    #@e1
+    #@b2
     or-int/2addr v6, v7
 
-    #@e2
+    #@b3
     int-to-byte v6, v6
 
-    #@e3
+    #@b4
     aput-byte v6, v0, v5
 
-    #@e5
+    #@b6
     .line 29
     add-int/lit8 v3, v3, 0x4
 
-    #@e7
+    #@b8
     add-int/lit8 v1, v1, 0x3
 
+    #@ba
+    goto :goto_3
+
+    #@bb
+    .line 34
+    :cond_8
+    array-length v5, v0
+
+    #@bc
+    if-ge v1, v5, :cond_9
+
+    #@be
+    .line 35
+    aget-byte v5, p0, v3
+
+    #@c0
+    shl-int/lit8 v5, v5, 0x2
+
+    #@c2
+    and-int/lit16 v5, v5, 0xff
+
+    #@c4
+    add-int/lit8 v6, v3, 0x1
+
+    #@c6
+    aget-byte v6, p0, v6
+
+    #@c8
+    ushr-int/lit8 v6, v6, 0x4
+
+    #@ca
+    and-int/lit8 v6, v6, 0x3
+
+    #@cc
+    or-int/2addr v5, v6
+
+    #@cd
+    int-to-byte v5, v5
+
+    #@ce
+    aput-byte v5, v0, v1
+
+    #@d0
+    .line 37
+    :cond_9
+    add-int/lit8 v1, v1, 0x1
+
+    #@d2
+    array-length v5, v0
+
+    #@d3
+    if-ge v1, v5, :cond_a
+
+    #@d5
+    .line 38
+    add-int/lit8 v5, v3, 0x1
+
+    #@d7
+    aget-byte v5, p0, v5
+
+    #@d9
+    shl-int/lit8 v5, v5, 0x4
+
+    #@db
+    and-int/lit16 v5, v5, 0xff
+
+    #@dd
+    add-int/lit8 v6, v3, 0x2
+
+    #@df
+    aget-byte v6, p0, v6
+
+    #@e1
+    ushr-int/lit8 v6, v6, 0x2
+
+    #@e3
+    and-int/lit8 v6, v6, 0xf
+
+    #@e5
+    or-int/2addr v5, v6
+
+    #@e6
+    int-to-byte v5, v5
+
+    #@e7
+    aput-byte v5, v0, v1
+
     #@e9
-    goto/16 :goto_2
+    .line 41
+    :cond_a
+    return-object v0
 .end method
 
 .method public static final encode(Ljava/lang/String;)Ljava/lang/String;
@@ -605,221 +597,218 @@
     array-length v5, p0
 
     #@18
-    if-lt v4, v5, :cond_1
+    if-ge v4, v5, :cond_1
 
     #@1a
-    .line 68
-    const/4 v3, 0x0
-
-    #@1b
-    .local v3, "idx":I
-    :goto_2
-    array-length v5, v1
-
-    #@1c
-    if-lt v3, v5, :cond_2
-
-    #@1e
-    .line 82
-    array-length v5, v1
-
-    #@1f
-    add-int/lit8 v3, v5, -0x1
-
-    #@21
-    :goto_3
-    array-length v5, p0
-
-    #@22
-    mul-int/lit8 v5, v5, 0x4
-
-    #@24
-    div-int/lit8 v5, v5, 0x3
-
-    #@26
-    if-gt v3, v5, :cond_7
-
-    #@28
-    .line 86
-    new-instance v5, Ljava/lang/String;
-
-    #@2a
-    invoke-direct {v5, v1}, Ljava/lang/String;-><init>([B)V
-
-    #@2d
-    goto :goto_0
-
-    #@2e
     .line 62
-    .end local v3    # "idx":I
-    :cond_1
     aget-byte v5, v0, v4
 
-    #@30
+    #@1c
     ushr-int/lit8 v5, v5, 0x2
 
-    #@32
+    #@1e
     and-int/lit8 v5, v5, 0x3f
 
-    #@34
+    #@20
     int-to-byte v5, v5
 
-    #@35
+    #@21
     aput-byte v5, v1, v2
 
-    #@37
+    #@23
     .line 63
     add-int/lit8 v5, v2, 0x1
 
-    #@39
+    #@25
     add-int/lit8 v6, v4, 0x1
+
+    #@27
+    aget-byte v6, v0, v6
+
+    #@29
+    ushr-int/lit8 v6, v6, 0x4
+
+    #@2b
+    and-int/lit8 v6, v6, 0xf
+
+    #@2d
+    aget-byte v7, v0, v4
+
+    #@2f
+    shl-int/lit8 v7, v7, 0x4
+
+    #@31
+    and-int/lit8 v7, v7, 0x3f
+
+    #@33
+    or-int/2addr v6, v7
+
+    #@34
+    int-to-byte v6, v6
+
+    #@35
+    aput-byte v6, v1, v5
+
+    #@37
+    .line 64
+    add-int/lit8 v5, v2, 0x2
+
+    #@39
+    add-int/lit8 v6, v4, 0x2
 
     #@3b
     aget-byte v6, v0, v6
 
     #@3d
-    ushr-int/lit8 v6, v6, 0x4
-
-    #@3f
-    and-int/lit8 v6, v6, 0xf
-
-    #@41
-    aget-byte v7, v0, v4
-
-    #@43
-    shl-int/lit8 v7, v7, 0x4
-
-    #@45
-    and-int/lit8 v7, v7, 0x3f
-
-    #@47
-    or-int/2addr v6, v7
-
-    #@48
-    int-to-byte v6, v6
-
-    #@49
-    aput-byte v6, v1, v5
-
-    #@4b
-    .line 64
-    add-int/lit8 v5, v2, 0x2
-
-    #@4d
-    add-int/lit8 v6, v4, 0x2
-
-    #@4f
-    aget-byte v6, v0, v6
-
-    #@51
     ushr-int/lit8 v6, v6, 0x6
 
-    #@53
+    #@3f
     and-int/lit8 v6, v6, 0x3
 
-    #@55
+    #@41
     add-int/lit8 v7, v4, 0x1
 
-    #@57
+    #@43
     aget-byte v7, v0, v7
 
-    #@59
+    #@45
     shl-int/lit8 v7, v7, 0x2
 
-    #@5b
+    #@47
     and-int/lit8 v7, v7, 0x3f
 
-    #@5d
+    #@49
     or-int/2addr v6, v7
 
-    #@5e
+    #@4a
     int-to-byte v6, v6
 
-    #@5f
+    #@4b
     aput-byte v6, v1, v5
 
-    #@61
+    #@4d
     .line 65
     add-int/lit8 v5, v2, 0x3
 
-    #@63
+    #@4f
     add-int/lit8 v6, v4, 0x2
 
-    #@65
+    #@51
     aget-byte v6, v0, v6
 
-    #@67
+    #@53
     and-int/lit8 v6, v6, 0x3f
 
-    #@69
+    #@55
     int-to-byte v6, v6
 
-    #@6a
+    #@56
     aput-byte v6, v1, v5
 
-    #@6c
+    #@58
     .line 61
     add-int/lit8 v4, v4, 0x3
 
-    #@6e
+    #@5a
     add-int/lit8 v2, v2, 0x4
 
-    #@70
+    #@5c
     goto :goto_1
 
-    #@71
+    #@5d
+    .line 68
+    :cond_1
+    const/4 v3, 0x0
+
+    #@5e
+    .local v3, "idx":I
+    :goto_2
+    array-length v5, v1
+
+    #@5f
+    if-ge v3, v5, :cond_6
+
+    #@61
     .line 69
-    .restart local v3    # "idx":I
+    aget-byte v5, v1, v3
+
+    #@63
+    const/16 v6, 0x1a
+
+    #@65
+    if-ge v5, v6, :cond_2
+
+    #@67
+    .line 70
+    aget-byte v5, v1, v3
+
+    #@69
+    add-int/lit8 v5, v5, 0x41
+
+    #@6b
+    int-to-byte v5, v5
+
+    #@6c
+    aput-byte v5, v1, v3
+
+    #@6e
+    .line 68
+    :goto_3
+    add-int/lit8 v3, v3, 0x1
+
+    #@70
+    goto :goto_2
+
+    #@71
+    .line 71
     :cond_2
     aget-byte v5, v1, v3
 
     #@73
-    const/16 v6, 0x1a
+    const/16 v6, 0x34
 
     #@75
     if-ge v5, v6, :cond_3
 
     #@77
-    .line 70
+    .line 72
     aget-byte v5, v1, v3
 
     #@79
-    add-int/lit8 v5, v5, 0x41
+    add-int/lit8 v5, v5, 0x61
 
     #@7b
+    add-int/lit8 v5, v5, -0x1a
+
+    #@7d
     int-to-byte v5, v5
 
-    #@7c
+    #@7e
     aput-byte v5, v1, v3
 
-    #@7e
-    .line 68
-    :goto_4
-    add-int/lit8 v3, v3, 0x1
-
     #@80
-    goto :goto_2
+    goto :goto_3
 
     #@81
-    .line 71
+    .line 73
     :cond_3
     aget-byte v5, v1, v3
 
     #@83
-    const/16 v6, 0x34
+    const/16 v6, 0x3e
 
     #@85
     if-ge v5, v6, :cond_4
 
     #@87
-    .line 72
+    .line 74
     aget-byte v5, v1, v3
 
     #@89
-    add-int/lit8 v5, v5, 0x61
+    add-int/lit8 v5, v5, 0x30
 
     #@8b
-    add-int/lit8 v5, v5, -0x1a
+    add-int/lit8 v5, v5, -0x34
 
     #@8d
     int-to-byte v5, v5
@@ -828,82 +817,83 @@
     aput-byte v5, v1, v3
 
     #@90
-    goto :goto_4
+    goto :goto_3
 
     #@91
-    .line 73
+    .line 75
     :cond_4
     aget-byte v5, v1, v3
 
     #@93
-    const/16 v6, 0x3e
+    const/16 v6, 0x3f
 
     #@95
     if-ge v5, v6, :cond_5
 
     #@97
-    .line 74
-    aget-byte v5, v1, v3
+    .line 76
+    const/16 v5, 0x2b
 
     #@99
-    add-int/lit8 v5, v5, 0x30
+    aput-byte v5, v1, v3
 
     #@9b
-    add-int/lit8 v5, v5, -0x34
+    goto :goto_3
 
-    #@9d
-    int-to-byte v5, v5
+    #@9c
+    .line 78
+    :cond_5
+    const/16 v5, 0x2f
 
     #@9e
     aput-byte v5, v1, v3
 
     #@a0
-    goto :goto_4
+    goto :goto_3
 
     #@a1
-    .line 75
-    :cond_5
-    aget-byte v5, v1, v3
+    .line 82
+    :cond_6
+    array-length v5, v1
 
-    #@a3
-    const/16 v6, 0x3f
+    #@a2
+    add-int/lit8 v3, v5, -0x1
+
+    #@a4
+    :goto_4
+    array-length v5, p0
 
     #@a5
-    if-ge v5, v6, :cond_6
+    mul-int/lit8 v5, v5, 0x4
 
     #@a7
-    .line 76
-    const/16 v5, 0x2b
+    div-int/lit8 v5, v5, 0x3
 
     #@a9
-    aput-byte v5, v1, v3
+    if-le v3, v5, :cond_7
 
     #@ab
-    goto :goto_4
-
-    #@ac
-    .line 78
-    :cond_6
-    const/16 v5, 0x2f
-
-    #@ae
-    aput-byte v5, v1, v3
-
-    #@b0
-    goto :goto_4
-
-    #@b1
     .line 83
-    :cond_7
     const/16 v5, 0x3d
 
-    #@b3
+    #@ad
     aput-byte v5, v1, v3
 
-    #@b5
+    #@af
     .line 82
     add-int/lit8 v3, v3, -0x1
 
+    #@b1
+    goto :goto_4
+
+    #@b2
+    .line 86
+    :cond_7
+    new-instance v5, Ljava/lang/String;
+
+    #@b4
+    invoke-direct {v5, v1}, Ljava/lang/String;-><init>([B)V
+
     #@b7
-    goto/16 :goto_3
+    goto/16 :goto_0
 .end method

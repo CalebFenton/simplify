@@ -1,0 +1,13 @@
+Coordinate: org.antlr:antlr:3.5.2
+Publisher POM: https://repo.maven.apache.org/maven2/org/antlr/antlr/3.5.2/antlr-3.5.2.pom
+Binary: https://repo.maven.apache.org/maven2/org/antlr/antlr/3.5.2/antlr-3.5.2.jar
+Binary SHA-256: 5ac36c2acfb0a0f3d37dafe20b5b570f2643e2d000c648d44503c2738be643df
+Source archive: https://repo.maven.apache.org/maven2/org/antlr/antlr/3.5.2/antlr-3.5.2-sources.jar
+Source archive SHA-256: e28deef40b740401f7d7075de24ff95451bdd7a9bace3e98a1389bfd8a154d34
+License selection: BSD-3-Clause (original component and source notices retained)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/antlr/antlr/3.5.2/antlr-3.5.2-sources.jar (and binary template resources where identified)
+- LICENSE-BSD.txt
+  https://repo.maven.apache.org/maven2/org/antlr/antlr/3.5.2/antlr-3.5.2-sources.jar!/org/antlr/analysis/ActionLabel.java
