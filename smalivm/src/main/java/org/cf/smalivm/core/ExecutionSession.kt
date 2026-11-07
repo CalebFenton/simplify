@@ -76,35 +76,22 @@ internal class SuccessorSpec(
 }
 
 /**
- * Where a successor's [Frame] comes from. Five cases, and they are a sealed type rather than a comment
- * because picking the wrong one is silent: two cases are the soundness items
- * (`CARRY-FORWARD.md` Plan 9 items 10 and 2) that Task 14 exists to close, and a `Boolean`
- * `isCall` parameter would have made the third unrepresentable.
+ * Where a successor's [Frame] comes from. A sealed type rather than a flag because picking the wrong origin
+ * is silent: a copied frame where a callee needs a fresh entry frame, or the reverse, still runs.
  */
 internal sealed interface FrameOrigin {
     /**
      * Ordinary control flow inside one activation: a **copy** of the parent node's post-op frame, never the
-     * instance (the audit's shared-mutated-state defect -- a speculative path must not inherit or clobber a
-     * sibling's writes).
+     * instance, so a speculative path cannot inherit or clobber a sibling's writes.
      */
     data object Continuation : FrameOrigin
 
     /**
      * A call: a fresh callee entry frame, parameters seeded by the [SuccessorSpec.seed], **sharing the
-     * caller's heap id space** via `Frame.calleeEntryFrame` (item 10). Not derivable from the parent's
-     * frame -- the callee has its own registers -- which is why this cannot be a copy.
+     * caller's heap id space** via `Frame.calleeEntryFrame`. Not derivable from the parent's frame -- the
+     * callee has its own registers -- which is why this cannot be a copy.
      */
     data object CalleeEntry : FrameOrigin
-
-    /**
-     * A callee's `return`: the CALLER's own post-invoke frame (from [invokeNode]) carrying the returning
-     * callee frame's heap, via `Frame.resumedWith`. Registers are method-local so they come from the
-     * caller; the heap is per-path so it comes from the callee.
-     *
-     * The node is carried explicitly rather than read back off `Activation.returnSite`, so this case needs
-     * no nullable assertion in the scheduler.
-     */
-    class CallerResume(val invokeNode: ExecutionNode) : FrameOrigin
 
     /** A call outcome partition already merged into a caller-shaped frame. */
     class CallerPartition(val frame: Frame) : FrameOrigin
@@ -2416,7 +2403,6 @@ class ExecutionSession internal constructor(
             val seeded = when (val origin = spec.frameOrigin) {
                 FrameOrigin.Continuation -> armFrame.copy()
                 FrameOrigin.CalleeEntry -> armFrame.calleeEntryFrame(spec.view)
-                is FrameOrigin.CallerResume -> origin.invokeNode.frame.resumedWith(node.frame)
                 is FrameOrigin.CallerPartition -> origin.frame.copy()
                 is FrameOrigin.OpaqueVariant -> origin.frame.copy()
             }
