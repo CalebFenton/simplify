@@ -413,6 +413,18 @@ class EmulateBackendTest {
         assertEquals(SideEffectLevel.STRONG, unknown.sideEffectLevel(0))
     }
 
+    @Test
+    fun applicationOverrideOfGetCauseRunsItsOwnBody() {
+        // ART dispatches Throwable.getCause to the receiver's override; this override returns the receiver,
+        // which the Throwable cause slot (null after Exception()) can never produce.
+        val graph = VmServices(classIndex).newSession(
+            view("Lthrowable_cause_override_test;", "overrideReturnsReceiver()I"),
+        ).run()
+
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf(Outcome.Returned(Value.Known(1, intType))), graph.outcomes)
+    }
+
     private fun identityIntSession(vm: VmServices, value: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry, vm.hostObjectCloner).also { it.assign(0, value) }

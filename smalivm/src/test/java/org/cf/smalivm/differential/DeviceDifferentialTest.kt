@@ -163,8 +163,8 @@ class DeviceDifferentialTest {
             ),
             "Fx_InvokePresentType" to ExecutionBoundary(
                 returned(ValueKind.KNOWN, "1"), returned(ValueKind.UNKNOWN, null),
-                "ART executes String.valueOf(I) for integer 1. ReflectionPolicy.defaults removes String via " +
-                    "unsafe_classes.cfg, and safe_methods.cfg allows only String.<init>([B) and length(), not " +
+                "ART executes String.valueOf(I) for integer 1. safe_classes.cfg does not list String, " +
+                    "and safe_methods.cfg allows only String.<init>([B) and length(), not " +
                     "valueOf(I). DEFAULT_DENY stops backend fallback, so V1 returns Unknown(String).",
                 deniedHostMethod = MethodDescriptor(
                     VirtualType.of("Ljava/lang/String;"), "valueOf", "(I)Ljava/lang/String;",

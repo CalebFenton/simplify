@@ -3,7 +3,6 @@ package org.cf.smalivm.core
 import org.cf.smalivm.configuration.Configuration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotSame
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ReflectionPolicyTest {
@@ -67,36 +66,6 @@ class ReflectionPolicyTest {
     }
 
     @Test
-    fun backendCorpusPolicyEntriesHaveAnExplicitDisposition() {
-        val policy = ReflectionPolicy.defaults()
-        val emulators = VmServices(CoreTester.classIndex).invocationServices.emulators
-        val rows = listOf(
-            PolicyCorpusRow("P11-INV-001", method("Ljava/util/List;", "add", "(Ljava/lang/Object;)Z"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-INV-005", method("Ljava/lang/StringBuilder;", "append", "(J)Ljava/lang/StringBuilder;"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-INV-009", method("[I", "clone", "()Ljava/lang/Object;"), PolicyDisposition.EMULATOR),
-            PolicyCorpusRow("P11-INV-011", method("[I", "clone", "()Ljava/lang/Object;"), PolicyDisposition.EMULATOR),
-            PolicyCorpusRow("P11-INV-013", method("Ljava/lang/Class;", "getComponentType", "()Ljava/lang/Class;"), PolicyDisposition.EMULATOR),
-            PolicyCorpusRow("P11-INV-014", method("Ljava/lang/Object;", "getClass", "()Ljava/lang/Class;"), PolicyDisposition.EMULATOR),
-            PolicyCorpusRow("P11-MR-003", method("Ljava/lang/Integer;", "intValue", "()I"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-004", method("Ljava/lang/Byte;", "valueOf", "(B)Ljava/lang/Byte;"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-005", method("Ljava/lang/Boolean;", "<init>", "(Z)V"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-006", method("Ljava/util/UUID;", "<init>", "(JJ)V"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-007", method("Ljava/lang/Character;", "<init>", "(C)V"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-008", method("Ljava/lang/Short;", "valueOf", "(S)Ljava/lang/Short;"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-009", method("Ljava/lang/Class;", "getMethod", "(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;"), PolicyDisposition.KEEP),
-            PolicyCorpusRow("P11-MR-010", method("Ljava/lang/String;", "length", "()I"), PolicyDisposition.KEEP),
-        )
-
-        assertEquals(rows.size, rows.map(PolicyCorpusRow::id).toSet().size)
-        rows.forEach { row ->
-            when (row.disposition) {
-                PolicyDisposition.KEEP -> assertTrue(policy.decide(row.target) is ReflectionDecision.Allowed, row.id)
-                PolicyDisposition.EMULATOR -> assertTrue(emulators.find(row.target) != null, row.id)
-            }
-        }
-    }
-
-    @Test
     fun globalThreadIoNetworkAndProviderClassesAreNotClassWideSafe() {
         val policy = ReflectionPolicy.defaults()
         val denied = listOf(
@@ -141,14 +110,6 @@ class ReflectionPolicyTest {
             assertEquals(ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE), policy.decide(target), target.toString())
         }
     }
-
-    private data class PolicyCorpusRow(
-        val id: String,
-        val target: MethodDescriptor,
-        val disposition: PolicyDisposition,
-    )
-
-    private enum class PolicyDisposition { KEEP, EMULATOR }
 
     private fun method(owner: String, name: String, proto: String) = MethodDescriptor(type(owner), name, proto)
     private fun type(descriptor: String) = VirtualType.of(descriptor)

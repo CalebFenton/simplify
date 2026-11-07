@@ -364,6 +364,53 @@ class ReflectBackendTest {
     }
 
     @Test
+    fun defaultPolicyDeniesMethodInvokeOnAReflectedHostMethod() {
+        // Method.invoke runs whatever Method the guest supplies, so authorizing it would bypass every policy
+        // decision on the inner target. Running String.length here would return the boxed 3.
+        val methodInvoke = method("Ljava/lang/reflect/Method;", "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
+        val graph = VmServices(classIndex).newSession(
+            view("Lmethod_reflector_test;", "invokeStringLengthReflectively()Ljava/lang/Object;"),
+        ).run()
+
+        assertEquals(listOf(Outcome.Returned(Value.Unknown(objectType))), graph.outcomes)
+        assertTrue(
+            graph.addresses().flatMap(graph::nodePile).any { node ->
+                node.invocationDiagnostic?.contains("reflection policy denied $methodInvoke by DEFAULT_DENY") == true
+            },
+        )
+    }
+
+    @Test
+    fun authorizedMethodInvokeRunsOnlyAReflectedMethodThePolicyAlsoAuthorizes() {
+        val methodType = type("Ljava/lang/reflect/Method;")
+        val methodInvoke = method(methodType, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
+        val reflected = method(fixtureType, "mutateExternal", "()V")
+        val cases = listOf(
+            emptySet<MethodDescriptor>() to 0,
+            setOf(reflected) to 1,
+        )
+        for ((reflectedAuthorization, expectedMutations) in cases) {
+            ReflectionExternalSentinel.reset()
+            val vm = vm(exactSafe = setOf(methodInvoke) + reflectedAuthorization)
+            val frame = Frame.entryFrame(callerView(), vm.hostObjectCloner)
+            val hostMethod = ReflectBackendFixture::class.java.getDeclaredMethod("mutateExternal")
+            frame.assign(0, Value.Known(frame.allocateHostObject(methodType, hostMethod), methodType))
+            frame.assign(1, Value.Known(null, objectType))
+            frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
+
+            val graph = invoke(vm, methodInvoke, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1, 2)).run()
+
+            assertEquals(expectedMutations, ReflectionExternalSentinel.externalMutations, reflectedAuthorization.toString())
+            if (expectedMutations == 0) {
+                assertEquals(listOf(Outcome.Aborted(AbortReason.HOST_FAILURE)), graph.outcomes)
+                assertTrue(graph.nodePile(0).single().hostFailure is SecurityException)
+            } else {
+                assertEquals(listOf(Outcome.Returned(Value.Known(null, objectType))), graph.outcomes)
+            }
+        }
+    }
+
+    @Test
     fun exactUnsafeClassInitializerBlocksStaticAndConstructorBeforeHostClassResolution() {
         ReflectionExternalSentinel.reset()
         val staticType = type("Lorg/cf/smalivm/core/ReflectStaticInitProbe;")
@@ -647,31 +694,6 @@ class ReflectBackendTest {
         assertEquals(Value.Known(4, intType), graph.outcomes.single().returnedValue())
         assertEquals(1, root.children.size)
         assertSame(root.activation, root.children.single().activation)
-    }
-
-    @Test
-    fun reflectorAndClassBuilderCorpusRowsKeepTheirAdjudicatedDispositions() {
-        val dispositions = linkedMapOf(
-            "P11-MR-001" to "REPLACE:InvocationIntrinsicsTest.enumConstructionPreservesTrackedReceiverIdentity",
-            "P11-MR-002" to "RETIRE:obfuscated-name heuristic is not runtime semantics",
-            "P11-MR-003" to "REPLACE:instancePrimitiveReturnUsesExactReceiverInvocation",
-            "P11-MR-004" to "PORT:canCastIntegerToByte",
-            "P11-MR-005" to "RE-EXPRESS:booleanConstructorUpdatesExistingReceiver",
-            "P11-MR-006" to "RE-EXPRESS:uuidConstructorBindsTwoWideArguments",
-            "P11-MR-007" to "RE-EXPRESS:characterConstructorUpdatesExistingReceiver",
-            "P11-MR-008" to "PORT:canGetShortValueOfShort",
-            "P11-MR-009" to "RETIRE:raw Method cannot enter Value.Known",
-            "P11-MR-010" to "RE-EXPRESS:nullReceiverRoutesBeforeReflection",
-            "P11-MR-011" to "RE-EXPRESS:successfulCallUsesNormalContinuation",
-            "P11-CB-001" to "RETIRE:no-throw assertion duplicates loader coverage",
-            "P11-CB-002" to "RETIRE:body never calls hashCode",
-        )
-
-        assertEquals(13, dispositions.size)
-        assertEquals(13, dispositions.keys.toSet().size)
-        assertTrue(dispositions.getValue("P11-MR-002").startsWith("RETIRE:"))
-        assertTrue(dispositions.getValue("P11-MR-009").startsWith("RETIRE:"))
-        assertEquals("RETIRE:body never calls hashCode", dispositions["P11-CB-002"])
     }
 
     private fun assertConstructor(type: VirtualType, proto: String, arguments: List<Value>, expected: Any) {
