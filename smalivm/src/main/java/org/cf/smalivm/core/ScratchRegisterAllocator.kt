@@ -99,17 +99,10 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction4rcc
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction51l
 
-internal enum class ScratchRegisterEncoding {
-    STATIC_REMAP,
-    PARAMETER_PROLOGUE,
-}
-
 internal sealed interface ScratchRegisterAllocation {
     data class Accepted(
         val body: MethodBody,
         val positionsAfterAllocation: Map<LogicalCodePosition, LogicalCodePosition>,
-        val hiddenWordCount: Int,
-        val syntheticInstructionCount: Int,
     ) : ScratchRegisterAllocation
 
     data class Rejected(val reason: MethodEditRejectionReason) : ScratchRegisterAllocation
@@ -155,28 +148,11 @@ internal object ScratchRegisterAllocator {
         body: MethodBody,
         method: Method,
         scratchWordCount: Int,
-        encoding: ScratchRegisterEncoding = SELECTED_ENCODING,
     ): ScratchRegisterAllocation {
         require(scratchWordCount >= 0)
         if (scratchWordCount == 0 && body.logicalRegistersByPosition.isEmpty()) {
-            return ScratchRegisterAllocation.Accepted(
-                body,
-                body.positionsByCodeAddress.values.associateWith { it },
-                hiddenWordCount = 0,
-                syntheticInstructionCount = 0,
-            )
+            return ScratchRegisterAllocation.Accepted(body, body.positionsByCodeAddress.values.associateWith { it })
         }
-        return when (encoding) {
-            ScratchRegisterEncoding.STATIC_REMAP -> allocateStatic(body, method, scratchWordCount)
-            ScratchRegisterEncoding.PARAMETER_PROLOGUE -> allocatePrologue(body, method, scratchWordCount)
-        }
-    }
-
-    private fun allocateStatic(
-        body: MethodBody,
-        method: Method,
-        scratchWordCount: Int,
-    ): ScratchRegisterAllocation {
         val registerKinds = registerKindHints(body, method, scratchWordCount)
         val branchKinds = ambiguousBranchKinds(body, method)
         validateScratchWideOperands(body, scratchWordCount, registerKinds, branchKinds)?.let { return it }
@@ -188,7 +164,7 @@ internal object ScratchRegisterAllocator {
             }
             var requiredHiddenWords = hiddenWordCount
             for (record in body.instructions) {
-                val registers = mappedRegisters(record, body, scratchWordCount, hiddenWordCount, static = true)
+                val registers = mappedRegisters(record, body, scratchWordCount, hiddenWordCount)
                 if (directInstruction(record.instruction, registers) == null) {
                     requiredHiddenWords = maxOf(
                         requiredHiddenWords,
@@ -202,9 +178,8 @@ internal object ScratchRegisterAllocator {
 
         val addedWordCount = scratchWordCount + hiddenWordCount
         val expansions = LinkedHashMap<LogicalCodePosition, Expansion>(body.instructions.size)
-        var syntheticInstructionCount = 0
         for (record in body.instructions) {
-            val registers = mappedRegisters(record, body, scratchWordCount, hiddenWordCount, static = true)
+            val registers = mappedRegisters(record, body, scratchWordCount, hiddenWordCount)
             val direct = directInstruction(record.instruction, registers)
             val expansion = if (direct != null) {
                 Expansion(listOf(direct), operationIndex = 0)
@@ -222,59 +197,14 @@ internal object ScratchRegisterAllocator {
                 )
             }
             expansions[record.position] = expansion
-            syntheticInstructionCount += expansion.instructions.size - 1
         }
         val rewritten = rewriteBody(
             body,
             registerCount = body.registerCount + addedWordCount,
-            prefix = emptyList(),
             expansions = expansions,
             debugRegister = { register -> register + addedWordCount },
         )
-        return ScratchRegisterAllocation.Accepted(
-            rewritten.body,
-            rewritten.positionsAfterAllocation,
-            hiddenWordCount,
-            syntheticInstructionCount,
-        )
-    }
-
-    private fun allocatePrologue(
-        body: MethodBody,
-        method: Method,
-        scratchWordCount: Int,
-    ): ScratchRegisterAllocation {
-        val registerCount = body.registerCount.toLong() + scratchWordCount
-        if (registerCount > MAX_REGISTER_COUNT) return registerOverflow(registerCount)
-        val registerKinds = registerKindHints(body, method, scratchWordCount)
-        val branchKinds = ambiguousBranchKinds(body, method)
-        validateScratchWideOperands(body, scratchWordCount, registerKinds, branchKinds)?.let { return it }
-
-        val expansions = LinkedHashMap<LogicalCodePosition, Expansion>(body.instructions.size)
-        for (record in body.instructions) {
-            val registers = mappedRegisters(record, body, scratchWordCount, hiddenWordCount = 0, static = false)
-            val instruction = directInstruction(record.instruction, registers)
-                ?: return ScratchRegisterAllocation.Rejected(
-                    MethodEditRejectionReason.InvalidInstructionTemplate(
-                        "The parameter-prologue candidate cannot encode ${record.instruction.opcode} with its selected registers",
-                    ),
-                )
-            expansions[record.position] = Expansion(listOf(instruction), operationIndex = 0)
-        }
-        val prefix = parameterPrologue(body.registerCount, scratchWordCount, method)
-        val rewritten = rewriteBody(
-            body,
-            registerCount.toInt(),
-            prefix,
-            expansions,
-            debugRegister = { it },
-        )
-        return ScratchRegisterAllocation.Accepted(
-            rewritten.body,
-            rewritten.positionsAfterAllocation,
-            hiddenWordCount = 0,
-            syntheticInstructionCount = prefix.size,
-        )
+        return ScratchRegisterAllocation.Accepted(rewritten.body, rewritten.positionsAfterAllocation)
     }
 
     private fun registerOverflow(registerCount: Long): ScratchRegisterAllocation.Rejected =
@@ -311,40 +241,13 @@ internal object ScratchRegisterAllocator {
         body: MethodBody,
         scratchWordCount: Int,
         hiddenWordCount: Int,
-        static: Boolean,
     ): List<Int> {
         val logical = body.logicalRegistersByPosition[record.position]
-        if (logical == null) {
-            val added = if (static) scratchWordCount + hiddenWordCount else 0
-            return encodedRegisters(record.instruction).map { it + added }
-        }
+            ?: return encodedRegisters(record.instruction).map { it + scratchWordCount + hiddenWordCount }
         return logical.map { register ->
             when (val allocation = register.allocation) {
-                is LogicalRegister.Allocation.Baseline -> {
-                    if (static) allocation.register + scratchWordCount + hiddenWordCount else allocation.register
-                }
-                is LogicalRegister.Allocation.Scratch -> {
-                    if (static) hiddenWordCount + allocation.offset else body.registerCount + allocation.offset
-                }
-            }
-        }
-    }
-
-    private fun parameterPrologue(
-        baselineRegisterCount: Int,
-        addedWordCount: Int,
-        method: Method,
-    ): List<Instruction> {
-        if (addedWordCount == 0) return emptyList()
-        val parameterKinds = buildList {
-            if (!Modifier.isStatic(method.accessFlags)) add(Kind.OBJECT)
-            method.parameterTypes.mapTo(this) { descriptor -> kindOfDescriptor(descriptor.toString()) }
-        }
-        val parameterWordCount = parameterKinds.sumOf(Kind::width)
-        var destination = baselineRegisterCount - parameterWordCount
-        return parameterKinds.map { kind ->
-            moveInstruction(kind, destination, destination + addedWordCount).also {
-                destination += kind.width
+                is LogicalRegister.Allocation.Baseline -> allocation.register + scratchWordCount + hiddenWordCount
+                is LogicalRegister.Allocation.Scratch -> hiddenWordCount + allocation.offset
             }
         }
     }
@@ -440,12 +343,10 @@ internal object ScratchRegisterAllocator {
     private fun rewriteBody(
         body: MethodBody,
         registerCount: Int,
-        prefix: List<Instruction>,
         expansions: Map<LogicalCodePosition, Expansion>,
         debugRegister: (Int) -> Int,
     ): RewrittenBody {
-        val pending = ArrayList<PendingRecord>(prefix.size + expansions.values.sumOf { it.instructions.size })
-        prefix.forEach { pending += PendingRecord(it) }
+        val pending = ArrayList<PendingRecord>(expansions.values.sumOf { it.instructions.size })
         val incomingIndexes = LinkedHashMap<LogicalCodePosition, Int>()
         val operationIndexes = LinkedHashMap<LogicalCodePosition, Int>()
         for (record in body.instructions) {
@@ -1186,8 +1087,6 @@ internal object ScratchRegisterAllocator {
         Opcode.INVOKE_POLYMORPHIC to Opcode.INVOKE_POLYMORPHIC_RANGE,
         Opcode.INVOKE_CUSTOM to Opcode.INVOKE_CUSTOM_RANGE,
     )
-
-    internal val SELECTED_ENCODING = ScratchRegisterEncoding.STATIC_REMAP
 
     private const val MAX_REGISTER_COUNT = 65_535L
     private const val U4_MAX = 15
