@@ -1,7 +1,6 @@
 package org.cf.smalivm.core.op
 
 import org.cf.smalivm.core.ClassLoadFailure
-import org.cf.smalivm.core.Coerce
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.GuestThrowables
 import org.cf.smalivm.core.HeapRef
@@ -29,9 +28,10 @@ import org.cf.smalivm.core.virtualTypeOfHostClass
  * (one primitive, one reference) is verifier-rejected input; it is refused first, with an
  * `ArrayStoreException`, so a type lie never lands in an element.
  *
- * An unknown value or index loses precision only where the write may have landed: an unknown index joins
- * every element with the stored value. A store into an array the engine cannot name (unprovable or untracked)
- * records `STRONG`; a store into a tracked array records `WEAK`.
+ * The stored element is the value as the array's component holds it ([slotWrite]), typed with the
+ * component. An unknown value or index loses precision only where the write may have landed: an unknown
+ * index joins every element with the stored value. A store into an array the engine cannot name (unprovable
+ * or untracked) records `STRONG`; a store into a tracked array records `WEAK`.
  */
 internal class APutOp(
     address: Int,
@@ -39,15 +39,13 @@ internal class APutOp(
     private val valueRegister: Int,
     private val arrayRegister: Int,
     private val indexRegister: Int,
-    private val storeKind: StoreKind,
+    /** True for `aput-object`, the one form whose value operand is read as a reference. */
+    private val storesAReference: Boolean,
     /** Answers `aastore`'s assignability question, which needs runtime types and so cannot be decided at decode. */
     private val hierarchy: TypeHierarchy,
     /** Joins an element's old value with the stored one when the index is unprovable. */
     private val superclasses: Superclasses,
 ) : Op(address) {
-
-    /** The coercion the opcode's suffix asks for. */
-    internal enum class StoreKind { PLAIN, WIDE, OBJECT, BOOLEAN, BYTE, CHAR, SHORT }
 
     /** Whether the store throws `ArrayStoreException`, and if it refuses, which rule refused it. */
     private enum class StoreCheck {
@@ -170,13 +168,13 @@ internal class APutOp(
     private fun storeCheck(value: Value, component: VirtualType?, valueRuntimeType: VirtualType?): StoreCheck {
         // Storing null never throws. Dalvik's integral zero is null only in a reference context, which among
         // the array stores is `aput-object`'s value operand alone.
-        if ((value.isNull || (value.isDalvikNull && storeKind == StoreKind.OBJECT)) &&
+        if ((value.isNull || (value.isDalvikNull && storesAReference)) &&
             (component == null || component.isReference)
         ) {
             return StoreCheck.PERMITTED
         }
         // `Top` carries no type, so the opcode stands in for the shape the verifier requires of the value.
-        val valueIsPrimitive = value.type?.isPrimitive ?: (storeKind != StoreKind.OBJECT)
+        val valueIsPrimitive = value.type?.isPrimitive ?: !storesAReference
         if (component == null) return if (valueIsPrimitive) StoreCheck.PERMITTED else StoreCheck.UNANSWERABLE
         // Only `aput-object` type-checks; no store of a primitive into a primitive array throws.
         if (valueIsPrimitive && component.isPrimitive) return StoreCheck.PERMITTED
@@ -189,26 +187,12 @@ internal class APutOp(
         }
     }
 
-    /**
-     * The element that lands in the slot, typed with the array's component. A suffix that reads the value as
-     * an int narrows it; `aput-object` stores Dalvik's integral zero as `null`.
-     */
-    private fun storedValue(value: Value, component: VirtualType): Value {
-        if (value !is Value.Known) return Value.Unknown(component)
-        val raw = value.raw
-        if (raw !is Number) return Value.Known(raw, component)
-        val int = Coerce.toInt(raw)
-            ?: return if (storeKind == StoreKind.PLAIN || storeKind == StoreKind.WIDE) Value.Known(raw, component) else Value.Unknown(component)
-        val stored: Any? = when (storeKind) {
-            StoreKind.BOOLEAN -> int == 1
-            StoreKind.BYTE -> int.toByte()
-            StoreKind.CHAR -> int.toChar()
-            StoreKind.SHORT -> int.toShort()
-            StoreKind.OBJECT -> if (int == 0) null else raw
-            StoreKind.PLAIN, StoreKind.WIDE -> raw
+    /** The element that lands in the slot ([slotWrite]), typed with the array's component. */
+    private fun storedValue(value: Value, component: VirtualType): Value =
+        when (val stored = slotWrite(value, component, storesAReference && component.isReference)) {
+            is Value.Known -> Value.Known(stored.raw, component)
+            else -> Value.Unknown(component)
         }
-        return Value.Known(stored, component)
-    }
 
     override fun toString(): String = "$name r$valueRegister, r$arrayRegister, r$indexRegister"
 }

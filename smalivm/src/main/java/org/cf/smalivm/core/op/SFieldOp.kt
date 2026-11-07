@@ -76,7 +76,7 @@ internal class SPutOp(
     override fun execute(frame: Frame): OpExecution {
         preamble(frame, field)?.let { return it }
         val resolved = field as StaticFieldLookup.Resolved
-        val stored = fieldWrite(frame.read(valueRegister), resolved.type, storesAReference)
+        val stored = slotWrite(frame.read(valueRegister), resolved.type, storesAReference)
         val update = OpUpdate.writeStatic(resolved.descriptor, stored).then(OpUpdate.effect(SideEffectLevel.WEAK))
         return OpExecution.single(OpArm.Continue(update))
     }

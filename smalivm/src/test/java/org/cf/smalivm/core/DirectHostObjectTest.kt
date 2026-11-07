@@ -2082,7 +2082,7 @@ class DirectHostObjectTest {
             0,
             1,
             2,
-            APutOp.StoreKind.OBJECT,
+            true,
             CoreTester.classIndex,
             CoreTester.classIndex,
         )
@@ -2110,7 +2110,7 @@ class DirectHostObjectTest {
             0,
             1,
             2,
-            APutOp.StoreKind.OBJECT,
+            true,
             CoreTester.classIndex,
             CoreTester.classIndex,
         )

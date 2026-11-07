@@ -1,5 +1,6 @@
 package org.cf.smalivm.core.op
 
+import org.cf.smalivm.core.Coerce
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.GuestThrowables
 import org.cf.smalivm.core.Op
@@ -51,7 +52,7 @@ internal class FillArrayDataOp(
                 val write = OpUpdate.writeArrayElements(
                     array.ref,
                     0,
-                    payloadElements.map { Value.Known(elementValue(it, array.component), array.component) },
+                    payloadElements.map { elementValue(it, array.component) },
                 )
                 val update = if (payloadElements.isEmpty()) write else write.then(OpUpdate.effect(SideEffectLevel.WEAK))
                 OpExecution.single(OpArm.Continue(update))
@@ -60,33 +61,35 @@ internal class FillArrayDataOp(
     }
 
     /**
-     * The payload element as it lands in the slot: read at [elementWidth], then converted to the component.
-     * `F`/`D` reinterpret the payload's bits, because the payload states its width. A width the verifier
-     * rejects leaves the element as decoded.
+     * The payload element as it lands in the slot: read at [elementWidth], then as the component holds those
+     * bits. ART copies the payload's bytes, so `F`/`D` reinterpret them and a `Z`/`B`/`C`/`S` element keeps
+     * them as [Coerce.narrowStore] does. A width the verifier rejects leaves the element as decoded.
      */
-    private fun elementValue(element: Number, component: VirtualType): Any {
-        val normalized = when (elementWidth) {
+    private fun elementValue(element: Number, component: VirtualType): Value {
+        val bits = when (elementWidth) {
             1 -> element.toByte()
             2 -> element.toShort()
             4 -> element.toInt()
             8 -> element.toLong()
             else -> element
         }
-        return when (component.descriptor) {
-            "Z" -> normalized.toInt() == 1
-            "B" -> normalized.toByte()
-            "C" -> normalized.toShort().toInt().toChar()
-            "S" -> normalized.toShort()
-            "I" -> normalized.toInt()
-            "J" -> normalized.toLong()
-            "F" -> Float.fromBits(normalized.toInt())
-            "D" -> Double.fromBits(normalized.toLong())
-            else -> normalized
+        val raw: Any = when (component.descriptor) {
+            "Z", "B", "C", "S" -> return Coerce.narrowStore(Value.Known(bits.toInt(), INT), component)
+            "I" -> bits.toInt()
+            "J" -> bits.toLong()
+            "F" -> Float.fromBits(bits.toInt())
+            "D" -> Double.fromBits(bits.toLong())
+            else -> bits
         }
+        return Value.Known(raw, component)
     }
 
     private fun tooShort(): ThrowableRecipe = GuestThrowables.arrayIndexOutOfBounds(null)
 
     /** The payload is decoded away at build time, so its address is not rendered. */
     override fun toString(): String = "$name r$arrayRegister, :payload"
+
+    private companion object {
+        val INT: VirtualType = VirtualType.of("I")
+    }
 }

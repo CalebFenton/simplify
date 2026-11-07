@@ -82,7 +82,7 @@ internal class IPutOp(
         if (receiver !is Value.Known) {
             return OpExecution.of(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)), throwingNullReceiver())
         }
-        val stored = fieldWrite(value, resolved.type, storesAReference)
+        val stored = slotWrite(value, resolved.type, storesAReference)
         val ref = receiver.raw as? HeapRef
         val update = if (ref != null && frame.getField(ref, resolved.descriptor) !== Value.Top) {
             OpUpdate.writeField(ref, resolved.descriptor, stored).then(OpUpdate.effect(SideEffectLevel.WEAK))

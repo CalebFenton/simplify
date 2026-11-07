@@ -25,11 +25,9 @@ import org.junit.jupiter.api.Test
  * is deleted as of the `ArrayStoreException` commit; the engine it drove is described in the past tense
  * everywhere below, and no citation here points into it.
  *
- * **`aput` is not `aget` mirrored, and three differences bite.** `registerA` is the **value** register, not
- * a destination, so [org.cf.smalivm.core.Op.destinationRegisters] is never involved; all three operands are
- * read; and -- unlike `aget`, where the suffix changes only the destination's width -- the suffix drives
- * **value coercion**, so `aput-boolean` of `0x1` stores `true`. That last one is a semantic difference the
- * mnemonic is the only carrier of.
+ * **`aput` is not `aget` mirrored.** `registerA` is the **value** register, not a destination, so
+ * [org.cf.smalivm.core.Op.destinationRegisters] is never involved; all three operands are read; and the
+ * stored element is the value as the array's component holds it, so `aput-boolean` of `0x1` stores `true`.
  *
  * **Grounding.** [BC]'s entire specification for all fourteen `aget*`/`aput*` opcodes is one shared sentence
  * -- *"Perform the identified array operation at the identified index of the given array, loading or storing
@@ -127,7 +125,7 @@ class APutOpTest {
         )
     }
 
-    /** `aput-boolean` of the integer literal `0x1` stores `true` -- the suffix, not the component, decides. */
+    /** `aput-boolean` of the integer literal `0x1` stores `true`. */
     @Test
     fun canPutBoolean() {
         initial.setRegisters(0, BooleanArray(1), "[Z", 1, 0, "I", 2, 0x1, "Z")
@@ -142,6 +140,32 @@ class APutOpTest {
         initial.setRegisters(0, BooleanArray(1), "[Z", 1, 0, "I", 2, value, "Z")
         expected.setRegisters(0, booleanArrayOf(true), "[Z")
         CoreTester.test(CLASS_NAME, "putBoolean()V", initial, expected)
+    }
+
+    /**
+     * A boolean element keeps the low byte of the register: ART's `APUT_BOOLEAN` is
+     * `HandleAPut<mirror::BooleanArray>(GetVReg(A()))`, whose `SetWithoutChecks` takes a `uint8_t`
+     * (`runtime/interpreter/interpreter_switch_impl-inl.h`). So `0x101` stores `1`, i.e. `true`, where an
+     * `== 1` test on the whole register reads `false`.
+     */
+    @Test
+    fun aBooleanStoreKeepsTheLowByteOfTheRegister() {
+        initial.setRegisters(0, BooleanArray(1), "[Z", 1, 0, "I", 2, 0x101, "I")
+        expected.setRegisters(0, booleanArrayOf(true), "[Z")
+        CoreTester.test(CLASS_NAME, "putBoolean()V", initial, expected)
+    }
+
+    /**
+     * `aput-object` reads its value as a reference, so a register that holds an `Integer` object stores
+     * that object even when the object's value is zero; only a register whose last write was a primitive
+     * reads as `null` (ART's `GetVRegReference`). `iput-object` and `sput-object` apply the same rule.
+     */
+    @Test
+    fun anObjectStoreOfAReferenceToABoxedZeroStoresTheObjectNotNull() {
+        val boxedZero: Any = Integer.valueOf(0)
+        initial.setRegisters(0, arrayOfNulls<Any>(1), "[Ljava/lang/Object;", 1, 0, "I", 2, boxedZero, "Ljava/lang/Integer;")
+        expected.setRegisters(0, arrayOf(boxedZero), "[Ljava/lang/Object;")
+        CoreTester.test(CLASS_NAME, "putObject()V", initial, expected)
     }
 
     @Test

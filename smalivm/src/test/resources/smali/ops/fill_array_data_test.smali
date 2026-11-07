@@ -137,6 +137,20 @@
     .end array-data
 .end method
 
+.method public static fillArrayDataBooleanTwo()V
+    .locals 1
+
+    fill-array-data v0, :array_0
+
+    return-void
+
+    :array_0
+    .array-data 1
+        0x2t
+        0x1t
+    .end array-data
+.end method
+
 .method public static fillArrayDataByte()V
     .locals 1
 

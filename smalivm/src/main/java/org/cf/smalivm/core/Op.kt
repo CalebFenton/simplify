@@ -262,13 +262,10 @@ internal object OpBuilder {
         Opcode.AGET, Opcode.AGET_OBJECT, Opcode.AGET_BOOLEAN, Opcode.AGET_BYTE, Opcode.AGET_CHAR,
         Opcode.AGET_SHORT -> aget(isWide = false)
         Opcode.AGET_WIDE -> aget(isWide = true)
-        Opcode.APUT -> aput(APutOp.StoreKind.PLAIN)
-        Opcode.APUT_WIDE -> aput(APutOp.StoreKind.WIDE)
-        Opcode.APUT_OBJECT -> aput(APutOp.StoreKind.OBJECT)
-        Opcode.APUT_BOOLEAN -> aput(APutOp.StoreKind.BOOLEAN)
-        Opcode.APUT_BYTE -> aput(APutOp.StoreKind.BYTE)
-        Opcode.APUT_CHAR -> aput(APutOp.StoreKind.CHAR)
-        Opcode.APUT_SHORT -> aput(APutOp.StoreKind.SHORT)
+        // The array's component, not the suffix, decides how an element is narrowed.
+        Opcode.APUT, Opcode.APUT_WIDE, Opcode.APUT_BOOLEAN, Opcode.APUT_BYTE, Opcode.APUT_CHAR,
+        Opcode.APUT_SHORT -> aput(storesAReference = false)
+        Opcode.APUT_OBJECT -> aput(storesAReference = true)
         Opcode.FILL_ARRAY_DATA -> this::fillArrayData
         Opcode.FILLED_NEW_ARRAY -> filledNewArray(isRange = false)
         Opcode.FILLED_NEW_ARRAY_RANGE -> filledNewArray(isRange = true)
@@ -407,9 +404,9 @@ internal object OpBuilder {
         AGetOp(d.address, d.name, d.registerA, d.registerB, d.registerC, isWide)
     }
 
-    private fun aput(storeKind: APutOp.StoreKind): Decoder = { d ->
+    private fun aput(storesAReference: Boolean): Decoder = { d ->
         val hierarchy = d.resolver.hierarchy
-        APutOp(d.address, d.name, d.registerA, d.registerB, d.registerC, storeKind, hierarchy, hierarchy)
+        APutOp(d.address, d.name, d.registerA, d.registerB, d.registerC, storesAReference, hierarchy, hierarchy)
     }
 
     /** A payload target that is not `.array-data` makes the instruction unsupported. */

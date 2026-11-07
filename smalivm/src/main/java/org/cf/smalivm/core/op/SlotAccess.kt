@@ -18,8 +18,9 @@ internal fun fieldRead(destRegister: Int, cell: Value, fieldType: VirtualType, i
 }
 
 /**
- * The value a field write stores. Only the `-object` form reads its value operand as a reference, so only it
- * stores a primitive register as `null`; a narrow field keeps its own width ([Coerce.narrowStore]).
+ * The value a field or array element of [slotType] holds after a store of [value]. Only the `-object` store
+ * forms read their value operand as a reference ([readsAsReference]), so only they store a primitive register
+ * as `null`; a `Z`/`B`/`C`/`S` slot keeps the register's low bits ([Coerce.narrowStore]).
  */
-internal fun fieldWrite(value: Value, fieldType: VirtualType, storesAReference: Boolean): Value =
-    if (storesAReference && value.readsAsNullReference) Value.Known(null, fieldType) else Coerce.narrowStore(value, fieldType)
+internal fun slotWrite(value: Value, slotType: VirtualType, readsAsReference: Boolean): Value =
+    if (readsAsReference && value.readsAsNullReference) Value.Known(null, slotType) else Coerce.narrowStore(value, slotType)
