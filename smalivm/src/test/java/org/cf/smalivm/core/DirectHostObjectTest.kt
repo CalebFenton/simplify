@@ -82,7 +82,6 @@ class DirectHostObjectTest {
         shared.next = shared
         val firstRef = frame.allocateHostObject(objectType, first)
         val secondRef = frame.allocateHostObject(objectType, second)
-        val beforeClone = frame.stateSharingSnapshot().copies
         val selected = SelectedHostCall.from(
             prepared(
                 listOf(objectType, objectType),
@@ -99,7 +98,6 @@ class DirectHostObjectTest {
         assertSame(copiedShared, copiedSecond.single())
         assertSame(copiedShared, copiedShared.next)
         assertNotSame(shared, copiedShared)
-        assertEquals(5, frame.stateSharingSnapshot().copies.hostObjectsCloned - beforeClone.hostObjectsCloned)
         selected.finalize(frame)
     }
 
@@ -171,12 +169,11 @@ class DirectHostObjectTest {
         val ref = admitted.raw as HeapRef
         val sibling = parent.copy()
         val writing = parent.copy()
-        val parentState = parent.stateSharingSnapshot()
 
         writing.writeArrayElement(ref, 0, Value.Known(7, intType))
 
-        assertSame(parentState.hostGraphRoot, sibling.stateSharingSnapshot().hostGraphRoot)
-        assertSame(parentState.hostGraphRoot, writing.stateSharingSnapshot().hostGraphRoot)
+        assertSame(parent.hostGraphVersionToken(), sibling.hostGraphVersionToken())
+        assertSame(parent.hostGraphVersionToken(), writing.hostGraphVersionToken())
         assertEquals(Value.Known(1, intType), parent.arrayAt(ref)!!.element(0))
         assertEquals(Value.Known(1, intType), sibling.arrayAt(ref)!!.element(0))
         assertEquals(Value.Known(7, intType), writing.arrayAt(ref)!!.element(0))
@@ -212,10 +209,12 @@ class DirectHostObjectTest {
     }
 
     @Test
-    fun observingANonEmptyHostGraphCreatesNoRootsVersionsOrClones() {
+    fun observingANonEmptyHostGraphCreatesNoVersions() {
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val ref = frame.allocateHostObject(builderType, StringBuilder("observed"))
-        val before = frame.stateSharingSnapshot()
+        val graphVersion = frame.hostGraphVersionToken()
+        val objectVersion = frame.heapObject(ref)
+        val raw = frame.hostObjectAt(ref)
 
         repeat(100) {
             frame.heapObject(ref)
@@ -224,34 +223,36 @@ class DirectHostObjectTest {
             frame.toString()
         }
 
-        val after = frame.stateSharingSnapshot()
-        assertSame(before.hostGraphRoot, after.hostGraphRoot)
-        assertSame(before.heapRoot, after.heapRoot)
-        assertEquals(before.copies, after.copies)
-        assertEquals(before.versions, after.versions)
+        assertSame(graphVersion, frame.hostGraphVersionToken())
+        assertSame(objectVersion, frame.heapObject(ref))
+        assertSame(raw, frame.hostObjectAt(ref))
     }
 
     @Test
     fun unchangedSelectedCallDiscardsItsCloneAndRestoresTheOriginalGraphVersion() {
-        val backend = DirectBackend { SynchronousCallResult.Returned(HostReturn.Void) }
+        lateinit var received: Any
+        val backend = DirectBackend { call ->
+            received = requireNotNull(call.receiver)
+            SynchronousCallResult.Returned(HostReturn.Void)
+        }
+        val seed = StringBuilder("same")
         val (session, _) = seededHostSession(
             "Linvoke_reflected_test;",
             "invokeStringBuilderAppendWithLong()V",
             listOf(backend),
             builderType,
-            StringBuilder("same"),
+            seed,
         ) { frame, ref ->
             frame.assign(0, Value.Known(ref, builderType))
             frame.assign(1, Value.Known(1L, VirtualType.of("J")))
         }
-        val before = session.frontier.single().frame.stateSharingSnapshot()
+        val before = session.frontier.single().frame.hostGraphVersionToken()
 
         val graph = session.run()
-        val after = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single().frame.stateSharingSnapshot()
+        val after = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single().frame
 
-        assertSame(before.hostGraphRoot, after.hostGraphRoot)
-        assertEquals(1, after.copies.hostGraphClones - before.copies.hostGraphClones)
-        assertTrue(after.copies.hostObjectsCloned > before.copies.hostObjectsCloned)
+        assertNotSame(seed, received, "the backend runs on a detached clone")
+        assertSame(before, after.hostGraphVersionToken())
     }
 
     @Test
@@ -287,7 +288,7 @@ class DirectHostObjectTest {
             frame.assign(0, Value.Known(hostRef, builderType))
             frame.assign(1, Value.Known(1L, VirtualType.of("J")))
         }
-        val before = session.frontier.single().frame.stateSharingSnapshot()
+        val before = session.frontier.single().frame.hostGraphVersionToken()
 
         val graph = session.run()
         assertEquals(
@@ -297,7 +298,7 @@ class DirectHostObjectTest {
         )
         val returned = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single().frame
 
-        assertNotSame(before.hostGraphRoot, returned.stateSharingSnapshot().hostGraphRoot)
+        assertNotSame(before, returned.hostGraphVersionToken())
         assertEquals("value-changed", returned.hostObjectAt(ref).toString())
         assertEquals(
             SideEffectLevel.NONE,
@@ -320,7 +321,7 @@ class DirectHostObjectTest {
             frame.assign(0, Value.Known(hostRef, builderType))
             frame.assign(1, Value.Known(1L, VirtualType.of("J")))
         }
-        val before = session.frontier.single().frame.stateSharingSnapshot()
+        val before = session.frontier.single().frame.hostGraphVersionToken()
 
         val graph = session.run()
         assertEquals(
@@ -330,7 +331,7 @@ class DirectHostObjectTest {
         )
         val returned = requireNotNull(session.currentNode).frame
 
-        assertNotSame(before.hostGraphRoot, returned.stateSharingSnapshot().hostGraphRoot)
+        assertNotSame(before, returned.hostGraphVersionToken())
         assertTrue(returned.heapObject(ref) is HeapObject.HostObject)
     }
 
@@ -677,15 +678,12 @@ class DirectHostObjectTest {
         assertEquals(retainedRef, frame.refForHostNode(HostGraphNodeId(0)))
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(secondRef) as HeapObject.HostObject).contents)
 
-        val before = frame.stateSharingSnapshot().copies
         val selected = SelectedHostCall.from(
             prepared(listOf(objectType), listOf(Value.Known(retainedRef, objectType))),
             frame,
             CoreTester.classIndex.classLoader,
         )
-        val after = frame.stateSharingSnapshot().copies
 
-        assertEquals(1, after.hostObjectsCloned - before.hostObjectsCloned)
         assertEquals(7, (selected.arguments.single() as MutableBox).value)
         selected.finalize(frame)
     }
@@ -736,7 +734,7 @@ class DirectHostObjectTest {
     }
 
     @Test
-    fun repeatedSelectedReplacementKeepsGraphAndCloneCountsBounded() {
+    fun repeatedSelectedReplacementKeepsTheGraphBounded() {
         // Bug class: each selected mutation leaves the replaced child in the graph, growing every later clone.
         // Oracle: one parent and its current child are the only reachable nodes after every replacement.
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
@@ -744,23 +742,18 @@ class DirectHostObjectTest {
             listOf(HostSeed(Value.Known(MutableParent(MutableChild(0)), objectType))),
         ).single() as Value.Known
         val ref = admitted.raw as HeapRef
-        val cloneCounts = mutableListOf<Int>()
 
         repeat(4) { value ->
-            val before = frame.stateSharingSnapshot().copies.hostObjectsCloned
             val selected = SelectedHostCall.from(
                 prepared(listOf(objectType), listOf(Value.Known(ref, objectType))),
                 frame,
                 CoreTester.classIndex.classLoader,
             )
-            cloneCounts += frame.stateSharingSnapshot().copies.hostObjectsCloned - before
             (selected.arguments.single() as MutableParent).child = MutableChild(value + 1)
             assertEquals(HostGraphComparison.Different, selected.finalize(frame))
             assertEquals(2, frame.hostGraphObjects().size)
             assertEquals(ref, frame.findHostObject(frame.hostObjectAt(ref)!!))
         }
-
-        assertEquals(listOf(2, 2, 2, 2), cloneCounts)
     }
 
     @Test
@@ -948,14 +941,12 @@ class DirectHostObjectTest {
         val holderRef = holderValue.raw as HeapRef
         val arrayRef = requireNotNull(frame.findHostObject(rawArray))
         val sibling = frame.copy()
-        val beforeWrites = frame.stateSharingSnapshot().copies
-        val beforeMirrorMetrics = frame.mirrorIndexMetrics()
+        val graphVersion = frame.hostGraphVersionToken()
 
         repeat(100) { value -> assertTrue(frame.writeArrayElement(arrayRef, 0, Value.Known(value, intType))) }
 
-        val afterWrites = frame.stateSharingSnapshot().copies
-        assertEquals(0, afterWrites.hostGraphClones - beforeWrites.hostGraphClones)
-        assertEquals(0, afterWrites.hostObjectsCloned - beforeWrites.hostObjectsCloned)
+        assertSame(graphVersion, frame.hostGraphVersionToken(), "lattice writes must not clone or replace the graph")
+        assertSame(holder, frame.hostObjectAt(holderRef))
         assertTrue(frame.arrayAt(arrayRef)!!.mirrorDirty)
         assertEquals(Value.Known(99, intType), frame.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Known(0, intType), sibling.arrayAt(arrayRef)!!.element(0))
@@ -970,14 +961,10 @@ class DirectHostObjectTest {
             frame,
             CoreTester.classIndex.classLoader,
         )
-        val afterDetach = frame.stateSharingSnapshot().copies
-        val afterMirrorMetrics = frame.mirrorIndexMetrics()
         val selectedHolder = selected.arguments[0] as MirrorHolder
         val selectedArray = selected.arguments[1] as IntArray
 
-        assertEquals(1, afterDetach.hostGraphClones - afterWrites.hostGraphClones)
-        assertEquals(10_000, afterDetach.hostObjectsCloned - afterWrites.hostObjectsCloned)
-        assertEquals(2, afterMirrorMetrics.dirtyEntriesVisited - beforeMirrorMetrics.dirtyEntriesVisited)
+        assertNotSame(holder, selectedHolder, "one selected detach runs the backend on a clone")
         assertSame(selectedHolder.array, selectedArray)
         assertEquals(99, selectedArray[0])
         assertFalse(frame.arrayAt(arrayRef)!!.mirrorDirty)
@@ -1093,7 +1080,7 @@ class DirectHostObjectTest {
     }
 
     @Test
-    fun declineOnlyMutableCallClonesNoGraphAndKeepsTheHostGraphRoot() {
+    fun declineOnlyMutableCallFallsBackOpaqueAndPrunesTheHostGraph() {
         val backend = DirectBackend(
             probeBlock = { BackendProbe.Declined("declined before execution") },
         ) { error("declined backend executed") }
@@ -1107,15 +1094,13 @@ class DirectHostObjectTest {
             frame.assign(0, Value.Known(ref, builderType))
             frame.assign(1, Value.Known(1L, VirtualType.of("J")))
         }
-        val before = session.frontier.single().frame.stateSharingSnapshot()
+        val before = session.frontier.single().frame.hostGraphVersionToken()
 
         session.run()
-        val after = requireNotNull(session.currentNode).frame.stateSharingSnapshot()
+        val after = requireNotNull(session.currentNode).frame
 
-        assertTrue(after.hostGraphRoot !== before.hostGraphRoot, "opaque fallback must prune its invalidated graph")
-        assertTrue(requireNotNull(session.currentNode).frame.hostGraphObjects().isEmpty())
-        assertEquals(before.copies.hostGraphClones, after.copies.hostGraphClones)
-        assertEquals(before.copies.hostObjectsCloned, after.copies.hostObjectsCloned)
+        assertTrue(after.hostGraphVersionToken() !== before, "opaque fallback must prune its invalidated graph")
+        assertTrue(after.hostGraphObjects().isEmpty())
     }
 
     @Test
@@ -1390,7 +1375,7 @@ class DirectHostObjectTest {
         val arrayValue = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, objectArrayType)))).single()
             as Value.Known
         val ref = arrayValue.raw as HeapRef
-        val before = frame.heapObjectSharing(ref)!!
+        val before = frame.heapObject(ref)
         val original = frame.arrayAt(ref)!!.element(0)
         val selected = SelectedHostCall.from(
             prepared(listOf(objectArrayType), listOf(arrayValue)),
@@ -1401,7 +1386,7 @@ class DirectHostObjectTest {
 
         assertEquals(original, frame.arrayAt(ref)!!.element(0))
         assertEquals(objectType, (frame.arrayAt(ref)!!.element(0) as Value.Known).type)
-        assertSame(before.objectToken, frame.heapObjectSharing(ref)!!.objectToken)
+        assertSame(before, frame.heapObject(ref))
     }
 
     @Test
@@ -1418,7 +1403,7 @@ class DirectHostObjectTest {
             0,
             listOf(Value.Known("same", charSequence), Value.Known(null, string)),
         )
-        val before = frame.heapObjectSharing(ref)!!
+        val before = frame.heapObject(ref)
         val selected = SelectedHostCall.from(
             prepared(listOf(objectArrayType), listOf(arrayValue)),
             frame,
@@ -1429,7 +1414,7 @@ class DirectHostObjectTest {
 
         assertEquals(Value.Known("same", charSequence), frame.arrayAt(ref)!!.element(0))
         assertEquals(Value.Known(null, string), frame.arrayAt(ref)!!.element(1))
-        assertNotSame(before.objectToken, frame.heapObjectSharing(ref)!!.objectToken)
+        assertNotSame(before, frame.heapObject(ref))
         assertFalse(frame.arrayAt(ref)!!.mirrorDirty)
     }
 
@@ -1736,7 +1721,7 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view, vm.hostObjectCloner)
         val existing = frame.allocateThrowable(type, IllegalStateException("input")).raw as HeapRef
         frame.assign(0, Value.Known(existing, type))
-        val beforeGraph = frame.hostGraphMetrics()
+        val graphNodes = frame.hostGraphObjects().size
         val nextHeapId = frame.nextHeapId()
 
         val node = session(view, vm, frame, listOf(backend), identityObjectOpFactory()).step()!!
@@ -1746,8 +1731,8 @@ class DirectHostObjectTest {
         assertSame(thrownRaw, node.frame.hostObjectAt(existing))
         assertEquals(nextHeapId, node.frame.nextHeapId(), "the selected throwable clone must reuse its source ref")
         assertEquals(
-            beforeGraph.nodes,
-            node.frame.hostGraphMetrics().nodes,
+            graphNodes,
+            node.frame.hostGraphObjects().size,
             "the selected throwable clone must not remain as a second host graph",
         )
     }

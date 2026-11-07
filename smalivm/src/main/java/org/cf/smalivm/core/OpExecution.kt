@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import java.util.Collections
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
@@ -10,20 +9,15 @@ import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 
-/** One validated, non-empty result from an op execution. */
-internal class OpExecution private constructor(arms: List<OpArm>) {
-    val arms: List<OpArm> = Collections.unmodifiableList(arms.toList())
-    val footprint: OpUpdateFootprint = arms.fold(OpUpdateFootprint.EMPTY) { footprint, arm ->
-        footprint.combine(arm.reconciliationFootprint)
-    }
-
+/** One validated, non-empty result from an op execution. Each factory copies its input once. */
+internal class OpExecution private constructor(val arms: List<OpArm>) {
     init {
         require(arms.isNotEmpty()) { "An op execution must contain at least one arm" }
     }
 
     companion object {
         fun of(vararg arms: OpArm): OpExecution = OpExecution(arms.toList())
-        fun of(arms: List<OpArm>): OpExecution = OpExecution(arms)
+        fun of(arms: List<OpArm>): OpExecution = OpExecution(arms.toList())
         fun single(arm: OpArm): OpExecution = OpExecution(listOf(arm))
     }
 }

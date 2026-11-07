@@ -178,7 +178,6 @@ internal sealed interface ActivationExit {
 
 internal class CompletionBatch internal constructor(private var exits: List<ActivationExit>?) {
     val retainedFrames: Int get() = exits?.size ?: 0
-    val retainedCollectionCapacity: Int get() = retainedFrames
 
     fun exitsSnapshot(): List<ActivationExit> = exits?.toList()
         ?: error("Cannot read a released activation completion batch")
@@ -190,48 +189,21 @@ internal class CompletionBatch internal constructor(private var exits: List<Acti
     }
 }
 
-internal data class CallCompletionMetrics(
-    val openPaths: Int,
-    val retainedFrames: Int,
-    val retainedCollectionCapacity: Int,
-    val drained: Boolean,
-)
-
 /** One activation's path accounting and terminal votes. */
 internal class CallCompletion {
     private sealed interface State {
         class Collecting(
             var openPaths: Int = 1,
-            val exits: ExitBuffer = ExitBuffer(),
+            val exits: ArrayList<ActivationExit> = ArrayList(),
         ) : State
 
         data object Released : State
     }
 
-    private class ExitBuffer {
-        private var values = arrayOfNulls<ActivationExit>(0)
-        private var size = 0
-
-        val capacity: Int get() = values.size
-        val retainedFrames: Int get() = size
-
-        fun add(exit: ActivationExit) {
-            if (size == values.size) {
-                values = values.copyOf(if (values.isEmpty()) 4 else values.size * 2)
-            }
-            values[size++] = exit
-        }
-
-        fun take(): List<ActivationExit> {
-            val result = List(size) { index -> requireNotNull(values[index]) }
-            values.fill(null)
-            values = arrayOfNulls(0)
-            size = 0
-            return result
-        }
-    }
-
     private var state: State = State.Collecting()
+
+    /** True once [drainIfComplete] returned a batch or [cancelAndRelease] ran. */
+    val isDrained: Boolean get() = state == State.Released
 
     /** Atomically replaces one active path and records every terminal path produced by that replacement. */
     fun replacePath(replacementOpenPaths: Int, exits: List<ActivationExit> = emptyList()) {
@@ -240,7 +212,7 @@ internal class CallCompletion {
             ?: error("Cannot record a late activation vote after completion release")
         val updated = collecting.openPaths - 1 + replacementOpenPaths
         require(updated >= 0) { "Activation open-path count cannot become negative" }
-        exits.forEach(collecting.exits::add)
+        collecting.exits.addAll(exits)
         collecting.openPaths = updated
     }
 
@@ -249,9 +221,8 @@ internal class CallCompletion {
         val collecting = state as? State.Collecting
             ?: error("Activation completion was drained more than once")
         if (collecting.openPaths != 0) return null
-        val batch = CompletionBatch(collecting.exits.take())
         state = State.Released
-        return batch
+        return CompletionBatch(collecting.exits)
     }
 
     /** Returns the retained exits and releases the collector's storage. */
@@ -259,17 +230,7 @@ internal class CallCompletion {
         val collecting = state as? State.Collecting
             ?: error("Activation completion was released more than once")
         state = State.Released
-        return collecting.exits.take()
-    }
-
-    fun metrics(): CallCompletionMetrics = when (val current = state) {
-        is State.Collecting -> CallCompletionMetrics(
-            current.openPaths,
-            current.exits.retainedFrames,
-            current.exits.capacity,
-            drained = false,
-        )
-        State.Released -> CallCompletionMetrics(0, 0, 0, drained = true)
+        return collecting.exits
     }
 }
 

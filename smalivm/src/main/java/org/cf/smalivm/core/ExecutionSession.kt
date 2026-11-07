@@ -232,55 +232,6 @@ class ExecutionSession internal constructor(
 
     private var steps = 0
     private var deadlineMillis = 0L
-    private var opArmCopies = 0
-    private var opStateEntriesVisited = 0
-    private var reconciliationFootprintsResolved = 0
-    private var preArmThrowableAllocations = 0
-    private var committedThrowableAllocations = 0
-    private var callPartitionMerges = 0
-    private var sourcePartitionMerges = 0
-    private var sourceThrowPartitions = 0
-    private var sourceThrowExits = 0
-    private var callerHandlerResolutions = 0
-    private var callerHandlerClausesVisited = 0
-    private var callerHandlerRelationRequests = 0
-    private var callerHandlerRoutes = 0
-    private val sourceDomainHashMetrics = ThrowableDomainHashMetricsCounter()
-    private var routingWorkChecks = 0
-    private var routingCommands = 0
-
-    internal fun opExecutionMetrics(): OpExecutionMetrics = OpExecutionMetrics(
-        opArmCopies,
-        opStateEntriesVisited,
-        reconciliationFootprintsResolved,
-        preArmThrowableAllocations,
-        committedThrowableAllocations,
-    )
-
-    internal fun callPropagationMetrics(): CallPropagationMetrics {
-        val metrics = activations.mapNotNull { it.callCompletion?.metrics() }
-        val pendingFrames = pendingCallRoutings.sumOf { it.batch.retainedFrames }
-        val pendingCapacity = pendingCallRoutings.sumOf { it.batch.retainedCollectionCapacity }
-        return CallPropagationMetrics(
-            openPaths = metrics.sumOf { it.openPaths },
-            retainedFrames = metrics.sumOf { it.retainedFrames } + pendingFrames,
-            retainedCollectionCapacity = metrics.sumOf { it.retainedCollectionCapacity } + pendingCapacity,
-            pendingRoutingCommands = pendingCallRoutings.size,
-            routingWorkChecks = routingWorkChecks,
-            routingCommands = routingCommands,
-            schedulerWork = steps,
-            partitionMerges = callPartitionMerges,
-            sourcePartitionMerges = sourcePartitionMerges,
-            sourceThrowPartitions = sourceThrowPartitions,
-            sourceThrowExits = sourceThrowExits,
-            handlerResolutions = callerHandlerResolutions,
-            handlerClausesVisited = callerHandlerClausesVisited,
-            handlerRelationRequests = callerHandlerRelationRequests,
-            handlerRoutes = callerHandlerRoutes,
-            sourceDomainHashReads = sourceDomainHashMetrics.hashReads,
-            sourceDomainHashEntryVisits = sourceDomainHashMetrics.entryVisits,
-        )
-    }
 
     internal fun unattributedEndingFramesSnapshot(): List<Frame> = unattributedEndingFrames.toList()
 
@@ -391,27 +342,11 @@ class ExecutionSession internal constructor(
         }
 
         node.opExecutionStarted = true
-        val allocationsBeforeExecution = node.frame.throwableAllocationCount()
         val execution = contained(node) { node.op.execute(node.frame) }
-        preArmThrowableAllocations +=
-            node.frame.throwableAllocationCount() - allocationsBeforeExecution
-        // The effect the op declared, moved off the frame and onto the node HERE -- after `execute` and
-        // BEFORE `applyAll` copies any successor frame. That order is the whole mechanism: an effect is a
-        // statement about ONE address (spec §4.5), so it must not still be on the frame when children are
-        // built. `Frame.copy` also declines to carry it, so this is belt and braces on purpose -- the
-        // failure it prevents is silent (`sideEffectLevel(a)` answering STRONG for every address after the
-        // first unprovable store, which no existing assertion would notice).
-        //
-        // UNCONDITIONAL, and BEFORE the null check, which is the whole of it: `contained` converts a host
-        // `Throwable` out of `execute` into `Aborted(HOST_FAILURE)` and answers null, so an op that declared
-        // STRONG and *then* threw used to have its declaration stranded on a frame nobody reads again --
-        // `methodSideEffectLevelOverExploredPaths()` answered NONE for a run in which an op said STRONG,
-        // which is the "answer where you should refuse" direction the whole mechanism exists to close. That
-        // path is mitigated by the run being `Partial` (so the trust gate refuses) and is unreachable through
-        // today's `APutOp`, but Plan 9's `invoke` will have a lot of code between declaring and returning.
-        // Safe for the other two early exits above as well: a node whose op never ran never called
-        // `recordSideEffect`, and its frame is a fresh `copy()` whose level is NONE by construction, so this
-        // line reads NONE for them -- which is why it can be unconditional rather than guarded.
+        // Move the op's declared effect from the frame onto the node after `execute` and before any successor
+        // frame is built: an effect describes one address (spec §4.5), so children must not inherit it.
+        // Unconditional and before the null check, because `contained` turns a host failure out of `execute`
+        // into null after the op may already have declared an effect; a node whose op never ran reads NONE.
         node.sideEffectLevel = node.frame.takeSideEffectLevel()
         if (node.isCallEntry && node.view.isSynchronized) {
             node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.WEAK)
@@ -428,12 +363,8 @@ class ExecutionSession internal constructor(
             return node
         }
         executedNodes.add(node)
-        // The WHOLE list, in one commit. It used to be `for (t in transitions.asReversed()) apply(t,
-        // node)`, which committed each transition as it went and carried the three defects the Plan 3
-        // deferred note catalogues -- a half-applied fork, a double-ended node, and a terminal slot
-        // write leaking into a sibling's frame copy. All three are closed by [commit]'s two phases, and
-        // the deterministic exploration order that loop's `asReversed()` used to provide now lives there too.
-        // Public outcome order is deliberately not a semantic contract.
+        // All transitions commit together, so a fork cannot half-apply, end a node twice, or leak a terminal
+        // slot write into a sibling's frame. Public outcome order is not a semantic contract.
         applyAll(execution, node)
         drainPendingCallRoutings()
         return node
@@ -477,25 +408,11 @@ class ExecutionSession internal constructor(
             part.armFrame = preparedArm.frame
             groups.add(part)
             if (part.ending == null || part.ending is Ending.ArmFailure) continue
-            // ONE op may end SEVERAL paths, but only when every one of them is a `Transition.Throw`: an
-            // `aget` that can neither prove its array non-null nor its index in range raises two different
-            // exceptions, both of which escape a method with no try block, and both of which are the
-            // same op's ambiguity about the same read. A node stamps one of them (ExecutionNode.endWith
-            // is once-per-node by design) and `commit` records the rest as endings with no node --
-            // exactly the shape `recordLostPath` already uses for a fork's unbuildable successor.
-            //
-            // Any OTHER mix stays loud, and Plan 9's is the one that matters: a Return beside a Throw is
-            // not one op's ambiguity, it is two outcomes of a CALLEE, and modelling it as two endings of
-            // the invoke node would lose which is which. Two successors of a synthetic fork is still the
-            // likely answer there (plan resolved decision 3 confirms it, and keeps this check loud).
-            //
-            // `enders.isEmpty()` is what makes this a MIXING check rather than a Throw-only one: a
-            // solo ending -- a plain `return`, a lone abort -- has nothing to mix with yet, so it is
-            // never constrained by this require no matter its own kind. The constraint bites only once
-            // a SECOND ending shows up for the same op.
-            //
-            // Checked over op arms rather than resulting outcomes. What the op requested is the thing this
-            // rule constrains; activation routing must not change that classification.
+            // One op may end several paths only when every ending is a guest throw: an `aget` that can prove
+            // neither non-null nor in-range raises two exceptions from one read. The node stamps one and
+            // `commit` records the rest as endings with no node. Any other mix, such as a Return beside a
+            // Throw, is two different outcomes and stays an error. `enders.isEmpty()` lets a solo ending of
+            // any kind through; the rule applies to what the op requested, not to routed outcomes.
             require(enders.isEmpty() || (arm is OpArm.Throw && enders.all { it is OpArm.Throw })) {
                 "Mixed path-ending transitions at ${node.address} in ${node.view.signature}: " +
                     "$enders and $arm. Several endings from one op are supported only when all of " +
@@ -512,19 +429,12 @@ class ExecutionSession internal constructor(
             0 -> node.frame = sourceFrame
             1 -> node.frame = ready.single().frame
             else -> {
-                reconciliationFootprintsResolved++
                 val footprint = sourceFrame.resolveFootprint(
                     ready.fold(OpUpdateFootprint.EMPTY) { combined, preparedArm ->
                         combined.combine(preparedArm.arm.reconciliationFootprint)
                     },
                 )
-                val reconciliation = sourceFrame.reconcileOpArms(
-                    ready.map { it.frame },
-                    footprint,
-                    resolver.hierarchy,
-                )
-                node.frame = reconciliation.frame
-                opStateEntriesVisited += reconciliation.cellsVisited
+                node.frame = sourceFrame.reconcileOpArms(ready.map { it.frame }, footprint, resolver.hierarchy)
             }
         }
         // The mixed-ending check above is about what the OP asked for, so it runs over the planned
@@ -534,8 +444,7 @@ class ExecutionSession internal constructor(
     }
 
     private fun prepareArm(arm: OpArm, sourceFrame: Frame, node: ExecutionNode): PreparedOpArm {
-        val armFrame = sourceFrame.copyForOpArm()
-        opArmCopies++
+        val armFrame = sourceFrame.copy()
         return try {
             val applied = arm.update.applyTo(armFrame)
             applied.result?.let(armFrame::setResult)
@@ -1937,7 +1846,6 @@ class ExecutionSession internal constructor(
     /** Runs completion-routing commands without exposing them as executable nodes. */
     private fun drainPendingCallRoutings() {
         while (pendingCallRoutings.isNotEmpty()) {
-            routingWorkChecks++
             val limit = schedulerLimitReason()
             if (limit != null) {
                 abortRun(null, limit)
@@ -1946,7 +1854,6 @@ class ExecutionSession internal constructor(
             val pending = pendingCallRoutings.removeLast()
             val exits = pending.batch.exitsSnapshot()
             try {
-                routingCommands++
                 routingInvariant()
                 routeCallCompletion(pending.anchor, pending.activation, exits)
             } finally {
@@ -2102,11 +2009,9 @@ class ExecutionSession internal constructor(
         val throwGroups = mutableListOf<CallerThrowGroup>()
         val keyedExits = threw.map { exit -> KeyedCallerThrow(exit, callerThrowSourceKey(exit)) }
         val sourcePartitions = keyedExits.groupBy(KeyedCallerThrow::key)
-        sourceThrowPartitions += sourcePartitions.size
-        sourceThrowExits += threw.size
         val sourceRoutings = LinkedHashMap<CallerThrowSourceKey, CallerSourceRouting>()
         for ((key, keyedPartition) in sourcePartitions) {
-            val callerFrame = mergeSourceThrowPartition(site, keyedPartition.map { it.exit.frame })
+            val callerFrame = mergeCallPartition(site, keyedPartition.map { it.exit.frame })
             val mergedSubject = mergedCallerThrowSubject(key, callerFrame, keyedPartition.map { it.exit })
             // Same containment policy as local lookup. The invoke node is suspended, so `contained` cannot
             // record it as ended here; carry one abort token per original exit into this completion instead.
@@ -2123,7 +2028,6 @@ class ExecutionSession internal constructor(
                 sourceRoutings[key] = CallerSourceRouting.Aborted(callerFrame, abort.reason)
                 continue
             }
-            recordCallerResolverMetrics(resolution.metrics)
             if (resolution is HandlerResolution.MalformedMetadata) {
                 activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
                 sourceRoutings[key] = CallerSourceRouting.Aborted(callerFrame, AbortReason.MALFORMED_INPUT)
@@ -2170,15 +2074,8 @@ class ExecutionSession internal constructor(
         if (rejected) activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
     }
 
-    private fun mergeCallPartition(site: ReturnSite, frames: List<Frame>): Frame {
-        callPartitionMerges++
-        return site.invokeNode.frame.mergedCalleeState(frames, resolver.hierarchy)
-    }
-
-    private fun mergeSourceThrowPartition(site: ReturnSite, frames: List<Frame>): Frame {
-        sourcePartitionMerges++
-        return mergeCallPartition(site, frames)
-    }
+    private fun mergeCallPartition(site: ReturnSite, frames: List<Frame>): Frame =
+        site.invokeNode.frame.mergedCalleeState(frames, resolver.hierarchy)
 
     /** Pre-resolution source identity. Handler addresses are deliberately absent. */
     private sealed interface CallerThrowSourceKey {
@@ -2223,7 +2120,7 @@ class ExecutionSession internal constructor(
             return CallerThrowSourceKey.Symbolic(
                 subject.domain,
                 exit.frame.callCompatibilityKey(),
-                subject.domain.sourceKeyHash(sourceDomainHashMetrics),
+                subject.domain.hashCode(),
             )
         }
         // An exact runtime type decides every present class relation. Only unresolved required/excluded
@@ -2236,7 +2133,7 @@ class ExecutionSession internal constructor(
             subject.frameValue,
             routingDomain,
             exit.frame.callCompatibilityKey(),
-            routingDomain?.sourceKeyHash(sourceDomainHashMetrics) ?: 0,
+            routingDomain?.hashCode() ?: 0,
         )
     }
 
@@ -2268,13 +2165,6 @@ class ExecutionSession internal constructor(
             }
             ThrownSubject.symbolic(joined.value, key.domain)
         }
-    }
-
-    private fun recordCallerResolverMetrics(metrics: HandlerResolverMetrics) {
-        callerHandlerResolutions++
-        callerHandlerClausesVisited += metrics.clausesVisited
-        callerHandlerRelationRequests += metrics.relationRequests
-        callerHandlerRoutes += metrics.routes
     }
 
     private sealed interface CallerSourceRouting {
@@ -2677,7 +2567,7 @@ class ExecutionSession internal constructor(
         }
         for (activation in activations) {
             val completion = activation.callCompletion ?: continue
-            if (completion.metrics().drained) continue
+            if (completion.isDrained) continue
             repeat(completion.cancelAndRelease().size) { recordedOutcomes += Outcome.Aborted(reason) }
         }
         abortReasons += reason
@@ -2780,9 +2670,7 @@ class ExecutionSession internal constructor(
             else -> error("No throwable materializer exists for ${recipe.type}")
         }
         val value = frame.allocateThrowable(recipe.type, host, cause)
-        val subject = ThrownSubject.fromHeap(value, frame, throwableHierarchy)
-        committedThrowableAllocations++
-        return subject
+        return ThrownSubject.fromHeap(value, frame, throwableHierarchy)
     }
 
     /** Plans local routes from the node's method and the event's normalized domain. */

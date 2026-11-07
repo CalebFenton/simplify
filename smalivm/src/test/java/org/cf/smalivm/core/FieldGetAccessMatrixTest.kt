@@ -2,7 +2,6 @@ package org.cf.smalivm.core
 
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
-import kotlinx.collections.immutable.persistentMapOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -548,7 +547,7 @@ class FieldGetAccessMatrixTest {
     )
 
     private fun initializedSnapshot(): ClassInitStatusSnapshot =
-        ClassInitStatusSnapshot(persistentMapOf(DECLARING.descriptor to ClassInitState.INITIALIZED))
+        ClassInitStore().also { it.complete(DECLARING) }.statusSnapshot()
 
     private fun virtualField(
         visibility: FieldVisibility,

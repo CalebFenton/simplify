@@ -1,6 +1,7 @@
 package org.cf.smalivm.core
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -13,7 +14,10 @@ class CallCompletionTest {
         val completion = CallCompletion()
 
         assertNull(completion.drainIfComplete())
-        assertEquals(CallCompletionMetrics(1, 0, 0, drained = false), completion.metrics())
+        assertFalse(completion.isDrained)
+        completion.replacePath(0)
+        assertEquals(emptyList<ActivationExit>(), completion.drainIfComplete()!!.exitsSnapshot())
+        assertTrue(completion.isDrained)
     }
 
     @Test
@@ -21,9 +25,8 @@ class CallCompletionTest {
         val completion = CallCompletion()
 
         completion.replacePath(2)
-        assertEquals(2, completion.metrics().openPaths)
         completion.replacePath(0)
-        assertEquals(1, completion.metrics().openPaths)
+        assertNull(completion.drainIfComplete(), "one of the two replacement paths is still open")
         completion.replacePath(0)
 
         assertEquals(emptyList<ActivationExit>(), completion.drainIfComplete()!!.exitsSnapshot())
@@ -35,7 +38,6 @@ class CallCompletionTest {
         completion.replacePath(0)
 
         assertThrows<IllegalArgumentException> { completion.replacePath(0) }
-        assertEquals(0, completion.metrics().openPaths)
         assertEquals(emptyList<ActivationExit>(), completion.drainIfComplete()!!.exitsSnapshot())
     }
 
@@ -50,24 +52,21 @@ class CallCompletionTest {
     }
 
     @Test
-    fun drainTransfersFramesAndReleaseDropsBatchStorage() {
+    fun drainTransfersFramesInVoteOrderAndReleaseDropsBatchStorage() {
         val view = CoreTester.classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
         val frame = Frame.entryFrame(view)
         val exits = List(5) { ActivationExit.Aborted(frame.copy(), AbortReason.MALFORMED_INPUT) }
         val completion = CallCompletion()
-        completion.replacePath(0, exits)
-        val before = completion.metrics()
-        assertEquals(5, before.retainedFrames)
-        assertTrue(before.retainedCollectionCapacity >= before.retainedFrames)
+        completion.replacePath(2, exits.take(2))
+        completion.replacePath(0, exits.drop(2))
+        completion.replacePath(0)
 
         val batch = completion.drainIfComplete()!!
 
-        assertEquals(0, completion.metrics().retainedFrames)
         assertEquals(5, batch.retainedFrames)
-        assertTrue(batch.retainedCollectionCapacity >= batch.retainedFrames)
+        assertEquals(exits, batch.exitsSnapshot())
         batch.release()
         assertEquals(0, batch.retainedFrames)
-        assertEquals(0, batch.retainedCollectionCapacity)
         assertThrows<IllegalStateException> { batch.exitsSnapshot() }
         assertThrows<IllegalStateException> { batch.release() }
     }
@@ -85,7 +84,7 @@ class CallCompletionTest {
         val exits = completion.cancelAndRelease()
 
         assertSame(retained, exits.single())
-        assertEquals(CallCompletionMetrics(0, 0, 0, drained = true), completion.metrics())
+        assertTrue(completion.isDrained)
         assertThrows<IllegalStateException> { completion.replacePath(0) }
         assertThrows<IllegalStateException> { completion.drainIfComplete() }
         assertThrows<IllegalStateException> { completion.cancelAndRelease() }

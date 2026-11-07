@@ -184,15 +184,15 @@ class HeapStoreTest {
         val type = VirtualType.of("Ljava/util/Date;")
         val ref = heap.allocateHostObject(type, Date(1_234L))
         val roots = listOf(Value.Known(ref, type))
-        val originalRoot = heap.hostGraphRootToken()
+        val originalRoot = heap.hostGraphVersionToken()
         val checkpoint = heap.detachHostGraph(roots)
-        val detachedRoot = heap.hostGraphRootToken()
+        val detachedRoot = heap.hostGraphVersionToken()
         assertNotSame(originalRoot, detachedRoot)
 
         val result = heap.finalizeHostGraph(checkpoint, roots)
 
         assertEquals(HostGraphComparison.Unprovable, result)
-        assertSame(detachedRoot, heap.hostGraphRootToken())
-        assertNotSame(originalRoot, heap.hostGraphRootToken())
+        assertSame(detachedRoot, heap.hostGraphVersionToken())
+        assertNotSame(originalRoot, heap.hostGraphVersionToken())
     }
 }

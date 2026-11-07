@@ -3,7 +3,7 @@
 ## Call completion and routing
 
 The execution engine seals call completion behind `CallCompletion`. `ActivationExit.Returned`, `Threw`, and `Aborted`
-carry terminal frame state. `replacePath()` updates the private path count and exit buffer together.
+carry terminal frame state. `replacePath()` updates the private path count and exit list together.
 `drainIfComplete()` returns null while paths remain open. At zero, it returns one `CompletionBatch` and releases
 the collector. A second drain or late vote is an invariant failure.
 
@@ -32,4 +32,4 @@ An ordinary nested-callee abort can become a `STRONG` opaque caller continuation
 abort reason. Top-level aborts, class-initializer aborts, and cancellation remain `Partial` and untrusted.
 
 Routing releases its batch in a `finally` block. Limit and timeout cancellation release all pending batches and
-all open collectors. Released completion storage reports zero retained frames and zero retained capacity.
+all open collectors, so released completion storage retains no frames.

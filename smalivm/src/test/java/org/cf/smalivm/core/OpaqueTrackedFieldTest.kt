@@ -109,7 +109,8 @@ class OpaqueTrackedFieldTest {
         val hostRef = frame.allocateHostObject(BUILDER, StringBuilder("host"))
         val arguments = listOf(field, array, objectValue, Value.Known(hostRef, BUILDER))
         entry.parameters.zip(arguments).forEach { (parameter, value) -> frame.assign(parameter.register, value) }
-        val before = frame.stateSharingSnapshot()
+        val refs = listOf(fieldRef, arrayRef, objectRef, hostRef)
+        val objectsBefore = refs.map { frame.heapObject(it) }
         val session = vm.newSession(entry, entryFrame = frame)
 
         val graph = session.run()
@@ -129,12 +130,8 @@ class OpaqueTrackedFieldTest {
         assertEquals(Value.Known(7, INT), frame.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Known(8, INT), frame.getField(objectRef, PUBLIC_INSTANCE))
         assertTrue(frame.hostObjectAt(hostRef) is StringBuilder)
-        val after = frame.stateSharingSnapshot()
-        assertSame(before.registerRoot, after.registerRoot)
-        assertSame(before.heapRoot, after.heapRoot)
-        assertEquals(0, after.copies.registerElementsCopied - before.copies.registerElementsCopied)
-        assertEquals(0, after.copies.heapObjectsCopied - before.copies.heapObjectsCopied)
-        assertEquals(0, after.copies.classElementsCopied - before.copies.classElementsCopied)
+        assertEquals(arguments, entry.parameters.map { frame.peek(it.register) })
+        refs.zip(objectsBefore).forEach { (ref, before) -> assertSame(before, frame.heapObject(ref)) }
     }
 
     private fun opaqueInvoke(graph: ExecutionGraph, target: MethodDescriptor): ExecutionNode = graph.addresses()
