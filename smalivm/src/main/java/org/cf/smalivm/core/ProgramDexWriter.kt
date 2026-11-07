@@ -7,14 +7,6 @@ import java.nio.file.StandardCopyOption
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.base.BaseExceptionHandler
 import com.android.tools.smali.dexlib2.base.BaseTryBlock
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction20bc
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction22c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction31c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction45cc
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction4rcc
 import com.android.tools.smali.dexlib2.iface.ExceptionHandler
 import com.android.tools.smali.dexlib2.iface.MethodImplementation
 import com.android.tools.smali.dexlib2.iface.TryBlock
@@ -22,15 +14,6 @@ import com.android.tools.smali.dexlib2.iface.debug.DebugItem
 import com.android.tools.smali.dexlib2.iface.debug.SetSourceFile
 import com.android.tools.smali.dexlib2.iface.debug.StartLocal
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
-import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction20bc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction31c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction3rc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction45cc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction4rcc
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodProtoReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
@@ -228,50 +211,8 @@ class ProgramDexWriter {
     }
 
     private fun reboundInstruction(builder: DexBuilder, instruction: Instruction): Instruction {
-        if (instruction !is ReferenceInstruction) return instruction
-        val reference = builder.internReference(instruction.reference)
-        return when (instruction) {
-            is Instruction45cc -> BuilderInstruction45cc(
-                instruction.opcode,
-                instruction.registerCount,
-                instruction.registerC,
-                instruction.registerD,
-                instruction.registerE,
-                instruction.registerF,
-                instruction.registerG,
-                reference,
-                builder.internReference(instruction.reference2),
-            )
-            is Instruction4rcc -> BuilderInstruction4rcc(
-                instruction.opcode,
-                instruction.startRegister,
-                instruction.registerCount,
-                reference,
-                builder.internReference(instruction.reference2),
-            )
-            is Instruction20bc -> BuilderInstruction20bc(
-                instruction.opcode, instruction.verificationError, reference,
-            )
-            is Instruction21c -> BuilderInstruction21c(instruction.opcode, instruction.registerA, reference)
-            is Instruction22c -> BuilderInstruction22c(
-                instruction.opcode, instruction.registerA, instruction.registerB, reference,
-            )
-            is Instruction31c -> BuilderInstruction31c(instruction.opcode, instruction.registerA, reference)
-            is Instruction35c -> BuilderInstruction35c(
-                instruction.opcode,
-                instruction.registerCount,
-                instruction.registerC,
-                instruction.registerD,
-                instruction.registerE,
-                instruction.registerF,
-                instruction.registerG,
-                reference,
-            )
-            is Instruction3rc -> BuilderInstruction3rc(
-                instruction.opcode, instruction.startRegister, instruction.registerCount, reference,
-            )
-            else -> error("Unsupported reference instruction format: ${instruction.opcode.format}")
-        }
+        val references = instruction.referenceOperands()
+        return if (references.isEmpty()) instruction else instruction.withReferences(references.map(builder::internReference))
     }
 
     private fun reboundDebugItem(builder: DexBuilder, item: DebugItem): DebugItem = when (item) {

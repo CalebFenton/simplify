@@ -20,39 +20,7 @@ import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ThreeRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction10t
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction10x
 import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction11n
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction11x
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction12x
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction20bc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction20t
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21ih
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21lh
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21s
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21t
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22b
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22cs
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22s
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22t
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22x
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction23x
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction30t
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction31c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction31i
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction31t
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction32x
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35mi
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35ms
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction3rc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction3rmi
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction3rms
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction45cc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction4rcc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction51l
 import com.android.tools.smali.dexlib2.iface.reference.CallSiteReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
@@ -64,40 +32,11 @@ import com.android.tools.smali.dexlib2.immutable.debug.ImmutablePrologueEnd
 import com.android.tools.smali.dexlib2.immutable.debug.ImmutableRestartLocal
 import com.android.tools.smali.dexlib2.immutable.debug.ImmutableSetSourceFile
 import com.android.tools.smali.dexlib2.immutable.debug.ImmutableStartLocal
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10t
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11n
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction12x
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction20bc
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction20t
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21ih
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21lh
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21s
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21t
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22b
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22c
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22cs
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22s
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22t
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction23x
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction30t
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction31c
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction31i
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction31t
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction32x
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35mi
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35ms
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction3rc
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction3rmi
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction3rms
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction45cc
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction4rcc
-import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction51l
 
 internal sealed interface ScratchRegisterAllocation {
     data class Accepted(
@@ -243,7 +182,7 @@ internal object ScratchRegisterAllocator {
         hiddenWordCount: Int,
     ): List<Int> {
         val logical = body.logicalRegistersByPosition[record.position]
-            ?: return encodedRegisters(record.instruction).map { it + scratchWordCount + hiddenWordCount }
+            ?: return record.instruction.registerOperands().map { it + scratchWordCount + hiddenWordCount }
         return logical.map { register ->
             when (val allocation = register.allocation) {
                 is LogicalRegister.Allocation.Baseline -> allocation.register + scratchWordCount + hiddenWordCount
@@ -255,7 +194,7 @@ internal object ScratchRegisterAllocator {
     private fun directInstruction(source: Instruction, registers: List<Int>): Instruction? {
         if (source is RegisterRangeInstruction && !registersAreContiguous(registers)) return null
         try {
-            return rebuildInstruction(source, registers)
+            return source.withRegisters(registers)
         } catch (_: IllegalArgumentException) {
             // The source format cannot encode the selected physical registers. Try its legal wider form.
         }
@@ -272,7 +211,7 @@ internal object ScratchRegisterAllocator {
         }
         val rangeOpcode = RANGE_OPCODES[source.opcode]
         if (rangeOpcode != null && registersAreContiguous(registers)) {
-            return rangeInstruction(source, rangeOpcode, registers)
+            return source.toRangeForm(rangeOpcode, registers)
         }
         return null
     }
@@ -316,7 +255,7 @@ internal object ScratchRegisterAllocator {
             }
             temporary += operand.kind.width
         }
-        val operation = rebuildInstruction(source, temporaryRegisters)
+        val operation = source.withRegisters(temporaryRegisters)
         return Expansion(prelude + operation + postlude, prelude.size)
     }
 
@@ -336,7 +275,7 @@ internal object ScratchRegisterAllocator {
             sourceWord += operand.kind.width
             temporary += operand.kind.width
         }
-        val operation = rebuildInstruction(source, operationRegisters)
+        val operation = source.withRegisters(operationRegisters)
         return Expansion(prelude + operation, prelude.size)
     }
 
@@ -449,151 +388,6 @@ internal object ScratchRegisterAllocator {
         else -> error("Unsupported debug item type: ${item.javaClass.name}")
     }
 
-    private fun encodedRegisters(instruction: Instruction): List<Int> = when (instruction) {
-        is FiveRegisterInstruction -> listOf(
-            instruction.registerC,
-            instruction.registerD,
-            instruction.registerE,
-            instruction.registerF,
-            instruction.registerG,
-        ).take(instruction.registerCount)
-        is RegisterRangeInstruction -> List(instruction.registerCount) { instruction.startRegister + it }
-        is ThreeRegisterInstruction -> listOf(instruction.registerA, instruction.registerB, instruction.registerC)
-        is TwoRegisterInstruction -> listOf(instruction.registerA, instruction.registerB)
-        is OneRegisterInstruction -> listOf(instruction.registerA)
-        else -> emptyList()
-    }
-
-    @Suppress("ComplexMethod", "LongMethod")
-    private fun rebuildInstruction(source: Instruction, registers: List<Int>): Instruction = when (source) {
-        is Instruction10x -> ImmutableInstruction10x(source.opcode)
-        is Instruction10t -> ImmutableInstruction10t(source.opcode, source.codeOffset)
-        is Instruction11n -> ImmutableInstruction11n(source.opcode, registers[0], source.narrowLiteral)
-        is Instruction11x -> ImmutableInstruction11x(source.opcode, registers[0])
-        is Instruction12x -> ImmutableInstruction12x(source.opcode, registers[0], registers[1])
-        is Instruction20bc -> ImmutableInstruction20bc(source.opcode, source.verificationError, source.reference)
-        is Instruction20t -> ImmutableInstruction20t(source.opcode, source.codeOffset)
-        is Instruction21c -> ImmutableInstruction21c(source.opcode, registers[0], source.reference)
-        is Instruction21ih -> ImmutableInstruction21ih(source.opcode, registers[0], source.narrowLiteral)
-        is Instruction21lh -> ImmutableInstruction21lh(source.opcode, registers[0], source.wideLiteral)
-        is Instruction21s -> ImmutableInstruction21s(source.opcode, registers[0], source.narrowLiteral)
-        is Instruction21t -> ImmutableInstruction21t(source.opcode, registers[0], source.codeOffset)
-        is Instruction22b -> ImmutableInstruction22b(
-            source.opcode,
-            registers[0],
-            registers[1],
-            source.narrowLiteral,
-        )
-        is Instruction22c -> ImmutableInstruction22c(source.opcode, registers[0], registers[1], source.reference)
-        is Instruction22cs -> ImmutableInstruction22cs(source.opcode, registers[0], registers[1], source.fieldOffset)
-        is Instruction22s -> ImmutableInstruction22s(
-            source.opcode,
-            registers[0],
-            registers[1],
-            source.narrowLiteral,
-        )
-        is Instruction22t -> ImmutableInstruction22t(source.opcode, registers[0], registers[1], source.codeOffset)
-        is Instruction22x -> ImmutableInstruction22x(source.opcode, registers[0], registers[1])
-        is Instruction23x -> ImmutableInstruction23x(source.opcode, registers[0], registers[1], registers[2])
-        is Instruction30t -> ImmutableInstruction30t(source.opcode, source.codeOffset)
-        is Instruction31c -> ImmutableInstruction31c(source.opcode, registers[0], source.reference)
-        is Instruction31i -> ImmutableInstruction31i(source.opcode, registers[0], source.narrowLiteral)
-        is Instruction31t -> ImmutableInstruction31t(source.opcode, registers[0], source.codeOffset)
-        is Instruction32x -> ImmutableInstruction32x(source.opcode, registers[0], registers[1])
-        is Instruction35c -> ImmutableInstruction35c(
-            source.opcode,
-            source.registerCount,
-            registers.getOrElse(0) { 0 },
-            registers.getOrElse(1) { 0 },
-            registers.getOrElse(2) { 0 },
-            registers.getOrElse(3) { 0 },
-            registers.getOrElse(4) { 0 },
-            source.reference,
-        )
-        is Instruction35mi -> ImmutableInstruction35mi(
-            source.opcode,
-            source.registerCount,
-            registers.getOrElse(0) { 0 },
-            registers.getOrElse(1) { 0 },
-            registers.getOrElse(2) { 0 },
-            registers.getOrElse(3) { 0 },
-            registers.getOrElse(4) { 0 },
-            source.inlineIndex,
-        )
-        is Instruction35ms -> ImmutableInstruction35ms(
-            source.opcode,
-            source.registerCount,
-            registers.getOrElse(0) { 0 },
-            registers.getOrElse(1) { 0 },
-            registers.getOrElse(2) { 0 },
-            registers.getOrElse(3) { 0 },
-            registers.getOrElse(4) { 0 },
-            source.vtableIndex,
-        )
-        is Instruction3rc -> ImmutableInstruction3rc(
-            source.opcode,
-            registers.firstOrNull() ?: source.startRegister,
-            source.registerCount,
-            source.reference,
-        )
-        is Instruction3rmi -> ImmutableInstruction3rmi(
-            source.opcode,
-            registers.firstOrNull() ?: source.startRegister,
-            source.registerCount,
-            source.inlineIndex,
-        )
-        is Instruction3rms -> ImmutableInstruction3rms(
-            source.opcode,
-            registers.firstOrNull() ?: source.startRegister,
-            source.registerCount,
-            source.vtableIndex,
-        )
-        is Instruction45cc -> ImmutableInstruction45cc(
-            source.opcode,
-            source.registerCount,
-            registers.getOrElse(0) { 0 },
-            registers.getOrElse(1) { 0 },
-            registers.getOrElse(2) { 0 },
-            registers.getOrElse(3) { 0 },
-            registers.getOrElse(4) { 0 },
-            source.reference,
-            source.reference2,
-        )
-        is Instruction4rcc -> ImmutableInstruction4rcc(
-            source.opcode,
-            registers.firstOrNull() ?: source.startRegister,
-            source.registerCount,
-            source.reference,
-            source.reference2,
-        )
-        is Instruction51l -> ImmutableInstruction51l(source.opcode, registers[0], source.wideLiteral)
-        else -> ImmutableInstruction.of(source)
-    }
-
-    private fun rangeInstruction(source: Instruction, opcode: Opcode, registers: List<Int>): Instruction = when (source) {
-        is Instruction35c -> ImmutableInstruction3rc(opcode, registers.firstOrNull() ?: 0, registers.size, source.reference)
-        is Instruction35mi -> ImmutableInstruction3rmi(
-            opcode,
-            registers.firstOrNull() ?: 0,
-            registers.size,
-            source.inlineIndex,
-        )
-        is Instruction35ms -> ImmutableInstruction3rms(
-            opcode,
-            registers.firstOrNull() ?: 0,
-            registers.size,
-            source.vtableIndex,
-        )
-        is Instruction45cc -> ImmutableInstruction4rcc(
-            opcode,
-            registers.firstOrNull() ?: 0,
-            registers.size,
-            source.reference,
-            source.reference2,
-        )
-        else -> error("No range form for ${source.opcode}")
-    }
-
     private fun moveInstruction(kind: Kind, destination: Int, source: Int): Instruction {
         val opcodes = when (kind) {
             Kind.NARROW -> Triple(Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16)
@@ -658,7 +452,7 @@ internal object ScratchRegisterAllocator {
             val descriptor = (instruction as com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction)
                 .reference.let { it as TypeReference }.type
             val kind = kindOfDescriptor(descriptor.removePrefix("["))
-            return List(encodedRegisters(instruction).size) { read(kind) }
+            return List(instruction.registerOperands().size) { read(kind) }
         }
         val reference = (instruction as? com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction)?.reference
         if (instruction.opcode == Opcode.INVOKE_POLYMORPHIC ||
@@ -680,7 +474,7 @@ internal object ScratchRegisterAllocator {
                 reference.parameterTypes.forEach { descriptor -> add(read(kindOfDescriptor(descriptor.toString()))) }
             }
         }
-        return List(encodedRegisters(instruction).size) { read(Kind.NARROW) }
+        return List(instruction.registerOperands().size) { read(Kind.NARROW) }
     }
 
     private fun registerKindHints(
@@ -964,7 +758,7 @@ internal object ScratchRegisterAllocator {
                 is LogicalRegister.Allocation.Baseline -> allocation.register
                 is LogicalRegister.Allocation.Scratch -> body.registerCount + allocation.offset
             }
-        } ?: encodedRegisters(record.instruction)
+        } ?: record.instruction.registerOperands()
 
     private fun unaryOperands(opcode: Opcode): List<Operand> {
         val (destination, source) = when (opcode) {
