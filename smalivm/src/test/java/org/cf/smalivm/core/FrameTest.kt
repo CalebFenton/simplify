@@ -4,6 +4,8 @@ import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -401,5 +403,33 @@ class FrameTest {
         val forked = f.copy()
         forked.writeArrayElement(ref, 0, Value.Known(7, int))
         assertEquals(Value.Known(0, int), f.arrayAt(ref)!!.element(0))
+    }
+
+    @Test
+    fun opArmReconciliationKeepsTheStaticOwnerThatTheCallPartitionMergeKeeps() {
+        // Oracle: `ClassInitStore.merge` is the one rule for joining static cells across paths. A host
+        // projection every arm holds unchanged stays host-owned; an arm that wrote the field makes it guest-owned.
+        val descriptor = "Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;"
+        val type = VirtualType.of("Ljava/lang/Boolean;")
+        val projected = Value.Known(java.lang.Boolean.TRUE, type)
+        val source = frame()
+        source.writeHostProjection(descriptor, projected)
+        val footprint = ReconciliationFootprint(
+            persistentSetOf(),
+            persistentMapOf(),
+            persistentMapOf(),
+            persistentSetOf(descriptor),
+        )
+
+        val untouched = source.reconcileOpArms(listOf(source.copyForOpArm(), source.copyForOpArm()), footprint, classIndex)
+        assertEquals(
+            StaticCell(projected, StaticCellProvenance.HOST_PROJECTION),
+            untouched.frame.staticCell(descriptor),
+        )
+
+        val writer = source.copyForOpArm()
+        writer.writeStaticField(descriptor, projected)
+        val written = source.reconcileOpArms(listOf(source.copyForOpArm(), writer), footprint, classIndex)
+        assertEquals(StaticCell(projected, StaticCellProvenance.GUEST_WRITE), written.frame.staticCell(descriptor))
     }
 }
