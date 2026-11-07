@@ -10,13 +10,13 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class DexReferenceLimitsTest {
+class DexLimitsTest {
     @Test
     fun indexedSectionsAccept65536ItemsAndReject65537() {
         for (section in listOf("type_ids", "proto_ids", "field_ids", "method_ids")) {
-            assertNull(DexReferenceLimits.validateIndexedSection(section, 65_535))
-            assertNull(DexReferenceLimits.validateIndexedSection(section, 65_536))
-            val rejected = DexReferenceLimits.validateIndexedSection(section, 65_537)
+            assertNull(DexLimits.validateIndexedSection(section, 65_535))
+            assertNull(DexLimits.validateIndexedSection(section, 65_536))
+            val rejected = DexLimits.validateIndexedSection(section, 65_537)
             assertTrue(rejected is MethodEditRejectionReason.DexReferenceLimit)
             assertEquals(section, rejected?.section)
         }
@@ -24,19 +24,19 @@ class DexReferenceLimitsTest {
 
     @Test
     fun typeListProjectionIncludesHeadersEntriesAndFourByteAlignment() {
-        assertEquals(28L, DexReferenceLimits.encodedTypeListDataSize(listOf(0, 1, 2, 3)))
+        assertEquals(28L, DexLimits.encodedTypeListDataSize(listOf(0, 1, 2, 3)))
         assertEquals(
             0xffff_fffcL,
-            DexReferenceLimits.encodedTypeListDataSize(listOf(2_147_483_644)),
+            DexLimits.encodedTypeListDataSize(listOf(2_147_483_644)),
         )
         assertEquals(
             0x1_0000_0000L,
-            DexReferenceLimits.encodedTypeListDataSize(listOf(2_147_483_645)),
+            DexLimits.encodedTypeListDataSize(listOf(2_147_483_645)),
         )
-        assertNull(DexReferenceLimits.validateTypeListDataSize(0xffff_ffffL))
+        assertNull(DexLimits.validateTypeListDataSize(0xffff_ffffL))
         assertEquals(
             "type_list",
-            DexReferenceLimits.validateTypeListDataSize(0x1_0000_0000L)?.section,
+            DexLimits.validateTypeListDataSize(0x1_0000_0000L)?.section,
         )
     }
 
@@ -60,7 +60,7 @@ class DexReferenceLimitsTest {
 
         for ((section, references) in cases) {
             val closure = DexReferenceClosure.fromReferences(references)
-            assertEquals(section, DexReferenceLimits.validate(closure, emptyList())?.section)
+            assertEquals(section, DexLimits.validate(closure, emptyList())?.section)
         }
     }
 

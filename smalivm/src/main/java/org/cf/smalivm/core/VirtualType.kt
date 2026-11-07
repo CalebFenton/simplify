@@ -29,7 +29,7 @@ class VirtualType private constructor(val descriptor: String) {
         private const val PRIMITIVE_CODES = "ZBSCIJFD"
 
         /** Dex format, TypeDescriptor: an array descriptor has at most 255 dimensions. */
-        private const val MAX_ARRAY_DIMENSIONS = 255
+        internal const val MAX_ARRAY_DIMENSIONS = 255
 
         val OBJECT: VirtualType = VirtualType("Ljava/lang/Object;")
 

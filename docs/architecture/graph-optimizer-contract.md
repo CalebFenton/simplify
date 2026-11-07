@@ -22,6 +22,8 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
   control targets, and DEX references. Addresses refer to its original method body; control targets use
   transaction-owned `PendingCodeAnchor` values, not mutable `MethodLocation` objects.
 - `commit()` returns `Committed`, `Unchanged`, or `Rejected`. Rejection and `discard()` publish nothing.
+  `commit()` is the only validation gate: a `Rejected` reason names the rule the edit breaks, and
+  publication rechecks only snapshot identity and revision order.
   A committed result supplies the new `editedMethodView`. Re-execute it before another analysis-based
   rewrite. Existing graphs retain their original method structure and results.
 - `ProgramDexWriter.write(services.currentSnapshot, outputFile)` serializes the same code that fresh

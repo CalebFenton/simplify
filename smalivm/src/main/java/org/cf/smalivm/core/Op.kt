@@ -976,26 +976,19 @@ internal object OpBuilder {
     // bits and mistag as `I` without throwing.
     private val NOP_OPCODES = setOf(Opcode.NOP)
     private val THROW_OPCODES = setOf(Opcode.THROW)
-    private val GOTO_OPCODES = setOf(Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32)
+    private val GOTO_OPCODES = OpcodeGroups.GOTO
 
-    /**
-     * All twelve `if-*` opcodes, both shapes in one set because both build the same op. Ordered
-     * `22t` then `21t` so the pairing is readable; `build` dispatches on membership, not on order.
-     */
-    private val IF_OPCODES = setOf(
-        Opcode.IF_EQ, Opcode.IF_NE, Opcode.IF_LT, Opcode.IF_GE, Opcode.IF_GT, Opcode.IF_LE,
-        Opcode.IF_EQZ, Opcode.IF_NEZ, Opcode.IF_LTZ, Opcode.IF_GEZ, Opcode.IF_GTZ, Opcode.IF_LEZ,
-    )
+    /** All twelve `if-*` opcodes, both shapes in one set because both build the same op. */
+    private val IF_OPCODES = OpcodeGroups.CONDITIONAL_BRANCH
     /**
      * The two `31t` switches. **The two PAYLOAD opcodes are deliberately not here** -- they are data, not
-     * code ([CON] B22, and [MethodView.PAYLOAD_OPCODES] is the one shared set that says which opcodes are
+     * code ([CON] B22, and [OpcodeGroups.PAYLOAD] is the one shared set that says which opcodes are
      * payloads), so they must stay unsupported for the same reason `ARRAY_PAYLOAD` does: dispatching one
      * would give a payload an executable meaning, which is exactly what decoding the table at build time
      * removes. `OpBuilderTest` asserts their absence positively.
      */
-    private val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
-    private val RETURN_OPCODES =
-        setOf(Opcode.RETURN_VOID, Opcode.RETURN, Opcode.RETURN_WIDE, Opcode.RETURN_OBJECT)
+    private val SWITCH_OPCODES = OpcodeGroups.SWITCH
+    private val RETURN_OPCODES = OpcodeGroups.RETURN
     private val MOVE_OPCODES = setOf(
         Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16,
         Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16,

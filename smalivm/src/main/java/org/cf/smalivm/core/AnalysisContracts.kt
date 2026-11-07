@@ -269,7 +269,7 @@ interface ExecutionGraphView {
      * strategy as the consumer that would need it), but a decode-time view is not what a consumer reads:
      * [ExecutionGraphView] is, and it had no payload query at all. A projection convention in the
      * differential harness protects no real consumer either. So this delegates to the [MethodView] the
-     * graph already holds -- one answer, one owner, `MethodView.PAYLOAD_OPCODES` -- rather than
+     * graph already holds -- one answer, one owner, `OpcodeGroups.PAYLOAD` -- rather than
      * introducing a second notion of "which addresses are data".
      *
      * **Static, and deliberately ungated.** It reads the decoded instruction and no node, so it is

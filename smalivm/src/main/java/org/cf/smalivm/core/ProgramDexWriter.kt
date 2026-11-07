@@ -7,14 +7,6 @@ import java.nio.file.StandardCopyOption
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.base.BaseExceptionHandler
 import com.android.tools.smali.dexlib2.base.BaseTryBlock
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction20bc
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction22c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction31c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction45cc
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction4rcc
 import com.android.tools.smali.dexlib2.iface.ExceptionHandler
 import com.android.tools.smali.dexlib2.iface.MethodImplementation
 import com.android.tools.smali.dexlib2.iface.TryBlock
@@ -22,15 +14,6 @@ import com.android.tools.smali.dexlib2.iface.debug.DebugItem
 import com.android.tools.smali.dexlib2.iface.debug.SetSourceFile
 import com.android.tools.smali.dexlib2.iface.debug.StartLocal
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
-import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction20bc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction21c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction22c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction31c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction3rc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction45cc
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction4rcc
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodProtoReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
@@ -176,7 +159,7 @@ class ProgramDexWriter {
             "Program snapshot has an incorrect call-site reference closure"
         }
         if (snapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING) {
-            check(supplied.strings.size <= MAX_NON_JUMBO_STRING_COUNT) {
+            check(supplied.strings.size <= DexLimits.MAX_NON_JUMBO_STRING_COUNT) {
                 "Program snapshot exceeds the const-string index limit without jumbo encoding"
             }
         }
@@ -189,10 +172,6 @@ class ProgramDexWriter {
                 },
             ) { "Program snapshot requires jumbo strings but contains a const-string instruction" }
         }
-    }
-
-    private companion object {
-        const val MAX_NON_JUMBO_STRING_COUNT = 65_536
     }
 
     private fun reboundImplementation(builder: DexBuilder, body: MethodBody): MethodImplementation {
@@ -209,6 +188,11 @@ class ProgramDexWriter {
         }
     }
 
+    /**
+     * dexlib2 merges adjacent try items whose handler lists are equal, which would rejoin ranges the layout split at
+     * the 16-bit `insn_count` limit. Handlers compare by identity so no two try items share a list:
+     * [lastHandlerListOffset] encodes one handler list per try item for the same reason.
+     */
     private fun reboundTryBlock(
         builder: DexBuilder,
         source: TryBlock<out ExceptionHandler>,
@@ -231,51 +215,54 @@ class ProgramDexWriter {
         }
     }
 
-    private fun reboundInstruction(builder: DexBuilder, instruction: Instruction): Instruction {
-        if (instruction !is ReferenceInstruction) return instruction
-        val reference = builder.internReference(instruction.reference)
-        return when (instruction) {
-            is Instruction45cc -> BuilderInstruction45cc(
-                instruction.opcode,
-                instruction.registerCount,
-                instruction.registerC,
-                instruction.registerD,
-                instruction.registerE,
-                instruction.registerF,
-                instruction.registerG,
-                reference,
-                builder.internReference(instruction.reference2),
-            )
-            is Instruction4rcc -> BuilderInstruction4rcc(
-                instruction.opcode,
-                instruction.startRegister,
-                instruction.registerCount,
-                reference,
-                builder.internReference(instruction.reference2),
-            )
-            is Instruction20bc -> BuilderInstruction20bc(
-                instruction.opcode, instruction.verificationError, reference,
-            )
-            is Instruction21c -> BuilderInstruction21c(instruction.opcode, instruction.registerA, reference)
-            is Instruction22c -> BuilderInstruction22c(
-                instruction.opcode, instruction.registerA, instruction.registerB, reference,
-            )
-            is Instruction31c -> BuilderInstruction31c(instruction.opcode, instruction.registerA, reference)
-            is Instruction35c -> BuilderInstruction35c(
-                instruction.opcode,
-                instruction.registerCount,
-                instruction.registerC,
-                instruction.registerD,
-                instruction.registerE,
-                instruction.registerF,
-                instruction.registerG,
-                reference,
-            )
-            is Instruction3rc -> BuilderInstruction3rc(
-                instruction.opcode, instruction.startRegister, instruction.registerCount, reference,
-            )
-            else -> error("Unsupported reference instruction format: ${instruction.opcode.format}")
+    internal companion object {
+        /**
+         * The largest `handler_off` this writer emits for [tryBlocks]: the byte offset of the last try item's handler
+         * list inside `encoded_catch_handler_list`, given each type's index in the sorted `type_ids`. Null when a
+         * handler type has no index.
+         */
+        fun lastHandlerListOffset(tryBlocks: List<TryBlock<out ExceptionHandler>>, typeIndexes: Map<String, Int>): Long? {
+            var offset = unsignedLeb128Size(tryBlocks.size).toLong()
+            var lastOffset = offset
+            for (block in tryBlocks) {
+                lastOffset = offset
+                val handlers = block.exceptionHandlers
+                val typedCount = handlers.count { it.exceptionType != null }
+                offset += signedLeb128Size(if (handlers.any { it.exceptionType == null }) -typedCount else typedCount)
+                for (handler in handlers) {
+                    val type = handler.exceptionType
+                    if (type != null) offset += unsignedLeb128Size(typeIndexes[type] ?: return null)
+                    offset += unsignedLeb128Size(handler.handlerCodeAddress)
+                }
+            }
+            return lastOffset
         }
+
+        private fun unsignedLeb128Size(value: Int): Int {
+            var remaining = value
+            var size = 1
+            while (remaining ushr 7 != 0) {
+                remaining = remaining ushr 7
+                size++
+            }
+            return size
+        }
+
+        private fun signedLeb128Size(value: Int): Int {
+            var remaining = value
+            var size = 0
+            do {
+                val byte = remaining and 0x7f
+                remaining = remaining shr 7
+                size++
+            } while (!((remaining == 0 && byte and 0x40 == 0) || (remaining == -1 && byte and 0x40 != 0)))
+            return size
+        }
+    }
+
+    private fun reboundInstruction(builder: DexBuilder, instruction: Instruction): Instruction {
+        val references = instruction.referenceOperands()
+        return if (references.isEmpty()) instruction else instruction.withReferences(references.map(builder::internReference))
     }
 
     private fun reboundDebugItem(builder: DexBuilder, item: DebugItem): DebugItem = when (item) {

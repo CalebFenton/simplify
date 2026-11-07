@@ -46,7 +46,7 @@ internal data class DraftTryRegionSpec(
 internal class MethodBodyDraft private constructor(
     private val body: MethodBody,
 ) {
-    val instructionCount: Int get() = body.instructions.count { it.instruction.opcode !in MethodView.PAYLOAD_OPCODES }
+    val instructionCount: Int get() = body.instructions.count { it.instruction.opcode !in OpcodeGroups.PAYLOAD }
 
     fun toLogicalBody(): MethodBody = body
 
@@ -121,7 +121,7 @@ internal class MethodBodyDraft private constructor(
             records.forEachIndexed { ordinal, record ->
                 val target = record.template.target ?: return@forEachIndexed
                 provisionalTargets[ordinal] = requireNotNull(anchorOrdinals[target])
-                if (record.template.instruction.opcode in SWITCH_OPCODES) {
+                if (record.template.instruction.opcode in OpcodeGroups.SWITCH) {
                     provisionalSwitchCases[ordinal] = record.template.switchCases.map { case ->
                         case.key to requireNotNull(anchorOrdinals[case.target])
                     }
@@ -131,16 +131,16 @@ internal class MethodBodyDraft private constructor(
             val baselineOpcodesByPosition = baseline.associate { it.position to it.instruction.opcode }
             val baselinePayloadOwners = baselineBody.controlTargets.entries
                 .filter { (source) ->
-                    baselineOpcodesByPosition[source] in PAYLOAD_OWNER_OPCODES
+                    baselineOpcodesByPosition[source] in OpcodeGroups.PAYLOAD_OWNER
                 }
                 .groupBy(keySelector = Map.Entry<LogicalCodePosition, LogicalCodePosition>::value)
             val targetedPayloadOrdinals = provisionalTargets.entries.mapNotNullTo(hashSetOf()) { (source, target) ->
-                target.takeIf { records[source].template.instruction.opcode in PAYLOAD_OWNER_OPCODES }
+                target.takeIf { records[source].template.instruction.opcode in OpcodeGroups.PAYLOAD_OWNER }
             }
             val removedPayloadOrdinals = records.mapIndexedNotNullTo(hashSetOf()) { ordinal, record ->
                 val position = record.baselinePosition ?: return@mapIndexedNotNullTo null
                 if (
-                    record.template.instruction.opcode in MethodView.PAYLOAD_OPCODES &&
+                    record.template.instruction.opcode in OpcodeGroups.PAYLOAD &&
                     baselinePayloadOwners[position].orEmpty().isNotEmpty() &&
                     ordinal !in targetedPayloadOrdinals
                 ) {
@@ -268,13 +268,6 @@ internal class MethodBodyDraft private constructor(
             MethodBodyDraft(resolved.body),
             resolved.positionsByPendingAnchor,
         )
-
-        private val PAYLOAD_OWNER_OPCODES = setOf(
-            Opcode.FILL_ARRAY_DATA,
-            Opcode.PACKED_SWITCH,
-            Opcode.SPARSE_SWITCH,
-        )
-        private val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
     }
 }
 

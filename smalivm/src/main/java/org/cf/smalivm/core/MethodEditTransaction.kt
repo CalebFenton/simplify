@@ -145,8 +145,8 @@ class MethodEditTransaction internal constructor(
 
     fun reserveScratchRegisters(wordCount: Int): ScratchRegisterRange {
         ensureOpen()
-        require(wordCount in 1..MAX_REGISTER_COUNT) {
-            "Scratch-register word count must be in 1..$MAX_REGISTER_COUNT: $wordCount"
+        require(wordCount in 1..DexLimits.MAX_REGISTER_COUNT) {
+            "Scratch-register word count must be in 1..${DexLimits.MAX_REGISTER_COUNT}: $wordCount"
         }
         check(scratchWordCount <= Int.MAX_VALUE - wordCount) { "Scratch-register reservation count overflow" }
         val firstOffset = scratchWordCount
@@ -311,8 +311,9 @@ class MethodEditTransaction internal constructor(
             finish(MethodEditTransactionState.UNCHANGED)
             return MethodEditCommitResult.Unchanged
         }
+        // The draft drops inherited ranges that collapse, so malformed inherited ranges are rejected first.
         if (submittedTryRegions == null) {
-            MethodEditValidator.validateInheritedMetadata(requireNotNull(baselineBody))?.let { return reject(it) }
+            MethodEditValidator.validateLogicalBody(requireNotNull(baselineBody))?.let { return reject(it) }
         }
 
         val resolvedEdit = MethodBodyDraft.resolve(
@@ -351,17 +352,13 @@ class MethodEditTransaction internal constructor(
             currentMethod.methodSignature,
             logicalCandidateReferences,
         )
-        DexReferenceLimits.validate(projectedReferences, currentSnapshot.applicationClasses.values)?.let {
+        DexLimits.validate(projectedReferences, currentSnapshot.applicationClasses.values)?.let {
             return reject(it)
         }
-        val candidateEncoding = if (
-            currentSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING_JUMBO ||
-            projectedReferences.strings.size > MAX_NON_JUMBO_STRING_COUNT
-        ) {
-            StringInstructionEncoding.CONST_STRING_JUMBO
-        } else {
-            StringInstructionEncoding.CONST_STRING
-        }
+        val candidateEncoding = DexLimits.stringEncoding(
+            projectedReferences.strings.size,
+            currentSnapshot.stringInstructionEncoding,
+        )
         val triggersJumboRelayout =
             currentSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING &&
                 candidateEncoding == StringInstructionEncoding.CONST_STRING_JUMBO
@@ -463,25 +460,6 @@ class MethodEditTransaction internal constructor(
             commands.filterIsInstance<EditCommand.Insert>().flatMapTo(this) { it.anchors }
         }
         submittedTryRegions?.forEach { region ->
-            if (region.catchHandlers.isEmpty()) {
-                return CommandIndexResult.Rejected(
-                    MethodEditRejectionReason.InvalidTryRegion(
-                        "A protected range has no exception handler",
-                    ),
-                )
-            }
-            val catchAllIndexes = region.catchHandlers.mapIndexedNotNull { index, handler ->
-                index.takeIf { handler is CatchHandlerSpec.CatchAll }
-            }
-            if (catchAllIndexes.size > 1 ||
-                (catchAllIndexes.isNotEmpty() && catchAllIndexes.single() != region.catchHandlers.lastIndex)
-            ) {
-                return CommandIndexResult.Rejected(
-                    MethodEditRejectionReason.InvalidTryRegion(
-                        "A catch-all handler must be unique and last",
-                    ),
-                )
-            }
             val anchors = buildList {
                 add(region.start)
                 add(region.end)
@@ -594,17 +572,15 @@ class MethodEditTransaction internal constructor(
             .filter { method ->
                 method.methodSignature != targetSignature && method.body?.hasConstStringInstruction == true
             }
+        // Re-encoding const-string as const-string/jumbo changes only operand widths, so register flow and
+        // logical shape are unchanged; the relayout needs layout validation only.
         for (method in collateralMethods) {
             val layout = MethodLayoutSolver.solve(requireNotNull(method.body), encoding)
             MethodEditValidator.validateLayout(layout, snapshot, projectedReferences)?.let {
                 return PreparedMethodsResult.Rejected(it)
             }
             val body = MethodBodyAssembler.assemble(layout)
-            val candidate = ApplicationMethodDefinitionCandidate.from(method, body, snapshot.hierarchy)
-            MethodEditValidator.validateApplicationMethodDefinitionCandidate(candidate, snapshot)?.let {
-                return PreparedMethodsResult.Rejected(it)
-            }
-            prepared += PreparedMethod(candidate)
+            prepared += PreparedMethod(ApplicationMethodDefinitionCandidate.from(method, body, snapshot.hierarchy))
         }
         return PreparedMethodsResult.Accepted(prepared)
     }
@@ -676,7 +652,7 @@ class MethodEditTransaction internal constructor(
             }
             when (template) {
                 is InstructionTemplate.Encoded -> {
-                    if (instruction is OffsetInstruction || instruction.opcode in MethodView.PAYLOAD_OPCODES) {
+                    if (instruction is OffsetInstruction || instruction.opcode in OpcodeGroups.PAYLOAD) {
                         return invalidTemplate("Encoded templates cannot contain offsets or payload data")
                     }
                     instructions += DraftInstructionTemplate(
@@ -686,7 +662,7 @@ class MethodEditTransaction internal constructor(
                     )
                 }
                 is InstructionTemplate.Branch -> {
-                    if (instruction.opcode !in BRANCH_OPCODES) {
+                    if (instruction.opcode !in OpcodeGroups.BRANCH) {
                         return invalidTemplate("Branch templates require a conditional or goto instruction")
                     }
                     invalidTarget(template.target, knownAnchors)?.let { return TemplateResolution.Rejected(it) }
@@ -710,7 +686,7 @@ class MethodEditTransaction internal constructor(
                     )
                 }
                 is InstructionTemplate.Switch -> {
-                    if (instruction.opcode !in SWITCH_OPCODES) {
+                    if (instruction.opcode !in OpcodeGroups.SWITCH) {
                         return invalidTemplate("Switch templates require a packed-switch or sparse-switch instruction")
                     }
                     invalidTarget(template.payloadTarget, knownAnchors)?.let {
@@ -728,7 +704,7 @@ class MethodEditTransaction internal constructor(
                     )
                 }
                 is InstructionTemplate.Payload -> {
-                    if (instruction.opcode !in MethodView.PAYLOAD_OPCODES) {
+                    if (instruction.opcode !in OpcodeGroups.PAYLOAD) {
                         return invalidTemplate("Payload templates require array or switch payload data")
                     }
                     instructions += DraftInstructionTemplate(instruction, referenceOperands = referenceOperands)
@@ -855,28 +831,5 @@ class MethodEditTransaction internal constructor(
 
     private fun ensureOpen() {
         check(state == MethodEditTransactionState.OPEN) { "Method edit transaction is already closed: $state" }
-    }
-
-    private companion object {
-        const val MAX_NON_JUMBO_STRING_COUNT = 65_536
-        const val MAX_REGISTER_COUNT = 65_535
-        val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
-        val BRANCH_OPCODES = setOf(
-            Opcode.GOTO,
-            Opcode.GOTO_16,
-            Opcode.GOTO_32,
-            Opcode.IF_EQ,
-            Opcode.IF_NE,
-            Opcode.IF_LT,
-            Opcode.IF_GE,
-            Opcode.IF_GT,
-            Opcode.IF_LE,
-            Opcode.IF_EQZ,
-            Opcode.IF_NEZ,
-            Opcode.IF_LTZ,
-            Opcode.IF_GEZ,
-            Opcode.IF_GTZ,
-            Opcode.IF_LEZ,
-        )
     }
 }
