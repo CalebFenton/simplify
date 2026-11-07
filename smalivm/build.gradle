@@ -79,8 +79,17 @@ tasks.register('generateFrameworkCatalog') {
     }
 }
 
-sourceSets.main.resources.srcDir(generatedFrameworkCatalogDir)
-tasks.named('processResources') { dependsOn tasks.named('generateFrameworkCatalog') }
+sourceSets.main.resources {
+    srcDir(generatedFrameworkCatalogDir)
+    exclude 'framework/smali/**'
+}
+tasks.named('processResources') {
+    dependsOn tasks.named('generateFrameworkCatalog')
+    from('src/main/resources/framework/smali/android-25') {
+        include '**/*.smali'
+        into 'framework/smali/android-25'
+    }
+}
 
 dependencies {
     api 'com.android.tools.smali:smali-dexlib2:3.0.10'

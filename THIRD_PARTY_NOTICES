@@ -16,27 +16,27 @@ represented as host-runtime components. Source fixture/tooling notices are a
 separate section. Shipping this legal bundle does not itself ship every component
 listed: the component's terms apply when that component is included.
 
-PUBLICATION BLOCKER: UNRESOLVED ANDROID FRAMEWORK PROVENANCE
-----------------------------------------------------------
+ANDROID FRAMEWORK REFERENCE DATA
+--------------------------------
 The framework corpus at smalivm/src/main/resources/framework/smali/android-25/
-comes from https://github.com/CalebFenton/AndroidFrameworkSmali.git . Its extraction
-instructions describe pulling framework files from a device/emulator, but do not
-identify the source device/system image, build fingerprint, source revisions,
-component license inventory, or redistribution permission for vendor material.
-It includes com/google/android/maps, com/google/android/gsf,
-com/google/android/gtalkservice, com/google/googlenav and com/google/map alongside
-Android/libcore/Java and other namespaces. "android-25" is not evidence that this
-entire corpus is AOSP or Apache-2.0 licensed.
+comes from https://github.com/CalebFenton/AndroidFrameworkSmali.git . Android,
+Java/libcore, and other incorporated components retain their upstream copyright
+and license terms. Simplify's Apache-2.0 license does not relicense this corpus
+or the derived framework/android-framework.jar and framework indexes/catalogs.
+Those terms continue to apply when framework resources accompany a VM or
+application artifact.
 
-The derived smalivm/src/main/resources/framework/android-framework.jar, framework
-index/catalog, SmaliVM JAR and any application artifacts carrying these resources
-remain affected. Neither disassembly nor stub generation establishes permission
-to redistribute the originating material. This bundle deliberately does not
-assign an Apache license to that corpus or its derived stub JAR. Publication of
-artifacts containing it remains blocked until redistributable provenance and
-component notices are established or the corpus and derived outputs are replaced
-with demonstrably redistributable material. An unknown-provenance disclaimer is
-not a substitute for permission.
+The existing API 25 corpus is retained. Its original import was contributed in
+November 2016 at 495030b9fd9aa428662bd5b203b4f2d6d3f04f88. The extraction method
+is recorded, but the exact device/system-image fingerprint and a component
+notice inventory were not recorded with that import. This historical provenance
+limitation is not a determination that the material is unlicensed.
+Import discussion: https://github.com/CalebFenton/AndroidFrameworkSmali/pull/1
+
+New captures made by AndroidFrameworkSmali's generator retain image metadata,
+source hashes and original image notices separately from the generator's own
+license. Keep those records with the corresponding generated framework. A new
+capture does not retroactively identify the image used for the API 25 import.
 
 Host runtime components
 -----------------------
@@ -303,7 +303,7 @@ Immutable source:
 The original source/header is retained unmodified. Full Apache text, tag/blob
 identity and provenance: licenses/aosp-base64/android-7.1.1_r1/ . This replaces
 the old unprovenanced android-local.jar; it is not a claim of byte identity with
-that JAR and does not resolve the separate framework corpus blocker above.
+that JAR and does not establish the historical framework corpus's source image.
 
 Source and example APK fixture attributions
 -------------------------------------------
@@ -370,7 +370,7 @@ These materials are not additional host-runtime Maven dependencies.
    exact version of components without markers. These four mappings and any
    unmarked/shrunk components remain a fixture provenance qualification, not a
    claim that the APK's complete bill of materials has been established.
-   This uncertainty is separate from the framework publication blocker.
+   This uncertainty is separate from the historical framework provenance limits.
 
 3. Gradle wrappers in source distributions
    Root gradlew/gradlew.bat retain their original Apache headers. The current
@@ -396,5 +396,5 @@ Retention and changes
 Preserve this index and the component-specific licenses tree together. Keep both
 Commons notices and all other independent upstream notices even when fat-JAR
 resource names collide. Update coordinates, source provenance and legal assets
-when shipped dependencies or fixture contents change. Unknown provenance is not
-resolved by packaging these notices; the framework publication blocker remains.
+when shipped dependencies or fixture contents change. Preserve original framework
+notices with the generated reference data; this index does not override their terms.

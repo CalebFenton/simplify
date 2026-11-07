@@ -106,6 +106,11 @@ catalog resources during `processResources`, including source hashes and method 
 `updateReferenceFramework` is a separate, mutating maintenance command for the tracked framework
 index/stub JAR. It is not part of ordinary `build` and must not be run as a harmless packaging check.
 
+The submodule's standalone `make_reflib` generator captures a booted emulator's framework separately.
+Its generated captures, Gradle tooling and caches are not runtime resources: `processResources`
+includes only `android-25/**/*.smali` from the submodule. Generating a newer API does not change
+Simplify's selected corpus, catalog API or tracked reference JAR.
+
 The ART assembler uses the same resolved Smali dependency and explicit DEX API level as SmaliVM.
 It asks Gradle for its classpath each time rather than retaining a second dependency cache. Fresh
 runtime comparison remains separate from JVM tests; see `tools/art-runner/` and `tools/emulator/`.
@@ -126,13 +131,12 @@ HTML/XML as a workflow artifact. It needs no external coverage-service credentia
 Travis/Coveralls/Coverity hooks are removed; no coverage-trend or external static-analysis upload
 is claimed. Local workflow validation is not evidence of a successful hosted run.
 
-**Publication is blocked by unresolved Android framework provenance.** The existing framework
-submodule includes Google Maps/GSF/GTalk namespaces but records no source-image fingerprint,
-component source revisions, or redistribution terms. The generated framework stub JAR derives
-from that corpus. An Apache project license does not grant rights to those components.
-Establish their redistributable provenance/notices or replace the corpus with a documented,
-redistributable reference before publishing artifacts. See `THIRD_PARTY_NOTICES` for the inventory.
+The Android framework corpus and derived reference artifacts remain under their upstream terms,
+separate from Simplify's Apache license. The existing API 25 corpus is retained; its original
+source-image fingerprint was not recorded. New framework captures must retain their image metadata,
+source hashes and original notices. See `THIRD_PARTY_NOTICES` for the license boundary and historical
+source information. New capture records do not establish the old corpus's exact source image.
 
-Before release, verify a hosted CI run, resolve the framework publication blocker, review the
-complete public diff and legal bundle, and remove `-SNAPSHOT` only when tagging the release.
+Before release, verify a hosted CI run, review the complete public diff and legal bundle, and remove
+`-SNAPSHOT` only when tagging the release.
 Build tasks do not sign APKs, publish packages, create tags, or push repository history.

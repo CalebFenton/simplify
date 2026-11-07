@@ -248,9 +248,9 @@ There is no separate commercial-license requirement for that code.
 
 Bundled dependencies and third-party source retain their own licenses and attribution requirements.
 See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) and the component texts in [licenses](licenses/).
-The existing Android framework corpus has unresolved redistribution provenance; see the
-[publication requirements](docs/architecture/build-and-distribution.md#ci-and-release-boundary)
-before distributing release artifacts.
+The Android framework corpus and derived reference artifacts are third-party material, not
+relicensed by Simplify's Apache license. Their original terms and notices remain applicable;
+see the framework section of [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
 
 # Further Reading
 
