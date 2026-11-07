@@ -297,50 +297,17 @@ class NewArrayOpTest {
     }
 
     /**
-     * **The length half of the bit-vs-value boundary `Coerce.toProvableInt` draws, and the Critical this fix
-     * closed.** A length register holding `Known(-0.5f, "F")` used to reach `Coerce.toInt`, which truncates BY
-     * VALUE: `(-0.5f).toInt()` is **0**, so the negative-length row's `length < 0` test was FALSE, the op
-     * allocated a **zero-length `[I`** and reported `Complete`. A device reads the register's 32 bits --
-     * `-0.5f` is `0xBF000000`, i.e. **-1090519040** -- and throws `NegativeArraySizeException`. So the old
-     * answer invented a constant no runtime produces, and it invented the most misleading one available: a
-     * fully `Known` empty array, which every later `array-length` folds to 0 and every later `aget`/`aput`
-     * turns into a *definite* bounds exception (`APutOpTest.aZeroLengthArrayCannotBeStoredIntoAtAnyIndexSoTheFallThroughIsInfeasible`
-     * is that row).
-     *
-     * **VERIFIER -> engine's choice**, so spec §2.2 decides it: a float cannot reach a `new-array` size
-     * register in verified dex ([CON] B1's general *"arguments... must always match the instruction"*), so
-     * there is no Dalvik behaviour to match. **No [ART] verifier symbol is named on purpose** -- there is no
-     * `VerifyNewArray` in ART (see [FilledNewArrayOp]'s KDoc, which records the word-boundary grep), and
-     * naming a plausible-looking one is how this plan family shipped an invented citation before.
-     *
-     * **WHICH ASSERTION DISCRIMINATES, and an honest statement of what this fix does NOT do.** The
-     * `CoreTester.test` call is the whole of the fix's witness: pre-fix v0 held `Known(HeapRef, "[I")` for a
-     * length-0 array, so it fails there and passes here. The fork-shape lines below **passed before the fix
-     * too**, and they are kept for a different reason: they pin that a refused length lands on the SAME row an
-     * `Unknown` length lands on ([anUnknownLengthYieldsAnUnknownArrayWithoutForking]), which deliberately does
-     * **not** fork `NegativeArraySizeException`. So this fix removes an invented constant; it does **not** add
-     * the throw. The NASE for a non-provable length remains a knowingly dropped feasible path, filed in
-     * `CARRY-FORWARD.md` under the unknown-length entry, and the measurement that would settle it (counting
-     * `catch (NegativeArraySizeException)` clauses in a real APK) is unchanged by this test.
+     * A length register holding a computed `Float` is read by its 32 bits: `-0.5f` is `0xBF000000`, i.e.
+     * -1090519040, so `new-array` definitely throws `NegativeArraySizeException`. A value conversion would read
+     * length 0 and allocate an empty array that every later `array-length` folds to 0. **VERIFIER**-excluded
+     * input ([CON] B1).
      */
     @Test
-    fun aFloatLengthIsNotProvableRatherThanTruncatedToZero() {
-        val seed = CoreState().apply { setRegisters(0, -0.5f, "F") }
-        val want = CoreState().apply { setRegister(0, Value.Unknown(VirtualType.of("[I"))) }
-        CoreTester.test(CLASS_NAME, "createIntegerArray()V", seed, want)
-        val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", seed)
-        assertEquals(
-            CompletionStatus.Complete, graph.completion(),
-            "and it completes -- a silent zero-length array on a Complete run was the whole defect",
-        )
-        assertEquals(
-            1, graph.nodePile(0).first().children.size,
-            "a refused length takes the unknown-length row, which forks nothing (filed, not fixed here)",
-        )
-        assertTrue(
-            graph.outcomes.filterIsInstance<Outcome.Threw>().isEmpty(),
-            "so no NegativeArraySizeException escapes either -- see this test's KDoc",
-        )
+    fun aFloatLengthIsReadByItsBits() {
+        val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", CoreState().apply { setRegisters(0, -0.5f, "F") })
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf("Ljava/lang/NegativeArraySizeException;"), CoreTester.escapingTypes(graph))
+        assertEquals(1, graph.outcomes.size, "length -1090519040 is definitely negative: $graph")
     }
 
     /**

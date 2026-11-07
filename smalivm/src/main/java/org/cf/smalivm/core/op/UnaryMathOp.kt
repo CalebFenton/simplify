@@ -40,21 +40,9 @@ internal class UnaryMathOp(
     }
 
     /**
-     * Null when the answer is not provable, which is three cases collapsed onto one `return`: an unknown
-     * source, a raw that is not a number, and -- since Plan 8 Task 3 -- a raw whose bits this engine cannot
-     * read at the width the mnemonic names.
-     *
-     * That third case is the `Float`/`Double` raw an `int-*` or `long-*` read lands on. `Coerce.toInt`/
-     * `Coerce.toLong` answer null for it rather than performing a [JLS] §5.1.3 narrowing conversion, because
-     * a device reads the register's BITS: `int-to-float` on a register holding a computed `5.9f` had answered
-     * a confident `Known(5.0f)` where a device converts 1086115021. The rule and its whole argument live in
-     * `Coerce.toInt`'s KDoc; the six reads below inherit it with no local copy, deliberately.
-     *
-     * Every op in this file has exactly one successor, so the refusal explores neither more nor fewer paths
-     * -- it declines a fold the engine was not entitled to make. Pinned by
-     * `core/op/UnaryMathOpTest.anIntToFloatReadingAComputedFloatRawIsNotProvableRatherThanTruncatedByValue`
-     * and, for the separate `Coerce.toLong` route, by
-     * `core/op/UnaryMathOpTest.aLongToIntReadingAComputedDoubleRawIsNotProvableRatherThanTruncatedByValue`.
+     * Null when the source is unknown or not readable at the width the mnemonic's first segment names (see
+     * [Coerce]). The read is by bits and the conversion by value: `int-to-float` of a register holding a
+     * computed `5.9f` converts the int 1086115021, its bit pattern.
      */
     private fun computed(source: Value): Value? {
         if (source !is Value.Known) return null

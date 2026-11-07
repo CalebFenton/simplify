@@ -548,21 +548,6 @@ class NewCoreDifferentialTest {
     }
 
     @Test
-    fun aComputedFloatIsNotNarrowedByValueWhenReadAsIntegralBits() {
-        val fixture = Fixtures.regressions
-            .first { it.fixture.id == "unary-int-to-float-computed-float-raw" }.fixture
-
-        assertEquals(
-            NormalizedValue(ValueKind.UNKNOWN, "F", null),
-            NEW_CORE.run(fixture).registers[0],
-            "the core must refuse -- and refuse as `F`, the destination type the mnemonic names, not as " +
-                "the source register's tag",
-        )
-
-        assertEquals(1086115021, java.lang.Float.floatToRawIntBits(5.9f), "the bits a device reads")
-    }
-
-    @Test
     fun theSynthesizedNpesHandlerReachabilityIsIndependentOfThePrimitiveRegistersValue() {
 
         fun run(descriptor: String) = NEW_CORE.run(

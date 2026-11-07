@@ -262,71 +262,36 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The mirror of [aWideDivisorWhoseLowThirtyTwoBitsAreZeroThrows], and the case asking at the
-         * op's own width still cannot answer: an `I`-domain divide reading a genuinely-computed `Float`
-         * raw. `Coerce.toInt(0.5f)` is `0`, so a width-only zero check answers "definitely throws" and
-         * emits `[Throw]` ALONE -- no `Continue`, on a run that still reports `Complete`.
-         *
-         * Bug class: an unexplored feasible path on a fully-trusted run, the worst outcome this engine
-         * can have (spec 2.2). Oracle: Dalvik, not engine output. `0.5f`'s bit pattern is
-         * `0x3F000000 == 1056964608`, `div-int` reads those 32 bits as an int, and `10 / 1056964608` is
-         * `0` -- no throw at all. The engine cannot model a bit-reinterpreting register read, so the
-         * honest answer is "cannot tell", which forks; hence BOTH outcomes are asserted, the throw
-         * included, because over-approximating is the safe direction and under-approximating is not.
-         *
-         * **No differential can catch this class**: the oracle reaches the same `0` divisor through
-         * `Utils.getIntegerValue` -> `castToPrimitive` -> `intValue()` and throws too, so both engines
-         * drop the same path and agree. This seeded test is the only witness available.
-         *
-         * Reachable through pure smali with this build's opcode set: `div-float` or `int-to-float` puts
-         * a computed `Float` raw in a register and any `div-int` reading it arrives here. Seeded rather
-         * than fixture-driven because the seed is the shorter, more direct statement of the same state;
-         * v1's own tag is `F` while `div-int`'s domain is `I`, which is the cross-domain read itself.
+         * An `I`-domain divide reading a computed `Float` divisor reads its 32 bits: `0.5f` is
+         * `0x3F000000 == 1056964608`, so `10 / 1056964608` is `0` and Dalvik does not throw. A value
+         * conversion would read `0` and route the op to `[Throw]` alone, dropping the normal path on a run
+         * still reporting `Complete`.
          */
         @Test
-        fun anIntDivideReadingAComputedFloatDivisorStillExploresTheNormalPath() {
+        fun anIntDivideReadingAComputedFloatDivisorDividesByItsBits() {
             initial.setRegisters(0, 10, "I", 1, 0.5f, "F")
+            CoreTester.test(CLASS_NAME, "divInt()V", initial, CoreState().apply { setRegisters(0, 0, "I") })
             val graph = CoreTester.execute(CLASS_NAME, "divInt()V", initial)
-            assertEquals(CompletionStatus.Complete, graph.completion(), "neither path aborts: $graph")
-            assertTrue(
-                graph.outcomes.any { it is Outcome.Returned },
-                "Dalvik reads v1 as 1056964608 and does not throw, so the normal path is feasible: $graph",
-            )
-            assertTrue(graph.wasReached(2), "and the fall-through address must actually have run")
-            assertTrue(
-                graph.outcomes.any { it is Outcome.Threw },
-                "the throw is not ruled out either -- unprovable means fork, not choose",
-            )
+            assertEquals(listOf(Outcome.Returned(null)), graph.outcomes, "a non-zero divisor cannot throw: $graph")
         }
 
         /**
-         * The `J` half of [anIntDivideReadingAComputedFloatDivisorStillExploresTheNormalPath], through
-         * [BinaryMathOp.knownDivisor]'s OTHER branch: `Coerce.toLong(0.5)` is `0L`, so `div-long`
-         * reading a computed `Double` pair was routed to `[Throw]` alone in exactly the same way. A
-         * separate domain is a separate feasible-path claim -- a guard applied to only one of the two
-         * branches passes the `I` test above and still drops this path.
-         *
-         * Oracle: `div-long v0, v0, v2` reads the 64 bits at v2/v3, which for `0.5` are
+         * The `J` half: `div-long v0, v0, v2` reads the 64 bits at v2/v3, which for `0.5` are
          * `0x3FE0000000000000 == 4602678819172646912`, so `10 / that` is `0` and Dalvik does not throw.
          */
         @Test
-        fun aLongDivideReadingAComputedDoubleDivisorStillExploresTheNormalPath() {
+        fun aLongDivideReadingAComputedDoubleDivisorDividesByItsBits() {
             initial.setRegisters(0, 10L, "J", 2, 0.5, "D")
+            CoreTester.test(CLASS_NAME, "divLong()V", initial, CoreState().apply { setRegisters(0, 0L, "J") })
             val graph = CoreTester.execute(CLASS_NAME, "divLong()V", initial)
-            assertEquals(CompletionStatus.Complete, graph.completion(), "neither path aborts: $graph")
-            assertTrue(
-                graph.outcomes.any { it is Outcome.Returned },
-                "Dalvik reads v2/v3 as 4602678819172646912 and does not throw: $graph",
-            )
-            assertTrue(graph.wasReached(2), "and the fall-through address must actually have run")
+            assertEquals(listOf(Outcome.Returned(null)), graph.outcomes, "a non-zero divisor cannot throw: $graph")
         }
 
         /**
          * A zero FLOAT divisor produces no fork at all -- one transition, one successor, one outcome.
          * Asserted as fork ARITY rather than as a value (`FloatMath` already pins the Infinity), because
-         * that is the half a domain-agnostic guard would break: `Coerce.toLong(0.5f)` is `0L`, so a
-         * `Long`-typed zero check reached from the float domain fires on divisors that are not zero at
-         * all.
+         * that is the half a domain-agnostic guard would break: `0f`'s bits are an integral zero, so an
+         * integral zero check reached from the float domain would fork a throw float division never makes.
          */
         @Test
         fun aZeroFloatDivisorDoesNotFork() {
@@ -673,38 +638,13 @@ class BinaryMathOpTest {
         }
 
         /**
-         * An `I`-domain operator reading a register whose raw is a genuinely-computed `Float`: the whole
-         * `I` domain of this op, not just the divisor [DivideByZero] already guards.
-         *
-         * Bug class: a confidently wrong `Known`, which is what constant propagation folds into
-         * rewritten bytecode. Oracle: Dalvik, not engine output. `add-int` reads v0's **32 bits** as a
-         * signed int; `5.9f` is `0x40BCCCCD`, i.e. 1086115021, so a device answers `1086115028`.
-         * `Coerce.toInt(5.9f)` performed a [JLS] §5.1.3 narrowing conversion instead and this op answered
-         * a definite `Known(12)`.
-         *
-         * ⚠️ **The justification here was wrong and is retracted, not softened.** It read *"the engine has no
-         * bit view of a register, so 'not provable' is the honest answer"*. The engine DOES have one --
-         * `Float.floatToRawIntBits(5.9f)` is exactly the 1086115021 above -- so `Unknown` is the SAFE answer
-         * rather than the only one, and this test pins a labelled **precision loss**. `Coerce.toInt`'s KDoc
-         * carries the price and the two things that block taking it.
-         *
-         * Which SIDE of the soundness line, stated because over-refusal is the equally-real mirror
-         * defect this plan family shipped twice: `add-int` has exactly one successor whatever it computes
-         * ([BinaryMathOp.canDivideByZero] excludes it), so refusing the value explores neither more nor
-         * fewer paths -- it gives up a fold the engine was never entitled to make. Contrast
-         * [DivideByZero.anIntDivideReadingAComputedFloatDivisorStillExploresTheNormalPath], where the
-         * same refusal has to ADD a transition, because there the narrowed answer had *dropped* one.
-         *
-         * **No differential could have found this**: the oracle narrows identically, through
-         * `Value.toInteger` -> `Utils.getIntegerValue` -> `castToPrimitive` -> `intValue()`, so both
-         * engines answer `Known(12)` and agree while both are wrong. The registry entry is
-         * `unary-int-to-float-computed-float-raw`, one op family over, because the divergence is
-         * `Coerce`'s rather than any single op's.
+         * `add-int` reads v0's 32 bits as a signed int; `5.9f` is `0x40BCCCCD`, i.e. 1086115021, so a device
+         * answers `1086115028`. A [JLS] §5.1.3 value conversion of the raw would answer 12.
          */
         @Test
-        fun anIntDomainOperatorReadingAComputedFloatRawIsNotProvable() {
+        fun anIntDomainOperatorReadingAComputedFloatRawAddsItsBits() {
             initial.setRegisters(0, 5.9f, "F", 1, 7, "I")
-            expected.setRegisters(0, CoreState.UNKNOWN, "I")
+            expected.setRegisters(0, 1086115028, "I")
             CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
         }
 
@@ -1132,16 +1072,10 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The `J`-domain twin of [IntegerMath.anIntDomainOperatorReadingAComputedFloatRawIsNotProvable],
-         * and a **separate claim** rather than a second example: this domain reads through
-         * `Coerce.toLong`, so a refusal covering only the 32-bit read leaves every `*-long` answering
-         * confidently. No review or register entry named the `toLong` sites before this task.
-         *
-         * Oracle: `add-long` reads v0/v1 as 64 bits; `5.9f` occupies 32, so a device's answer depends on
-         * a register this op does not even read -- unmodelable, which is precisely why the answer is
-         * `Unknown` rather than any number. `Coerce.toLong(5.9f)` was `5L`, so this op answered a definite
-         * `Known(12)`. Same side of the line as its `I`-domain twin: `add-long` has one successor either
-         * way, so no path is added or lost and only an unearned fold is given up.
+         * The `J`-domain twin of [IntegerMath.anIntDomainOperatorReadingAComputedFloatRawAddsItsBits], with the
+         * opposite answer: this domain reads through `Coerce.toLong`, which needs all 64 bits of the pair.
+         * `add-long` reads v0/v1 as 64 bits; `5.9f` supplies 32, and the other half is v1, which the engine
+         * does not hold here, so the answer is `Unknown`. A value conversion would answer `Known(12)`.
          */
         @Test
         fun aLongDomainOperatorReadingAComputedFloatRawIsNotProvable() {

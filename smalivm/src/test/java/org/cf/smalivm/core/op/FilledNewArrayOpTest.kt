@@ -521,36 +521,21 @@ class FilledNewArrayOpTest {
     }
 
     /**
-     * **The ELEMENT half of the bit-vs-value boundary `Coerce.toProvableInt` draws** -- the same function
-     * `AGetOp`/`APutOp` reach through `toArrayIndex`, `NewArrayOp` reaches for its length, and `APutOp` reaches
-     * for its stored value, so no array op can answer this question differently from another.
-     *
-     * An `I`-component element register holding `Known(5.9f, "F")` makes THAT SLOT `Unknown(I)`. The rejected
-     * alternative was `Coerce.toInt`, which truncates BY VALUE and made the slot a definite `Known(5, I)` --
-     * while a device reads the register's 32 bits (`5.9f` is `0x40BCCCCD`, i.e. 1086115021). This is precision
-     * improvement #3's machinery ([testUnknownElementParameterKeepsEveryProvableSlot]) reused for a *refused*
-     * element rather than a missing one: the array stays fully tracked and its other two slots stay `Known`,
-     * which is what makes the wrong constant visible as a single-slot difference.
-     *
-     * **VERIFIER -> engine's choice** ([CON] B1; [ART] `VerifyFilledNewArray` checks each argument register
-     * against the component type -- registry section `#filled-new-array-op-24-35c-and-range-op-25-3rc`), so
-     * spec §2.2 decides it. This op has no fork and no side effect on any row, so the answer is a lattice point
-     * and nothing else moves; `NONE` is asserted below because a value fix must not become an effect change.
+     * An `I`-component element register holding a computed `Float` fills its slot with the register's 32 bits:
+     * `5.9f` is `0x40BCCCCD`, i.e. 1086115021. A value conversion would fill 5. **VERIFIER**-excluded input
+     * ([CON] B1; [ART] `VerifyFilledNewArray`). `NONE` is asserted because a value change must not become an
+     * effect change.
      */
     @Test
-    fun aFloatElementIsNotProvableRatherThanTruncatedByValue() {
+    fun aFloatElementIsReadByItsBits() {
         initial.setRegisters(0, 2, "I", 1, 5.9f, "F", 2, 7, "I")
         val graph = CoreTester.execute(CLASS_NAME, "filledNewArrayThenMoveResult()V", initial)
         assertEquals(CompletionStatus.Complete, graph.completion())
         val array = trackedArray(graph, register = 3)
         assertEquals(
-            listOf(Value.Known(2, INT), Value.Unknown(INT), Value.Known(7, INT)), array.elements(),
-            "only the refused slot goes Unknown; a truncated-by-value 5.9f would have made it Known(5, I)",
+            listOf(Value.Known(2, INT), Value.Known(1086115021, INT), Value.Known(7, INT)), array.elements(),
         )
-        assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
-            "a fresh array with one unprovable slot still mutates nothing pre-existing",
-        )
+        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
     }
 
     /**

@@ -189,9 +189,9 @@ internal class BinaryMathOp(
      * Three cases, and the middle one is the reason this VM exists:
      *  - a **known** zero divisor: the path definitely throws, so `[Throw]` alone -- continuing would
      *    explore a path Dalvik never takes;
-     *  - a divisor whose zero-ness is **not provable** with an integral `div`/`rem` -- unknown,
-     *    uncoercible, or a `Float`/`Double` raw this engine cannot read at the op's own width (see
-     *    [knownDivisor]): both outcomes are feasible, so `[Continue, Throw]`. Forking is not a precision
+     *  - a divisor whose zero-ness is **not provable** with an integral `div`/`rem` -- unknown, or not
+     *    readable at the op's own width (see [knownDivisor]): both outcomes are feasible, so
+     *    `[Continue, Throw]`. Forking is not a precision
      *    nicety here: dropping the exceptional path would leave a handler unexplored on a run still
      *    reporting `Complete`, and dropping the normal path would invent a throw (spec §2.2, more forks
      *    never fewer);
@@ -232,105 +232,24 @@ internal class BinaryMathOp(
 
     /**
      * Whether a zero divisor could make this operation throw at all: only integral `div`/`rem`, since
-     * `F`/`D` division by zero yields +/-Infinity or NaN.
-     *
-     * The domain half is load-bearing rather than defensive. [knownDivisor] coerces to `Long`, and
-     * `Coerce.toLong(0.5f)` is `0L` -- so a zero check reached from the float or double domain would
-     * fire on divisors that are not zero, turning `22.9f / 0.5f` into a thrown `ArithmeticException`.
-     *
-     * **That sentence's reasoning covers a second case this guard does not, and the missing half lost a
-     * feasible path.** The trap was [Coerce]'s numeric NARROWING, not the float *domain*: an `I`/`J`
-     * domain op **reading** a `Float`/`Double` raw hit the identical `Coerce.toInt(0.5f) == 0` and
-     * routed [armsFor] to `[Throw]` alone -- one arm, no `Continue`, on a run still
-     * reporting `Complete` -- while Dalvik reads that register's BITS (`0x3F000000 == 1056964608` for
-     * `0.5f`) and does not throw. Reachable with this build's opcode set alone: `div-float` or
-     * `int-to-float` leaves a genuinely-computed `Float` raw in a register and any `div-int`/`rem-int`
-     * reading it lands here; `Coerce.toLong(0.5) == 0L` routed `div-long` the same way. That half is now
-     * closed **inside [Coerce] itself** rather than here -- `Coerce.toInt` answers null for a `Float`/
-     * `Double` raw, so [knownDivisor] answers "not provable" (null, both paths explored) without a local
-     * key of its own. Plan 8 Task 3 moved it there so the other thirteen arithmetic reads got the same
-     * rule; the past tense above is deliberate.
-     *
-     * **Why that half had to be fixed rather than recorded, and why no differential could have found
-     * it.** The oracle has the *same* defect -- it reaches the same `0` divisor through
-     * `Utils.getIntegerValue` -> `castToPrimitive` -> `intValue()`, throws, and catches -- so both
-     * engines drop the same feasible path and **the differential is structurally blind to this class**.
-     * Every other soundness finding in Plan 4 was found by disagreement; this one could not be, which
-     * is exactly why it is a fix here and not a note.
+     * `F`/`D` division by zero yields +/-Infinity or NaN. The domain half matters: `0f`'s bits are an
+     * integral zero, so an integral zero check reached from the float domain would throw where float
+     * division does not.
      */
     private fun canDivideByZero(): Boolean =
         (operator == Operator.DIV || operator == Operator.REM) &&
             (domain.descriptor == "I" || domain.descriptor == "J")
 
     /**
-     * The divisor's provable value **at this op's own arithmetic width**, or null when it is not
-     * provable and both outcomes are feasible -- either because the value is not [Value.Known] at all,
-     * or because its raw is not coercible to a number (malformed input, expected for a deobfuscator;
-     * see [Coerce]).
+     * The divisor's value **at this op's own arithmetic width**, or null when it is not [Value.Known] or not
+     * readable at that width (see [Coerce]), so both outcomes are feasible.
      *
-     * **The width is load-bearing, and asking at the wrong one lost a feasible path.** This used to
-     * coerce unconditionally to `Long` while [computed] coerced the same raw to `Int` for the `I`
-     * domain, on the stated (and false) reasoning that the two cannot disagree about zero-ness.
-     * [Coerce.toInt] **narrows** to the low 32 bits while [Coerce.toLong] **widens**, so a `div-int`
-     * whose divisor raw is a `Long` 2^32 read `Coerce.toInt` = 0 -- "no result, the path throws" --
-     * and `Coerce.toLong` = 2^32 -- "continue normally". Net: `Unknown(I)` assigned, one transition,
-     * no `Transition.Throw`, and the run still reporting `Complete` while Dalvik reads that register as
-     * a 32-bit int whose value is zero and throws. An unexplored feasible path on a fully-trusted run.
-     * (The hole is `Long`-raw-specific: `Double`/`Float` `toInt` saturates rather than truncating, so
-     * `toInt == 0` iff `|x| < 1` iff `toLong == 0`, and `Boolean`/`Char` are narrow already -- which is
-     * why the float-domain guard's `Coerce.toLong(0.5f) == 0L` trap did not surface it.)
-     *
-     * Reading at the domain's own width is not a compromise between two candidate answers: Dalvik's
-     * `div-int` reads a 32-bit register, so the `Int` answer IS the right one and there is no ambiguity
-     * to fork on. Forking instead would explore a normal path Dalvik cannot take -- the mirror image of
-     * the oracle's over-approximation this class already declines to copy.
-     *
-     * **A `Float`/`Double` raw is the one case the domain's own width cannot answer at all, so it
-     * forks -- and since Plan 8 Task 3 the refusal that makes it fork lives in [Coerce], not here.**
-     * [Coerce] used to perform a numeric *narrowing* (JLS 5.1.3: round toward zero, saturate, `NaN -> 0`)
-     * where Dalvik *reinterprets* the register's bits -- two different operations that agree for a `Long`
-     * raw, because narrowing `Long -> Int` IS bit-truncation on the JVM (which is what makes the width
-     * alignment above sound), and disagree for a computed float: every divisor with `0 < |x| < 1` narrows
-     * to zero, so a width-only check answered "definitely throws" for a register Dalvik reads as a large
-     * non-zero int. "Cannot tell" is the answer that ships and more forks is the safe direction (spec 2.2)
-     * -- but note the reason is **not** that the engine cannot model the read: since Task 3's fix round 1 it
-     * demonstrably can (`Coerce.toFloat`/`toDouble` do), and this width's refusal is a labelled precision
-     * loss with a named blocker in `Coerce.toInt`'s KDoc. Here alone the refusal is also the *fork-adding*
-     * direction, so it is safe in the path sense whatever happens to the value sense. The alternative -- keeping the narrowed answer -- is the one
-     * thing this VM must never do: assert a specific outcome it cannot prove, and drop the other one from
-     * a run that still reports `Complete`.
-     *
-     * **This is the one of Task 3's fourteen guarded reads that is a PATH question rather than a value
-     * question**, so it is the one where the refusal *adds* a transition. The other thirteen sit on
-     * single-successor ops, where refusing changes only whether a fold happens. Worth stating because the
-     * two directions are graded equally: over-refusing on a path question would invent an infeasible
-     * throw, and under-refusing here dropped a feasible one.
-     *
-     * The raw's RUNTIME type is what decides, not the declared tag -- and [Coerce] cannot make the other
-     * mistake, because it is handed a raw and never sees a tag. `const-wide` ships
-     * `Value.Known(Long, "D")` (`core/Op.kt`'s `buildConst`), a `D`-tagged raw whose bits `Coerce` and
-     * Dalvik DO agree about; keyed to the tag, the refusal would fire on that quirk and turn
-     * `divIntByWideZeroLowHalf()V`'s DEFINITE throw into a `[Continue, Throw]` fork -- not a wrong answer,
-     * but a precision loss that undoes the point of the width fix two paragraphs up, and one no
-     * existence-of-a-throw assertion can see. `BinaryMathOpTest.aWideDivisorWhoseLowThirtyTwoBitsAreZeroThrows`
-     * asserts the fork ARITY for exactly that reason, and
-     * `CoerceTest.aWideRawUnderAFloatingPointTagStillCoercesBecauseTheRuntimeTypeIsWhatDecides` pins the
-     * unit-level half.
-     *
-     * The residual -- a bit-reinterpreting read, which would make this question provable again and turn
-     * the fork back into one transition -- **exists in the engine now** (`Coerce.toFloat`/`toDouble`, fix
-     * round 1) and is merely not wired to this width; it is no longer "available in principle".
-     * The by-name enumeration residual
-     * (`BigDecimal("0.5").toInt()` is `0` too) now lives with the rule, in `Coerce.toInt`'s KDoc.
+     * The width matters because the two widths disagree about zero: `div-int` reads one 32-bit register, so a
+     * `Long` raw 2^32 is a zero divisor there (Dalvik throws) although the pair's 64 bits are not zero.
+     * Asking at 64 bits would continue normally and drop the throw on a run still reporting `Complete`.
      */
     private fun knownDivisor(rhs: Value): Long? {
         if (rhs !is Value.Known) return null
-        // The Float/Double refusal is [Coerce]'s, not this function's, and there is deliberately no local
-        // copy of it: Plan 8 Task 3 moved the rule into `Coerce.toInt` for all fourteen arithmetic reads,
-        // and a second spelling here is exactly the divergence Plan 7's closeout found across four array
-        // call sites. Subsumption was established by measurement rather than by reading -- deleting the
-        // local `if (rhs.raw is Float || rhs.raw is Double) return null` left 898 of 898 green, including
-        // both of the tests written for it -- and the reverse mutation now kills them through `Coerce`.
         return when (domain.descriptor) {
             "I" -> Coerce.toInt(rhs.raw)?.toLong()
             else -> Coerce.toLong(rhs.raw)
