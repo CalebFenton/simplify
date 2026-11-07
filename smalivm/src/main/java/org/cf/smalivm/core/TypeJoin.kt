@@ -54,59 +54,49 @@ fun interface Superclasses {
  *  - equal types join to themselves;
  *  - anything that is not a reference on both sides is [JoinedType.Incompatible] -- differing
  *    primitives, primitive vs reference, `void` vs anything;
- *  - two ARRAYS join component-wise and re-wrap ([JoinedType.Joined] `[C` where `C` is the component
- *    join), falling back to `Ljava/lang/Object;` when the components do not join;
+ *  - two arrays join component-wise over their shared dimensions and re-wrap, falling back to `Object` one
+ *    dimension up when the components do not join;
  *  - two other references join to their **nearest common superclass**, or `Ljava/lang/Object;` when the
  *    chains share nothing else.
  *
- * **Soundness direction (spec §2.2): every answer here is a TRUE upper bound, and that is what makes the
- * hierarchy safe to consult.** A nearest common superclass is a supertype of both operands by
- * construction, and array covariance keeps that property (`A <: C` implies `[A <: [C`, JLS §4.10.3, quoted
- * at `docs/DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited`). Going too HIGH costs a fold a
- * deobfuscator wanted; going too LOW would claim a type relationship a device does not agree with, which
- * is the direction that corrupts a consumer's decision, so every degradation below goes up.
+ * **Every answer is a true upper bound (spec §2.2).** A nearest common superclass is a supertype of both
+ * operands by construction, and array covariance keeps that property (JLS §4.10.3). Going too high costs
+ * precision; going too low would claim a type relationship a device does not agree with, so every
+ * degradation goes up.
  *
- * **[JoinedType.Incompatible] still means what it meant.** It is what produces [Value.Top], which Task 5
- * gave a distinguishable meaning at the query surface, so a hierarchy-aware join must not quietly turn a
- * primitive-vs-reference pair into `Object`. Two arrays with incompatible *components* are still two
- * references and still join to `Object`; only the operands themselves being non-references produces
- * `Incompatible`.
+ * [JoinedType.Incompatible] is reserved for non-reference operands, because it produces [Value.Top]. Two
+ * arrays with incompatible components are still two references and join to `Object`.
  *
- * **A failed walk degrades to `Object` instead of propagating, which is the OPPOSITE of what
- * [ClassIndex.isSubtypeOf] does with the identical failure -- stated here because the difference is not
- * obvious.** For a subtype question there is no safe default (answering `false` would silently un-catch a
- * handler), so [ClassLoadFailure] propagates. For a JOIN the pre-hierarchy answer -- `Object` for two
- * references -- is still a true upper bound, so a missing superclass costs precision and nothing else;
- * propagating instead would turn an obfuscated APK's absent class into a host exception out of every
- * consensus query in the engine. The chain is kept as far as it resolved, so the loss is proportional to
- * how much of the hierarchy is absent rather than total.
+ * **A failed walk degrades to `Object` instead of propagating**, unlike [ClassIndex.isSubtypeOf]. For a
+ * subtype question there is no safe default, so [ClassLoadFailure] propagates there. For a join, `Object` is
+ * still a true upper bound, so a missing superclass costs precision only; the chain is kept as far as it
+ * resolved. Missing ancestors can only remove candidates from the two chains' intersection, so the answer
+ * moves up, never down. That holds while **one descriptor resolves to at most one class def in the loaded
+ * set**, which the class model guarantees by resolving each descriptor through one `ClassManager` with
+ * last-write-wins insertion.
  *
- * **And the sharpening stays sound under an INCOMPLETE hierarchy, which is a property with a stated premise
- * rather than an assumption.** Missing ancestors can only *remove* candidates from the two chains'
- * intersection, so the surviving answer is at least as general -- the answer moves UP, never down, and total
- * absence lands on the pre-hierarchy `Object`. The unsound direction would need an **over**-reported subtype
- * relation, which requires the premise below to fail:
- *
- * > **One descriptor resolves to at most one class def in the loaded set.**
- *
- * The class model resolves each descriptor through one `ClassManager` with last-write-wins insertion.
- * This uniqueness premise matters independently of packaging: duplicate input definitions or a collision
- * with a framework descriptor must not be interpreted as two simultaneous class identities.
- *
- * **Interfaces are deliberately excluded, not picked arbitrarily** (spec §3: full interface lattices are
- * not a deobfuscation requirement). Two types sharing only interfaces join to `Object`. `instance-of` and
- * `check-cast` DO consult interfaces -- see [ClassIndex.isInstanceOf] -- so this is an exclusion in the
- * join alone.
+ * **Interfaces are excluded** (spec §3: full interface lattices are not a deobfuscation requirement). Two
+ * types sharing only interfaces join to `Object`. `instance-of` and `check-cast` do consult interfaces --
+ * see [ClassIndex.isInstanceOf].
  */
-fun joinTypes(a: VirtualType, b: VirtualType, superclasses: Superclasses): JoinedType = when {
-    a == b -> JoinedType.Joined(a)
-    !a.isReference || !b.isReference -> JoinedType.Incompatible
-    a.isArray && b.isArray -> when (val component = joinTypes(a.componentType!!, b.componentType!!, superclasses)) {
-        is JoinedType.Joined -> JoinedType.Joined(VirtualType.of("[" + component.type.descriptor))
-        JoinedType.Incompatible -> JoinedType.Joined(VirtualType.OBJECT)
+fun joinTypes(a: VirtualType, b: VirtualType, superclasses: Superclasses): JoinedType {
+    if (a == b) return JoinedType.Joined(a)
+    if (!a.isReference || !b.isReference) return JoinedType.Incompatible
+    val sharedDimensions = minOf(a.arrayDimensions(), b.arrayDimensions())
+    val sharedPrefix = a.descriptor.substring(0, sharedDimensions)
+    val componentA = VirtualType.of(a.descriptor.substring(sharedDimensions))
+    val componentB = VirtualType.of(b.descriptor.substring(sharedDimensions))
+    // The components differ and at most one is an array. A primitive component leaves the arrays sharing only
+    // `Object` one dimension up; sharedDimensions is then at least 1 because a and b are references.
+    val joined = if (componentA.isReference && componentB.isReference) {
+        sharedPrefix + nearestCommonSuperclass(componentA, componentB, superclasses).descriptor
+    } else {
+        sharedPrefix.drop(1) + VirtualType.OBJECT.descriptor
     }
-    else -> JoinedType.Joined(nearestCommonSuperclass(a, b, superclasses))
+    return JoinedType.Joined(VirtualType.of(joined))
 }
+
+private fun VirtualType.arrayDimensions(): Int = descriptor.indexOfFirst { it != '[' }
 
 /**
  * The deepest type present in both superclass chains, or `Ljava/lang/Object;` when they share nothing

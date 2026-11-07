@@ -65,6 +65,14 @@ class VirtualTypeTest {
     }
 
     @Test
+    fun arrayDescriptorsAreLimitedTo255Dimensions() {
+        // Dex format, TypeDescriptor: an array descriptor has at most 255 leading `[`.
+        assertTrue(VirtualType.of("[".repeat(255) + "I").isArray)
+        assertThrows<IllegalArgumentException> { VirtualType.of("[".repeat(256) + "I") }
+        assertThrows<IllegalArgumentException> { VirtualType.of("[".repeat(256) + "Ljava/lang/String;") }
+    }
+
+    @Test
     fun voidIsValidButNeitherPrimitiveValueNorReference() {
         // Dalvik grammar: V is only legal as a return type; it is not a value-bearing type.
         val v = VirtualType.of("V")

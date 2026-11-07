@@ -28,9 +28,15 @@ class VirtualType private constructor(val descriptor: String) {
     companion object {
         private const val PRIMITIVE_CODES = "ZBSCIJFD"
 
+        /** Dex format, TypeDescriptor: an array descriptor has at most 255 dimensions. */
+        private const val MAX_ARRAY_DIMENSIONS = 255
+
         val OBJECT: VirtualType = VirtualType("Ljava/lang/Object;")
 
-        /** Parses and validates [descriptor]; throws [IllegalArgumentException] if malformed. */
+        /**
+         * Parses and validates [descriptor]; throws [IllegalArgumentException] if malformed or deeper than
+         * [MAX_ARRAY_DIMENSIONS].
+         */
         fun of(descriptor: String): VirtualType {
             require(isValid(descriptor)) { "Malformed type descriptor: '$descriptor'" }
             return VirtualType(descriptor)
@@ -40,6 +46,7 @@ class VirtualType private constructor(val descriptor: String) {
             var i = 0
             while (i < descriptor.length && descriptor[i] == '[') i++
             if (i == descriptor.length) return false // dangling '[' or empty
+            if (i > MAX_ARRAY_DIMENSIONS) return false
             val rest = descriptor.substring(i)
             return when (rest[0]) {
                 'V' -> rest == "V" && i == 0 // void is never an array component

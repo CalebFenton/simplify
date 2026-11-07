@@ -53,12 +53,30 @@ class TypeJoinTest {
 
     @Test
     fun primitiveAndReferenceAreIncompatible() {
-        // `Incompatible` must stay possible and must stay meaning what it means: it is what produces
-        // `Value.Top`, which Task 5 gave a distinguishable meaning at the query surface. A
-        // hierarchy-aware join that quietly turned this into `Object` would make "the paths disagree
-        // about a primitive and a reference" indistinguishable from "the paths agree it is some object".
+        // A primitive type and a reference type have no common upper bound, so the join produces `Value.Top`
+        // rather than `Object`. The Dalvik null idiom (`const vA, 0` meeting a reference) is a VALUE fact, not a
+        // type fact, and `join` handles it before this function; see `ValueJoinTest`.
         assertEquals(JoinedType.Incompatible, joinTypes(t("I"), t("Ljava/lang/Integer;"), hierarchy))
         assertEquals(JoinedType.Incompatible, joinTypes(t("[I"), t("I"), hierarchy))
+    }
+
+    @Test
+    fun arraysAtTheDexDimensionLimitJoinComponentWise() {
+        // Nearest common superclass of Integer and Long is Number; incompatible components join to Object
+        // one dimension up.
+        val deep = "[".repeat(255)
+        assertEquals(
+            JoinedType.Joined(t(deep + "Ljava/lang/Number;")),
+            joinTypes(t(deep + "Ljava/lang/Integer;"), t(deep + "Ljava/lang/Long;"), hierarchy),
+        )
+        assertEquals(
+            JoinedType.Joined(t("[".repeat(254) + "Ljava/lang/Object;")),
+            joinTypes(t(deep + "I"), t(deep + "J"), hierarchy),
+        )
+        assertEquals(
+            JoinedType.Joined(t("[[Ljava/lang/Object;")),
+            joinTypes(t("[[[I"), t("[[Ljava/lang/String;"), hierarchy),
+        )
     }
 
     @Test
