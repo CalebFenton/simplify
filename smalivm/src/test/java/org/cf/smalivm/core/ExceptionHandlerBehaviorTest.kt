@@ -262,9 +262,7 @@ class ExceptionHandlerBehaviorTest {
         val view = view("routePublicValue(Ljava/lang/Throwable;)I")
         val parameter = view.parameters.single().register
         val value = Value.Unknown(THROWABLE)
-        val residual = requireNotNull(
-            ThrowableDomain.any().exclude(RUNTIME, ResolverMetricsCounter()),
-        )
+        val residual = requireNotNull(ThrowableDomain.any().exclude(RUNTIME))
         val reused = Frame.entryFrame(view).also {
             it.assignFrameValue(parameter, FrameValue.refined(value, residual))
         }
@@ -284,9 +282,7 @@ class ExceptionHandlerBehaviorTest {
         val view = view("routePublicValue(Ljava/lang/Throwable;)I")
         val parameter = view.parameters.single().register
         val value = Value.Unknown(THROWABLE)
-        val residual = requireNotNull(
-            ThrowableDomain.any().exclude(RUNTIME, ResolverMetricsCounter()),
-        )
+        val residual = requireNotNull(ThrowableDomain.any().exclude(RUNTIME))
         val source = Frame.entryFrame(view).also {
             it.assignFrameValue(parameter, FrameValue.refined(value, residual))
         }
@@ -404,17 +400,11 @@ class ExceptionHandlerBehaviorTest {
         }
 
         val graph = session.run()
-        val metrics = session.callPropagationMetrics()
 
         assertEquals(List(exitCount) { Outcome.Aborted(AbortReason.MALFORMED_INPUT) }, graph.outcomes)
         assertFalse(graph.wasReached(validHandler))
         assertTrue(graph.outcomes.none { it is Outcome.Threw })
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        assertEquals(1, metrics.sourceThrowPartitions)
-        assertEquals(exitCount, metrics.sourceThrowExits)
-        assertEquals(1, metrics.partitionMerges)
-        assertEquals(1, metrics.sourcePartitionMerges)
-        assertEquals(1, metrics.handlerResolutions)
     }
 
     private fun assertResidualSurvives(descriptor: String) {

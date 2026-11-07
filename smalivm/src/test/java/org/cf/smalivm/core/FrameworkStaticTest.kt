@@ -3,6 +3,7 @@ package org.cf.smalivm.core
 import android.util.DisplayMetrics
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -286,7 +287,7 @@ class FrameworkStaticTest {
     }
 
     @Test
-    fun projectedSiblingsAreIsolatedWhileUnchangedCopiesSharePersistentRoots() {
+    fun projectedSiblingsAreIsolatedAndLeaveTheSeedFrameUnprojected() {
         val values = ArrayDeque(listOf(arrayListOf("left"), arrayListOf("right")))
         val service = recordingService {
             HostStaticResult.Returned(HostValue.Reference(values.removeFirst(), VirtualType.of("Ljava/util/ArrayList;")))
@@ -295,15 +296,17 @@ class FrameworkStaticTest {
         val vm = owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service)
         val view = view("siblingProjection(I)Ljava/util/List;")
         val frame = Frame.entryFrame(view, vm.hostObjectCloner).apply { assign(1, Value.Unknown(intType)) }
-        val originalRoot = frame.staticRootToken()
-        assertSame(originalRoot, frame.copy().staticRootToken())
+        val descriptor = "Ljava/util/Collections;->EMPTY_LIST:Ljava/util/List;"
+        assertNull(frame.staticCell(descriptor))
 
         val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
         val returned = graph.outcomes.filterIsInstance<Outcome.Returned>().map { (it.value as Value.Known).raw as HeapRef }
         assertEquals(2, returned.size)
         assertTrue(returned[0] != returned[1], "each projected sibling must own its imported host reference")
         assertEquals(2, service.calls)
-        assertSame(originalRoot, frame.staticRootToken(), "projection must publish only fresh successor roots")
+        val successorCells = graph.addresses().flatMap(graph::nodePile).mapNotNull { it.endingFrame?.staticCell(descriptor) }
+        assertTrue(successorCells.isNotEmpty(), "the returning successors hold the projected static")
+        assertNull(frame.staticCell(descriptor), "projection must write only successor frames, never the seed")
     }
 
     @Test

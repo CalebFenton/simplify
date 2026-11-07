@@ -1,5 +1,6 @@
 package org.cf.smalivm.core
 
+import java.time.Duration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -8,8 +9,9 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.assertTimeoutPreemptively
 
-/** Persistent-state invariants from Plan 11 Task 35A. */
+/** Persistent frame, heap, and class-init state: isolation between paths and copy cost independent of size. */
 class PersistentStateTest {
     private val classIndex = CoreTester.classIndex
     private val int = VirtualType.of("I")
@@ -18,181 +20,84 @@ class PersistentStateTest {
     private val field = "${objectType.descriptor}->value:I"
 
     @Test
-    fun opArmsAllocateThrowablesOnlyAfterExceptionalCommitAndVisitNoUnchangedState() {
-        val arrayView = view("Laget_test;", "get()V")
-        val frame = Frame.entryFrame(arrayView).also {
-            it.assign(0, Value.Unknown(VirtualType.of("[I")))
-            it.assign(1, Value.Unknown(int))
-        }
-        val session = VmServices(classIndex).newSession(arrayView, entryFrame = frame)
-
-        val graph = session.run()
-
-        val metrics = session.opExecutionMetrics()
-        assertEquals(4, metrics.armCopies, "three aget arms and one return each receive an O(1) frame copy")
-        assertEquals(0, metrics.preArmThrowableAllocations, "op execution must allocate nothing before arm ownership")
-        assertEquals(2, metrics.committedThrowableAllocations, "the NPE and bounds events allocate once each")
-        assertEquals(
-            3,
-            metrics.persistentStateEntriesVisited,
-            "three arms vote on the one register cell named by the update footprint",
-        )
-        assertEquals(
-            3,
-            graph.nodePile(0).single().frame.stateSharingSnapshot().copies.opArmStateEntriesVisited,
-            "source reconciliation reads one touched register from each arm and no unrelated state",
-        )
-
-        val branchView = view("Lif_test;", "ifEqualZero()V")
-        val branch = VmServices(classIndex).newSession(branchView)
-        branch.run()
-        assertEquals(
-            0,
-            branch.opExecutionMetrics().persistentStateEntriesVisited,
-            "control-only arm copies must visit no register, heap, class, or static entries",
-        )
-    }
-
-    @Test
-    fun oneHundredThousandNoWriteCopiesShareRootsWithoutCopyingLiveState() {
-        val frame = populatedCopyCostFrame()
-        val before = frame.stateSharingSnapshot()
+    fun copiesTakeConstantTimeRegardlessOfLiveStateSize() {
+        // Bug class: a frame copy walks its registers, heap, or class store. Oracle: with 100,000 live heap
+        // objects and 10,000 statics, 100,000 copies that each walked the state visit over 10^10 entries;
+        // persistent-root copies finish within the bound.
+        val frame = populatedFrame(heapObjects = 100_000, statics = 10_000)
 
         var copied = frame
-        repeat(100_000) { copied = copied.copy() }
-        val after = copied.stateSharingSnapshot()
+        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            repeat(100_000) { copied = copied.copy() }
+        }
 
-        assertRootsSame(before, after)
-        assertEquals(100_000, after.copies.frameCopies - before.copies.frameCopies)
-        assertEquals(100_000, after.copies.heapStoreCopies - before.copies.heapStoreCopies)
-        assertEquals(100_000, after.copies.classStoreCopies - before.copies.classStoreCopies)
-        assertEquals(0, after.copies.registerElementsCopied - before.copies.registerElementsCopied)
-        assertEquals(0, after.copies.heapObjectsCopied - before.copies.heapObjectsCopied)
-        assertEquals(0, after.copies.classElementsCopied - before.copies.classElementsCopied)
-        assertEquals(0, after.copies.hostGraphClones - before.copies.hostGraphClones)
-        assertEquals(0, after.copies.hostObjectsCloned - before.copies.hostObjectsCloned)
-        assertEquals(before.versions, after.versions, "copying must create no state versions")
+        assertLiveState(copied, frame)
+        copied.writeStaticField(STATIC_FIELD, Value.Known(2, int))
+        assertEquals(Value.Known(1, int), frame.getStaticField(objectType, STATIC_FIELD))
     }
 
     @Test
-    fun unchangedFrameAndOpArmCopiesVisitNoPersistentStateEntries() {
-        val frame = populatedCopyCostFrame()
-        val before = frame.stateSharingSnapshot()
-
-        val ordinaryCopy = frame.copy()
-        val opArmCopy = frame.copyForOpArm()
-
-        assertRootsSame(before, ordinaryCopy.stateSharingSnapshot())
-        assertRootsSame(before, opArmCopy.stateSharingSnapshot())
-        val after = frame.stateSharingSnapshot()
-        assertEquals(2, after.copies.frameCopies - before.copies.frameCopies)
-        assertEquals(1, after.copies.opArmCopies - before.copies.opArmCopies)
-        assertEquals(
-            0,
-            after.copies.stateEntriesVisitedDuringCopy - before.copies.stateEntriesVisitedDuringCopy,
-            "persistent-root copies must not scan live register, heap, class, or static entries",
-        )
-    }
-
-    @Test
-    fun publicEntrySanitizationCountsEveryVisitedRegisterSlot() {
-        val frame = frame()
-        frame.assign(0, Value.Known(1, int))
-        val before = frame.stateSharingSnapshot().copies.stateEntriesVisitedDuringCopy
-
-        frame.sanitizedCopyForPublicEntry()
-
-        val after = frame.stateSharingSnapshot().copies.stateEntriesVisitedDuringCopy
-        assertEquals(frame.registerCount, after - before)
-    }
-
-    @Test
-    fun longNoWriteExecutionRetainsOneSetOfBackingRoots() {
+    fun longNoWriteExecutionDoesNotCopyLiveStatePerNode() {
+        // Bug class: each scheduled node copies the live heap. Oracle: a loop of over 1,000 nodes over a
+        // 100,000-object seeded heap copies more than 10^8 entries per run if successors copy state.
         val view = view(SPINE, "spinForever()V")
-        val graph = ExecutionSession.of(
-            view,
-            classIndex,
-            Limits(maxAddressVisits = 1_000, maxSteps = 5_000),
-        ).run()
+        val seeded = Frame.entryFrame(view)
+        repeat(100_000) { seeded.allocateObject(objectType, mapOf(field to Value.Known(it, int))) }
+        val liveRef = seedLiveState(seeded)
+
+        val graph = assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            ExecutionSession.of(view, classIndex, Limits(maxAddressVisits = 1_000, maxSteps = 5_000), seeded).run()
+        }
+
         val nodes = graph.nodePile(0) + graph.nodePile(1)
         assertTrue(nodes.size > 1_000, "the trace must be long enough to expose per-node state copying")
-
-        val first = nodes.first().frame.stateSharingSnapshot()
-        for (node in nodes.drop(1)) {
-            val state = node.frame.stateSharingSnapshot()
-            assertRegisterRootsSame(first, state)
-            assertStoreRootsSame(first, state)
+        val liveObject = seeded.heapObject(liveRef)
+        for (node in nodes) {
+            assertSame(liveObject, node.frame.heapObject(liveRef))
+            assertLiveState(node.frame, liveRef)
         }
-        val copies = nodes.last().frame.stateSharingSnapshot().copies
-        assertEquals(0, copies.registerElementsCopied)
-        assertEquals(0, copies.heapObjectsCopied)
-        assertEquals(0, copies.classElementsCopied)
-        assertEquals(0, copies.hostGraphClones)
-        assertEquals(0, copies.hostObjectsCloned)
     }
 
     @Test
-    fun oneRegisterWriteReplacesOnlyTheRegisterRoot() {
+    fun oneRegisterWriteIsInvisibleToParentAndSibling() {
         val parent = frame().also { it.assign(0, Value.Known(1, int)) }
         val sibling = parent.copy()
         val changed = parent.copy()
-        val before = parent.stateSharingSnapshot()
 
         changed.assign(0, Value.Known(2, int))
-        val after = changed.stateSharingSnapshot()
 
-        assertNotSame(before.registerRoot, after.registerRoot)
-        assertSame(before.assignedRoot, after.assignedRoot, "writing an already-assigned register adds no metadata")
-        assertSame(before.readRoot, after.readRoot)
-        assertStoreRootsSame(before, after)
         assertEquals(Value.Known(1, int), parent.peek(0))
         assertEquals(Value.Known(1, int), sibling.peek(0))
         assertEquals(Value.Known(2, int), changed.peek(0))
-        assertEquals(before.versions.registerRoots + 1, after.versions.registerRoots)
     }
 
     @Test
-    fun newlyAssignedRegisterReplacesRegisterAndAssignedRootsOnly() {
+    fun newlyAssignedRegisterIsInvisibleToParentAndSibling() {
         val parent = frame()
         val sibling = parent.copy()
         val changed = parent.copy()
-        val before = parent.stateSharingSnapshot()
 
         changed.assign(1, Value.Known(2, int))
-        val after = changed.stateSharingSnapshot()
 
-        assertNotSame(before.registerRoot, after.registerRoot)
-        assertNotSame(before.assignedRoot, after.assignedRoot)
-        assertSame(before.readRoot, after.readRoot)
-        assertStoreRootsSame(before, after)
         assertNull(parent.peek(1))
         assertNull(sibling.peek(1))
         assertEquals(Value.Known(2, int), changed.peek(1))
         assertEquals(setOf(1), changed.registersAssigned())
-        assertEquals(before.versions.registerRoots + 1, after.versions.registerRoots)
-        assertEquals(before.versions.assignedRoots + 1, after.versions.assignedRoots)
+        assertEquals(emptySet<Int>(), parent.registersAssigned())
+        assertEquals(emptySet<Int>(), sibling.registersAssigned())
     }
 
     @Test
-    fun childReadReplacesOnlyItsReadRoot() {
+    fun childReadRecordsLivenessOnlyOnTheChild() {
         val parent = frame().also { it.assign(0, Value.Known(1, int)) }
         val sibling = parent.copy()
         val child = parent.copy()
-        val before = parent.stateSharingSnapshot()
 
         assertEquals(Value.Known(1, int), child.read(0))
-        val after = child.stateSharingSnapshot()
 
-        assertSame(before.registerRoot, after.registerRoot)
-        assertSame(before.assignedRoot, after.assignedRoot)
-        assertNotSame(before.readRoot, after.readRoot)
-        assertStoreRootsSame(before, after)
-        assertFrameRootsSame(before, parent.stateSharingSnapshot())
-        assertFrameRootsSame(before, sibling.stateSharingSnapshot())
         assertEquals(emptySet<Int>(), parent.registersRead())
         assertEquals(emptySet<Int>(), sibling.registersRead())
         assertEquals(setOf(0), child.registersRead())
-        assertEquals(before.versions.copy(readRoots = before.versions.readRoots + 1), after.versions)
     }
 
     @Test
@@ -201,108 +106,76 @@ class PersistentStateTest {
         val untouchedRef = parent.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val sibling = parent.copy()
         val changed = parent.copy()
-        val parentState = parent.stateSharingSnapshot()
-        val untouched = parent.heapObjectSharing(untouchedRef)!!
+        val untouched = parent.heapObject(untouchedRef)
 
         val allocatedRef = changed.allocateArray(intArray, 2).raw as HeapRef
-        val changedState = changed.stateSharingSnapshot()
 
-        assertSame(parentState.heapRoot, sibling.stateSharingSnapshot().heapRoot)
-        assertNotSame(parentState.heapRoot, changedState.heapRoot)
         assertNull(parent.heapObject(allocatedRef))
         assertNull(sibling.heapObject(allocatedRef))
         assertTrue(changed.heapObject(allocatedRef) is HeapObject.TrackedArray)
-        assertSame(untouched.objectToken, sibling.heapObjectSharing(untouchedRef)!!.objectToken)
-        assertSame(untouched.objectToken, changed.heapObjectSharing(untouchedRef)!!.objectToken)
-        assertFrameRootsSame(parentState, changedState)
-        assertClassRootsSame(parentState, changedState)
+        assertSame(untouched, sibling.heapObject(untouchedRef))
+        assertSame(untouched, changed.heapObject(untouchedRef))
 
         val siblingAllocation = sibling.allocateArray(intArray, 1).raw as HeapRef
         assertTrue(allocatedRef != siblingAllocation, "forks must retain one shared monotonic HeapIds allocator")
     }
 
     @Test
-    fun oneArrayWriteReplacesOnlyTheArrayAndHeapRoot() {
+    fun oneArrayWriteReplacesOnlyTheWrittenObjectVersion() {
         val parent = frame()
         val changedRef = parent.allocateArray(intArray, 2).raw as HeapRef
         val untouchedRef = parent.allocateObject(objectType, mapOf(field to Value.Known(3, int))).raw as HeapRef
         val sibling = parent.copy()
         val changed = parent.copy()
-        val before = parent.stateSharingSnapshot()
-        val changedBefore = parent.heapObjectSharing(changedRef)!!
-        val untouchedBefore = parent.heapObjectSharing(untouchedRef)!!
+        val changedBefore = parent.heapObject(changedRef)
+        val untouchedBefore = parent.heapObject(untouchedRef)
 
         assertTrue(changed.writeArrayElement(changedRef, 0, Value.Known(7, int)))
-        val after = changed.stateSharingSnapshot()
-        val changedAfter = changed.heapObjectSharing(changedRef)!!
-        val untouchedAfter = changed.heapObjectSharing(untouchedRef)!!
 
-        assertNotSame(before.heapRoot, after.heapRoot)
-        assertNotSame(changedBefore.objectToken, changedAfter.objectToken)
-        assertNotSame(changedBefore.contentsRoot, changedAfter.contentsRoot)
-        assertSame(untouchedBefore.objectToken, untouchedAfter.objectToken)
-        assertSame(untouchedBefore.contentsRoot, untouchedAfter.contentsRoot)
-        assertFrameRootsSame(before, after)
-        assertClassRootsSame(before, after)
+        assertNotSame(changedBefore, changed.heapObject(changedRef))
+        assertNotSame(contentsRoot(parent, changedRef), contentsRoot(changed, changedRef))
+        assertSame(untouchedBefore, changed.heapObject(untouchedRef))
+        assertSame(contentsRoot(parent, untouchedRef), contentsRoot(changed, untouchedRef))
         assertEquals(Value.Known(0, int), parent.arrayAt(changedRef)!!.element(0))
         assertEquals(Value.Known(0, int), sibling.arrayAt(changedRef)!!.element(0))
         assertEquals(Value.Known(7, int), changed.arrayAt(changedRef)!!.element(0))
-        assertEquals(before.versions.heapRoots + 1, after.versions.heapRoots)
-        assertEquals(before.versions.heapObjects + 1, after.versions.heapObjects)
-        assertEquals(before.versions.arrayElements + 1, after.versions.arrayElements)
     }
 
     @Test
-    fun oneFieldWriteReplacesOnlyTheObjectAndHeapRoot() {
+    fun oneFieldWriteReplacesOnlyTheWrittenObjectVersion() {
         val parent = frame()
         val changedRef = parent.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val untouchedRef = parent.allocateArray(intArray, 1).raw as HeapRef
         val sibling = parent.copy()
         val changed = parent.copy()
-        val before = parent.stateSharingSnapshot()
-        val changedBefore = parent.heapObjectSharing(changedRef)!!
-        val untouchedBefore = parent.heapObjectSharing(untouchedRef)!!
+        val changedBefore = parent.heapObject(changedRef)
+        val untouchedBefore = parent.heapObject(untouchedRef)
 
         assertTrue(changed.writeField(changedRef, field, Value.Known(9, int)))
-        val after = changed.stateSharingSnapshot()
-        val changedAfter = changed.heapObjectSharing(changedRef)!!
-        val untouchedAfter = changed.heapObjectSharing(untouchedRef)!!
 
-        assertNotSame(before.heapRoot, after.heapRoot)
-        assertNotSame(changedBefore.objectToken, changedAfter.objectToken)
-        assertNotSame(changedBefore.contentsRoot, changedAfter.contentsRoot)
-        assertSame(untouchedBefore.objectToken, untouchedAfter.objectToken)
-        assertSame(untouchedBefore.contentsRoot, untouchedAfter.contentsRoot)
-        assertFrameRootsSame(before, after)
-        assertClassRootsSame(before, after)
+        assertNotSame(changedBefore, changed.heapObject(changedRef))
+        assertNotSame(contentsRoot(parent, changedRef), contentsRoot(changed, changedRef))
+        assertSame(untouchedBefore, changed.heapObject(untouchedRef))
+        assertSame(contentsRoot(parent, untouchedRef), contentsRoot(changed, untouchedRef))
         assertEquals(Value.Known(1, int), parent.getField(changedRef, field))
         assertEquals(Value.Known(1, int), sibling.getField(changedRef, field))
         assertEquals(Value.Known(9, int), changed.getField(changedRef, field))
-        assertEquals(before.versions.objectFields + 1, after.versions.objectFields)
     }
 
     @Test
-    fun lifecycleAndStaticWritesReplaceOnlyTheirRelevantRoot() {
+    fun lifecycleAndStaticWritesStayOnTheirOwnPath() {
         val parent = frame()
         parent.writeStaticField(STATIC_FIELD, Value.Known(1, int))
-        val before = parent.stateSharingSnapshot()
 
         val lifecycleChanged = parent.copy()
         lifecycleChanged.completeClassInit(objectType)
-        val afterLifecycle = lifecycleChanged.stateSharingSnapshot()
-        assertNotSame(before.classStateRoot, afterLifecycle.classStateRoot)
-        assertSame(before.staticRoot, afterLifecycle.staticRoot)
-        assertFrameRootsSame(before, afterLifecycle)
-        assertSame(before.heapRoot, afterLifecycle.heapRoot)
-
         val staticChanged = parent.copy()
         staticChanged.writeStaticField(STATIC_FIELD, Value.Known(2, int))
-        val afterStatic = staticChanged.stateSharingSnapshot()
-        assertSame(before.classStateRoot, afterStatic.classStateRoot)
-        assertNotSame(before.staticRoot, afterStatic.staticRoot)
-        assertFrameRootsSame(before, afterStatic)
-        assertSame(before.heapRoot, afterStatic.heapRoot)
 
+        assertEquals(ClassInitState.INITIALIZED, lifecycleChanged.initState(objectType))
+        assertEquals(Value.Known(1, int), lifecycleChanged.getStaticField(objectType, STATIC_FIELD))
+        assertEquals(ClassInitState.UNINITIALIZED, staticChanged.initState(objectType))
+        assertEquals(Value.Known(2, int), staticChanged.getStaticField(objectType, STATIC_FIELD))
         assertEquals(ClassInitState.UNINITIALIZED, parent.initState(objectType))
         assertEquals(Value.Known(1, int), parent.getStaticField(objectType, STATIC_FIELD))
     }
@@ -319,7 +192,6 @@ class PersistentStateTest {
         parent.setThrown(Value.Known("thrown", exception))
         val child = parent.copy()
 
-        assertSame(parent.stateSharingSnapshot().registerRoot, child.stateSharingSnapshot().registerRoot)
         assertEquals(Value.Known(42L, wide), child.peek(0))
         assertNull(child.peek(1), "a shared root must retain the wide-high marker")
         assertEquals(Value.Known(1, int), child.takeResult())
@@ -333,7 +205,8 @@ class PersistentStateTest {
     }
 
     @Test
-    fun debuggerConsensusClassAndStaticReadsCreateNoVersionsOrCaches() {
+    fun debuggerConsensusClassAndStaticReadsChangeNoState() {
+        // Observers read through the ExecutionState facade, which records no liveness and creates no versions.
         val frame = frame().also {
             it.assign(0, Value.Known(1, int))
             it.completeClassInit(objectType)
@@ -342,7 +215,7 @@ class PersistentStateTest {
         val ref = frame.allocateObject(objectType, mapOf(field to Value.Known(3, int))).raw as HeapRef
         val arrayRef = frame.allocateArray(intArray, 2).raw as HeapRef
         frame.writeArrayElement(arrayRef, 0, Value.Known(7, int))
-        val before = frame.stateSharingSnapshot()
+        val versions = listOf(ref, arrayRef).map { frame.heapObject(it) }
         repeat(10) {
             frame.peekRegister(0)
             frame.readRegister(0)
@@ -357,19 +230,20 @@ class PersistentStateTest {
             frame.getStaticField(objectType, STATIC_FIELD)
             frame.toString()
         }
-        assertSnapshotUnchanged(before, frame.stateSharingSnapshot())
+        assertEquals(emptySet<Int>(), frame.registersRead())
+        assertObjectVersionsSame(frame, listOf(ref, arrayRef), versions)
 
         val debuggerSession = ExecutionSession.of(view(SPINE, "nopThenConst()I"), classIndex, Limits())
         val debugger = Debugger(debuggerSession)
         val debugFrame = debugger.cursor!!.frame
-        val debugBefore = debugFrame.stateSharingSnapshot()
+        val debugRead = debugFrame.registersRead()
         repeat(10) {
             debugger.currentState?.peekRegister(0)
             debugger.currentState?.readRegister(0)
             debugger.currentState?.registersAssigned()
             debugger.currentState?.initState(objectType)
         }
-        assertSnapshotUnchanged(debugBefore, debugFrame.stateSharingSnapshot())
+        assertEquals(debugRead, debugFrame.registersRead())
 
         val graphView = view(SPINE, "returnFive()I")
         val graphSeed = Frame.entryFrame(graphView)
@@ -378,7 +252,9 @@ class PersistentStateTest {
         graphSeed.writeArrayElement(graphArrayRef, 0, Value.Known(8, int))
         val graph = ExecutionSession.of(graphView, classIndex, Limits(), graphSeed).run()
         val graphFrames = graph.methodView.addresses.flatMap { graph.nodePile(it).map(ExecutionNode::frame) }
-        val graphBefore = graphFrames.map(Frame::stateSharingSnapshot)
+        val graphRefs = listOf(graphRef, graphArrayRef)
+        val graphReads = graphFrames.map(Frame::registersRead)
+        val graphVersions = graphFrames.map { frame -> graphRefs.map { frame.heapObject(it) } }
         val trusted = graph.trusted()!!
         repeat(10) {
             graph.consensusOverExploredPaths(0, 0)
@@ -402,8 +278,9 @@ class PersistentStateTest {
                 trusted.terminatingStaticFieldConsensus(objectType, STATIC_FIELD),
             )
         }
-        graphFrames.zip(graphBefore).forEach { (observed, snapshot) ->
-            assertSnapshotUnchanged(snapshot, observed.stateSharingSnapshot())
+        graphFrames.forEachIndexed { index, observed ->
+            assertEquals(graphReads[index], observed.registersRead())
+            assertObjectVersionsSame(observed, graphRefs, graphVersions[index])
         }
     }
 
@@ -419,23 +296,13 @@ class PersistentStateTest {
         assertEquals(1, invoke.address)
         val continuation = debugger.stepOver()!!
         val calleeEntry = invoke.children.single()
-        val invokeState = invoke.frame.stateSharingSnapshot()
-        val calleeState = calleeEntry.frame.stateSharingSnapshot()
-        val resumedState = continuation.frame.stateSharingSnapshot()
 
-        assertSame(invokeState.heapRoot, calleeState.heapRoot)
-        assertSame(invokeState.classStateRoot, calleeState.classStateRoot)
-        assertSame(invokeState.staticRoot, calleeState.staticRoot)
-        assertSame(invokeState.registerRoot, resumedState.registerRoot)
-        assertSame(invokeState.assignedRoot, resumedState.assignedRoot)
-        assertSame(invokeState.readRoot, resumedState.readRoot)
-        assertStoreRootsSame(invokeState, resumedState)
         assertLiveState(invoke.frame, liveRef)
         assertLiveState(calleeEntry.frame, liveRef)
         assertLiveState(continuation.frame, liveRef)
-        val objectToken = invoke.frame.heapObjectSharing(liveRef)!!.objectToken
-        assertSame(objectToken, calleeEntry.frame.heapObjectSharing(liveRef)!!.objectToken)
-        assertSame(objectToken, continuation.frame.heapObjectSharing(liveRef)!!.objectToken)
+        val liveObject = invoke.frame.heapObject(liveRef)
+        assertSame(liveObject, calleeEntry.frame.heapObject(liveRef))
+        assertSame(liveObject, continuation.frame.heapObject(liveRef))
         assertEquals(Value.Known(3, int), invoke.frame.peek(0))
         assertEquals(setOf(0), invoke.frame.registersAssigned())
         assertEquals(setOf(0), invoke.frame.registersRead())
@@ -457,29 +324,14 @@ class PersistentStateTest {
         val retry = debugger.stepOver()!!
         val initializerEntry = trigger.children.single()
         val initializerReturn = requireNotNull(retry.parent)
-        val triggerState = trigger.frame.stateSharingSnapshot()
-        val retryState = retry.frame.stateSharingSnapshot()
-        val initializerReturnState = initializerReturn.frame.stateSharingSnapshot()
 
-        assertSame(triggerState.registerRoot, retryState.registerRoot)
-        assertSame(triggerState.heapRoot, retryState.heapRoot)
-        assertSame(triggerState.addressVisitRoot, retryState.addressVisitRoot)
         assertEquals(1, retry.frame.addressVisitCount(trigger.address), "class-init retry retains caller path history")
-        assertNotSame(triggerState.classStateRoot, retryState.classStateRoot)
-        assertNotSame(triggerState.staticRoot, retryState.staticRoot)
-        assertSame(triggerState.heapRoot, initializerEntry.frame.stateSharingSnapshot().heapRoot)
-        assertSame(initializerReturnState.heapRoot, retryState.heapRoot)
-        assertNotSame(initializerReturnState.classStateRoot, retryState.classStateRoot)
-        assertSame(initializerReturnState.staticRoot, retryState.staticRoot)
         assertEquals(ClassInitState.INITIALIZING, initializerReturn.frame.initState(INIT_TARGET_TYPE))
         assertEquals(ClassInitState.INITIALIZED, retry.frame.initState(INIT_TARGET_TYPE))
         assertLiveState(trigger.frame, liveRef)
         assertLiveState(initializerEntry.frame, liveRef)
         assertLiveState(retry.frame, liveRef)
-        assertSame(
-            trigger.frame.heapObjectSharing(liveRef)!!.objectToken,
-            retry.frame.heapObjectSharing(liveRef)!!.objectToken,
-        )
+        assertSame(trigger.frame.heapObject(liveRef), retry.frame.heapObject(liveRef))
         assertEquals(Value.Known(55, int), trigger.frame.peek(0))
         assertEquals(
             Value.Known(0, int),
@@ -491,7 +343,7 @@ class PersistentStateTest {
     }
 
     @Test
-    fun identicalGuestCalleeReturnPathsReuseUnchangedStoreRoots() {
+    fun identicalGuestCalleeReturnPathsReuseUnchangedObjectVersions() {
         val method = view(CALLER, "callsTwoPathVoidCallee(I)V")
         val seeded = Frame.entryFrame(method)
         val liveRef = seedLiveState(seeded)
@@ -506,30 +358,17 @@ class PersistentStateTest {
         assertEquals(2, calleeReturns.size)
         assertEquals(2, callerReturns.size)
 
-        val invokeState = invoke.frame.stateSharingSnapshot()
+        val liveObject = invoke.frame.heapObject(liveRef)
         for (returned in calleeReturns) {
-            val returnedState = returned.frame.stateSharingSnapshot()
-            assertSame(invokeState.heapRoot, returnedState.heapRoot)
-            assertSame(invokeState.classStateRoot, returnedState.classStateRoot)
-            assertSame(invokeState.staticRoot, returnedState.staticRoot)
             assertLiveState(returned.frame, liveRef)
-            assertSame(
-                invoke.frame.heapObjectSharing(liveRef)!!.objectToken,
-                returned.frame.heapObjectSharing(liveRef)!!.objectToken,
-            )
+            assertSame(liveObject, returned.frame.heapObject(liveRef))
         }
         for (callerReturn in callerReturns) {
-            val callerState = callerReturn.frame.stateSharingSnapshot()
-            assertSame(invokeState.registerRoot, callerState.registerRoot)
-            assertSame(invokeState.assignedRoot, callerState.assignedRoot)
-            assertSame(invokeState.readRoot, callerState.readRoot)
-            assertStoreRootsSame(invokeState, callerState)
             assertLiveState(callerReturn.frame, liveRef)
+            assertSame(liveObject, callerReturn.frame.heapObject(liveRef))
             assertEquals(Value.Unknown(int), callerReturn.frame.peek(0))
             assertEquals(setOf(0), callerReturn.frame.registersAssigned())
             assertEquals(setOf(0), callerReturn.frame.registersRead())
-            assertEquals(0, callerState.copies.heapObjectsCopied)
-            assertEquals(0, callerState.copies.classElementsCopied)
         }
     }
 
@@ -539,7 +378,7 @@ class PersistentStateTest {
         val arrayRef = caller.allocateArray(intArray, 1).raw as HeapRef
         val objectRef = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val untouchedRef = caller.allocateObject(objectType, mapOf(field to Value.Known(5, int))).raw as HeapRef
-        val untouched = caller.heapObjectSharing(untouchedRef)!!
+        val untouched = caller.heapObject(untouchedRef)
         caller.completeClassInit(objectType)
         caller.writeStaticField(STATIC_FIELD, Value.Known(1, int))
         val first = caller.calleeEntryFrame(view(CALLEE, "returnsNothing()V"))
@@ -557,18 +396,18 @@ class PersistentStateTest {
         assertEquals(Value.Unknown(int), merged.getField(objectRef, field))
         assertEquals(Value.Unknown(int), merged.getStaticField(objectType, STATIC_FIELD))
         assertEquals(ClassInitState.INITIALIZED, merged.initState(objectType))
-        assertSame(untouched.objectToken, merged.heapObjectSharing(untouchedRef)!!.objectToken)
-        assertSame(untouched.contentsRoot, merged.heapObjectSharing(untouchedRef)!!.contentsRoot)
+        assertSame(untouched, merged.heapObject(untouchedRef))
+        assertSame(contentsRoot(caller, untouchedRef), contentsRoot(merged, untouchedRef))
         assertEquals(Value.Known(0, int), caller.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Known(1, int), caller.getField(objectRef, field))
         assertEquals(Value.Known(1, int), caller.getStaticField(objectType, STATIC_FIELD))
     }
 
     @Test
-    fun graphDisagreementReusesGraphIndependentObjectsAndCountsOnlyNewVersions() {
+    fun graphDisagreementReusesGraphIndependentObjectsAndDegradesHostContents() {
         val caller = frame()
         val trackedRef = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
-        val tracked = caller.heapObjectSharing(trackedRef)!!
+        val tracked = caller.heapObject(trackedRef)
         val hostType = VirtualType.of("Ljava/lang/StringBuilder;")
         val hostRef = caller.allocateHostObject(hostType, StringBuilder("value"))
         val first = caller.copy()
@@ -588,13 +427,11 @@ class PersistentStateTest {
         )
         (selected.arguments.single() as StringBuilder).append("-changed")
         selected.finalize(first)
-        val beforeMerge = caller.stateSharingSnapshot().versions.heapObjects
 
         val merged = caller.mergedCalleeState(listOf(first, second), classIndex)
 
-        assertSame(tracked.objectToken, merged.heapObjectSharing(trackedRef)!!.objectToken)
+        assertSame(tracked, merged.heapObject(trackedRef))
         assertEquals(HostGraphContents.Unknown, (merged.heapObject(hostRef) as HeapObject.HostObject).contents)
-        assertEquals(beforeMerge + 1, merged.stateSharingSnapshot().versions.heapObjects)
     }
 
     @Test
@@ -639,7 +476,7 @@ class PersistentStateTest {
     fun heapMergeDropsObjectsMissingFromOnePathAndJoinsMissingFieldsAgainstTop() {
         val caller = frame()
         val untouchedRef = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
-        val untouched = caller.heapObjectSharing(untouchedRef)!!
+        val untouched = caller.heapObject(untouchedRef)
         val allocatedPath = caller.copy()
         val missingPath = caller.copy()
         val pathOnlyRef = allocatedPath.allocateArray(intArray, 1).raw as HeapRef
@@ -647,7 +484,7 @@ class PersistentStateTest {
         val merged = caller.mergedCalleeState(listOf(allocatedPath, missingPath), classIndex)
 
         assertNull(merged.heapObject(pathOnlyRef), "an object absent from one outcome path must remain absent")
-        assertSame(untouched.objectToken, merged.heapObjectSharing(untouchedRef)!!.objectToken)
+        assertSame(untouched, merged.heapObject(untouchedRef))
 
         val presentHeap = HeapStore(HeapIds())
         val presentRef = presentHeap.allocateObject(objectType, mapOf(field to Value.Known(7, int)))
@@ -683,22 +520,20 @@ class PersistentStateTest {
         frame.allocateTrackedField(metadata)
         repeat(10_000) { frame.allocateArray(intArray, 1) }
         val first = frame.callCompatibilityKey().trackedFields
-        val before = frame.stateSharingSnapshot()
 
         var last = first
         repeat(100_000) { last = frame.callCompatibilityKey().trackedFields }
-        val after = frame.stateSharingSnapshot()
 
         assertSame(first, last, "key reads must return the shared persistent compatibility root")
         assertEquals(1, last.size)
-        assertSnapshotUnchanged(before, after)
         assertEquals(fieldType, frame.heapObject(HeapRef(last.keys.single()))!!.type)
     }
 
     @Test
     fun compatibilityHashAndGroupingDoNotTraverseTenThousandEntryMaps() {
         // Bug class: CallCompatibilityKey equality/hash walks both compatibility maps at every group lookup.
-        // Oracle: shared roots and cached hashes are O(1); equal-hash roots use exact collision-safe equality.
+        // Oracle: a million lookups by a shared-root key over two 10,000-entry maps walk 2 * 10^10 entries if
+        // hashing or equality traverses; cached hashes and the shared-root equality fast path finish in the bound.
         val frame = frame()
         repeat(10_000) {
             frame.allocateTrackedField(trackedMetadata(it))
@@ -706,22 +541,17 @@ class PersistentStateTest {
         }
         val key = frame.callCompatibilityKey()
         val sharedKey = frame.copy().callCompatibilityKey()
+        assertNotSame(key, sharedKey)
         assertEquals(key, sharedKey)
         assertEquals(key.hashCode(), sharedKey.hashCode())
-        val beforeState = frame.stateSharingSnapshot()
-        val beforeMetrics = frame.callCompatibilityHashMetrics()
         val groups = HashMap<CallCompatibilityKey, Int>()
+        groups[key] = 0
 
-        repeat(100_000) { groups[key] = (groups[key] ?: 0) + 1 }
+        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            repeat(1_000_000) { groups[sharedKey] = groups.getValue(sharedKey) + 1 }
+        }
 
-        val afterMetrics = frame.callCompatibilityHashMetrics()
-        assertEquals(100_000, groups.getValue(key))
-        assertTrue(afterMetrics.classInit.hashCalls > beforeMetrics.classInit.hashCalls)
-        assertTrue(afterMetrics.trackedFields.hashCalls > beforeMetrics.trackedFields.hashCalls)
-        assertEquals(beforeMetrics.classInit.equalityEntriesVisited, afterMetrics.classInit.equalityEntriesVisited)
-        assertEquals(beforeMetrics.trackedFields.equalityEntriesVisited, afterMetrics.trackedFields.equalityEntriesVisited)
-        assertSnapshotUnchanged(beforeState, frame.stateSharingSnapshot())
-
+        assertEquals(1_000_000, groups.getValue(key))
         val independentlyBuilt = frame()
         repeat(10_000) {
             independentlyBuilt.allocateTrackedField(trackedMetadata(it))
@@ -734,92 +564,69 @@ class PersistentStateTest {
     }
 
     @Test
-    fun addressVisitRootsForkPerPathAndResetOnlyAtCalleeEntry() {
+    fun addressVisitsForkPerPathAndResetOnlyAtCalleeEntry() {
         // Bug class: an activation-wide counter lets sibling paths consume each other's loop budget.
         // Oracle: a visit is path history; a callee starts a new method history and caller resume restores its own.
         val parent = frame()
         assertEquals(1, parent.recordAddressVisit(0))
         val sibling = parent.copy()
         val changed = parent.copy()
-        val sharedRoot = parent.addressVisitRootToken()
 
         assertEquals(2, changed.recordAddressVisit(0))
 
         assertEquals(1, parent.addressVisitCount(0))
         assertEquals(1, sibling.addressVisitCount(0))
         assertEquals(2, changed.addressVisitCount(0))
-        assertSame(sharedRoot, sibling.addressVisitRootToken())
-        assertNotSame(sharedRoot, changed.addressVisitRootToken())
 
         val callee = parent.calleeEntryFrame(view(CALLEE, "returnsNothing()V"))
         assertEquals(0, callee.addressVisitCount(0))
         val resumed = parent.resumedWith(callee)
         assertEquals(1, resumed.addressVisitCount(0))
-        assertSame(sharedRoot, resumed.addressVisitRootToken())
     }
 
     @Test
-    fun selectedCompactionIgnoresDeadGuestOnlyHeapObjects() {
+    fun selectedCompactionCostIgnoresDeadGuestOnlyHeapObjects() {
         // Bug class: every selected call scans and sorts all historical HeapObjects before host execution.
-        // Oracle: work starts from live guest refs and the graph-backed ref index, not dead guest-only records.
-        fun measured(deadObjects: Int): Pair<SelectedCompactionMetrics, MirrorIndexMetrics> {
-            val frame = frame()
-            val raw = intArrayOf(0)
-            val arrayType = VirtualType.of("[I")
-            val value = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, arrayType)))).single() as Value.Known
-            val ref = value.raw as HeapRef
-            frame.assign(0, value)
-            frame.writeArrayElement(ref, 0, Value.Known(7, int))
-            repeat(deadObjects) { frame.allocateObject(VirtualType.of("Ldead/object$it;"), emptyMap()) }
-            val before = frame.selectedCompactionMetrics()
-            val beforeMirrors = frame.mirrorIndexMetrics()
-            val selected = SelectedHostCall.from(
-                PreparedInvocation(
-                    MethodDescriptor(VirtualType.of("Lcalls/callee;"), "host", "()V"),
-                    VirtualType.of("Lcalls/caller;"),
-                    InvokeKind.STATIC,
-                    VirtualType.of("V"),
-                    listOf(arrayType),
-                    null,
-                    listOf(value),
-                ),
-                frame,
-                CoreTester.classIndex.classLoader,
-            )
-            val after = frame.selectedCompactionMetrics()
-            val afterMirrors = frame.mirrorIndexMetrics()
-            selected.finalize(frame)
-            return Pair(
-                SelectedCompactionMetrics(
-                    after.guestRefsVisited - before.guestRefsVisited,
-                    after.graphBackedRefsVisited - before.graphBackedRefsVisited,
-                    after.hostNodesVisited - before.hostNodesVisited,
-                ),
-                MirrorIndexMetrics(
-                    afterMirrors.mirroredEntriesVisited - beforeMirrors.mirroredEntriesVisited,
-                    afterMirrors.dirtyEntriesVisited - beforeMirrors.dirtyEntriesVisited,
-                ),
-            )
+        // Oracle: work starts from live guest refs and the graph-backed ref index. With 300,000 dead objects,
+        // 3,000 selected calls that scan the heap visit about 10^9 records; live-root work finishes in the bound.
+        val frame = frame()
+        val raw = intArrayOf(0)
+        val arrayType = VirtualType.of("[I")
+        val value = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, arrayType)))).single() as Value.Known
+        val ref = value.raw as HeapRef
+        frame.assign(0, value)
+        repeat(300_000) { frame.allocateObject(VirtualType.of("Ldead/object$it;"), emptyMap()) }
+        val invocation = PreparedInvocation(
+            MethodDescriptor(VirtualType.of("Lcalls/callee;"), "host", "()V"),
+            VirtualType.of("Lcalls/caller;"),
+            InvokeKind.STATIC,
+            VirtualType.of("V"),
+            listOf(arrayType),
+            null,
+            listOf(value),
+        )
+
+        assertTimeoutPreemptively(Duration.ofSeconds(30)) {
+            repeat(3_000) { iteration ->
+                frame.writeArrayElement(ref, 0, Value.Known(iteration, int))
+                val selected = SelectedHostCall.from(invocation, frame, CoreTester.classIndex.classLoader)
+                assertEquals(iteration, (selected.arguments.single() as IntArray)[0])
+                selected.finalize(frame)
+            }
         }
-
-        val empty = measured(0)
-        val large = measured(10_000)
-
-        assertEquals(SelectedCompactionMetrics(1, 1, 1), empty.first)
-        assertEquals(MirrorIndexMetrics(1, 2), empty.second)
-        assertEquals(empty, large)
     }
 
     private fun frame(descriptor: String = "moveChain()I"): Frame = Frame.entryFrame(view(SPINE, descriptor))
 
-    private fun populatedCopyCostFrame(): Frame = frame().also {
+    private fun populatedFrame(heapObjects: Int, statics: Int): Frame = frame().also {
         it.assign(0, Value.Known(1, int))
         it.read(0)
         it.recordAddressVisit(0)
         it.allocateArray(intArray, 2_048)
-        repeat(128) { index -> it.allocateObject(objectType, mapOf(field to Value.Known(index, int))) }
+        repeat(heapObjects) { index -> it.allocateObject(objectType, mapOf(field to Value.Known(index, int))) }
         it.allocateHostObject(VirtualType.of("Ljava/lang/StringBuilder;"), StringBuilder("host"))
         it.completeClassInit(objectType)
+        repeat(statics) { index -> it.writeStaticField("${objectType.descriptor}->static$index:I", Value.Known(index, int)) }
         it.writeStaticField(STATIC_FIELD, Value.Known(1, int))
     }
 
@@ -854,6 +661,28 @@ class PersistentStateTest {
         assertEquals(Value.Known(4, int), frame.getStaticField(objectType, STATIC_FIELD))
     }
 
+    /** [copied] holds every register, address visit, heap object, and class-init fact of [original]. */
+    private fun assertLiveState(copied: Frame, original: Frame) {
+        assertEquals(original.peek(0), copied.peek(0))
+        assertEquals(original.registersRead(), copied.registersRead())
+        assertEquals(original.addressVisitCount(0), copied.addressVisitCount(0))
+        for (id in 0 until original.nextHeapId()) {
+            assertSame(original.heapObject(HeapRef(id)), copied.heapObject(HeapRef(id)))
+        }
+        assertEquals(ClassInitState.INITIALIZED, copied.initState(objectType))
+        assertEquals(original.getStaticField(objectType, STATIC_FIELD), copied.getStaticField(objectType, STATIC_FIELD))
+    }
+
+    private fun assertObjectVersionsSame(frame: Frame, refs: List<HeapRef>, expected: List<HeapObject?>) {
+        refs.zip(expected).forEach { (ref, version) -> assertSame(version, frame.heapObject(ref)) }
+    }
+
+    private fun contentsRoot(frame: Frame, ref: HeapRef): Any = when (val obj = frame.heapObject(ref)) {
+        is HeapObject.TrackedArray -> obj.contentsRootToken()
+        is HeapObject.TrackedObject -> obj.contentsRootToken()
+        else -> error("$ref has no persistent contents in $frame")
+    }
+
     private fun descendants(root: ExecutionNode): List<ExecutionNode> {
         val pending = ArrayDeque<ExecutionNode>()
         pending.addAll(root.children)
@@ -864,39 +693,6 @@ class PersistentStateTest {
             pending.addAll(node.children)
         }
         return result
-    }
-
-    private fun assertSnapshotUnchanged(expected: StateSharingSnapshot, actual: StateSharingSnapshot) {
-        assertRootsSame(expected, actual)
-        assertEquals(expected.copies, actual.copies)
-        assertEquals(expected.versions, actual.versions)
-    }
-
-    private fun assertRootsSame(expected: StateSharingSnapshot, actual: StateSharingSnapshot) {
-        assertFrameRootsSame(expected, actual)
-        assertStoreRootsSame(expected, actual)
-    }
-
-    private fun assertFrameRootsSame(expected: StateSharingSnapshot, actual: StateSharingSnapshot) {
-        assertRegisterRootsSame(expected, actual)
-        assertSame(expected.addressVisitRoot, actual.addressVisitRoot)
-    }
-
-    private fun assertRegisterRootsSame(expected: StateSharingSnapshot, actual: StateSharingSnapshot) {
-        assertSame(expected.registerRoot, actual.registerRoot)
-        assertSame(expected.assignedRoot, actual.assignedRoot)
-        assertSame(expected.readRoot, actual.readRoot)
-    }
-
-    private fun assertStoreRootsSame(expected: StateSharingSnapshot, actual: StateSharingSnapshot) {
-        assertSame(expected.heapRoot, actual.heapRoot)
-        assertSame(expected.hostGraphRoot, actual.hostGraphRoot)
-        assertClassRootsSame(expected, actual)
-    }
-
-    private fun assertClassRootsSame(expected: StateSharingSnapshot, actual: StateSharingSnapshot) {
-        assertSame(expected.classStateRoot, actual.classStateRoot)
-        assertSame(expected.staticRoot, actual.staticRoot)
     }
 
     private companion object {

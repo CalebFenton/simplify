@@ -54,16 +54,11 @@ class ThrowableCauseBehaviorTest {
         )
         frame.assign(view.parameters.single().register, wrapper)
 
-        val before = frame.selectedCompactionMetrics()
         val checkpoint = frame.detachHostGraph(emptyList())
-        val after = frame.selectedCompactionMetrics()
-        assertEquals(2, after.guestRefsVisited - before.guestRefsVisited)
-        assertEquals(2, after.graphBackedRefsVisited - before.graphBackedRefsVisited)
-        assertEquals(
-            frame.hostGraphMetrics().nodes,
-            after.hostNodesVisited - before.hostNodesVisited,
-            "selection must traverse the retained host graph once",
-        )
+        val detachedWrapper = frame.hostObjectAt(wrapper.raw as HeapRef) as Throwable
+        val detachedCause = frame.hostObjectAt(cause.raw as HeapRef)
+        assertTrue(detachedCause is NullPointerException, "selection must keep the guest cause's host mirror")
+        assertSame(detachedCause, detachedWrapper.cause, "the detached graph must keep the wrapper-to-cause edge")
         frame.restoreHostGraph(checkpoint)
 
         frame.collapseReachable(listOf(wrapper), listOf(THROWABLE))

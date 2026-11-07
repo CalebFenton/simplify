@@ -341,17 +341,14 @@ class BackendCorpusMigrationTest {
     @Test
     fun overwrittenHostReturnsDoNotGrowLaterSelectedGraphs() {
         // Bug class: returned objects remain host-graph roots after their result register is overwritten.
-        // Oracle: only the third builder is guest-reachable at length(); prior heap records retain no raw node.
+        // Oracle: only the third builder is guest-reachable at length(), so the terminal graph holds one object.
         val fresh = method(HOST_FIXTURE, "freshBuilder", "(I)Ljava/lang/StringBuilder;")
         val length = method(BUILDER, "length", "()I")
         val run = execute(INVOKE_FIXTURE, "overwriteReturnedHosts()I", vm(setOf(fresh, length)))
         val terminal = requireNotNull(run.session.currentNode).frame
-        val copies = terminal.stateSharingSnapshot().copies
 
         assertEquals(Value.Known(3, INT), run.graph.returnedValue())
         assertEquals(1, terminal.hostGraphObjects().size)
-        assertEquals(3, copies.hostGraphClones)
-        assertEquals(6, copies.hostObjectsCloned, "each selected graph contains one builder and its backing array")
     }
 
     @Test

@@ -13,15 +13,9 @@ internal data class CallCompatibilityKey(
     val trackedFields: CompatibilityMapKey<Int, TrackedFieldCompatibility>,
 )
 
-internal data class CallCompatibilityHashMetrics(
-    val classInit: CompatibilityHashMetrics,
-    val trackedFields: CompatibilityHashMetrics,
-)
-
 /**
  * One method activation's mutable state: physical registers plus the four special slots
- * (spec §4.2). Replaces the old engine's single string-keyed map that mixed registers,
- * parameters and pseudo-slots together.
+ * (spec §4.2).
  *
  * Three invariants this type exists to enforce:
  *  1. **Wide pairs.** A wide value (`J`/`D`) owns two consecutive registers. The high half is not
@@ -51,15 +45,11 @@ class Frame private constructor(
     private var caught: FrameValue?,
     private val heap: HeapStore,
     /**
-     * This path's class-initialization lifecycle (spec §4.2's third store, resolved decision 9). A
-     * SEPARATE store from [heap] rather than a map inside it: spec §4.2 lists three stores and
-     * [ClassState] is one of them, so folding class state into the object heap would make one of the
-     * three unnameable. The cost of the separation is that it must be threaded across the two call
-     * boundaries by hand -- which is [calleeEntryFrame] and [resumedWith], and which the private
-     * constructor makes the compiler insist on rather than something a future boundary can forget.
+     * This path's class-initialization lifecycle, a store separate from [heap] (spec §4.2 names three
+     * stores). It must be threaded across both call boundaries, [calleeEntryFrame] and [resumedWith];
+     * the private constructor makes the compiler require it at each.
      */
     private val classes: ClassInitStore,
-    private val registerMetrics: RegisterStateMetrics,
 ) : ExecutionState, RegisterFile {
 
     /** A register either holds a value, or is the reserved high half of the wide value below it. */
@@ -87,15 +77,8 @@ class Frame private constructor(
         if (high != null) {
             updated = clearWidePartner(updated, high).replacingAt(high, RegisterSlot.WideHigh(register))
         }
-        if (updated !== slots) {
-            slots = updated
-            registerMetrics.registerRoots++
-        }
-        val updatedAssigned = assigned.adding(register)
-        if (updatedAssigned !== assigned) {
-            assigned = updatedAssigned
-            registerMetrics.assignedRoots++
-        }
+        slots = updated
+        assigned = assigned.adding(register)
     }
 
     override fun peek(register: Int): Value? {
@@ -116,11 +99,7 @@ class Frame private constructor(
     /** Internal total read that preserves throwable refinement. */
     internal fun readFrameValue(register: Int): FrameValue {
         requireInRange(register)
-        val updated = read.adding(register)
-        if (updated !== read) {
-            read = updated
-            registerMetrics.readRoots++
-        }
+        read = read.adding(register)
         return peekFrameValue(register) ?: FrameValue.plain(Value.Top)
     }
 
@@ -134,7 +113,6 @@ class Frame private constructor(
             val held = slots[register] as? RegisterSlot.Held ?: continue
             if (held.value !is FrameValue.RefinedThrowable) continue
             slots = slots.replacingAt(register, RegisterSlot.Held(FrameValue.plain(held.value.value)))
-            registerMetrics.registerRoots++
         }
     }
 
@@ -144,15 +122,9 @@ class Frame private constructor(
 
     internal fun recordAddressVisit(address: Int): Int {
         val visits = (addressVisits[address] ?: 0) + 1
-        val updated = addressVisits.putting(address, visits)
-        if (updated !== addressVisits) {
-            addressVisits = updated
-            registerMetrics.addressVisitRoots++
-        }
+        addressVisits = addressVisits.putting(address, visits)
         return visits
     }
-
-    internal fun addressVisitRootToken(): Any = addressVisits
 
     internal fun addressVisitCount(address: Int): Int = addressVisits[address] ?: 0
 
@@ -476,8 +448,6 @@ class Frame private constructor(
 
     internal fun nextHeapId(): Int = heap.nextHeapId()
 
-    internal fun throwableAllocationCount(): Int = heap.throwableAllocationCount()
-
     /**
      * A fresh, uninitialized tracked object of [type] -- `new-instance`'s allocation, mirroring
      * [allocateArray]: the object's type and the register's tag are the same thing here, because both
@@ -510,15 +480,6 @@ class Frame private constructor(
         heap.trackedFieldCompatibilityKey(),
     )
 
-    internal fun callCompatibilityHashMetrics(): CallCompatibilityHashMetrics = CallCompatibilityHashMetrics(
-        classes.compatibilityHashMetrics(),
-        heap.compatibilityHashMetrics(),
-    )
-
-    internal fun selectedCompactionMetrics(): SelectedCompactionMetrics = heap.selectedCompactionMetrics()
-
-    internal fun mirrorIndexMetrics(): MirrorIndexMetrics = heap.mirrorIndexMetrics()
-
     internal fun classInitStatusSnapshot(): ClassInitStatusSnapshot = classes.statusSnapshot()
 
     override fun heapObject(ref: HeapRef): HeapObject? = heap.objectAt(ref)
@@ -532,26 +493,19 @@ class Frame private constructor(
      * [takeSideEffectLevel] call after successor construction, a child could not inherit its parent's
      * declaration and report `STRONG` for an address whose op declared nothing.
      */
-    fun copy(): Frame {
-        val copiedSlots = slots
-        val copiedAssigned = assigned
-        val copiedRead = read
-        recordRegisterCopy(copiedSlots, copiedAssigned, copiedRead, entriesVisited = 0)
-        return Frame(
-            view = view,
-            slots = copiedSlots,
-            assigned = copiedAssigned,
-            read = copiedRead,
-            addressVisits = addressVisits,
-            result = result,
-            returnValue = returnValue,
-            thrown = thrown,
-            caught = caught,
-            heap = heap.copy(),
-            classes = classes.copy(),
-            registerMetrics = registerMetrics,
-        )
-    }
+    fun copy(): Frame = Frame(
+        view = view,
+        slots = slots,
+        assigned = assigned,
+        read = read,
+        addressVisits = addressVisits,
+        result = result,
+        returnValue = returnValue,
+        thrown = thrown,
+        caught = caught,
+        heap = heap.copy(),
+        classes = classes.copy(),
+    )
 
     /** Copies a caller-supplied public entry frame and removes all internal throwable refinements. */
     internal fun sanitizedCopyForPublicEntry(): Frame {
@@ -561,7 +515,6 @@ class Frame private constructor(
             if (held.value !is FrameValue.RefinedThrowable) continue
             sanitizedSlots = sanitizedSlots.replacingAt(index, RegisterSlot.Held(FrameValue.plain(held.value.value)))
         }
-        recordRegisterCopy(sanitizedSlots, assigned, read, entriesVisited = slots.size)
         return Frame(
             view = view,
             slots = sanitizedSlots,
@@ -574,7 +527,6 @@ class Frame private constructor(
             caught = caught?.value?.let(FrameValue::plain),
             heap = heap.copy(),
             classes = classes.copy(),
-            registerMetrics = registerMetrics,
         )
     }
 
@@ -584,7 +536,6 @@ class Frame private constructor(
         require(expectedView.registerCount == registerCount) {
             "Test entry view must keep the source frame register count"
         }
-        recordRegisterCopy(slots, assigned, read, entriesVisited = 0)
         return Frame(
             view = expectedView,
             slots = slots,
@@ -597,17 +548,8 @@ class Frame private constructor(
             caught = caught,
             heap = heap.copy(),
             classes = classes.copy(),
-            registerMetrics = registerMetrics,
         )
     }
-
-    /** Constant-time persistent copy owned by one op arm. */
-    internal fun copyForOpArm(): Frame {
-        registerMetrics.opArmCopies++
-        return copy()
-    }
-
-    internal data class ArmReconciliation(val frame: Frame, val cellsVisited: Int)
 
     /** Resolves dynamic register partners and array ranges once for this execution. */
     internal fun resolveFootprint(footprint: OpUpdateFootprint): ReconciliationFootprint {
@@ -644,10 +586,9 @@ class Frame private constructor(
         arms: List<Frame>,
         footprint: ReconciliationFootprint,
         superclasses: Superclasses,
-    ): ArmReconciliation {
+    ): Frame {
         require(arms.size > 1)
         val staticDescriptors = footprint.staticDescriptors.sorted()
-        var cellsVisited = staticDescriptors.size * arms.size
         val reconciledClasses = classes.copy()
         reconciledClasses.reconcileStatics(staticDescriptors, arms.map { it.classes }, superclasses)
         val reconciled = Frame(
@@ -662,14 +603,12 @@ class Frame private constructor(
             caught = caught,
             heap = heap.copy(),
             classes = reconciledClasses,
-            registerMetrics = registerMetrics,
         )
         for ((ref, ranges) in footprint.arrayRanges.entries.sortedBy { it.key.id }) {
             for (range in ranges) {
                 for (index in range) {
                     var value: Value? = null
                     for (arm in arms) {
-                        cellsVisited++
                         val armValue = arm.arrayAt(ref)?.element(index) ?: Value.Top
                         value = value?.let { join(it, armValue, superclasses) } ?: armValue
                     }
@@ -683,7 +622,6 @@ class Frame private constructor(
             for (descriptor in descriptors.sorted()) {
                 var value: Value? = null
                 for (arm in arms) {
-                    cellsVisited++
                     val armValue = arm.heap.objectAt(ref).let { obj ->
                         (obj as? HeapObject.TrackedObject)?.field(descriptor) ?: Value.Top
                     }
@@ -702,7 +640,6 @@ class Frame private constructor(
             var sameWideLow = true
             var heldValue: FrameValue? = null
             for (arm in arms) {
-                cellsVisited++
                 when (val slot = arm.slots[register]) {
                     is RegisterSlot.Held -> {
                         allEmpty = false
@@ -728,16 +665,11 @@ class Frame private constructor(
                 else -> reconciled.assign(register, Value.Top)
             }
         }
-        registerMetrics.opArmStateEntriesVisited += cellsVisited
-        return ArmReconciliation(reconciled, cellsVisited)
+        return reconciled
     }
 
     private fun clearRegisterCell(register: Int) {
-        val updated = clearWidePartner(slots, register).replacingAt(register, null)
-        if (updated !== slots) {
-            slots = updated
-            registerMetrics.registerRoots++
-        }
+        slots = clearWidePartner(slots, register).replacingAt(register, null)
     }
 
     /**
@@ -773,58 +705,37 @@ class Frame private constructor(
     internal fun calleeEntryFrame(callee: MethodView): Frame = entryFrame(callee, heap.copy(), classes.copy())
 
     /**
-     * This frame -- a caller's post-invoke state -- copied and carrying [callee]'s heap: the frame the
-     * caller resumes on when a call returns.
+     * The frame a caller resumes on when a call returns: this frame's registers with [callee]'s heap and
+     * class-init store.
      *
-     * **Registers from the caller, heap from the callee**, and both halves are load-bearing. Registers are
-     * method-local, so a callee cannot change which object one of the caller's registers denotes (plan
-     * adjudication 9: *collapse what a reference points to, never the reference itself*; [BC]: the arguments
-     * land in the callee's OWN registers). The heap is not method-local: [HeapStore]'s own contract is that
-     * it is *"resolved per path rather than per frame, so that from Plan 9 a callee's mutation is visible to
-     * its caller on the same path"* -- so discarding the callee's heap here would lose every allocation and
-     * every field write the call performed, on a path that provably performed them.
+     * Registers are method-local, so a callee cannot change which object a caller register denotes. The heap
+     * and class-init state are per path: dropping the callee's heap would lose its allocations and field
+     * writes, and dropping its class-init store would re-run every `<clinit>` the callee already ran.
      *
-     * **The [ClassInitStore] comes from the callee too, for the same reason the heap does.** Class-init state
-     * is not method-local either: a `<clinit>` the call ran, or any class the callee initialized on its way,
-     * happened on THIS path and must not be forgotten -- a caller that re-read its own pre-call store would
-     * re-run every `<clinit>` its callee already ran, applying those writes twice.
-     *
-     * ⚠️ Together with [calleeEntryFrame] these are the only two places state crosses a call boundary; see
-     * that function's warning.
+     * Together with [calleeEntryFrame] these are the only two places state crosses a call boundary.
      */
-    internal fun resumedWith(callee: Frame): Frame {
-        val copiedSlots = slots
-        val copiedAssigned = assigned
-        val copiedRead = read
-        recordRegisterCopy(copiedSlots, copiedAssigned, copiedRead, entriesVisited = 0)
-        return Frame(
-            view = view,
-            slots = copiedSlots,
-            assigned = copiedAssigned,
-            read = copiedRead,
-            addressVisits = addressVisits,
-            result = result,
-            returnValue = returnValue,
-            thrown = thrown,
-            caught = caught,
-            heap = callee.heap.copy(),
-            classes = callee.classes.copy(),
-            registerMetrics = registerMetrics,
-        )
-    }
+    internal fun resumedWith(callee: Frame): Frame = Frame(
+        view = view,
+        slots = slots,
+        assigned = assigned,
+        read = read,
+        addressVisits = addressVisits,
+        result = result,
+        returnValue = returnValue,
+        thrown = thrown,
+        caught = caught,
+        heap = callee.heap.copy(),
+        classes = callee.classes.copy(),
+    )
 
     /** Caller registers plus stores joined over exactly one callee outcome partition. */
     internal fun mergedCalleeState(callees: List<Frame>, superclasses: Superclasses): Frame {
         require(callees.isNotEmpty())
-        val copiedSlots = slots
-        val copiedAssigned = assigned
-        val copiedRead = read
-        recordRegisterCopy(copiedSlots, copiedAssigned, copiedRead, entriesVisited = 0)
         return Frame(
             view = view,
-            slots = copiedSlots,
-            assigned = copiedAssigned,
-            read = copiedRead,
+            slots = slots,
+            assigned = assigned,
+            read = read,
             addressVisits = addressVisits,
             result = result,
             returnValue = returnValue,
@@ -832,76 +743,10 @@ class Frame private constructor(
             caught = caught,
             heap = HeapStore.merge(callees.map { it.heap }, superclasses),
             classes = ClassInitStore.merge(callees.map { it.classes }, superclasses),
-            registerMetrics = registerMetrics,
         )
     }
-
-    /** Counts logical elements only if a snapshot boundary stops sharing a register root. */
-    private fun recordRegisterCopy(
-        copiedSlots: PersistentList<RegisterSlot?>,
-        copiedAssigned: PersistentSet<Int>,
-        copiedRead: PersistentSet<Int>,
-        entriesVisited: Int,
-    ) {
-        registerMetrics.frameCopies++
-        registerMetrics.copyEntriesVisited += entriesVisited
-        if (copiedSlots !== slots) registerMetrics.registerElementsCopied += slots.size
-        if (copiedAssigned !== assigned) registerMetrics.registerElementsCopied += assigned.size
-        if (copiedRead !== read) registerMetrics.registerElementsCopied += read.size
-    }
-
-    internal fun stateSharingSnapshot(): StateSharingSnapshot {
-        val (heapCopies, heapObjectsCopied) = heap.copyCounts()
-        val heapVersions = heap.versionCounts()
-        val (classCopies, classElementsCopied) = classes.copyCounts()
-        val (classVersions, staticVersions) = classes.versionCounts()
-        return StateSharingSnapshot(
-            slots,
-            assigned,
-            read,
-            addressVisits,
-            heap.rootToken(),
-            classes.stateRootToken(),
-            classes.staticRootToken(),
-            heap.hostGraphRootToken(),
-            StateCopyCounts(
-                registerMetrics.frameCopies,
-                heapCopies,
-                classCopies,
-                registerMetrics.registerElementsCopied,
-                heapObjectsCopied,
-                classElementsCopied,
-                registerMetrics.copyEntriesVisited,
-                heapVersions.hostGraphClones,
-                heapVersions.hostObjectsCloned,
-                registerMetrics.opArmCopies,
-                registerMetrics.opArmStateEntriesVisited,
-                heap.throwableAllocationCount(),
-                heap.arrayAllocationElementsInitialized(),
-            ),
-            StateVersionCounts(
-                registerMetrics.registerRoots,
-                registerMetrics.assignedRoots,
-                registerMetrics.readRoots,
-                heapVersions.roots,
-                heapVersions.objects,
-                heapVersions.arrayElements,
-                heapVersions.objectFields,
-                registerMetrics.addressVisitRoots,
-                classVersions,
-                staticVersions,
-                heapVersions.hostGraphRoots,
-            ),
-        )
-    }
-
-    internal fun heapObjectSharing(ref: HeapRef): HeapObjectSharing? = heap.objectSharing(ref)
 
     internal fun hostGraphVersionToken(): Any = heap.hostGraphVersionToken()
-
-    internal fun hostGraphMetrics(): HostGraphMetrics = heap.hostGraphMetrics()
-
-    internal fun staticRootToken(): Any = classes.staticRootToken()
 
     override fun toString(): String =
         "Frame(${view.signature}, assigned=${registersAssigned()})"
@@ -971,7 +816,6 @@ class Frame private constructor(
                 caught = null,
                 heap = heap,
                 classes = classes,
-                registerMetrics = RegisterStateMetrics(),
             )
             for (parameter in view.parameters) {
                 frame.assign(parameter.register, Value.Unknown(parameter.type))

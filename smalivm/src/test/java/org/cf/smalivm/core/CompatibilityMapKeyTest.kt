@@ -20,7 +20,6 @@ class CompatibilityMapKeyTest {
 
         assertEquals(0, counts.hashCalls)
         assertEquals(0, counts.equalsCalls)
-        assertEquals(0, key.hashMetrics().equalityEntriesVisited)
     }
 
     @Test
@@ -37,7 +36,6 @@ class CompatibilityMapKeyTest {
         assertNotEquals(left, right)
 
         assertEquals(0, counts.equalsCalls)
-        assertEquals(0, left.hashMetrics().equalityEntriesVisited)
     }
 
     @Test
@@ -56,20 +54,35 @@ class CompatibilityMapKeyTest {
         assertNotEquals(left, right)
 
         assertTrue(counts.equalsCalls > 0)
-        assertEquals(1, left.hashMetrics().equalityEntriesVisited)
     }
 
     @Test
-    fun javaStringHashCollisionIsRejectedByWideFingerprintWithoutTraversal() {
-        // Bug class: `Aa` and `BB` collide in Java's 32-bit hash and force structural equality on every lookup.
-        // Oracle: the write-time SHA-256-derived entry fingerprint differs before exact fallback is needed.
-        val left = CompatibilityMapKey.empty<String, String>().put("Aa", "value")
-        val right = CompatibilityMapKey.empty<String, String>().put("BB", "value")
-        assertEquals(left.hashCode(), right.hashCode())
+    fun overwriteAndRemoveKeepTheMapContractHash() {
+        // Bug class: incremental hash maintenance forgets to retract an overwritten or removed entry, so equal
+        // maps hash differently and land in different call partitions.
+        // Oracle: java.util.Map's contract -- hashCode is the sum of key^value entry hashes, and equals compares
+        // mappings regardless of implementation or insertion history.
+        val key = CompatibilityMapKey.empty<String, Int>()
+            .put("a", 1)
+            .put("b", 2)
+            .put("a", 3)
+            .put("a", 3)
+            .remove("b")
+            .remove("missing")
+            .put("c", 4)
+        val expected = hashMapOf("a" to 3, "c" to 4)
+        val rebuilt = CompatibilityMapKey.empty<String, Int>().put("c", 4).put("a", 3)
 
-        assertNotEquals(left, right)
+        assertEquals(expected.hashCode(), key.hashCode())
+        assertEquals(expected, key)
+        assertEquals(key, expected)
+        assertEquals(rebuilt, key)
+        assertEquals(rebuilt.hashCode(), key.hashCode())
+        assertNotEquals(hashMapOf("a" to 1, "c" to 4), key)
 
-        assertEquals(0, left.hashMetrics().equalityEntriesVisited)
+        val emptied = key.remove("a").remove("c")
+        assertEquals(CompatibilityMapKey.empty<String, Int>(), emptied)
+        assertEquals(emptyMap<String, Int>().hashCode(), emptied.hashCode())
     }
 
     @Test

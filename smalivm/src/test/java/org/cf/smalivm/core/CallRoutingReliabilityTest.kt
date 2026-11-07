@@ -23,9 +23,6 @@ class CallRoutingReliabilityTest {
 
         assertEquals("injected routing invariant", failure.message)
         assertTrue(session.outcomes.none { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
-        assertEquals(0, session.callPropagationMetrics().retainedFrames)
-        assertEquals(0, session.callPropagationMetrics().retainedCollectionCapacity)
-        assertEquals(0, session.callPropagationMetrics().pendingRoutingCommands)
     }
 
     @Test
@@ -38,9 +35,6 @@ class CallRoutingReliabilityTest {
         val graph = session.run()
 
         assertAbortedRouting(session, graph, AbortReason.METHOD_LIMIT)
-        assertEquals(1, session.callPropagationMetrics().routingWorkChecks)
-        assertEquals(0, session.callPropagationMetrics().routingCommands)
-        assertEquals(5, session.callPropagationMetrics().schedulerWork)
     }
 
     @Test
@@ -53,15 +47,14 @@ class CallRoutingReliabilityTest {
             limits = Limits(maxExecutionTimeMillis = 1),
             entryFrame = Frame.entryFrame(view),
             clockMillis = {
-                if (session.callPropagationMetrics().pendingRoutingCommands > 0) 2 else 0
+                // The innermost callee's first ending completes its activation and queues its routing.
+                if (session.reachedNodes().any { it.view.signature != view.signature && it.outcome != null }) 2 else 0
             },
         )
 
         val graph = session.run()
 
         assertAbortedRouting(session, graph, AbortReason.TIMEOUT)
-        assertEquals(1, session.callPropagationMetrics().routingWorkChecks)
-        assertEquals(0, session.callPropagationMetrics().routingCommands)
     }
 
     @Test
@@ -79,7 +72,9 @@ class CallRoutingReliabilityTest {
         session = partialCompletionSession(
             limits = Limits(maxAddressVisits = 0, maxExecutionTimeMillis = 1),
             clockMillis = {
-                if (session.callPropagationMetrics().retainedFrames == 2) 2 else 0
+                // Fire once the callee's return and throw paths have both ended while its loop path is open.
+                val terminals = session.reachedNodes().filter { it.view.signature == CALLEE }.mapNotNull { it.outcome }
+                if (terminals.any { it is Outcome.Returned } && terminals.any { it is Outcome.Threw }) 2 else 0
             },
         )
 
@@ -101,7 +96,6 @@ class CallRoutingReliabilityTest {
         assertEquals(DEEP_STEPS, session.callStack.depth, "every step entered one more open activation")
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.METHOD_LIMIT)), graph.completion())
         assertEquals(listOf(Outcome.Aborted(AbortReason.METHOD_LIMIT)), graph.outcomes)
-        assertEquals(0, session.callPropagationMetrics().openPaths)
         assertTrue(session.isFinished)
     }
 
@@ -113,13 +107,7 @@ class CallRoutingReliabilityTest {
         assertEquals(CompletionStatus.Partial(setOf(reason)), graph.completion())
         assertEquals(listOf(Outcome.Aborted(reason)), graph.outcomes)
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        val metrics = session.callPropagationMetrics()
-        assertEquals(0, metrics.openPaths)
-        assertEquals(0, metrics.retainedFrames)
-        assertEquals(0, metrics.retainedCollectionCapacity)
-        assertEquals(0, metrics.pendingRoutingCommands)
-        assertEquals(0, metrics.partitionMerges)
-        assertEquals(0, metrics.handlerResolutions)
+        // Routing never ran: no caller resume node exists, and every reached node executed its op.
         assertTrue(session.isFinished)
         val nodes = allNodes(graph.nodePile(0).single())
         assertEquals(4, nodes.count { it.opExecutionStarted })
@@ -134,17 +122,12 @@ class CallRoutingReliabilityTest {
         assertEquals(CompletionStatus.Partial(setOf(reason)), graph.completion())
         assertEquals(List(3) { Outcome.Aborted(reason) }, graph.outcomes)
         val calleeTerminals = allNodes(graph.nodePile(0).single()).filter {
-            it.view.signature == "$OWNER->partialCompletionCallee(I)I" && it.outcome != null
+            it.view.signature == CALLEE && it.outcome != null
         }
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Returned })
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Threw })
         assertEquals(1, calleeTerminals.count { it.outcome == Outcome.Aborted(reason) })
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        val metrics = session.callPropagationMetrics()
-        assertEquals(0, metrics.openPaths)
-        assertEquals(0, metrics.retainedFrames)
-        assertEquals(0, metrics.retainedCollectionCapacity)
-        assertEquals(0, metrics.pendingRoutingCommands)
         assertTrue(session.isFinished)
     }
 
@@ -189,10 +172,17 @@ class CallRoutingReliabilityTest {
         visit(root)
     }
 
+    private fun ExecutionSession.reachedNodes(): List<ExecutionNode> {
+        var root = currentNode ?: return emptyList()
+        while (true) root = root.parent ?: break
+        return allNodes(root)
+    }
+
     private fun view(): MethodView = CoreTester.classIndex.requireMethodView(OWNER, "outerThreeFrames()I")
 
     private companion object {
         const val OWNER = "Lexception_propagation_test;"
+        const val CALLEE = "$OWNER->partialCompletionCallee(I)I"
         const val DEEP_STEPS = 200_000
     }
 }

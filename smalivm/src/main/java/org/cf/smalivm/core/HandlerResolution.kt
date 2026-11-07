@@ -112,65 +112,13 @@ internal data class HandlerRoute(
 
 internal data class UnhandledThrow(val subject: ThrownSubject)
 
-internal data class HandlerResolverMetrics(
-    val clausesVisited: Int,
-    val factBuilds: Int,
-    val relationRequests: Int,
-    val relationCacheMisses: Int,
-    val missingDescriptors: Int,
-    val domainWrappers: Int,
-    val persistentUpdates: Int,
-    val domainValidationVisits: Int,
-    val routes: Int,
-    val maxRequiredRoots: Int,
-    val maxExcludedRoots: Int,
-)
-
-internal class ResolverMetricsCounter {
-    var clausesVisited: Int = 0
-    var factBuilds: Int = 0
-    var relationRequests: Int = 0
-    var relationCacheMisses: Int = 0
-    var missingDescriptors: Int = 0
-    var domainWrappers: Int = 0
-    var persistentUpdates: Int = 0
-    var domainValidationVisits: Int = 0
-    var routes: Int = 0
-    var maxRequiredRoots: Int = 0
-    var maxExcludedRoots: Int = 0
-
-    fun observeRoots(required: Int, excluded: Int) {
-        maxRequiredRoots = maxOf(maxRequiredRoots, required)
-        maxExcludedRoots = maxOf(maxExcludedRoots, excluded)
-    }
-
-    fun snapshot(): HandlerResolverMetrics = HandlerResolverMetrics(
-        clausesVisited = clausesVisited,
-        factBuilds = factBuilds,
-        relationRequests = relationRequests,
-        relationCacheMisses = relationCacheMisses,
-        missingDescriptors = missingDescriptors,
-        domainWrappers = domainWrappers,
-        persistentUpdates = persistentUpdates,
-        domainValidationVisits = domainValidationVisits,
-        routes = routes,
-        maxRequiredRoots = maxRequiredRoots,
-        maxExcludedRoots = maxExcludedRoots,
-    )
-}
-
 internal sealed interface HandlerResolution {
-    val metrics: HandlerResolverMetrics
-
     data class Routed(
         val routes: List<HandlerRoute>,
         val unhandled: UnhandledThrow?,
-        override val metrics: HandlerResolverMetrics,
     ) : HandlerResolution
 
-    data class MalformedMetadata(
-        override val metrics: HandlerResolverMetrics,
-    ) : HandlerResolution
+    data object MalformedMetadata : HandlerResolution
 }
 
 private data class DomainPartition(
@@ -191,7 +139,7 @@ internal fun partitionThrowableDomain(
     targetType: VirtualType,
     hierarchy: ThrowableHierarchy,
 ): ThrowableDomainPartition {
-    val context = ResolverContext(hierarchy, ResolverMetricsCounter(), domain.exactRuntimeFacts)
+    val context = ResolverContext(hierarchy, domain.exactRuntimeFacts)
     val partition = partition(domain, targetType, context, validateHandlerType = false)
     check(!partition.malformedMetadata) { "A cast domain partition cannot reject handler metadata" }
     return ThrowableDomainPartition(partition.caught, partition.residual)
@@ -204,19 +152,10 @@ internal fun resolveHandlers(
     methodView: MethodView,
     hierarchy: ThrowableHierarchy,
 ): HandlerResolution {
-    val metrics = ResolverMetricsCounter()
-    metrics.observeRoots(
-        subject.domain.unresolvedRequiredRoots.size,
-        subject.domain.excludedRoots.size,
-    )
-    val context = ResolverContext(hierarchy, metrics, subject.domain.exactRuntimeFacts)
+    val context = ResolverContext(hierarchy, subject.domain.exactRuntimeFacts)
     val table = when (val lookup = methodView.handlerTableAt(throwAddress)) {
-        HandlerTableLookup.None -> return HandlerResolution.Routed(
-            emptyList(),
-            UnhandledThrow(subject),
-            metrics.snapshot(),
-        )
-        HandlerTableLookup.MalformedMetadata -> return HandlerResolution.MalformedMetadata(metrics.snapshot())
+        HandlerTableLookup.None -> return HandlerResolution.Routed(emptyList(), UnhandledThrow(subject))
+        HandlerTableLookup.MalformedMetadata -> return HandlerResolution.MalformedMetadata
         is HandlerTableLookup.Found -> lookup.table
     }
 
@@ -224,36 +163,26 @@ internal fun resolveHandlers(
     var residual: ThrowableDomain? = subject.domain
     for (clause in table.clauses) {
         val remaining = residual ?: break
-        metrics.clausesVisited++
         when (clause) {
             is HandlerClause.CatchAll -> {
                 routes += HandlerRoute(clause.handlerAddress, subject.refinedTo(remaining, hierarchy))
-                metrics.routes++
                 residual = null
             }
             is HandlerClause.Typed -> {
                 val partition = partition(remaining, clause.exceptionType, context, validateHandlerType = true)
-                if (partition.malformedMetadata) {
-                    return HandlerResolution.MalformedMetadata(metrics.snapshot())
-                }
+                if (partition.malformedMetadata) return HandlerResolution.MalformedMetadata
                 partition.caught?.let {
                     routes += HandlerRoute(clause.handlerAddress, subject.refinedTo(it, hierarchy))
-                    metrics.routes++
                 }
                 residual = partition.residual
             }
         }
     }
-    return HandlerResolution.Routed(
-        routes,
-        residual?.let { UnhandledThrow(subject.refinedTo(it, hierarchy)) },
-        metrics.snapshot(),
-    )
+    return HandlerResolution.Routed(routes, residual?.let { UnhandledThrow(subject.refinedTo(it, hierarchy)) })
 }
 
 private class ResolverContext(
     private val hierarchy: ThrowableHierarchy,
-    val metrics: ResolverMetricsCounter,
     exactRuntimeFacts: ThrowableTypeFacts?,
 ) {
     private data class RelationKey(val candidate: VirtualType, val ancestor: VirtualType)
@@ -265,22 +194,12 @@ private class ResolverContext(
         exactRuntimeFacts?.let { facts[it.type] = it }
     }
 
-    fun facts(type: VirtualType): ThrowableTypeFacts = facts.getOrPut(type) {
-        metrics.factBuilds++
-        hierarchy.facts(type).also {
-            if (!it.descriptorPresent) metrics.missingDescriptors++
-        }
-    }
+    fun facts(type: VirtualType): ThrowableTypeFacts = facts.getOrPut(type) { hierarchy.facts(type) }
 
-    fun relation(candidate: VirtualType, ancestor: VirtualType): TypeRelation {
-        metrics.relationRequests++
-        val key = RelationKey(candidate, ancestor)
-        relations[key]?.let { return it }
-        metrics.relationCacheMisses++
-        val answer = relationFromFacts(candidate, ancestor, facts(candidate), facts(ancestor))
-        relations[key] = answer
-        return answer
-    }
+    fun relation(candidate: VirtualType, ancestor: VirtualType): TypeRelation =
+        relations.getOrPut(RelationKey(candidate, ancestor)) {
+            relationFromFacts(candidate, ancestor, facts(candidate), facts(ancestor))
+        }
 }
 
 private fun partition(
@@ -314,16 +233,16 @@ private fun partition(
     domain.exactRuntimeType?.let { exactType ->
         if (catchFacts.throwableRelation == TypeRelation.UNKNOWN) {
             return DomainPartition(
-                domain.requireUnresolvedRoot(catchType, context.metrics),
-                domain.exclude(catchType, context.metrics),
+                domain.requireUnresolvedRoot(catchType),
+                domain.exclude(catchType),
             )
         }
         return when (context.relation(exactType, catchType)) {
             TypeRelation.YES -> DomainPartition(domain, null)
             TypeRelation.NO -> DomainPartition(null, domain)
             TypeRelation.UNKNOWN -> DomainPartition(
-                domain.requireUnresolvedRoot(catchType, context.metrics),
-                domain.exclude(catchType, context.metrics),
+                domain.requireUnresolvedRoot(catchType),
+                domain.exclude(catchType),
             )
         }
     }
@@ -336,8 +255,8 @@ private fun partition(
     val catchWithinUpper = context.relation(catchType, domain.trustedUpperBound)
     if (catchWithinUpper == TypeRelation.YES) {
         return DomainPartition(
-            domain.narrowUpperBound(catchType, context.metrics),
-            domain.exclude(catchType, context.metrics),
+            domain.narrowUpperBound(catchType),
+            domain.exclude(catchType),
         )
     }
 
@@ -352,7 +271,7 @@ private fun partition(
     }
 
     return DomainPartition(
-        domain.requireUnresolvedRoot(catchType, context.metrics),
-        domain.exclude(catchType, context.metrics),
+        domain.requireUnresolvedRoot(catchType),
+        domain.exclude(catchType),
     )
 }
