@@ -75,18 +75,13 @@ class ReflectionPolicy(
 
     companion object {
         /** Loads fresh immutable policy data for one VM owner. */
-        fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy {
-            val unsafeClasses = loadDefinitions(classLoader, "unsafe_classes.cfg").map(VirtualType::of).toSet()
-            return ReflectionPolicy(
+        fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy =
+            ReflectionPolicy(
                 exactUnsafeMethods = loadDefinitions(classLoader, "unsafe_methods.cfg").map(::parseMethod).toSet(),
                 exactSafeMethods = loadDefinitions(classLoader, "safe_methods.cfg").map(::parseMethod).toSet(),
-                safeClasses = loadDefinitions(classLoader, "safe_classes.cfg")
-                    .map(VirtualType::of)
-                    .filterNot(unsafeClasses::contains)
-                    .toSet(),
+                safeClasses = loadDefinitions(classLoader, "safe_classes.cfg").map(VirtualType::of).toSet(),
                 methodEffects = loadDefinitions(classLoader, "method_effects.cfg").associate(::parseEffect),
             )
-        }
 
         private fun loadDefinitions(classLoader: ClassLoader, resource: String): List<String> {
             val stream = requireNotNull(classLoader.getResourceAsStream(resource)) {
