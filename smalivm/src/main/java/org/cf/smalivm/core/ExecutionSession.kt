@@ -96,8 +96,8 @@ internal sealed interface FrameOrigin {
     /** A call outcome partition already merged into a caller-shaped frame. */
     class CallerPartition(val frame: Frame) : FrameOrigin
 
-    /** One opaque-call base after common collapse, copied once before a definite accessibility assignment. */
-    class OpaqueVariant(val frame: Frame) : FrameOrigin
+    /** An opaque call's collapsed post-call frame, copied for each successor that resumes from it. */
+    class OpaqueResult(val frame: Frame) : FrameOrigin
 }
 
 /**
@@ -1085,6 +1085,7 @@ class ExecutionSession internal constructor(
                     )
                 }
                 is InvocationPlan.Execute -> {
+                    planAccessibilityFork(node, plan.invocation)?.let { return@planContained it }
                     node.frame.forgetRefinements(transition.argumentRegisters.asIterable())
                     executeSynchronous(node, plan)
                 }
@@ -1552,26 +1553,27 @@ class ExecutionSession internal constructor(
             (receiver as? Value.Known)?.raw as? HeapRef
         } else null
         return Committable(
-            opaqueSuccessors(
-                node.frame,
-                node.view.nextAddress(node.address),
-                node.activation,
-                arguments,
-                argumentTypes,
-                constructorReceiver,
-                returnType,
+            listOf(
+                opaqueSuccessor(
+                    node.frame,
+                    node.view.nextAddress(node.address),
+                    node.activation,
+                    arguments,
+                    argumentTypes,
+                    constructorReceiver,
+                    returnType,
+                ),
             ),
             null,
         )
     }
 
-    private data class OpaqueFieldAssignment(
-        val ref: HeapRef,
-        val accessibility: FieldAccessibility,
-    )
-
-    /** Applies common opaque collapse once, then forks in stable ref/language-checks/override order. */
-    private fun opaqueSuccessors(
+    /**
+     * Collapses what an opaque call can reach. The callee may toggle any reachable tracked field's
+     * accessibility, so each becomes [FieldAccessibility.UNKNOWN] and [planAccessibilityFork] splits it only
+     * where a backend reads it.
+     */
+    private fun opaqueSuccessor(
         source: Frame,
         address: Int,
         activation: Activation,
@@ -1579,36 +1581,35 @@ class ExecutionSession internal constructor(
         argumentTypes: List<VirtualType>,
         constructorReceiver: HeapRef?,
         returnType: VirtualType,
-    ): List<SuccessorSpec> {
-        val common = source.copy()
-        val fieldRefs = common.reachableTrackedFields(arguments)
-        common.collapseReachable(arguments, argumentTypes)
-        constructorReceiver?.let(common::markInitialized)
-        if (returnType.descriptor != "V") common.setResult(Value.Unknown(returnType))
+    ): SuccessorSpec {
+        val result = source.copy()
+        for (ref in result.reachableTrackedFields(arguments)) {
+            result.setTrackedFieldAccessibility(ref, FieldAccessibility.UNKNOWN)
+        }
+        result.collapseReachable(arguments, argumentTypes)
+        constructorReceiver?.let(result::markInitialized)
+        if (returnType.descriptor != "V") result.setResult(Value.Unknown(returnType))
+        return SuccessorSpec(address, activation, OnUnbuildable.SKIP_ONE, FrameOrigin.OpaqueResult(result))
+    }
 
-        var combinations = listOf(emptyList<OpaqueFieldAssignment>())
-        for (ref in fieldRefs) {
-            val expanded = mutableListOf<List<OpaqueFieldAssignment>>()
-            for (combination in combinations) {
-                expanded += combination + OpaqueFieldAssignment(ref, FieldAccessibility.LANGUAGE_CHECKS)
-                expanded += combination + OpaqueFieldAssignment(ref, FieldAccessibility.OVERRIDDEN)
+    /**
+     * Re-executes a call once per definite accessibility of the first [FieldAccessibility.UNKNOWN] tracked
+     * field it passes, so a backend only ever reads a definite one. Null when the call passes none.
+     */
+    private fun planAccessibilityFork(node: ExecutionNode, invocation: PreparedInvocation): Committable? {
+        val ref = (listOfNotNull(invocation.receiver) + invocation.arguments).firstNotNullOfOrNull { value ->
+            ((value as? Value.Known)?.raw as? HeapRef)?.takeIf {
+                node.frame.trackedFieldAt(it)?.accessibility == FieldAccessibility.UNKNOWN
             }
-            combinations = expanded
-        }
-        return combinations.map { assignments ->
-            SuccessorSpec(
-                address,
-                activation,
-                OnUnbuildable.SKIP_ONE,
-                FrameOrigin.OpaqueVariant(common),
-            ) { frame ->
-                for (assignment in assignments) {
-                    require(frame.setTrackedFieldAccessibility(assignment.ref, assignment.accessibility)) {
-                        "Opaque field ${assignment.ref} disappeared before accessibility fork"
-                    }
-                }
-            }
-        }
+        } ?: return null
+        return Committable(
+            listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN).map { accessibility ->
+                SuccessorSpec(
+                    node.address, node.activation, OnUnbuildable.SKIP_ONE, FrameOrigin.Continuation,
+                ) { frame -> frame.setTrackedFieldAccessibility(ref, accessibility) }
+            },
+            null,
+        )
     }
 
     private fun planInvokeNullReceiver(node: ExecutionNode): Committable =
@@ -2058,8 +2059,8 @@ class ExecutionSession internal constructor(
             val argumentTypes = requireNotNull(site.fallbackArgumentTypes)
             val returnType = requireNotNull(site.fallbackReturnType)
             val partitions = aborted.groupBy { it.frame.callCompatibilityKey() }
-            val variantsByPartition = partitions.mapValues { (_, partition) ->
-                opaqueSuccessors(
+            val successorByPartition = partitions.mapValues { (_, partition) ->
+                opaqueSuccessor(
                     mergeCallPartition(site, partition.map { it.frame }),
                     site.resumeAddress,
                     caller,
@@ -2070,7 +2071,7 @@ class ExecutionSession internal constructor(
                 )
             }
             for (exit in aborted) {
-                specs += requireNotNull(variantsByPartition[exit.frame.callCompatibilityKey()])
+                specs += requireNotNull(successorByPartition[exit.frame.callCompatibilityKey()])
             }
         }
 
@@ -2404,7 +2405,7 @@ class ExecutionSession internal constructor(
                 FrameOrigin.Continuation -> armFrame.copy()
                 FrameOrigin.CalleeEntry -> armFrame.calleeEntryFrame(spec.view)
                 is FrameOrigin.CallerPartition -> origin.frame.copy()
-                is FrameOrigin.OpaqueVariant -> origin.frame.copy()
+                is FrameOrigin.OpaqueResult -> origin.frame.copy()
             }
             frame = seeded
             spec.seed(seeded)
