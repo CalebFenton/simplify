@@ -149,9 +149,11 @@ All four modules use **2.0.0-SNAPSHOT** until the public release is approved. Th
 the incompatible embedding API and JDK 21 requirement; it does not publish the separate commercial product.
 Project-owned code is Apache-2.0. Dependencies and vendored source retain their original terms.
 
-GitHub Actions (`.github/workflows/build.yml`) builds/tests on pull requests and pushes to `master`,
-using JDK 21 and the framework submodule. It builds all four fat JARs and uploads aggregate JaCoCo
-HTML/XML as a workflow artifact. It needs no external coverage-service credentials. The old
+GitHub Actions (`.github/workflows/build.yml`) builds/tests on pull requests and pushes to `master`
+and `release/**`, using JDK 21 and the framework submodule. Release branches can therefore be
+validated on GitHub before landing on `master`, without requiring a pull request. CI builds all
+four fat JARs and the optimized ProGuard VM JAR, then uploads aggregate JaCoCo HTML/XML as a
+workflow artifact. It needs no external coverage-service credentials. The old
 Travis/Coveralls/Coverity hooks are removed; no coverage-trend or external static-analysis upload
 is claimed. Local workflow validation is not evidence of a successful hosted run.
 

@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'release/**']
   pull_request:
 
 permissions:
@@ -36,6 +36,7 @@ jobs:
           ./gradlew --no-daemon --max-workers=2
           build jacocoRootReport
           :simplify:fatJar :demoapp:fatJar :sdbg:fatJar :smalivm:fatJar
+          :smalivm:proguard
 
       # Coverage stays with the run; no external service credentials or publication.
       - name: Upload aggregate coverage
