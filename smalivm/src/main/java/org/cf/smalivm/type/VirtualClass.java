@@ -1,11 +1,10 @@
 package org.cf.smalivm.type;
 
 import org.cf.smalivm.dex.CommonTypes;
-import org.cf.util.ClassNameUtils;
-import org.jf.dexlib2.util.ReferenceUtil;
-import org.jf.dexlib2.writer.builder.BuilderClassDef;
-import org.jf.dexlib2.writer.builder.BuilderField;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
+import com.android.tools.smali.dexlib2.formatter.DexFormatter;
+import com.android.tools.smali.dexlib2.writer.builder.BuilderClassDef;
+import com.android.tools.smali.dexlib2.writer.builder.BuilderField;
+import com.android.tools.smali.dexlib2.writer.builder.BuilderMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class VirtualClass extends VirtualType {
 
@@ -30,8 +29,8 @@ public class VirtualClass extends VirtualType {
     private Map<String, VirtualMethod> methodDescriptorToMethod;
     private Map<String, VirtualField> fieldNameToField;
 
-    VirtualClass(BuilderClassDef classDef) {
-        super(classDef, classDef.getType(), ClassNameUtils.internalToBinary(classDef.getType()), ClassNameUtils.internalToSource(classDef.getType()));
+    VirtualClass(BuilderClassDef classDef, ClassManager classManager) {
+        super(classDef, classManager);
         this.classDef = classDef;
         methodDescriptorToMethod = null;
         fieldNameToField = null;
@@ -50,7 +49,6 @@ public class VirtualClass extends VirtualType {
 
     @Override
     public Set<VirtualClass> getImmediateAncestors() {
-        ClassManager classManager = getClassManager();
         Set<VirtualClass> parents = new HashSet<>();
         BuilderClassDef classDef = getClassDef();
         for (String classInterface : classDef.getInterfaces()) {
@@ -77,17 +75,13 @@ public class VirtualClass extends VirtualType {
     }
 
     /**
-     * If a static field is declared in an ancestor, that field may be referenced through a
-     * child class, e.g. Lchild_class;->parentField:I
-     * Or it may be referenced directly, e.g. Lparent_class;->parentField:I
-     * Additionally, identically named static fields may be in child, parent, or grandparent.
-     * If referencing child but it's actually declared in parent and grandparent, the value
-     * from the parent is used. If not in the parent and only in the grandparent, the value
-     * from the grandparent is used.
+     * If a static field is declared in an ancestor, that field may be referenced through a child class, e.g. Lchild_class;->parentField:I Or it may
+     * be referenced directly, e.g. Lparent_class;->parentField:I Additionally, identically named static fields may be in child, parent, or
+     * grandparent. If referencing child but it's actually declared in parent and grandparent, the value from the parent is used. If not in the parent
+     * and only in the grandparent, the value from the grandparent is used.
      */
     @Override
-    public final
-    @Nullable
+    public final @Nullable
     VirtualField getField(String fieldName) {
         VirtualField field = getField0(fieldName);
         if (field != null) {
@@ -115,8 +109,7 @@ public class VirtualClass extends VirtualType {
     }
 
     @Override
-    public
-    @Nullable
+    public @Nullable
     VirtualMethod getMethod(String methodDescriptor) {
         VirtualMethod method = getMethod0(methodDescriptor);
         if (method != null) {
@@ -226,7 +219,7 @@ public class VirtualClass extends VirtualType {
     private Map<String, VirtualMethod> buildMethodsMap() {
         Map<String, VirtualMethod> methods = new HashMap<>();
         for (BuilderMethod method : getClassDef().getMethods()) {
-            String descriptor = ReferenceUtil.getMethodDescriptor(method).split("->")[1];
+            String descriptor = DexFormatter.INSTANCE.getMethodDescriptor(method).split("->")[1];
             VirtualMethod virtualMethod = new VirtualRealMethod(method, this);
             methods.put(descriptor, virtualMethod);
         }

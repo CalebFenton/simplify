@@ -14,9 +14,10 @@
 .end method
 
 .method public static invokeReturnInt()V
-  .locals 0
+  .locals 1
 
   invoke-static {}, Linvoke_static_test;->returnInt()I
+  move-result v0
 
   return-void
 .end method
@@ -25,6 +26,7 @@
   .locals 1
 
   invoke-static {v0}, Linvoke_static_test;->returnParameter(I)I
+  move-result v0
 
   return-void
 .end method
@@ -96,8 +98,10 @@
 .end method
 
 .method public invokeArrayCopy()V
-  .locals 5
+  .locals 7
 
+  move-object v5, v0
+  move-object v6, v2
   invoke-static {v0, v1, v2, v3, v4}, Ljava/lang/System;->arraycopy(Ljava/lang/Object;ILjava/lang/Object;II)V
 
   return-void
@@ -122,6 +126,36 @@
   return-void
 .end method
 
+.method public static invokeMutateStaticClassFieldTracked()V
+  .locals 4
+  const/4 v0, 0x3
+  new-array v1, v0, [I
+  const/4 v2, 0x0
+  aput v0, v1, v2
+  const/4 v2, 0x1
+  aput v0, v1, v2
+  const/4 v2, 0x2
+  aput v0, v1, v2
+  sput-object v1, Linvoke_static_test;->mutable:[I
+  invoke-static {}, Linvoke_static_test;->mutateStaticClassField()V
+  return-void
+.end method
+
+.method public static invokeMutateStaticClassFieldTrackedNonDeterministically(I)V
+  .locals 4
+  const/4 v0, 0x3
+  new-array v1, v0, [I
+  const/4 v2, 0x0
+  aput v0, v1, v2
+  const/4 v2, 0x1
+  aput v0, v1, v2
+  const/4 v2, 0x2
+  aput v0, v1, v2
+  sput-object v1, Linvoke_static_test;->mutable:[I
+  invoke-static {p0}, Linvoke_static_test;->mutateStaticClassField(I)V
+  return-void
+.end method
+
 .method public static mutateStaticClassField()V
   .locals 2
 
@@ -134,9 +168,10 @@
 .end method
 
 .method public static invokeReturnUninitializedField()V
-  .locals 0
+  .locals 1
 
   invoke-static {}, Linvoke_static_test;->returnUninitializedField()Ljava/lang/String;
+  move-result-object v0
 
   return-void
 .end method
@@ -145,6 +180,7 @@
   .locals 1
 
   invoke-static {}, Lclass_with_static_init;->getStaticFieldFromInvokeStaticTestClass()Ljava/lang/String;
+  move-result-object v0
 
   return-void
 .end method
@@ -175,7 +211,7 @@
 .end method
 
 .method public static invokeMethodWhichThrowsNullPointerException()V
-  .locals 0
+  .locals 1
 
   :try_start_1
   invoke-static {}, Linvoke_static_test;->throwNullPointerException()V
@@ -248,7 +284,7 @@
 .method private static mutateStringBuilderAndReuseParameterRegister(Ljava/lang/StringBuilder;)V
   .locals 1
 
-  const-string v0, " mutated"
+  const-string v0, ", death as light as a feather"
   invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
   # Reusing the parameter register ensures we're not just looking at end-state register values but
@@ -261,7 +297,7 @@
 .method private static mutateStringBuilderAsThirdParameterAndFirstMutableParameter(IILjava/lang/StringBuilder;)V
   .locals 1
 
-  const-string v0, " mutated"
+  const-string v0, ", death as light as a feather"
   invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
   const/4 p2, 0x1

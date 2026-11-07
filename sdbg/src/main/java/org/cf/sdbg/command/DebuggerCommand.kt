@@ -1,13 +1,16 @@
 package org.cf.sdbg.command
 
 import org.cf.sdbg.Main
-import org.cf.smalivm.debug.Debugger
+import org.cf.smalivm.core.Debugger
+import org.cf.smalivm.core.MethodView
 
-open class DebuggerCommand : Runnable {
-    protected val debugger: Debugger by lazy { Main.debugger }
+abstract class DebuggerCommand : Runnable {
+    protected val debugger: Debugger get() = Main.debugger
+    protected val currentView: MethodView
+        get() = debugger.cursor?.view ?: debugger.lastNode?.view ?: Main.session.methodView
 
-    override fun run() {
-        TODO("not implemented; that's a 50 DKP MINUS for not implementing me!")
+    protected fun printFinished(parent: CliCommands) {
+        parent.out.println("execution finished: ${Main.session.completion()}")
+        Main.session.outcomes.forEach { parent.out.println(it) }
     }
-
 }

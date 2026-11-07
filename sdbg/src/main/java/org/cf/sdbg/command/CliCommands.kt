@@ -2,7 +2,6 @@ package org.cf.sdbg.command
 
 import org.cf.sdbg.Main
 import org.jline.reader.LineReader
-import org.jline.reader.impl.LineReaderImpl
 import picocli.CommandLine
 import java.io.PrintWriter
 
@@ -25,10 +24,10 @@ import java.io.PrintWriter
             ContinueCommand::class
         ])
 class CliCommands : Runnable {
-    lateinit var reader: LineReaderImpl
+    lateinit var reader: LineReader
     lateinit var out: PrintWriter
-    fun setReader(reader: LineReader) {
-        this.reader = reader as LineReaderImpl
+    fun configureReader(reader: LineReader) {
+        this.reader = reader
         out = reader.terminal.writer()
 
     }

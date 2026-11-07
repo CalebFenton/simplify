@@ -16,7 +16,7 @@
 .end method
 
 .method public static putStaticWide()V
-    .locals 1
+    .locals 2
     sput-wide v0, Lsput_test;->myLong:J
     return-void
 .end method
@@ -48,5 +48,30 @@
 .method public static putStaticShort()V
     .locals 1
     sput-short v0, Lsput_test;->myShort:S
+    return-void
+.end method
+
+# The write-side twin of sget_test's getStaticUnknownClassField: the referenced class is not in the
+# loaded set, so resolution fails before the value register is ever read. Exists for OpBuilderTest's
+# build-branch pin -- buildSPut is a separate `when` row from buildSGet, so it needs its own witness.
+.method public static putStaticUnknownClassField()V
+    .locals 1
+    sput v0, Lsome/unknown/classzzzzz;->herp:I
+    return-void
+.end method
+
+# Forks on the unknown parameter and each arm writes a DIFFERENT constant, so per-path static storage
+# joins Unknown(I) over the two returning paths -- while a session-global store would report whichever
+# write ran last as a definite value on BOTH paths. The pin named by ClassInitStore.copy's KDoc
+# (core/op/SPutOpTest.oneBranchesStaticWriteIsInvisibleToTheOther).
+.method public static putStaticIntBranched(I)V
+    .locals 1
+    if-eqz p0, :else
+    const/4 v0, 0x1
+    sput v0, Lsput_test;->myInt:I
+    return-void
+    :else
+    const/4 v0, 0x2
+    sput v0, Lsput_test;->myInt:I
     return-void
 .end method

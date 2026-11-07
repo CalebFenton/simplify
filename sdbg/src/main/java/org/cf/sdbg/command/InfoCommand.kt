@@ -3,12 +3,6 @@ package org.cf.sdbg.command
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
-sealed class InfoTarget
-data class InfoTargetClass(val classDescriptor: String) : InfoTarget()
-data class InfoTargetMethod(val methodSignature: String) : InfoTarget()
-data class InfoTargetRange(val start: Int = -1, val stop: Int? = null) : InfoTarget()
-object InfoTargetInvalid : InfoTarget()
-
 @CommandLine.Command(name = "info", aliases = ["i"], mixinStandardHelpOptions = true,
         description = ["List information about target"])
 class InfoCommand : DebuggerCommand() {
@@ -25,26 +19,32 @@ class InfoCommand : DebuggerCommand() {
     private fun parseTarget(target: String?): InfoTargetType {
         return when {
             target == null -> InfoTargetType.REGISTERS
-            target.toLowerCase() == "registers" -> InfoTargetType.REGISTERS
-            target.toLowerCase() == "break" -> InfoTargetType.BREAK
-            target.toLowerCase() == "breakpoints" -> InfoTargetType.BREAK
+            target.lowercase() == "registers" -> InfoTargetType.REGISTERS
+            target.lowercase() == "break" -> InfoTargetType.BREAK
+            target.lowercase() == "breakpoints" -> InfoTargetType.BREAK
             else -> InfoTargetType.INVALID
         }
     }
 
     private fun printRegisterInfo() {
-        val currentNode = debugger.currentNode
-        val context = currentNode.context
-        val methodState = context.methodState.toString(false)
-        parent.out.println(methodState)
+        val state = debugger.currentState
+        if (state == null) {
+            parent.out.println("no current frame; execution finished")
+            return
+        }
+        for (register in 0 until state.registers.registerCount) {
+            val parameter = register - currentView.firstParameterRegister
+            val name = if (parameter >= 0) "v$register(p$parameter)" else "v$register"
+            parent.out.println("$name: ${state.readRegister(register)}")
+        }
     }
 
     private fun printBreakInfo() {
-        val breakpoints = debugger.breakpoints.sorted()
+        val breakpoints = debugger.breakpoints.sortedWith(compareBy({ it.methodSignature }, { it.instructionIndex }))
         parent.out.println("breakpoint count=${breakpoints.size}")
         if (breakpoints.isNotEmpty()) {
-            val lines = breakpoints.joinToString("\n")
-            parent.out.println(lines);
+            val lines = breakpoints.joinToString("\n") { "${it.methodSignature} @ ${it.instructionIndex}" }
+            parent.out.println(lines)
         }
     }
 

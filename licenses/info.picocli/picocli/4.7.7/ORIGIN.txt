@@ -1,0 +1,13 @@
+Coordinate: info.picocli:picocli:4.7.7
+Publisher POM: https://repo.maven.apache.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7.pom
+Binary: https://repo.maven.apache.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7.jar
+Binary SHA-256: f86e30fffd10d2b13b8caa8d4b237a7ee61f2ffccf5b1941de718b765d235bf8
+Source archive: https://repo.maven.apache.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7-sources.jar
+Source archive SHA-256: 87916611c616588b20d987868f96e622de6ed447e4b1ff5b662ebd947773e9a6
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/info/picocli/picocli/4.7.7/picocli-4.7.7-sources.jar (and binary template resources where identified)
+- LICENSE
+  https://raw.githubusercontent.com/remkop/picocli/v4.7.7/LICENSE

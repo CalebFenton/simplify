@@ -1,0 +1,9 @@
+Coordinate: androidx.viewpager:viewpager:1.0.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Version confirmed by APK META-INF version marker.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0-sources.jar
+Source archive SHA-256: d4f9a044ab8c23392b12a3f2930d5fd6b5982421a746f2f2a812e9619431fbfd
+Binary: https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.aar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

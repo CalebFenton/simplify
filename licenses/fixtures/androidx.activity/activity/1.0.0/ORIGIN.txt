@@ -1,0 +1,9 @@
+Coordinate: androidx.activity:activity:1.0.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Version confirmed by APK META-INF version marker.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.0.0/activity-1.0.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.0.0/activity-1.0.0-sources.jar
+Source archive SHA-256: 602c62707525404ae6c76a6bdf452e1c7f0e039b370f70222f1b5941421ddbd5
+Binary: https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.0.0/activity-1.0.0.aar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

@@ -1,0 +1,13 @@
+Coordinate: org.antlr:stringtemplate:3.2.1
+Publisher POM: https://repo.maven.apache.org/maven2/org/antlr/stringtemplate/3.2.1/stringtemplate-3.2.1.pom
+Binary: https://repo.maven.apache.org/maven2/org/antlr/stringtemplate/3.2.1/stringtemplate-3.2.1.jar
+Binary SHA-256: f66ce72e965e5301cb0f020e54d2ba6ad76feb91b3cbfc30dbbf00c06a6df6d7
+Source archive: https://repo.maven.apache.org/maven2/org/antlr/stringtemplate/3.2.1/stringtemplate-3.2.1-sources.jar
+Source archive SHA-256: e89759cae39bbad890c3afc94895c335556a973fea8577351d8e2da28dcfbd03
+License selection: BSD-3-Clause (original component and source notices retained)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/antlr/stringtemplate/3.2.1/stringtemplate-3.2.1-sources.jar (and binary template resources where identified)
+- LICENSE-BSD.txt
+  https://repo.maven.apache.org/maven2/org/antlr/stringtemplate/3.2.1/stringtemplate-3.2.1-sources.jar!/org/antlr/stringtemplate/AttributeRenderer.java

@@ -1,48 +1,34 @@
-version = '0.1.0'
-mainClassName = 'org.cf.sdbg.Main'
+plugins {
+    id 'application'
+}
+
+application {
+    mainClass = 'org.cf.sdbg.Main'
+    applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
+}
 
 dependencies {
     implementation project(':smalivm')
-    implementation depends.commons_cli
-    implementation group: 'info.picocli', name: 'picocli-shell-jline3', version: '4.1.4'
-    implementation group: 'info.picocli', name: 'picocli-codegen', version: '4.1.4'
-    implementation group: 'org.fusesource.jansi', name: 'jansi', version: '1.18'
+    implementation 'info.picocli:picocli-shell-jline3:4.7.7'
+    implementation 'org.fusesource.jansi:jansi:2.4.3'
     implementation depends.slf4j_api
-    implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
-    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    implementation depends.logback
 
-    testImplementation project(':smalivm').sourceSets.test.output
-    testImplementation project(':smalivm').sourceSets.test.resources
-    testImplementation depends.mockito
     testImplementation depends.junit_compile
     testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_runner
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    testRuntimeOnly depends.junit_launcher
 }
 
-compileKotlin {
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
-    }
-}
-compileTestKotlin {
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8
-    }
-}
 
-test.dependsOn project(':smalivm').tasks.getByName('testClasses')
-
-task fatJar(type: Jar, dependsOn: ':smalivm:fatJar') {
+tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
+    archiveFileName = 'sdbg.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
     manifest {
-        attributes('Main-Class': mainClassName)
+        attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
     }
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 
-    doLast {
-        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDirectory.get()}/sdbg.jar"), resource: archiveFile.get(), overwrite: true)
-        }
-    }
 }

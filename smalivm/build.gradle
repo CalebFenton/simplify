@@ -1,4 +1,5 @@
 import proguard.gradle.ProGuardTask
+import java.security.MessageDigest
 
 buildscript {
     dependencies {
@@ -9,62 +10,142 @@ buildscript {
     }
 }
 
+plugins {
+    id 'java-library'
+}
+
+def generatedFrameworkCatalogDir = layout.buildDirectory.dir('generated/resources/frameworkCatalog')
+
+tasks.register('generateFrameworkCatalog') {
+    def frameworkDir = file('src/main/resources/framework/smali/android-25')
+    def outputFile = generatedFrameworkCatalogDir.map { it.file('framework_catalog.tsv') }
+    inputs.dir(frameworkDir)
+    outputs.file(outputFile)
+
+    doLast {
+        def destination = outputFile.get().asFile
+        destination.parentFile.mkdirs()
+        destination.withWriter('UTF-8') { writer ->
+            writer.write('V\t1\t25\n')
+            fileTree(frameworkDir).matching { include '**/*.smali' }.files.sort { it.path }.each { source ->
+                def className = null
+                def accessFlags = ''
+                def superclass = ''
+                def interfaces = []
+                def methods = []
+                def currentMethod = null
+                def dynamicMethods = []
+                source.eachLine('UTF-8') { rawLine ->
+                    def line = rawLine.trim()
+                    if (line.startsWith('.class ')) {
+                        def tokens = line.split(/\s+/)
+                        className = tokens[-1]
+                        accessFlags = tokens.length > 2 ? tokens[1..-2].join(',') : ''
+                    } else if (line.startsWith('.super ')) {
+                        superclass = line.substring('.super '.length()).trim()
+                    } else if (line.startsWith('.implements ')) {
+                        interfaces.add(line.substring('.implements '.length()).trim())
+                    } else if (line.startsWith('.method ')) {
+                        currentMethod = line.substring(line.lastIndexOf(' ') + 1)
+                        methods.add(currentMethod)
+                    } else if (line == '.end method') {
+                        currentMethod = null
+                    } else if (currentMethod != null && line.startsWith('invoke-') && (
+                        line.contains('Ljava/lang/Class;->forName') ||
+                            line.contains('Ljava/lang/ClassLoader;->loadClass') ||
+                            line.contains('Ldalvik/system/DexClassLoader;->') ||
+                            line.contains('Ldalvik/system/PathClassLoader;->')
+                    )) {
+                        dynamicMethods.add(currentMethod)
+                    }
+                }
+                if (className == null) {
+                    throw new GradleException("Missing class directive in ${source}")
+                }
+                if (methods.toSet().size() != methods.size()) {
+                    throw new GradleException("Duplicate method descriptor in ${source}")
+                }
+                def relativePath = 'framework/smali/android-25/' + frameworkDir.toPath().relativize(source.toPath())
+                    .toString().replace(File.separatorChar, '/' as char)
+                def digest = MessageDigest.getInstance('SHA-256').digest(source.bytes).encodeHex().toString()
+                writer.write(['C', className, relativePath, digest, accessFlags, superclass, interfaces.join(',')]
+                    .join('\t') + '\n')
+                methods.sort().each { descriptor ->
+                    writer.write(['M', className, descriptor, dynamicMethods.contains(descriptor) ? '1' : '0']
+                        .join('\t') + '\n')
+                }
+            }
+        }
+    }
+}
+
+sourceSets.main.resources.srcDir(generatedFrameworkCatalogDir)
+tasks.named('processResources') { dependsOn tasks.named('generateFrameworkCatalog') }
+
 dependencies {
-    api group: 'org.smali', name: 'dexlib2', version: '2.4.0'
-    api group: 'org.smali', name: 'smali', version: '2.4.0'
-    api group: 'org.smali', name: 'baksmali', version: '2.4.0'
-    implementation group: 'io.github.kostaskougios', name: 'cloning', version: '1.10.3'
-    implementation group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
+    api 'com.android.tools.smali:smali-dexlib2:3.0.10'
+    api 'com.android.tools.smali:smali:3.0.10'
+    api 'com.android.tools.smali:smali-baksmali:3.0.10'
+    api 'com.android.tools.smali:smali-util:3.0.10'
+    compileOnlyApi 'org.jetbrains:annotations:26.1.0'
     implementation depends.commons_lang
     implementation depends.guava
-    implementation depends.trove4j
+    implementation depends.kotlinx_immutable
     implementation depends.slf4j_api
-    implementation group: 'org.ow2.asm', name: 'asm', version: '8.0.1'
-
-    // Contains Android framework classes that should be reflected instead of virtually executed
-    // E.g. android.util.Base64
-    // Reflection is much faster and more robust than virtual execution
-    implementation files('libs/android-local.jar')
+    implementation 'org.ow2.asm:asm:9.11.1'
 
     testImplementation depends.mockito
-    testImplementation depends.perfidix
+    testImplementation depends.mockk
     testImplementation depends.junit_compile
+    testImplementation depends.logback
+
     testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_runner
+    testRuntimeOnly depends.junit_launcher
 }
 
-task fatJar(type: Jar) {
+
+tasks.register('fatJar', Jar) {
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from sourceSets.main.output
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
 }
 
-task updateReferenceFramework(type: JavaExec) {
-    description 'Update Android reference framework artifacts. Use -PsmaliPath to specify path in resources/smali/, e.g. -PsmaliPath=android-25'
-    classpath sourceSets.main.runtimeClasspath
-    main = "org.cf.smalivm.dex.FrameworkJarBuilder"
-    def smaliPath = project.hasProperty('smaliPath') ?  project.getProperty('smaliPath') : 'android-25'
+tasks.register('updateReferenceFramework', JavaExec) {
+    description = 'Update Android reference framework artifacts. Use -PsmaliPath to specify path in resources/smali/, e.g. -PsmaliPath=android-25'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.cf.smalivm.dex.FrameworkJarBuilder'
+    def smaliPath = project.hasProperty('smaliPath') ? project.getProperty('smaliPath') : 'android-25'
 
     args smaliPath, 'src/main/resources/framework/android-framework.jar'
 }
 
-//configurations {
-//  testArtifacts
-//}
+// Tooling-only, and deliberately inert: it configures nothing, depends on nothing, and no
+// other task depends on it. `tools/art-runner/assemble.sh` resolves this classpath
+// for each invocation, so fixtures use the EXACT maintained Smali version that
+// this project parses fixtures with, rather than a separately-downloaded jar that could
+// drift. Nothing else may depend on this task -- if it ever needs to, that is a signal the
+// oracle has grown into a real source set and should get one.
+tasks.register('printSmaliAssemblerClasspath') {
+    description = 'Prints the resolved runtime classpath for tools/art-runner (see that directory\'s README).'
+    doLast {
+        println configurations.runtimeClasspath.asPath
+    }
+}
 
-//artifacts {
-//    archives fatJar
-//}
+tasks.register('proguard', ProGuardTask) {
+    dependsOn tasks.named('fatJar')
+    def inputJar = tasks.named('fatJar', Jar).flatMap { it.archiveFile }
+    def outputJar = layout.buildDirectory.file("libs/${project.name}-${project.version}-proguard.jar")
 
-task proguard(type: ProGuardTask, dependsOn: fatJar) {
-    def outFile = "${fatJar.destinationDirectory.get()}/${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion}-proguard.${fatJar.archiveExtension}"
+    injars inputJar
+    outjars outputJar
 
-    injars fatJar.archiveFile
-    outjars outFile
-
-    libraryjars "${System.properties['java.home']}/lib/rt.jar"
+    ['java.base', 'java.compiler', 'java.desktop', 'java.logging', 'java.sql', 'java.xml', 'jdk.unsupported'].each { module ->
+        libraryjars "${System.properties['java.home']}/jmods/${module}.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
+    }
 
     dontobfuscate
-    //dontoptimize
     optimizations '!code/allocation/variable'
 
     keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'

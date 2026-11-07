@@ -28,6 +28,7 @@
 .method public static initStringWithByteArray()V
   .locals 2
 
+  new-instance v0, Ljava/lang/String;
   invoke-virtual {v0, v1}, Ljava/lang/String;-><init>([B)V
 
   return-void

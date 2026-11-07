@@ -1,6 +1,6 @@
 package org.cf.smalivm.type;
 
-import org.jf.dexlib2.iface.reference.Reference;
+import com.android.tools.smali.dexlib2.iface.reference.Reference;
 
 public abstract class VirtualClassItem {
 
@@ -36,6 +36,5 @@ public abstract class VirtualClassItem {
     public String toString() {
         return getSignature();
     }
-
 
 }

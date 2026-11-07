@@ -1,0 +1,19 @@
+Coordinate: org.jetbrains.kotlin:kotlin-stdlib:2.4.21
+Publisher POM: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21.pom
+Binary: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21.jar
+Binary SHA-256: bd8250210584cb659847dce9cda660f8e9906e5def7fbebcea93dc6dcb6a88a3
+Source archive: https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21-sources.jar
+Source archive SHA-256: 1e29c0668b0aa555e7b154e5da2e8094e1b755cfee25737839195bbbdad8a4a2
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21-sources.jar (and binary template resources where identified)
+- LICENSE.txt
+  https://raw.githubusercontent.com/JetBrains/kotlin/v2.4.21/license/LICENSE.txt
+- COPYRIGHT.txt
+  https://raw.githubusercontent.com/JetBrains/kotlin/v2.4.21/license/COPYRIGHT.txt
+- NOTICE.txt
+  https://raw.githubusercontent.com/JetBrains/kotlin/v2.4.21/license/NOTICE.txt
+
+NOTICE.txt is the unmodified Kotlin repository root notice, titled Kotlin Compiler by upstream. SOURCE-NOTICES.txt preserves the stdlib source-specific copyright years. This entry inventories kotlin-stdlib, not a Kotlin compiler runtime dependency.

@@ -1,0 +1,9 @@
+Coordinate: org.slf4j:slf4j-api:2.0.20
+Publisher POM: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.pom
+Binary: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.jar
+Binary SHA-256: 7e1446499b359675d8aabe6af2de86b85e72ae8a2a932c0b40d0e5ba57097439
+License selection: MIT
+
+Original legal texts and their sources:
+- META-INF/LICENSE.txt
+  https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.jar!/META-INF/LICENSE.txt

@@ -67,6 +67,78 @@
   return-void
 .end method
 
+.method public static getStringLengthMethod()Ljava/lang/reflect/Method;
+  .locals 3
+
+  const-class v0, Ljava/lang/String;
+  const-string v1, "length"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static getPublicInstanceField()Ljava/lang/reflect/Field;
+  .locals 2
+
+  const-class v0, Lorg/cf/smalivm/DummyClass;
+  const-string v1, "publicInstanceField"
+  invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static invokeStringLengthReflectively()Ljava/lang/Object;
+  .locals 3
+
+  const-class v0, Ljava/lang/String;
+  const-string v1, "length"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  const/4 v2, 0x1
+  invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+  move-result-object v2
+  const-string v1, "abc"
+  const/4 v2, 0x0
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
+  return-object v0
+.end method
+
+.method public static invokeOneOfTwoStringMethods(Z)Ljava/lang/Object;
+  .locals 4
+
+  const-string v1, "abc"
+  if-eqz p0, :is_empty
+
+  const-class v3, Ljava/lang/String;
+  const-string v0, "length"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v3, v0, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  const/4 v2, 0x0
+  goto :invoke
+
+  :is_empty
+  const-class v3, Ljava/lang/String;
+  const-string v0, "isEmpty"
+  const/4 v2, 0x0
+  new-array v2, v2, [Ljava/lang/Class;
+  invoke-virtual {v3, v0, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+  move-result-object v0
+  const/4 v2, 0x0
+  goto :invoke
+
+  :invoke
+  invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+  move-result-object v0
+  return-object v0
+.end method
+
 .method public static stringLength()V
   .locals 1
 

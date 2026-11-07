@@ -10,6 +10,11 @@ class WhereCommand : DebuggerCommand() {
     lateinit var parent: CliCommands
 
     override fun run() {
-        parent.out.println("#${debugger.currentIndex} in ${debugger.currentMethodSignature}")
+        val cursor = debugger.cursor
+        if (cursor == null) {
+            parent.out.println("no current instruction; execution finished")
+        } else {
+            parent.out.println("#${debugger.currentInstructionIndex} in ${cursor.view.signature}")
+        }
     }
 }

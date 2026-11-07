@@ -1,6 +1,5 @@
 package org.cf.sdbg.command
 
-import org.cf.smalivm.exception.UnhandledVirtualException
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
@@ -11,13 +10,12 @@ class StepCommand : DebuggerCommand() {
     lateinit var parent: CliCommands
 
     override fun run() {
-        try {
-            val currentOp = debugger.currentOp
-            parent.out.println("${debugger.currentIndex}:>\t${currentOp}")
-            val node = debugger.step()
-            node ?: parent.out.println("execution finished")
-        } catch (e: UnhandledVirtualException) {
-            e.printStackTrace(parent.out)
+        val cursor = debugger.cursor
+        val index = debugger.currentInstructionIndex
+        if (cursor != null && index != null) {
+            parent.out.println("$index:>\t${cursor.op}")
+            debugger.stepInto()
         }
+        if (debugger.isFinished) printFinished(parent)
     }
 }

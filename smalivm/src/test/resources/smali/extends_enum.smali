@@ -108,6 +108,16 @@
     return-void
 .end method
 
+.method public static createForInvokeTest()Lextends_enum;
+    .locals 4
+    new-instance v0, Lextends_enum;
+    const-string v1, "NONE"
+    const/4 v2, 0x0
+    const/4 v3, 0x0
+    invoke-direct {v0, v1, v2, v3}, Lextends_enum;-><init>(Ljava/lang/String;II)V
+    return-object v0
+.end method
+
 .method public static valueOf(Ljava/lang/String;)Lextends_enum;
     .locals 1
     .param p0, "name"    # Ljava/lang/String;

@@ -1,6 +1,8 @@
 .class Lorg/cf/test/CustomException;
 .super Ljava/lang/Throwable;
 
+.field public caughtIdentity:Lorg/cf/test/CustomException;
+
 .method constructor <init>()V
     .locals 2
 

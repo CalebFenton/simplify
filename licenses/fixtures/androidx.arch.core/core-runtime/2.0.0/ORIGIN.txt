@@ -1,0 +1,9 @@
+Coordinate: androidx.arch.core:core-runtime:2.0.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Version confirmed by APK META-INF version marker.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.0.0/core-runtime-2.0.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.0.0/core-runtime-2.0.0-sources.jar
+Source archive SHA-256: 8bcdf8dd52ec0f36c7ff2592a56e1e8802713d8dd1314a036b428d86463859da
+Binary: https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.0.0/core-runtime-2.0.0.aar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

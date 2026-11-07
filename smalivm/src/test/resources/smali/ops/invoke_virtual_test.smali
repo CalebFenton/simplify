@@ -13,6 +13,8 @@
 .method public static invokeReturnVoid()V
   .locals 1
 
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
   invoke-virtual {v0}, Linvoke_virtual_test;->returnVoid()V
 
   return-void
@@ -21,15 +23,21 @@
 .method public static invokeReturnInt()V
   .locals 1
 
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
   invoke-virtual {v0}, Linvoke_virtual_test;->returnInt()I
+  move-result v0
 
   return-void
 .end method
 
 .method public static invokeReturnParameter()V
-  .locals 2
+  .locals 3
 
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
   invoke-virtual {v0, v1}, Linvoke_virtual_test;->returnParameter(I)I
+  move-result v2
 
   return-void
 .end method
@@ -72,14 +80,17 @@
 .end method
 
 .method public static invokeRangeManyParameters()V
-  .locals 8
+  .locals 9
 
   # v0      - "this" instance
   # v1 & v2 - J
   # v3 & v4 - J
   # v5 & v6 - J
   # v7      - I
+  new-instance v0, Linvoke_virtual_test;
+  invoke-direct {v0}, Linvoke_virtual_test;-><init>()V
   invoke-virtual/range {v0 .. v7}, Linvoke_virtual_test;->manyParametersReturnsLast(JJJI)I
+  move-result v8
 
   return-void
 .end method

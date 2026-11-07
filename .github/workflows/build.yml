@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out sources and framework
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Build, test, and generate coverage
+        run: >-
+          ./gradlew --no-daemon --max-workers=2
+          build jacocoRootReport
+          :simplify:fatJar :demoapp:fatJar :sdbg:fatJar :smalivm:fatJar
+
+      # Coverage stays with the run; no external service credentials or publication.
+      - name: Upload aggregate coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: jacoco-coverage
+          path: build/reports/jacoco/jacocoRootReport/
+          if-no-files-found: error
+          retention-days: 14

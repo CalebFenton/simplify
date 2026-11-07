@@ -1,19 +1,10 @@
-buildscript {
-    ext.kotlin_version = '1.4.0'
-    repositories {
-        mavenCentral()
-        jcenter()
-    }
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.4.21' apply false
 }
 
-plugins {
-    id 'com.github.kt3k.coveralls' version '2.8.4'
+def legalFiles = copySpec {
+    from rootProject.file('LICENSE'), rootProject.file('THIRD_PARTY_NOTICES')
+    from(rootProject.file('licenses')) { into 'licenses' }
 }
 
 allprojects {
@@ -21,108 +12,94 @@ allprojects {
     apply plugin: 'jacoco'
 
     repositories {
-        mavenLocal()
+        google()
         mavenCentral()
+    }
+
+    jacoco {
+        toolVersion = '0.8.16'
     }
 }
 
 subprojects {
+    apply plugin: 'org.jetbrains.kotlin.jvm'
     group = 'org.cf'
+    version = '2.0.0-SNAPSHOT'
 
     ext {
         depends = [
-                commons_lang   : 'org.apache.commons:commons-lang3:3.10',
-                commons_cli    : 'commons-cli:commons-cli:1.4',
-                findbugs       : 'com.google.code.findbugs:jsr305:3.0.1',
-                guava          : 'com.google.guava:guava:28.2-jre',
-                junit_compile  : 'org.junit.jupiter:junit-jupiter-api:5.7.0',
-                junit_engine   : 'org.junit.jupiter:junit-jupiter-engine:5.7.0',
-                junit_runner   : 'org.junit.platform:junit-platform-runner:1.7.0',
-                mockito        : 'org.mockito:mockito-junit-jupiter:3.6.0',
-                perfidix       : 'org.perfidix:perfidix:3.6.9',
-                proguard_gradle: 'net.sf.proguard:proguard-gradle:6.2.2',
-                slf4j_api      : 'org.slf4j:slf4j-api:1.7.30',
-                slf4j_nop      : 'org.slf4j:slf4j-nop:1.7.30',
-                trove4j        : 'net.sf.trove4j:trove4j:3.0.3',
+                commons_lang     : 'org.apache.commons:commons-lang3:3.21.0',
+                commons_cli      : 'commons-cli:commons-cli:1.11.0',
+                guava            : 'com.google.guava:guava:33.8.0-jre',
+                junit_compile    : 'org.junit.jupiter:junit-jupiter-api:6.1.3',
+                junit_engine     : 'org.junit.jupiter:junit-jupiter-engine:6.1.3',
+                junit_launcher   : 'org.junit.platform:junit-platform-launcher:6.1.3',
+                kotlinx_immutable: 'org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.5.2',
+                mockito          : 'org.mockito:mockito-junit-jupiter:5.24.0',
+                mockk            : 'io.mockk:mockk:1.14.11',
+                proguard_gradle : 'com.guardsquare:proguard-gradle:7.10.0',
+                slf4j_api        : 'org.slf4j:slf4j-api:2.0.20',
+                slf4j_nop        : 'org.slf4j:slf4j-nop:2.0.20',
+                logback          : 'ch.qos.logback:logback-classic:1.6.6',
         ]
     }
 
-    if (project.name == 'simplify' || project.name == 'demoapp') {
-        apply plugin: 'java'
-        apply plugin: 'application'
-    } else if (project.name == 'smalivm') {
-        apply plugin: 'java-library'
-        version = '1.3.0'
-    } else {
-        apply plugin: 'org.jetbrains.kotlin.jvm'
-        apply plugin: 'application'
+    kotlin {
+        jvmToolchain(21)
     }
 
-    if (project.name != 'demoapp' && project.name != 'sdbg') {
-        jacocoTestReport {
-            reports {
-                html.enabled = true
-                xml.enabled = true
-                csv.enabled = false
-            }
-        }
+    tasks.withType(Jar).configureEach {
+        into('META-INF') { with legalFiles }
+        manifest.attributes('Implementation-Version': project.version)
     }
 
-    java {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+    plugins.withId('application') {
+        distributions.main.contents { with legalFiles }
     }
 
-    test {
-        useJUnitPlatform()
-    }
-
-    tasks.withType(JavaCompile) {
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 21
         options.fork = true
-        options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
-        //options.incremental = false
+        options.compilerArgs.addAll(['-Xlint:unchecked', '-Xlint:deprecation'])
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
+        maxParallelForks = Runtime.runtime.availableProcessors()
     }
 
     if (project.name == 'simplify') {
-        tasks.withType(Test) {
+        tasks.withType(Test).configureEach {
             maxParallelForks = 2
             minHeapSize = '128m'
             maxHeapSize = '4g'
-            jvmArgs = ['-XX:-UseGCOverheadLimit']
+            jvmArgs '-XX:-UseGCOverheadLimit'
         }
-    } else {
-        tasks.withType(Test) {
-            maxParallelForks = Runtime.runtime.availableProcessors()
-            if (System.env.TRAVIS == 'true') {
-                testLogging {
-                    // Print out test status to make it easier to debug problematic builds.
-                    events "started", "passed", "skipped", "failed"
-                }
-            }
+    }
+
+    tasks.withType(JacocoReport).configureEach {
+        reports {
+            html.required = true
+            xml.required = true
+            csv.required = false
         }
     }
 }
 
-
-// These aren't intended to have tests and shouldn't count against code coverage
-def reportProjects = (subprojects - project(':demoapp') - project(':sdbg'))
-task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
-    description = 'Generates an aggregate report from all subprojects'
-    dependsOn(reportProjects.test)
-
-    sourceDirectories.from = reportProjects.sourceSets.main.allJava.srcDirs
-    //additionalSourceDirs.from = reportProjects.sourceSets.main.allJava.srcDirs
-    classDirectories.from = reportProjects.sourceSets.main.output.classesDirs
-    executionData.from = reportProjects.jacocoTestReport.executionData
-
+// Aggregate coverage focuses on the VM and optimizer, not the demo and debugger applications.
+def reportProjects = [project(':smalivm'), project(':simplify')]
+tasks.register('jacocoRootReport', JacocoReport) {
+    group = 'Coverage reports'
+    description = 'Generates an aggregate report from the VM and optimizer'
+    dependsOn(reportProjects.collect { it.tasks.named('test') })
+    sourceDirectories.from(reportProjects.collect { it.sourceSets.main.allSource.srcDirs })
+    classDirectories.from(reportProjects.collect { it.sourceSets.main.output.classesDirs })
+    executionData.from(reportProjects.collect { it.tasks.named('test').get().extensions.getByType(JacocoTaskExtension).destinationFile })
     reports {
-        html.enabled = true
-        xml.enabled = true
-        csv.enabled = false
+        html.required = true
+        xml.required = true
+        csv.required = false
     }
 }
 
-coveralls {
-    sourceDirs = reportProjects.sourceSets.main.allJava.srcDirs.flatten()
-    jacocoReportPath = "${buildDir}/reports/jacoco/jacocoRootReport/jacocoRootReport.xml"
-}

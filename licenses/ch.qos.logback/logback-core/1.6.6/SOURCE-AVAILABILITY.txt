@@ -1,0 +1,25 @@
+Logback 1.6.6 source availability and license selection
+
+For ch.qos.logback:logback-core:1.6.6, this distribution elects the
+Eclipse Public License version 2.0 (EPL-2.0), not the alternative LGPL.
+The full selected license is in EPL-2.0.txt. Upstream's original dual-license
+notice is retained unchanged in LICENSE.txt and SOURCE-NOTICES.txt.
+Copyright (C) 1999-2026, QOS.ch; see the original notices for their stated years.
+
+The Source Code of the Program is available under EPL-2.0 from the publisher:
+- Complete 1.6.6 release source, including build files:
+  https://github.com/qos-ch/logback/tree/v_1.6.6
+- Downloadable complete release source:
+  https://github.com/qos-ch/logback/archive/refs/tags/v_1.6.6.tar.gz
+- Exact component source archive:
+  https://repo.maven.apache.org/maven2/ch/qos/logback/logback-core/1.6.6/logback-core-1.6.6-sources.jar
+  SHA-256: 2da2e76aa79f98770ffba58311b495e0e710b8bc6f46504249d039262668fe96
+- Publisher licensing statement:
+  https://logback.qos.ch/license.html
+
+Simplify incorporates the publisher's Logback binaries without source changes.
+These upstream links supply the source for the incorporated Logback version;
+Simplify's build configuration describes its packaging/optimization operations.
+Simplify's Apache-2.0 project license does not replace or limit the recipients'
+rights to Logback Source Code under EPL-2.0. No upstream contributor is making
+additional warranties or assuming obligations on Simplify's behalf.

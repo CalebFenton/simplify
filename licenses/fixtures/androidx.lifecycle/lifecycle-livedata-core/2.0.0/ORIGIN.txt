@@ -1,0 +1,9 @@
+Coordinate: androidx.lifecycle:lifecycle-livedata-core:2.0.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Version confirmed by APK META-INF version marker.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.0.0/lifecycle-livedata-core-2.0.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.0.0/lifecycle-livedata-core-2.0.0-sources.jar
+Source archive SHA-256: d6ca1efd8da4018aa03939ced96a3f6b0144b9f7a22395c1f58eec78f9f3732a
+Binary: https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.0.0/lifecycle-livedata-core-2.0.0.aar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

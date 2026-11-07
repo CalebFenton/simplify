@@ -1,0 +1,11 @@
+Coordinate: org.apache.commons:commons-lang3:3.21.0
+Publisher POM: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.21.0/commons-lang3-3.21.0.pom
+Binary: https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.21.0/commons-lang3-3.21.0.jar
+Binary SHA-256: a2af247ec4db6eb8947e18e23e0433e4871a7c5d0a40e1f92e46ede54ae1defe
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- META-INF/LICENSE.txt
+  https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.21.0/commons-lang3-3.21.0.jar!/META-INF/LICENSE.txt
+- META-INF/NOTICE.txt
+  https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.21.0/commons-lang3-3.21.0.jar!/META-INF/NOTICE.txt

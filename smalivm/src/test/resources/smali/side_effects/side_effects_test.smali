@@ -2,6 +2,7 @@
 .super Ljava/lang/Object;
 
 .field public instanceString:Ljava/lang/String;
+.field public static staticString:Ljava/lang/String;
 
 .method public static emptyMethod()V
   .locals 0
@@ -10,7 +11,7 @@
 .end method
 
 .method public static constOps()V
-  .locals 1
+  .locals 2
 
   const/4 v0, -0x3
   const/16 v0, 0x4242
@@ -108,10 +109,33 @@
   return-void
 .end method
 
-.method public modifyInstanceMember()V
+# Review correction: the old fixture used `sput` against the instance field above. That instruction is
+# illegal for an instance member. Task 19's authority says a successful tracked-object `iput` is WEAK,
+# while an unidentified target is STRONG. Allocate the target so this preserves the old test's WEAK
+# instance-write intent without preserving malformed bytecode.
+.method public static modifyInstanceMember()V
   .locals 2
 
-  sput p0, Lside_effects_test;->instanceString:Ljava/lang/String;
+  new-instance v0, Lside_effects_test;
+  const-string v1, "persisted"
+  iput-object v1, v0, Lside_effects_test;->instanceString:Ljava/lang/String;
+
+  return-void
+.end method
+
+.method public static modifyStaticMember()V
+  .locals 1
+
+  const-string v0, "persisted"
+  sput-object v0, Lside_effects_test;->staticString:Ljava/lang/String;
+
+  return-void
+.end method
+
+.method public static newInstanceFrameworkClassWithInitializer()V
+  .locals 1
+
+  new-instance v0, Ljava/lang/Integer;
 
   return-void
 .end method

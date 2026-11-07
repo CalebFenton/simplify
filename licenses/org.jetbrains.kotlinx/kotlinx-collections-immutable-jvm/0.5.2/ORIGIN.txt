@@ -1,0 +1,13 @@
+Coordinate: org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.5.2
+Publisher POM: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-collections-immutable-jvm/0.5.2/kotlinx-collections-immutable-jvm-0.5.2.pom
+Binary: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-collections-immutable-jvm/0.5.2/kotlinx-collections-immutable-jvm-0.5.2.jar
+Binary SHA-256: 6d7f84d544644fa857bba83292820cdb1e0dae408fa41d2dced903d290286463
+Source archive: https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-collections-immutable-jvm/0.5.2/kotlinx-collections-immutable-jvm-0.5.2-sources.jar
+Source archive SHA-256: 940d99f083ccb474d349e9dd9ac69f587280778b5f8c3eb5c860098a3fa965ae
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-collections-immutable-jvm/0.5.2/kotlinx-collections-immutable-jvm-0.5.2-sources.jar (and binary template resources where identified)
+- LICENSE.txt
+  https://raw.githubusercontent.com/Kotlin/kotlinx.collections.immutable/v0.5.2/LICENSE.txt

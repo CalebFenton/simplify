@@ -1,7 +1,6 @@
 package org.cf.smalivm.type;
 
-import org.cf.util.ClassNameUtils;
-import org.jf.dexlib2.iface.reference.TypeReference;
+import com.android.tools.smali.dexlib2.iface.reference.TypeReference;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -10,8 +9,7 @@ import java.util.Set;
 public class VirtualPrimitive extends VirtualType {
 
     VirtualPrimitive(TypeReference typeReference) {
-        super(typeReference, typeReference.getType(), ClassNameUtils.internalToBinary(typeReference.getType()),
-              ClassNameUtils.internalToSource(typeReference.getType()));
+        super(typeReference, null);
     }
 
     @Override

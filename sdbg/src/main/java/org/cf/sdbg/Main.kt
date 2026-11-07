@@ -1,12 +1,18 @@
 package org.cf.sdbg
 
 import org.cf.sdbg.command.CliCommands
-import org.cf.smalivm.debug.Debugger
+import org.cf.smalivm.core.Debugger
+import org.cf.smalivm.core.ExecutionSession
+import org.cf.smalivm.core.VmServices
 import org.fusesource.jansi.AnsiConsole
-import org.jline.builtins.Builtins
+import org.jline.builtins.ConfigurationPath
+import org.jline.console.impl.Builtins
 import org.jline.builtins.Options.HelpException
-import org.jline.builtins.Widgets.*
-import org.jline.builtins.Widgets.CmdLine.DescriptionType
+import org.jline.console.CmdDesc
+import org.jline.console.CmdLine
+import org.jline.console.CmdLine.DescriptionType
+import org.jline.console.CommandRegistry.CommandSession
+import org.jline.widget.TailTipWidgets
 import org.jline.reader.*
 import org.jline.reader.impl.DefaultParser
 import org.jline.terminal.TerminalBuilder
@@ -16,110 +22,113 @@ import picocli.CommandLine
 import picocli.shell.jline3.PicocliCommands
 import java.nio.file.Paths
 import java.util.function.Function
-
+import kotlin.system.exitProcess
 
 object Main {
+    lateinit var services: VmServices
+    lateinit var session: ExecutionSession
     lateinit var debugger: Debugger
-    const val version: String = "0.1.0"
+    lateinit var listing: SmaliListing
+    const val version: String = "2.0.0-SNAPSHOT"
+
+    internal fun commandLine(command: Any): CommandLine = CommandLine(command).setExecutionExceptionHandler {
+        exception, commandLine, _ ->
+        var cause: Throwable? = exception
+        while (cause != null) {
+            if (cause is Error) throw cause
+            cause = cause.cause
+        }
+        commandLine.err.println(exception.message ?: exception.javaClass.simpleName)
+        commandLine.commandSpec.exitCodeOnExecutionException()
+    }.also { line ->
+        if (command is CliCommands) {
+            for (name in listOf("break", "list", "continue")) {
+                line.subcommands.getValue(name).commandSpec.parser().unmatchedOptionsArePositionalParams(true)
+            }
+        }
+    }
 
     private fun startConsoleLoop() {
-        try {
-            // set up JLine built-in commands
-            val workDir = Paths.get("")
-            val builtins = Builtins(workDir, null, null)
-//            builtins.rename(Builtins.Command.TTOP, "top")
-            builtins.alias("zle", "widget")
-            builtins.alias("bindkey", "keymap")
-            val systemCompleter = builtins.compileCompleters()
-
-            // set up picocli commands
-            val commands = CliCommands()
-            val cmd = CommandLine(commands)
-            val picocliCommands = PicocliCommands(workDir, cmd)
-            // TODO: figure out how to add classes, methods, and fields to auto-complete
-            systemCompleter.add(picocliCommands.compileCompleters())
-            systemCompleter.compile()
-            val terminal = TerminalBuilder.builder().build()
+        val workDir = Paths.get("")
+        val parser = DefaultParser()
+        val builtins = Builtins(workDir, ConfigurationPath(null, null), null)
+        builtins.alias("zle", "widget")
+        builtins.alias("bindkey", "keymap")
+        val systemCompleter = builtins.compileCompleters()
+        val commands = CliCommands()
+        val cmd = commandLine(commands)
+        val picocliCommands = PicocliCommands(cmd)
+        systemCompleter.add(picocliCommands.compileCompleters())
+        systemCompleter.compile()
+        TerminalBuilder.builder().build().use { terminal ->
+            val commandSession = CommandSession(terminal, System.`in`, System.out, System.err)
             val reader = LineReaderBuilder.builder()
-                    .terminal(terminal)
-                    .completer(systemCompleter)
-                    .parser(DefaultParser())
-                    .variable(LineReader.LIST_MAX, 50) // max tab completion candidates
-                    .build()
+                .terminal(terminal)
+                .completer(systemCompleter)
+                .parser(parser)
+                .variable(LineReader.LIST_MAX, 50)
+                .build()
             builtins.setLineReader(reader)
-            commands.setReader(reader)
-            val descriptionGenerator = DescriptionGenerator(builtins, picocliCommands)
-            TailTipWidgets(reader, Function { line: CmdLine -> descriptionGenerator.commandDescription(line) }, 5,
-                    TailTipWidgets.TipType.COMPLETER)
-            val prompt = "(sdbg) "
-            val rightPrompt: String? = null
-            var line: String
-
+            commands.configureReader(reader)
+            cmd.setOut(terminal.writer()).setErr(terminal.writer())
+            val descriptions = DescriptionGenerator(builtins, picocliCommands, parser)
+            TailTipWidgets(reader, Function { line: CmdLine -> descriptions.commandDescription(line) }, 5,
+                TailTipWidgets.TipType.COMPLETER)
             while (true) {
                 try {
-                    line = reader.readLine(prompt, rightPrompt, null as MaskingCallback?, null)
-                    if (line.matches("^\\s*#.*".toRegex())) {
-                        continue
-                    }
-                    val pl = reader.parser.parse(line, 0)
-                    val arguments = pl.words().toTypedArray()
-                    val command = Parser.getCommand(pl.word())
+                    val line = reader.readLine("(sdbg) ", null, null as MaskingCallback?, null)
+                    if (line.isBlank() || line.trimStart().startsWith('#')) continue
+                    val parsed = reader.parser.parse(line, 0)
+                    val arguments = parsed.words().toTypedArray()
+                    val command = parser.getCommand(arguments[0])
                     if (builtins.hasCommand(command)) {
-                        builtins.execute(command, arguments.copyOfRange(1, arguments.size)
-                                , System.`in`, System.out, System.err)
+                        builtins.invoke(commandSession, command, *arguments.copyOfRange(1, arguments.size))
                     } else {
-                        CommandLine(commands).execute(*arguments)
+                        cmd.execute(*arguments)
                     }
                 } catch (e: HelpException) {
-                    HelpException.highlight(e.message, HelpException.defaultStyle())
-                            .print(terminal)
-                } catch (e: UserInterruptException) { // Ignore
+                    HelpException.highlight(e.message, HelpException.defaultStyle()).print(terminal)
+                } catch (e: UserInterruptException) {
+                    // Ctrl-C cancels the current input; Ctrl-D closes the debugger.
                 } catch (e: EndOfFileException) {
                     return
                 } catch (e: Exception) {
-                    val asb = AttributedStringBuilder()
-                    asb.append(e.message, AttributedStyle.DEFAULT.foreground(AttributedStyle.RED))
-                    asb.toAttributedString().println(terminal)
+                    AttributedStringBuilder()
+                        .append(e.message ?: e.javaClass.simpleName, AttributedStyle.DEFAULT.foreground(AttributedStyle.RED))
+                        .toAttributedString().println(terminal)
+                } finally {
+                    terminal.flush()
                 }
             }
-        } catch (t: Throwable) {
-            t.printStackTrace()
         }
     }
 
-    @Throws(Exception::class)
     @JvmStatic
     fun main(args: Array<String>) {
         AnsiConsole.systemInstall()
-        val initStatus = CommandLine(Initialize()).execute(*args)
-        if (initStatus == 1) {
-            startConsoleLoop()
+        val status = try {
+            val initialize = Initialize()
+            val result = commandLine(initialize).execute(*args)
+            if (result == 0 && initialize.started) startConsoleLoop()
+            result
+        } catch (e: Exception) {
+            System.err.println(e.message ?: e.javaClass.simpleName)
+            1
+        } finally {
+            AnsiConsole.systemUninstall()
         }
+        if (status != 0) exitProcess(status)
     }
 
-    /**
-     * Provide command descriptions for JLine TailTipWidgets to be displayed in the status bar.
-     */
-    private class DescriptionGenerator(var builtins: Builtins, var picocli: PicocliCommands) {
+    private class DescriptionGenerator(val builtins: Builtins, val picocli: PicocliCommands, val parser: Parser) {
         fun commandDescription(line: CmdLine): CmdDesc? {
-            var out: CmdDesc? = null
-            when (line.descriptionType) {
-                DescriptionType.COMMAND -> {
-                    val cmd = Parser.getCommand(line.args[0])
-                    when {
-                        builtins.hasCommand(cmd) -> {
-                            out = builtins.commandDescription(cmd)
-                        }
-                        picocli.hasCommand(cmd) -> {
-                            out = picocli.commandDescription(cmd)
-                        }
-                    }
-                }
-                else -> {
-                }
+            if (line.descriptionType != DescriptionType.COMMAND || line.args.isEmpty()) return null
+            val command = parser.getCommand(line.args[0])
+            return when {
+                builtins.hasCommand(command) -> builtins.commandDescription(line.args)
+                picocli.hasCommand(command) -> picocli.commandDescription(line.args)
+                else -> null
             }
-            return out
         }
-
     }
 }

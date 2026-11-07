@@ -13,14 +13,18 @@ class ContinueCommand : DebuggerCommand() {
     var target: String? = null
 
     override fun run() {
-        var number = target?.toIntOrNull() ?: 0
+        var number = if (target == null) 0 else target?.toIntOrNull()
+        if (number == null || number < 0) {
+            parent.out.println("invalid target; expected a nonnegative breakpoint count")
+            return
+        }
         while (number >= 0) {
-            debugger.run()
+            debugger.runToBreakpoint()
             if (debugger.isFinished) {
-                parent.out.println("execution finished")
+                printFinished(parent)
                 break
-            } else if (debugger.isAtBreakpoint) {
-                parent.out.println("hit breakpoint " + number)
+            } else if (debugger.isAtBreakpoint()) {
+                parent.out.println("hit breakpoint ${debugger.cursor!!.view.signature} @ ${debugger.currentInstructionIndex}")
                 number--
             }
         }

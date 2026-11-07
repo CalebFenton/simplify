@@ -1,0 +1,9 @@
+Coordinate: androidx.versionedparcelable:versionedparcelable:1.1.0
+Scope: example source/APK fixture, not the host runtime classpath.
+Evidence: Version confirmed by APK META-INF version marker.
+License: Apache-2.0, declared in official POM.
+Publisher POM: https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.0/versionedparcelable-1.1.0.pom
+Source archive: https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.0/versionedparcelable-1.1.0-sources.jar
+Source archive SHA-256: 135016af471acf4cd9583d36ceb779710c6b46812ccaaef7c526d5d60eae6b0b
+Binary: https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.0/versionedparcelable-1.1.0.aar
+Copyright: The Android Open Source Project; original years and grants are retained in SOURCE-NOTICES.txt.

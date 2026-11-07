@@ -8,8 +8,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class ClassNameUtils {
 
@@ -435,7 +435,7 @@ public class ClassNameUtils {
         return names;
     }
 
-    public static ReferenceType guessReferenceType(@Nonnull String s) {
+    public static ReferenceType guessReferenceType(@NotNull String s) {
         if (s.startsWith("[")) {
             s = getComponentBase(s);
         }

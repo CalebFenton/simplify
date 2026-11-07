@@ -1,9 +1,9 @@
 package org.cf.smalivm.type;
 
-import org.jf.dexlib2.builder.BuilderTryBlock;
-import org.jf.dexlib2.builder.MutableMethodImplementation;
-import org.jf.dexlib2.iface.reference.Reference;
-import org.jf.dexlib2.writer.builder.BuilderMethod;
+import com.android.tools.smali.dexlib2.builder.BuilderTryBlock;
+import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.iface.reference.Reference;
+import com.android.tools.smali.dexlib2.writer.builder.BuilderMethod;
 
 import java.util.List;
 

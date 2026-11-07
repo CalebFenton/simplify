@@ -1,0 +1,9 @@
+Coordinate: com.android.tools.smali:smali:3.0.10
+Publisher POM: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali/3.0.10/smali-3.0.10.pom
+Binary: https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali/3.0.10/smali-3.0.10.jar
+Binary SHA-256: b54c34f7a1b769b1e637f8a26909c68f399c273f3e5cde3e308e91107c135305
+License selection: BSD-3-Clause AND Apache-2.0 (complete upstream composite LICENSE)
+
+Original legal texts and their sources:
+- LICENSE
+  https://dl.google.com/dl/android/maven2/com/android/tools/smali/smali/3.0.10/smali-3.0.10.jar!/LICENSE

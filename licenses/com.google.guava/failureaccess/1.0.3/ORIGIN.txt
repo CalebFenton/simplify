@@ -1,0 +1,13 @@
+Coordinate: com.google.guava:failureaccess:1.0.3
+Publisher POM: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.pom
+Binary: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar
+Binary SHA-256: cbfc3906b19b8f55dd7cfd6dfe0aa4532e834250d7f080bd8d211a3e246b59cb
+Source archive: https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3-sources.jar
+Source archive SHA-256: 6fef4dfd2eb9f961655f2a3c4ea87c023618d9fcbfb6b104c17862e5afe66b97
+License selection: Apache-2.0
+
+Original legal texts and their sources:
+- META-INF/LICENSE
+  https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar!/META-INF/LICENSE
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3-sources.jar (and binary template resources where identified)

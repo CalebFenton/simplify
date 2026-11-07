@@ -1,0 +1,13 @@
+Coordinate: antlr:antlr:2.7.7
+Publisher POM: https://repo.maven.apache.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.pom
+Binary: https://repo.maven.apache.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar
+Binary SHA-256: 88fbda4b912596b9f56e8e12e580cc954bacfb51776ecfddd3e18fc1cf56dc4c
+Source distribution: https://www.antlr2.org/download/antlr-2.7.7.tar.gz
+Source distribution SHA-256: 853aeb021aef7586bda29e74a6b03006bcb565a755c86b66032d8ec31b67dbb9
+License selection: Public-domain dedication and SOFTWARE RIGHTS text (not modern ANTLR BSD terms)
+
+Original legal texts and their sources:
+- LICENSE.txt
+  https://www.antlr2.org/download/antlr-2.7.7.tar.gz!/antlr-2.7.7/LICENSE.txt
+
+This product uses ANTLR software developed by Terence Parr, with support from the University of San Francisco and jGuru.com. The original SOFTWARE RIGHTS text is reproduced unchanged.

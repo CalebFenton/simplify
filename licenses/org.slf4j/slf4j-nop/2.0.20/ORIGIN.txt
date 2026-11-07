@@ -1,0 +1,9 @@
+Coordinate: org.slf4j:slf4j-nop:2.0.20
+Publisher POM: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-nop/2.0.20/slf4j-nop-2.0.20.pom
+Binary: https://repo.maven.apache.org/maven2/org/slf4j/slf4j-nop/2.0.20/slf4j-nop-2.0.20.jar
+Binary SHA-256: 6522080396fb339e99bae40d329a06d18d3190dc864020ac4ca943519d0fd85b
+License selection: MIT
+
+Original legal texts and their sources:
+- META-INF/LICENSE.txt
+  https://repo.maven.apache.org/maven2/org/slf4j/slf4j-nop/2.0.20/slf4j-nop-2.0.20.jar!/META-INF/LICENSE.txt

@@ -1,0 +1,663 @@
+package org.cf.smalivm.core
+
+import java.nio.file.Files
+import java.nio.file.Path
+import org.cf.smalivm.dex.SmaliParser
+import org.cf.smalivm.type.ClassManagerFactory
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.Opcodes
+import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+
+/**
+ * Bug class: the core algebra reaching directly into the oracle's class model, so deleting the
+ * oracle (Plan 16) would break the core, and handler resolution having no real subtype oracle
+ * (Plan 2 could only use fakes). Oracle: the real Android/JDK class hierarchy as loaded by
+ * ClassManager -- NullPointerException IS-A RuntimeException IS-A Exception.
+ */
+class ClassIndexTest {
+    // Held separately from `classIndex` so the array-supertype tests can measure the ORACLE's own answer
+    // through the same class model, in the same test, rather than describing it (Plan 8 Task 7: an
+    // inherited claim about the oracle is this project's recurring defect, and this divergence is
+    // invisible to the differential).
+    private val classManager =
+        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
+    private val classIndex = ClassIndex(classManager)
+
+    private fun t(descriptor: String) = VirtualType.of(descriptor)
+
+    @Test
+    fun typeOfReturnsValidatedCoreType() {
+        assertEquals(t("Ljava/lang/String;"), classIndex.typeOf("Ljava/lang/String;"))
+        assertEquals(t("I"), classIndex.typeOf("I"))
+        assertEquals(t("[[I"), classIndex.typeOf("[[I"))
+    }
+
+    @Test
+    fun subtypeIsReflexive() {
+        val npe = t("Ljava/lang/NullPointerException;")
+        assertTrue(classIndex.isSubtypeOf(npe, npe))
+    }
+
+    @Test
+    fun subtypeFollowsRealHierarchy() {
+        val npe = t("Ljava/lang/NullPointerException;")
+        assertTrue(classIndex.isSubtypeOf(npe, t("Ljava/lang/RuntimeException;")))
+        assertTrue(classIndex.isSubtypeOf(npe, t("Ljava/lang/Exception;")))
+        assertTrue(classIndex.isSubtypeOf(npe, t("Ljava/lang/Object;")))
+    }
+
+    @Test
+    fun unrelatedTypesAreNotSubtypes() {
+        assertFalse(classIndex.isSubtypeOf(t("Ljava/lang/RuntimeException;"), t("Ljava/lang/NullPointerException;")))
+        assertFalse(classIndex.isSubtypeOf(t("Ljava/io/IOException;"), t("Ljava/lang/RuntimeException;")))
+    }
+
+    @Test
+    fun primitivesAreOnlySubtypesOfThemselves() {
+        // Soundness: no primitive/reference bridging (spec 4.1 -- those types join to Top).
+        assertTrue(classIndex.isSubtypeOf(t("I"), t("I")))
+        assertFalse(classIndex.isSubtypeOf(t("I"), t("Ljava/lang/Object;")))
+        assertFalse(classIndex.isSubtypeOf(t("I"), t("J")))
+    }
+
+    @Test
+    fun anUnloadableClassReportsATypedLoadFailure() {
+        // Bug class: signalling "this class is not in the loaded set" with a bare RuntimeException,
+        // which is indistinguishable from a bug in the engine. A caller that wants to answer the first
+        // conservatively (ExecutionSession's handler search forks on it, Task 7) is then forced to
+        // swallow the second too, laundering a real bug into silent over-approximation on a run that
+        // still reports Complete. Oracle: spec §7 -- classes absent from the virtual registry produce
+        // a conservative answer, never a host crash -- plus ClassManager.parseClass, which wraps every
+        // load failure in a bare RuntimeException. `Lspine/absent;` is a well-formed descriptor with no
+        // smali behind it, which is the normal case in a real obfuscated APK.
+        val absent = t("Lspine/absent;")
+        val failure = assertThrows(ClassLoadFailure::class.java) {
+            classIndex.isSubtypeOf(absent, t("Ljava/lang/RuntimeException;"))
+        }
+        assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
+        assertNotNull(failure.cause, "the class model's own failure is kept as the cause")
+        // Either operand, in either position.
+        assertThrows(ClassLoadFailure::class.java) {
+            classIndex.isSubtypeOf(t("Ljava/lang/RuntimeException;"), absent)
+        }
+        // And the pure lattice answers still short-circuit BEFORE any load is attempted, so an
+        // unloadable class is not made to look loadable by reflexivity or by primitive comparison.
+        assertTrue(classIndex.isSubtypeOf(absent, absent), "reflexive: no class model reach at all")
+        assertFalse(classIndex.isSubtypeOf(t("I"), absent), "no primitive/reference bridging")
+    }
+
+    @Test
+    fun aPrimitiveComponentArrayIsNotASubtypeOfAnObjectArray() {
+        // M6 (Plan 6 whole-branch review): the direction CoreTester.kt's assignability comment names but
+        // this file never pinned. Primitive arrays are invariant, so int[] is not an Object[] -- but NOT
+        // because isSubtypeOf's own isReference guard rejects the pair (VirtualType.isReference counts
+        // arrays, including [I, as references, so that guard never fires here). The real enforcement
+        // falls out of VirtualArray.getImmediateAncestors one level down: a primitive-component array's
+        // only immediate ancestor is plain Object, never an array type, so [I's whole ancestor set never
+        // contains [Ljava/lang/Object;. The other direction ([Ljava/lang/String; <: [Ljava/lang/Object;,
+        // legal covariance) is pinned in CoreTesterTest.aDeclaredArrayTypeAcceptsALegallyCovariantRuntimeArray.
+        assertFalse(classIndex.isSubtypeOf(t("[I"), t("[Ljava/lang/Object;")))
+    }
+
+    @Test
+    fun anAbsentDescriptorIsNotLoadableWhileAPresentOneAndEveryPrimitiveIs() {
+        // The premise NewArrayOp's NoClassDefFoundError rests on. Asserted rather than assumed: if the
+        // class model answered a bare, non-throwing "absent" instead, `isLoadable` would silently answer
+        // true and `new-array [Ldoes/not/exist;` would allocate instead of throwing.
+        assertFalse(CoreTester.classIndex.isLoadable(VirtualType.of("[Ldoes/not/exist;")))
+        assertTrue(CoreTester.classIndex.isLoadable(VirtualType.of("[Lnew_array_test;")))
+        assertTrue(CoreTester.classIndex.isLoadable(VirtualType.of("[[I")), "a primitive component is always loadable")
+        assertTrue(CoreTester.classIndex.isLoadable(VirtualType.of("I")), "and so is a bare primitive")
+    }
+
+    // ---- isInstanceOf (Plan 8 Task 7) ----------------------------------------------------------
+    //
+    // Bug class: porting `instance-of`/`check-cast` onto `isSubtypeOf` because the two questions rhyme.
+    // They are two predicates with different contracts (plan design decision 4) and the tests below pin
+    // TWO independent behavioural differences, so the pair cannot later be collapsed by someone who
+    // reads them as duplicates.
+
+    @Test
+    fun anyReferenceIsAnInstanceOfObjectWithoutLoadingItsAncestors() {
+        // The case `isSubtypeOf` cannot serve, and the reason `ClassIndex` grows a second predicate at
+        // all. `Lspine/absent;` is a well-formed descriptor with no smali behind it -- the normal case in
+        // an obfuscated APK -- so the ancestor walk `isSubtypeOf` needs cannot run. `instance-of v1, v0,
+        // Ljava/lang/Object;` still has an answer on a device: 1 for any non-null reference, whatever its
+        // class is, because Object is the supertype of every reference type
+        // (`DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited`, [JVMS] `checkcast`: "If T is a class
+        // type, then T must be Object"). Turning that cheap `true` into a load failure would make the
+        // commonest obfuscated shape unanswerable.
+        assertTrue(classIndex.isInstanceOf(t("Lspine/absent;"), t("Ljava/lang/Object;")))
+        assertTrue(classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Ljava/lang/Object;")))
+        assertTrue(classIndex.isInstanceOf(t("[Lspine/absent;"), t("Ljava/lang/Object;")))
+    }
+
+    @Test
+    fun aPrimitiveTargetIsNeverAnInstanceAndNeitherIsAPrimitiveCandidate() {
+        // SPEC, [BC]'s `instance-of` row: "this will always result in 0 ... if C refers to a primitive
+        // type". Both operand positions are covered deliberately, because which of the oracle's THREE
+        // `instanceOf` implementations runs is decided by the CANDIDATE's class (design decision 4), and
+        // `type/VirtualPrimitive.instanceOf` (`:35-40`) is `equals`-only -- so the oracle answers TRUE for
+        // the reflexive primitive pair. The core answers false: see
+        // `aPrimitiveReflexivePairIsWhereTheTwoPredicatesDisagreeMostVisibly`.
+        assertFalse(classIndex.isInstanceOf(t("Ljava/lang/Integer;"), t("I")))
+        assertFalse(classIndex.isInstanceOf(t("[I"), t("I")))
+        assertFalse(classIndex.isInstanceOf(t("Ljava/lang/Object;"), t("V")))
+        // primitive CANDIDATE, reference target: a register whose last write was primitive reads as a
+        // null reference, and a null is an instance of nothing (`core/Value.kt`'s readsAsNullReference).
+        assertFalse(classIndex.isInstanceOf(t("I"), t("Ljava/lang/Object;")))
+        assertFalse(classIndex.isInstanceOf(t("I"), t("Ljava/lang/Integer;")))
+    }
+
+    @Test
+    fun everyArrayIsAnInstanceOfCloneableAndSerializableUnlikeTheOracle() {
+        // DELIBERATELY UNLIKE THE ORACLE, and the oracle's answer is asserted in the same test rather
+        // than described, because this divergence is invisible to the differential (nothing else in the
+        // engine asks the question yet) and an inherited claim about the oracle is this project's
+        // recurring defect.
+        //
+        // INHERITED (JLS §4.10.3 via [JVMS] `checkcast`, quoted at
+        // `DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited`: arrays implement "exactly Cloneable
+        // and java.io.Serializable", and that row is listed for PRIMITIVE components explicitly).
+        // Corroborated by Android's own toolchain -- AOSP `Merger.isPossiblyAssignableFrom`
+        // (dalvik2/dx/src/com/android/dx/cf/code/Merger.java), fetched raw: "does not assume anything
+        // about class hierarchy other than that the type Object is the supertype of all reference types
+        // and all arrays are assignable to Serializable and Cloneable", and, in the array branch, "Other
+        // than Object (handled above), array types are assignable only to Serializable and Cloneable".
+        //
+        // The oracle omits both: `VirtualArray.instanceOf` (`type/VirtualArray.java:129-141`) is
+        // `equals` plus `getAncestors()` membership, and `getImmediateAncestors()` (`:52-74`) adds only
+        // `[^(rank-1)Ljava/lang/Object;` for a primitive component and arrays-of-component-ancestors for a
+        // reference one -- NEITHER branch ever adds either interface (`type-and-dex.md:95`, `:203`).
+        // `type/VirtualArrayTest` ENCODES the omission, so an implementer looking for prior art finds
+        // confirmation rather than a warning: this must never be "fixed" toward the oracle.
+        val cloneable = t("Ljava/lang/Cloneable;")
+        val serializable = t("Ljava/io/Serializable;")
+        for (array in listOf("[I", "[[I", "[Ljava/lang/String;", "[[Ljava/lang/String;")) {
+            assertTrue(classIndex.isInstanceOf(t(array), cloneable), "$array is Cloneable")
+            assertTrue(classIndex.isInstanceOf(t(array), serializable), "$array is Serializable")
+            // the oracle, measured through the same class model, for both interfaces
+            val oracleArray = classManager.getVirtualType(array)
+            assertFalse(
+                oracleArray.instanceOf(classManager.getVirtualType("Ljava/lang/Cloneable;")),
+                "$array: the oracle's omission is the premise of this divergence",
+            )
+            assertFalse(
+                oracleArray.instanceOf(classManager.getVirtualType("Ljava/io/Serializable;")),
+                "$array: the oracle's omission is the premise of this divergence",
+            )
+        }
+        // A non-array is NOT given the free pass: String really does implement Serializable (so `true`
+        // here comes from the hierarchy) while StringBuilder does not implement Cloneable, and if the
+        // rows were keyed on the target alone both would answer true.
+        assertTrue(classIndex.isInstanceOf(t("Ljava/lang/String;"), serializable))
+        assertFalse(classIndex.isInstanceOf(t("Ljava/lang/StringBuilder;"), cloneable))
+    }
+
+    @Test
+    fun arrayCovarianceAndInvarianceAreBothPreservedFromTheOracle() {
+        // The half the oracle gets RIGHT, pinned beside the half it does not, so a future edit to the
+        // divergence rows cannot silently take covariance with it. JLS §4.10.3: `S[] >1 T[]` iff
+        // `S >1 T` (references), and `Object >1 P[]` for a primitive P -- but `int[]` is NOT an
+        // `Object[]`, because that rule needs BOTH components to be reference types.
+        assertTrue(classIndex.isInstanceOf(t("[I"), t("Ljava/lang/Object;")))
+        assertTrue(classIndex.isInstanceOf(t("[Ljava/lang/String;"), t("[Ljava/lang/Object;")))
+        assertTrue(classIndex.isInstanceOf(t("[[Ljava/lang/String;"), t("[[Ljava/lang/Object;")))
+        assertFalse(classIndex.isInstanceOf(t("[I"), t("[Ljava/lang/Object;")))
+        assertFalse(classIndex.isInstanceOf(t("[I"), t("[J")))
+        // and a class is never an instance of an array type (`VirtualClass.java:150-153`)
+        assertFalse(classIndex.isInstanceOf(t("Ljava/lang/String;"), t("[Ljava/lang/String;")))
+    }
+
+    @Test
+    fun theRow24SubtypeMatrixAgreesWithTheDeviceAtEveryCell() {
+        // ROW 24 -- "subtype testing, in its entirety", the broadest row on the INHERITED worklist because
+        // every type op runs this predicate. The whole 4x4 grid, MEASURED on real ART and reproduced here:
+        // candidate in {String[], Object[], int[], long[]} x target in {Object, Cloneable, Serializable,
+        // Object[]}. This is the core half of the device measurement in `tools/art-runner`
+        // (`Fx_Subtype_*` / `Fx_IntArrayIsCloneable`, Tier A, -Xint, art_standalone 0_git20251009-r2); the
+        // device answered `instance-of` and `check-cast` IDENTICALLY at every cell, so this one predicate
+        // -- `castOutcome` delegates `check-cast` to it -- governs both ops and pinning it here pins both.
+        //
+        // The grid deliberately includes the cells the [JLS] rule makes SURPRISING, because the obvious ones
+        // cannot falsify anything: `int[]`/`long[]` instanceof `Object[]` -> false (a primitive-component
+        // array is invariant and is NOT a reference array -- JLS 4.10.3 needs BOTH components to be
+        // references), `long[]` instanceof `Cloneable`/`Serializable` -> true (arrays implement both, the
+        // primitive-component row listed explicitly), `String[]` instanceof `Object[]` -> true (covariance).
+        //
+        // The core agrees with the device on all 16 -- and thus all 32 io+cc cells -- measured, none
+        // diverges. That agreement is NOT the oracle's: `VirtualArray.instanceOf` omits both interfaces, so
+        // the ORACLE folds `false` for every Cloneable/Serializable array cell (the registered
+        // `types-int-array-is-cloneable` divergence, and the reason the device sweep DIVERGES oracle-vs-device
+        // on those sixteen cells). `everyArrayIsAnInstanceOfCloneableAndSerializableUnlikeTheOracle` above
+        // measures the oracle's omission directly; this test is the grid the device pins.
+        //
+        // Two mutations must break this (Step 5): removing `Cloneable` from `ARRAY_SUPERINTERFACES` reds the
+        // Cloneable column, and dropping row 4 of `isInstanceOf` (delegating arrays structurally) reds the
+        // Cloneable AND Serializable columns. The `Object[]` column is answered structurally by row 6 either
+        // way, so it is robust to both -- which is correct, and is why it is pinned by direct assertion here.
+        val objectT = t("Ljava/lang/Object;")
+        val cloneable = t("Ljava/lang/Cloneable;")
+        val serializable = t("Ljava/io/Serializable;")
+        val objectArray = t("[Ljava/lang/Object;")
+        // candidate -> expected across {Object, Cloneable, Serializable, Object[]}
+        data class Row(
+            val candidate: String,
+            val isObject: Boolean,
+            val isCloneable: Boolean,
+            val isSerializable: Boolean,
+            val isObjectArray: Boolean,
+        )
+        val matrix = listOf(
+            Row("[Ljava/lang/String;", true, true, true, true), // reference component: covariant to Object[]
+            Row("[Ljava/lang/Object;", true, true, true, true), // reflexive at Object[]
+            Row("[I", true, true, true, false), // primitive component: invariant, NOT an Object[]
+            Row("[J", true, true, true, false), // primitive component: invariant, NOT an Object[]
+        )
+        for ((candidate, isObject, isCloneable, isSerializable, isObjectArray) in matrix) {
+            val c = t(candidate)
+            assertEquals(isObject, classIndex.isInstanceOf(c, objectT), "$candidate instance-of Object")
+            assertEquals(isCloneable, classIndex.isInstanceOf(c, cloneable), "$candidate instance-of Cloneable")
+            assertEquals(isSerializable, classIndex.isInstanceOf(c, serializable), "$candidate instance-of Serializable")
+            assertEquals(isObjectArray, classIndex.isInstanceOf(c, objectArray), "$candidate instance-of Object[]")
+        }
+    }
+
+    @Test
+    fun instanceOfFollowsTheRealHierarchyIncludingInterfaces() {
+        // The delegation half: for an ordinary class candidate the oracle's `VirtualClass.instanceOf`
+        // answer is kept verbatim, interfaces included. `instance-of` DOES consult interfaces -- it is
+        // only `joinTypes` that excludes them (see `TypeJoinTest`), and conflating the two would be a
+        // soundness change, not a tidying.
+        assertTrue(classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Ljava/lang/CharSequence;")))
+        assertTrue(classIndex.isInstanceOf(t("Lchild_class;"), t("Lparent_class;")))
+        assertTrue(classIndex.isInstanceOf(t("Lgrandparent_class;"), t("Lgrandparent_interface;")))
+        assertTrue(classIndex.isInstanceOf(t("Lchild_class;"), t("Lgrandparent_interface;")))
+        assertFalse(classIndex.isInstanceOf(t("Lparent_class;"), t("Lchild_class;")))
+    }
+
+    @Test
+    fun aPrimitiveReflexivePairIsWhereTheTwoPredicatesDisagreeMostVisibly() {
+        // TWO independent differences between `isInstanceOf` and `isSubtypeOf`, so the two predicates
+        // cannot be collapsed into one with a mode flag (design decision 4). Both directions are
+        // asserted on the SAME pair of arguments, which is what makes "these are duplicates" fail to
+        // compile as an argument.
+        //
+        // (1) The reflexive primitive pair. `isSubtypeOf(I, I)` is true (a type is its own ancestor, and
+        //     `aput`'s component check needs that). `isInstanceOf(I, I)` is false, because [BC] says a
+        //     primitive `instance-of` target always answers 0.
+        assertTrue(classIndex.isSubtypeOf(t("I"), t("I")))
+        assertFalse(classIndex.isInstanceOf(t("I"), t("I")))
+        // (2) An unloadable candidate against Object. `isSubtypeOf` must NOT invent an answer -- doing so
+        //     would silently un-catch a handler -- so it raises; `isInstanceOf` answers without loading.
+        val absent = t("Lspine/absent;")
+        assertThrows(ClassLoadFailure::class.java) { classIndex.isSubtypeOf(absent, t("Ljava/lang/Object;")) }
+        assertTrue(classIndex.isInstanceOf(absent, t("Ljava/lang/Object;")))
+    }
+
+    @Test
+    fun instanceOfReportsATypedLoadFailureWhenItGenuinelyHasToWalk() {
+        // `isInstanceOf` is NOT total, and Tasks 8 and 9 must treat this as AMBIGUITY rather than as
+        // `false`: `instance-of` answers `Unknown(Z)` and `check-cast` forks, because answering `false`
+        // for an unanswerable question folds a wrong constant and invents a definite
+        // `ClassCastException` respectively (spec §2.2). The Object short-circuit above is what keeps
+        // this off the common path; a non-Object target on an absent class has no cheap answer.
+        val failure = assertThrows(ClassLoadFailure::class.java) {
+            classIndex.isInstanceOf(t("Lspine/absent;"), t("Ljava/lang/String;"))
+        }
+        assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
+        assertNotNull(failure.cause, "the class model's own failure is kept as the cause")
+        // An absent TARGET fails the same way, and in the same direction.
+        assertThrows(ClassLoadFailure::class.java) {
+            classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Lspine/absent;"))
+        }
+        // But an array candidate against the three Android array supertypes still answers, because those
+        // rows are pure descriptor comparisons: `[Lobf/absent;` is Cloneable on a device even though its
+        // component class was never shipped.
+        assertTrue(classIndex.isInstanceOf(t("[Lspine/absent;"), t("Ljava/lang/Cloneable;")))
+        assertTrue(classIndex.isInstanceOf(t("[Lspine/absent;"), t("Ljava/io/Serializable;")))
+    }
+
+    // ---- superclassOf (Plan 8 Task 7) ----------------------------------------------------------
+
+    @Test
+    fun theSuperclassChainIsReadFromTheClassDefAndNeverFromTheAncestorSet() {
+        // This is the determinism fix at its source (`type-and-dex.md:93`: `getImmediateAncestors()`
+        // "places superclass and interfaces into a HashSet; its order is unspecified"). `superclassOf`
+        // reads `BuilderClassDef.getSuperclass()` -- ONE string, no set, no iteration order, and no
+        // ancestor cache to retain or reorder (`type-and-dex.md:161`, `:216`).
+        assertEquals(t("Lparent_class;"), classIndex.superclassOf(t("Lchild_class;")))
+        assertEquals(t("Lgrandparent_class;"), classIndex.superclassOf(t("Lparent_class;")))
+        assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("Lgrandparent_class;")))
+        assertNull(classIndex.superclassOf(t("Ljava/lang/Object;")), "the chain terminates at Object")
+        // `Lgrandparent_class;` implements `Lgrandparent_interface;`, so the interface IS in its flattened
+        // ancestor set -- asserted here, because the whole point of reading the class def is that the
+        // interface is reachable the other way and must not be on the chain.
+        val ancestors = classManager.getVirtualType("Lgrandparent_class;").ancestors.map { it.name }.toSet()
+        assertTrue("Lgrandparent_interface;" in ancestors, "the interface is in the ancestor set")
+        assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("Lgrandparent_class;")))
+    }
+
+    @Test
+    fun everyArrayHasObjectAsItsSuperclassAndPrimitivesHaveNone() {
+        // Arrays: JLS §4.10.3's "Object >1 P[]", and the same for a reference component -- an array's
+        // superCLASS is Object; its array-typed supertypes are a covariance relation, not a chain, and
+        // `joinTypes` handles them component-wise instead (see `TypeJoinTest`).
+        assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("[I")))
+        assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("[[Ljava/lang/String;")))
+        // And no load is attempted for the component, so an array of an absent class still answers.
+        assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("[Lspine/absent;")))
+        assertNull(classIndex.superclassOf(t("I")))
+        assertNull(classIndex.superclassOf(t("V")))
+    }
+
+    @Test
+    fun anUnloadableClassReportsALoadFailureFromSuperclassOfToo() {
+        // Same contract as `isSubtypeOf`: the class model failing to answer is a statement about the
+        // INPUT and must be distinguishable from an engine bug. What the two CALLERS do with it differs
+        // -- `resolveHandler` propagates, `joinTypes` degrades to `Object` -- which is only a choice
+        // because the failure is reported rather than swallowed here.
+        val failure = assertThrows(ClassLoadFailure::class.java) {
+            classIndex.superclassOf(t("Lspine/absent;"))
+        }
+        assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
+        assertNotNull(failure.cause, "the class model's own failure is kept as the cause")
+    }
+
+
+    @Test
+    fun superclassMethodWinsBeforeADeclaredInterfaceMethod(@TempDir temp: Path) {
+        val sources = mapOf(
+            "I.smali" to """
+                .class public interface abstract Lresolution/I;
+                .super Ljava/lang/Object;
+                .method public f()I
+                    .registers 1
+                    const/4 v0, 0x1
+                    return v0
+                .end method
+            """,
+            "G.smali" to """
+                .class public Lresolution/G;
+                .super Ljava/lang/Object;
+                .method public f()I
+                    .registers 1
+                    const/4 v0, 0x2
+                    return v0
+                .end method
+            """,
+            "P.smali" to """
+                .class public Lresolution/P;
+                .super Lresolution/G;
+            """,
+            "C.smali" to """
+                .class public Lresolution/C;
+                .super Lresolution/P;
+                .implements Lresolution/I;
+            """,
+        )
+        sources.forEach { (name, source) -> Files.writeString(temp.resolve(name), source.trimIndent()) }
+        val index = ClassIndex(ClassManagerFactory().build(temp.toString()))
+
+        val lookup = index.lookupMethod(VirtualType.of("Lresolution/C;"), "f()I") as MethodLookup.Runnable
+
+        assertEquals(VirtualType.of("Lresolution/G;"), lookup.method.target.definingClass)
+    }
+
+    @Test
+    fun everyDynamicLoadInvokeFormIndependentlyMakesDispatchIncomplete(@TempDir temp: Path) {
+        for ((id, instruction) in DYNAMIC_SITE_VARIANTS) {
+            val ownerPath = Files.createDirectory(temp.resolve(id))
+            val index = dynamicIndex(ownerPath, instruction)
+            assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE), id)
+        }
+    }
+
+    @Test
+    fun staticEvidenceScansUnreachableMethodsInEveryLoadedApplicationClass(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
+
+        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+    }
+
+    @Test
+    fun incompleteWorldDegradesOneCandidateAndRetainsItsDiagnosticSet(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
+
+        val lookup = index.resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_CALLER, receiverType = null)
+
+        assertTrue(lookup is InvocationLookup.Ambiguous)
+        assertEquals(setOf("Ldynamic/OnlyImplementation;->value()I"), (lookup as InvocationLookup.Ambiguous).candidates)
+    }
+
+    @Test
+    fun incompleteSingleCandidateSetIsRecordedOnTheOpaqueInvokeNode(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
+        val view = index.requireMethodView(DYNAMIC_CALLER.descriptor, "call(Ldynamic/Dispatch;)I")
+        val frame = Frame.entryFrame(view).also {
+            it.assign(view.parameters.single().register, Value.Unknown(DYNAMIC_INTERFACE))
+        }
+
+        val graph = VmServices(index).newSession(view, entryFrame = frame).run()
+        val invokeAddress = view.addresses.single { view.opcodeAt(it) == Opcode.INVOKE_INTERFACE }
+        val invoke = graph.nodePile(invokeAddress).single()
+
+        assertEquals(setOf("Ldynamic/OnlyImplementation;->value()I"), invoke.dispatchCandidates)
+        assertEquals(Value.Unknown(VirtualType.of("I")), (graph.outcomes.single() as Outcome.Returned).value)
+    }
+
+    @Test
+    fun finalClassesAndArraysStayCompleteWhenDynamicLoadEvidenceExists(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
+
+        assertTrue(index.dispatchWorldIsComplete(DYNAMIC_FINAL))
+        assertTrue(index.dispatchWorldIsComplete(VirtualType.of("[I")))
+        assertTrue(index.dispatchWorldIsComplete(VirtualType.of("[Ljava/lang/String;")))
+        assertTrue(
+            index.resolveInvocation(DYNAMIC_FINAL_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
+                InvocationLookup.Resolved,
+        )
+        assertTrue(
+            index.resolveInvocation(ARRAY_CLONE_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
+                InvocationLookup.Resolved,
+        )
+        assertTrue(
+            index.resolveInvocation(REFERENCE_ARRAY_CLONE_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
+                InvocationLookup.Resolved,
+        )
+    }
+
+    @Test
+    fun ownerBuiltWithSiteRemainsIncompleteAfterKnownClassForNameLoadsAcrossSessions(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
+        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+
+        val tokens = loadKnownIndexedClassAcrossTwoSessions(index)
+
+        assertSame(tokens.first(), tokens.last())
+        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(index.resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_SITE, null) is InvocationLookup.Ambiguous)
+    }
+
+    @Test
+    fun unrelatedFrameworkEvidenceDoesNotDegradeApplicationDispatchAcrossSessions(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, "return-void")
+        assertTrue(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+
+        val tokens = loadKnownIndexedClassAcrossTwoSessions(index)
+        val lookup = index.resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_CALLER, receiverType = null)
+
+        assertSame(tokens.first(), tokens.last())
+        assertTrue(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(lookup is InvocationLookup.Resolved)
+        assertEquals(setOf("Ldynamic/OnlyImplementation;->value()I"), (lookup as InvocationLookup.Resolved).candidates)
+    }
+
+    @Test
+    fun missingApplicationSuperclassMakesNonFinalDispatchIncomplete(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, "return-void", MISSING_SUPERCLASS)
+
+        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(
+            index.lookupMethod(VirtualType.of("Ldynamic/MissingParentChild;"), "missing()V") is
+                MethodLookup.NoSuchClass,
+        )
+    }
+
+    @Test
+    fun missingApplicationInterfaceMakesNonFinalDispatchIncomplete(@TempDir temp: Path) {
+        val index = dynamicIndex(temp, "return-void", MISSING_INTERFACE)
+
+        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(
+            index.lookupMethod(VirtualType.of("Ldynamic/MissingInterfaceImplementor;"), "missing()V") is
+                MethodLookup.NoSuchClass,
+        )
+    }
+
+    private fun loadKnownIndexedClassAcrossTwoSessions(index: ClassIndex): List<Class<*>> {
+        val owner = VmServices(index)
+        val view = index.requireMethodView(DYNAMIC_CALLER.descriptor, "call(Ldynamic/Dispatch;)I")
+        val loadedType = VirtualType.of("Ldynamic/OnlyImplementation;")
+        val target = MethodDescriptor(
+            VirtualType.of("Ljava/lang/Class;"),
+            "forName",
+            "(Ljava/lang/String;)Ljava/lang/Class;",
+        )
+        return List(2) {
+            val frame = owner.newSession(view).frontier.single().frame
+            frame.completeClassInit(loadedType)
+            val result = ClassForNameEmulator(index).execute(
+                EmulatorInvocation(
+                    target,
+                    DYNAMIC_CALLER,
+                    InvokeKind.STATIC,
+                    VirtualType.of("Ljava/lang/Class;"),
+                    listOf(VirtualType.of("Ljava/lang/String;")),
+                    null,
+                    listOf(EmulatorValue.Known(VirtualType.of("Ljava/lang/String;"), "dynamic.OnlyImplementation")),
+                    frame.classInitStatusSnapshot(),
+                ),
+            ) as SynchronousCallResult.Returned
+            ((result.value as HostReturn.Value).value as HostValue.Reference).value as Class<*>
+        }
+    }
+
+    private fun dynamicIndex(temp: Path, siteInstruction: String, extraClass: String? = null): ClassIndex {
+        Files.writeString(temp.resolve("base.smali"), DYNAMIC_BASE)
+        Files.writeString(temp.resolve("implementation.smali"), DYNAMIC_IMPLEMENTATION)
+        Files.writeString(temp.resolve("final.smali"), DYNAMIC_FINAL_CLASS)
+        Files.writeString(temp.resolve("site.smali"), DYNAMIC_SITE_CLASS.replace("SITE_INSTRUCTION", siteInstruction))
+        Files.writeString(temp.resolve("caller.smali"), DYNAMIC_CALLER_CLASS)
+        extraClass?.let { Files.writeString(temp.resolve("extra.smali"), it) }
+        val manager = ClassManagerFactory().build(
+            temp.toString(),
+            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
+        )
+        return ClassIndex(manager)
+    }
+
+    private companion object {
+        val DYNAMIC_INTERFACE = VirtualType.of("Ldynamic/Dispatch;")
+        val DYNAMIC_FINAL = VirtualType.of("Ldynamic/Final;")
+        val DYNAMIC_SITE = VirtualType.of("Ldynamic/UnrelatedSite;")
+        val DYNAMIC_CALLER = VirtualType.of("Ldynamic/Caller;")
+        val DYNAMIC_TARGET = MethodDescriptor(DYNAMIC_INTERFACE, "value", "()I")
+        val DYNAMIC_FINAL_TARGET = MethodDescriptor(DYNAMIC_FINAL, "value", "()I")
+        val ARRAY_CLONE_TARGET = MethodDescriptor(VirtualType.of("[I"), "clone", "()Ljava/lang/Object;")
+        val REFERENCE_ARRAY_CLONE_TARGET =
+            MethodDescriptor(VirtualType.of("[Ljava/lang/String;"), "clone", "()Ljava/lang/Object;")
+
+        const val CLASS_FOR_NAME_SITE =
+            "invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;"
+        val DYNAMIC_SITE_VARIANTS = linkedMapOf(
+            "class-for-name-one" to CLASS_FOR_NAME_SITE,
+            "class-for-name-one-range" to
+                "invoke-static/range {v0 .. v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;",
+            "class-for-name-three" to
+                "invoke-static {v0, v1, v2}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;",
+            "class-for-name-three-range" to
+                "invoke-static/range {v0 .. v2}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;",
+            "class-loader" to
+                "invoke-virtual {v0, v1}, Ljava/lang/ClassLoader;->loadClass(Ljava/lang/String;)Ljava/lang/Class;",
+            "class-loader-range" to
+                "invoke-virtual/range {v0 .. v1}, Ljava/lang/ClassLoader;->loadClass(Ljava/lang/String;)Ljava/lang/Class;",
+            "dex-class-loader" to
+                "invoke-direct {v0, v1, v2, v3, v4}, Ldalvik/system/DexClassLoader;-><init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V",
+            "dex-class-loader-range" to
+                "invoke-direct/range {v0 .. v4}, Ldalvik/system/DexClassLoader;-><init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/ClassLoader;)V",
+            "path-class-loader" to
+                "invoke-direct {v0, v1, v2}, Ldalvik/system/PathClassLoader;-><init>(Ljava/lang/String;Ljava/lang/ClassLoader;)V",
+            "path-class-loader-range" to
+                "invoke-direct/range {v0 .. v2}, Ldalvik/system/PathClassLoader;-><init>(Ljava/lang/String;Ljava/lang/ClassLoader;)V",
+        )
+
+        val DYNAMIC_BASE = """
+            .class public interface abstract Ldynamic/Dispatch;
+            .super Ljava/lang/Object;
+
+            .method public abstract value()I
+            .end method
+        """.trimIndent()
+
+        val DYNAMIC_IMPLEMENTATION = """
+            .class public Ldynamic/OnlyImplementation;
+            .super Ljava/lang/Object;
+            .implements Ldynamic/Dispatch;
+
+            .method public value()I
+                .locals 1
+                const/4 v0, 0x1
+                return v0
+            .end method
+        """.trimIndent()
+
+        val DYNAMIC_FINAL_CLASS = """
+            .class public final Ldynamic/Final;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .locals 1
+                const/4 v0, 0x2
+                return v0
+            .end method
+        """.trimIndent()
+
+        val DYNAMIC_SITE_CLASS = """
+            .class public Ldynamic/UnrelatedSite;
+            .super Ljava/lang/Object;
+
+            .method public static neverCalled()V
+                .locals 5
+                SITE_INSTRUCTION
+                return-void
+            .end method
+        """.trimIndent()
+
+        val DYNAMIC_CALLER_CLASS = """
+            .class public Ldynamic/Caller;
+            .super Ljava/lang/Object;
+
+            .method public static call(Ldynamic/Dispatch;)I
+                .locals 1
+                invoke-interface {p0}, Ldynamic/Dispatch;->value()I
+                move-result v0
+                return v0
+            .end method
+        """.trimIndent()
+
+        val MISSING_SUPERCLASS = """
+            .class public Ldynamic/MissingParentChild;
+            .super Ldynamic/AbsentParent;
+        """.trimIndent()
+
+        val MISSING_INTERFACE = """
+            .class public Ldynamic/MissingInterfaceImplementor;
+            .super Ljava/lang/Object;
+            .implements Ldynamic/AbsentInterface;
+        """.trimIndent()
+    }
+}

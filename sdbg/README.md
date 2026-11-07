@@ -6,17 +6,18 @@ Sdbg is a Smali debugger powered by SmaliVM. The command line interface is loose
 
 Right now, it's only an experiment, so if you have feature suggestions, feel free to create an issue or pull request.
 
-Since sdbg is powered by SmaliVM, it has all of its strengths and weaknesses. It can handle unknown values and parameters by taking every execution path, which is cool. But it's also possible to get stuck in infinite loops and debugging multiple execution paths is tricky.
+SDBG drives one Kotlin `ExecutionSession`. Unknown inputs can fork execution into multiple paths.
+VM limits bound execution; a finished session can report partial analysis or guest exceptions.
 
 ## Building
 
-From the root of this repository:
+From the root of this repository, with JDK 21 selected through `JAVA_HOME`:
 
 ```bash
-./gradlew :sdbg:fatjar
+./gradlew :sdbg:fatJar
 ```
 
-The full jar will be in `sdbg/build/libs/`.
+The standalone jar is `sdbg/build/libs/sdbg.jar`. It includes the module opening required by host reflection.
 
 ## Usage
 
@@ -40,8 +41,44 @@ Commands:
   step, s      Step to next line of code including stepping into methods
   next, n      Execute next line of code without entering methods
   info, i      List information about target
-  print, p     Print value stored in variable or field
+  print, p     Print value stored in a register, parameter, or static field
   break, b     Suspend program at specified function, instruction index, or
                  index offset
   continue, c  Continue executing until next break point
 ```
+
+Start the included example:
+
+```bash
+java -jar sdbg/build/libs/sdbg.jar sdbg/resources 'LTest;->addNumbers()V'
+```
+
+Then enter:
+
+```text
+list
+break 4
+continue
+print v0
+step
+where
+print p0
+next
+print p0
+```
+
+The breakpoint stops before the call to `addParameters`. Its arguments are 8 and 3;
+after the addition, `p0` contains 11. `next` steps over calls but respects breakpoints
+inside them. `step` enters guest or framework method bodies when the VM executes them.
+
+Listing indexes count executable instructions, not source lines or DEX code units.
+`b` marks a breakpoint and `>` marks the next instruction. For example, `0:b>` marks
+both at index zero. `list 0,2` selects an inclusive instruction range; labels, debug
+directives, and unnumbered payload data remain as context. `list LTest;` lists a class.
+Listings also work inside framework callees.
+
+The first application listing serializes the immutable application snapshot once and caches
+the decoded classes. Large applications can therefore make the first listing slower.
+Framework listings use the catalog's cached immutable class definitions. Listing does not advance execution.
+
+TAB completes commands. Ctrl-C cancels the current input; Ctrl-D closes the terminal and exits.

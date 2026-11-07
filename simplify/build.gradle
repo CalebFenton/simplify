@@ -1,74 +1,38 @@
-import proguard.gradle.ProGuardTask
-
-buildscript {
-    dependencies {
-        classpath depends.proguard_gradle
-    }
-    repositories {
-        mavenCentral()
-    }
+plugins {
+    id 'application'
 }
 
-version = project(':smalivm').version.toString()
-mainClassName = 'org.cf.simplify.Main'
+
+application {
+    mainClass = 'org.cf.simplify.Main'
+    applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
+}
 
 dependencies {
     implementation project(':smalivm')
 
     implementation depends.guava
     implementation depends.commons_cli
-    implementation depends.trove4j
     implementation depends.slf4j_api
-    implementation group: 'ch.qos.logback', name: 'logback-core', version: '1.2.3'
-    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    implementation depends.logback
 
-    testImplementation project(':smalivm').sourceSets.test.output
-    testImplementation project(':smalivm').sourceSets.test.resources
-    testImplementation depends.mockito
-    testImplementation depends.perfidix
+    testImplementation rootProject.project(':smalivm').sourceSets.test.output
     testImplementation depends.junit_compile
     testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_runner
+    testRuntimeOnly depends.junit_launcher
 }
 
 test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
-task fatJar(type: Jar, dependsOn: ':smalivm:fatJar') {
+tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
+    archiveFileName = 'simplify.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
     manifest {
-        attributes('Main-Class': mainClassName)
+        attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
     }
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
-
-    doLast {
-        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDirectory.get()}/simplify.jar"), resource: archiveFile.get(), overwrite: true)
-        }
-    }
 }
 
-task proguard(type: ProGuardTask, dependsOn: fatJar) {
-    def outFile = "${fatJar.destinationDirectory.get()}/${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion}-proguard.${fatJar.archiveExtension}"
-
-    injars fatJar.archiveFile
-    outjars outFile
-
-    libraryjars "${System.properties['java.home']}/lib/rt.jar"
-
-    dontobfuscate
-    //dontoptimize
-    optimizations '!code/allocation/variable'
-
-    keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
-    keepattributes '*Annotation*,Signature,InnerClasses,EnclosingMethod'
-
-    keep 'public class org.cf.simplify.Main { public static void main(java.lang.String[]); }'
-    keep 'public class android.util.**  { *; }'
-
-    keep 'class org.apache.commons.logging.** { public protected *; }'
-    keep 'public class ch.qos.** { public protected *; }'
-    keep 'public class org.slf4j.** { public protected *; }'
-
-    dontwarn
-    verbose
-}

@@ -1,0 +1,17 @@
+Coordinate: org.jline:jline:3.29.0
+Publisher POM: https://repo.maven.apache.org/maven2/org/jline/jline/3.29.0/jline-3.29.0.pom
+Binary: https://repo.maven.apache.org/maven2/org/jline/jline/3.29.0/jline-3.29.0.jar
+Binary SHA-256: 99c22a966838ba4291e69a5dd5689afd049500eb9362b23baace731f9c9c97dd
+Source archive: https://repo.maven.apache.org/maven2/org/jline/jline/3.29.0/jline-3.29.0-sources.jar
+Source archive SHA-256: 659359eb04af6c42f4b9afe61abbe22a8e1945ad8f8fd0d9ce50504ae01a2c5d
+License selection: BSD-3-Clause AND Apache-2.0 (incorporated native clibrary.c/kernel32.c)
+
+Original legal texts and their sources:
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/org/jline/jline/3.29.0/jline-3.29.0-sources.jar (and binary template resources where identified)
+- LICENSE.txt
+  https://raw.githubusercontent.com/jline/jline3/jline-3.29.0/LICENSE.txt
+- LICENSE-APACHE-2.0-native.txt
+  https://www.apache.org/licenses/LICENSE-2.0.txt
+- NATIVE-NOTICES.txt
+  https://github.com/jline/jline3/tree/jline-3.29.0/native/src/main/native

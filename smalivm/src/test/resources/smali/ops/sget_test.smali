@@ -35,13 +35,13 @@
 .end method
 
 .method public static getStaticLong()V
-    .locals 1
+    .locals 2
     sget-wide v0, Lsget_test;->myLong:J
     return-void
 .end method
 
 .method public static getStaticLongLiteral()V
-    .locals 1
+    .locals 2
     sget-wide v0, Lsget_test;->myLongLiteral:J
     return-void
 .end method
@@ -107,13 +107,13 @@
 .end method
 
 .method public static getStaticDouble()V
-    .locals 1
+    .locals 2
     sget-wide v0, Lsget_test;->myDouble:D
     return-void
 .end method
 
 .method public static getStaticDoubleLiteral()V
-    .locals 1
+    .locals 2
     sget-wide v0, Lsget_test;->myDoubleLiteral:D
     return-void
 .end method
@@ -139,5 +139,14 @@
 .method public static getStaticUnknownClassField()V
     .locals 1
     sget v0, Lsome/unknown/classzzzzz;->herp:I
+    return-void
+.end method
+
+# The class RESOLVES and declares no such field (the class-resolution failure above is the other
+# member of the family): a guest NoSuchFieldError at execute time. Assembles fine -- a dex field
+# reference is just (class, name, type), and nothing checks it until link time.
+.method public static getStaticMissingField()V
+    .locals 1
+    sget v0, Lsget_test;->doesNotExist:I
     return-void
 .end method

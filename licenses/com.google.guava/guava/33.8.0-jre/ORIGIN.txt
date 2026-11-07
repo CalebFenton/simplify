@@ -1,0 +1,15 @@
+Coordinate: com.google.guava:guava:33.8.0-jre
+Publisher POM: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.8.0-jre/guava-33.8.0-jre.pom
+Binary: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.8.0-jre/guava-33.8.0-jre.jar
+Binary SHA-256: 97b79ec3f2c0a6313a0c2df51ce1abdf8907e6531803467b81efcaaf99b35161
+Source archive: https://repo.maven.apache.org/maven2/com/google/guava/guava/33.8.0-jre/guava-33.8.0-jre-sources.jar
+Source archive SHA-256: 4f183ff540044f5ce4f9c1084888510632dfac2953ced0da45760bc74d99f4ca
+License selection: Apache-2.0; incorporated public-domain MurmurHash3 and JSR-166 notices/CC0 terms retained
+
+Original legal texts and their sources:
+- META-INF/LICENSE
+  https://repo.maven.apache.org/maven2/com/google/guava/guava/33.8.0-jre/guava-33.8.0-jre.jar!/META-INF/LICENSE
+- SOURCE-NOTICES.txt
+  https://repo.maven.apache.org/maven2/com/google/guava/guava/33.8.0-jre/guava-33.8.0-jre-sources.jar (and binary template resources where identified)
+- CC0-1.0.html
+  https://creativecommons.org/publicdomain/zero/1.0/legalcode.en

@@ -1,0 +1,98 @@
+# The Tier B batch's answers, pinned. Regenerate: tools/emulator/cross-validate.sh --update
+# Same normalization as tools/art-runner/check-golden.sh, so this diffs directly against
+# tools/art-runner/golden/tier-a-batch.txt. This header is not compared.
+#
+# recorded: 2026-08-05
+# mode: default (nterp) -- the modern device default and the tier art-runner cannot reach
+# device: Android 16 / API 36, build BE2A.250530.026.D1 (real emulator, tools/emulator/)
+# -Xint: DIFFERED from this capture -- see cross-validate.sh output
+RUNTIME	Dalvik	2.1.0
+FIXTURE	Fx_AndroidBase64	OK	java.lang.String(aGk=)
+FIXTURE	Fx_AndroidBuildModel	THREW	java.lang.UnsatisfiedLinkError	No implementation found for java.lang.String android.os.SystemProperties.native_get(java.lang.String, java.lang.String) (tried Java_android_os_SystemProperties_native_1get and Java_android_os_SystemProperties_native_1get__Ljava_lang_String_2Ljava_lang_String_2) - is the library loaded, e.g. System.loadLibrary?
+FIXTURE	Fx_AndroidBuildModelAfterLoadLibrary	THREW	java.lang.UnsatisfiedLinkError	dlopen failed: library "libandroid_runtime.so" not found
+FIXTURE	Fx_AputBadIndexIncompatibleValue	THREW	java.lang.ArrayIndexOutOfBoundsException	length=1; index=5
+FIXTURE	Fx_AputNegativeIndex	THREW	java.lang.ArrayIndexOutOfBoundsException	length=1; index=-1
+FIXTURE	Fx_AputNegativeIndexIncompatibleValue	THREW	java.lang.ArrayIndexOutOfBoundsException	length=1; index=-1
+FIXTURE	Fx_AputNullArrayBadIndex	THREW	java.lang.NullPointerException	Attempt to write to null array
+FIXTURE	Fx_AputNullArrayIncompatibleValue	THREW	java.lang.NullPointerException	Attempt to write to null array
+FIXTURE	Fx_AputObjectIncompatible	THREW	java.lang.ArrayStoreException	java.lang.Object cannot be stored in an array of type java.lang.String[]
+FIXTURE	Fx_CheckCastAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_CheckCastPresentType	OK	java.lang.String(x)
+FIXTURE	Fx_ConstClassAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_ConstClassDoesNotInitialize	OK	java.lang.String(Probe_ClinitWitnessA)
+FIXTURE	Fx_ConstClassPresentType	OK	java.lang.String(java.lang.String)
+FIXTURE	Fx_DivDoubleNegByNegZero	OK	java.lang.Double(Infinity)
+FIXTURE	Fx_DivDoubleNegByPosZero	OK	java.lang.Double(-Infinity)
+FIXTURE	Fx_DivDoublePosByNegZero	OK	java.lang.Double(-Infinity)
+FIXTURE	Fx_DivDoublePosByPosZero	OK	java.lang.Double(Infinity)
+FIXTURE	Fx_DivDoubleZeroByPosZero	OK	java.lang.Double(NaN)
+FIXTURE	Fx_DivFloatNegByNegZero	OK	java.lang.Float(Infinity)
+FIXTURE	Fx_DivFloatNegByPosZero	OK	java.lang.Float(-Infinity)
+FIXTURE	Fx_DivFloatPosByNegZero	OK	java.lang.Float(-Infinity)
+FIXTURE	Fx_DivFloatPosByPosZero	OK	java.lang.Float(Infinity)
+FIXTURE	Fx_DivFloatZeroByPosZero	OK	java.lang.Float(NaN)
+FIXTURE	Fx_DivOverflow	OK	java.lang.Integer(-2147483648)
+FIXTURE	Fx_DoubleToIntAboveMax	OK	java.lang.Integer(2147483647)
+FIXTURE	Fx_DoubleToIntBelowMin	OK	java.lang.Integer(-2147483648)
+FIXTURE	Fx_DoubleToIntNaN	OK	java.lang.Integer(0)
+FIXTURE	Fx_DoubleToIntNegHalf	OK	java.lang.Integer(0)
+FIXTURE	Fx_DoubleToIntNegInf	OK	java.lang.Integer(-2147483648)
+FIXTURE	Fx_DoubleToIntPosInf	OK	java.lang.Integer(2147483647)
+FIXTURE	Fx_FilledNewArrayAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: [Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_FilledNewArrayPresentType	OK	java.lang.Integer(1)
+FIXTURE	Fx_FreshDoubleArrayDefaultBits	OK	java.lang.Long(0)
+FIXTURE	Fx_FreshFloatArrayDefaultBits	OK	java.lang.Integer(0)
+FIXTURE	Fx_InstanceOfAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_InstanceOfPresentType	OK	java.lang.Integer(1)
+FIXTURE	Fx_IntArrayIsCloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_InvokeAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_InvokeMissingMethod	THREW	java.lang.NoSuchMethodError	No static method definitelyNotAMethod()Ljava/lang/Object; in class Ljava/lang/String; or its super classes
+FIXTURE	Fx_InvokeMissingMethodNullReceiver	THREW	java.lang.NoSuchMethodError	No virtual method definitelyNotAMethod()Ljava/lang/Object; in class Ljava/lang/String; or its super classes
+FIXTURE	Fx_InvokePresentType	OK	java.lang.String(1)
+FIXTURE	Fx_NewArrayAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: [Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_NewArrayAbsentTypeNegativeLength	THREW	java.lang.NoClassDefFoundError	Failed resolution of: [Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_NewArrayPresentType	OK	java.lang.Integer(1)
+FIXTURE	Fx_NewInstanceAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_NewInstanceDoesInitialize	CLINIT_RAN	Probe_ClinitWitnessC
+OK	java.lang.String(NEW_INSTANCE_RAN)
+FIXTURE	Fx_RemDoublePosByNegZero	OK	java.lang.Double(NaN)
+FIXTURE	Fx_RemDoublePosByPosZero	OK	java.lang.Double(NaN)
+FIXTURE	Fx_RemFloatPosByNegZero	OK	java.lang.Float(NaN)
+FIXTURE	Fx_RemFloatPosByPosZero	OK	java.lang.Float(NaN)
+FIXTURE	Fx_SGetAbsentType	THREW	java.lang.NoClassDefFoundError	Failed resolution of: Lcom/example/DefinitelyMissing;
+FIXTURE	Fx_SGetPresentType	OK	java.lang.Integer(2147483647)
+FIXTURE	Fx_StaticFieldDoesInitialize	CLINIT_RAN	Probe_ClinitWitnessB
+OK	java.lang.Integer(9)
+FIXTURE	Fx_Subtype_CheckCast_IntArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_IntArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_IntArr_ObjectArr	OK	java.lang.Integer(0)
+FIXTURE	Fx_Subtype_CheckCast_IntArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_LongArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_LongArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_LongArr_ObjectArr	OK	java.lang.Integer(0)
+FIXTURE	Fx_Subtype_CheckCast_LongArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_ObjectArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_ObjectArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_ObjectArr_ObjectArr	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_ObjectArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_StringArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_StringArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_StringArr_ObjectArr	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_CheckCast_StringArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_IntArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_IntArr_ObjectArr	OK	java.lang.Integer(0)
+FIXTURE	Fx_Subtype_InstanceOf_IntArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_LongArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_LongArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_LongArr_ObjectArr	OK	java.lang.Integer(0)
+FIXTURE	Fx_Subtype_InstanceOf_LongArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_ObjectArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_ObjectArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_ObjectArr_ObjectArr	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_ObjectArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_StringArr_Cloneable	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_StringArr_Object	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_StringArr_ObjectArr	OK	java.lang.Integer(1)
+FIXTURE	Fx_Subtype_InstanceOf_StringArr_Serializable	OK	java.lang.Integer(1)
+FIXTURE	Fx_VerifyErrorBadReturn	THREW	java.lang.VerifyError	Verifier rejected class Fx_VerifyErrorBadReturn: java.lang.Object Fx_VerifyErrorBadReturn.run() failed to verify: java.lang.Object Fx_VerifyErrorBadReturn.run(): [0x2] unexpected non-category 1 return type Reference java.lang.Object
+DISPATCH_END

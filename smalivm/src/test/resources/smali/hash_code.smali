@@ -23,3 +23,10 @@
   invoke-virtual {v0}, Lhash_code;-><init>()V
   return-void
 .end method
+
+.method public static createInstanceForInvokeTest()Lhash_code;
+  .locals 1
+  new-instance v0, Lhash_code;
+  invoke-direct {v0}, Lhash_code;-><init>()V
+  return-object v0
+.end method

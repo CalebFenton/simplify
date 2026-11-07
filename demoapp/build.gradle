@@ -1,10 +1,12 @@
 plugins {
-    id 'java'
     id 'application'
 }
 
-project.version = '1.0.0'
-mainClassName = 'org.cf.demoapp.Main'
+
+application {
+    mainClass = 'org.cf.demoapp.Main'
+    applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
+}
 
 dependencies {
     implementation project(':smalivm')
@@ -12,17 +14,16 @@ dependencies {
     implementation depends.slf4j_nop
 }
 
-task fatJar(type: Jar) {
-    from sourceSets.main.output
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+tasks.register('fatJar', Jar) {
+    dependsOn configurations.runtimeClasspath
+    archiveFileName = 'demoapp.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
 
     manifest {
-        attributes('Main-Class': mainClassName)
+        attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
     }
 
-    doLast {
-        if (!System.getProperty('os.name').toLowerCase().contains('windows')) {
-            ant.symlink(link: file("${destinationDirectory.get()}/demoapp.jar"), resource: archiveFile.get(), overwrite: true)
-        }
-    }
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }

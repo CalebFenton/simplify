@@ -27,9 +27,27 @@
 
   :catch_1
   move-exception v0
+  iput-object v0, v0, Lorg/cf/test/CustomException;->caughtIdentity:Lorg/cf/test/CustomException;
   throw v0
 
   :catch_2
   move-exception v0
   throw v0
+.end method
+
+
+.method public static callsExceptionalMethodAndReturnsException()Lorg/cf/test/CustomException;
+  .locals 1
+
+  :try_start
+  invoke-static {}, Lorg/cf/test/ExceptionalCode;->callsExceptionalMethod()V
+  :try_end
+  .catch Lorg/cf/test/CustomException; {:try_start .. :try_end} :catch
+
+  const/4 v0, 0x0
+  return-object v0
+
+  :catch
+  move-exception v0
+  return-object v0
 .end method
