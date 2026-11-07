@@ -360,9 +360,9 @@ internal object OpBuilder {
      *
      * 🔴 **TWO PREDICATES, AND THEY ARE NOT THE SAME QUESTION -- the load is attempted FIRST and
      * `isLoadable` only decides which failure a failed load is.** Getting this order backwards is a real
-     * defect that Task 15 shipped and a test caught: `ClassIndex.isLoadable` asks the SMALI CLASS MODEL
-     * (`ClassManager`, i.e. the guest classes plus the bundled framework smali -- this engine's model of the
-     * device's class world), while `loadClassConstant` asks the host [org.cf.smalivm.dex.SmaliClassLoader],
+     * defect that Task 15 shipped and a test caught: `ClassIndex.isLoadable` asks the program snapshot
+     * (the guest classes plus the bundled framework smali -- this engine's model of the device's class
+     * world), while `loadClassConstant` asks the host [org.cf.smalivm.dex.SmaliClassLoader],
      * which **also delegates to its JVM parent**. So a compiled host class with no smali behind it -- for
      * instance `core/op/ConstOpTest`'s `ThrowingClinitProbe`, which exists precisely because `ClassBuilder`
      * stubs every guest `<clinit>` to a bare `RETURN` and so cannot witness an initialisation -- is
@@ -625,17 +625,14 @@ internal object OpBuilder {
      *
      * **The field reference is RESOLVED here, at decode time** -- `ClassIndex.resolveStaticField` walks the
      * superclass chain and hands back the DECLARING class plus a fully-qualified descriptor, so
-     * `core/op/` receives core [VirtualType]s and a `String` and never a `FieldReference` or a
-     * `org.cf.smalivm.type.VirtualField` (the two-tier dependency rule). It joins the resolve-at-decode-time
+     * `core/op/` receives core [VirtualType]s and a `String` and never a `FieldReference` (the two-tier
+     * dependency rule). It joins the resolve-at-decode-time
      * group [build]'s KDoc describes, alongside `new-array`/`new-instance`/`instance-of`/`check-cast`/
      * `const-class`: which field an instruction names is a static fact about the instruction.
      *
      * **A failed resolution builds a THROWING op, never an [UnsupportedOp] and never a host crash.** Both
      * failures are guest errors thrown at execute time (see [org.cf.smalivm.core.op.resolutionFailure] and
-     * `noSuchFieldFailure`), which is Plan 9 Task 15's ruling for the whole family and the reversal of Plan 8's
-     * refusals. The oracle instead crashes the HOST here: `classManager.getVirtualClass(...)` raises for an
-     * absent class (`type/ClassManager.kt:191-198`) and `getField(name)!!` NPEs for a missing member
-     * (`opcode/SGetOp.kt:51-52`), killing the run rather than the path.
+     * `noSuchFieldFailure`), so an absent class or member ends the path rather than the run.
      *
      * The class-init trigger is the OP's business, not this decoder's: it is per-path state
      * (`Frame.classInitAction`), where resolution is not -- exactly the split [buildNewInstance] states.

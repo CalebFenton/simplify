@@ -1,20 +1,21 @@
 package org.cf.smalivm.core
 
 import kotlinx.collections.immutable.toPersistentMap
-import org.cf.smalivm.type.ClassManager
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
+import org.slf4j.LoggerFactory
 
 /** Constructs the first complete snapshot from application input and the bundled framework artifact. */
 internal object InitialProgramImporter {
-    fun import(classManager: ClassManager): ProgramWorkspace {
+    private val log = LoggerFactory.getLogger(InitialProgramImporter::class.java)
+
+    fun import(input: ProgramInput): ProgramWorkspace {
         val revisionAuthority = ProgramRevisionAuthority()
         val programIdentity = revisionAuthority.programIdentity
-        val importedApplicationClasses = classManager.getApplicationClassNames().sorted().map { className ->
-            val immutable = classManager.getInitialApplicationClassDefinitions()?.get(className)
-                ?: ImmutableClassDef.of(classManager.getVirtualClass(className).classDef)
+        val frameworkCatalog = FrameworkCatalog.fromArtifact(FrameworkArtifact.load())
+        val importedApplicationClasses = definedApplicationClasses(input.classes, frameworkCatalog.artifact).map { immutable ->
             val methods = immutable.methods.map { method ->
                 val methodSignature = com.android.tools.smali.dexlib2.formatter.DexFormatter.INSTANCE.getMethodDescriptor(method)
                 ApplicationMethodDefinition.import(
@@ -47,7 +48,6 @@ internal object InitialProgramImporter {
         val applicationClasses = importedApplicationClasses.map { definition ->
             definition.withStringEncoding(initialEncoding)
         }
-        val frameworkCatalog = FrameworkCatalog.fromArtifact(FrameworkArtifact.load())
         val hierarchy = HierarchySnapshot.from(applicationClasses, frameworkCatalog.artifact)
         val applicationClassesWithEvidence = applicationClasses.map { definition ->
             if (definition.methods.isEmpty()) {
@@ -64,12 +64,33 @@ internal object InitialProgramImporter {
             programIdentity,
             revisionAuthority.newProgramRevision(),
             applicationClassesWithEvidence.associateBy(ApplicationClassDefinition::type).toPersistentMap(),
-            OutputApiPolicy(classManager.outputAPILevel),
+            OutputApiPolicy(input.outputApiLevel),
             initialEncoding,
             hierarchy,
             frameworkCatalog,
         )
         return ProgramWorkspace.fromInitialSnapshot(snapshot, revisionAuthority)
+    }
+
+    /**
+     * The application classes an Android runtime defines from [classes], sorted by type. The application loader
+     * delegates to the boot class path first, so an application class that names a framework class is never
+     * defined; among application classes of one name, the first in classpath order is defined.
+     */
+    private fun definedApplicationClasses(
+        classes: List<ImmutableClassDef>,
+        framework: FrameworkArtifact,
+    ): List<ImmutableClassDef> {
+        val defined = HashMap<String, ImmutableClassDef>()
+        for (definition in classes) {
+            when {
+                definition.type in framework.classes ->
+                    log.warn("Ignoring application class {}: the framework defines it", definition.type)
+                defined.putIfAbsent(definition.type, definition) != null ->
+                    log.warn("Ignoring duplicate application class {}: an earlier definition wins", definition.type)
+            }
+        }
+        return defined.values.sortedBy(ImmutableClassDef::getType)
     }
 
     private fun containsJumboString(definition: ApplicationClassDefinition): Boolean = definition.methods.any { method ->

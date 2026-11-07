@@ -221,7 +221,7 @@ class ProgramSnapshotExecutionTest {
         SOURCES.forEachIndexed { index, source ->
             Files.writeString(directory.resolve("fixture-$index.smali"), source.trimIndent())
         }
-        return ClassIndex(task53ClassManager(directory))
+        return ClassIndex.open(directory.toFile())
     }
 
     private fun replaceMethod(

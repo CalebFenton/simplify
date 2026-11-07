@@ -1,8 +1,6 @@
 package org.cf.sdbg.command
 
 import org.cf.sdbg.Main
-import org.cf.util.ClassNameUtils
-import org.cf.util.ClassNameUtils.ReferenceType
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
@@ -23,7 +21,7 @@ class ListCommand : DebuggerCommand() {
 
     private fun parseTarget(target: String?): ListTarget {
         if (target == null) return ListTargetMethod(currentView.signature)
-        return when (ClassNameUtils.guessReferenceType(target)) {
+        return when (ReferenceType.guess(target)) {
             ReferenceType.INTERNAL_CLASS_DESCRIPTOR -> ListTargetClass(target)
             ReferenceType.INTERNAL_METHOD_SIGNATURE -> ListTargetMethod(target)
             ReferenceType.INTERNAL_METHOD_DESCRIPTOR -> ListTargetMethod("${currentView.definingClass.descriptor}->$target")

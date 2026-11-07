@@ -1,17 +1,15 @@
 package org.cf.smalivm.dex
 
 import android.util.Base64
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.ClassManagerFactory
+import org.cf.smalivm.core.ClassIndex
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.function.Executable
-import java.io.IOException
+import java.io.File
 import java.lang.reflect.Array
 import java.lang.reflect.Field
-import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.*
 import javax.crypto.CipherSpi
 import javax.crypto.interfaces.PBEKey
@@ -19,30 +17,24 @@ import javax.crypto.spec.PBEKeySpec
 
 class SmaliClassLoaderTest {
     private lateinit var classLoader: SmaliClassLoader
-    private lateinit var classManager: ClassManager
 
     companion object {
-        private val OBJECT_METHODS = arrayOf(
+        private val OBJECT_METHODS = listOf(
             "public boolean java.lang.Object.equals(java.lang.Object)",
             "public final native java.lang.Class java.lang.Object.getClass()",
             "public final native void java.lang.Object.notify()",
             "public final native void java.lang.Object.notifyAll()",
-            "public final native void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+            "public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
             "public final void java.lang.Object.wait() throws java.lang.InterruptedException",
             "public final void java.lang.Object.wait(long) throws java.lang.InterruptedException",
-            "public int java.lang.Object.hashCode()",
             "public java.lang.String java.lang.Object.toString()",
-            "public static void org.cf.test.SimpleClass.simpleLoop(int,java.lang.Object)",
         )
         private const val TEST_SMALI_PATH = "src/test/resources/smali/class_builder"
     }
 
     @BeforeEach
-    @Throws(IOException::class)
     fun setUp() {
-        val managerFactory = ClassManagerFactory()
-        classManager = managerFactory.build(TEST_SMALI_PATH)
-        classLoader = SmaliClassLoader(classManager)
+        classLoader = ClassIndex.open(File(TEST_SMALI_PATH)).classLoader
     }
 
     @Test
@@ -127,10 +119,12 @@ class SmaliClassLoaderTest {
     }
 
     @Test
-    @Throws(Exception::class)
-    fun canLoadClassWithIllegalFieldModifiers() {
-        val className = "org.cf.test.IllegalFieldModifiers"
-        val klazz = classLoader.loadClass(className)
+    fun interfacePrivateFieldsArePublicSoTheJvmLinksTheInterface() {
+        val klazz = classLoader.loadClass("org.cf.test.IllegalFieldModifiers")
+
+        val fields = getFilteredFields(klazz)
+        assertTrue(fields.isNotEmpty())
+        assertTrue(fields.all { Modifier.isPublic(it.modifiers) }, fields.toString())
     }
 
     @Test
@@ -160,19 +154,13 @@ class SmaliClassLoaderTest {
     }
 
     @Test
-    @Throws(ClassNotFoundException::class, NoSuchMethodException::class, InvocationTargetException::class, IllegalAccessException::class)
-    fun loadingNonProtectedFrameworkClassesWhichAreAlsoInJVMReturnsFrameworkJarClass() {
-        val expectedClassNames = arrayOf(
-            PBEKeySpec::class.java.name, PBEKey::class.java.name, CipherSpi::class.java.name
-        )
-        val expectedClasses = arrayOf(
-            PBEKeySpec::class.java, PBEKey::class.java, CipherSpi::class.java
-        )
-        for (expectedClassName in expectedClassNames) {
-            val actual = classLoader.loadClass(expectedClassName)
-            assertEquals(expectedClassName, actual.name)
-            val jvmClass = classLoader.parent.loadClass(expectedClassName)
+    fun frameworkClassesAlsoInTheJvmAreBuiltFromFrameworkSmali() {
+        val jvmClasses = listOf(PBEKeySpec::class.java, PBEKey::class.java, CipherSpi::class.java)
+        for (jvmClass in jvmClasses) {
+            val actual = classLoader.loadClass(jvmClass.name)
+            assertEquals(jvmClass.name, actual.name)
             assertNotEquals(jvmClass, actual)
+            assertSame(classLoader, actual.classLoader)
         }
     }
 
@@ -222,7 +210,8 @@ class SmaliClassLoaderTest {
 
     private fun assertHasObjectMethods(klazz: Class<*>) {
         val methodDescriptors = klazz.methods.map { it.toString() }.toSet()
-        assertAll(OBJECT_METHODS.map { Executable { methodDescriptors.contains(it) } })
+        val missing = OBJECT_METHODS.filterNot(methodDescriptors::contains)
+        assertEquals(emptyList<String>(), missing)
     }
 
     private fun getFilteredFields(klazz: Class<*>): List<Field> {

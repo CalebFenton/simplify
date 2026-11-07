@@ -27,12 +27,10 @@ sealed interface JoinedType {
  * `joinTypes` feeds every consensus query in the engine. A superclass chain is a **total order**, so
  * "the deepest type both share" has exactly one answer.
  *
- * **The implementation must therefore never read `getAncestors()` and never retain any set it did not
- * build itself.** [ClassIndex.superclassOf] reads `BuilderClassDef.getSuperclass()` -- one string, no
- * collection, no cache -- which removes the hazard at the source rather than by copying around it. A
- * different implementation that has to read an ancestor set must **copy on read**. And because
- * `VirtualType.equals()` "ignores the owning `ClassManager`" (`type-and-dex.md:79`), no result here may
- * be cached against object identity alone.
+ * **The implementation must therefore never read an ancestor set and never retain any set it did not
+ * build itself.** [ClassIndex.superclassOf] reads the declared superclass -- one string, no collection,
+ * no cache -- which removes the hazard at the source rather than by copying around it. A different
+ * implementation that has to read an ancestor set must **copy on read**.
  *
  * **Not total, exactly like [TypeHierarchy], and for the same reason: an obfuscated APK routinely names
  * a superclass it does not ship.** An implementation reports that by throwing [ClassLoadFailure] and
@@ -72,8 +70,8 @@ fun interface Superclasses {
  * still a true upper bound, so a missing superclass costs precision only; the chain is kept as far as it
  * resolved. Missing ancestors can only remove candidates from the two chains' intersection, so the answer
  * moves up, never down. That holds while **one descriptor resolves to at most one class def in the loaded
- * set**, which the class model guarantees by resolving each descriptor through one `ClassManager` with
- * last-write-wins insertion.
+ * set**, which the importer guarantees by defining the first application class of each name and none that
+ * a framework class already defines.
  *
  * **Interfaces are excluded** (spec §3: full interface lattices are not a deobfuscation requirement). Two
  * types sharing only interfaces join to `Object`. `instance-of` and `check-cast` do consult interfaces --

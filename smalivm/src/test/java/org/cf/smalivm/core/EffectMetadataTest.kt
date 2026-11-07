@@ -1,21 +1,13 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class EffectMetadataTest {
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build(
-            "src/test/resources/smali",
-            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-        ),
-    )
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
 
     private fun graph(method: String): ExecutionGraph = ExecutionSession.of(
         classIndex.requireMethodView("Leffect_metadata_test;", method),

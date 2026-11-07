@@ -315,6 +315,7 @@ class HierarchySnapshot internal constructor(
         private val ARRAY_SUPERINTERFACES = setOf("Ljava/lang/Cloneable;", "Ljava/io/Serializable;")
         private val THROWABLE_TYPE = VirtualType.of("Ljava/lang/Throwable;")
 
+        /** [applicationClasses] are the classes the importer defined, so none shares a name with another or the framework. */
         fun from(
             applicationClasses: Collection<ApplicationClassDefinition>,
             frameworkArtifact: FrameworkArtifact,
@@ -329,12 +330,16 @@ class HierarchySnapshot internal constructor(
                 )
             }
             applicationClasses.forEach { definition ->
-                declarations[definition.type] = ClassHierarchyDeclaration(
-                    definition.superclass,
-                    definition.interfaces.toPersistentList(),
-                    definition.accessFlags,
-                    framework = false,
+                val previous = declarations.put(
+                    definition.type,
+                    ClassHierarchyDeclaration(
+                        definition.superclass,
+                        definition.interfaces.toPersistentList(),
+                        definition.accessFlags,
+                        framework = false,
+                    ),
                 )
+                require(previous == null) { "Application class ${definition.type} is defined twice" }
             }
             declarations.keys.removeAll(circularClasses(declarations))
             return HierarchySnapshot(declarations.toPersistentMap())

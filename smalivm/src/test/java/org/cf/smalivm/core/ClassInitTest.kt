@@ -504,13 +504,8 @@ class ClassInitTest {
 
     private companion object {
         /**
-         * DESCRIPTOR form, not the source form. `ClassManager.getVirtualType` interns whatever it is given
-         * as a type reference and rejects anything not starting with `L`/`[`/a primitive code -- and it
-         * rejects it by formatting the reference into a message, which is an INFINITE RECURSION in dexlib
-         * 2.5.2 (`BaseTypeReference.toString` -> `DexFormatter.getType` -> `DexFormattedWriter.writeType`
-         * -> `String.format("%s", reference)`), so a bare `class_init/trigger` surfaces as a
-         * `StackOverflowError` in the formatter with none of this engine's frames left in the trace. Every
-         * other test in this package spells it `Lfoo;` for the same reason.
+         * DESCRIPTOR form, not the source form: `VirtualType.of` accepts only descriptors, and every other
+         * test in this package spells types `Lfoo;`.
          */
         const val TRIGGER = "Lclass_init/trigger;"
 

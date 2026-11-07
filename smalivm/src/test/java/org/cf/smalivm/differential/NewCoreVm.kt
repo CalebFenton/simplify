@@ -1,5 +1,6 @@
 package org.cf.smalivm.differential
 
+import java.io.File
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.ExecutionGraph
@@ -13,18 +14,12 @@ import org.cf.smalivm.core.RegisterOccupancy
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.VmServices
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 
 /** Projects immutable method snapshots and explored execution evidence for regression/device tests. */
 class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTest {
     override val name: String = "new-core"
 
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build(classPath, DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    )
+    private val classIndex = ClassIndex.open(File(classPath))
     private val vmServices = VmServices(classIndex)
 
     override fun run(fixture: Fixture): NormalizedResult {

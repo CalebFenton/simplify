@@ -4,7 +4,6 @@ import org.cf.sdbg.Main
 import org.cf.smalivm.core.Breakpoint
 import org.cf.smalivm.core.MethodLookup
 import org.cf.smalivm.core.VirtualType
-import org.cf.util.ClassNameUtils
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
@@ -26,7 +25,7 @@ class BreakCommand : DebuggerCommand() {
         if (target == null) {
             return debugger.currentInstructionIndex?.let { BreakTargetIndex(it) } ?: BreakTargetInvalid
         }
-        val guessedType = ClassNameUtils.guessReferenceType(target)
+        val guessedType = ReferenceType.guess(target)
         return when {
             target.startsWith('-') || target.startsWith('+') -> {
                 val offset = target.toIntOrNull() ?: return BreakTargetInvalid
@@ -35,8 +34,8 @@ class BreakCommand : DebuggerCommand() {
                 if (resolved !in 0..Int.MAX_VALUE.toLong()) return BreakTargetInvalid
                 BreakTargetIndex(resolved.toInt())
             }
-            guessedType == ClassNameUtils.ReferenceType.INTERNAL_METHOD_SIGNATURE -> BreakTargetMethod(target)
-            guessedType == ClassNameUtils.ReferenceType.INTERNAL_METHOD_DESCRIPTOR -> {
+            guessedType == ReferenceType.INTERNAL_METHOD_SIGNATURE -> BreakTargetMethod(target)
+            guessedType == ReferenceType.INTERNAL_METHOD_DESCRIPTOR -> {
                 val className = currentView.definingClass.descriptor
                 BreakTargetMethod("$className->$target")
             }

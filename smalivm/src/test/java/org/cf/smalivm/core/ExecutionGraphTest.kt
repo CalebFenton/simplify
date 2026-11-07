@@ -1,11 +1,8 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * Bug classes (audit + spec §5.4/§9): (a) one graph type that was simultaneously a static view, a
@@ -16,9 +13,7 @@ import org.junit.jupiter.api.Test
  * are pure and total).
  */
 class ExecutionGraphTest {
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    )
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val int = VirtualType.of("I")
 
     private fun graphOf(descriptor: String, limits: Limits = Limits()): ExecutionGraph =

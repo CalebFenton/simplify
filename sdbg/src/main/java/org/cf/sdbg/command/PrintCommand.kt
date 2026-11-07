@@ -3,7 +3,6 @@ package org.cf.sdbg.command
 import org.cf.sdbg.Main
 import org.cf.smalivm.core.StaticFieldLookup
 import org.cf.smalivm.core.VirtualType
-import org.cf.util.ClassNameUtils
 import picocli.CommandLine
 import picocli.CommandLine.ParentCommand
 
@@ -40,7 +39,7 @@ class PrintCommand : DebuggerCommand() {
             parent.out.println("$name: ${state.readRegister(register.toInt())}")
             return
         }
-        if (ClassNameUtils.guessReferenceType(value) == ClassNameUtils.ReferenceType.INTERNAL_FIELD_DESCRIPTOR) {
+        if (ReferenceType.guess(value) == ReferenceType.INTERNAL_FIELD_DESCRIPTOR) {
             val owner = value.substringBefore("->")
             val field = value.substringAfter("->")
             val name = field.substringBefore(':')

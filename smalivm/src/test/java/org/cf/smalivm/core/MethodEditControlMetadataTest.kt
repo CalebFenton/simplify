@@ -4,7 +4,6 @@ import java.lang.reflect.Modifier
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.collections.immutable.toPersistentMap
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.DexFileFactory
 import com.android.tools.smali.dexlib2.HiddenApiRestriction
 import com.android.tools.smali.dexlib2.Opcode
@@ -768,7 +767,7 @@ class MethodEditControlMetadataTest {
         )
         val dexFile = root.resolve("fixture-${fixtureSequence++}.dex")
         DexFileFactory.writeDexFile(dexFile.toString(), ImmutableDexFile(Opcodes.forApi(20), listOf(definition)))
-        return ClassIndex(ClassManagerFactory().build(dexFile.toFile(), 20))
+        return ClassIndex.open(dexFile.toFile(), 20)
     }
 
     private fun parseParameterTypes(descriptor: String): List<String> {
@@ -792,7 +791,7 @@ class MethodEditControlMetadataTest {
         val snapshot = index.currentSnapshot
         val dexFile = root.resolve("round-trip-${fixtureSequence++}.dex")
         Files.write(dexFile, ProgramDexWriter().writeToBytes(snapshot))
-        return ClassIndex(ClassManagerFactory().build(dexFile.toFile(), snapshot.outputApiPolicy.apiLevel))
+        return ClassIndex.open(dexFile.toFile(), snapshot.outputApiPolicy.apiLevel)
     }
 
     private fun opcodeAddress(view: MethodView, opcode: Opcode): Int =

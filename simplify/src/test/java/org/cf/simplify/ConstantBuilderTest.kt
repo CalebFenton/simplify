@@ -1,13 +1,13 @@
 package org.cf.simplify
 
 import org.cf.smalivm.core.*
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.*
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 class ConstantBuilderTest {
     @Test fun integralAndBooleanCarriersPreserveTheirLiteralWords() {
@@ -104,6 +104,6 @@ class ConstantBuilderTest {
         return requireNotNull(services.classIndex.methodView(OWNER + method)).instructionAt(0)
     }
 
-    private fun services() = VmServices(ClassIndex(ClassManagerFactory().build("src/test/resources/task65", 20)))
+    private fun services() = VmServices(ClassIndex.open(File("src/test/resources/task65"), 20))
     companion object { private const val OWNER = "Ltask65/Constants;->" }
 }

@@ -330,7 +330,7 @@ class SnapshotReExecutionTest {
         sources.forEachIndexed { index, source ->
             Files.writeString(directory.resolve("fixture-$index.smali"), source.trimIndent())
         }
-        return ClassIndex(task53ClassManager(directory))
+        return ClassIndex.open(directory.toFile())
     }
 
     private fun execute(services: VmServices, methodSignature: String): ExecutionGraph =

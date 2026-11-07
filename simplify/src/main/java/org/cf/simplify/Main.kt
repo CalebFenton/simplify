@@ -1,6 +1,7 @@
 package org.cf.simplify
 
 import org.apache.commons.cli.ParseException
+import org.cf.smalivm.core.ProgramInputException
 import java.io.PrintStream
 import kotlin.system.exitProcess
 
@@ -19,7 +20,13 @@ object Main {
             Launcher.usage(SimplifyOptionsParser.options, error)
             return 1
         }
-        val result = launcher.run(options)
+        val result = try {
+            launcher.run(options)
+        } catch (exception: ProgramInputException) {
+            error.println("Error: ${exception.message}")
+            Launcher.usage(SimplifyOptionsParser.options, error)
+            return 1
+        }
         return if (result.failedMethodCount == 0 || options.ignoreErrors) 0 else 1
     }
 }

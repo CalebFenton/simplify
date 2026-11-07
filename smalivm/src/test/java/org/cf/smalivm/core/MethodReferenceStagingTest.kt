@@ -3,7 +3,6 @@ package org.cf.smalivm.core
 import java.lang.reflect.Modifier
 import java.nio.file.Files
 import java.nio.file.Path
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.AnnotationVisibility
 import com.android.tools.smali.dexlib2.DexFileFactory
 import com.android.tools.smali.dexlib2.Opcode
@@ -303,7 +302,7 @@ class MethodReferenceStagingTest {
         val snapshot = index.currentSnapshot
         val dexFile = root.resolve("staged-references.dex")
         Files.write(dexFile, ProgramDexWriter().writeToBytes(snapshot))
-        val reloaded = ClassIndex(ClassManagerFactory().build(dexFile.toFile(), 30)).currentSnapshot
+        val reloaded = ClassIndex.open(dexFile.toFile(), 30).currentSnapshot
 
         assertEquals(snapshot.dexReferenceClosure.strings, reloaded.dexReferenceClosure.strings)
         assertEquals(snapshot.dexReferenceClosure.types, reloaded.dexReferenceClosure.types)
@@ -452,7 +451,7 @@ class MethodReferenceStagingTest {
         )
         val dexFile = root.resolve("api30-input.dex")
         DexFileFactory.writeDexFile(dexFile.toString(), ImmutableDexFile(Opcodes.forApi(30), listOf(definition)))
-        return ClassIndex(ClassManagerFactory().build(dexFile.toFile(), 30))
+        return ClassIndex.open(dexFile.toFile(), 30)
     }
 
     private fun installStringBoundarySnapshot(index: ClassIndex) {

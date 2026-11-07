@@ -215,9 +215,8 @@ class SGetOpTest {
 
     /**
      * 🔴 **The one NON-byte-identical migration in this file, re-expressed under a named authority.**
-     * The oracle asserted its own HOST crash: `assertThrows<RuntimeException>` with message *"Can't find
-     * Smali file for Lsome/unknown/classzzzzz;"* -- `type/ClassManager.kt:191-198` raising at op-BUILD
-     * time, killing the whole run for input a deobfuscator's diet routinely contains (plan adjudication
+     * The old engine asserted its own HOST crash at op-BUILD time for an absent class, killing the whole
+     * run for input a deobfuscator's diet routinely contains (plan adjudication
      * 7). The device answer is a definite guest `NoClassDefFoundError` on the failing path alone:
      * `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)` cross-validated
      * `[DEVICE](Tier B, nterp default, API 36)`, fixture `Fx_SGetAbsentType` against

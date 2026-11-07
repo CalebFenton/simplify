@@ -1,15 +1,12 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * Bug classes (audit + spec §7): (a) a guest throwable rebuilt from (class, message) and a
@@ -24,9 +21,7 @@ import org.junit.jupiter.api.Test
  * in spec §2.2 (never fewer feasible paths).
  */
 class ThrowRoutingTest {
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    )
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val vmServices = VmServices(classIndex)
     private val runtimeException = VirtualType.of("Ljava/lang/RuntimeException;")
     private val illegalStateException = VirtualType.of("Ljava/lang/IllegalStateException;")

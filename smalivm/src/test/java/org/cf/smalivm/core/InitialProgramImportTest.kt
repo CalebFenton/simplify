@@ -1,14 +1,13 @@
 package org.cf.smalivm.core
 
 import java.lang.reflect.Modifier
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.collections.immutable.persistentMapOf
 import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.DexFileFactory
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction11n
 import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile
@@ -21,7 +20,6 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutablePackedSwitchPayload
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableSwitchElement
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableStringReference
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -51,9 +49,9 @@ class InitialProgramImportTest {
 
     @Test
     fun initialSnapshotKeepsTheRequestedOutputApi() {
-        java.nio.file.Files.writeString(root.resolve("task53.smali"), SOURCE.trimIndent())
+        Files.writeString(root.resolve("task53.smali"), SOURCE.trimIndent())
 
-        val snapshot = ClassIndex(ClassManagerFactory().build(root.toString(), 28)).currentSnapshot
+        val snapshot = ClassIndex.open(root.toFile(), 28).currentSnapshot
 
         assertEquals(28, snapshot.outputApiPolicy.apiLevel)
     }
@@ -99,27 +97,28 @@ class InitialProgramImportTest {
             ImmutableDexFile(Opcodes.forApi(SmaliParser.DEX_API_LEVEL), listOf(definition)),
         )
 
-        val snapshot = ClassIndex(ClassManagerFactory().build(dexFile.toFile(), SmaliParser.DEX_API_LEVEL)).currentSnapshot
+        val snapshot = ClassIndex.open(dexFile.toFile(), SmaliParser.DEX_API_LEVEL).currentSnapshot
 
         assertEquals(StringInstructionEncoding.CONST_STRING_JUMBO, snapshot.stringInstructionEncoding)
     }
 
     @Test
-    fun snapshotExecutionIgnoresLaterMutableSourceBodyMutation() {
-        java.nio.file.Files.writeString(root.resolve("task53.smali"), SOURCE.trimIndent())
-        val classManager = task53ClassManager(root)
-        val index = ClassIndex(classManager)
+    fun importedSnapshotDoesNotRereadItsSourceFiles() {
+        val source = root.resolve("task53.smali")
+        Files.writeString(source, SOURCE.trimIndent())
+        val index = ClassIndex.open(root.toFile())
         val imported = requireNotNull(index.methodView("Ltask53/Fixture;->value()I"))
-        val mutableSource = requireNotNull(classManager.getVirtualMethod("Ltask53/Fixture;", "value()I"))
 
-        mutableSource.implementation.replaceInstruction(1, BuilderInstruction11n(Opcode.CONST_4, 0, 2))
+        Files.writeString(source, SOURCE.trimIndent().replace("const/4 v0, 0x1", "const/4 v0, 0x2"))
 
         val current = requireNotNull(index.methodView("Ltask53/Fixture;->value()I"))
-        assertEquals(Opcode.CONST_STRING, imported.opcodeAt(0))
-        assertEquals(Opcode.CONST_STRING, current.opcodeAt(0))
         assertEquals(imported.addresses.toList(), current.addresses.toList())
         val graph = VmServices(index).newSession(current).run()
         assertEquals(Value.Known(1, VirtualType.of("I")), graph.trusted()!!.terminatingConsensus(0))
+        val reimported = ClassIndex.open(root.toFile())
+        val reimportedView = requireNotNull(reimported.methodView("Ltask53/Fixture;->value()I"))
+        val reimportedGraph = VmServices(reimported).newSession(reimportedView).run()
+        assertEquals(Value.Known(2, VirtualType.of("I")), reimportedGraph.trusted()!!.terminatingConsensus(0))
     }
 
     @Test
@@ -164,11 +163,7 @@ class InitialProgramImportTest {
             dexFile.toString(),
             ImmutableDexFile(Opcodes.forApi(SmaliParser.DEX_API_LEVEL), listOf(classDefinition)),
         )
-        val manager = ClassManagerFactory().build(
-            dexFile.toFile(),
-            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-        )
-        val index = ClassIndex(manager)
+        val index = ClassIndex.open(dexFile.toFile())
         val originalClass = requireNotNull(index.currentSnapshot.applicationClass("Ltask53/SharedSwitch;"))
         val originalMethod = requireNotNull(index.currentSnapshot.applicationMethod("Ltask53/SharedSwitch;->shared()V"))
         val relaidBody = MethodBodyAssembler.assemble(
@@ -208,12 +203,7 @@ class InitialProgramImportTest {
 
         val output = root.resolve("shared-switch-output.dex").toFile()
         ProgramDexWriter().write(candidate, output)
-        val reloaded = ClassIndex(
-            ClassManagerFactory().build(
-                output,
-                DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-            ),
-        )
+        val reloaded = ClassIndex.open(output)
         val outputView = requireNotNull(reloaded.methodView("Ltask53/SharedSwitch;->shared()V"))
         assertEquals(listOf(0 to 6), outputView.switchCasesAt(0))
         assertEquals(listOf(0 to 10), outputView.switchCasesAt(3))

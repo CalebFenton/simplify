@@ -527,8 +527,8 @@ internal class ClassInitPlan(
  * before any code runs" stays one call site (spec §5.3): a `<clinit>` **is** nested method execution
  * (spec §11.3), so it must not get a private mini-interpreter or a private scheduling path.
  *
- * Lives in `core/` rather than `core/op/` for the two-tier reason [Invoker]'s KDoc gives: this is the other
- * operation that most wants to reach for `ClassManager`, and it reaches through [ClassIndex] only.
+ * Lives in `core/` rather than `core/op/` for the two-tier reason [Invoker]'s KDoc gives: it reads the
+ * class model through [ClassIndex] only.
  */
 internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
     constructor(classIndex: ClassIndex) : this(classIndex.resolver(classIndex.currentSnapshot))

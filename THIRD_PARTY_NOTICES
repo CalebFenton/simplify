@@ -27,7 +27,7 @@ Android/sdk_phone64_x86_64/emu64x:16/BE2A.250530.026.D1/13818094:userdebug/test-
 
 Android, Java/libcore, and other incorporated components retain their upstream
 copyright and license terms. Simplify's Apache-2.0 license does not relicense
-this corpus or the derived framework/android-framework.jar and indexes/catalogs.
+this corpus or the derived indexes/catalogs.
 Those terms continue to apply when framework resources accompany a VM or
 application artifact.
 

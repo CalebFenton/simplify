@@ -1,9 +1,5 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -12,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * Bug classes (audit + spec §5.1): (a) per-run scheduler state living on the VM, so a second
@@ -21,9 +18,7 @@ import org.junit.jupiter.api.Test
  * methods plus spec §4.4/§6.4 (one Outcome per explored path; any abort makes completion Partial).
  */
 class ExecutionSessionTest {
-    private val classManager =
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    private val classIndex = ClassIndex(classManager)
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val int = VirtualType.of("I")
 
     private fun session(descriptor: String, limits: Limits = Limits()) =

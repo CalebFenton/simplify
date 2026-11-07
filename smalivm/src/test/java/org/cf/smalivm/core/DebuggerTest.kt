@@ -1164,7 +1164,7 @@ class DebuggerTest {
         assertEquals(Value.Unknown(int), observedArray.element(0))
         assertTrue(finalNodeFacts(observedOpaque).any { it.invocationDiagnostic != null })
 
-        val incompleteIndex = ClassIndex(CoreTester.classManager, hierarchyComplete = false)
+        val incompleteIndex = ClassIndex(CoreTester.importFixtures(), hierarchyComplete = false)
         val incompleteView = incompleteIndex.requireMethodView(INVOKE_REVIEW, "incompleteWorld(Linvoke_unique_base;)I")
         val directDispatch = ExecutionSession.of(incompleteView, incompleteIndex, Limits()).run()
         val observedDispatch = runWithDebuggerObservation(

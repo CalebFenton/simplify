@@ -11,13 +11,10 @@ import org.cf.smalivm.core.op.SGetOp
 import org.cf.smalivm.core.op.SPutOp
 import org.cf.smalivm.core.op.SwitchOp
 import org.cf.smalivm.core.op.ThrowOp
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * Bug class: ops that carried hidden control state and signalled successors through an untyped
@@ -26,9 +23,7 @@ import org.junit.jupiter.api.Test
  * a decode or transition error is localized before the scheduler is involved (Task 5).
  */
 class OpBuilderTest {
-    private val classManager =
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    private val classIndex = ClassIndex(classManager)
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val int = VirtualType.of("I")
     private val long = VirtualType.of("J")
     private val FILLED_NEW_ARRAY = "Lfilled_new_array_test;"
@@ -797,8 +792,8 @@ class OpBuilderTest {
      * **`[DEVICE]`-measured for `sget` specifically** (`Fx_SGetAbsentType` against `Fx_SGetPresentType`,
      * Tier A `-Xint` cross-validated Tier B nterp; `StaticFieldLookup.NoSuchClass`'s KDoc carries the full
      * citation, and `sput` rides the same measurement -- same symbolic reference, same resolution path).
-     * The oracle instead HOST-CRASHES at op-build time (`type/ClassManager.kt:191-198`; the migrated
-     * `staticUnknownClassFieldThrowsException` used to pin that crash and now pins the guest error).
+     * Op build never fails on the host for an absent type; `staticUnknownClassFieldThrowsException` pins
+     * the same guest error at execute.
      *
      * The resolvable control's execute answers `Transition.InitClass`, NOT `Continue`, and asserting that
      * exactly is deliberate: resolution-before-class-init is the preamble's stated order (an absent class
@@ -878,7 +873,7 @@ class OpBuilderTest {
      * decode assertion rather than being folded into it.
      *
      * Reproduce the population count with `isLoadable(VirtualType.of(n)) && loadClassConstant(n) == null` over
-     * `ClassManager.getFrameworkClassNames()`; it is deliberately not asserted here, because sweeping 2431
+     * the bundled framework class names; it is deliberately not asserted here, because sweeping 2431
      * descriptors through the host loader costs ~50s and this file is not the place for it.
      */
     @Test

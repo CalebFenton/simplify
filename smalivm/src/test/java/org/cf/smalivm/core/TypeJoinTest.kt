@@ -19,20 +19,18 @@ import org.junit.jupiter.api.Test
 class TypeJoinTest {
     private fun t(d: String) = VirtualType.of(d)
 
-    /** The real hierarchy. Shared with every other core test, so no extra `ClassManager` is parsed. */
+    /** The real hierarchy, shared with every other core test. */
     private val hierarchy: Superclasses = CoreTester.classIndex
 
     /** No hierarchy at all: the pre-Task-7 rule, kept reachable because it is the sound fallback. */
     private val noHierarchy = Superclasses { null }
 
     /**
-     * The oracle's flattened ancestor set, **copied on read** (`type-and-dex.md:93`: `getAncestors()`
-     * "return[s] those mutable cache objects directly", with no revision and no invalidation, so an
-     * external caller can reorder every lineage consumer's view). Used only to prove that the ambiguity
-     * `joinTypes` refuses to resolve arbitrarily is genuinely present in the data.
+     * Whether both types are subtypes of [ancestor], asked through the subtype test rather than [joinTypes].
+     * Used only to prove that the ambiguity `joinTypes` refuses to resolve arbitrarily is present in the data.
      */
-    private fun oracleAncestorNames(descriptor: String): Set<String> =
-        CoreTester.classManager.getVirtualType(descriptor).ancestors.map { it.name }.toSet()
+    private fun bothExtend(first: String, second: String, ancestor: String): Boolean =
+        CoreTester.classIndex.isSubtypeOf(t(first), t(ancestor)) && CoreTester.classIndex.isSubtypeOf(t(second), t(ancestor))
 
     @Test
     fun equalTypesJoinToThemselves() {
@@ -112,16 +110,16 @@ class TypeJoinTest {
         //
         // **THE AMBIGUITY IS ASSERTED HERE TOO, and this is the pair where it matters most.** `Integer` and
         // `Long` share `Comparable` (declared on both) and `Serializable` (through `Number`) as well as the
-        // class `Number`, so an implementation picking from the oracle's flattened, unordered ancestor set
+        // class `Number`, so an implementation picking from an unordered ancestor set
         // could answer an interface -- which for THIS pair is a strictly WRONG answer rather than a merely
         // coarser one, because a defined nearest common ancestor exists and is a class. Without these two
         // assertions the expectation below would hold just as well against a hierarchy with no shared
         // interface at all, and would be pinning less than it appears to.
-        val sharedByIntegerAndLong =
-            oracleAncestorNames("Ljava/lang/Integer;") intersect oracleAncestorNames("Ljava/lang/Long;")
-        assertTrue("Ljava/lang/Comparable;" in sharedByIntegerAndLong, "both implement Comparable")
-        assertTrue("Ljava/io/Serializable;" in sharedByIntegerAndLong, "both inherit Serializable via Number")
-        assertTrue("Ljava/lang/Number;" in sharedByIntegerAndLong, "and a real class ancestor is available")
+        val integer = "Ljava/lang/Integer;"
+        val long = "Ljava/lang/Long;"
+        assertTrue(bothExtend(integer, long, "Ljava/lang/Comparable;"), "both implement Comparable")
+        assertTrue(bothExtend(integer, long, "Ljava/io/Serializable;"), "both inherit Serializable via Number")
+        assertTrue(bothExtend(integer, long, "Ljava/lang/Number;"), "and a real class ancestor is available")
         assertEquals(
             JoinedType.Joined(t("Ljava/lang/Number;")),
             joinTypes(t("Ljava/lang/Integer;"), t("Ljava/lang/Long;"), hierarchy),
@@ -162,11 +160,11 @@ class TypeJoinTest {
         // definition of "deepest common element", and the table contains no interface at all, so every
         // one of the 81 answers is structurally forced to be a class on a total-ordered chain.
         //
-        // Why this and not a single-answer assertion: "prefer the first common class ancestor" over the
-        // oracle's flat, `HashSet`-derived ancestor set (`type-and-dex.md:93`, `exceptions.md:164`) has no
-        // defined answer, so a test that pins one answer cannot tell a defined rule from an arbitrary
-        // pick that happened to land there. A cross product against an independently-computed total order
-        // can: an implementation choosing from an unordered set fails some pair.
+        // Why this and not a single-answer assertion: "prefer the first common class ancestor" over an
+        // unordered ancestor set has no defined answer, so a test that pins one answer cannot tell a defined
+        // rule from an arbitrary pick that happened to land there. A cross product against an
+        // independently-computed total order can: an implementation choosing from an unordered set fails
+        // some pair.
         val chains = mapOf(
             "Ljava/lang/Object;" to listOf("Ljava/lang/Object;"),
             "Ljava/lang/String;" to listOf("Ljava/lang/String;", "Ljava/lang/Object;"),
@@ -201,17 +199,17 @@ class TypeJoinTest {
     fun interfacesAreDeliberatelyExcludedEvenWhenTwoAreShared() {
         // The determinism decision, stated where it is falsifiable. `String` and `Integer` share TWO
         // interfaces -- `Comparable` directly on both, `Serializable` directly on String and through
-        // `Number` on Integer -- and no class but `Object`. "Prefer the first common ancestor" over the
-        // oracle's flattened set therefore has THREE admissible answers here and picks by
-        // `HashSet` iteration order (`type-and-dex.md:93`: "its order is unspecified"), which is why
-        // `joinTypes` walks the superclass chain instead and answers `Object`.
+        // `Number` on Integer -- and no class but `Object`. "Prefer the first common ancestor" over an
+        // unordered ancestor set therefore has THREE admissible answers here, which is why `joinTypes`
+        // walks the superclass chain instead and answers `Object`.
         //
         // The ambiguity is ASSERTED, not assumed: without the two `assertTrue`s below this test would
         // pass just as well against a hierarchy where no interface was shared, and would then be pinning
         // nothing.
-        val shared = oracleAncestorNames("Ljava/lang/String;") intersect oracleAncestorNames("Ljava/lang/Integer;")
-        assertTrue("Ljava/lang/Comparable;" in shared, "both implement Comparable, so the set is ambiguous")
-        assertTrue("Ljava/io/Serializable;" in shared, "both implement Serializable, so the set is ambiguous")
+        val string = "Ljava/lang/String;"
+        val integer = "Ljava/lang/Integer;"
+        assertTrue(bothExtend(string, integer, "Ljava/lang/Comparable;"), "both implement Comparable, so the set is ambiguous")
+        assertTrue(bothExtend(string, integer, "Ljava/io/Serializable;"), "both implement Serializable, so the set is ambiguous")
         assertEquals(
             JoinedType.Joined(VirtualType.OBJECT),
             joinTypes(t("Ljava/lang/String;"), t("Ljava/lang/Integer;"), hierarchy),

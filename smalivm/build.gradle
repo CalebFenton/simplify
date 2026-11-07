@@ -123,22 +123,6 @@ tasks.register('fatJar', Jar) {
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
 }
 
-tasks.register('updateReferenceFramework', JavaExec) {
-    description = 'Regenerate the tracked class index and JVM reference JAR from the selected Android 36 framework.'
-    dependsOn tasks.named('compileKotlin'), tasks.named('compileJava'), tasks.named('generateFrameworkCatalog')
-    // Read selected sources directly; processed resources may still contain the previous tracked index.
-    classpath = files(sourceSets.main.output.classesDirs, generatedFrameworkCatalogDir, 'src/main/resources') +
-        configurations.runtimeClasspath
-    mainClass = 'org.cf.smalivm.dex.FrameworkJarBuilder'
-    maxHeapSize = '2g'
-    workingDir projectDir
-    args 'src/main/resources/framework_classes.cfg', 'src/main/resources/framework/android-framework.jar'
-}
-
-tasks.named('processResources') {
-    mustRunAfter tasks.named('updateReferenceFramework')
-}
-
 // Tooling-only, and deliberately inert: it configures nothing, depends on nothing, and no
 // other task depends on it. `tools/art-runner/assemble.sh` resolves this classpath
 // for each invocation, so fixtures use the EXACT maintained Smali version that

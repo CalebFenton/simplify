@@ -1,9 +1,9 @@
 package org.cf.simplify.strategy
 
 import java.nio.file.Path
+import java.io.File
 import org.cf.simplify.Optimizer
 import org.cf.smalivm.core.*
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
@@ -301,11 +301,11 @@ class ConstantPropagationStrategyTest {
     private fun has(view: MethodView, opcode: Opcode) = view.instructionAddresses.any { view.opcodeAt(it) == opcode }
     private fun floatBits(raw: Any?) = if (raw is Float) raw.toRawBits() else (raw as Number).toInt()
     private fun doubleBits(raw: Any?) = if (raw is Double) raw.toRawBits() else (raw as Number).toLong()
-    private fun services() = VmServices(ClassIndex(ClassManagerFactory().build("src/test/resources/task65", 20)))
+    private fun services() = VmServices(ClassIndex.open(File("src/test/resources/task65"), 20))
     private fun reload(services: VmServices): VmServices {
         val dex = temporaryDirectory.resolve("constants.dex").toFile()
         ProgramDexWriter().write(services.currentSnapshot, dex)
-        return VmServices(ClassIndex(ClassManagerFactory().build(dex, 20)))
+        return VmServices(ClassIndex.open(dex, 20))
     }
     companion object {
         private const val OWNER = "Ltask65/Constants;->"

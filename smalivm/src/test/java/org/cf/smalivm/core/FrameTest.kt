@@ -1,13 +1,10 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * Bug classes (audit + spec §4.2): (a) one string-keyed map holding registers, parameters and
@@ -20,9 +17,7 @@ import org.junit.jupiter.api.Test
  * on `readRegister`/`peekRegister` (neither records liveness).
  */
 class FrameTest {
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    )
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val int = VirtualType.of("I")
     private val long = VirtualType.of("J")
     private val runtimeException = VirtualType.of("Ljava/lang/RuntimeException;")

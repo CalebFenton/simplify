@@ -9,7 +9,6 @@ import com.android.tools.smali.dexlib2.MethodHandleType
 import com.android.tools.smali.dexlib2.DexFileFactory
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.ReferenceType
-import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction10x
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
 import com.android.tools.smali.dexlib2.iface.instruction.DualReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodHandleReference
@@ -17,7 +16,6 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
 import com.android.tools.smali.dexlib2.iface.value.StringEncodedValue
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement
@@ -92,11 +90,9 @@ class ProgramDexWriterTest {
         val input = root.resolve("input.dex").toFile()
         DexFileFactory.writeDexFile(
             input.toString(),
-            ImmutableDexFile(Opcodes.forApi(20), org.cf.smalivm.dex.SmaliParser.parse(root.toString())),
+            ImmutableDexFile(Opcodes.forApi(20), ProgramInput.read(root.toFile(), 20).classes),
         )
-        val manager = ClassManagerFactory().build(input, 20)
-        manager.getVirtualClass("Ltask53/Output;")
-        val index = ClassIndex(manager)
+        val index = ClassIndex.open(input, 20)
         val snapshotA = index.currentSnapshot
         val before = ProgramDexWriter().writeToBytes(snapshotA)
         val services = VmServices(index)
@@ -123,28 +119,13 @@ class ProgramDexWriterTest {
         assertEquals(23, (unvisited.staticFields.single().initialValue as IntEncodedValue).value)
         assertEquals("untouched", unvisited.methods.single().name)
         assertNull(unvisited.methods.single().implementation)
-        val reloaded = ClassIndex(ClassManagerFactory().build(output, 20))
+        val reloaded = ClassIndex.open(output, 20)
         val view = requireNotNull(reloaded.methodView("Ltask53/Output;->value()I"))
         assertEquals(
             Value.Known(6, VirtualType.of("I")),
             VmServices(reloaded).newSession(view).run().trusted()!!.terminatingConsensus(0),
         )
         assertArrayEquals(before, ProgramDexWriter().writeToBytes(snapshotA))
-    }
-
-    @Test
-    fun writerOutputDependsOnlyOnItsSuppliedSnapshot() {
-        java.nio.file.Files.writeString(root.resolve("task53.smali"), SOURCE.trimIndent())
-        val classManager = task53ClassManager(root)
-        val index = ClassIndex(classManager)
-        val snapshot = index.currentSnapshot
-        val writer = ProgramDexWriter()
-        val before = writer.writeToBytes(snapshot)
-
-        requireNotNull(classManager.getVirtualMethod("Ltask53/Output;", "value()I")).implementation
-            .addInstruction(0, BuilderInstruction10x(Opcode.NOP))
-
-        assertArrayEquals(before, writer.writeToBytes(snapshot))
     }
 
     @Test
@@ -225,7 +206,7 @@ class ProgramDexWriterTest {
             listOf(method),
         )
         DexFileFactory.writeDexFile(dexFile.toString(), ImmutableDexFile(Opcodes.forApi(30), listOf(definition)))
-        val snapshot = ClassIndex(ClassManagerFactory().build(dexFile.toFile(), 30)).currentSnapshot
+        val snapshot = ClassIndex.open(dexFile.toFile(), 30).currentSnapshot
 
         val dex = DexBackedDexFile(snapshot.outputApiPolicy.opcodes(), ProgramDexWriter().writeToBytes(snapshot))
         val instruction = dex.classes.single().methods.single().implementation!!.instructions
@@ -326,7 +307,7 @@ class ProgramDexWriterTest {
             listOf(method),
         )
         DexFileFactory.writeDexFile(dexFile.toString(), ImmutableDexFile(Opcodes.forApi(30), listOf(definition)))
-        val snapshot = ClassIndex(ClassManagerFactory().build(dexFile.toFile(), 30)).currentSnapshot
+        val snapshot = ClassIndex.open(dexFile.toFile(), 30).currentSnapshot
 
         val dex = DexBackedDexFile(snapshot.outputApiPolicy.opcodes(), ProgramDexWriter().writeToBytes(snapshot))
         val strings = dex.getReferences(ReferenceType.STRING).filterIsInstance<StringReference>().map { it.string }

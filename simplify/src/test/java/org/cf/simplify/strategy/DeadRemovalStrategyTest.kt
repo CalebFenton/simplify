@@ -3,9 +3,9 @@ package org.cf.simplify.strategy
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.io.File
 import org.cf.simplify.Optimizer
 import org.cf.smalivm.core.*
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
@@ -247,7 +247,7 @@ class DeadRemovalStrategyTest {
 
     private fun optimize(services: VmServices, method: String) =
         Optimizer(services, LIMITS, 10, listOf(DeadRemovalStrategy())).optimize(method)
-    private fun services(root: String = "src/test/resources/task66") = VmServices(ClassIndex(ClassManagerFactory().build(root, 20)))
+    private fun services(root: String = "src/test/resources/task66") = VmServices(ClassIndex.open(File(root), 20))
     private fun view(services: VmServices, method: String) = requireNotNull(services.classIndex.methodView(method))
     private fun execute(services: VmServices, method: String) = services.newSession(view(services, method), LIMITS).run()
     private fun returned(services: VmServices, method: String, register: Int): Value.Known {
@@ -269,7 +269,7 @@ class DeadRemovalStrategyTest {
     private fun reload(services: VmServices): VmServices {
         val dex = temporaryDirectory.resolve("dead-removal.dex").toFile()
         ProgramDexWriter().write(services.currentSnapshot, dex)
-        return VmServices(ClassIndex(ClassManagerFactory().build(dex, 20)))
+        return VmServices(ClassIndex.open(dex, 20))
     }
     companion object {
         private const val OWNER = "Ltask66/DeadCode;->"

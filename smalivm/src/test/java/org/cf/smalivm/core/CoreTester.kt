@@ -1,10 +1,8 @@
 package org.cf.smalivm.core
 
+import java.io.File
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -18,12 +16,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 object CoreTester {
     const val TEST_CLASS_PATH = "src/test/resources/smali"
 
-    /** Shared fixture metadata; each ClassIndex imports its own immutable program snapshot. */
-    val classManager = ClassManagerFactory()
-        .build(TEST_CLASS_PATH, DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
+    /** Parsed once; each import builds its own immutable program snapshot from it. */
+    private val fixtureInput = ProgramInput.read(File(TEST_CLASS_PATH), SmaliParser.DEX_API_LEVEL)
+
+    /** A fresh workspace over the fixture tree, for tests that need a [ClassIndex] with different overrides. */
+    fun importFixtures(): ProgramWorkspace = InitialProgramImporter.import(fixtureInput)
 
     val classIndex: ClassIndex = ClassIndex(
-        classManager,
+        importFixtures(),
         dynamicLoadingEvidence = false,
         hierarchyComplete = true,
     )
@@ -31,13 +31,8 @@ object CoreTester {
     val vmServices = VmServices(classIndex)
 
     /**
-     * The engine's OWN host-class loader ([ClassIndex.classLoader]), exposed so a test seeds or expects a
-     * `Class` object through the SAME loader the core resolves through -- a distinct `SmaliClassLoader`
-     * would `defineClass` a *different* `Class` for one guest class, so `const-class`'s value equality would
-     * spuriously fail. Two consumers today: `core/op/APutOpTest` seeds guest `Class` objects into a
-     * `[Ljava/lang/Class;`, and `core/op/ConstOpTest` expects the `Class` that `const-class` resolves
-     * (Plan 8 Task 10 -- the point at which the core began loading host classes; before it, only a test
-     * seed did). Plan 11's `ReflectBackend` will need the same bridge for real.
+     * The engine's own host-class loader ([ClassIndex.classLoader]), so a test seeds or expects a `Class` object
+     * through the loader the core resolves through; a distinct loader would define a different `Class`.
      */
     val classLoader: SmaliClassLoader get() = classIndex.classLoader
 

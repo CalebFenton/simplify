@@ -10,7 +10,6 @@ import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VmServices
 import org.cf.smalivm.core.canTrustConsensus
 import org.cf.smalivm.core.joinAll
-import org.cf.smalivm.type.ClassManagerFactory
 
 /** Embedding examples; org.cf.demosmali contains Java guest sources, not the host application. */
 object Main {
@@ -21,7 +20,7 @@ object Main {
         require(args.size <= 1) { "Usage: java -jar demoapp.jar [smali-directory|dex|apk]" }
         val input = inputPath(args.firstOrNull())
         println("Demo input: ${input.absolutePath}")
-        val services = VmServices(ClassIndex(ClassManagerFactory().build(input, 20)), demoReflectionPolicy())
+        val services = VmServices(ClassIndex.open(input), demoReflectionPolicy())
 
         // The registration belongs to this VM alone. Printing is an explicit host side effect,
         // not permission to reflect arbitrary I/O methods or execute the guest on the host JVM.
