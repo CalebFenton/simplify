@@ -117,36 +117,56 @@ internal class ReflectBackend(
                 IllegalArgumentException("${call.target} static shape does not match ${call.kind}"),
             )
         }
-        if (declaringClass == Method::class.java && method.name == "invoke" &&
-            parameterClasses.size == 2 && parameterClasses[0] == Any::class.java &&
-            parameterClasses[1] == Array<Any?>::class.java && returnClass == Any::class.java
-        ) {
-            val target = call.receiver as? Method ?: return SynchronousCallResult.InfrastructureFailure(
-                IllegalArgumentException("Method.invoke requires a reflected Method receiver"),
-            )
-            val arguments = when (val raw = call.arguments[1]) {
-                null -> emptyArray<Any?>()
-                is Array<*> -> raw
-                else -> return SynchronousCallResult.InfrastructureFailure(
-                    IllegalArgumentException("Method.invoke requires an Object[] argument"),
-                )
-            }
-            // Invoke this guest API directly: nested JVM reflection can misclassify its
-            // null-receiver NPE as an outer IllegalArgumentException on JDK 21.
-            // Every exception here belongs to Method.invoke, including its target wrapper.
-            return try {
-                val raw = target.invoke(call.arguments[0], *arguments)
-                SynchronousCallResult.Returned(importReturn(raw, call.returnType))
-            } catch (fatal: VirtualMachineError) {
-                throw fatal
-            } catch (targetFailure: Throwable) {
-                targetResult(targetFailure)
-            }
-        }
+        if (declaringClass == Method::class.java && method.name == "invoke") return invokeReflectedMethod(call)
         return invokeTarget {
             val raw = method.invoke(if (isStatic) null else call.receiver, *call.arguments.toTypedArray())
             SynchronousCallResult.Returned(importReturn(raw, call.returnType))
         }
+    }
+
+    /**
+     * Runs a guest `Method.invoke` only when the policy also authorizes the reflected method, because
+     * authorizing `Method.invoke` alone would run any host method the guest can name. The reflected method
+     * is called directly so that `Method.invoke`'s own failures keep their types: nested JDK 21 reflection
+     * reports the null-receiver NullPointerException as an IllegalArgumentException of the outer call.
+     */
+    private fun invokeReflectedMethod(call: SelectedHostCall): SynchronousCallResult {
+        val target = call.receiver as? Method ?: return SynchronousCallResult.InfrastructureFailure(
+            IllegalArgumentException("Method.invoke requires a reflected Method receiver"),
+        )
+        reflectedTargetDenial(target)?.let { return SynchronousCallResult.InfrastructureFailure(SecurityException(it)) }
+        val arguments = when (val raw = call.arguments[1]) {
+            null -> emptyArray<Any?>()
+            is Array<*> -> raw
+            else -> return SynchronousCallResult.InfrastructureFailure(
+                IllegalArgumentException("Method.invoke requires an Object[] argument"),
+            )
+        }
+        return try {
+            SynchronousCallResult.Returned(importReturn(target.invoke(call.arguments[0], *arguments), call.returnType))
+        } catch (fatal: VirtualMachineError) {
+            throw fatal
+        } catch (targetFailure: Throwable) {
+            targetResult(targetFailure)
+        }
+    }
+
+    /** Applies the probe's policy rule to the method a `Method.invoke` receiver reflects. */
+    private fun reflectedTargetDenial(target: Method): String? {
+        val descriptor = target.toReflectedMethodMetadataOrNull()?.descriptor
+            ?: return "reflection cannot describe $target"
+        val reflected = ReflectionPolicy.parseMethod(descriptor)
+        val initializationChain = if (Modifier.isStatic(target.modifiers)) {
+            try {
+                resolver.hostInitializationChain(reflected.definingClass)
+            } catch (_: ClassLoadFailure) {
+                return "reflection cannot prove the host initialization chain for $reflected"
+            }
+        } else {
+            emptyList()
+        }
+        val decision = policy.decide(reflected, initializationChain)
+        return if (decision is ReflectionDecision.Denied) "reflection policy denied $reflected by ${decision.rule}" else null
     }
 
     private inline fun invokeTarget(block: () -> SynchronousCallResult): SynchronousCallResult = try {

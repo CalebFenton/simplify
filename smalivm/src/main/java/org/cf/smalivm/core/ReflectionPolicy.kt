@@ -99,7 +99,7 @@ class ReflectionPolicy(
             }
         }
 
-        private fun parseMethod(signature: String): MethodDescriptor {
+        internal fun parseMethod(signature: String): MethodDescriptor {
             val separator = signature.indexOf("->")
             require(separator > 0) { "Malformed reflection method policy entry: $signature" }
             val member = signature.substring(separator + 2)
