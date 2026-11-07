@@ -363,52 +363,17 @@ class AGetOpTest {
     }
 
     /**
-     * **THE COERCION DECISION, made in Plan 7 Task 8 for `aget` and `aput` together** -- Task 7 pinned the
-     * question in `AGetOp`'s row-3 comment and deliberately declined to answer it alone, so the two families
-     * could not end up inconsistent for a plan-cycle. `APutOpTest.aFloatIndexIsNotProvableRatherThanTruncatedByValue`
-     * is this test's twin, and `Coerce.toArrayIndex` is the one implementation both ops call.
-     *
-     * **Plan 7's closeout widened that scope to four sites and this test's claim did not change.**
-     * `toArrayIndex` is now a delegation to `Coerce.toProvableInt`, which `NewArrayOp`'s length, `APutOp`'s
-     * stored value and `FilledNewArrayOp`'s elements also call -- they had shipped calling `Coerce.toInt`, i.e.
-     * the answer this test rejects. See that function's KDoc; the three sibling pins are
-     * `NewArrayOpTest.aFloatLengthIsNotProvableRatherThanTruncatedToZero`,
-     * `APutOpTest.aFloatValueIsNotProvableRatherThanTruncatedByValue` and
-     * `FilledNewArrayOpTest.aFloatElementIsNotProvableRatherThanTruncatedByValue`.
-     *
-     * An index register holding `Known(2.9f, "F")` is **not provable as an index**. The rejected alternative
-     * was `Coerce.toInt`, which is `is Number -> raw.toInt()` and therefore truncates BY VALUE: `2.9f` would
-     * become a definite 2, this read would answer `Known(0x33, I)`, and no bounds exception would fork.
-     *
-     * **VERIFIER -> engine's choice**, so spec §2.2 decides it. No verified dex puts a float in an index
-     * register ([CON] B1; [ART] `VerifyAGet`/`VerifyAPut`), and on unverified input ART reads the register's
-     * 32 BITS as an int -- `2.9f` is `0x4039999A`, i.e. 1077516698, not 2 -- so truncating by value both
-     * INVENTS a constant no runtime produces and DROPS the feasible bounds exception, which is the worst
-     * outcome this engine has. Answering "not provable" invents nothing and explores more.
-     *
-     * The boundary is exactly `Float`/`Double`: for a `Byte`/`Short`/`Int`/`Long`/`Char`/`Boolean` raw,
-     * `Coerce.toInt`'s answer IS the register's low 32 bits, so nothing is reinterpreted (which is what
-     * `canGetWithShortIndex` relies on).
-     *
-     * **It is NOT `isDalvikNull`'s boundary, and this paragraph used to say it was** -- corrected while
-     * executing Plan 7 Task 12, which consumes `isDalvikNull` for `throw`. The two differ on `Boolean`:
-     * `Coerce.toInt` admits it, `isDalvikNull` deliberately excludes it
-     * (`ValueTest.everyIntegralZeroIsDalviksNullAndNothingElseIs` pins the exclusion both ways). See
-     * `Coerce.toArrayIndex`'s KDoc for why they are allowed to differ -- "can these bits be read as an
-     * index" and "do these bits mean the null REFERENCE" are different questions.
+     * An index register holding a computed `Float` is read by its 32 bits (`Coerce.toArrayIndex`), as ART reads
+     * an index register: `2.9f` is `0x4039999A`, i.e. 1077516698, which is out of bounds for a 3-element array,
+     * so the read definitely throws. A value conversion would read index 2 and answer `Known(0x33, I)` with no
+     * bounds exception at all. **VERIFIER**-excluded input ([CON] B1; [ART] `VerifyAGet`).
      */
     @Test
-    fun aFloatIndexIsNotProvableRatherThanTruncatedByValue() {
+    fun aFloatIndexIsReadByItsBits() {
         initial.setRegisters(0, intArrayOf(0x11, 0x22, 0x33), "[I", 1, 2.9f, "F")
-        expected.setRegisters(0, CoreState.UNKNOWN, "I")
-        CoreTester.test(CLASS_NAME, "get()V", initial, expected)
         val graph = CoreTester.execute(CLASS_NAME, "get()V", initial)
-        assertEquals(
-            listOf("Ljava/lang/ArrayIndexOutOfBoundsException;"),
-            graph.outcomes.filterIsInstance<Outcome.Threw>()
-                .mapNotNull { (it.exception as? Value.Known)?.type?.descriptor },
-            "an unprovable index forks the bounds exception; a truncated-by-value 2 would fork nothing",
-        )
+        assertEquals(listOf("Ljava/lang/ArrayIndexOutOfBoundsException;"), CoreTester.escapingTypes(graph))
+        assertEquals(1, graph.outcomes.size, "index 1077516698 is definitely out of bounds: $graph")
     }
 
     /**

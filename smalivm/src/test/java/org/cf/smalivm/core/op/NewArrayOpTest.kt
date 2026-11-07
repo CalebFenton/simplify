@@ -279,17 +279,16 @@ class NewArrayOpTest {
     }
 
     /**
-     * Bug class: truncating a float length by value. `Known(-0.5f, "F")` truncates to 0, which would allocate
-     * a fully `Known` empty array; a device reads the register's bits (`0xBF000000`, negative) and throws.
-     * A float cannot reach a `new-array` size register in verified dex, so the length is not provable and
-     * takes the unknown-length row: an unknown array plus the speculative NegativeArraySizeException.
+     * A length register holding a computed `Float` is read by its 32 bits: `-0.5f` is `0xBF000000`, i.e.
+     * -1090519040, so `new-array` definitely throws `NegativeArraySizeException`. A value conversion would read
+     * length 0 and allocate an empty array that every later `array-length` folds to 0.
      */
     @Test
-    fun aFloatLengthIsNotProvableRatherThanTruncatedToZero() {
-        val seed = CoreState().apply { setRegisters(0, -0.5f, "F") }
-        val want = CoreState().apply { setRegister(0, Value.Unknown(VirtualType.of("[I"))) }
-        CoreTester.test(CLASS_NAME, "createIntegerArray()V", seed, want)
-        CoreTester.testThrows(CLASS_NAME, "createIntegerArray()V", seed, NEGATIVE_ARRAY_SIZE)
+    fun aFloatLengthIsReadByItsBits() {
+        val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", CoreState().apply { setRegisters(0, -0.5f, "F") })
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf("Ljava/lang/NegativeArraySizeException;"), CoreTester.escapingTypes(graph))
+        assertEquals(1, graph.outcomes.size, "length -1090519040 is definitely negative: $graph")
     }
 
     /**

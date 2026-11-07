@@ -12,14 +12,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * `sput*` (Plan 9 Task 18): a register written into per-path static storage, through the same
- * resolution -> class-init -> access preamble as [SGetOp] and mirrored on purpose (one `preamble`
- * function -- see `SFieldOp.kt`). Migrated from `org.cf.smalivm.opcode.SPutOpTest` -- all 7 tests,
- * **every expectation byte-identical** (all seven corpus seeds are correctly typed, so neither the
- * reference coercion nor the deliberately-absent primitive narrowing can move one; `SPutOp`'s KDoc
- * records both decisions) -- plus the cases the corpus never covered: the primitive-tagged
- * `sput-object` coercion, the `<clinit>`-prelude-before-write ordering, per-path write isolation, and
- * the WEAK side-effect claim.
+ * `sput*`: a register written into per-path static storage, through the same resolution -> class-init ->
+ * access preamble as [SGetOp] (one `preamble` function -- see `SFieldOp.kt`). Covers each form's store, the
+ * narrow forms' truncation, the primitive-tagged `sput-object` coercion, the `<clinit>`-prelude-before-write
+ * ordering, per-path write isolation, and the WEAK side-effect claim.
  *
  * A field-only expectation asserts through `TrustedGraphView.terminatingStaticFieldConsensus` -- the
  * replacement for the oracle's `getTerminatingFieldConsensus(field)`, keyed by the FULLY-QUALIFIED
@@ -83,6 +79,28 @@ class SPutOpTest {
         initial.setRegisters(0, 0xFFFFFFFFFL, "J")
         expected.setFields(CLASS_NAME, "myLong:J", 0xFFFFFFFFFL)
         test(CLASS_NAME, "putStaticWide()V", initial, expected)
+    }
+
+    /**
+     * A narrow `sput-*` stores only its field's width. ART's `GetFieldValue` reads the 32-bit register and
+     * casts it to the field's type -- `static_cast<int8_t>` for byte, `<int16_t>` short, `<uint16_t>` char,
+     * `<uint8_t>` boolean -- so `0x1ff` stored to a byte reads back as -1. The values are what an `add-int`
+     * result can hold; the verifier accepts any integral register for these stores. A boolean byte other
+     * than 0 or 1 is real on a device (`iget-boolean` reads it back nonzero) but has no `Boolean` raw, so
+     * it is `Unknown(Z)`.
+     */
+    @Test
+    fun aNarrowStoreKeepsOnlyItsFieldsWidth() {
+        fun assertStores(method: String, written: Int, field: String, stored: Value) = test(
+            CLASS_NAME, method,
+            CoreState().apply { setRegisters(0, written, "I") },
+            CoreState().apply { setField(CLASS_NAME, field, stored) },
+        )
+        assertStores("putStaticByte()V", 0x1ff, "myByte:B", Value.Known((-1).toByte(), VirtualType.of("B")))
+        assertStores("putStaticShort()V", 0x18000, "myShort:S", Value.Known((-32768).toShort(), VirtualType.of("S")))
+        assertStores("putStaticChar()V", 0x10041, "myChar:C", Value.Known('A', VirtualType.of("C")))
+        assertStores("putStaticBoolean()V", 0x101, "myBoolean:Z", Value.Known(true, VirtualType.of("Z")))
+        assertStores("putStaticBoolean()V", 2, "myBoolean:Z", Value.Unknown(VirtualType.of("Z")))
     }
 
     // ------------------------------------------------------------------------------------------

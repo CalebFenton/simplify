@@ -75,7 +75,7 @@ class CmpOpTest {
          */
         @Test
         fun aCmpDoubleOnConstWideLiteralBitsOrdersTheDoublesNotTheirBitPatterns() {
-            initial.setRegisters(0, -4611686018427387904L, "D", 2, -4607182418800017408L, "D")
+            initial.setRegisters(0, -4611686018427387904L, "J", 2, -4607182418800017408L, "J")
             expected.setRegisters(0, 1, "I")
             CoreTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }
@@ -151,6 +151,22 @@ class CmpOpTest {
             initial.setRegisters(0, 0.5f, "D", 2, CoreState.UNKNOWN, "D")
             expected.setRegisters(0, CoreState.UNKNOWN, "I")
             CoreTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
+        }
+
+        /**
+         * [BC] `cmpkind` answers 0 when `b == c`, and ART's `HandleCmpl`/`HandleCmpg` test that with IEEE-754
+         * `==`, under which `-0.0 == 0.0`. A total-order compare (`Double.compare`) answers -1/1 here and
+         * folds the following `if-*` to the wrong arm.
+         */
+        @Test
+        fun signedZerosCompareEqualUnderBothBiases() {
+            for (method in listOf("cmplDouble()V", "cmpgDouble()V")) {
+                for ((lhs, rhs) in listOf(-0.0 to 0.0, 0.0 to -0.0)) {
+                    val initial = CoreState().apply { setRegisters(0, lhs, "D", 2, rhs, "D") }
+                    val expected = CoreState().apply { setRegisters(0, 0, "I") }
+                    CoreTester.test(Companion.CLASS_NAME, method, initial, expected)
+                }
+            }
         }
 
         @BeforeEach
@@ -251,6 +267,18 @@ class CmpOpTest {
             CoreTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
         }
 
+        /** The float twin of `CmpDouble.signedZerosCompareEqualUnderBothBiases`: IEEE `-0.0f == 0.0f`. */
+        @Test
+        fun signedZerosCompareEqualUnderBothBiases() {
+            for (method in listOf("cmplFloat()V", "cmpgFloat()V")) {
+                for ((lhs, rhs) in listOf(-0.0f to 0.0f, 0.0f to -0.0f)) {
+                    val initial = CoreState().apply { setRegisters(0, lhs, "F", 1, rhs, "F") }
+                    val expected = CoreState().apply { setRegisters(0, 0, "I") }
+                    CoreTester.test(CLASS_NAME, method, initial, expected)
+                }
+            }
+        }
+
         @BeforeEach
         fun setUp() {
             expected = CoreState()
@@ -306,21 +334,9 @@ class CmpOpTest {
         }
 
         /**
-         * `cmp-long` reading a register whose raw is a genuinely-computed `Float` -- a fourth op family
-         * with the same cross-domain read, and one nothing in the repository had named: the carry-forward
-         * register's site list covered `BinaryMathOp` and `UnaryMathOp` only, and only their
-         * `Coerce.toInt` reads.
-         *
-         * Bug class: a confidently wrong `Known`, and this one is a *comparison*, so the wrong constant
-         * feeds straight into the `if-*` that follows it -- the fold a deobfuscator acts on. Oracle:
-         * Dalvik reads v0/v1 as 64 bits, which for a 32-bit `Float` raw depends on a register this op does
-         * not read, so the honest answer is that it cannot be determined. `Coerce.toLong(5.9f)` was `5L`,
-         * so this op answered a definite `Known(-1)` (5 < 7).
-         *
-         * Which SIDE of the soundness line: `cmp-long` has exactly one successor, so nothing is explored
-         * more or less; the loss is a fold the engine was not entitled to make. The *downstream* `if-*`
-         * that reads an `Unknown(I)` will fork both arms, which is spec §2.2's "explore more" and is the
-         * correct direction for an unprovable predicate.
+         * `cmp-long` reads v0/v1 as 64 bits; a computed `Float` in v0 supplies 32 of them and the rest is v1,
+         * which the engine does not hold, so the comparison is `Unknown(I)` and the following `if-*` forks.
+         * A value conversion would read 5 and answer a definite -1.
          */
         @Test
         fun aCmpLongReadingAComputedFloatRawIsNotProvable() {

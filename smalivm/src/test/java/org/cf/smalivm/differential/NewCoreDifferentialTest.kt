@@ -33,7 +33,7 @@ class NewCoreDifferentialTest {
             "spine-nop-then-const" to mapOf(0 to int("42")),
             "spine-goto-skip" to mapOf(0 to int("1")),
             "spine-move-chain" to mapOf(0 to int("9"), 1 to int("9"), 2 to int("9")),
-            "spine-return-wide" to mapOf(0 to known("D", "4886718345")),
+            "spine-return-wide" to mapOf(0 to known("J", "4886718345")),
             "spine-return-string" to mapOf(0 to known("Ljava/lang/String;", "spine")),
             "spine-instance-wide-params" to mapOf(
                 0 to int("7"), 3 to unknown("Lspine/spine;"), 4 to unknown("J"), 5 to absent,
@@ -285,7 +285,7 @@ class NewCoreDifferentialTest {
     fun typeTagsAreProjectedVerbatimFromTheDescriptor() {
 
         val expected = mapOf(
-            "returnWide()J" to NormalizedValue(ValueKind.KNOWN, "D", "4886718345"),
+            "returnWide()J" to NormalizedValue(ValueKind.KNOWN, "J", "4886718345"),
             "returnWideSixteen()J" to NormalizedValue(ValueKind.KNOWN, "J", "42"),
             "returnWideThirtyTwo()J" to NormalizedValue(ValueKind.KNOWN, "J", "1800000"),
             "returnWideHighSixteen()J" to NormalizedValue(ValueKind.KNOWN, "J", "4774378554966147072"),
@@ -545,21 +545,6 @@ class NewCoreDifferentialTest {
             "a primitive-written element register contributes Dalvik's null, not its raw",
         )
 
-    }
-
-    @Test
-    fun aComputedFloatIsNotNarrowedByValueWhenReadAsIntegralBits() {
-        val fixture = Fixtures.regressions
-            .first { it.fixture.id == "unary-int-to-float-computed-float-raw" }.fixture
-
-        assertEquals(
-            NormalizedValue(ValueKind.UNKNOWN, "F", null),
-            NEW_CORE.run(fixture).registers[0],
-            "the core must refuse -- and refuse as `F`, the destination type the mnemonic names, not as " +
-                "the source register's tag",
-        )
-
-        assertEquals(1086115021, java.lang.Float.floatToRawIntBits(5.9f), "the bits a device reads")
     }
 
     @Test

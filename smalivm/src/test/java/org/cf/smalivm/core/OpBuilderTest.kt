@@ -116,18 +116,10 @@ class OpBuilderTest {
     }
 
     @Test
-    fun constantTypeTagsMirrorTheOracleConstOp() {
-        // Bug class (the one Task 9 pays for): the differential compares NormalizedValue.type
-        // verbatim, so a const whose declared type string differs from the old engine's reports
-        // drift on every later run -- noise indistinguishable from a real engine divergence.
-        // Oracle: the old engine's own source, smalivm/src/main/java/org/cf/smalivm/opcode/ConstOp.kt
-        // `constantTypeString` (lines 89-100) resolved through dex/CommonTypes.kt:
-        //   NARROW -> CommonTypes.INTEGER = "I"                     (ConstOp.kt:91,  CommonTypes.kt:12)
-        //   STRING -> CommonTypes.STRING  = "Ljava/lang/String;"    (ConstOp.kt:92,  CommonTypes.kt:5)
-        //   WIDE   -> "D" when the mnemonic is exactly "const-wide" (ConstOp.kt:94-95, CommonTypes.kt:10)
-        //             "J" for every sized wide form                 (ConstOp.kt:96-97, CommonTypes.kt:11)
-        // The D/J split is deliberate in the oracle and easy to "simplify" away, which is why both
-        // sides are pinned here.
+    fun constantFormsDecodeTheirLiteralUnderTheirWidthTag() {
+        // Dalvik's const opcodes say only a literal's width: one narrow form serves int/char/byte/short/float
+        // and one wide form serves long/double. So every narrow form is tagged I and every wide form J, and
+        // readers that need a float or double read the bits through `Coerce`.
         //
         // Every case asserts the whole Value, raw included, because the raw is where a decode slip
         // shows up: dexlib's NarrowLiteralInstruction *extends* WideLiteralInstruction, so a wide
@@ -149,8 +141,7 @@ class OpBuilderTest {
             constantAt("returnString()Ljava/lang/String;", 0), "const-string",
         )
         assertEquals(
-            Value.Known(0x123456789L, VirtualType.of("D")), constantAt("returnWide()J", 0),
-            "the plain const-wide form is tagged D, even in a method returning J",
+            Value.Known(0x123456789L, long), constantAt("returnWide()J", 0), "const-wide is tagged J",
         )
         assertEquals(
             Value.Known(0x2aL, long), constantAt("returnWideSixteen()J", 0), "const-wide/16 is tagged J",

@@ -74,6 +74,21 @@
     return-void
 .end method
 
+# One 64-bit literal written by two wide const forms on two paths that meet at the return.
+.method public static wideFormsOfOneLiteral(I)J
+    .locals 2
+
+    if-eqz p0, :sized
+    const-wide v0, 0x5L
+    goto :done
+
+    :sized
+    const-wide/16 v0, 0x5
+
+    :done
+    return-wide v0
+.end method
+
 .method public static constString()V
     .locals 1
 

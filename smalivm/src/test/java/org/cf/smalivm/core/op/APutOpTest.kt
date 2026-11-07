@@ -845,94 +845,37 @@ class APutOpTest {
     }
 
     /**
-     * **THE COERCION DECISION, made once here for `aget` and `aput` together** (Task 7 pinned the question
-     * and deliberately declined to answer it alone; `AGetOpTest.aFloatIndexIsNotProvableRatherThanTruncatedByValue`
-     * is this test's twin, and `Coerce.toArrayIndex` is the one implementation both call).
-     *
-     * An index register holding `Known(1.9f, "F")` is **not provable as an index**. The rejected
-     * alternative was `Coerce.toInt`, which is `is Number -> raw.toInt()` and therefore truncates BY VALUE:
-     * `1.9f` would become a definite 1, the store would take the in-range row, and no bounds exception
-     * would fork.
-     *
-     * **VERIFIER -> engine's choice**, so spec §2.2 decides it. No verified dex puts a float in an index
-     * register ([CON] B1; [ART] `VerifyAGet`/`VerifyAPut`), and on unverified input ART reads the register's
-     * 32 BITS as an int -- `1.9f` is `0x3FF33333`, i.e. 1072902963, not 1 -- so truncating by value both
-     * INVENTS a constant no runtime produces and DROPS the feasible bounds exception, which is the worst
-     * outcome this engine has. Answering "not provable" invents nothing and explores more.
-     *
-     * The boundary is exactly `Float`/`Double`, and that is not arbitrary: for a `Byte`/`Short`/`Int`/`Long`/
-     * `Char`/`Boolean` raw, `Coerce.toInt`'s answer IS the register's low 32 bits, so nothing is being
-     * reinterpreted -- it is the same boundary `isDalvikNull` draws from [JLS] §4.2, with `Boolean`/`Char`
-     * admitted because Dalvik genuinely represents them as integer literals.
+     * The `aput` twin of `AGetOpTest.aFloatIndexIsReadByItsBits`: `1.9f` is `0x3FF33333`, i.e. 1072902963, out
+     * of bounds for a 2-element array, so the store definitely throws and no slot changes. A value conversion
+     * would store into index 1. **VERIFIER**-excluded input ([CON] B1; [ART] `VerifyAPut`).
      */
     @Test
-    fun aFloatIndexIsNotProvableRatherThanTruncatedByValue() {
+    fun aFloatIndexIsReadByItsBits() {
         val graph = CoreTester.execute(CLASS_NAME, "put()V", CoreState().apply {
             setRegisters(0, intArrayOf(1, 7), "[I", 1, 1.9f, "F", 2, 7, "I")
         })
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(
-            listOf("Ljava/lang/ArrayIndexOutOfBoundsException;"), CoreTester.escapingTypes(graph),
-            "an unprovable index forks the bounds exception; a truncated-by-value 1 would fork nothing",
-        )
-        val trusted = graph.trusted()
-        assertNotNull(trusted, "the forked bounds exception is an outcome, not a truncation")
-        val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
-        assertEquals(
-            Value.Unknown(INT), array.element(0),
-            "every element joins with the stored value, so slot 0 goes Unknown -- a truncated 1.9f would have left it Known(1)",
-        )
-        assertEquals(Value.Known(7, INT), array.element(1), "and the slot that already held 7 stays Known")
+        assertEquals(listOf("Ljava/lang/ArrayIndexOutOfBoundsException;"), CoreTester.escapingTypes(graph))
+        assertEquals(1, graph.outcomes.size, "index 1072902963 is definitely out of bounds: $graph")
     }
 
     /**
-     * **The VALUE half of the boundary the test above draws for the INDEX**, decided the same way and by the
-     * same function (`Coerce.toProvableInt`, which `toArrayIndex` now delegates to).
-     *
-     * `aput-byte` of a register holding `Known(5.9f, "F")` stores `Unknown(B)`. The rejected alternative was
-     * `Coerce.toInt`, which truncates BY VALUE and made the stored element a *definite* `Known(5, B)` -- while
-     * a device reads the register's 32 BITS (`5.9f` is `0x40BCCCCD`, i.e. 1086115021) and stores its low byte,
-     * `0xCD`, i.e. -51. A confident wrong `Known` in an array slot is worse than a wrong register: every later
-     * `aget-byte` copies it out verbatim, and constant propagation folds it into rewritten code.
-     *
-     * **VERIFIER -> engine's choice** -- an int-like `aput` requires an int-like value register ([CON] B1;
-     * [ART] `VerifyAPut`, registry section `#aget--aput-ops-4451-23x`) -- so there is no Dalvik behaviour to
-     * match and spec §2.2 decides it: answer `Unknown`, invent nothing. `Unknown(component)` rather than the
-     * raw stored verbatim, because that is what [FilledNewArrayOp]'s `stored` already does with a refused
-     * element and because `Known(5.9f, "B")` would be a fresh violation of `Value.agreesWith`'s precondition
-     * (a `Float` raw under a `B` tag) -- see `coerce`'s KDoc for the two that are already disclosed.
-     *
-     * **`aput` and `aput-wide` are deliberately UNAFFECTED, which is why the refusal is keyed to the suffix**:
-     * those two pass the raw through untouched, so a `Float`/`Double` raw is ordinary input there rather than a
-     * cross-domain read. [canPutWideWithFloat] and [canPutWideWithDouble] are the pins that go red the moment
-     * this refusal is widened to every suffix.
-     *
-     * The effect level is asserted because the fix moves a VALUE and must not move an EFFECT: the store still
-     * lands in a tracked slot at a provable index, so the heap models it exactly and the method stays foldable
-     * (`aProvableStoreIntoATrackedArrayDeclaresAnObservableWeakEffect` is the same claim on a provable value).
+     * `aput-byte` of a register holding a computed `Float` stores the low byte of its 32 bits: `5.9f` is
+     * `0x40BCCCCD`, so the slot holds `0xCD`, i.e. -51. A value conversion would store 5. **VERIFIER**-excluded
+     * input ([CON] B1; [ART] `VerifyAPut`). The effect level is asserted because the value changes and the
+     * effect must not: the store lands in a tracked slot at a provable index.
      */
     @Test
-    fun aFloatValueIsNotProvableRatherThanTruncatedByValue() {
+    fun aFloatValueStoresTheLowByteOfItsBits() {
         initial.setRegisters(0, ByteArray(1), "[B", 1, 0, "I", 2, 5.9f, "F")
         val graph = CoreTester.execute(CLASS_NAME, "putByte()V", initial)
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertTrue(
-            graph.outcomes.filterIsInstance<Outcome.Threw>().isEmpty(),
-            "an unprovable VALUE is not an unprovable array or index: nothing here may throw",
-        )
         val trusted = graph.trusted()
         assertNotNull(trusted, "nothing threw, so every path returns")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
         val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
-        assertEquals(
-            Value.Unknown(BYTE), array.element(0),
-            "a truncated-by-value 5.9f would have stored a definite Known(5, B)",
-        )
-        assertEquals(
-            SideEffectLevel.WEAK, graph.sideEffectLevel(0),
-            "the heap models the store, but an alias can observe it",
-        )
+        assertEquals(Value.Known((-51).toByte(), BYTE), array.element(0))
+        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0), "the heap models the store, but an alias can observe it")
     }
 
     // ------------------------------------------------------------------------------------------

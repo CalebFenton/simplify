@@ -21,6 +21,23 @@ class IPutOpTest {
         CoreTester.assertReturns("Liget_test;", "putThenGetInt()I", Value.Known(0x42, type("I")), register = 2)
     }
 
+    /**
+     * The instance-field twin of `SPutOpTest.aNarrowStoreKeepsOnlyItsFieldsWidth`, read back through the
+     * matching `iget-*`: ART's `GetFieldValue` casts the 32-bit register to the field's width before storing.
+     */
+    @Test
+    fun aNarrowStoreKeepsOnlyItsFieldsWidth() {
+        fun assertReadsBack(method: String, written: Int, stored: Value) = CoreTester.assertReturns(
+            "Lifield_forms_test;", method, stored, register = 1,
+            initialRegisters = mapOf(2 to Value.Known(written, type("I"))),
+        )
+        assertReadsBack("putByte(B)B", 0x1ff, Value.Known((-1).toByte(), type("B")))
+        assertReadsBack("putShort(S)S", 0x18000, Value.Known((-32768).toShort(), type("S")))
+        assertReadsBack("putChar(C)C", 0x10041, Value.Known('A', type("C")))
+        assertReadsBack("putBoolean(Z)Z", 0x101, Value.Known(true, type("Z")))
+        assertReadsBack("putBoolean(Z)Z", 2, Value.Unknown(type("Z")))
+    }
+
     @Test
     fun aliasesShareOneFieldCell() {
         CoreTester.assertReturns(

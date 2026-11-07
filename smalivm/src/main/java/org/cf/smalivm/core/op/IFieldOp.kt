@@ -1,5 +1,6 @@
 package org.cf.smalivm.core.op
 
+import org.cf.smalivm.core.Coerce
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.InstanceFieldLookup
@@ -82,8 +83,7 @@ internal class IGetOp(
  * rows are **VERIFIER-tier design choices under spec 2.2**, not runtime claims: no guest exception is
  * invented, but an unrecorded write must err upward (`Frame.recordSideEffect`'s contract).
  *
- * Primitive values are stored verbatim. This deliberately inherits Task 18's open narrowing scope:
- * `iput-byte`/`iput-char`/`iput-short` do not narrow until one field-wide store/read policy is chosen.
+ * A `-boolean`/`-byte`/`-char`/`-short` store keeps only its field's width ([Coerce.narrowStore]).
  */
 internal class IPutOp(
     address: Int,
@@ -113,7 +113,7 @@ internal class IPutOp(
         val stored = if (storesAReference && value.readsAsNullReference) {
             Value.Known(null, resolved.type)
         } else {
-            value
+            Coerce.narrowStore(value, resolved.type)
         }
         val ref = receiver.raw as? HeapRef
         val update = if (ref != null && frame.getField(ref, resolved.descriptor) !== Value.Top) {

@@ -343,45 +343,15 @@ class UnaryMathOpTest {
         }
 
         /**
-         * `int-to-float` reading a register whose raw is a genuinely-computed `Float`, i.e. a read at
-         * the `I` domain's width of bits that hold an IEEE-754 value. The answer is `Unknown(F)`, not a
-         * value.
-         *
-         * Bug class: a confidently wrong `Known`, which is what constant propagation folds into
-         * rewritten bytecode. Oracle: Dalvik, not engine output. `int-to-float` reads v0's **32 bits**
-         * as a signed int and converts *that*; `5.9f`'s bit pattern is `0x40BCCCCD`, i.e. 1086115021,
-         * so a device answers **`1.0861151E9f`** (`(float) 1086115021`, whose exact value is
-         * `1086115072.0f`). `Coerce.toInt(5.9f)` instead performed a [JLS] §5.1.3 narrowing conversion
-         * -- round toward zero -- and this op answered a definite `Known(5.0f)`. The two numbers are
-         * unrelated, and the engine's was not marked as a guess.
-         *
-         * **What this test pins is the SAFE answer, not the precise one, and round 1 of the review
-         * corrected the reasoning here.** An earlier revision said the engine "has no bit view of a
-         * register (spec §3 declines to pay for one)" and that reopening the migrated corpus made the
-         * bit-exact read too expensive. Both are false: `Float.floatToRawIntBits(5.9f)` IS 1086115021,
-         * and making this read bit-exact moves **zero** migrated expectations (measured). So `Unknown`
-         * here is a deliberate precision loss with a named blocker in `Coerce.toInt`'s KDoc -- not the
-         * only available answer. Which SIDE of the soundness line: a single-successor op, so the same
-         * one path is explored either way; the trade is a wrong constant for no constant, where a right
-         * constant is reachable.
-         *
-         * **No differential could have found this**: the oracle narrows identically, through
-         * `Value.toInteger` -> `Utils.getIntegerValue` -> `castToPrimitive` -> `intValue()`
-         * (`opcode/UnaryMathOp.kt`'s `perform`, the `opName.startsWith("int")` branch), so both engines
-         * answer `Known(5.0f)` and agree while both are wrong. Registered as
-         * `unary-int-to-float-computed-float-raw` in `Fixtures.intendedDivergences` now that the core's
-         * answer differs.
-         *
-         * Reachable with this build's opcode set: `int-to-float v0, v1` or `div-float` leaves a computed
-         * `Float` raw in a register, and any `int-*` op reading it arrives here. Seeded rather than
-         * fixture-driven because the seed states the same register contents more directly, and because
-         * v0's own tag is `F` while `int-to-float`'s source domain is `I` -- which is the cross-domain
-         * read itself.
+         * `int-to-float` reading a register whose raw is a computed `Float` reads the register's 32 bits as
+         * an int and converts that. `5.9f`'s bit pattern is `0x40BCCCCD`, i.e. 1086115021, so a device answers
+         * `(float) 1086115021`. A [JLS] §5.1.3 value conversion of the raw would answer `5.0f`, a constant
+         * no runtime produces.
          */
         @Test
-        fun anIntToFloatReadingAComputedFloatRawIsNotProvableRatherThanTruncatedByValue() {
+        fun anIntToFloatReadingAComputedFloatRawConvertsItsBits() {
             initial.setRegisters(0, 5.9f, "F")
-            expected.setRegisters(0, CoreState.UNKNOWN, "F")
+            expected.setRegisters(0, 1086115021.toFloat(), "F")
             CoreTester.test(CLASS_NAME, "intToFloat()V", initial, expected)
         }
 
@@ -536,30 +506,13 @@ class UnaryMathOpTest {
         }
 
         /**
-         * The `J`-width half of
-         * [IntValue.anIntToFloatReadingAComputedFloatRawIsNotProvableRatherThanTruncatedByValue], and it
-         * is a **separate claim** rather than a second example: `long-to-int` reads through
-         * `Coerce.toLong`, not `Coerce.toInt`, so a refusal that covers only the 32-bit read leaves the
-         * whole `J` domain answering confidently. Nothing in the repository named the `toLong` sites
-         * before this task -- neither the carry-forward register nor any review -- and the defect there
-         * is identical.
-         *
-         * Oracle: Dalvik reads v0/v1 as 64 bits and truncates the low 32
-         * (`opcode/UnaryMathOp.kt`'s `opName.startsWith("long")` branch does `value.toLong().toInt()`);
-         * `5.9`'s bit pattern is **`0x401799999999999A`** (= 4618328827877759386), whose low half is
-         * **`0x9999999A`, i.e. -1717986918** as a signed int. `Coerce.toLong(5.9)` was `5L` -- via its
-         * `Coerce.toInt` gate, then `raw.toLong()` -- so this op answered a definite `Known(5)`.
-         *
-         * **Round 1 correction: the hex an earlier revision gave here, `0x4017AE147AE147AE`, is the bit
-         * pattern of 5.92, not 5.9, and its low half 2061584302 was wrong with it.** Recomputed from
-         * `Double.doubleToRawLongBits` on a live JVM. Same standing as its sibling: a single-successor
-         * op, so this is a deliberate precision loss rather than the only sound answer -- see
-         * `Coerce.toInt`'s KDoc for the price and the blocker.
+         * `long-to-int` reads the pair's 64 bits and keeps the low 32. `5.9`'s bit pattern is
+         * `0x401799999999999A`, whose low word `0x9999999A` is -1717986918; a value conversion would answer 5.
          */
         @Test
-        fun aLongToIntReadingAComputedDoubleRawIsNotProvableRatherThanTruncatedByValue() {
+        fun aLongToIntReadingAComputedDoubleRawTruncatesItsBits() {
             initial.setRegisters(0, 5.9, "D")
-            expected.setRegisters(0, CoreState.UNKNOWN, "I")
+            expected.setRegisters(0, 0x9999999A.toInt(), "I")
             CoreTester.test(CLASS_NAME, "longToInt()V", initial, expected)
         }
 

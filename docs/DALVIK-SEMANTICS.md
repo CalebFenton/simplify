@@ -284,170 +284,37 @@ Two consequences that have each cost a plan real time:
 
 ## Coercion (`core/Coerce.kt`)
 
-**ORACLE** (`org/cf/util/Utils.java:56-104` `castToPrimitive`, reached via `getIntegerValue` /
-`getLongValue` / `getFloatValue` / `getDoubleValue` at `:128-174`).
+A register holds one of eight boxes: `Byte`, `Short`, `Int`, `Char`, `Boolean` (Dalvik's 1/0) or `Float` for a
+32-bit register, `Long` or `Double` for a pair. Dalvik's tags are ambiguous — one `const` serves
+int/char/byte/short/float, one `const-wide` serves long/double — so any opcode may read any box. Each reader
+answers what a device reads: **the register's bits at the reader's width.** A read answers null only when the
+engine does not hold all the bits, and the caller writes `Value.Unknown(resultType)`.
 
-| raw is | → Int | → Long | → Float | → Double |
-|---|---|---|---|---|
-| `Number` | `intValue()` | `longValue()` | `floatValue()` | `doubleValue()` |
-| `Boolean` | `1`/`0` | `1L`/`0L` | `1f`/`0f` | `1.0`/`0.0` |
-| `Character` | its code point | code point as Long | as Float | as Double |
-| anything else (incl. `null`) | **not coercible** | | | |
-
-**Deliberate divergence from ORACLE.** The oracle returns a non-numeric value *unchanged* and then
-fails the `(Integer)` cast at the call site — a host `ClassCastException`, which this core's boundary
-would turn into `Aborted(HOST_FAILURE)`. The core answers `Value.Unknown(resultType)` instead: "cannot
-compute this" is what the lattice is for, it keeps the path exploring, and it never invents a constant.
-
-> **NOT registered, and the sentence that said it was has been retired.** This bullet used to end
-> *"Registered as `NEW_CORE_MORE_SOUND`"*. **`NEW_CORE_MORE_SOUND` is not a `DivergenceShape` case** —
-> the enum is `ORACLE_RAISES`, `ORACLE_HIDES_TRUNCATION`, `ORACLE_MISJUDGES_FEASIBILITY`,
-> `NEW_CORE_CORRECTS_EXCEPTION_TYPE`, `NEW_CORE_MORE_PRECISE`, `NEW_CORE_BOUNDED_SCOPE`
-> (`differential/Fixtures.kt:848-981`), and the name appears there only in two KDocs *reserving* it. Worse,
-> the sentence attached the reserved name to the **wrong** divergence: what the paragraph above describes
-> is the *non-numeric raw* case, and there are **three** distinct observables here, which is why one name
-> could never have covered them. Settled in Plan 8 Task 1 so Task 3 Step 4 can proceed:
->
-> | Observable | Correct shape |
-> |---|---|
-> | **non-numeric raw** (the paragraph above): oracle raises a host `ClassCastException` out of `run`, core answers `Unknown` | **`ORACLE_RAISES`** — verbatim its KDoc, *"The oracle throws a host exception out of `run`; the clean core produces a result"* (`Fixtures.kt:849-850`). Use this shape. |
-> | **`Float`/`Double` raw at an `if`/`switch`**: oracle folds a numeric compare and takes **one** successor, core forks **two** | **`ORACLE_MISJUDGES_FEASIBILITY`** with `oracleNeverExplores` naming the unexplored arm. The unsound direction — a feasible path left unexplored on a `Complete` run — and the existing shape already `require`s the address set. |
-> | **`Float`/`Double` raw in *arithmetic***: identical paths, oracle folds a wrong `Known`, core answers `Unknown` | **`NEW_CORE_MORE_SOUND`, created by Plan 8 Task 3** — the enum case and its value-based evidence field (`IntendedDivergence.coreDeclinesToFold`) now exist, and the entry is `unary-int-to-float-computed-float-raw`. `NEW_CORE_MORE_PRECISE` remains the wrong direction, and that is now *mechanically* enforced rather than merely stated: the two branches assert opposite polarities, so filing the entry under either one fails. |
->
-> The third row is **closed**: the divergence is registered, and the name that three documents had reserved
-> in prose is taken by the divergence it was reserved for. The reserving KDocs in `Fixtures.kt` are updated to
-> say the reservation is discharged.
-
-**`Coerce` has ONE contract, and the table above is the ORACLE table it started from rather than the core's
-own.** Every function answers *"what does this register hold, read at width W?"*, and *"not at that width"* is
-a legitimate answer, spelled null. The ORACLE table's `Number → intValue()` row therefore holds in the core
-**only for the raws whose bits and value agree** — see the divergence row below.
-
-An earlier revision of this section said `Coerce` had *two* contracts, a by-value [JLS] §5.1.3 conversion in
-`toInt`/`toLong` alongside a bit-reading one in `toProvableInt`. That was a true description of a **scope
-boundary**, not of a contract: Plan 7 could only afford to fix the four array readers, so it left the ten
-arithmetic ones on the narrowing answer. Plan 8 Task 3 removed the boundary after measuring that **no
-consumer of the narrowing answer exists** — all fourteen arithmetic reads want the register read, exactly as
-the five array reads do — so the rule now lives in `toInt`, once, and `toProvableInt` and `toArrayIndex` are
-one-line delegations that name the question for their callers:
-
-| raw is | `toInt` = `toProvableInt` = `toArrayIndex` | Tier |
+| Read | Answer | Null for |
 |---|---|---|
-| `Byte`/`Short`/`Int`/`Long`/`Char`/`Boolean` | the register's low 32 bits — nothing is reinterpreted, so this **is** the ORACLE answer | **ORACLE** parity (unchanged); the accepted set is [JLS] §4.2's integral types plus `Boolean`, which Dalvik represents as the integers 1/0 |
-| `Float`/`Double` | **not provable** (null) | **VERIFIER** → engine's choice, then **spec §2.2**. [CON] B1's general *"arguments… must always match the instruction"*, sharpened per site by [ART] `VerifyAGet`/`VerifyAPut` (index, stored value) and `VerifyFilledNewArray` (elements). **No [ART] symbol is claimed for `new-array`'s length** — there is no `VerifyNewArray` in ART, per the word-boundary grep recorded in the `filled-new-array` section |
-| anything else (incl. `null`) | not coercible — a different reason for the same null | — |
+| `toInt` (32b) | the register's 32 bits as a signed int: integral boxes truncate to their low 32 bits, `Char` its code point, `Boolean` 1/0, `Float` `floatToRawIntBits`, `Double` the low word of `doubleToRawLongBits` (the low register of the pair) | any other object |
+| `toLong` (64b) | `Long` itself, `Double` `doubleToRawLongBits` | a 32-bit box: the other half is `register + 1`, which the engine's one value per pair does not hold |
+| `toFloat` (32b) | `intBitsToFloat(toInt)`; a `Float` passes through | any other object |
+| `toDouble` (64b) | `longBitsToDouble(toLong)`; a `Double` passes through | a 32-bit box, as `toLong` |
 
-`toLong` inherits the `Float`/`Double` refusal through its `toInt` gate, deliberately, so the 64-bit read gets
-the 32-bit read's rule without a second copy of it. **`toFloat`/`toDouble` are NOT guarded**, and that is a
-scope statement rather than an omission — see the open item at the end of this section.
+So `2.9f` read as an index is `0x4039999A` = 1077516698, `-0.5f` read as a `new-array` length is
+`0xBF000000` = -1090519040, and `const v0, 0x3f800000` then `add-float` adds `1.0f`. A value conversion
+([JLS] §5.1.3) of the box would answer 2, 0 and 1.0653532E9 — constants no runtime produces. "Any other
+object" covers non-numeric raws and numeric boxes no register holds (`BigDecimal("7.9").toInt()` is 7).
 
-**Why the difference is not arbitrary.** `toInt` truncates by VALUE; a device reads the register's BITS.
-`2.9f` is `0x4039999A` = 1077516698, `-0.5f` is `0xBF000000` = -1090519040, `5.9f` is `0x40BCCCCD` =
-1086115021 — none of them 2, 0 or 5. Reading by value therefore invents a constant no runtime produces, and
-at two of the four array sites it also **drops a feasible throw**: an in-range truncated index forks no
-`ArrayIndexOutOfBoundsException`, and a `-0.5f` length truncated to `0` skips the negative-size row entirely
-and allocates a zero-length array on a run reporting `Complete`. All four array readers call
-`toProvableInt`; the arithmetic readers reach the same row through `toInt` itself, as of Plan 8 Task 3.
+**Divergence from ORACLE** (`org/cf/util/Utils.java:56-104` `castToPrimitive`): the oracle converted every
+`Number` by value and returned a non-numeric raw unchanged, failing the cast at the call site with a host
+`ClassCastException`. The core answers by bits, and `Unknown` where the oracle crashed
+(`binary-add-int-uncoercible-operand`, `cmp-float-uncoercible-operand`).
 
-### Numeric narrowing where Dalvik reinterprets bits — **soundness; CLOSED for the integral reads**
-
-**Measured — `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`** for the genuinely `D`-tagged, verifier-valid
-case — `double-to-int` on a real double: `NaN → 0`, `+Inf → 2147483647`, `-Inf → -2147483648`, a finite
+**Read by bits, convert by value.** `float-to-int` reads at float width and then converts the value it read,
+which is what the opcode does. **Measured — `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`** for
+`double-to-int` on a real double: `NaN → 0`, `+Inf → 2147483647`, `-Inf → -2147483648`, a finite
 `±(2^31 + k)` saturates to `Int.MAX`/`Int.MIN`, and `-0.5 → 0` (rounds toward zero). [JLS] §5.1.3
-corroborates. **SPEC:** Dalvik's `int-*` opcodes read a 32-bit register; when that register holds half of a
-double's bit pattern, the operation is a **bit reinterpretation**, not a conversion of the mathematical value
-— so the measured rule governs only the `double-to-int` conversion opcode, not a sub-word read of a wide raw.
+corroborates.
 
-These coincide for a `Long` raw — narrowing `Long → Int` *is* bit truncation — which is why Plan 4's
-width fix was sound. They do not coincide for `Float`/`Double`: `5.9.toInt() == 5`, while the low 32
-bits of `5.9`'s pattern read as a 2's-complement int is an unrelated large number.
-
-**Status: every INTEGRAL reader is guarded — nineteen call sites, ONE rule.** Plan 7's closeout closed the
-five array reads by lifting the row into `Coerce.toProvableInt`; Plan 8 Task 3 closed the fourteen arithmetic
-reads by moving that row one level down, into `Coerce.toInt` itself, which all nineteen already reached. The
-rule is keyed on the raw's **runtime type, not its tag**, and in `Coerce` the other mistake is **not
-constructible**: the function is handed a raw and never sees a tag, so it cannot misfire on the
-`Known(Long, "D")` `const-wide` quirk. `BinaryMathOp.knownDivisor`'s own local `Float`/`Double` key was
-**deleted** as a second spelling of one rule, after subsumption was established by measurement (removing it
-left 898 of 898 green, including both tests written for it) rather than by reading.
-
-**The fourteen arithmetic reads, re-derived rather than inherited.** The carry-forward register named six —
-`BinaryMathOp` and `UnaryMathOp`'s `Coerce.toInt` reads only. The full set is `UnaryMathOp` ×6 (`neg-int`,
-`not-int`, `int-to-*` and their `toLong` siblings), `BinaryMathOp` ×6 (the `I` and `J` domains, plus
-`knownDivisor`'s key at each width) and **`CmpOp` ×2** (`cmp-long`'s two operands). `CmpOp` was a fourth op
-family that no review or register entry had ever named, and the eight `toLong` sites were unnamed too.
-
-**Which side of the soundness line, per read, because over-refusal is graded equally.** Thirteen of the
-fourteen sit on ops with exactly ONE successor — `neg-int`, `not-int`, every `int-to-*`/`long-to-*`, both
-integral `BinaryMathOp` domains, `cmp-long` — so the refusal explores neither more nor fewer paths and gives
-up only a fold the engine was never entitled to make. The fourteenth, `BinaryMathOp.knownDivisor`, is the one
-**path** question, and there the refusal **adds** a transition: the narrowed answer had emitted `[Throw]`
-alone for every divisor with `0 < |x| < 1`, an unexplored feasible path on a run reporting `Complete`.
-
-**Narrowing `toInt` was the right one-liner, and the recorded reason not to do it was a measurement about
-TESTS, not about behavior.** Plan 7's close measured that the guard alone kills only `CoerceTest` pins, so
-nothing op-level would catch the change in either direction — which is an argument for writing the op-level
-tests first, and that is what Task 3 did. Re-measured at Task 3's baseline the count is **three, not two**
-(`everyNumberBoxCoercesThroughItsNumberConversion`, `narrowingTruncatesRatherThanSaturating`, and
-`aFloatingPointRawIsNotProvableAsAnIntEvenThoughItIsCoercible`, whose two `Coerce.toInt(5.9f)` rows Plan 7's
-closeout added *after* the "exactly two" measurement was recorded). With the op-level tests in place the same
-edit reverted kills **sixteen** tests across `UnaryMathOpTest`, `BinaryMathOpTest`, `CmpOpTest`, `CoerceTest`,
-all five array-op sites, and the differential registry. The `toLong` side effect the old warning treated as a
-hazard is the desired behavior — it is what guards the `J` domain — and `knownDivisor`'s guard going inert is
-why it was deleted rather than left as a duplicate.
-
-### 🔴 DESIGN REVERSAL — bit reinterpretation is IMPLEMENTED for the float and double reads
-
-**Why raw reads reinterpret bits.** The former choice to answer `Unknown` instead rested on three
-incorrect premises: that bit reads would change arithmetic expectations, that only verifier-rejected
-input required them, and that no raw bit view existed. The evidence below distinguishes the cases.
-
-| Premise | Verdict |
-|---|---|
-| *"Reopening all 156 arithmetic expectations"* | **FALSE, measured ZERO.** The bit-exact read moves no migrated expectation at all. The 156 tests seed a `Float` raw for a float-domain op and a `Double` raw for a double-domain op, which is the same-domain case a bit read passes through untouched. For `toFloat`/`toDouble` the total cost was **three** `CoerceTest` rows; for the (not yet taken) `toInt`/`toLong` half it is **thirteen**, all written by Plan 8 Task 3 itself. |
-| *"No fidelity target — verifier-rejected input only"* | **FALSE for the float and double reads, which is what makes them the more severe half.** `const v0, 0x3f800000` is how a float literal reaches a register and `const-wide v0, 0x4000000000000000` is how a double does; `core/Op.kt`'s `buildConst` stores them as `Known(1065353216, "I")` and `Known(4611686018427387904L, "D")`. So `add-float`/`add-double`/`neg-double` on **ordinary compiler output** were reading them by value. |
-| *"No bit view of a register; spec §3 declines to pay for one"* | **The first half is false and the second is a citation that does not exist.** `Float.intBitsToFloat` / `Double.longBitsToDouble` are pure JDK calls on a raw `Coerce` is handed in full. And spec §3's Non-goals section contains no claim about register bit views — the citation is deleted rather than hedged, at every site that carried it. |
-
-**What the by-value read was folding, on verifier-VALID dex.** Three constructions, each a confident `Known`:
-
-| Bytecode | By value (before) | A device |
-|---|---|---|
-| `const v0, 0x3f800000` then `add-float v1, v0, v0` | `Known(2.1307064E9, F)` | `2.0f` |
-| `const-wide v0, 0x4000000000000000` then `add-double v0, v0, v2` | `Known(9.223372036854776E18, D)` | `4.0` |
-| the same register, `neg-double v0, v0` | `Known(-4.611686018427388E18, D)` | `-2.0` |
-
-**The rule now, one sentence for all four readers.** A read at width W answers the register's W bits
-reinterpreted in W's domain, and answers null only when the engine does not hold all W bits.
-
-| Read | Answer | Refuses |
-|---|---|---|
-| `toInt` (32b) | the low 32 bits as a signed int | a `Float`/`Double` raw — **and that is now a known PRECISION LOSS, not the only sound answer**; see below |
-| `toLong` (64b) | the 64 bits as a signed long; a narrow *integral* raw sign-extends | a `Float`/`Double` raw — the only one of the four refusals that is a genuine absence is `Float` at 64 bits (32 of the bits are elsewhere); `Double` at 64 bits is exactly determinable and refused anyway, i.e. a precision loss |
-| `toFloat` (32b) | `intBitsToFloat(low 32 bits)`; a `Float` raw passes through | non-numeric only |
-| `toDouble` (64b) | `longBitsToDouble(64 bits)`; a `Double` raw passes through | **a narrow raw** — 32 of the 64 bits live in `register + 1`, which the call never sees, so answering would invent them |
-
-**Read by bits, convert by value — they are different steps and only the first changed.** `float-to-int`
-reads at float width (bits) and then truncates the value it read, which is genuinely what the opcode does.
-`int-to-float` never reaches `toFloat` at all. That is why no conversion expectation moved.
-
-**`toInt`/`toLong` still refuse a floating-point raw, and the honest label is precision loss.** The answer is
-available (`floatToRawIntBits(5.9f)` is exactly the 1086115021 a device reads), and the earlier claim that
-*"over-refusal cannot arise, there is no bit-exact answer to give up"* was false. The extension is measured
-cheap in test count (13 tests, zero migrated, differential agreement intact) but **not cheap in scope: 8 of
-the 13 predate Task 3**, five of them Plan 7's shipped array pins, so it would also reverse Plan 7's array
-fix -- `toProvableInt` delegates to `toInt`. Dated with `git log -S`; the earlier "all written by Task 3" was
-a count asserted as a measurement, the same defect class as the "156" figure above. It is additionally blocked
-by one measured unsoundness in the naive form: the fully symmetric rule refuses a 64-bit read of a NARROW raw, and
-`BinaryMathOp`'s `J` domain reads the shift DISTANCE of `shl-long`/`shr-long`/`ushr-long` through `toLong`
-even though Dalvik reads it as a 32-bit int (`BinaryMathOp.longResult`'s own comment: *"Long shifts take an
-int distance"*). That rule turns `binary-shl-long`'s `Known(8589934592)` into `Unknown(J)` and breaks
-`newCoreAgreesWithOracleOnEverySupportedFixture` — over-refusal on verifier-valid input, measured on the one
-fixture that exercises it. Clearing it needs `BinaryMathOp` to read that operand at its own width first.
-
-**Registry consequence of taking that step**, recorded so it is priced: `unary-int-to-float-computed-float-raw`
-stops being `NEW_CORE_MORE_SOUND` (oracle-`KNOWN`/core-`UNKNOWN`) and becomes a value *correction*, needing
-the field D9 also needs. The shape stays witnessed without one — `neg-double` on `Known(5, "I")` is a genuine
-refusal, because a 64-bit read of a narrow raw really has no answer.
+**A long shift's distance is one 32-bit register**, so `BinaryMathOp` reads it with `toInt`; reading it as a
+pair would answer null for every `I`-typed distance.
 
 ---
 
@@ -482,11 +349,9 @@ Unknown or uncoercible source → `Value.Unknown(resultType)`. **Never throws.**
 
 - Either operand unknown or uncoercible → `Value.Unknown(I)`.
 - Either operand NaN → `1` for `cmpg-*`, `-1` for `cmpl-*`.
-- Otherwise `Long.compare` / `Float.compare` / `Double.compare` on coerced operands.
-
-**Known imprecision, parity-preserving.** `Float.compare(-0.0f, 0.0f) == -1` (Java total ordering)
-where Dalvik's `cmpl-float` answers `0` (IEEE-754, where `-0.0 == 0.0`). Spec §3 lists negative-zero
-compare semantics as out of scope. Do not "fix" it into a fresh divergence from the oracle it matches.
+- Otherwise `Long.compare` for `cmp-long`, and IEEE-754 `>` / `==` / `<` for the float and double forms, so
+  `-0.0` and `0.0` compare equal — ART's `HandleCmpl`/`HandleCmpg` (`interpreter_switch_impl-inl.h`).
+  `Float.compare`/`Double.compare` are not this rule: they order `-0.0` below `0.0`.
 
 Do **not** port the oracle's two `assert(...)` lines (`CmpOp.kt:31-32`): Java asserts are off by
 default so they never ran, and coercion is what actually handles mixed operands. (Gradle's `Test` task
@@ -772,7 +637,7 @@ be an array type."*
 | negative size | `NegativeArraySizeException` | **INHERITED** — [JVMS] §6.5 `newarray`: *"If count is less than zero, newarray throws a NegativeArraySizeException"*; same for `anewarray` |
 | its **message** is the size in decimal | e.g. `"-1"` | **[ART]** — `runtime/common_throws.cc:389-392`, quoted verbatim below. Neither [BC] nor [JVMS] specifies any message, so this is the only source for it, and per [§Exception messages](#exception-messages-are-version-dependent--compare-types-not-strings) a message is never evidence of Dalvik fidelity — it is asserted only so it cannot drift silently |
 | size 0 | ordinary allocation, no special case | **UNSPECIFIED** anywhere as a special case — do not cite a sentence |
-| size register holding a `Float`/`Double` raw | **not provable**: no allocation, `Unknown([T)` in the destination, forked with a speculative `NegativeArraySizeException` that carries no message — the same row an unknown size takes, because an unprovable size may be negative | **VERIFIER** → engine's choice ([CON] B1; **no [ART] verifier symbol is claimed** — there is no `VerifyNewArray` in ART, per the two-verifier-functions note in the [`filled-new-array` section](#filled-new-array-op-24-35c-and-range-op-25-3rc)), then **spec §2.2**. Truncating by VALUE (`-0.5f` → `0`) would allocate a **zero-length array** where a device reads `0xBF000000` = -1090519040 and throws, so the length goes through `Coerce.toProvableInt` — see [§Coercion](#coercion-corecoercekt) |
+| size register holding a `Float`/`Double` raw | the register's 32 bits, as any length: `-0.5f` is `0xBF000000` = -1090519040, so the negative-size row above throws | **VERIFIER** → engine's choice ([CON] B1; **no [ART] verifier symbol is claimed** — there is no `VerifyNewArray` in ART, per the two-verifier-functions note in the [`filled-new-array` section](#filled-new-array-op-24-35c-and-range-op-25-3rc)); the read is [§Coercion](#coercion-corecoercekt)'s |
 | fresh element values | `0` / `\u0000` / **positive** zero / `false` / `null` | **Measured — `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`** for `F`/`D`: a fresh `float[]`/`double[]` element read back through `floatToRawIntBits`/`doubleToRawLongBits` is `0x0` — **positive** zero, never `0x80000000`/`0x8..0`. [JVMS] §6.5 (*"initialized to the default initial value"*) + §2.3/§2.4 corroborates |
 | component type unresolvable | a **linking error** per [JVMS] §5.4.3.1 — i.e. **`NoClassDefFoundError`**, an `Error` | *That* it is a linking error is **INHERITED** ([JVMS] §6.5 `anewarray`: *"During resolution of the symbolic reference to the class, array, or interface type, any of the exceptions documented in §5.4.3.1 can be thrown"*); *which* — `NoClassDefFoundError` — is now **measured — `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`** ([Resolution failure is one family](#resolution-failure-is-one-family-tiered-once)) |
 | dimensions ≥ 256 | rejected | **VERIFIER** — [CON] A19 |
@@ -3114,9 +2979,10 @@ the resolved cell has an unmodelled target and records `STRONG`. These malformed
 choices under spec 2.2**, not runtime claims; they continue without inventing a guest exception or field
 cell. `iput-object` applies the same reference coercion as `sput-object`.
 
-**Known inherited scope:** primitive `iput-byte`/`iput-char`/`iput-short` values are stored verbatim, matching
-Task 18's explicit `sput*` choice. A device narrows them. The coherent follow-up must choose one field-wide
-store/read narrowing policy; Task 19 does not add a second local policy.
+**Narrow stores:** `iput`/`sput` `-boolean`/`-byte`/`-char`/`-short` keep only the field's width, as ART's
+`GetFieldValue` casts the 32-bit register (`static_cast<uint8_t>`, `<int8_t>`, `<uint16_t>`, `<int16_t>`), so
+`sput-byte` of `0x100` stores `0`. A boolean byte other than 0 or 1 stores `Unknown(Z)`: a device keeps it, but
+the engine's `Boolean` raw cannot hold it (`Coerce.narrowStore`).
 
 ### Monitors
 

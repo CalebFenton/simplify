@@ -723,30 +723,11 @@ object Fixtures {
 
                 seededRegisters = mapOf(0 to (5.9f to "F")),
             ),
-            basis = "the register's bits and the host box's numeric value are different numbers for an " +
-                "IEEE-754 raw, so the oracle's Known(5.0f) is a constant no runtime produces and must not " +
-                "be matched. spec §2.2 makes an unfolded value Value.Unknown, and that is what the core " +
-                "answers. " +
-                "REVISED IN ROUND 1, and the revision matters because the earlier text overclaimed: this " +
-                "is the SAFE answer, not the only available one. The bit-exact answer IS available -- " +
-                "Float.floatToRawIntBits(5.9f) is exactly the 1086115021 a device reads -- so the core is " +
-                "declining a fold it could make, which is a precision loss rather than an impossibility. " +
-                "Two premises that used to justify the impossibility were measured false: `no bit view of " +
-                "a register` (a pure JDK call on a raw the engine holds) and `it would reopen all 156 " +
-                "migrated arithmetic expectations` (measured: ZERO move). Coerce.toFloat/toDouble were " +
-                "converted to the bit-exact read in round 1 for exactly that reason; Coerce.toInt was not, " +
-                "and Coerce.toInt's KDoc carries the price and the one measured blocker (shl-long's " +
-                "narrow distance operand, plus the fact that 8 of the 13 tests it moves predate Task 3 and " +
-                "five are Plan 7's array pins, so taking it reverses Plan 7's fix too). If that blocker is " +
-                "cleared this entry becomes a value CORRECTION rather than a refusal and must be re-shaped; " +
-                "this shape keeps its witness either way, because unary-neg-double-narrow-raw (fix round 2) " +
-                "is a FORCED refusal that no such change touches. " +
-                "The ONE read of the fourteen where the refusal is a PATH question is " +
-                "BinaryMathOp.knownDivisor, where it ADDS a transition -- unambiguously sound. " +
-                "Core-side pins: " +
-                "`core/op/UnaryMathOpTest.anIntToFloatReadingAComputedFloatRawIsNotProvableRatherThanTruncatedByValue` " +
-                "plus one per affected family in BinaryMathOpTest, CmpOpTest and CoerceTest",
-            registers = mapOf(0 to NormalizedValue(ValueKind.UNKNOWN, "F", null)),
+            basis = "int-to-float reads the source register's 32 bits and converts that int: 5.9f's bit pattern " +
+                "is 1086115021, so a device answers (float) 1086115021. The oracle converted the box's numeric " +
+                "value and answered 5.0f, a constant no runtime produces. " +
+                "Core-side pin: `core/op/UnaryMathOpTest.anIntToFloatReadingAComputedFloatRawConvertsItsBits`",
+            registers = mapOf(0 to NormalizedValue(ValueKind.KNOWN, "F", 1086115021.toFloat().toString())),
             escapes = emptySet(),
         ),
         CoreRegression(
@@ -762,10 +743,8 @@ object Fixtures {
                 "64 are in `register + 1`, `Coerce.toDouble` is handed only v0's raw, and " +
                 "`neg-double v0, v0` does not even declare v1 in registersRead -- so answering any number " +
                 "invents bits, which is what the oracle's -5.0 does. spec §2.2 makes an undeterminable " +
-                "value Value.Unknown. Contrast unary-int-to-float-computed-float-raw, where the bits ARE " +
-                "available and the core's Unknown is a labelled precision loss; the two entries share this " +
-                "shape for the same OBSERVABLE and differ in whether the refusal is forced, which is why " +
-                "each one's basis carries its own argument. Core-side pin: " +
+                "value Value.Unknown. Contrast unary-int-to-float-computed-float-raw, where the bits are " +
+                "available and the core reads them. Core-side pin: " +
                 "`core/op/UnaryMathOpTest.aNegDoubleReadingANarrowRawIsNotProvableBecauseTheHighHalfIsAnotherRegister`",
             registers = mapOf(0 to NormalizedValue(ValueKind.UNKNOWN, "D", null)),
             escapes = emptySet(),

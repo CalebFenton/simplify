@@ -1,5 +1,6 @@
 package org.cf.smalivm.core.op
 
+import org.cf.smalivm.core.Coerce
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.Op
 import org.cf.smalivm.core.OpArm
@@ -187,19 +188,15 @@ internal class SGetOp(
  * `UNSUPPORTED_OP`). A `sput` into a resolved field is modelled **exactly**: the cell is named, per path, and
  * readable. Declaring `STRONG` would stop every fold in the method for a write the engine tracks perfectly.
  *
- * **The value is stored VERBATIM except for the `-object` reference coercion, and both halves are decisions.**
+ * **The stored value is the register as the field's type reads it.**
  *  - `sput-object` reads its value register AS A REFERENCE, so [readsAsNullReference] makes a primitive-tagged
  *    register store `null` -- `aput-object`'s rule 1 at a different call site, gated on the mnemonic for the
  *    same reason (only the `-object` form's value operand sits in a reference context). Tiers are
  *    [SGetOp]'s table: zero corroborated by both interpreter tiers, a non-zero primitive **VERIFIER**. Without
  *    this row `sput-object v0` of `const/4 v0, 0x5` reports a non-null `Integer` to
  *    `terminatingStaticFieldConsensus`, which is a wrong answer to a public query rather than an imprecision.
- *  - **No primitive narrowing.** `sput-byte` of `0x100` stores `0x100`, where a device narrows to `0`. KNOWN
- *    and deliberately out of Task 18's scope: no migrated expectation reaches it (all seven `SPutOpTest` seeds
- *    are already correctly typed, so the seven port byte-identically either way), and the coherent alternative
- *    is not "add `aput`'s [APutOp.StoreKind] table here" but to decide once whether narrowing belongs on the
- *    STORE or on the READ (`sget-byte` of a wide cell). The asymmetry with [APutOp] -- which does coerce -- is
- *    real and is that `aput`'s corpus forced the question and this one does not. Plan 9's `iput` inherits it.
+ *  - `sput-boolean`/`-byte`/`-char`/`-short` keep only the field's width ([Coerce.narrowStore]), so
+ *    `sput-byte` of `0x100` stores `0`.
  */
 internal class SPutOp(
     address: Int,
@@ -208,11 +205,8 @@ internal class SPutOp(
     private val field: StaticFieldLookup,
     /**
      * True for `sput-object` alone -- the one form whose value operand sits in a reference context. Decoded
-     * from the opcode in `OpBuilder` per the ruling on `buildAPut`: a semantic fact the mnemonic carries is
-     * resolved once at decode time, never re-derived from `name.endsWith(...)` at execution time. A boolean
-     * rather than an [APutOp.StoreKind]-style enum because there is no table to fall through: this op
-     * distinguishes exactly one form from the other five and the other five are treated identically (see the
-     * class KDoc's no-narrowing row).
+     * from the opcode in `OpBuilder`: a semantic fact the mnemonic carries is resolved once at decode time,
+     * never re-derived from `name.endsWith(...)` at execution time.
      */
     private val storesAReference: Boolean,
 ) : Op(address) {
@@ -236,7 +230,11 @@ internal class SPutOp(
         preamble(frame, field)?.let { return it }
         val resolved = field as StaticFieldLookup.Resolved
         val value = frame.read(valueRegister)
-        val stored = if (storesAReference && value.readsAsNullReference) Value.Known(null, resolved.type) else value
+        val stored = if (storesAReference && value.readsAsNullReference) {
+            Value.Known(null, resolved.type)
+        } else {
+            Coerce.narrowStore(value, resolved.type)
+        }
         val update = OpUpdate.writeStatic(resolved.descriptor, stored)
             .then(OpUpdate.effect(SideEffectLevel.WEAK))
         return OpExecution.single(OpArm.Continue(update))
