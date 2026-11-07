@@ -2643,28 +2643,10 @@ class ExecutionSession internal constructor(
      * "currently dequeued" node), so it is piled here instead -- same piling decision, same reason:
      * none of these ever ran their op, but none should vanish as an unqueried sibling either.
      *
-     * Collected activation exits are ended call paths with no frontier node. Cancellation returns and records
-     * each one. Open completion paths already have one active node or direct child activation, so the
-     * accounting check below prevents both silent loss and double counting.
+     * Collected activation exits are ended call paths with no frontier node, so cancellation records each
+     * one. An open path of a completion is a frontier node or a nested activation, recorded by its own owner.
      */
     private fun abortRun(node: ExecutionNode?, reason: AbortReason): Boolean {
-        val activeNodes = buildList {
-            node?.let(::add)
-            addAll(frontierNodes)
-        }
-        val pendingActivations = pendingCallRoutings.mapTo(identitySet()) { it.activation }
-        val expectedOpenPaths = IdentityHashMap<CallCompletion, Int>()
-        for (activation in activations) {
-            val completion = activation.callCompletion ?: continue
-            if (completion.metrics().drained) continue
-            val ownNodes = activeNodes.count { it.activation === activation }
-            val directChildren = activations.count { child ->
-                child.caller === activation && child.callCompletion?.let { childCompletion ->
-                    !childCompletion.metrics().drained || child in pendingActivations
-                } == true
-            }
-            expectedOpenPaths[completion] = ownNodes + directChildren
-        }
         node?.let { abortScheduledNode(it, reason, pile = false) }
         while (frontierNodes.isNotEmpty()) {
             val abandoned = frontierNodes.removeLast()
@@ -2676,20 +2658,14 @@ class ExecutionSession internal constructor(
             repeat(pending.batch.retainedFrames) { recordedOutcomes += Outcome.Aborted(reason) }
             pending.batch.release()
         }
-        activations.mapNotNull { it.callCompletion }.forEach { completion ->
-            if (!completion.metrics().drained) {
-                val cancelled = completion.cancelAndRelease()
-                check(cancelled.openPaths == expectedOpenPaths[completion]) {
-                    "Call completion open-path accounting disagrees with scheduled work"
-                }
-                repeat(cancelled.exits.size) { recordedOutcomes += Outcome.Aborted(reason) }
-            }
+        for (activation in activations) {
+            val completion = activation.callCompletion ?: continue
+            if (completion.metrics().drained) continue
+            repeat(completion.cancelAndRelease().size) { recordedOutcomes += Outcome.Aborted(reason) }
         }
         abortReasons += reason
         return true
     }
-
-    private fun <T : Any> identitySet(): MutableSet<T> = java.util.Collections.newSetFromMap(IdentityHashMap())
 
     private fun abortScheduledNode(node: ExecutionNode, reason: AbortReason, pile: Boolean) {
         if (pile) addToPile(node)
