@@ -82,11 +82,9 @@ class CallCompletionTest {
             exits = listOf(retained),
         )
 
-        val cancelled = completion.cancelAndRelease()
+        val exits = completion.cancelAndRelease()
 
-        assertEquals(1, cancelled.openPaths)
-        assertEquals(1, cancelled.exits.size)
-        assertSame(retained, cancelled.exits.single())
+        assertSame(retained, exits.single())
         assertEquals(CallCompletionMetrics(0, 0, 0, drained = true), completion.metrics())
         assertThrows<IllegalStateException> { completion.replacePath(0) }
         assertThrows<IllegalStateException> { completion.drainIfComplete() }

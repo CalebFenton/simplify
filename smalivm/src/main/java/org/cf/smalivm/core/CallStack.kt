@@ -197,11 +197,6 @@ internal data class CallCompletionMetrics(
     val drained: Boolean,
 )
 
-internal class CancelledCallCompletion(
-    val openPaths: Int,
-    val exits: List<ActivationExit>,
-)
-
 /** One activation's path accounting and terminal votes. */
 internal class CallCompletion {
     private sealed interface State {
@@ -259,13 +254,12 @@ internal class CallCompletion {
         return batch
     }
 
-    /** Returns path accounting and retained exits, then releases the collector's storage. */
-    fun cancelAndRelease(): CancelledCallCompletion {
+    /** Returns the retained exits and releases the collector's storage. */
+    fun cancelAndRelease(): List<ActivationExit> {
         val collecting = state as? State.Collecting
             ?: error("Activation completion was released more than once")
-        val cancelled = CancelledCallCompletion(collecting.openPaths, collecting.exits.take())
         state = State.Released
-        return cancelled
+        return collecting.exits.take()
     }
 
     fun metrics(): CallCompletionMetrics = when (val current = state) {

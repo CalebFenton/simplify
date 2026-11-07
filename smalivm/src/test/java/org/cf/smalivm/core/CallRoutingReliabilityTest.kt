@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.assertThrows
 
 class CallRoutingReliabilityTest {
@@ -85,6 +86,23 @@ class CallRoutingReliabilityTest {
         val graph = session.run()
 
         assertPartialCollectionCancelled(session, graph, AbortReason.TIMEOUT)
+    }
+
+    @Test
+    @Timeout(value = 30, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    fun methodLimitCancelsManyOpenActivationsInOnePass() {
+        // Each recursion level is still open when the step limit fires, so cancellation must visit each
+        // completion once rather than rescan every activation per open completion.
+        val view = CoreTester.classIndex.requireMethodView("Lcalls/caller;", "callsRecursiveCallee()I")
+        val session = CoreTester.vmServices.newSession(view, Limits(maxCallDepth = 0, maxSteps = DEEP_STEPS))
+
+        val graph = session.run()
+
+        assertEquals(DEEP_STEPS, session.callStack.depth, "every step entered one more open activation")
+        assertEquals(CompletionStatus.Partial(setOf(AbortReason.METHOD_LIMIT)), graph.completion())
+        assertEquals(listOf(Outcome.Aborted(AbortReason.METHOD_LIMIT)), graph.outcomes)
+        assertEquals(0, session.callPropagationMetrics().openPaths)
+        assertTrue(session.isFinished)
     }
 
     private fun assertAbortedRouting(
@@ -175,5 +193,6 @@ class CallRoutingReliabilityTest {
 
     private companion object {
         const val OWNER = "Lexception_propagation_test;"
+        const val DEEP_STEPS = 200_000
     }
 }

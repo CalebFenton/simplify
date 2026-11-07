@@ -1,67 +1,64 @@
 package org.cf.smalivm.core
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 
 class OpaqueTrackedFieldTest {
     private val classIndex = CoreTester.classIndex
 
     @Test
-    fun oneOpaquePrivateFieldForksToExactReadAndIllegalAccessPaths() {
+    fun oneOpaquePrivateFieldForksAtItsReadToExactReadAndIllegalAccessPaths() {
         val graph = CoreTester.execute(UNRELATED.descriptor, "opaquePrivateStaticThenGet()I")
         val invoke = opaqueInvoke(graph, OPAQUE_ONE)
+        val ref = fieldRef(invoke.frame, 0)
+        val read = unknownRead(graph, ref)
 
-        assertEquals(2, invoke.children.size)
+        assertEquals(FieldAccessibility.UNKNOWN, invoke.children.single().frame.trackedFieldAt(ref)!!.accessibility)
+        assertEquals(
+            listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN),
+            read.children.map { it.frame.trackedFieldAt(ref)!!.accessibility },
+        )
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
     @Test
-    fun duplicateAliasesForkOnceAndKeepOneRefPerVariant() {
+    fun duplicateAliasesKeepOneRefAndForkOnceAtTheirRead() {
         val graph = CoreTester.execute(UNRELATED.descriptor, "opaqueDuplicateAliasesThenGet()I")
         val invoke = opaqueInvoke(graph, OPAQUE_ALIASES)
-        val originalRef = fieldRef(invoke.frame, 0)
-        val variants = invoke.children.map { child ->
-            val first = fieldRef(child.frame, 0)
-            val second = fieldRef(child.frame, 1)
-            assertEquals(originalRef, first)
-            assertEquals(first, second)
-            child.frame.trackedFieldAt(first)!!.accessibility
-        }
+        val ref = fieldRef(invoke.frame, 0)
+        val successor = invoke.children.single()
+        val read = unknownRead(graph, ref)
 
-        assertEquals(listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN), variants)
-        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, invoke.frame.trackedFieldAt(originalRef)!!.accessibility)
+        assertEquals(ref, fieldRef(successor.frame, 0))
+        assertEquals(ref, fieldRef(successor.frame, 1))
+        assertEquals(FieldAccessibility.UNKNOWN, successor.frame.trackedFieldAt(ref)!!.accessibility)
+        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, invoke.frame.trackedFieldAt(ref)!!.accessibility)
+        assertEquals(
+            listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN),
+            read.children.map { it.frame.trackedFieldAt(ref)!!.accessibility },
+        )
         assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
     @Test
-    fun twoReachableFieldsProduceFourDeterministicIndependentCombinations() {
+    fun unreadReachableFieldsBecomeUnknownWithoutForking() {
         val graph = CoreTester.execute(UNRELATED.descriptor, "opaqueTwoFields()V")
         val invoke = opaqueInvoke(graph, OPAQUE_TWO)
-        val firstRef = fieldRef(invoke.frame, 0)
-        val secondRef = fieldRef(invoke.frame, 1)
-        val combinations = invoke.children.map { child ->
-            assertEquals(firstRef, fieldRef(child.frame, 0))
-            assertEquals(secondRef, fieldRef(child.frame, 1))
-            child.frame.trackedFieldAt(firstRef)!!.accessibility to
-                child.frame.trackedFieldAt(secondRef)!!.accessibility
-        }
+        val refs = listOf(fieldRef(invoke.frame, 0), fieldRef(invoke.frame, 1))
+        val successor = invoke.children.single()
 
         assertEquals(
-            listOf(
-                FieldAccessibility.LANGUAGE_CHECKS to FieldAccessibility.LANGUAGE_CHECKS,
-                FieldAccessibility.LANGUAGE_CHECKS to FieldAccessibility.OVERRIDDEN,
-                FieldAccessibility.OVERRIDDEN to FieldAccessibility.LANGUAGE_CHECKS,
-                FieldAccessibility.OVERRIDDEN to FieldAccessibility.OVERRIDDEN,
-            ),
-            combinations,
+            listOf(FieldAccessibility.UNKNOWN, FieldAccessibility.UNKNOWN),
+            refs.map { successor.frame.trackedFieldAt(it)!!.accessibility },
         )
+        assertEquals(listOf<Value?>(null), returnedValues(graph))
     }
 
     @Test
@@ -75,17 +72,30 @@ class OpaqueTrackedFieldTest {
     }
 
     @Test
-    fun publicFieldBehaviorIsIdenticalAcrossOpaqueAccessibilityVariants() {
+    fun publicFieldReadsTheSameValueUnderEitherAccessibility() {
         val graph = CoreTester.execute(UNRELATED.descriptor, "opaquePublicStaticThenGet()I")
         val invoke = opaqueInvoke(graph, OPAQUE_ONE)
 
-        assertEquals(2, invoke.children.size)
+        assertEquals(1, invoke.children.size)
         assertEquals(listOf(Value.Known(0x10, INT), Value.Known(0x10, INT)), returnedValues(graph))
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph))
     }
 
     @Test
-    fun opaqueVariantsShareUnchangedStateAndApplyTheSameCollapseAndReturnBehavior() {
+    @Timeout(value = 60, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+    fun manyReachableFieldsDoNotMultiplyOpaqueSuccessors() {
+        // Forty fields reach the opaque call through one array; only the last one is read afterwards.
+        val graph = CoreTester.execute(UNRELATED.descriptor, "opaqueManyFieldsThenGet()I")
+        val invoke = opaqueInvoke(graph, OPAQUE_OBJECT)
+
+        assertEquals(1, invoke.children.size)
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
+        assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
+    }
+
+    @Test
+    fun opaqueSuccessorCollapsesReachableStateAndLeavesTheCallerFrameUnchanged() {
         val vm = VmServices(classIndex)
         val entry = view("opaqueMixedCall(Ljava/lang/reflect/Field;[ILorg/cf/smalivm/DummyClass;Ljava/lang/StringBuilder;)I")
         val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
@@ -104,37 +114,16 @@ class OpaqueTrackedFieldTest {
 
         val graph = session.run()
         val invoke = opaqueInvoke(graph, OPAQUE_MIXED)
-        val variants = invoke.children
+        val child = invoke.children.single()
 
-        assertEquals(2, variants.size)
-        assertEquals(listOf(Value.Unknown(INT), Value.Unknown(INT)), returnedValues(graph))
+        assertEquals(listOf(Value.Unknown(INT)), returnedValues(graph))
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertTrue(invoke.invocationDiagnostic?.isNotBlank() == true)
-        for (child in variants) {
-            assertEquals(Value.Unknown(INT), child.frame.arrayAt(arrayRef)!!.element(0))
-            assertEquals(Value.Unknown(INT), child.frame.getField(objectRef, PUBLIC_INSTANCE))
-            assertTrue((child.frame.heapObject(hostRef) as HeapObject.HostObject).contents == HostGraphContents.Unknown)
-            assertNull(child.frame.hostObjectAt(hostRef))
-            assertTrue(child.frame.trackedFieldAt(fieldRef)!!.accessibility != FieldAccessibility.UNKNOWN)
-        }
-
-        val first = variants[0].frame.stateSharingSnapshot()
-        val second = variants[1].frame.stateSharingSnapshot()
-        assertSame(first.registerRoot, second.registerRoot)
-        assertSame(first.assignedRoot, second.assignedRoot)
-        assertSame(first.readRoot, second.readRoot)
-        assertSame(first.classStateRoot, second.classStateRoot)
-        assertSame(first.staticRoot, second.staticRoot)
-        assertSame(first.hostGraphRoot, second.hostGraphRoot)
-        assertNotSame(first.heapRoot, second.heapRoot)
-        assertSame(
-            variants[0].frame.heapObjectSharing(arrayRef)!!.objectToken,
-            variants[1].frame.heapObjectSharing(arrayRef)!!.objectToken,
-        )
-        assertSame(
-            variants[0].frame.heapObjectSharing(objectRef)!!.objectToken,
-            variants[1].frame.heapObjectSharing(objectRef)!!.objectToken,
-        )
+        assertEquals(Value.Unknown(INT), child.frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Unknown(INT), child.frame.getField(objectRef, PUBLIC_INSTANCE))
+        assertTrue((child.frame.heapObject(hostRef) as HeapObject.HostObject).contents == HostGraphContents.Unknown)
+        assertNull(child.frame.hostObjectAt(hostRef))
+        assertEquals(FieldAccessibility.UNKNOWN, child.frame.trackedFieldAt(fieldRef)!!.accessibility)
 
         assertEquals(FieldAccessibility.LANGUAGE_CHECKS, frame.trackedFieldAt(fieldRef)!!.accessibility)
         assertEquals(Value.Known(7, INT), frame.arrayAt(arrayRef)!!.element(0))
@@ -154,6 +143,14 @@ class OpaqueTrackedFieldTest {
 
     private fun fieldRef(frame: Frame, register: Int): HeapRef =
         (frame.peek(register) as Value.Known).raw as HeapRef
+
+    /** The read node that met [ref] with unknown accessibility; its children are the definite re-reads. */
+    private fun unknownRead(graph: ExecutionGraph, ref: HeapRef): ExecutionNode = graph.addresses()
+        .flatMap(graph::nodePile)
+        .single {
+            it.invocationTarget() == FIELD_GET &&
+                it.frame.trackedFieldAt(ref)?.accessibility == FieldAccessibility.UNKNOWN
+        }
 
     private fun returnedValues(graph: ExecutionGraph): List<Value?> =
         graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value }
@@ -194,6 +191,12 @@ class OpaqueTrackedFieldTest {
             UNRELATED,
             "opaqueMixed",
             "(Ljava/lang/reflect/Field;[ILorg/cf/smalivm/DummyClass;Ljava/lang/StringBuilder;)I",
+        )
+        val OPAQUE_OBJECT = MethodDescriptor(UNRELATED, "opaqueObject", "(Ljava/lang/Object;)V")
+        val FIELD_GET = MethodDescriptor(
+            VirtualType.of("Ljava/lang/reflect/Field;"),
+            "get",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
         )
         const val PUBLIC_INSTANCE = "Lorg/cf/smalivm/DummyClass;->publicInstanceField:I"
     }

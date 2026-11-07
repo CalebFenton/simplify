@@ -252,6 +252,28 @@
     return v0
 .end method
 
+.method public static opaqueManyFieldsThenGet()I
+    .locals 6
+    const/16 v0, 0x28
+    new-array v1, v0, [Ljava/lang/reflect/Field;
+    const/4 v2, 0x0
+    const-class v3, Lorg/cf/smalivm/DummyClass;
+    const-string v4, "privateStaticField"
+    :loop
+    if-ge v2, v0, :call
+    invoke-virtual {v3, v4}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+    move-result-object v5
+    aput-object v5, v1, v2
+    add-int/lit8 v2, v2, 0x1
+    goto :loop
+    :call
+    invoke-static {v1}, Lorg/cf/smalivm/unrelated/UnrelatedClass;->opaqueObject(Ljava/lang/Object;)V
+    const/4 v2, 0x0
+    invoke-virtual {v5, v2}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    move-result v0
+    return v0
+.end method
+
 .method public static opaqueMixedCall(Ljava/lang/reflect/Field;[ILorg/cf/smalivm/DummyClass;Ljava/lang/StringBuilder;)I
     .locals 0
     invoke-static {p0, p1, p2, p3}, Lorg/cf/smalivm/unrelated/UnrelatedClass;->opaqueMixed(Ljava/lang/reflect/Field;[ILorg/cf/smalivm/DummyClass;Ljava/lang/StringBuilder;)I
