@@ -9,7 +9,10 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction12x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21s
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
+import com.android.tools.smali.dexlib2.iface.instruction.Instruction
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction23x
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -214,6 +217,58 @@ class MethodEditTransactionTest {
         assertSame(snapshot, index.currentSnapshot)
         val graph = services.newSession(requireNotNull(index.methodView(VALUE))).run()
         assertEquals(Value.Known(1, INT), graph.trusted()!!.terminatingConsensus(0))
+    }
+
+    @Test
+    fun registerFlowRejectsReadsAndReturnsTheVerifierRejects() {
+        // ART's verifier: check-cast reads vA; a wide read needs both registers of the pair; return-object of an
+        // int arithmetic result is a category mismatch.
+        val index = index("""
+            .class public Ltask55/Flow;
+            .super Ljava/lang/Object;
+            .method public static reference()Ljava/lang/Object;
+                .registers 2
+                const/4 v0, 0x0
+                return-object v0
+            .end method
+            .method public static wide()J
+                .registers 2
+                const-wide/16 v0, 0x1
+                return-wide v0
+            .end method
+        """)
+        val editor = VmServices(index).methodEditor
+        fun rejection(signature: String, replacement: List<Instruction>): MethodEditRejectionReason? {
+            val edit = editor.beginEdit(requireNotNull(index.methodView(signature)))
+            edit.replaceInstruction(0, replacement.map(::encoded))
+            return (edit.commit() as? MethodEditCommitResult.Rejected)?.reason
+        }
+        val reference = "Ltask55/Flow;->reference()Ljava/lang/Object;"
+
+        assertEquals(
+            listOf(
+                MethodEditRejectionReason.StructuralValidationFailure("Register v0 is read before assignment"),
+                MethodEditRejectionReason.StructuralValidationFailure("Register v1 is read before assignment"),
+                MethodEditRejectionReason.StructuralValidationFailure(
+                    "return-object reads a definitely non-reference value from v0",
+                ),
+            ),
+            listOf(
+                rejection(
+                    reference,
+                    listOf(ImmutableInstruction21c(Opcode.CHECK_CAST, 0, ImmutableTypeReference("Ljava/lang/Object;"))),
+                ),
+                rejection("Ltask55/Flow;->wide()J", listOf(ImmutableInstruction11n(Opcode.CONST_4, 0, 0))),
+                rejection(
+                    reference,
+                    listOf(
+                        ImmutableInstruction11n(Opcode.CONST_4, 0, 1),
+                        ImmutableInstruction11n(Opcode.CONST_4, 1, 2),
+                        ImmutableInstruction23x(Opcode.ADD_INT, 0, 0, 1),
+                    ),
+                ),
+            ),
+        )
     }
 
     @Test
