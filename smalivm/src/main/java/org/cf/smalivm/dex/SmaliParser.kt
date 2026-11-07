@@ -40,7 +40,8 @@ object SmaliParser {
         dexGen.setVerboseErrors(false)
         dexGen.setApiLevel(apiLevel)
         dexGen.setDexBuilder(dexBuilder)
-        val classDef = dexGen.smali_file() as BuilderClassDef
+        val classDef = dexGen.smali_file() as BuilderClassDef?
+            ?: throw SyntaxException("Unable to assemble $path: its class is already defined in this builder")
         if (dexGen.numberOfSyntaxErrors != 0) {
             throw SyntaxException("Unable to assemble $path: ${dexGen.numberOfSyntaxErrors} errors")
         }

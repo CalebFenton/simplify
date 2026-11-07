@@ -47,8 +47,8 @@ internal class ProgramInput private constructor(
             } catch (failure: IOException) {
                 throw ProgramInputException("Cannot list Smali files under $directory: ${failure.message}", failure)
             }
-            val builder = DexBuilder(Opcodes.forApi(apiLevel))
-            return files.map { readSmali(it, builder, apiLevel) }
+            // A builder interns one class definition per name, so each file gets its own.
+            return files.map { readSmali(it, DexBuilder(Opcodes.forApi(apiLevel)), apiLevel) }
         }
 
         private fun readSmali(file: Path, builder: DexBuilder, apiLevel: Int): ImmutableClassDef = try {
