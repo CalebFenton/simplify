@@ -35,22 +35,17 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         return classWriter.toByteArray()
     }
 
+    /** The class's generic signature, or null when it has none or its annotation is not an array of strings. */
     private fun buildASMSignature(classDef: ClassDef): String? {
-        for (annotation in classDef.annotations) {
-            if (annotation.type != "Ldalvik/annotation/Signature;") {
-                continue
+        val annotation = classDef.annotations.firstOrNull { it.type == "Ldalvik/annotation/Signature;" } ?: return null
+        val sb = StringBuilder()
+        for (e in annotation.elements) {
+            val parts = (e.value as? ArrayEncodedValue)?.value ?: return null
+            for (part in parts) {
+                sb.append((part as? StringEncodedValue)?.value ?: return null)
             }
-            val sb = StringBuilder()
-            for (e in annotation.elements) {
-                val ev = e.value as ArrayEncodedValue
-                for (v in ev.value) {
-                    val value = v as StringEncodedValue
-                    sb.append(value.value)
-                }
-            }
-            return sb.toString()
         }
-        return null
+        return sb.toString()
     }
 
     private fun buildDescriptor(method: Method): String {
@@ -74,18 +69,27 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         return internalName.substring(1, internalName.length - 1)
     }
 
-    private fun visitInnerClasses(value: TypeEncodedValue, classWriter: ClassWriter) {
-        val internalName = value.value
-        val fullName = stripName(internalName)
-        val parts = fullName.split(Regex("\\$"), 2)
-        val outerName = parts[0]
-        var innerName: String? = parts[1]
-        val isAnonymous = innerName == "1" || Ints.tryParse(innerName!!) != null
-        if (isAnonymous) {
-            innerName = null
+    /**
+     * Records a member class. A name without `$` cannot be split into outer and simple names, so it is recorded
+     * as unnamed; a name that is not a class, or that names no declared class, is skipped.
+     */
+    private fun visitInnerClass(memberType: String, classWriter: ClassWriter) {
+        if (!memberType.startsWith('L') || !memberType.endsWith(';')) return
+        val innerAccess = classAccessFlags(memberType) ?: return
+        val fullName = stripName(memberType)
+        val separator = fullName.indexOf('$')
+        if (separator < 0) {
+            classWriter.visitInnerClass(fullName, null, null, innerAccess)
+            return
         }
-        val innerAccess = classAccessFlags(internalName) ?: error("No declaration for member class $internalName")
-        classWriter.visitInnerClass(fullName, outerName, innerName, innerAccess)
+        val innerName = fullName.substring(separator + 1)
+        val isAnonymous = innerName.isEmpty() || Ints.tryParse(innerName) != null
+        classWriter.visitInnerClass(
+            fullName,
+            fullName.substring(0, separator),
+            innerName.takeUnless { isAnonymous },
+            innerAccess,
+        )
     }
 
     private fun visitEnclosingMethod(value: MethodEncodedValue, classWriter: ClassWriter) {
@@ -97,21 +101,16 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         classWriter.visitOuterClass(owner, name, desc)
     }
 
+    /** Annotation values of the wrong encoded kind are ignored: they come from the analysed input. */
     private fun visitClassAnnotations(annotations: Set<Annotation>, classWriter: ClassWriter) {
         for (annotation in annotations) {
             when (annotation.type) {
-                "Ldalvik/annotation/EnclosingMethod;" -> for (e in annotation.elements) {
-                    val v = e.value as MethodEncodedValue
-                    visitEnclosingMethod(v, classWriter)
-                    // There should only ever be one enclosing method.
-                    break
-                }
+                "Ldalvik/annotation/EnclosingMethod;" -> annotation.elements.firstNotNullOfOrNull {
+                    it.value as? MethodEncodedValue
+                }?.let { visitEnclosingMethod(it, classWriter) }
                 "Ldalvik/annotation/MemberClasses;" -> for (e in annotation.elements) {
-                    val ev = e.value as ArrayEncodedValue
-                    for (v in ev.value) {
-                        val value = v as TypeEncodedValue
-                        visitInnerClasses(value, classWriter)
-                    }
+                    val members = (e.value as? ArrayEncodedValue)?.value ?: continue
+                    members.filterIsInstance<TypeEncodedValue>().forEach { visitInnerClass(it.value, classWriter) }
                 }
             }
         }
@@ -209,20 +208,20 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
             mv.visitTypeInsn(Opcodes.NEW, name)
             mv.visitInsn(Opcodes.DUP)
             mv.visitLdcInsn(fieldName)
-            mv.visitIntInsn(Opcodes.BIPUSH, i)
+            pushInt(mv, i)
             mv.visitMethodInsn(Opcodes.INVOKESPECIAL, name, "<init>", "(Ljava/lang/String;I)V", false)
             mv.visitFieldInsn(Opcodes.PUTSTATIC, name, fieldName, classDef.type)
         }
 
         // Create array to hold values destined for $VALUES
-        mv.visitIntInsn(Opcodes.BIPUSH, fieldCount)
+        pushInt(mv, fieldCount)
         mv.visitTypeInsn(Opcodes.ANEWARRAY, name)
 
         // Set elements of $VALUES
         for (i in 0 until fieldCount) {
             val fieldName = fieldNames[i]
             mv.visitInsn(Opcodes.DUP)
-            mv.visitIntInsn(Opcodes.BIPUSH, i)
+            pushInt(mv, i)
             mv.visitFieldInsn(Opcodes.GETSTATIC, name, fieldName, classDef.type)
             mv.visitInsn(Opcodes.AASTORE)
         }
@@ -324,6 +323,15 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         val desc = "()I"
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, owner, name, desc, false)
         mv.visitInsn(Opcodes.IRETURN)
+    }
+
+    /** `BIPUSH` and `SIPUSH` take signed operands, so larger values go through the constant pool. */
+    private fun pushInt(mv: MethodVisitor, value: Int) {
+        when (value) {
+            in Byte.MIN_VALUE..Byte.MAX_VALUE -> mv.visitIntInsn(Opcodes.BIPUSH, value)
+            in Short.MIN_VALUE..Short.MAX_VALUE -> mv.visitIntInsn(Opcodes.SIPUSH, value)
+            else -> mv.visitLdcInsn(value)
+        }
     }
 
     private fun visitMethodStub(mv: MethodVisitor) {

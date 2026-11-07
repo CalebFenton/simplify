@@ -34,7 +34,12 @@ class SmaliClassLoader internal constructor(private val snapshot: ProgramSnapsho
         // The JVM refuses to define java.* classes in any loader but its own.
         if (name.startsWith("java.")) throw ClassNotFoundException(name)
         val classDef = classDefinition(ClassNameUtils.binaryToInternal(name)) ?: throw ClassNotFoundException(name)
-        val bytes = classBuilder.build(classDef)
+        // The shape comes from the analysed input; a shape the host cannot build is a linkage failure.
+        val bytes = try {
+            classBuilder.build(classDef)
+        } catch (failure: RuntimeException) {
+            throw ClassFormatError("Cannot build a host class for $name: ${failure.message}").apply { initCause(failure) }
+        }
         val packageName = name.substringBeforeLast('.', "")
         if (packageName.isNotEmpty() && getDefinedPackage(packageName) == null) {
             definePackage(packageName, null, null, null, null, null, null, null)

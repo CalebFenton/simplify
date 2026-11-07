@@ -2,10 +2,14 @@ package org.cf.smalivm.dex
 
 import android.util.Base64
 import org.cf.smalivm.core.ClassIndex
+import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
 import java.lang.reflect.Array
 import java.lang.reflect.Field
 import java.lang.reflect.Method
@@ -206,6 +210,95 @@ class SmaliClassLoaderTest {
         val nonExistentClassName = "asdfasdf"
         val exception = assertThrows(ClassNotFoundException::class.java) { classLoader.loadClass(nonExistentClassName) }
         assertEquals(exception.message, nonExistentClassName)
+    }
+
+    @Test
+    fun memberClassesWithoutADollarOrADeclarationStillLoadTheOuterClass(@TempDir temp: Path) {
+        val index = indexOf(
+            temp,
+            """
+                .class public Lhostile/Outer;
+                .super Ljava/lang/Object;
+                .annotation system Ldalvik/annotation/MemberClasses;
+                    value = {
+                        Lhostile/Member;,
+                        Lhostile/Outer${'$'}Missing;,
+                        Lhostile/Outer${'$'}Inner;
+                    }
+                .end annotation
+            """,
+            ".class public Lhostile/Member;\n.super Ljava/lang/Object;",
+            ".class public Lhostile/Outer\$Inner;\n.super Ljava/lang/Object;",
+        )
+
+        assertEquals("hostile.Outer", index.loadClassConstant("Lhostile/Outer;")?.name)
+    }
+
+    @Test
+    fun annotationValuesOfTheWrongKindAreIgnored(@TempDir temp: Path) {
+        val index = indexOf(
+            temp,
+            """
+                .class public Lhostile/Malformed;
+                .super Ljava/lang/Object;
+                .annotation system Ldalvik/annotation/MemberClasses;
+                    value = 0x5
+                .end annotation
+                .annotation system Ldalvik/annotation/Signature;
+                    value = 0x6
+                .end annotation
+                .annotation system Ldalvik/annotation/EnclosingMethod;
+                    value = "not-a-method"
+                .end annotation
+            """,
+            """
+                .class public Lhostile/MalformedMembers;
+                .super Ljava/lang/Object;
+                .annotation system Ldalvik/annotation/MemberClasses;
+                    value = { "not-a-type", 0x1 }
+                .end annotation
+            """,
+        )
+
+        assertEquals("hostile.Malformed", index.loadClassConstant("Lhostile/Malformed;")?.name)
+        assertEquals("hostile.MalformedMembers", index.loadClassConstant("Lhostile/MalformedMembers;")?.name)
+    }
+
+    @Test
+    fun enumWithMoreThanAByteOfConstantsKeepsEveryOrdinal(@TempDir temp: Path) {
+        val index = indexOf(temp, enumSource("Lhostile/Big;", 200))
+
+        @Suppress("UNCHECKED_CAST")
+        val klazz = requireNotNull(index.loadClassConstant("Lhostile/Big;")) as Class<out Enum<*>>
+
+        // Constant names are zero-padded so declaration order and name order agree.
+        assertEquals(150, java.lang.Enum.valueOf(klazz, "C150").ordinal)
+        assertEquals(199, java.lang.Enum.valueOf(klazz, "C199").ordinal)
+        assertEquals(201, klazz.enumConstants.size)
+    }
+
+    @Test
+    fun aClassTheHostCannotRepresentIsAbsentToConstClassRatherThanAHostFailure(@TempDir temp: Path) {
+        // Each constant costs the generated <clinit> sixteen bytes, so 5000 exceed the JVM's 64 KiB method limit.
+        val index = indexOf(temp, enumSource("Lhostile/Huge;", 5000))
+
+        assertNull(index.loadClassConstant("Lhostile/Huge;"))
+        assertTrue(index.isLoadable(VirtualType.of("Lhostile/Huge;")))
+    }
+
+    private fun indexOf(directory: Path, vararg sources: String): ClassIndex {
+        sources.forEachIndexed { i, source -> Files.writeString(directory.resolve("source$i.smali"), source.trimIndent()) }
+        return ClassIndex.open(directory.toFile())
+    }
+
+    private fun enumSource(type: String, constants: Int): String = buildString {
+        val width = (constants - 1).toString().length
+        appendLine(".class public final enum $type")
+        appendLine(".super Ljava/lang/Enum;")
+        appendLine(".field private static final synthetic \$VALUES:[$type")
+        for (i in 0 until constants) {
+            appendLine(".field public static final enum C${i.toString().padStart(width, '0')}:$type")
+        }
     }
 
     private fun assertHasObjectMethods(klazz: Class<*>) {
