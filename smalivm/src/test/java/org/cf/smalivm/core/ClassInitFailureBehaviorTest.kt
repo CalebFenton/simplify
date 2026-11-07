@@ -29,18 +29,28 @@ class ClassInitFailureBehaviorTest {
     }
 
     @Test
-    fun freshClassInitThrowablesAreCountedOnceAtMaterialization() {
-        val session = VmServices(CoreTester.classIndex).newSession(view("newInstance()I"))
-
-        val graph = session.run()
+    fun freshClassInitThrowablesAreMaterializedOnceEach() {
+        // Oracle: the fixture throws one source NPE in <clinit>, which JLS 12.4.2 step 11 wraps in one
+        // ExceptionInInitializerError, and the later use raises one fresh NoClassDefFoundError (ART
+        // ThrowEarlierClassFailure). The returning path's heap holds exactly those three, in allocation order.
+        val graph = VmServices(CoreTester.classIndex).newSession(view("newInstance()I")).run()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, INT))), graph.outcomes)
-        assertEquals(0, session.opExecutionMetrics().preArmThrowableAllocations)
+        val returning = graph.addresses().flatMap(graph::nodePile).single {
+            it.view.signature == "$CLASS_NAME->newInstance()I" && it.outcome is Outcome.Returned
+        }
+        val frame = requireNotNull(returning.endingFrame)
+        val throwableTypes = (0 until frame.nextHeapId()).mapNotNull { id ->
+            (frame.heapObject(HeapRef(id)) as? HeapObject.GuestThrowable)?.type?.descriptor
+        }
         assertEquals(
-            3,
-            session.opExecutionMetrics().committedThrowableAllocations,
-            "one source NPE, one initializer wrapper, and one later-use NCDFE must each count once",
+            listOf(
+                "Ljava/lang/NullPointerException;",
+                "Ljava/lang/ExceptionInInitializerError;",
+                "Ljava/lang/NoClassDefFoundError;",
+            ),
+            throwableTypes,
         )
     }
 

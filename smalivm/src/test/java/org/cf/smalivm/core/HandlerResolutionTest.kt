@@ -2,6 +2,7 @@ package org.cf.smalivm.core
 
 import io.mockk.every
 import io.mockk.mockk
+import java.time.Duration
 import kotlinx.collections.immutable.persistentSetOf
 import org.cf.smalivm.type.ClassManager
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.assertTimeoutPreemptively
 
 /** Independent EX-03 first-match, EX-04 range, EX-13 metadata, EX-14 uncertainty, and cost checks. */
 class HandlerResolutionTest {
@@ -321,37 +323,33 @@ class HandlerResolutionTest {
     }
 
     @Test
-    fun `adversarial missing tables stay near linear through 2048 clauses`() {
+    fun `adversarial missing tables route every clause in near linear time`() {
+        // Bug class: each missing catch type re-walks or copies the residual's excluded roots, which is
+        // quadratic in the clause count. Oracle: every missing type may match, so each clause routes and the
+        // residual stays unhandled. 100,000 clauses finish within the bound only when per-clause work is
+        // logarithmic; a quadratic walk visits about 5 * 10^9 roots.
         for (handlerCount in listOf(1, 8, 64, 512, 2048)) {
-            val catches = List(handlerCount) { index ->
-                CatchClause(type("Lmissing/Catch$index;"), 100 + index)
-            }
-            val resolution = resolve(symbolic(ThrowableDomain.any()), *catches.toTypedArray())
-            val metrics = resolution.metrics
-            val distinctDescriptors = handlerCount + 1 // catches plus java.lang.Throwable
+            val resolution = resolve(symbolic(ThrowableDomain.any()), *missingCatches(handlerCount))
 
-            assertEquals(handlerCount, resolution.routes.size, "H=$handlerCount")
+            assertEquals((100 until 100 + handlerCount).toList(), resolution.routes.map { it.handlerAddress })
             assertTrue(resolution.unhandled != null, "H=$handlerCount")
-            assertTrue(resolution.routes.size + 1 <= handlerCount + 1, "H=$handlerCount")
-            assertEquals(distinctDescriptors, metrics.factBuilds, "H=$handlerCount, $metrics")
-            assertEquals(handlerCount, metrics.clausesVisited, "H=$handlerCount")
-            assertEquals(handlerCount, metrics.missingDescriptors, "H=$handlerCount")
-            assertEquals(handlerCount * 2, metrics.relationRequests, "H=$handlerCount, $metrics")
-            assertEquals(handlerCount * 2, metrics.relationCacheMisses, "H=$handlerCount")
-            assertEquals(handlerCount * 2, metrics.domainWrappers, "H=$handlerCount")
-            assertEquals(handlerCount * 2, metrics.persistentUpdates, "H=$handlerCount")
-            assertEquals(handlerCount * 2, metrics.domainValidationVisits, "H=$handlerCount")
-            assertEquals(handlerCount, metrics.routes, "H=$handlerCount")
-            assertEquals(handlerCount, metrics.maxExcludedRoots, "H=$handlerCount")
-            assertEquals(1, metrics.maxRequiredRoots, "H=$handlerCount")
         }
+        val large = missingCatches(100_000)
+        val resolution = assertTimeoutPreemptively(Duration.ofSeconds(20)) {
+            resolve(symbolic(ThrowableDomain.any()), *large)
+        }
+        assertEquals(large.size, resolution.routes.size)
+        assertTrue(resolution.unhandled != null)
     }
+
+    private fun missingCatches(count: Int): Array<CatchClause> =
+        Array(count) { index -> CatchClause(type("Lmissing/Catch$index;"), 100 + index) }
 
     private fun resolve(subject: ThrownSubject, vararg catches: CatchClause): HandlerResolution.Routed =
         routed(resolveHandlers(5, subject, view(listOf(block(*catches))), hierarchy))
 
     private fun routed(resolution: HandlerResolution): HandlerResolution.Routed {
-        assertTrue(resolution is HandlerResolution.Routed, "Expected routed resolution, got $resolution")
+        assertTrue(resolution is HandlerResolution.Routed) { "Expected routed resolution, got $resolution" }
         return resolution as HandlerResolution.Routed
     }
 

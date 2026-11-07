@@ -97,7 +97,6 @@ internal class HeapStore private constructor(
     private var trackedFields: CompatibilityMapKey<Int, TrackedFieldCompatibility>,
     private var mirroredArrayRefs: PersistentSet<Int>,
     private var dirtyMirroredArrayRefs: PersistentSet<Int>,
-    private val metrics: HeapStateMetrics,
 ) : Heap {
     constructor(ids: HeapIds, hostObjectCloner: HostObjectCloner = HostObjectCloner()) :
         this(
@@ -109,7 +108,6 @@ internal class HeapStore private constructor(
             CompatibilityMapKey.empty(),
             persistentSetOf(),
             persistentSetOf(),
-            HeapStateMetrics(),
         )
 
     /** A fresh array of [length] whose elements hold Java's default for the component type. */
@@ -127,7 +125,6 @@ internal class HeapStore private constructor(
         val default = defaultElementValue(component)
         val elements = persistentListOf<Value>().builder()
         repeat(length) { elements.add(default) }
-        metrics.arrayAllocationElementsInitialized += length
         return allocateArray(type, elements.build())
     }
 
@@ -165,9 +162,7 @@ internal class HeapStore private constructor(
             null -> false
         }
         if (hostCauseUnavailable) {
-            val ref = allocate(HeapObject.GuestThrowable(type, HostGraphContents.Unknown, modeledCause))
-            metrics.throwableAllocations++
-            return ref
+            return allocate(HeapObject.GuestThrowable(type, HostGraphContents.Unknown, modeledCause))
         }
         if (modeledCause is Value.Known) {
             val hostCause = when (val raw = modeledCause.raw) {
@@ -184,12 +179,10 @@ internal class HeapStore private constructor(
             }
         }
         val nodeId = addHostRoots(listOf(hostThrowable)).single()
-        val ref = allocate(
+        return allocate(
             HeapObject.GuestThrowable(type, knownContents(nodeId, hostThrowable), modeledCause),
             nodeId,
         )
-        metrics.throwableAllocations++
-        return ref
     }
 
     fun setThrowableCause(ref: HeapRef, cause: Value) {
@@ -243,7 +236,6 @@ internal class HeapStore private constructor(
     fun refForNode(nodeId: HostGraphNodeId): HeapRef? = findRef(nodeId)
 
     fun mirroredArrays(): List<HostArrayMirror> = mirroredArrayRefs.mapNotNull { id ->
-        metrics.mirroredArrayIndexEntriesVisited++
         val obj = objects[id]
         val array = obj as? HeapObject.TrackedArray ?: return@mapNotNull null
         val known = array.mirror as? HostGraphContents.Known ?: return@mapNotNull null
@@ -278,20 +270,14 @@ internal class HeapStore private constructor(
     private fun addHostRoots(roots: List<Any>): List<HostGraphNodeId> {
         if (roots.isEmpty()) return emptyList()
         val admission = hostGraph.addRoots(roots)
-        if (admission.state !== hostGraph) {
-            hostGraph = admission.state
-            metrics.hostGraphRoots++
-        }
+        hostGraph = admission.state
         return admission.rootIds
     }
 
     private fun addHostIdentityRoots(roots: List<Any>): List<HostGraphNodeId> {
         if (roots.isEmpty()) return emptyList()
         val admission = hostGraph.addIdentityRoots(roots)
-        if (admission.state !== hostGraph) {
-            hostGraph = admission.state
-            metrics.hostGraphRoots++
-        }
+        hostGraph = admission.state
         return admission.rootIds
     }
 
@@ -337,8 +323,6 @@ internal class HeapStore private constructor(
                     knownContents(nodeId, raw),
                 ),
             )
-            metrics.heapRoots++
-            metrics.heapObjects++
             val component = requireNotNull(type.componentType)
             val values = override?.arrayElements?.map { element ->
                 if (element !is Value.Known) {
@@ -394,8 +378,6 @@ internal class HeapStore private constructor(
         if (obj is HeapObject.TrackedField) {
             trackedFields = trackedFields.put(ref.id, TrackedFieldCompatibility(obj.metadata, obj.accessibility))
         }
-        metrics.heapRoots++
-        metrics.heapObjects++
     }
 
     private fun registerNodeRef(nodeId: HostGraphNodeId, ref: HeapRef) {
@@ -417,7 +399,6 @@ internal class HeapStore private constructor(
         if (current.field(fieldDescriptor) == value) return true
         val updated = current.withField(fieldDescriptor, value) ?: return false
         replaceObject(ref, updated)
-        metrics.objectFields++
         return true
     }
 
@@ -432,10 +413,8 @@ internal class HeapStore private constructor(
         require(startIndex >= 0 && startIndex + values.size <= current.length) {
             "Array update [$startIndex, ${startIndex + values.size}) is outside length ${current.length}"
         }
-        val changed = values.indices.count { current.element(startIndex + it) != values[it] }
-        if (changed == 0) return true
+        if (values.indices.all { current.element(startIndex + it) == values[it] }) return true
         replaceObject(ref, requireNotNull(arrayAt(ref)).withElements(startIndex, values))
-        metrics.arrayElements += changed
         return true
     }
 
@@ -447,18 +426,13 @@ internal class HeapStore private constructor(
     /** Commits all validated array lattice replacements under one persistent heap root. */
     fun applyArrayReplacementsAtomically(replacements: List<ArrayReplacement>) {
         var updatedObjects = objects
-        var objectsChanged = 0
-        var elementsChanged = 0
         for (replacement in replacements) {
             val current = updatedObjects[replacement.ref.id] as? HeapObject.TrackedArray
                 ?: error("Tracked array ${replacement.ref} disappeared during host copy-back")
             require(replacement.elements.size == current.length) {
                 "Copy-back for ${replacement.ref} has ${replacement.elements.size} elements, expected ${current.length}"
             }
-            val changed = replacement.elements.indices.count {
-                current.element(it) != replacement.elements[it]
-            }
-            if (changed == 0) continue
+            if (replacement.elements.indices.all { current.element(it) == replacement.elements[it] }) continue
             updatedObjects = updatedObjects.putting(
                 replacement.ref.id,
                 current.withElementsRoot(
@@ -467,17 +441,12 @@ internal class HeapStore private constructor(
                     dirty = false,
                 ),
             )
-            objectsChanged++
-            elementsChanged += changed
         }
         if (updatedObjects !== objects) {
             objects = updatedObjects
             replacements.forEach { replacement ->
                 objects[replacement.ref.id]?.let { updateArrayIndexes(replacement.ref.id, it) }
             }
-            metrics.heapRoots++
-            metrics.heapObjects += objectsChanged
-            metrics.arrayElements += elementsChanged
         }
     }
 
@@ -487,8 +456,6 @@ internal class HeapStore private constructor(
         affectedArrays: Set<HeapRef>,
     ) {
         var invalidated = checkpoint.objects
-        var objectsChanged = 0
-        var elementsChanged = 0
         for ((id, obj) in checkpoint.objects) {
             val replacement = when (obj) {
                 is HeapObject.HostObject -> obj.withContents(HostGraphContents.Unknown)
@@ -505,13 +472,7 @@ internal class HeapStore private constructor(
                 }
                 is HeapObject.TrackedField, is HeapObject.TrackedObject -> obj
             }
-            if (replacement !== obj) {
-                invalidated = invalidated.putting(id, replacement)
-                objectsChanged++
-                if (obj is HeapObject.TrackedArray && replacement is HeapObject.TrackedArray) {
-                    elementsChanged += (0 until obj.length).count { obj.element(it) != replacement.element(it) }
-                }
-            }
+            if (replacement !== obj) invalidated = invalidated.putting(id, replacement)
         }
         objects = invalidated
         mirroredArrayRefs = checkpoint.mirroredArrayRefs
@@ -521,14 +482,6 @@ internal class HeapStore private constructor(
         }
         hostGraph = HostGraphState.empty()
         nodeRefs = persistentMapOf()
-        if (objectsChanged > 0) {
-            metrics.heapRoots++
-            metrics.heapObjects += objectsChanged
-            metrics.arrayElements += elementsChanged
-        }
-        if (checkpoint.hostGraph.nodeCount > 0) {
-            metrics.hostGraphRoots++
-        }
     }
 
     private fun javaValue(value: Value, graph: HostGraphState = hostGraph): Any? {
@@ -569,10 +522,7 @@ internal class HeapStore private constructor(
             }
             if (replacement !== obj) replaceObject(HeapRef(id), replacement)
         }
-        if (hostGraph.nodeCount > 0) {
-            hostGraph = HostGraphState.empty()
-            metrics.hostGraphRoots++
-        }
+        if (hostGraph.nodeCount > 0) hostGraph = HostGraphState.empty()
         nodeRefs = persistentMapOf()
     }
 
@@ -606,8 +556,6 @@ internal class HeapStore private constructor(
             )
             else -> trackedFields.remove(ref.id)
         }
-        metrics.heapRoots++
-        metrics.heapObjects++
     }
 
     private fun updateArrayIndexes(id: Int, obj: HeapObject) {
@@ -628,10 +576,7 @@ internal class HeapStore private constructor(
     fun reachableTrackedFields(roots: Iterable<HeapRef>): List<HeapRef> =
         reachableRefs(roots).filter { objects[it.id] is HeapObject.TrackedField }
 
-    private fun reachableRefs(
-        roots: Iterable<HeapRef>,
-        countSelectedCompaction: Boolean = false,
-    ): List<HeapRef> {
+    private fun reachableRefs(roots: Iterable<HeapRef>): List<HeapRef> {
         val pending = ArrayDeque<HeapRef>()
         roots.forEach(pending::addLast)
         val seen = mutableSetOf<Int>()
@@ -639,7 +584,6 @@ internal class HeapStore private constructor(
         while (pending.isNotEmpty()) {
             val ref = pending.removeFirst()
             if (!seen.add(ref.id)) continue
-            if (countSelectedCompaction) metrics.selectedGuestRefsVisited++
             reachable += ref
             when (val obj = objects[ref.id]) {
                 is HeapObject.TrackedArray -> obj.elements().forEach { value ->
@@ -694,7 +638,6 @@ internal class HeapStore private constructor(
                     )
                     if (replacement.elementsRoot() !== obj.elementsRoot() || replacement.mirror != obj.mirror) {
                         replaceObject(ref, replacement)
-                        metrics.arrayElements += collapsed.indices.count { obj.element(it) != collapsed[it] }
                     }
                 }
                 is HeapObject.TrackedObject -> {
@@ -703,10 +646,8 @@ internal class HeapStore private constructor(
                         val fieldType = VirtualType.of(field.substringAfterLast(':'))
                         collapsed[field] = if (old.type == null) Value.Top else Value.Unknown(fieldType)
                     }
-                    val changedFields = collapsed.count { (field, value) -> obj.field(field) != value }
-                    if (changedFields > 0) {
+                    if (collapsed.any { (field, value) -> obj.field(field) != value }) {
                         replaceObject(ref, obj.withFields(collapsed))
-                        metrics.objectFields += changedFields
                     }
                 }
                 is HeapObject.TrackedField -> Unit
@@ -782,8 +723,6 @@ internal class HeapStore private constructor(
     private fun invalidateHostGraphComponent(nodeIds: Collection<HostGraphNodeId>) {
         val invalidatedIds = nodeIds.mapTo(mutableSetOf(), HostGraphNodeId::id)
         var updatedObjects = objects
-        var changedObjects = 0
-        var changedElements = 0
         val graphBackedIds = (nodeRefs.values.map(HeapRef::id) + mirroredArrayRefs + dirtyMirroredArrayRefs).toSet()
         for (id in graphBackedIds) {
             val obj = objects[id] ?: continue
@@ -820,24 +759,17 @@ internal class HeapStore private constructor(
                 }
                 is HeapObject.TrackedField, is HeapObject.TrackedObject -> obj
             }
-            if (replacement !== obj) {
-                updatedObjects = updatedObjects.putting(id, replacement)
-                changedObjects++
-                if (obj is HeapObject.TrackedArray && replacement is HeapObject.TrackedArray) {
-                    changedElements += (0 until obj.length).count { obj.element(it) != replacement.element(it) }
-                }
-            }
+            if (replacement !== obj) updatedObjects = updatedObjects.putting(id, replacement)
         }
 
         val compaction = compactHostGraph(updatedObjects) ?: return invalidateCompleteHostGraphForOpaqueCall()
-        applyHostGraphCompaction(compaction, changedObjects, changedElements)
+        applyHostGraphCompaction(compaction)
     }
 
     private data class HostGraphCompaction(
         val objects: PersistentMap<Int, HeapObject>,
         val graph: HostGraphState,
         val nodeRefs: PersistentMap<Int, HeapRef>,
-        val rekeyedObjects: Int,
     )
 
     private fun compactHostGraph(sourceObjects: PersistentMap<Int, HeapObject>): HostGraphCompaction? {
@@ -867,13 +799,11 @@ internal class HeapStore private constructor(
     ): HostGraphCompaction? {
         var compactedObjects = sourceObjects
         var compactedRefs: PersistentMap<Int, HeapRef> = persistentMapOf()
-        var rekeyedObjects = 0
         for ((id, obj, raw) in surviving) {
             val nodeId = compacted.nodeIdOf(raw) ?: return null
             val rekeyed = if (knownNodeId(obj) == nodeId) {
                 obj
             } else {
-                rekeyedObjects++
                 when (obj) {
                     is HeapObject.HostObject -> obj.withContents(HostGraphContents.Known(nodeId))
                     is HeapObject.GuestThrowable -> HeapObject.GuestThrowable(
@@ -890,26 +820,16 @@ internal class HeapStore private constructor(
             require(existing == null || existing == HeapRef(id)) { "$nodeId is owned by both $existing and ${HeapRef(id)}" }
             compactedRefs = compactedRefs.putting(nodeId.id, HeapRef(id))
         }
-        return HostGraphCompaction(compactedObjects, compacted, compactedRefs, rekeyedObjects)
+        return HostGraphCompaction(compactedObjects, compacted, compactedRefs)
     }
 
-    private fun applyHostGraphCompaction(
-        compaction: HostGraphCompaction,
-        changedObjects: Int = 0,
-        changedElements: Int = 0,
-    ) {
-        val indexedArrays = mirroredArrayRefs + dirtyMirroredArrayRefs
+    private fun applyHostGraphCompaction(compaction: HostGraphCompaction) {
         if (compaction.objects !== objects) {
+            val indexedArrays = mirroredArrayRefs + dirtyMirroredArrayRefs
             objects = compaction.objects
             indexedArrays.forEach { id -> objects[id]?.let { updateArrayIndexes(id, it) } }
-            metrics.heapRoots++
-            metrics.heapObjects += changedObjects + compaction.rekeyedObjects
-            metrics.arrayElements += changedElements
         }
-        if (compaction.graph !== hostGraph) {
-            hostGraph = compaction.graph
-            metrics.hostGraphRoots++
-        }
+        hostGraph = compaction.graph
         nodeRefs = compaction.nodeRefs
     }
 
@@ -931,18 +851,10 @@ internal class HeapStore private constructor(
                 }
                 is HeapObject.TrackedField, is HeapObject.TrackedObject -> obj
             }
-            if (replacement !== obj) {
-                replaceObject(HeapRef(id), replacement)
-                if (obj is HeapObject.TrackedArray && replacement is HeapObject.TrackedArray) {
-                    metrics.arrayElements += (0 until obj.length).count { obj.element(it) != replacement.element(it) }
-                }
-            }
+            if (replacement !== obj) replaceObject(HeapRef(id), replacement)
         }
         nodeRefs = persistentMapOf()
-        if (hostGraph.nodeCount > 0) {
-            hostGraph = HostGraphState.empty()
-            metrics.hostGraphRoots++
-        }
+        if (hostGraph.nodeCount > 0) hostGraph = HostGraphState.empty()
     }
 
     /** Detaches this path's complete Java graph after one backend accepts execution. */
@@ -964,12 +876,7 @@ internal class HeapStore private constructor(
         )
         val clone = hostObjectCloner.cloneGraph(checkpoint.graph)
         try {
-            if (clone.state !== checkpoint.graph) {
-                hostGraph = clone.state
-                metrics.hostGraphRoots++
-                metrics.hostGraphClones++
-                metrics.hostObjectsCloned += clone.objectsCloned
-            }
+            hostGraph = clone.state
             synchronizeDirtyMirrors()
         } catch (fatal: VirtualMachineError) {
             hostGraph = checkpoint.graph
@@ -990,10 +897,7 @@ internal class HeapStore private constructor(
     }
 
     private fun pruneHostGraphToGuestRoots(values: List<Value>): Boolean {
-        val guestRefs = reachableRefs(
-            values.mapNotNull { (it as? Value.Known)?.raw as? HeapRef },
-            countSelectedCompaction = true,
-        )
+        val guestRefs = reachableRefs(values.mapNotNull { (it as? Value.Known)?.raw as? HeapRef })
         val liveRoots = guestRefs.mapNotNull { ref ->
             val obj = objects[ref.id] ?: return@mapNotNull null
             val nodeId = knownNodeId(obj) ?: return@mapNotNull null
@@ -1008,12 +912,9 @@ internal class HeapStore private constructor(
             return false
         }
         if (!rebuilt.isComplete) return false
-        metrics.selectedHostNodesVisited += rebuilt.nodeCount
         var updatedObjects = objects
-        var changedObjects = 0
         val graphBackedRefs = nodeRefs.values.distinctBy(HeapRef::id)
         for (ref in graphBackedRefs) {
-            metrics.selectedGraphBackedRefsVisited++
             val id = ref.id
             val obj = objects[id] ?: continue
             val nodeId = knownNodeId(obj) ?: continue
@@ -1025,10 +926,7 @@ internal class HeapStore private constructor(
                 is HeapObject.TrackedArray -> obj.withSynchronizedMirror(HostGraphContents.Unknown)
                 is HeapObject.TrackedField, is HeapObject.TrackedObject -> obj
             }
-            if (replacement !== obj) {
-                updatedObjects = updatedObjects.putting(id, replacement)
-                changedObjects++
-            }
+            if (replacement !== obj) updatedObjects = updatedObjects.putting(id, replacement)
         }
         val surviving = graphBackedRefs.mapNotNull { ref ->
             val obj = updatedObjects[ref.id] ?: return@mapNotNull null
@@ -1039,13 +937,12 @@ internal class HeapStore private constructor(
         }.sortedBy { it.first }
         val compacted = if (hostGraph.isComplete && rebuilt.hasSameIdentityLayout(hostGraph)) hostGraph else rebuilt
         val compaction = rekeyHostGraph(updatedObjects, compacted, surviving) ?: return false
-        applyHostGraphCompaction(compaction, changedObjects)
+        applyHostGraphCompaction(compaction)
         return true
     }
 
     private fun dirtyMirrorExpectedValues(graph: HostGraphState): Map<Int, List<Any?>> =
         dirtyMirroredArrayRefs.mapNotNull { id ->
-            metrics.dirtyMirrorIndexEntriesVisited++
             val array = objects[id] as? HeapObject.TrackedArray ?: return@mapNotNull null
             val nodeId = (array.mirror as? HostGraphContents.Known)?.nodeId ?: return@mapNotNull null
             nodeId.id to array.elements().map { javaValue(it, graph) }
@@ -1053,7 +950,6 @@ internal class HeapStore private constructor(
 
     private fun synchronizeDirtyMirrors() {
         val dirty = dirtyMirroredArrayRefs.mapNotNull { id ->
-            metrics.dirtyMirrorIndexEntriesVisited++
             val array = objects[id] as? HeapObject.TrackedArray ?: return@mapNotNull null
             val nodeId = (array.mirror as? HostGraphContents.Known)?.nodeId ?: return@mapNotNull null
             val raw = requireNotNull(hostGraph.objectAt(nodeId)) { "No Java mirror for $nodeId" }
@@ -1079,8 +975,6 @@ internal class HeapStore private constructor(
         if (updated !== objects) {
             objects = updated
             dirty.forEach { (id, array, _) -> updateArrayIndexes(id, array.withSynchronizedMirror(array.mirror)) }
-            metrics.heapRoots++
-            metrics.heapObjects += dirty.size
         }
     }
 
@@ -1088,11 +982,7 @@ internal class HeapStore private constructor(
     fun finalizeHostGraph(checkpoint: HostGraphCheckpoint, guestRoots: List<Value>): HostGraphComparison {
         checkpoint.consume(this)
         val result = try {
-            val refreshed = hostGraph.refresh()
-            if (refreshed !== hostGraph) {
-                hostGraph = refreshed
-                metrics.hostGraphRoots++
-            }
+            hostGraph = hostGraph.refresh()
             if (!pruneHostGraphToGuestRoots(guestRoots + checkpoint.selectionRoots)) {
                 invalidateHostGraphContents()
                 return HostGraphComparison.Unprovable
@@ -1108,19 +998,15 @@ internal class HeapStore private constructor(
         } catch (_: Throwable) {
             HostGraphComparison.Unprovable
         }
-        if (result == HostGraphComparison.Equal && !checkpoint.synchronizedDirtyMirrors && hostGraph !== checkpoint.graph) {
+        if (result == HostGraphComparison.Equal && !checkpoint.synchronizedDirtyMirrors) {
             hostGraph = checkpoint.graph
-            metrics.hostGraphRoots++
         }
         return result
     }
 
     fun restoreHostGraph(checkpoint: HostGraphCheckpoint) {
         checkpoint.consume(this)
-        if (hostGraph !== checkpoint.graph) {
-            hostGraph = checkpoint.graph
-            metrics.hostGraphRoots++
-        }
+        hostGraph = checkpoint.graph
         objects = checkpoint.objects
         nodeRefs = checkpoint.nodeRefs
         mirroredArrayRefs = checkpoint.mirroredArrayRefs
@@ -1162,79 +1048,22 @@ internal class HeapStore private constructor(
         }
     }
 
-    fun copy(): HeapStore = copy(objects)
-
-    /** Counts logical objects only if a snapshot boundary stops sharing the persistent heap root. */
-    private fun copy(copiedObjects: PersistentMap<Int, HeapObject>): HeapStore {
-        metrics.storeCopies++
-        if (copiedObjects !== objects) metrics.objectsCopied += objects.size
-        return HeapStore(
-            ids,
-            copiedObjects,
-            hostObjectCloner,
-            hostGraph,
-            nodeRefs,
-            trackedFields,
-            mirroredArrayRefs,
-            dirtyMirroredArrayRefs,
-            metrics,
-        )
-    }
-
-    internal fun rootToken(): Any = objects
-
-    internal fun hostGraphRootToken(): Any = hostGraph
+    fun copy(): HeapStore = HeapStore(
+        ids,
+        objects,
+        hostObjectCloner,
+        hostGraph,
+        nodeRefs,
+        trackedFields,
+        mirroredArrayRefs,
+        dirtyMirroredArrayRefs,
+    )
 
     internal fun hostGraphVersionToken(): Any = hostGraph
 
     internal fun nextHeapId(): Int = ids.nextId()
 
     internal fun trackedFieldCompatibilityKey(): CompatibilityMapKey<Int, TrackedFieldCompatibility> = trackedFields
-
-    internal fun compatibilityHashMetrics(): CompatibilityHashMetrics = trackedFields.hashMetrics()
-
-    internal fun selectedCompactionMetrics(): SelectedCompactionMetrics = SelectedCompactionMetrics(
-        metrics.selectedGuestRefsVisited,
-        metrics.selectedGraphBackedRefsVisited,
-        metrics.selectedHostNodesVisited,
-    )
-
-    internal fun mirrorIndexMetrics(): MirrorIndexMetrics = MirrorIndexMetrics(
-        metrics.mirroredArrayIndexEntriesVisited,
-        metrics.dirtyMirrorIndexEntriesVisited,
-    )
-
-    internal fun hostGraphMetrics(): HostGraphMetrics = HostGraphMetrics(
-        hostGraph.nodeCount,
-        metrics.hostGraphRoots,
-    )
-
-    internal fun objectSharing(ref: HeapRef): HeapObjectSharing? {
-        val obj = objects[ref.id] ?: return null
-        val contents = when (obj) {
-            is HeapObject.TrackedArray -> obj.contentsRootToken()
-            is HeapObject.TrackedObject -> obj.contentsRootToken()
-            is HeapObject.TrackedField -> null
-            is HeapObject.GuestThrowable, is HeapObject.HostObject -> null
-        }
-        return HeapObjectSharing(obj, contents)
-    }
-
-    internal fun copyCounts(): Pair<Int, Int> = metrics.storeCopies to metrics.objectsCopied
-
-    internal fun throwableAllocationCount(): Int = metrics.throwableAllocations
-
-    internal fun arrayAllocationElementsInitialized(): Int = metrics.arrayAllocationElementsInitialized
-
-    internal fun versionCounts(): HeapVersionCounts = HeapVersionCounts(
-        metrics.heapRoots,
-        metrics.heapObjects,
-        metrics.arrayElements,
-        metrics.objectFields,
-        metrics.hostGraphRoots,
-        metrics.hostGraphClones,
-        metrics.hostObjectsCloned,
-    )
 
     companion object {
         /** Joins one outcome partition. An object absent from any path stays absent. */
@@ -1246,22 +1075,17 @@ internal class HeapStore private constructor(
             if (sameObjectRoot && sameGraph) return first.copy()
             if (sameObjectRoot) {
                 var merged = first.objects
-                var createdObjects = 0
                 var mergedMirrors = first.mirroredArrayRefs
                 var mergedDirtyMirrors = first.dirtyMirroredArrayRefs
                 val graphBackedRefs = stores.flatMap { it.nodeRefs.values }.map { it.id }.toSet()
                 for (id in graphBackedRefs) {
-                    val result = mergeObject(stores.map { it.objects.getValue(id) }, superclasses, sameGraph = false)
+                    val obj = mergeObject(stores.map { it.objects.getValue(id) }, superclasses, sameGraph = false)
                         ?: continue
-                    merged = merged.putting(id, result.obj)
-                    val array = result.obj as? HeapObject.TrackedArray
+                    merged = merged.putting(id, obj)
+                    val array = obj as? HeapObject.TrackedArray
                     mergedMirrors = if (array?.mirror is HostGraphContents.Known) mergedMirrors.adding(id) else mergedMirrors.removing(id)
                     mergedDirtyMirrors = if (array?.mirrorDirty == true) mergedDirtyMirrors.adding(id) else mergedDirtyMirrors.removing(id)
-                    if (result.created) createdObjects++
                 }
-                if (merged !== first.objects) first.metrics.heapRoots++
-                first.metrics.heapObjects += createdObjects
-                first.metrics.hostGraphRoots++
                 return HeapStore(
                     first.ids,
                     merged,
@@ -1271,7 +1095,6 @@ internal class HeapStore private constructor(
                     first.trackedFields,
                     mergedMirrors,
                     mergedDirtyMirrors,
-                    first.metrics,
                 )
             }
             val commonIds = first.objects.keys.filter { id -> stores.all { id in it.objects } }.toSet()
@@ -1281,32 +1104,27 @@ internal class HeapStore private constructor(
             var mergedTrackedFields = CompatibilityMapKey.empty<Int, TrackedFieldCompatibility>()
             var mergedMirrors: PersistentSet<Int> = persistentSetOf()
             var mergedDirtyMirrors: PersistentSet<Int> = persistentSetOf()
-            var createdObjects = 0
             for (id in commonIds) {
                 val objects = stores.map { it.objects.getValue(id) }
-                val result = mergeObject(objects, superclasses, sameGraph)
-                if (result == null) {
+                val obj = mergeObject(objects, superclasses, sameGraph)
+                if (obj == null) {
                     merged = merged.removing(id)
                     continue
                 }
-                merged = merged.putting(id, result.obj)
-                if (result.created) createdObjects++
-                knownNodeId(result.obj)?.let { mergedNodeRefs = mergedNodeRefs.putting(it.id, HeapRef(id)) }
-                (result.obj as? HeapObject.TrackedField)?.let {
+                merged = merged.putting(id, obj)
+                knownNodeId(obj)?.let { mergedNodeRefs = mergedNodeRefs.putting(it.id, HeapRef(id)) }
+                (obj as? HeapObject.TrackedField)?.let {
                     mergedTrackedFields = mergedTrackedFields.put(
                         id,
                         TrackedFieldCompatibility(it.metadata, it.accessibility),
                     )
                 }
-                (result.obj as? HeapObject.TrackedArray)?.let { array ->
+                (obj as? HeapObject.TrackedArray)?.let { array ->
                     if (array.mirror is HostGraphContents.Known) mergedMirrors = mergedMirrors.adding(id)
                     if (array.mirrorDirty) mergedDirtyMirrors = mergedDirtyMirrors.adding(id)
                 }
             }
-            if (merged !== first.objects) first.metrics.heapRoots++
-            first.metrics.heapObjects += createdObjects
             val graph = if (sameGraph) first.hostGraph else HostGraphState.empty()
-            if (!sameGraph) first.metrics.hostGraphRoots++
             return HeapStore(
                 first.ids,
                 merged,
@@ -1316,17 +1134,15 @@ internal class HeapStore private constructor(
                 mergedTrackedFields,
                 mergedMirrors,
                 mergedDirtyMirrors,
-                first.metrics,
             )
         }
 
-        private data class MergedObject(val obj: HeapObject, val created: Boolean)
-
+        /** The joined object, the first path's own version when every path agrees, or null to drop it. */
         private fun mergeObject(
             objects: List<HeapObject>,
             superclasses: Superclasses,
             sameGraph: Boolean,
-        ): MergedObject? {
+        ): HeapObject? {
             val first = objects.first()
             val sameObject = objects.all { it === first }
             return when (first) {
@@ -1341,9 +1157,9 @@ internal class HeapStore private constructor(
                         val metadata = first.reflectedMethodMetadata
                             .takeIf { candidate -> hosts.all { it.reflectedMethodMetadata == candidate } }
                         if (contents == first.contents && metadata == first.reflectedMethodMetadata) {
-                            MergedObject(first, false)
+                            first
                         } else {
-                            MergedObject(HeapObject.HostObject(first.type, contents, metadata), true)
+                            HeapObject.HostObject(first.type, contents, metadata)
                         }
                     }
                 }
@@ -1360,8 +1176,8 @@ internal class HeapStore private constructor(
                         } else {
                             HostGraphContents.Unknown
                         }
-                        if (contents == first.contents && cause == first.cause) MergedObject(first, false)
-                        else MergedObject(HeapObject.GuestThrowable(first.type, contents, cause), true)
+                        if (contents == first.contents && cause == first.cause) first
+                        else HeapObject.GuestThrowable(first.type, contents, cause)
                     }
                 }
                 is HeapObject.TrackedArray -> {
@@ -1385,30 +1201,27 @@ internal class HeapStore private constructor(
                         joined
                     }
                     if (elements === first.elementsRoot() && mirror == first.mirror && dirty == first.mirrorDirty) {
-                        MergedObject(first, false)
+                        first
                     } else {
-                        MergedObject(first.withElementsRoot(elements, mirror, dirty), true)
+                        first.withElementsRoot(elements, mirror, dirty)
                     }
                 }
                 is HeapObject.TrackedObject -> {
                     val tracked = objects.map { it as? HeapObject.TrackedObject ?: return null }
                     if (tracked.any { it.type != first.type || it.uninitialized != first.uninitialized }) return null
                     if (sameObject || tracked.all { it.contentsRootToken() === first.contentsRootToken() }) {
-                        return MergedObject(first, false)
+                        return first
                     }
                     val keys = linkedSetOf<String>()
                     tracked.forEach { keys.addAll(it.fields().keys) }
-                    MergedObject(
-                        HeapObject.TrackedObject(
-                            first.type,
-                            first.uninitialized,
-                            LinkedHashMap<String, Value>().apply {
-                                for (key in keys) {
-                                    this[key] = joinAll(tracked.map { it.field(key) ?: Value.Top }, superclasses) ?: Value.Top
-                                }
-                            },
-                        ),
-                        true,
+                    HeapObject.TrackedObject(
+                        first.type,
+                        first.uninitialized,
+                        LinkedHashMap<String, Value>().apply {
+                            for (key in keys) {
+                                this[key] = joinAll(tracked.map { it.field(key) ?: Value.Top }, superclasses) ?: Value.Top
+                            }
+                        },
                     )
                 }
                 is HeapObject.TrackedField -> {
@@ -1417,7 +1230,7 @@ internal class HeapStore private constructor(
                     require(fields.all { it.accessibility == first.accessibility }) {
                         "Tracked-field accessibility must be partitioned before executable heap merge"
                     }
-                    MergedObject(first, false)
+                    first
                 }
             }
         }
@@ -1432,16 +1245,6 @@ internal class HeapStore private constructor(
 
     override fun toString(): String = "HeapStore(${objects.size} objects)"
 }
-
-internal data class HeapVersionCounts(
-    val roots: Int,
-    val objects: Int,
-    val arrayElements: Int,
-    val objectFields: Int,
-    val hostGraphRoots: Int,
-    val hostGraphClones: Int,
-    val hostObjectsCloned: Int,
-)
 
 private fun PersistentList<Value>.mutateValues(values: List<Value>): PersistentList<Value> {
     require(size == values.size)

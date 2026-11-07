@@ -4,7 +4,6 @@ import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
-import org.cf.smalivm.core.ExecutionSession
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.Outcome
@@ -67,10 +66,9 @@ class InvokeOpTest {
 
     @Test
     fun definiteNullReceiverHasOnlyTheGuestNpeOutcome() {
-        val (session, graph) = invokeRun("nullVirtual()I")
+        val graph = invokeRun("nullVirtual()I")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFreshInvokeThrowable(
-            session,
             graph,
             expectedType = "Ljava/lang/NullPointerException;",
             expectedClass = NullPointerException::class.java,
@@ -81,10 +79,9 @@ class InvokeOpTest {
 
     @Test
     fun resolutionFailurePrecedesReceiverNull() {
-        val (session, graph) = invokeRun("missingBeforeNull()V")
+        val graph = invokeRun("missingBeforeNull()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFreshInvokeThrowable(
-            session,
             graph,
             expectedType = "Ljava/lang/NoSuchMethodError;",
             expectedClass = NoSuchMethodError::class.java,
@@ -96,10 +93,9 @@ class InvokeOpTest {
 
     @Test
     fun absentDefiningClassThrowsGuestNoClassDefFoundError() {
-        val (session, graph) = invokeRun("absentClass()V")
+        val graph = invokeRun("absentClass()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFreshInvokeThrowable(
-            session,
             graph,
             expectedType = "Ljava/lang/NoClassDefFoundError;",
             expectedClass = NoClassDefFoundError::class.java,
@@ -435,14 +431,12 @@ class InvokeOpTest {
         assertEquals(uninitialized, (obj as HeapObject.TrackedObject).uninitialized)
     }
 
-    private fun invokeRun(descriptor: String): Pair<ExecutionSession, ExecutionGraph> {
+    private fun invokeRun(descriptor: String): ExecutionGraph {
         val view = CoreTester.classIndex.requireMethodView(CLASS_NAME, descriptor)
-        val session = CoreTester.vmServices.newSession(view)
-        return session to session.run()
+        return CoreTester.vmServices.newSession(view).run()
     }
 
     private fun assertFreshInvokeThrowable(
-        session: ExecutionSession,
         graph: ExecutionGraph,
         expectedType: String,
         expectedClass: Class<out Throwable>,
@@ -459,8 +453,12 @@ class InvokeOpTest {
         assertEquals(thrown, endingFrame.thrownValue(), "the outcome and terminal frame must retain one guest identity")
         assertEquals(expectedClass, host.javaClass)
         assertEquals(expectedMessage, host.message)
-        assertEquals(0, session.opExecutionMetrics().preArmThrowableAllocations)
-        assertEquals(1, session.opExecutionMetrics().committedThrowableAllocations)
+        // Exactly one guest throwable exists on the throwing path: none was allocated before an arm committed
+        // and the committed event materialized it once.
+        val throwables = (0 until endingFrame.nextHeapId()).map(::HeapRef).filter {
+            endingFrame.heapObject(it) is HeapObject.GuestThrowable
+        }
+        assertEquals(listOf(ref), throwables)
     }
 
     private fun assertInitializedObject(

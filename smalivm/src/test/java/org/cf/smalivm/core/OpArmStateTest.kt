@@ -1,12 +1,14 @@
 package org.cf.smalivm.core
 
+import java.time.Duration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertTimeoutPreemptively
 
-/** Plan 12 Task 45 exact-arm ownership and deterministic traversal contracts. */
+/** Op-arm ownership of frames and fresh throwables, and footprint-scoped reconciliation. */
 class OpArmStateTest {
     @Test
     fun terminalThrowFramesOwnTheirMaterializedThrowableRefs() {
@@ -62,16 +64,20 @@ class OpArmStateTest {
             throws.map { it.exception.type }.toSet(),
         )
         assertEquals(2, refs.toSet().size, "independent fresh throw events must keep distinct identities")
-        assertEquals(2, session.opExecutionMetrics().committedThrowableAllocations)
+        val endings = listOf(requireNotNull(graph.nodePile(0).single().endingFrame)) +
+            session.unattributedEndingFramesSnapshot()
+        assertEquals(
+            refs.toSet(),
+            endings.map { guestThrowables(it).single() }.toSet(),
+            "each throw event materializes exactly one throwable, owned by its own ending frame",
+        )
     }
 
     @Test
     fun oneFreshThrowEventSharesOneRefAcrossCatchAndEscapeWithoutLeakingToNormal() {
         // EX-04 and the arm invariant: routing copies one normalized event; it never materializes per route.
         val view = view("Larray_length_test;", "forkFreshThrowAcrossUnknownHandler([I)Ljava/lang/Object;")
-        val session = VmServices(CoreTester.classIndex).newSession(view)
-
-        val graph = session.run()
+        val graph = VmServices(CoreTester.classIndex).newSession(view).run()
 
         val escaped = (graph.outcomes.single { it is Outcome.Threw } as Outcome.Threw).exception as Value.Known
         val caught = graph.outcomes.filterIsInstance<Outcome.Returned>()
@@ -83,43 +89,40 @@ class OpArmStateTest {
         assertTrue(returned.single { it != caught }!!.readsAsNullReference, "the normal route returns its null sentinel")
         assertEquals(3, graph.outcomes.size, "normal, caught, and escaping routes must each finish")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(0, session.opExecutionMetrics().preArmThrowableAllocations)
-        assertEquals(1, session.opExecutionMetrics().committedThrowableAllocations)
+        // One event materialized once, after arm commit: the normal route's frame holds no throwable, and
+        // every route of the event holds exactly the shared ref.
+        val endings = graph.addresses().flatMap(graph::nodePile).filter { it.outcome != null }
+        for (node in endings) {
+            val expected = if (node.outcome == Outcome.Returned(returned.single { it != caught })) emptyList() else listOf(escaped.raw)
+            assertEquals(expected, guestThrowables(requireNotNull(node.endingFrame)), "${node.outcome}")
+        }
     }
 
     @Test
-    fun knownIndexAputReconcilesOneCellAndSingleArmAputReconcilesNone() {
-        // Plan 12 footprint invariant: cost follows named cells, not container size.
-        val view = view("Laput_test;", "putObject()V")
-        val absentArrayType = VirtualType.of("[Lspine/absent;")
-        val ambiguousFrame = Frame.entryFrame(view).also {
-            it.assign(0, it.allocateArray(absentArrayType, 10_000))
-            it.assign(1, Value.Known(5_000, INT))
-            it.assign(2, Value.Known("value", STRING))
+    fun forkReconciliationCostFollowsNamedCellsNotStateSize() {
+        // Bug class: reconciling a fork joins the whole written array, or the whole frame state, instead of the
+        // cells the arms' updates name. Oracle: each fork writes one cell of a 2^20-element array, so joining that
+        // array visits 2 * 2^20 cells per fork and 2,000 forks take far beyond the bound; named-cell
+        // reconciliation visits four cells per fork. The value checks catch a footprint that drops a named cell.
+        val (view, frame, ref) = largeForkFrame()
+        val arrayRef = frame.allocateArray(INT_ARRAY, MAX_TRACKED_ARRAY_LENGTH).raw as HeapRef
+        val fork = namedCellFork(ref, arrayRef)
+
+        val source = assertTimeoutPreemptively(Duration.ofSeconds(30)) {
+            lateinit var last: ExecutionNode
+            repeat(2_000) {
+                val session = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, current, index ->
+                    if (address == 0) fork else OpBuilder.build(address, current, index)
+                }
+                last = session.step()!!
+            }
+            last
         }
-        val ambiguous = VmServices(CoreTester.classIndex).newSession(view, entryFrame = ambiguousFrame)
 
-        ambiguous.run()
-
-        assertEquals(
-            2,
-            ambiguous.opExecutionMetrics().persistentStateEntriesVisited,
-            "two arms each read one named array cell; array length is irrelevant",
-        )
-
-        val intView = view("Laput_test;", "put()V")
-        val exactFrame = Frame.entryFrame(intView).also {
-            it.assign(0, it.allocateArray(INT_ARRAY, 10_000))
-            it.assign(1, Value.Known(5_000, INT))
-            it.assign(2, Value.Known(7, INT))
-        }
-        val exact = VmServices(CoreTester.classIndex).newSession(intView, entryFrame = exactFrame)
-
-        exact.run()
-
-        assertEquals(0, exact.opExecutionMetrics().persistentStateEntriesVisited)
-        assertEquals(0, exact.opExecutionMetrics().reconciliationFootprintsResolved)
-        assertEquals(2, exact.opExecutionMetrics().armCopies, "aput and return each use the single-arm fast path")
+        assertEquals(Value.Unknown(INT), source.frame.getField(ref, "field0:I"))
+        assertEquals(Value.Unknown(INT), source.frame.getStaticField(OWNER, NAMED_STATIC))
+        assertEquals(Value.Unknown(INT), source.frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known(0, INT), source.frame.arrayAt(arrayRef)!!.element(1))
     }
 
     @Test
@@ -146,13 +149,15 @@ class OpArmStateTest {
         assertEquals(setOf(old, stored), graph.outcomes.map { (it as Outcome.Returned).value }.toSet())
         assertEquals(2, graph.outcomes.size)
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(0, session.opExecutionMetrics().preArmThrowableAllocations)
-        assertEquals(1, session.opExecutionMetrics().committedThrowableAllocations)
+        val storeFailures = graph.addresses().flatMap(graph::nodePile).filter { it.outcome != null }
+            .flatMap { guestThrowables(requireNotNull(it.endingFrame)) }
+        assertEquals(1, storeFailures.size, "the ArrayStoreException is materialized once, after arm commit")
     }
 
     @Test
-    fun unknownIndexAputVisitsExactlyItsRealAffectedRange() {
-        // Plan 12 footprint invariant: uncertain indices name only the real array range.
+    fun unknownIndexAputJoinsEveryRealCellInTheSourceSummary() {
+        // Bug class: the footprint of an uncertain index names too few cells (the source keeps stale values)
+        // or cells past the array's length (reconciliation writes out of range).
         val view = view("Laput_test;", "put()V")
         val length = 64
         val frame = Frame.entryFrame(view).also {
@@ -162,13 +167,12 @@ class OpArmStateTest {
         }
         val session = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame)
 
-        session.run()
+        val graph = session.run()
 
-        assertEquals(
-            length * 2,
-            session.opExecutionMetrics().persistentStateEntriesVisited,
-            "normal and exceptional arms vote once for each genuinely uncertain array cell",
-        )
+        // Normal arm: an unknown index joins every slot with 7. Exceptional arm: the array is unchanged. The
+        // source summary therefore holds join(0, 7) in every real cell.
+        val summary = graph.nodePile(0).single().frame.arrayAt(frame.peek(0)!!.let { (it as Value.Known).raw as HeapRef })!!
+        assertEquals(List(length) { Value.Unknown(INT) }, summary.elements())
     }
 
     @Test
@@ -182,65 +186,23 @@ class OpArmStateTest {
     }
 
     @Test
-    fun objectAndStaticReconciliationVisitOnlyNamedCells() {
-        // Plan 12 footprint invariant: unrelated roots and cells are not traversed.
-        val realView = view("Lspine/spine;", "returnWide()J")
-        val view = MethodView(
-            realView.signature,
-            realView.definingClass,
-            realView.returnType,
-            realView.isStatic,
-            10_000,
-            realView.parameters,
-            realView.tryBlocks,
-            realView.addresses.associateWith(realView::instructionAt),
-            programRevision = realView.programRevision,
-            methodRevision = realView.methodRevision,
-        )
-        val owner = VirtualType.of("Lspine/spine;")
-        val fields = (0 until 1_000).associate { "field$it:I" to Value.Known(it, INT) }
-        val frame = Frame.entryFrame(view).also { large ->
-            repeat(10_000) { large.assign(it, Value.Known(it, INT)) }
-        }
-        val ref = (frame.allocateObject(owner, fields).raw as HeapRef)
-        repeat(1_000) {
-            frame.allocateArray(INT_ARRAY, 8)
-            frame.allocateObject(owner, mapOf("unrelated:I" to Value.Known(it, INT)))
-            frame.writeStaticField("Lspine/spine;->unrelated$it:I", Value.Known(it, INT))
-        }
-        val staticDescriptor = "Lspine/spine;->named:I"
-        frame.writeStaticField(staticDescriptor, Value.Known(1, INT))
-        val fork = object : Op(0) {
-            override val name: String = "granular-footprint-fork"
-
-            override fun execute(frame: Frame): OpExecution = OpExecution.of(
-                OpArm.Continue(
-                    OpUpdate.writeField(ref, "field0:I", Value.Known(7, INT))
-                        .then(OpUpdate.writeStatic(staticDescriptor, Value.Known(7, INT))),
-                ),
-                OpArm.Throw(
-                    evidence = ThrowEvidence.Fresh(
-                        ThrowableRecipe.of(VirtualType.of("Ljava/lang/NullPointerException;")),
-                    ),
-                ),
-            )
-        }
+    fun objectAndStaticReconciliationJoinOnlyNamedCells() {
+        val (view, frame, ref) = largeForkFrame()
         val session = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, current, index ->
-            if (address == 0) fork else OpBuilder.build(address, current, index)
+            if (address == 0) namedCellFork(ref, arrayRef = null) else OpBuilder.build(address, current, index)
         }
 
         val source = session.step()!!
 
-        assertEquals(4, session.opExecutionMetrics().persistentStateEntriesVisited)
         assertEquals(Value.Known(999, INT), source.frame.getField(ref, "field999:I"))
         assertEquals(Value.Known(9_999, INT), source.frame.peek(9_999))
         assertEquals(Value.Unknown(INT), source.frame.getField(ref, "field0:I"))
-        assertEquals(Value.Unknown(INT), source.frame.getStaticField(owner, staticDescriptor))
+        assertEquals(Value.Unknown(INT), source.frame.getStaticField(OWNER, NAMED_STATIC))
     }
 
     @Test
     fun reconciliationIncludesWideHighHalvesAndClearedOldPartners() {
-        // Plan 12 wide-partner invariant: low/high pairs reconcile as one register value.
+        // Low/high wide pairs reconcile as one register value.
         val view = view("Lspine/spine;", "returnWide()J")
         val wide = VirtualType.of("J")
         val frame = Frame.entryFrame(view).also { it.assign(0, Value.Known(42L, wide)) }
@@ -264,26 +226,69 @@ class OpArmStateTest {
 
         assertEquals(Value.Top, source.frame.peek(0), "one arm cleared the old wide low half")
         assertEquals(Value.Top, source.frame.peek(1), "the old high half is not left as an orphan marker")
-        assertEquals(4, session.opExecutionMetrics().persistentStateEntriesVisited)
     }
 
     @Test
-    fun newArrayInitializesEachDefaultCellOnceAndUsesNoReconciliation() {
-        // Plan 12 array-construction invariant: one persistent default initialization pass.
+    fun newArrayHoldsTheTypeDefaultInEveryCell() {
         val length = 10_000
         val view = view("Lnew_array_test;", "createIntegerArray()V")
         val frame = Frame.entryFrame(view).also { it.assign(0, Value.Known(length, INT)) }
-        val session = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame)
+        val graph = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame).run()
 
-        val graph = session.run()
-
-        assertEquals(0, session.opExecutionMetrics().persistentStateEntriesVisited)
+        val array = graph.trusted()!!.terminatingConsensus(0) as Value.Known
         val returned = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single()
-        assertEquals(
-            length,
-            returned.endingFrame!!.stateSharingSnapshot().copies.arrayAllocationElementsInitialized,
+        assertEquals(List(length) { Value.Known(0, INT) }, returned.endingFrame!!.arrayAt(array.raw as HeapRef)!!.elements())
+    }
+
+    /** Every guest throwable in [frame]'s heap, in allocation order. */
+    private fun guestThrowables(frame: Frame): List<HeapRef> =
+        (0 until frame.nextHeapId()).map(::HeapRef).filter { frame.heapObject(it) is HeapObject.GuestThrowable }
+
+    private data class LargeForkFrame(val view: MethodView, val frame: Frame, val objectRef: HeapRef)
+
+    private fun largeForkFrame(): LargeForkFrame {
+        val realView = view("Lspine/spine;", "returnWide()J")
+        val view = MethodView(
+            realView.signature,
+            realView.definingClass,
+            realView.returnType,
+            realView.isStatic,
+            10_000,
+            realView.parameters,
+            realView.tryBlocks,
+            realView.addresses.associateWith(realView::instructionAt),
+            programRevision = realView.programRevision,
+            methodRevision = realView.methodRevision,
         )
-        assertTrue(graph.trusted()!!.terminatingConsensus(0) is Value.Known)
+        val fields = (0 until 1_000).associate { "field$it:I" to Value.Known(it, INT) }
+        val frame = Frame.entryFrame(view).also { large ->
+            repeat(10_000) { large.assign(it, Value.Known(it, INT)) }
+        }
+        val ref = frame.allocateObject(OWNER, fields).raw as HeapRef
+        repeat(1_000) {
+            frame.allocateArray(INT_ARRAY, 8)
+            frame.allocateObject(OWNER, mapOf("unrelated:I" to Value.Known(it, INT)))
+            frame.writeStaticField("Lspine/spine;->unrelated$it:I", Value.Known(it, INT))
+        }
+        frame.writeStaticField(NAMED_STATIC, Value.Known(1, INT))
+        return LargeForkFrame(view, frame, ref)
+    }
+
+    /** A two-arm op whose normal arm writes one field, one static and optionally one array cell. */
+    private fun namedCellFork(ref: HeapRef, arrayRef: HeapRef?): Op = object : Op(0) {
+        override val name: String = "granular-footprint-fork"
+
+        override fun execute(frame: Frame): OpExecution {
+            var update = OpUpdate.writeField(ref, "field0:I", Value.Known(7, INT))
+                .then(OpUpdate.writeStatic(NAMED_STATIC, Value.Known(7, INT)))
+            if (arrayRef != null) update = update.then(OpUpdate.writeArrayElements(arrayRef, 0, listOf(Value.Known(7, INT))))
+            return OpExecution.of(
+                OpArm.Continue(update),
+                OpArm.Throw(
+                    evidence = ThrowEvidence.Fresh(ThrowableRecipe.of(VirtualType.of("Ljava/lang/NullPointerException;"))),
+                ),
+            )
+        }
     }
 
     private fun view(owner: String, descriptor: String): MethodView =
@@ -293,5 +298,7 @@ class OpArmStateTest {
         val INT = VirtualType.of("I")
         val INT_ARRAY = VirtualType.of("[I")
         val STRING = VirtualType.of("Ljava/lang/String;")
+        val OWNER = VirtualType.of("Lspine/spine;")
+        const val NAMED_STATIC = "Lspine/spine;->named:I"
     }
 }

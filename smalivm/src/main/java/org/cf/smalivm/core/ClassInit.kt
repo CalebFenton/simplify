@@ -4,19 +4,10 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 /** Immutable class-initialization status supplied to a selected emulator. */
-class ClassInitStatusSnapshot internal constructor(
-    private val states: Map<String, ClassInitState>,
-    private val actions: Map<String, ClassInitAction> = emptyMap(),
-) {
-    fun stateOf(type: VirtualType): ClassInitState =
-        states[type.descriptor] ?: ClassInitState.UNINITIALIZED
+class ClassInitStatusSnapshot internal constructor(private val classes: ClassInitStore) {
+    fun stateOf(type: VirtualType): ClassInitState = classes.initState(type)
 
-    internal fun actionFor(type: VirtualType): ClassInitAction =
-        actions[type.descriptor] ?: when (stateOf(type)) {
-            ClassInitState.UNINITIALIZED -> ClassInitAction.StartInitialization
-            ClassInitState.INITIALIZING, ClassInitState.INITIALIZED -> ClassInitAction.Proceed
-            ClassInitState.FAILED -> error("A failed class-init snapshot must retain its outward failure")
-        }
+    internal fun actionFor(type: VirtualType): ClassInitAction = classes.actionFor(type)
 }
 
 /** The only decisions a class-init trigger can receive from path state. */
@@ -59,50 +50,34 @@ internal class ClassInitCompatibilityKey(private val value: Any) {
 }
 
 /**
- * One path's class-initialization lifecycle: the **third** of spec §4.2's three stores, alongside
- * [RegisterFile] and [Heap]. Implements the [ClassState] contract `StateContracts.kt` has declared with no
- * implementor since the spine.
+ * One path's class-initialization lifecycle: the third of spec §4.2's three stores, alongside [RegisterFile]
+ * and [Heap], implementing the [ClassState] contract.
  *
- * **Per PATH, and that is resolved decision 9 rather than a scoping preference.**
- * `docs/architecture/state-model.md:160` records the old engine's leak exactly: its class map *"records
- * presence, not a lifecycle"*, and at a callee merge an **existential** rule marks the caller's class
- * initialized if it was initialized in *any* terminal callee state -- so *"the resulting state can say
- * 'initialized' while holding unknown fields because initialization occurred on only some paths; future
- * access then skips initialization on paths where it never happened."* A session-global map reproduces that
- * byte for byte, which is why this is one wrapper per [Frame]. [copy] shares immutable roots: it is the same
- * class of soundness item as the colliding addresses, node piles and heap ids (`CARRY-FORWARD.md` Plan 9
- * items 1, 2 and 10) and it is graded the same way.
+ * Per path, never session-global: a class initialized on only some callee paths must stay uninitialized on
+ * the others, or later accesses skip initialization on paths where it never ran. [copy] shares immutable
+ * roots in constant time.
  *
- * **There is deliberately no cross-path JOIN of incompatible lifecycle state.** Task 20 groups callee
- * terminals by [compatibilityKey] before merging values. Thus INITIALIZED and absent/UNINITIALIZED stay on
- * separate caller paths. [merge] rejects different keys, so no caller can accidentally authorize one
- * unconditional initialization by erasing or existentially joining them.
+ * There is deliberately no cross-path join of incompatible lifecycle state. Callers group callee terminals by
+ * [compatibilityKey] before merging values, so INITIALIZED and absent/UNINITIALIZED stay on separate caller
+ * paths, and [merge] rejects different keys.
  *
- * Keyed by DESCRIPTOR STRING rather than by [VirtualType]: [VirtualType] is structural on its descriptor, so
- * the two are equivalent as keys, and a `String` key keeps the map printable in a test failure.
+ * Keyed by descriptor string: [VirtualType] is structural on its descriptor, so the two are equivalent keys.
  */
 internal class ClassInitStore private constructor(
     private var states: CompatibilityMapKey<String, ClassInitRecord>,
     /**
-     * **This path's static field cells** (Task 18 and Plan 11 Task 40), keyed by the FULLY-QUALIFIED descriptor
-     * `StateContracts.kt` mandates -- `Lcom/example/Foo;->bar:I`, built once by
-     * [ClassIndex.fieldDescriptorOf] -- so a shadowed static, or two same-named statics of different types in
-     * one hierarchy, can never share a cell (the oracle's name-only `VirtualClass.getField` does share one;
-     * `docs/architecture/type-and-dex.md:116`).
+     * This path's static field cells, keyed by the fully-qualified descriptor from
+     * [ClassIndex.fieldDescriptorOf] (`Lcom/example/Foo;->bar:I`), so a shadowed static, or two same-named
+     * statics of different types in one hierarchy, never share a cell.
      *
-     * **Here rather than in [HeapStore], and that is resolved decision 9 rather than convenience.** Static
-     * state has exactly the scoping of the init lifecycle it travels with: per class, per path, threaded
-     * across BOTH call boundaries ([Frame.calleeEntryFrame] in, [Frame.resumedWith] back), shared per fork.
-     * Each cell keeps its value and provenance, so host projection never silently becomes guest storage. A
-     * `<clinit>` writes statics and its caller must see them; a fork must not see its sibling's writes.
-     * Parking it beside [states] means one object satisfies all four and [copy] is the single place the
-     * isolation lives -- a second store would have to re-derive the threading and would be silently dropped
-     * at a call boundary the day someone added one ([Frame.calleeEntryFrame]'s warning).
+     * Statics live beside [states] because they have the same scoping: per class, per path, threaded across
+     * both call boundaries ([Frame.calleeEntryFrame] in, [Frame.resumedWith] back) and shared per fork. A
+     * `<clinit>`'s caller must see its writes; a fork must not see its sibling's. Each cell keeps its value
+     * and provenance, so a host projection never silently becomes guest storage.
      */
     private var statics: PersistentMap<String, StaticCell>,
-    private val metrics: ClassStateMetrics,
 ) : ClassState {
-    constructor() : this(CompatibilityMapKey.empty(), persistentMapOf(), ClassStateMetrics())
+    constructor() : this(CompatibilityMapKey.empty(), persistentMapOf())
 
     /** [ClassInitState.UNINITIALIZED] for a class this path has never triggered -- total, never throws. */
     override fun initState(type: VirtualType): ClassInitState = when (states[type.descriptor]) {
@@ -159,11 +134,7 @@ internal class ClassInitStore private constructor(
     }
 
     private fun setStaticCell(fieldDescriptor: String, cell: StaticCell) {
-        val updated = statics.putting(fieldDescriptor, cell)
-        if (updated !== statics) {
-            statics = updated
-            metrics.staticRoots++
-        }
+        statics = statics.putting(fieldDescriptor, cell)
     }
 
     /** Writes each of [descriptors] joined over [arms] under the same value and owner rule as [merge]. */
@@ -199,10 +170,7 @@ internal class ClassInitStore private constructor(
                 updated = updated.putting(descriptor, cell)
             }
         }
-        if (updated !== statics) {
-            statics = updated
-            metrics.staticRoots++
-        }
+        statics = updated
     }
 
     fun start(type: VirtualType) {
@@ -237,33 +205,14 @@ internal class ClassInitStore private constructor(
     }
 
     private fun replace(type: VirtualType, record: ClassInitRecord) {
-        val updated = states.put(type.descriptor, record)
-        if (updated !== states) {
-            states = updated
-            metrics.classStateRoots++
-        }
+        states = states.put(type.descriptor, record)
     }
 
     /** A new wrapper over both persistent roots. A later write replaces only the writing path's root. */
-    fun copy(): ClassInitStore = copy(states, statics)
-
-    /** Counts logical entries only if a snapshot boundary stops sharing either persistent class root. */
-    private fun copy(
-        copiedStates: CompatibilityMapKey<String, ClassInitRecord>,
-        copiedStatics: PersistentMap<String, StaticCell>,
-    ): ClassInitStore {
-        metrics.storeCopies++
-        if (copiedStates !== states) metrics.elementsCopied += states.size
-        if (copiedStatics !== statics) metrics.elementsCopied += statics.size
-        return ClassInitStore(copiedStates, copiedStatics, metrics)
-    }
+    fun copy(): ClassInitStore = ClassInitStore(states, statics)
 
     /** Exact lifecycle partition key. Missing means UNINITIALIZED and is therefore distinct from INITIALIZED. */
     fun compatibilityKey(): ClassInitCompatibilityKey = ClassInitCompatibilityKey(states)
-
-    internal fun stateRootToken(): Any = states.rootToken()
-
-    internal fun compatibilityHashMetrics(): CompatibilityHashMetrics = states.hashMetrics()
 
     internal fun guestRootValues(): List<Value> = buildList {
         addAll(statics.values.map(StaticCell::value))
@@ -272,27 +221,7 @@ internal class ClassInitStore private constructor(
         }
     }
 
-    internal fun statusSnapshot(): ClassInitStatusSnapshot = ClassInitStatusSnapshot(
-        states.mapValues { (_, record) ->
-            when (record) {
-                ClassInitRecord.Initializing -> ClassInitState.INITIALIZING
-                ClassInitRecord.Initialized -> ClassInitState.INITIALIZED
-                is ClassInitRecord.Failed -> ClassInitState.FAILED
-            }
-        },
-        states.mapValues { (_, record) ->
-            when (record) {
-                ClassInitRecord.Initializing, ClassInitRecord.Initialized -> ClassInitAction.Proceed
-                is ClassInitRecord.Failed -> ClassInitAction.ThrowFailed(record.firstOutwardFailure)
-            }
-        },
-    )
-
-    internal fun staticRootToken(): Any = statics
-
-    internal fun copyCounts(): Pair<Int, Int> = metrics.storeCopies to metrics.elementsCopied
-
-    internal fun versionCounts(): Pair<Int, Int> = metrics.classStateRoots to metrics.staticRoots
+    internal fun statusSnapshot(): ClassInitStatusSnapshot = ClassInitStatusSnapshot(copy())
 
     override fun toString(): String = "ClassInitStore($states, statics=$statics)"
 
@@ -316,9 +245,7 @@ internal class ClassInitStore private constructor(
                     )
                 }
             }
-            if (mergedStates !== first.states) first.metrics.classStateRoots++
-            if (mergedStatics !== first.statics) first.metrics.staticRoots++
-            return ClassInitStore(mergedStates, mergedStatics, first.metrics)
+            return ClassInitStore(mergedStates, mergedStatics)
         }
 
         private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: Superclasses): StaticCell {

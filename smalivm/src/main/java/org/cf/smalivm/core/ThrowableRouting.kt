@@ -82,22 +82,14 @@ internal class ThrowableDomain private constructor(
         result = 31 * result + requiredRootsHash
         31 * result + excludedRootsHash
     }
-    internal fun sourceKeyHash(metrics: ThrowableDomainHashMetricsCounter): Int {
-        metrics.hashReads++
-        return cachedHash
-    }
 
-    internal fun requireUnresolvedRoot(
-        type: VirtualType,
-        metrics: ResolverMetricsCounter,
-    ): ThrowableDomain? {
-        validateNewRoot(type, metrics)
+    internal fun requireUnresolvedRoot(type: VirtualType): ThrowableDomain? {
+        validateNewRoot(type)
         if (type in excludedRoots) return null
         if (type == exactRuntimeType || type == trustedUpperBound) return this
         val updated = unresolvedRequiredRoots.adding(type)
         if (updated === unresolvedRequiredRoots) return this
-        metrics.persistentUpdates++
-        return create(
+        return ThrowableDomain(
             exactRuntimeType,
             exactRuntimeFacts,
             trustedUpperBound,
@@ -105,18 +97,14 @@ internal class ThrowableDomain private constructor(
             excludedRoots,
             requiredRootsHash + type.hashCode(),
             excludedRootsHash,
-            metrics,
         )
     }
 
-    internal fun narrowUpperBound(
-        type: VirtualType,
-        metrics: ResolverMetricsCounter,
-    ): ThrowableDomain? {
-        validateNewRoot(type, metrics)
+    internal fun narrowUpperBound(type: VirtualType): ThrowableDomain? {
+        validateNewRoot(type)
         if (type in excludedRoots) return null
         if (type == trustedUpperBound) return this
-        return create(
+        return ThrowableDomain(
             exactRuntimeType,
             exactRuntimeFacts,
             type,
@@ -124,20 +112,15 @@ internal class ThrowableDomain private constructor(
             excludedRoots,
             requiredRootsHash,
             excludedRootsHash,
-            metrics,
         )
     }
 
-    internal fun exclude(
-        type: VirtualType,
-        metrics: ResolverMetricsCounter,
-    ): ThrowableDomain? {
-        validateNewRoot(type, metrics)
+    internal fun exclude(type: VirtualType): ThrowableDomain? {
+        validateNewRoot(type)
         if (exactRuntimeType == type || trustedUpperBound == type || type in unresolvedRequiredRoots) return null
         val updated = excludedRoots.adding(type)
         if (updated === excludedRoots) return this
-        metrics.persistentUpdates++
-        return create(
+        return ThrowableDomain(
             exactRuntimeType,
             exactRuntimeFacts,
             trustedUpperBound,
@@ -145,12 +128,10 @@ internal class ThrowableDomain private constructor(
             updated,
             requiredRootsHash,
             excludedRootsHash + type.hashCode(),
-            metrics,
         )
     }
 
-    private fun validateNewRoot(type: VirtualType, metrics: ResolverMetricsCounter) {
-        metrics.domainValidationVisits++
+    private fun validateNewRoot(type: VirtualType) {
         require(type.isReference) { "A throwable refinement root must be a reference type" }
     }
 
@@ -227,29 +208,6 @@ internal class ThrowableDomain private constructor(
                 persistentSetOf(),
                 type.hashCode(),
                 0,
-            )
-        }
-
-        private fun create(
-            exactRuntimeType: VirtualType?,
-            exactRuntimeFacts: ThrowableTypeFacts?,
-            trustedUpperBound: VirtualType,
-            unresolvedRequiredRoots: PersistentSet<VirtualType>,
-            excludedRoots: PersistentSet<VirtualType>,
-            requiredRootsHash: Int,
-            excludedRootsHash: Int,
-            metrics: ResolverMetricsCounter,
-        ): ThrowableDomain {
-            metrics.domainWrappers++
-            metrics.observeRoots(unresolvedRequiredRoots.size, excludedRoots.size)
-            return ThrowableDomain(
-                exactRuntimeType,
-                exactRuntimeFacts,
-                trustedUpperBound,
-                unresolvedRequiredRoots,
-                excludedRoots,
-                requiredRootsHash,
-                excludedRootsHash,
             )
         }
     }

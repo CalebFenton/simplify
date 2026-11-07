@@ -421,15 +421,15 @@ class FrameTest {
             persistentSetOf(descriptor),
         )
 
-        val untouched = source.reconcileOpArms(listOf(source.copyForOpArm(), source.copyForOpArm()), footprint, classIndex)
+        val untouched = source.reconcileOpArms(listOf(source.copy(), source.copy()), footprint, classIndex)
         assertEquals(
             StaticCell(projected, StaticCellProvenance.HOST_PROJECTION),
-            untouched.frame.staticCell(descriptor),
+            untouched.staticCell(descriptor),
         )
 
-        val writer = source.copyForOpArm()
+        val writer = source.copy()
         writer.writeStaticField(descriptor, projected)
-        val written = source.reconcileOpArms(listOf(source.copyForOpArm(), writer), footprint, classIndex)
-        assertEquals(StaticCell(projected, StaticCellProvenance.GUEST_WRITE), written.frame.staticCell(descriptor))
+        val written = source.reconcileOpArms(listOf(source.copy(), writer), footprint, classIndex)
+        assertEquals(StaticCell(projected, StaticCellProvenance.GUEST_WRITE), written.staticCell(descriptor))
     }
 }

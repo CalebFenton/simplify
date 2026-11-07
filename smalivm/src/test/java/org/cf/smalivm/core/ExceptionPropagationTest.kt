@@ -111,11 +111,6 @@ class ExceptionPropagationTest {
             "the handler must see each path's object and static writes",
         )
         assertEquals(throwable, graph.terminatingStaticFieldConsensusOverExploredPaths(owner, saved))
-        val metrics = session.callPropagationMetrics()
-        assertEquals(2, metrics.sourceThrowPartitions)
-        assertEquals(4, metrics.sourceThrowExits)
-        assertEquals(2, metrics.sourcePartitionMerges)
-        assertEquals(2, metrics.handlerResolutions)
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
@@ -139,9 +134,7 @@ class ExceptionPropagationTest {
         val runtime = VirtualType.of("Ljava/lang/RuntimeException;")
         val value = frame.allocateThrowable(npe, NullPointerException("same ref constraints"))
         val exact = ThrowableDomain.exact(npe, CoreTester.classIndex.throwableHierarchy)
-        val narrowed = requireNotNull(
-            exact.narrowUpperBound(runtime, ResolverMetricsCounter()),
-        )
+        val narrowed = requireNotNull(exact.narrowUpperBound(runtime))
         val calleeSignature = "Linvoke_review_callee;->throwsNpe()V"
         val session = ExecutionSession.of(caller, CoreTester.classIndex, Limits(), frame) { address, currentView, index ->
             if (currentView.signature == calleeSignature && address == 0) {
@@ -160,14 +153,8 @@ class ExceptionPropagationTest {
 
         val graph = session.run()
         val returned = graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value }
-        val metrics = session.callPropagationMetrics()
 
         assertEquals(listOf(value, value), returned)
-        assertEquals(1, metrics.sourceThrowPartitions)
-        assertEquals(2, metrics.sourceThrowExits)
-        assertEquals(1, metrics.partitionMerges)
-        assertEquals(1, metrics.sourcePartitionMerges)
-        assertEquals(1, metrics.handlerResolutions)
     }
 
     @Test
@@ -188,14 +175,6 @@ class ExceptionPropagationTest {
         assertEquals(throwable, returned)
         assertEquals(throwable, escaped)
         assertEquals(2, graph.outcomes.size)
-        val metrics = session.callPropagationMetrics()
-        assertEquals(2, metrics.sourceThrowPartitions)
-        assertEquals(2, metrics.sourceThrowExits)
-        assertEquals(2, metrics.sourcePartitionMerges)
-        assertEquals(2, metrics.handlerResolutions)
-        assertEquals(1, metrics.handlerRoutes)
-        assertEquals(2, metrics.sourceDomainHashReads)
-        assertEquals(0, metrics.sourceDomainHashEntryVisits)
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
@@ -221,8 +200,8 @@ class ExceptionPropagationTest {
         val throwable = VirtualType.of("Ljava/lang/Throwable;")
         val exception = VirtualType.of("Ljava/lang/Exception;")
         val runtime = VirtualType.of("Ljava/lang/RuntimeException;")
-        val first = requireNotNull(ThrowableDomain.any().exclude(exception, ResolverMetricsCounter()))
-        val second = requireNotNull(ThrowableDomain.any().exclude(runtime, ResolverMetricsCounter()))
+        val first = requireNotNull(ThrowableDomain.any().exclude(exception))
+        val second = requireNotNull(ThrowableDomain.any().exclude(runtime))
         val session = ExecutionSession.of(
             caller,
             CoreTester.classIndex,
@@ -252,13 +231,8 @@ class ExceptionPropagationTest {
         }
 
         val graph = session.run()
-        val metrics = session.callPropagationMetrics()
 
         assertEquals(listOf(Outcome.Returned(Value.Known(1, int)), Outcome.Returned(Value.Known(1, int))), graph.outcomes)
-        assertEquals(2, metrics.sourceThrowPartitions)
-        assertEquals(2, metrics.partitionMerges)
-        assertEquals(2, metrics.sourcePartitionMerges)
-        assertEquals(2, metrics.handlerResolutions)
     }
 
     @Test
@@ -293,13 +267,8 @@ class ExceptionPropagationTest {
         }
 
         val graph = session.run()
-        val metrics = session.callPropagationMetrics()
 
         assertEquals(listOf(Outcome.Returned(Value.Top), Outcome.Returned(Value.Top)), graph.outcomes)
-        assertEquals(1, metrics.sourceThrowPartitions)
-        assertEquals(2, metrics.sourceThrowExits)
-        assertEquals(1, metrics.sourcePartitionMerges)
-        assertEquals(1, metrics.handlerResolutions)
     }
 
     @Test
@@ -322,8 +291,6 @@ class ExceptionPropagationTest {
         assertEquals(setOf(1, 2), pairs.keys)
         assertEquals(2, pairs.values.toSet().size)
         assertEquals(2, graph.outcomes.size)
-        assertEquals(6, session.callPropagationMetrics().partitionMerges)
-        assertEquals(2, session.callPropagationMetrics().sourceThrowPartitions)
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
@@ -351,7 +318,7 @@ class ExceptionPropagationTest {
     }
 
     @Test
-    fun equivalentSymbolicExitsMergeAndResolveOnceBeforeHandlerFanout() {
+    fun equivalentSymbolicExitsEachReachEveryCallerHandler() {
         val handlerCount = 16
         val exitCount = 8
         val caller = view("manySymbolicHandlers()I")
@@ -378,42 +345,27 @@ class ExceptionPropagationTest {
         }
 
         val graph = session.run()
-        val metrics = session.callPropagationMetrics()
 
-        assertEquals(1, metrics.sourceThrowPartitions)
-        assertEquals(exitCount, metrics.sourceThrowExits)
-        assertEquals(1, metrics.partitionMerges)
-        assertEquals(1, metrics.sourcePartitionMerges)
-        assertEquals(1, metrics.handlerResolutions)
-        assertEquals(handlerCount, metrics.handlerClausesVisited)
-        assertEquals(handlerCount * 2, metrics.handlerRelationRequests)
-        assertEquals(handlerCount, metrics.handlerRoutes)
-        assertEquals(exitCount, metrics.sourceDomainHashReads)
-        assertEquals(0, metrics.sourceDomainHashEntryVisits)
         assertEquals(exitCount * handlerCount, graph.outcomes.filterIsInstance<Outcome.Returned>().size)
         assertEquals(exitCount, graph.outcomes.filterIsInstance<Outcome.Threw>().size)
     }
 
     @Test
     fun threeFrameGuestPropagationStaysCompleteWithoutInventingEffects() {
-        val view = view("outerThreeFrames()I")
-        val session = CoreTester.vmServices.newSession(view)
-        val graph = session.run()
+        val graph = execute("outerThreeFrames()I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
-        val metrics = session.callPropagationMetrics()
-        assertEquals(0, metrics.retainedFrames)
-        assertEquals(0, metrics.retainedCollectionCapacity)
-        assertEquals(2, metrics.partitionMerges)
-        assertEquals(2, metrics.sourceThrowPartitions)
-        assertEquals(2, metrics.handlerResolutions)
-        assertEquals(0, metrics.pendingRoutingCommands)
-        assertEquals(2, metrics.routingCommands)
+    }
+
+    @Test
+    fun callerRoutingCommandsCountAsSchedulerWork() {
+        // Oracle: outerThreeFrames runs seven Smali ops across three frames and routes two callee completions.
+        // Each routing command is one unit of scheduler work, so nine steps complete and eight do not.
+        assertEquals(CompletionStatus.Complete, execute("outerThreeFrames()I", Limits(maxSteps = 9)).completion())
         assertEquals(
-            9,
-            metrics.schedulerWork,
-            "seven real Smali ops plus two caller-routing commands must exhaust the work count",
+            CompletionStatus.Partial(setOf(AbortReason.METHOD_LIMIT)),
+            execute("outerThreeFrames()I", Limits(maxSteps = 8)).completion(),
         )
     }
 
