@@ -349,4 +349,27 @@ internal object Coerce {
         // 32 of the 64 bits live in `register + 1`, which this call cannot see. See the KDoc.
         else -> null
     }
+
+    /**
+     * The value a store of [value] into a slot of [type] holds. A `Z`/`B`/`C`/`S` slot keeps the low 8 or 16
+     * bits of the 32-bit register, as ART's field stores do (`GetFieldValue` casts the vreg with
+     * `static_cast<uint8_t>`, `<int8_t>`, `<uint16_t>` and `<int16_t>`); any other slot stores [value]
+     * unchanged. A narrow store answers `Unknown(type)` when the register has no 32-bit reading, and for a
+     * boolean whose low byte is neither 0 nor 1, which a device keeps but a `Boolean` raw cannot hold.
+     */
+    fun narrowStore(value: Value, type: VirtualType): Value {
+        val narrow = type.descriptor.singleOrNull()?.takeIf { it in "ZBCS" } ?: return value
+        val bits = (value as? Value.Known)?.let { toInt(it.raw) } ?: return Value.Unknown(type)
+        val raw: Any = when (narrow) {
+            'Z' -> when (bits and 0xff) {
+                0 -> false
+                1 -> true
+                else -> return Value.Unknown(type)
+            }
+            'B' -> bits.toByte()
+            'C' -> bits.toChar()
+            else -> bits.toShort()
+        }
+        return Value.Known(raw, type)
+    }
 }

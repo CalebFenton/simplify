@@ -3112,9 +3112,10 @@ the resolved cell has an unmodelled target and records `STRONG`. These malformed
 choices under spec 2.2**, not runtime claims; they continue without inventing a guest exception or field
 cell. `iput-object` applies the same reference coercion as `sput-object`.
 
-**Known inherited scope:** primitive `iput-byte`/`iput-char`/`iput-short` values are stored verbatim, matching
-Task 18's explicit `sput*` choice. A device narrows them. The coherent follow-up must choose one field-wide
-store/read narrowing policy; Task 19 does not add a second local policy.
+**Narrow stores:** `iput`/`sput` `-boolean`/`-byte`/`-char`/`-short` keep only the field's width, as ART's
+`GetFieldValue` casts the 32-bit register (`static_cast<uint8_t>`, `<int8_t>`, `<uint16_t>`, `<int16_t>`), so
+`sput-byte` of `0x100` stores `0`. A boolean byte other than 0 or 1 stores `Unknown(Z)`: a device keeps it, but
+the engine's `Boolean` raw cannot hold it (`Coerce.narrowStore`).
 
 ### Monitors
 
