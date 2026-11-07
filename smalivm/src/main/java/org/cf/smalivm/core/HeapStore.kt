@@ -115,14 +115,18 @@ internal class HeapStore private constructor(
     /** A fresh array of [length] whose elements hold Java's default for the component type. */
     fun allocateArray(type: VirtualType, length: Int): HeapRef {
         require(length >= 0) { "Cannot allocate an array of length $length; a negative length is the OP's NegativeArraySizeException to throw" }
+        require(length <= MAX_TRACKED_ARRAY_LENGTH) {
+            "Cannot track an array of length $length; over $MAX_TRACKED_ARRAY_LENGTH the caller models it as unknown"
+        }
         // A tracked array's own type is always a real array descriptor -- object over tag. A caller holding
         // only a loosely-tagged register must resolve the truth BEFORE allocating (from the type operand, or
         // from a seeded host array's class); it may not launder a non-array tag through here.
         val component = requireNotNull(type.componentType) {
             "A tracked array's type must be an array descriptor, not $type; resolve the component before allocating"
         }
+        val default = defaultElementValue(component)
         val elements = persistentListOf<Value>().builder()
-        repeat(length) { elements.add(defaultElementValue(component)) }
+        repeat(length) { elements.add(default) }
         metrics.arrayAllocationElementsInitialized += length
         return allocateArray(type, elements.build())
     }
@@ -1454,6 +1458,13 @@ private fun PersistentList<Value>.mapValues(transform: (Value) -> Value): Persis
     }
     return updated
 }
+
+/**
+ * The longest array the heap tracks element by element. The length comes from analysed code, and each
+ * tracked slot costs host memory, so a longer allocation is modelled as an unknown array rather than built.
+ * 2^20 is above the default step budget, so no run could write every slot of a longer array one by one.
+ */
+internal const val MAX_TRACKED_ARRAY_LENGTH: Int = 1 shl 20
 
 /**
  * Java's default for a fresh array element. A reference component gets `Known(null, T)` -- DEFINITELY
