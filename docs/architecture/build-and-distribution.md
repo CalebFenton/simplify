@@ -152,10 +152,48 @@ Project-owned code is Apache-2.0. Dependencies and vendored source retain their 
 GitHub Actions (`.github/workflows/build.yml`) builds/tests on pull requests and pushes to `master`
 and `release/**`, using JDK 21 and the framework submodule. Release branches can therefore be
 validated on GitHub before landing on `master`, without requiring a pull request. CI builds all
-four fat JARs and the optimized ProGuard VM JAR, then uploads aggregate JaCoCo HTML/XML as a
-workflow artifact. It needs no external coverage-service credentials. The old
-Travis/Coveralls/Coverity hooks are removed; no coverage-trend or external static-analysis upload
-is claimed. Local workflow validation is not evidence of a successful hosted run.
+four fat JARs and the optimized ProGuard VM JAR. Gradle uses `--continue` so independent test
+suites can finish after another task fails; failures still fail the job.
+
+`tools/ci/test_report.py` publishes per-module passed, failed, error, skipped, and total counts
+to the console and GitHub job summary. It counts recorded JUnit test cases, including dynamic
+tests, rather than summing suite containers. Missing/empty reports are not passing tests;
+`--require-results` rejects them after a successful build. Invalid reports and recorded test
+failures are fatal. The demo has no JUnit suite and is labeled explicitly. Reports may come
+from Gradle's build cache; the task log distinguishes execution from `FROM-CACHE`.
+
+Test summarization and artifact uploads run even after a build or smoke failure. The
+`test-reports` artifact retains available JUnit XML and HTML reports; `jacoco-coverage` retains
+available aggregate JaCoCo HTML/XML. Both expire after 14 days. Coverage includes the VM and
+optimizer, not the demo or debugger, and has no minimum-percentage gate. Missing coverage
+after a failed build is not reported as a second error.
+
+After a successful build, `tools/ci/smoke.py` launches the actual fat JARs and extracted ZIP
+distribution scripts for Simplify, the demo, and the debugger. It checks Smali/DEX/APK
+processing, DEX035 output, executable wide results, APK resource/metadata preservation,
+demo results, and debugger breakpoints, stepping, register inspection, and entry into captured
+framework code. Separate launches replace the ordinary VM with its ProGuard artifact;
+ordinary VM classes and its separately packaged dependencies cannot mask the optimized bundle.
+These checks do not use Gradle's test classpath. TAR copies are not launched again.
+
+The CI utilities require Python 3.9+ with only its standard library. After building the
+artifacts listed above, run them locally with:
+
+```sh
+python3 tools/ci/test_report.py --require-results
+python3 tools/ci/smoke.py
+```
+
+The smoke command uses `JAVA_HOME` when set and requires one current ZIP distribution per
+application; stale ZIPs must be removed before running it. `TMPDIR` selects the temporary
+volume for the extracted distributions and Java scratch files, which are removed on exit.
+CI uses the runner's temporary directory. Neither command rebuilds artifacts or downloads tools.
+Android comparisons in the JUnit suite use committed ART recordings; CI does not boot an
+emulator or regenerate those recordings or the framework capture.
+
+No external coverage-service credentials are needed. The old Travis/Coveralls/Coverity hooks
+are removed; no coverage-trend or external static-analysis upload is claimed. Local workflow
+validation is not evidence of a successful hosted run.
 
 The Android framework corpus and derived reference artifacts remain under their upstream terms,
 separate from Simplify's Apache license. The API 36 capture records its image fingerprint and

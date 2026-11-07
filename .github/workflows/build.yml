@@ -32,17 +32,44 @@ jobs:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Build, test, and generate coverage
+        id: build
         run: >-
-          ./gradlew --no-daemon --max-workers=2
+          ./gradlew --no-daemon --max-workers=2 --continue
           build jacocoRootReport
           :simplify:fatJar :demoapp:fatJar :sdbg:fatJar :smalivm:fatJar
           :smalivm:proguard
 
+      - name: Smoke test packaged applications
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: python3 tools/ci/smoke.py
+
+      - name: Summarize test results
+        if: ${{ always() }}
+        run: python3 tools/ci/test_report.py ${{ steps.build.outcome == 'success' && '--require-results' || '' }}
+
+      - name: Upload test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-reports
+          path: |
+            smalivm/build/test-results/**/TEST-*.xml
+            smalivm/build/reports/tests/
+            simplify/build/test-results/**/TEST-*.xml
+            simplify/build/reports/tests/
+            sdbg/build/test-results/**/TEST-*.xml
+            sdbg/build/reports/tests/
+          if-no-files-found: warn
+          retention-days: 14
+
       # Coverage stays with the run; no external service credentials or publication.
       - name: Upload aggregate coverage
+        if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: jacoco-coverage
           path: build/reports/jacoco/jacocoRootReport/
-          if-no-files-found: error
+          if-no-files-found: ${{ steps.build.outcome == 'success' && 'error' || 'ignore' }}
           retention-days: 14
