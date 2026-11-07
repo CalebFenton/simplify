@@ -392,6 +392,7 @@ internal class ThrowableRecipe private constructor(
             "Ljava/lang/ArrayStoreException;",
             "Ljava/lang/ClassCastException;",
             "Ljava/lang/ExceptionInInitializerError;",
+            "Ljava/lang/IncompatibleClassChangeError;",
             "Ljava/lang/InternalError;",
             "Ljava/lang/NegativeArraySizeException;",
             "Ljava/lang/NoClassDefFoundError;",

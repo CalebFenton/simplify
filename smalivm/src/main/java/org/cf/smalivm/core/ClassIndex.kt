@@ -1,7 +1,6 @@
 package org.cf.smalivm.core
 
 import java.lang.reflect.Modifier
-import org.apache.commons.lang3.ClassUtils
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.type.ClassManager
 import org.cf.util.ClassNameUtils
@@ -45,11 +44,10 @@ class ResolvedMethod internal constructor(
 )
 
 /**
- * What looking a method reference up in the loaded class set found -- see [ClassIndex.lookupMethod] for why
- * the three failures are separate members and which task owns each.
+ * What looking a method reference up in the loaded class set found -- see [ClassIndex.lookupMethod].
  *
- * Sealed rather than a nullable [MethodView], so a consumer cannot answer three different questions with
- * one branch, and so Task 15 and Plan 11 each have a named slot the compiler points them at.
+ * Sealed rather than a nullable [MethodView], so a consumer cannot answer different guest outcomes with one
+ * branch.
  */
 sealed interface MethodLookup {
     /** Present, with a body. [view] is what a nested activation runs. */
@@ -86,6 +84,13 @@ sealed interface MethodLookup {
      * a linking error a device never raises.
      */
     class NoBody(val method: ResolvedMethod) : MethodLookup
+
+    /**
+     * Selection found more than one maximally-specific non-abstract interface method (JVMS 5.4.3.3). ART links
+     * a conflict method in its place, and invoking it throws `IncompatibleClassChangeError` after the receiver
+     * null check (`ArtMethod::ThrowInvocationTimeError`). [method] is named on the selecting class.
+     */
+    class DefaultConflict(val method: ResolvedMethod) : MethodLookup
 }
 
 /** Kind-correct invocation resolution, before backend selection or receiver-null handling. */
@@ -131,7 +136,8 @@ sealed interface StaticFieldLookup {
     class NoSuchClass internal constructor(val type: VirtualType) : StaticFieldLookup
 
     /**
-     * Every class in the chain loaded and none declares a static field of this name AND type.
+     * Every class and interface the search reaches is loaded, and none declares a static field of this name
+     * AND type.
      *
      * A guest `NoSuchFieldError` -- a `LinkageError`, so an **`Error`** outside a guest `catch (Exception)`,
      * exactly like [MethodLookup.NoSuchMethod]'s `NoSuchMethodError`. **Tier: INHERITED** ([JVMS] §5.4.3.2
@@ -512,124 +518,47 @@ class ClassIndex private constructor(
     }
 
     /**
-     * The host `Class` object a `const-class` operand names, or `null` when **this loader** cannot produce
-     * one.
+     * The host `Class` that [descriptor] names, loaded by exact binary name with `Class.forName(name, false,
+     * loader)` semantics, or `null` when [classLoader] cannot produce it.
      *
-     * **A `null` is NOT by itself "the class is absent", and `buildConstClass` has THREE outcomes, not two.**
-     * This method is the host-loader channel; [isLoadable] is the class-model channel, and they are different
-     * questions (see `OpBuilder.buildConstClass`'s "two predicates" paragraph, which is where the split is
-     * argued). A `null` here sends the decoder to [isLoadable], which decides between:
-     *  - **absent from the model** -> a guest `NoClassDefFoundError` thrown at execute time;
-     *  - **present in the model, unloadable by this host loader** -> a per-address `UnsupportedOp`, because
-     *    that is an engine limitation and the class exists on a device. Common, not defensive: 506 of 2431
-     *    bundled `java.*` descriptors are in this state, since [SmaliClassLoader] refuses every `java.*` name
-     *    and the JVM parent has no Android-only one.
+     * `null` does not mean the class is absent: a class in the model that this host loader cannot define (an
+     * Android-only `java.*` class, which [SmaliClassLoader] refuses and the JVM parent lacks) also answers
+     * `null`, and callers ask [isLoadable] to tell the two apart. A [LinkageError] while defining the class is
+     * the same host-loader limitation and also answers `null`.
      *
-     * A decode-time failure degrades either way and **never throws on the host** (Global Constraints).
-     *
-     * *That* an operand naming an absent class is a linking error is INHERITED off [JVMS] `ldc`; **which**
-     * exception, and the resolution-before-null-check ordering, are **measured** --
-     * `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)` cross-validated
-     * `[DEVICE](Tier B, nterp default, API 36)`, `tools/art-runner/fixtures/Fx_ConstClassAbsentType.smali`
-     * against `Fx_ConstClassPresentType.smali` (`docs/DALVIK-SEMANTICS.md#const-class-21c`, and
-     * #resolution-failure-is-one-family-tiered-once). **Not [ART], which is what this KDoc used to say** --
-     * a `[DEVICE]` measurement is this behaviour's whole authority since Plan 9 Task 15.
-     *
-     * **Resolved WITHOUT initializing the class** -- the three-argument `ClassUtils.getClass(..., false)`
-     * overload rather than the oracle's initializing two-argument one (`opcode/ConstOp.kt:74`, its own author
-     * doubting it: *"// TODO: does const-class really not cause class init?"*). ART settles the doubt, and
-     * **the evidence is the WHOLE `CONST_CLASS` handler body, not one argument in it**: thirteen lines at
-     * `runtime/interpreter/interpreter_switch_impl-inl.h:755-767` consisting of exactly
-     * `ResolveVerifyAndClinit`, an `if (UNLIKELY(c == nullptr)) return false;`, `SetVRegReference(A(), c)`,
-     * and `return true` -- no allocation, no field access, no other call, so nothing that could initialize a
-     * class. A device stores the `Class` reference and runs no `<clinit>`
-     * (`docs/DALVIK-SEMANTICS.md#const-class-21c`).
-     *
-     * ⚠️ **Do NOT re-ground this on `can_run_clinit = false`; that is a non-sequitur and it is what this KDoc
-     * used to say.** The flag is real (fourth positional argument at `:760`, parameter list at
-     * `runtime/entrypoints/entrypoint_utils.h:155-161`) and proves only that *that call site* runs no
-     * `<clinit>`. The counterexample: **`NEW_INSTANCE` (`interpreter_switch_impl-inl.h:862-894`) passes the
-     * same `false` at the same argument position (`:868`) and DOES initialize**, downstream in
-     * `AllocObjectFromCode` at `:882` -> `CheckObjectAlloc` -> `CheckClassInitializedForObjectAlloc` ->
-     * `EnsureInitialized` (`runtime/entrypoints/entrypoint_utils-inl.h:236-252`, `:213-230`, `:185-211`).
-     * [JLS] §12.4.1's trigger list (which omits producing a `Class` object) corroborates and cannot prove:
-     * it is the *Java language* spec, and ART's AOT compiler in fact runs `<clinit>` at build time under a
-     * rollback-guarded transaction -- see `docs/DALVIK-SEMANTICS.md#const-class-21c` for that nuance.
-     *
-     * Reporting effect `NONE` while running a host
-     * `<clinit>` is oracle Correctness Defect 21 (`docs/architecture/opcodes.md:176`); the non-initializing
-     * load is what makes the `NONE` this op declares truthful.
-     *
-     * The `Class` is deliberately kept HOST (`Known(hostClass, "Ljava/lang/Class;")`) rather than a
-     * [HeapRef]: a `Class` is immutable, so [Value]'s rule that only *mutable* VM-tracked objects must be
-     * heap references does not force it onto the heap, and staying host keeps oracle parity for Plan 11.
-     *
-     * Only [ClassNotFoundException] means "unresolvable" and maps to `null`; anything else escapes
-     * untranslated, exactly as the oracle caught only that one (`opcode/ConstOp.kt:75-77`).
+     * Loading never runs `<clinit>`: ART's `const-class` handler resolves the type and stores the reference,
+     * and `Class.forName` initialization is the caller's guest-visible step.
      */
-    fun loadClassConstant(descriptor: String): Class<*>? =
-        try {
-            ClassUtils.getClass(classLoader, ClassNameUtils.internalToBinary(descriptor), false)
-        } catch (e: ClassNotFoundException) {
+    fun loadClassConstant(descriptor: String): Class<*>? {
+        if (descriptor.length == 1) {
+            return if (descriptor == "V") Void.TYPE else ClassNameUtils.getPrimitiveClass(descriptor)
+        }
+        return try {
+            Class.forName(ClassNameUtils.internalToBinary(descriptor), false, classLoader)
+        } catch (_: ClassNotFoundException) {
+            null
+        } catch (_: LinkageError) {
             null
         }
+    }
 
     /**
-     * The one method-resolution query the core executes against, and the ONLY one that hands back something
-     * runnable ([MethodView]) rather than an oracle-model handle.
+     * Looks [methodDescriptor] up from [definingClass]: the class and its superclasses, then the
+     * maximally-specific superinterface methods. It answers symbolic resolution and, given a receiver's class,
+     * virtual selection.
      *
-     * [Invoker] resolves against a captured snapshot rather than a mutable source-model handle, so
-     * the session's method bodies and resolution facts remain revision-consistent.
+     * An absent class and an absent member are the guest `NoClassDefFoundError` and `NoSuchMethodError`
+     * resolution failures. A declared method with no body (abstract, native, a framework declaration, an array
+     * pseudo-method) is not a failure; a backend executes it. A `<clinit>` is not inherited, so class
+     * initialization asks [lookupClassInitializer] instead.
      *
-     * ⚠️ **The class-init scheduler does NOT go through here, and an earlier version of this KDoc said it
-     * would.** A static initializer is not inherited and this lookup searches ancestors, so it is the wrong
-     * question for a `<clinit>`; [lookupClassInitializer] is the right one, and its KDoc carries the defect
-     * that distinction avoids.
-     *
-     * **The three failure cases are separate members rather than one `null`, and each names its owner.** A
-     * `null` would collapse questions with different answers: an absent CLASS and an absent MEMBER are the
-     * two halves of the resolution-failure family Task 15 turns into a guest `NoClassDefFoundError`
-     * (`[DEVICE]`-settled -- see `docs/DALVIK-SEMANTICS.md`'s "Resolution failure is one family, tiered
-     * once"), while a declared method with no body is not a failure at all: it is Plan 11's
-     * `EmulateBackend`/`ReflectBackend` work. Collapsing them would make Task 15 re-derive the split, and
-     * would make "abstract" indistinguishable from "missing".
-     *
-     * Total: nothing here throws for ordinary hostile input. The class model raises a bare
-     * `RuntimeException` for a class it cannot load, which [isLoadable] already converts into a boolean, so
-     * the load attempt happens there and the lookup below cannot raise for that cause.
-     *
-     * Each lookup projects a [MethodView] from the selected immutable snapshot. Edits publish new
-     * definitions instead of mutating an existing view; captured sessions keep resolving the old revision.
+     * Views come from the captured immutable snapshot, so a session keeps resolving the revision it started on.
      */
     fun lookupMethod(definingClass: VirtualType, methodDescriptor: String): MethodLookup {
         if (!isLoadable(definingClass)) return MethodLookup.NoSuchClass
-        // 🔴 AN ARRAY DEFINING CLASS IS ANSWERED HERE OR IT HOST-CRASHES BELOW (Plan 9 Task 15, found while
-        // writing adjudication 7b). `findMethod` -> `ClassManager.getVirtualMethod` -> `getVirtualClass`,
-        // whose body is `getVirtualType(className) as VirtualClass` (`type/ClassManager.kt:132-134`) --
-        // and `getVirtualType("[I")` returns a `VirtualArray` (`:154-156`), a SIBLING of `VirtualClass`
-        // under `VirtualType`, not a subtype. So `[I->clone()` threw a host `ClassCastException` straight
-        // out of this method: the "hard host crash on ordinary input" failure mode adjudication 7 exists to
-        // remove, one layer above the ops. `[I->clone()` is not exotic input -- the oracle's corpus invokes
-        // it (`opcode/InvokeOpTest.cloningArrayWithArrayCloneCloneWorksAsExpected`) and the oracle answers it
-        // by synthesizing a `VirtualArrayMethod` (`type/VirtualArray.java:173-182`).
-        //
-        // WHETHER the member exists is asked of `Object`, because that is what an array's member set IS --
-        // [JLS] §10.7: the members of an array type are its `length` field, "the public method `clone`" and
-        // "all the members inherited from class `Object`" (and `Object` declares `clone()Ljava/lang/Object;`
-        // itself, so the covariant array override needs no row of its own). That keeps the NEGATIVE case
-        // precise: `[I->definitelyNotAMethod()V` is `NoSuchMethod`, which Task 20 turns into the guest
-        // `NoSuchMethodError` a device actually raises, rather than being swept up by a blanket array rule.
-        //
-        // But the ANSWER for one that exists is `NoBody`, NOT a delegation to `Object`'s body --
-        // and that distinction is the whole reason this is four lines instead of one. The framework smali's
-        // `Object.clone()` has a REAL body (an `instance-of Ljava/lang/Cloneable;` and onward,
-        // `java/lang/Object.smali:33-45`), so `return lookupMethod(VirtualType.OBJECT, …)` would hand Task 20
-        // a `Runnable` view of `Object.clone()` to execute for an ARRAY clone -- a body that cannot copy an
-        // array and would silently produce a wrong value where the oracle at least produced a copy. An array
-        // pseudo-method is a runtime intrinsic with no dex body anywhere, which is exactly what
-        // `NoBody` means and exactly what Plan 11's `EmulateBackend` is for. Plan 9 deliberately
-        // does not implement it (adjudication 7b), so `opcode/InvokeOpTest`'s two `[I->clone()` tests stay
-        // red as red-test-rule case 3 until Plan 11 -- with an adjudication now naming why.
+        // An array's members are `length`, `clone()` and Object's members (JLS 10.7), so existence is asked of
+        // Object. An existing member answers NoBody rather than Object's body: array `clone()` is a runtime
+        // intrinsic that Object.clone()'s framework bytecode cannot perform.
         if (definingClass.isArray) {
             val search = findSnapshotMethod(VirtualType.OBJECT, methodDescriptor)
             return if (search.method != null) {
@@ -642,7 +571,9 @@ class ClassIndex private constructor(
         }
         val search = findSnapshotMethod(definingClass, methodDescriptor)
         if (search.missingClass) return MethodLookup.NoSuchClass
-        return search.method?.let(::lookupOf) ?: MethodLookup.NoSuchMethod
+        val method = search.method ?: return MethodLookup.NoSuchMethod
+        if (search.defaultConflict) return MethodLookup.DefaultConflict(resolvedSnapshotMethod(method, definingClass))
+        return lookupOf(method)
     }
 
     /** Current immutable application view for one full method signature, or null for bodyless/framework methods. */
@@ -672,8 +603,15 @@ class ClassIndex private constructor(
     private data class SnapshotMethodSearch(
         val method: SnapshotMethod?,
         val missingClass: Boolean,
+        val defaultConflict: Boolean = false,
     )
 
+    /**
+     * JVMS 5.4.3.3 over the snapshot: the class and its superclasses first, then the maximally-specific
+     * superinterface methods, which exclude private and static interface methods. A single non-abstract
+     * maximal method is the answer; several are a [SnapshotMethodSearch.defaultConflict]; with none, an
+     * abstract maximal method answers.
+     */
     private fun findSnapshotMethod(definingClass: VirtualType, descriptor: String): SnapshotMethodSearch {
         val interfaces = ArrayDeque<String>()
         val visitedClasses = mutableSetOf<String>()
@@ -692,7 +630,10 @@ class ClassIndex private constructor(
         while (interfaces.isNotEmpty()) {
             val current = interfaces.removeFirst()
             if (!visitedInterfaces.add(current)) continue
-            declaredSnapshotMethod(current, descriptor)?.let { candidates[current] = it }
+            declaredSnapshotMethod(current, descriptor)
+                ?.takeIf { !AccessFlags.PRIVATE.isSet(it.declaration.accessFlags) }
+                ?.takeIf { !AccessFlags.STATIC.isSet(it.declaration.accessFlags) }
+                ?.let { candidates[current] = it }
             val hierarchy = currentSnapshot.hierarchy.declarations[current]
             if (hierarchy == null) {
                 missingClass = true
@@ -702,8 +643,13 @@ class ClassIndex private constructor(
         }
         val maximal = candidates.filterKeys { candidate ->
             candidates.keys.none { other -> other != candidate && isSubinterface(other, candidate) }
+        }.values
+        val nonAbstract = maximal.filterNot { AccessFlags.ABSTRACT.isSet(it.declaration.accessFlags) }
+        return when (nonAbstract.size) {
+            0 -> SnapshotMethodSearch(maximal.firstOrNull(), missingClass)
+            1 -> SnapshotMethodSearch(nonAbstract.single(), missingClass)
+            else -> SnapshotMethodSearch(nonAbstract.first(), missingClass, defaultConflict = true)
         }
-        return SnapshotMethodSearch(maximal.values.firstOrNull(), missingClass)
     }
 
     private fun declaredSnapshotMethod(owner: String, descriptor: String): SnapshotMethod? {
@@ -812,11 +758,14 @@ class ClassIndex private constructor(
                 val candidateNames = java.util.Collections.unmodifiableSet(LinkedHashSet(candidates.keys))
                 when {
                     !dispatchWorldIsComplete(target.definingClass) -> InvocationLookup.Ambiguous(candidateNames)
-                    candidates.size == 1 -> InvocationLookup.Resolved(
-                        runnable(candidates.values.single()), candidateNames,
-                    )
                     candidates.isEmpty() -> InvocationLookup.Resolved(referenced)
-                    else -> InvocationLookup.Ambiguous(candidateNames)
+                    candidates.size > 1 -> InvocationLookup.Ambiguous(candidateNames)
+                    // Instances of framework subtypes are not enumerated. One application candidate is the target
+                    // only when it is the referenced method, the same answer as no application candidate.
+                    frameworkSubtypesCanReceive(target.definingClass) &&
+                        candidates.keys.single() != selectedSignature(referenced) ->
+                        InvocationLookup.Ambiguous(candidateNames)
+                    else -> InvocationLookup.Resolved(candidates.values.single(), candidateNames)
                 }
             }
         }
@@ -828,32 +777,31 @@ class ClassIndex private constructor(
         return hasCompleteHierarchy && !hasDynamicLoadingEvidence
     }
 
+    /**
+     * Framework classes, bundled or newer on the device, can extend or implement a non-final framework type.
+     * They cannot name an application type.
+     */
+    private fun frameworkSubtypesCanReceive(declaredType: VirtualType): Boolean =
+        isFrameworkClass(declaredType) && !isFinalClass(declaredType)
+
     private fun isFinalClass(type: VirtualType): Boolean {
         if (!isLoadable(type)) return false
         return Modifier.isFinal(currentSnapshot.hierarchy.declarations[type.descriptor]?.accessFlags ?: return false)
     }
 
+    /** True when every class reachable through an application class's superclass and interfaces is loaded. */
     private fun scanHierarchyCompleteness(): Boolean {
-        val complete = mutableMapOf<String, Boolean>()
-        val visiting = mutableSetOf<String>()
-
-        fun ancestryIsComplete(descriptor: String): Boolean {
-            complete[descriptor]?.let { return it }
-            if (!visiting.add(descriptor)) return true
-            val classDef = currentSnapshot.hierarchy.declarations[descriptor]
-            if (classDef == null) {
-                visiting.remove(descriptor)
-                complete[descriptor] = false
-                return false
-            }
-            val result = listOfNotNull(classDef.superclass).plus(classDef.interfaces)
-                .all(::ancestryIsComplete)
-            visiting.remove(descriptor)
-            complete[descriptor] = result
-            return result
+        val declarations = currentSnapshot.hierarchy.declarations
+        val pending = ArrayDeque(currentSnapshot.applicationClasses.keys)
+        val seen = HashSet<String>()
+        while (pending.isNotEmpty()) {
+            val descriptor = pending.removeLast()
+            if (!seen.add(descriptor)) continue
+            val declaration = declarations[descriptor] ?: return false
+            declaration.superclass?.let(pending::addLast)
+            pending.addAll(declaration.interfaces)
         }
-
-        return currentSnapshot.applicationClasses.keys.all(::ancestryIsComplete)
+        return true
     }
 
     internal fun isInterface(type: VirtualType): Boolean {
@@ -873,27 +821,32 @@ class ClassIndex private constructor(
             )
     }
 
-    /** Class initialization targets checked before reflection loads any host class. */
+    /**
+     * Class initialization targets checked before reflection loads any host class: [type], its superclasses,
+     * and every superinterface in sorted depth-first order.
+     */
     internal fun hostInitializationChain(type: VirtualType): List<VirtualType> {
         if (!type.isReference || type.isArray) return listOf(type)
         val chain = linkedSetOf<VirtualType>()
+        val pendingInterfaces = ArrayDeque<String>()
 
-        fun addInterfaces(owner: VirtualType) {
+        fun pushInterfaces(owner: VirtualType) {
             val interfaces = currentSnapshot.hierarchy.declarations[owner.descriptor]?.interfaces
                 ?: throw ClassLoadFailure(
                     "Class model cannot inspect interfaces of ${owner.descriptor}",
                     IllegalStateException("No declaration for ${owner.descriptor} in the program snapshot"),
                 )
-            for (descriptor in interfaces.sorted()) {
-                val interfaceType = VirtualType.of(descriptor)
-                if (chain.add(interfaceType)) addInterfaces(interfaceType)
-            }
+            interfaces.sortedDescending().forEach(pendingInterfaces::addLast)
         }
 
         var current: VirtualType? = type
         while (current != null) {
             chain += current
-            addInterfaces(current)
+            pushInterfaces(current)
+            while (pendingInterfaces.isNotEmpty()) {
+                val interfaceType = VirtualType.of(pendingInterfaces.removeLast())
+                if (chain.add(interfaceType)) pushInterfaces(interfaceType)
+            }
             if (isInterface(current)) break
             current = superclassOf(current)
         }
@@ -942,10 +895,16 @@ class ClassIndex private constructor(
         return lookupOf(method)
     }
 
-    private fun dispatchCandidates(declaredType: VirtualType, descriptor: String): LinkedHashMap<String, MethodView> {
-        val candidates = LinkedHashMap<String, MethodView>()
+    /**
+     * The method each instantiable application subtype of [declaredType] selects, keyed by signature. Abstract
+     * classes and interfaces have no instances of their own; a bodyless or conflicting selection is a target
+     * like any other.
+     */
+    private fun dispatchCandidates(declaredType: VirtualType, descriptor: String): LinkedHashMap<String, MethodLookup> {
+        val candidates = LinkedHashMap<String, MethodLookup>()
         for (name in currentSnapshot.applicationClasses.keys.sorted()) {
             val type = VirtualType.of(name)
+            if (!isInstantiable(type)) continue
             val isCandidate = try {
                 isSubtypeOf(type, declaredType)
             } catch (_: ClassLoadFailure) {
@@ -953,9 +912,24 @@ class ClassIndex private constructor(
             }
             if (!isCandidate) continue
             val lookup = lookupMethod(type, descriptor)
-            if (lookup is MethodLookup.Runnable) candidates.putIfAbsent(lookup.view.signature, lookup.view)
+            selectedSignature(lookup)?.let { candidates.putIfAbsent(it, lookup) }
         }
         return candidates
+    }
+
+    private fun isInstantiable(type: VirtualType): Boolean {
+        val accessFlags = currentSnapshot.hierarchy.declarations[type.descriptor]?.accessFlags ?: return false
+        return !Modifier.isAbstract(accessFlags) && !Modifier.isInterface(accessFlags)
+    }
+
+    private fun selectedSignature(lookup: MethodLookup): String? {
+        val method = when (lookup) {
+            is MethodLookup.Runnable -> lookup.method
+            is MethodLookup.NoBody -> lookup.method
+            is MethodLookup.DefaultConflict -> lookup.method
+            MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> return null
+        }
+        return "${method.target.definingClass.descriptor}->${method.target.descriptor}"
     }
 
     /**
@@ -1033,40 +1007,17 @@ class ClassIndex private constructor(
         currentSnapshot.hierarchy.declarations[type.descriptor]?.framework == true
 
     /**
-     * The static field a `sget*`/`sput*` reference names, resolved at DECODE time (`OpBuilder`) -- so
-     * `core/op/` receives a core [VirtualType] plus a fully-qualified descriptor and never a live
-     * `org.cf.smalivm.type.*` or dexlib handle (the two-tier dependency rule).
+     * The static field a `sget*`/`sput*` reference names, resolved at decode time so `core/op/` receives a
+     * [VirtualType] and a fully-qualified descriptor rather than a dexlib handle.
      *
-     * **Keyed on NAME *and* TYPE, walking the SUPERCLASS chain, and both halves fix a distinct oracle
-     * defect.**
-     *  - *name and type.* `type/VirtualClass.getField(String fieldName)` (`:83-98`) matches by NAME only,
-     *    so two same-named statics of different types in one hierarchy collapse into one state cell
-     *    (`docs/architecture/type-and-dex.md:116`). A field reference in dex is `(class, name, type)`; two
-     *    fields differing only in type are two fields, and Dalvik keeps them apart. So does this.
-     *  - *the chain, from the referenced class upward.* A static declared in an ancestor may legally be
-     *    referenced through a descendant, and the nearest declaration wins -- which is also what
-     *    [StaticFieldLookup.Resolved.descriptor] records, so the storage cell belongs to the class that
-     *    DECLARES the field rather than to whichever subclass an instruction happened to name. Two
-     *    instructions naming the same inherited static through two different subclasses therefore read one
-     *    cell, which is what a device does.
+     * A dex field reference is `(class, name, type)`, so two statics differing only in type are two fields.
+     * The search follows JVMS 5.4.3.2 and ART `Class::FindStaticField`: the class, then its direct
+     * superinterfaces recursively, then its superclass. [StaticFieldLookup.Resolved] names the declaring class,
+     * so every spelling of one inherited static reads one cell, and that class is the one a trigger initializes.
      *
-     * **Interfaces are deliberately NOT walked**, matching [ClassInitPlanner.plan]'s carve-out and for the
-     * same reason: [superclassOf] reads one string, an interface constant is normally referenced *as* the
-     * interface (`sget v0, Lmy/Iface;->X:I`, which resolves at the referenced class with no walk at all), and
-     * javac never emits the descendant spelling. [JVMS] §5.4.3.2 does search superinterfaces; the residue is a
-     * hand-written `sget` naming an implementor for an interface constant, which answers
-     * [StaticFieldLookup.NoSuchField] here. Recorded rather than silently narrowed.
-     *
-     * **A [ClassLoadFailure] anywhere in the walk becomes [StaticFieldLookup.NoSuchClass], not a rethrow.**
-     * [superclassOf] raises it for a class whose ancestors are not in the loaded set, which is routine in an
-     * obfuscated APK -- and `OpBuilder.build` runs inside `buildSuccessor`, where a throwable becomes
-     * `Aborted(HOST_FAILURE)`, i.e. indistinguishable from an engine bug. A missing link in the chain is
-     * genuinely a resolution failure, so the guest `NoClassDefFoundError` is the honest answer rather than a
-     * degradation.
-     *
-     * A primitive or array [referencedClass] answers [StaticFieldLookup.NoSuchField]: neither declares static
-     * fields, and asking the class model about an array raises a host `ClassCastException` (the sharp edge
-     * [lookupMethod]'s and [lookupClassInitializer]'s array rows exist for).
+     * A class absent from the loaded set anywhere in the search is [StaticFieldLookup.NoSuchClass], the guest
+     * `NoClassDefFoundError`, rather than a host failure. A primitive or array [referencedClass] declares no
+     * statics and answers [StaticFieldLookup.NoSuchField].
      */
     fun resolveStaticField(
         referencedClass: VirtualType,
@@ -1077,24 +1028,27 @@ class ClassIndex private constructor(
             return StaticFieldLookup.NoSuchField(fieldDescriptorOf(referencedClass, name, fieldTypeDescriptor))
         }
         if (!isLoadable(referencedClass)) return StaticFieldLookup.NoSuchClass(referencedClass)
-        var current: VirtualType? = referencedClass
-        val seen = mutableSetOf<String>()
-        while (current != null && seen.add(current.descriptor)) {
-            val declared = declaredStaticFields(current)
-                .firstOrNull { it.descriptor == fieldDescriptorOf(current!!, name, fieldTypeDescriptor) }
-            if (declared != null) {
+        val pending = ArrayDeque<String>()
+        val searched = HashSet<String>()
+        pending.addLast(referencedClass.descriptor)
+        while (pending.isNotEmpty()) {
+            val descriptor = pending.removeLast()
+            if (!searched.add(descriptor)) continue
+            val owner = VirtualType.of(descriptor)
+            val declaration = currentSnapshot.hierarchy.declarations[descriptor]
+                ?: return StaticFieldLookup.NoSuchClass(owner)
+            val wanted = fieldDescriptorOf(owner, name, fieldTypeDescriptor)
+            declaredStaticFields(owner).firstOrNull { it.descriptor == wanted }?.let { declared ->
                 return StaticFieldLookup.Resolved(
-                    current,
+                    owner,
                     declared.descriptor,
                     declared.type,
                     Modifier.isVolatile(declared.modifiers),
                 )
             }
-            current = try {
-                superclassOf(current)
-            } catch (e: ClassLoadFailure) {
-                return StaticFieldLookup.NoSuchClass(current)
-            }
+            // Popped last-in first-out: every superinterface subtree, in declaration order, before the superclass.
+            declaration.superclass?.let(pending::addLast)
+            declaration.interfaces.asReversed().forEach(pending::addLast)
         }
         return StaticFieldLookup.NoSuchField(fieldDescriptorOf(referencedClass, name, fieldTypeDescriptor))
     }

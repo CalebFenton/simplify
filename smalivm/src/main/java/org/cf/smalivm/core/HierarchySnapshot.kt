@@ -336,7 +336,71 @@ class HierarchySnapshot internal constructor(
                     framework = false,
                 )
             }
+            declarations.keys.removeAll(circularClasses(declarations))
             return HierarchySnapshot(declarations.toPersistentMap())
+        }
+
+        /**
+         * Classes whose superclass or interface chain reaches themselves. ART's class linker rejects each one
+         * with `ClassCircularityError` while loading it, so none of them is in the loaded set. Computed as the
+         * strongly connected components of the declared-ancestor graph, iteratively so inheritance depth
+         * cannot exhaust the host stack.
+         */
+        private fun circularClasses(declarations: Map<String, ClassHierarchyDeclaration>): Set<String> {
+            fun ancestors(descriptor: String): Iterator<String> {
+                val declaration = declarations.getValue(descriptor)
+                return (listOfNotNull(declaration.superclass) + declaration.interfaces)
+                    .filter(declarations::containsKey)
+                    .iterator()
+            }
+
+            val order = HashMap<String, Int>()
+            val lowLink = HashMap<String, Int>()
+            val open = ArrayDeque<String>()
+            val isOpen = HashSet<String>()
+            val frames = ArrayDeque<Pair<String, Iterator<String>>>()
+            val circular = HashSet<String>()
+
+            fun enter(descriptor: String) {
+                order[descriptor] = order.size
+                lowLink[descriptor] = order.getValue(descriptor)
+                open.addLast(descriptor)
+                isOpen.add(descriptor)
+                frames.addLast(descriptor to ancestors(descriptor))
+            }
+
+            for (root in declarations.keys) {
+                if (root in order) continue
+                enter(root)
+                while (frames.isNotEmpty()) {
+                    val (descriptor, pending) = frames.last()
+                    if (pending.hasNext()) {
+                        val ancestor = pending.next()
+                        if (ancestor !in order) {
+                            enter(ancestor)
+                        } else if (ancestor in isOpen) {
+                            lowLink[descriptor] = minOf(lowLink.getValue(descriptor), order.getValue(ancestor))
+                        }
+                        continue
+                    }
+                    frames.removeLast()
+                    frames.lastOrNull()?.let { (parent, _) ->
+                        lowLink[parent] = minOf(lowLink.getValue(parent), lowLink.getValue(descriptor))
+                    }
+                    if (lowLink.getValue(descriptor) != order.getValue(descriptor)) continue
+                    val component = ArrayList<String>()
+                    do {
+                        val member = open.removeLast()
+                        isOpen.remove(member)
+                        component += member
+                    } while (member != descriptor)
+                    val declaration = declarations.getValue(descriptor)
+                    if (component.size > 1 || declaration.superclass == descriptor || descriptor in declaration.interfaces) {
+                        circular += component
+                    }
+                }
+            }
+            return circular
         }
     }
 }
