@@ -14,6 +14,7 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import com.android.tools.smali.dexlib2.immutable.value.ImmutableIntEncodedValue
 import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -451,6 +452,48 @@ class MethodTryRegionEditTest {
         val tryBlocks = requireNotNull(reloaded.methodView(TRY_BOUNDARY)).tryBlocks
 
         assertEquals(listOf(65_535, 1), tryBlocks.map { it.endAddress - it.startAddress })
+    }
+
+    @Test
+    fun handlerListsPastTheSixteenBitOffsetRejectBeforePublication() {
+        // The writer emits one handler list per try item (dexlib2 would otherwise merge adjacent equal-handler
+        // ranges). 17,000 one-instruction ranges with a catch-all at address 17,001 need four bytes per list, so
+        // later try_item.handler_off values pass the 16-bit limit and the edit cannot be written.
+        val rangeCount = 17_000
+        val index = index(
+            buildString {
+                appendLine(".class public Ltask57/ManyRanges;")
+                appendLine(".super Ljava/lang/Object;")
+                appendLine(".method public static run()V")
+                appendLine(".registers 1")
+                repeat(rangeCount) { appendLine("nop") }
+                appendLine("return-void")
+                appendLine("move-exception v0")
+                appendLine("return-void")
+                appendLine(".end method")
+            },
+        )
+        val snapshot = index.currentSnapshot
+        val view = requireNotNull(index.methodView("Ltask57/ManyRanges;->run()V"))
+        val edit = VmServices(index).methodEditor.beginEdit(view)
+        val boundaries = (0..rangeCount).map(edit::pendingAnchorForCodeAddress)
+        val handler = edit.pendingAnchorForCodeAddress(rangeCount + 1)
+        edit.setTryRegions(
+            (0 until rangeCount).map { range ->
+                TryRegionSpec(boundaries[range], boundaries[range + 1], listOf(CatchHandlerSpec.CatchAll(handler)))
+            },
+        )
+
+        val result = edit.commit()
+
+        assertEquals(
+            MethodEditRejectionReason.InvalidTryRegion(
+                "An encoded exception-handler offset exceeds the DEX unsigned 16-bit limit",
+            ),
+            (result as? MethodEditCommitResult.Rejected)?.reason,
+        )
+        assertSame(snapshot, index.currentSnapshot)
+        assertDoesNotThrow { ProgramDexWriter().writeToBytes(index.currentSnapshot) }
     }
 
     private data class Anchors(
