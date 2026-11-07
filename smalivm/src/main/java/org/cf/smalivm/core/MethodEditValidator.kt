@@ -461,8 +461,6 @@ internal object MethodEditValidator {
             codePoint in 0x10000..0x10ffff
     }
 
-    private data class EncodedHandlerClause(val exceptionType: String?, val handlerCodeAddress: Int)
-
     private fun validateEncodedTryStructure(
         layout: MethodLayout,
         projectedReferences: DexReferenceClosure,
@@ -471,65 +469,17 @@ internal object MethodEditValidator {
             return MethodEditRejectionReason.InvalidTryRegion("The method exceeds the DEX try-item limit")
         }
         if (layout.tryBlocks.isEmpty()) return null
-
         val typeIndexes = projectedReferences.types.sorted().withIndex().associate { (index, type) -> type to index }
-        val handlerLists = LinkedHashSet<List<EncodedHandlerClause>>()
-        layout.tryBlocks.forEach { block ->
-            handlerLists += block.exceptionHandlers.map { handler ->
-                EncodedHandlerClause(handler.exceptionType, handler.handlerCodeAddress)
-            }
-        }
-
-        var offset = unsignedLeb128Size(handlerLists.size).toLong()
-        for (handlers in handlerLists) {
-            if (offset > DexLimits.MAX_HANDLER_OFFSET) {
-                return MethodEditRejectionReason.InvalidTryRegion(
-                    "An encoded exception-handler offset exceeds the DEX unsigned 16-bit limit",
-                )
-            }
-            val typedCount = handlers.count { it.exceptionType != null }
-            val hasCatchAll = handlers.any { it.exceptionType == null }
-            val encodedCount = if (hasCatchAll) -typedCount else typedCount
-            offset += signedLeb128Size(encodedCount)
-            handlers.forEach { handler ->
-                val exceptionType = handler.exceptionType
-                if (exceptionType == null) {
-                    offset += unsignedLeb128Size(handler.handlerCodeAddress)
-                } else {
-                    val typeIndex = typeIndexes[exceptionType]
-                        ?: return MethodEditRejectionReason.InvalidTryRegion(
-                            "An exception handler type is absent from the projected DEX closure",
-                        )
-                    offset += unsignedLeb128Size(typeIndex)
-                    offset += unsignedLeb128Size(handler.handlerCodeAddress)
-                }
-            }
+        val lastOffset = ProgramDexWriter.lastHandlerListOffset(layout.tryBlocks, typeIndexes)
+            ?: return MethodEditRejectionReason.InvalidTryRegion(
+                "An exception handler type is absent from the projected DEX closure",
+            )
+        if (lastOffset > DexLimits.MAX_HANDLER_OFFSET) {
+            return MethodEditRejectionReason.InvalidTryRegion(
+                "An encoded exception-handler offset exceeds the DEX unsigned 16-bit limit",
+            )
         }
         return null
-    }
-
-    private fun unsignedLeb128Size(value: Int): Int {
-        require(value >= 0) { "ULEB128 values cannot be negative" }
-        var remaining = value
-        var size = 0
-        do {
-            size++
-            remaining = remaining ushr 7
-        } while (remaining != 0)
-        return size
-    }
-
-    private fun signedLeb128Size(value: Int): Int {
-        var remaining = value
-        var size = 0
-        var hasMore: Boolean
-        do {
-            val byte = remaining and 0x7f
-            remaining = remaining shr 7
-            size++
-            hasMore = !((remaining == 0 && byte and 0x40 == 0) || (remaining == -1 && byte and 0x40 != 0))
-        } while (hasMore)
-        return size
     }
 
     private fun validateTryRegions(

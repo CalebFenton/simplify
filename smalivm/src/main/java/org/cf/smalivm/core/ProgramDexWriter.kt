@@ -188,6 +188,11 @@ class ProgramDexWriter {
         }
     }
 
+    /**
+     * dexlib2 merges adjacent try items whose handler lists are equal, which would rejoin ranges the layout split at
+     * the 16-bit `insn_count` limit. Handlers compare by identity so no two try items share a list:
+     * [lastHandlerListOffset] encodes one handler list per try item for the same reason.
+     */
     private fun reboundTryBlock(
         builder: DexBuilder,
         source: TryBlock<out ExceptionHandler>,
@@ -207,6 +212,51 @@ class ProgramDexWriter {
             override fun getStartCodeAddress(): Int = source.startCodeAddress
             override fun getCodeUnitCount(): Int = source.codeUnitCount
             override fun getExceptionHandlers(): List<ExceptionHandler> = handlers
+        }
+    }
+
+    internal companion object {
+        /**
+         * The largest `handler_off` this writer emits for [tryBlocks]: the byte offset of the last try item's handler
+         * list inside `encoded_catch_handler_list`, given each type's index in the sorted `type_ids`. Null when a
+         * handler type has no index.
+         */
+        fun lastHandlerListOffset(tryBlocks: List<TryBlock<out ExceptionHandler>>, typeIndexes: Map<String, Int>): Long? {
+            var offset = unsignedLeb128Size(tryBlocks.size).toLong()
+            var lastOffset = offset
+            for (block in tryBlocks) {
+                lastOffset = offset
+                val handlers = block.exceptionHandlers
+                val typedCount = handlers.count { it.exceptionType != null }
+                offset += signedLeb128Size(if (handlers.any { it.exceptionType == null }) -typedCount else typedCount)
+                for (handler in handlers) {
+                    val type = handler.exceptionType
+                    if (type != null) offset += unsignedLeb128Size(typeIndexes[type] ?: return null)
+                    offset += unsignedLeb128Size(handler.handlerCodeAddress)
+                }
+            }
+            return lastOffset
+        }
+
+        private fun unsignedLeb128Size(value: Int): Int {
+            var remaining = value
+            var size = 1
+            while (remaining ushr 7 != 0) {
+                remaining = remaining ushr 7
+                size++
+            }
+            return size
+        }
+
+        private fun signedLeb128Size(value: Int): Int {
+            var remaining = value
+            var size = 0
+            do {
+                val byte = remaining and 0x7f
+                remaining = remaining shr 7
+                size++
+            } while (!((remaining == 0 && byte and 0x40 == 0) || (remaining == -1 && byte and 0x40 != 0)))
+            return size
         }
     }
 
