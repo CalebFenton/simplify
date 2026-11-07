@@ -1,6 +1,7 @@
 package org.cf.smalivm.core
 
 import java.lang.reflect.Array as ReflectArray
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -31,9 +32,9 @@ internal class HostGraphComparator {
         return guarded {
             val expectedByIdentity = IdentityHashMap<Any, List<Any?>>()
             expectedLeftArrays.forEach { (id, values) -> expectedByIdentity[leftNodes.getValue(id)] = values }
-            val context = Context(expectedByIdentity)
+            val walk = Walk(expectedByIdentity)
             for (id in 0 until left.nodeCount) {
-                val result = compareValue(leftNodes.getValue(id), rightNodes.getValue(id), context)
+                val result = walk.compare(leftNodes.getValue(id), rightNodes.getValue(id))
                 if (result != HostGraphComparison.Equal) return@guarded result
             }
             HostGraphComparison.Equal
@@ -41,7 +42,7 @@ internal class HostGraphComparator {
     }
 
     fun compare(left: Any?, right: Any?): HostGraphComparison = guarded {
-        compareValue(left, right, Context(IdentityHashMap()))
+        Walk(IdentityHashMap()).compare(left, right)
     }
 
     private fun guarded(block: () -> HostGraphComparison): HostGraphComparison = try {
@@ -50,62 +51,6 @@ internal class HostGraphComparator {
         throw fatal
     } catch (_: Throwable) {
         HostGraphComparison.Unprovable
-    }
-
-    @Suppress("DEPRECATION")
-    private fun compareValue(left: Any?, right: Any?, context: Context): HostGraphComparison {
-        if (left == null || right == null) {
-            return if (left == null && right == null) HostGraphComparison.Equal else HostGraphComparison.Different
-        }
-        if (left.javaClass != right.javaClass) return HostGraphComparison.Different
-
-        scalarComparison(left, right)?.let { return it }
-        context.leftToRight[left]?.let { mapped ->
-            return if (mapped === right) HostGraphComparison.Equal else HostGraphComparison.Different
-        }
-        context.rightToLeft[right]?.let { mapped ->
-            return if (mapped === left) HostGraphComparison.Equal else HostGraphComparison.Different
-        }
-        context.bind(left, right)
-
-        return when {
-            left.javaClass.isArray -> compareArrays(left, right, context.expectedLeftArrays[left], context)
-            left is Method -> {
-                right as Method
-                exact(left == right && left.isAccessible == right.isAccessible)
-            }
-            left is StringBuilder -> compareCharacterSequence(left, right as StringBuilder)
-            left is StringBuffer -> compareCharacterSequence(left, right as StringBuffer)
-            left is Map.Entry<*, *> -> compareContainer(left, right, context) {
-                val rightEntry = right as Map.Entry<*, *>
-                val key = compareValue(left.key, rightEntry.key, context)
-                if (key != HostGraphComparison.Equal) key else compareValue(left.value, rightEntry.value, context)
-            }
-            left is List<*> -> compareContainer(left, right, context) {
-                compareOrdered(left, right as List<*>, context)
-            }
-            left is Deque<*> -> compareContainer(left, right, context) {
-                compareOrdered(left.toList(), (right as Deque<*>).toList(), context)
-            }
-            left is SortedSet<*> -> compareContainer(left, right, context) {
-                compareSortedSet(left, right as SortedSet<*>, context)
-            }
-            left is Set<*> -> compareContainer(left, right, context) {
-                compareUnordered(left.toList(), (right as Set<*>).toList(), context)
-            }
-            left is SortedMap<*, *> -> compareContainer(left, right, context) {
-                compareSortedMap(left, right as SortedMap<*, *>, context)
-            }
-            left is LinkedHashMap<*, *> -> compareContainer(left, right, context) {
-                compareOrderedMap(left, right as Map<*, *>, context)
-            }
-            left is Map<*, *> -> compareContainer(left, right, context) {
-                compareMaps(left, right as Map<*, *>, context)
-            }
-            left is Collection<*> -> HostGraphComparison.Unprovable
-            left.javaClass.name.startsWith("java.") -> HostGraphComparison.Unprovable
-            else -> compareFields(left, right, context)
-        }
     }
 
     private fun scalarComparison(left: Any, right: Any): HostGraphComparison? = when (left) {
@@ -131,194 +76,322 @@ internal class HostGraphComparator {
         return HostGraphComparison.Equal
     }
 
-    private fun compareArrays(
-        left: Any,
-        right: Any,
-        expectedLeft: List<Any?>?,
-        context: Context,
-    ): HostGraphComparison {
-        val length = expectedLeft?.size ?: ReflectArray.getLength(left)
-        if (length != ReflectArray.getLength(right)) return HostGraphComparison.Different
-        for (index in 0 until length) {
-            val leftValue = expectedLeft?.get(index) ?: ReflectArray.get(left, index)
-            val result = compareValue(leftValue, ReflectArray.get(right, index), context)
-            if (result != HostGraphComparison.Equal) return result
-        }
-        return HostGraphComparison.Equal
-    }
+    /**
+     * One comparison: identity bindings plus a depth-first work stack.
+     *
+     * Pending work lives on [stack], never the host call stack, because a guest can build graphs deeper than
+     * the host stack. [visit] only pushes work; each [Step] visits at most one pair when executed. While an
+     * unordered match tries a candidate pairing, the steps above that match's base belong to the attempt.
+     * After a result other than Equal the walk must not be reused.
+     */
+    private inner class Walk(private val expectedLeftArrays: IdentityHashMap<Any, List<Any?>>) {
+        private val leftToRight = IdentityHashMap<Any, Any>()
+        private val rightToLeft = IdentityHashMap<Any, Any>()
+        private val boundLeft = ArrayList<Any>()
+        private val boundRight = ArrayList<Any>()
+        private val stack = ArrayList<Step>()
+        private val matches = ArrayList<UnorderedMatch>()
+        private var steps = 0L
+        private var discardedSteps = 0L
 
-    private fun compareOrdered(left: List<*>, right: List<*>, context: Context): HostGraphComparison {
-        if (left.size != right.size) return HostGraphComparison.Different
-        for (index in left.indices) {
-            val result = compareValue(left[index], right[index], context)
-            if (result != HostGraphComparison.Equal) return result
-        }
-        return HostGraphComparison.Equal
-    }
-
-    private fun compareUnordered(left: List<*>, right: List<*>, context: Context): HostGraphComparison {
-        if (left.size != right.size) return HostGraphComparison.Different
-        return matchUnordered(left, right, context, ::safeFingerprint) { a, b, candidate ->
-            compareValue(a, b, candidate)
-        }
-    }
-
-    private fun compareMaps(left: Map<*, *>, right: Map<*, *>, context: Context): HostGraphComparison {
-        if (left.size != right.size) return HostGraphComparison.Different
-        val leftEntries = left.entries.toList()
-        val rightEntries = right.entries.toList()
-        return matchUnordered(
-            leftEntries,
-            rightEntries,
-            context,
-            { entry -> "${safeFingerprint(entry.key)}=>${safeFingerprint(entry.value)}" },
-        ) { a, b, candidate ->
-            val key = compareValue(a.key, b.key, candidate)
-            if (key != HostGraphComparison.Equal) key else compareValue(a.value, b.value, candidate)
-        }
-    }
-
-    private fun compareOrderedMap(left: Map<*, *>, right: Map<*, *>, context: Context): HostGraphComparison {
-        if (left.size != right.size) return HostGraphComparison.Different
-        val rightIterator = right.entries.iterator()
-        for (leftEntry in left.entries) {
-            val rightEntry = rightIterator.next()
-            val key = compareValue(leftEntry.key, rightEntry.key, context)
-            if (key != HostGraphComparison.Equal) return key
-            val value = compareValue(leftEntry.value, rightEntry.value, context)
-            if (value != HostGraphComparison.Equal) return value
-        }
-        return HostGraphComparison.Equal
-    }
-
-    private fun compareSortedMap(
-        left: SortedMap<*, *>,
-        right: SortedMap<*, *>,
-        context: Context,
-    ): HostGraphComparison {
-        val comparator = comparePublicComparator(left.comparator(), right.comparator(), context)
-        return if (comparator == HostGraphComparison.Equal) compareOrderedMap(left, right, context) else comparator
-    }
-
-    private fun compareSortedSet(
-        left: SortedSet<*>,
-        right: SortedSet<*>,
-        context: Context,
-    ): HostGraphComparison {
-        val comparator = comparePublicComparator(left.comparator(), right.comparator(), context)
-        return if (comparator == HostGraphComparison.Equal) {
-            compareOrdered(left.toList(), right.toList(), context)
-        } else {
-            comparator
-        }
-    }
-
-    private fun comparePublicComparator(
-        left: Comparator<*>?,
-        right: Comparator<*>?,
-        context: Context,
-    ): HostGraphComparison = when {
-        left == null || right == null -> exact(left == null && right == null)
-        left === right -> HostGraphComparison.Equal
-        else -> compareValue(left, right, context)
-    }
-
-    private fun <T> matchUnordered(
-        left: List<T>,
-        right: List<T>,
-        context: Context,
-        fingerprint: (T) -> String,
-        compare: (T, T, Context) -> HostGraphComparison,
-    ): HostGraphComparison {
-        val leftFingerprints = left.map(fingerprint)
-        val rightFingerprints = right.map(fingerprint)
-        if (leftFingerprints.groupingBy { it }.eachCount() != rightFingerprints.groupingBy { it }.eachCount()) {
-            return HostGraphComparison.Different
-        }
-        val candidateBuckets = right.indices.groupBy { rightFingerprints[it] }
-        return matchUnordered(
-            left,
-            right,
-            leftFingerprints,
-            candidateBuckets,
-            0,
-            BooleanArray(right.size),
-            context,
-            compare,
-        )
-    }
-
-    private fun <T> matchUnordered(
-        left: List<T>,
-        right: List<T>,
-        leftFingerprints: List<String>,
-        candidateBuckets: Map<String, List<Int>>,
-        index: Int,
-        used: BooleanArray,
-        context: Context,
-        compare: (T, T, Context) -> HostGraphComparison,
-    ): HostGraphComparison {
-        if (index == left.size) return HostGraphComparison.Equal
-        var sawUnprovable = false
-        for (candidateIndex in candidateBuckets.getValue(leftFingerprints[index])) {
-            if (used[candidateIndex]) continue
-            val mark = context.mark()
-            when (compare(left[index], right[candidateIndex], context)) {
-                HostGraphComparison.Equal -> {
-                    used[candidateIndex] = true
-                    when (
-                        matchUnordered(
-                            left,
-                            right,
-                            leftFingerprints,
-                            candidateBuckets,
-                            index + 1,
-                            used,
-                            context,
-                            compare,
-                        )
-                    ) {
-                        HostGraphComparison.Equal -> return HostGraphComparison.Equal
-                        HostGraphComparison.Unprovable -> sawUnprovable = true
-                        HostGraphComparison.Different -> Unit
-                    }
-                    used[candidateIndex] = false
+        /** Compares one pair; the bindings behind an Equal result constrain every later pair. */
+        fun compare(left: Any?, right: Any?): HostGraphComparison {
+            var verdict = visit(left, right)
+            while (true) {
+                if (discardedSteps > MAX_DISCARDED_STEPS) return HostGraphComparison.Unprovable
+                val match = matches.lastOrNull()
+                if (verdict == HostGraphComparison.Equal && stack.size > (match?.base ?: 0)) {
+                    steps++
+                    verdict = execute(stack.removeAt(stack.lastIndex))
+                    continue
                 }
-                HostGraphComparison.Unprovable -> sawUnprovable = true
-                HostGraphComparison.Different -> Unit
+                if (match == null) return verdict
+                while (stack.size > match.base) stack.removeAt(stack.lastIndex)
+                verdict = resume(match, verdict)
             }
-            context.rollback(mark)
         }
-        return if (sawUnprovable) HostGraphComparison.Unprovable else HostGraphComparison.Different
-    }
 
-    private fun compareContainer(
-        left: Any,
-        right: Any,
-        context: Context,
-        compareContents: () -> HostGraphComparison,
-    ): HostGraphComparison {
-        val contents = compareContents()
-        if (contents != HostGraphComparison.Equal) return contents
-        return compareFields(left, right, context, customInstanceFields(left.javaClass))
-    }
+        @Suppress("DEPRECATION")
+        private fun visit(left: Any?, right: Any?): HostGraphComparison {
+            if (left == null || right == null) return exact(left == null && right == null)
+            if (left.javaClass != right.javaClass) return HostGraphComparison.Different
 
-    private fun compareFields(
-        left: Any,
-        right: Any,
-        context: Context,
-        fields: List<java.lang.reflect.Field> = instanceFields(left.javaClass),
-    ): HostGraphComparison {
-        for (field in fields) {
+            scalarComparison(left, right)?.let { return it }
+            leftToRight[left]?.let { mapped -> return exact(mapped === right) }
+            rightToLeft[right]?.let { mapped -> return exact(mapped === left) }
+            leftToRight[left] = right
+            rightToLeft[right] = left
+            boundLeft += left
+            boundRight += right
+
+            return when {
+                left.javaClass.isArray -> visitArray(left, right)
+                left is Method -> {
+                    right as Method
+                    exact(left == right && left.isAccessible == right.isAccessible)
+                }
+                left is StringBuilder -> compareCharacterSequence(left, right as StringBuilder)
+                left is StringBuffer -> compareCharacterSequence(left, right as StringBuffer)
+                left is Map.Entry<*, *> -> {
+                    pushCustomFields(left, right)
+                    stack += EntryPair(left, right as Map.Entry<*, *>)
+                    HostGraphComparison.Equal
+                }
+                left is List<*> -> {
+                    pushCustomFields(left, right)
+                    visitOrdered(left, right as List<*>, entries = false)
+                }
+                left is Deque<*> -> {
+                    pushCustomFields(left, right)
+                    visitOrdered(left, right as Deque<*>, entries = false)
+                }
+                left is SortedSet<*> -> {
+                    right as SortedSet<*>
+                    pushCustomFields(left, right)
+                    stack += if (left.size == right.size) Ordered(left, right, entries = false) else SizeMismatch
+                    visitComparator(left.comparator(), right.comparator())
+                }
+                left is Set<*> -> {
+                    pushCustomFields(left, right)
+                    visitUnordered(left.toList(), (right as Set<*>).toList(), entries = false)
+                }
+                left is SortedMap<*, *> -> {
+                    right as SortedMap<*, *>
+                    pushCustomFields(left, right)
+                    stack += if (left.size == right.size) {
+                        Ordered(left.entries, right.entries, entries = true)
+                    } else {
+                        SizeMismatch
+                    }
+                    visitComparator(left.comparator(), right.comparator())
+                }
+                left is LinkedHashMap<*, *> -> {
+                    pushCustomFields(left, right)
+                    visitOrdered(left.entries, (right as Map<*, *>).entries, entries = true)
+                }
+                left is Map<*, *> -> {
+                    pushCustomFields(left, right)
+                    visitUnordered(left.entries.toList(), (right as Map<*, *>).entries.toList(), entries = true)
+                }
+                left is Collection<*> -> HostGraphComparison.Unprovable
+                left.javaClass.name.startsWith("java.") -> HostGraphComparison.Unprovable
+                else -> {
+                    stack += FieldValues(left, right, instanceFields(left.javaClass))
+                    HostGraphComparison.Equal
+                }
+            }
+        }
+
+        private fun execute(step: Step): HostGraphComparison = when (step) {
+            is ValuePair -> visit(step.left, step.right)
+            is EntryPair -> visitEntry(step.left, step.right)
+            is Ordered -> if (step.left.hasNext()) {
+                val left = step.left.next()
+                val right = step.right.next()
+                stack += step
+                if (step.entries) {
+                    visitEntry(left as Map.Entry<*, *>, right as Map.Entry<*, *>)
+                } else {
+                    visit(left, right)
+                }
+            } else {
+                HostGraphComparison.Equal
+            }
+            is ArrayElements -> if (step.index < step.length) {
+                val index = step.index++
+                stack += step
+                val left = step.expectedLeft?.get(index) ?: ReflectArray.get(step.left, index)
+                visit(left, ReflectArray.get(step.right, index))
+            } else {
+                HostGraphComparison.Equal
+            }
+            is FieldValues -> if (step.index < step.fields.size) {
+                val field = step.fields[step.index++]
+                stack += step
+                visitField(field, step.left, step.right)
+            } else {
+                HostGraphComparison.Equal
+            }
+            SizeMismatch -> HostGraphComparison.Different
+        }
+
+        private fun visitEntry(left: Map.Entry<*, *>, right: Map.Entry<*, *>): HostGraphComparison {
+            stack += ValuePair(left.value, right.value)
+            return visit(left.key, right.key)
+        }
+
+        private fun visitField(field: Field, left: Any, right: Any): HostGraphComparison {
             if (!field.trySetAccessible()) return HostGraphComparison.Unprovable
-            val result = try {
-                compareValue(field.get(left), field.get(right), context)
+            val leftValue: Any?
+            val rightValue: Any?
+            try {
+                leftValue = field.get(left)
+                rightValue = field.get(right)
             } catch (_: IllegalAccessException) {
-                HostGraphComparison.Unprovable
+                return HostGraphComparison.Unprovable
             }
-            if (result != HostGraphComparison.Equal) return result
+            return visit(leftValue, rightValue)
         }
-        return HostGraphComparison.Equal
+
+        private fun visitArray(left: Any, right: Any): HostGraphComparison {
+            val expectedLeft = expectedLeftArrays[left]
+            val length = expectedLeft?.size ?: ReflectArray.getLength(left)
+            if (length != ReflectArray.getLength(right)) return HostGraphComparison.Different
+            stack += ArrayElements(left, right, expectedLeft, length)
+            return HostGraphComparison.Equal
+        }
+
+        private fun visitOrdered(left: Collection<*>, right: Collection<*>, entries: Boolean): HostGraphComparison {
+            if (left.size != right.size) return HostGraphComparison.Different
+            stack += Ordered(left, right, entries)
+            return HostGraphComparison.Equal
+        }
+
+        private fun visitComparator(left: Comparator<*>?, right: Comparator<*>?): HostGraphComparison {
+            if (left == null || right == null) return exact(left == null && right == null)
+            if (left !== right) stack += ValuePair(left, right)
+            return HostGraphComparison.Equal
+        }
+
+        private fun pushCustomFields(left: Any, right: Any) {
+            val fields = customInstanceFields(left.javaClass)
+            if (fields.isNotEmpty()) stack += FieldValues(left, right, fields)
+        }
+
+        private fun visitUnordered(left: List<Any?>, right: List<Any?>, entries: Boolean): HostGraphComparison {
+            if (left.size != right.size) return HostGraphComparison.Different
+            val fingerprint: (Any?) -> String = if (entries) ::entryFingerprint else ::safeFingerprint
+            val leftFingerprints = left.map(fingerprint)
+            val rightFingerprints = right.map(fingerprint)
+            if (leftFingerprints.groupingBy { it }.eachCount() != rightFingerprints.groupingBy { it }.eachCount()) {
+                return HostGraphComparison.Different
+            }
+            if (left.isEmpty()) return HostGraphComparison.Equal
+            val rightBuckets = right.indices.groupBy { rightFingerprints[it] }
+            val match = UnorderedMatch(stack.size, left, right, entries, leftFingerprints.map(rightBuckets::getValue))
+            matches += match
+            return nextCandidate(match)
+        }
+
+        /**
+         * Records the attempt at [match]'s current level: Equal descends a level, anything else undoes the
+         * attempt's bindings. Returns Equal while the match is still searching or once every element is paired.
+         */
+        private fun resume(match: UnorderedMatch, attempt: HostGraphComparison): HostGraphComparison {
+            val level = match.level
+            if (attempt == HostGraphComparison.Equal) {
+                match.used[match.chosen[level]] = true
+                match.level = level + 1
+                if (match.level == match.left.size) {
+                    matches.removeAt(matches.lastIndex)
+                    return HostGraphComparison.Equal
+                }
+                match.cursor[match.level] = 0
+                match.sawUnprovable[match.level] = false
+            } else {
+                if (attempt == HostGraphComparison.Unprovable) match.sawUnprovable[level] = true
+                undo(match, level)
+            }
+            return nextCandidate(match)
+        }
+
+        /** Pushes the next unused candidate at the current level, backtracking out of exhausted levels. */
+        private fun nextCandidate(match: UnorderedMatch): HostGraphComparison {
+            while (true) {
+                val level = match.level
+                val bucket = match.buckets[level]
+                while (match.cursor[level] < bucket.size) {
+                    val candidate = bucket[match.cursor[level]++]
+                    if (match.used[candidate]) continue
+                    match.chosen[level] = candidate
+                    match.markBindings[level] = boundLeft.size
+                    match.markSteps[level] = steps
+                    match.markDiscardedSteps[level] = discardedSteps
+                    stack += if (match.entries) {
+                        EntryPair(match.left[level] as Map.Entry<*, *>, match.right[candidate] as Map.Entry<*, *>)
+                    } else {
+                        ValuePair(match.left[level], match.right[candidate])
+                    }
+                    return HostGraphComparison.Equal
+                }
+                val exhausted = if (match.sawUnprovable[level]) {
+                    HostGraphComparison.Unprovable
+                } else {
+                    HostGraphComparison.Different
+                }
+                if (level == 0) {
+                    matches.removeAt(matches.lastIndex)
+                    return exhausted
+                }
+                match.level = level - 1
+                match.used[match.chosen[level - 1]] = false
+                if (exhausted == HostGraphComparison.Unprovable) match.sawUnprovable[level - 1] = true
+                undo(match, level - 1)
+            }
+        }
+
+        /** Removes the bindings made since [level]'s attempt began and charges its steps as discarded. */
+        private fun undo(match: UnorderedMatch, level: Int) {
+            while (boundLeft.size > match.markBindings[level]) {
+                leftToRight.remove(boundLeft.removeAt(boundLeft.lastIndex))
+                rightToLeft.remove(boundRight.removeAt(boundRight.lastIndex))
+            }
+            discardedSteps = match.markDiscardedSteps[level] + (steps - match.markSteps[level])
+        }
+    }
+
+    /** Pending work. Cursor steps go back on the stack before visiting their next pair. */
+    private sealed interface Step
+
+    private class ValuePair(val left: Any?, val right: Any?) : Step
+
+    private class EntryPair(val left: Map.Entry<*, *>, val right: Map.Entry<*, *>) : Step
+
+    private class Ordered(left: Iterable<*>, right: Iterable<*>, val entries: Boolean) : Step {
+        val left: Iterator<*> = left.iterator()
+        val right: Iterator<*> = right.iterator()
+    }
+
+    private class ArrayElements(
+        val left: Any,
+        val right: Any,
+        val expectedLeft: List<Any?>?,
+        val length: Int,
+    ) : Step {
+        var index = 0
+    }
+
+    private class FieldValues(val left: Any, val right: Any, val fields: List<Field>) : Step {
+        var index = 0
+    }
+
+    /** A sorted container's size differs; reported only after its comparator compares Equal. */
+    private data object SizeMismatch : Step
+
+    /**
+     * Backtracking search pairing each left element with an unused right element of equal fingerprint.
+     * Arrays are indexed by level, the position in [left] being paired.
+     */
+    private class UnorderedMatch(
+        val base: Int,
+        val left: List<Any?>,
+        val right: List<Any?>,
+        val entries: Boolean,
+        val buckets: List<List<Int>>,
+    ) {
+        var level = 0
+        val used = BooleanArray(right.size)
+        val cursor = IntArray(left.size)
+        val chosen = IntArray(left.size)
+        val sawUnprovable = BooleanArray(left.size)
+        val markBindings = IntArray(left.size)
+        val markSteps = LongArray(left.size)
+        val markDiscardedSteps = LongArray(left.size)
+    }
+
+    private fun entryFingerprint(entry: Any?): String {
+        entry as Map.Entry<*, *>
+        return "${safeFingerprint(entry.key)}=>${safeFingerprint(entry.value)}"
     }
 
     private fun exact(equal: Boolean): HostGraphComparison =
@@ -345,25 +418,11 @@ internal class HostGraphComparator {
         }
     }
 
-    private class Context(val expectedLeftArrays: IdentityHashMap<Any, List<Any?>>) {
-        val leftToRight: IdentityHashMap<Any, Any> = IdentityHashMap()
-        val rightToLeft: IdentityHashMap<Any, Any> = IdentityHashMap()
-        private val bindings = mutableListOf<Pair<Any, Any>>()
-
-        fun bind(left: Any, right: Any) {
-            leftToRight[left] = right
-            rightToLeft[right] = left
-            bindings += left to right
-        }
-
-        fun mark(): Int = bindings.size
-
-        fun rollback(mark: Int) {
-            while (bindings.size > mark) {
-                val (left, right) = bindings.removeAt(bindings.lastIndex)
-                leftToRight.remove(left)
-                rightToLeft.remove(right)
-            }
-        }
+    private companion object {
+        /**
+         * Steps a comparison may spend on unordered-match attempts it later undoes. Members with equal
+         * fingerprints can force the search through every pairing, so past this the answer is Unprovable.
+         */
+        const val MAX_DISCARDED_STEPS = 1_000_000L
     }
 }

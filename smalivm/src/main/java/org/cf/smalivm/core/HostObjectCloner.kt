@@ -6,7 +6,11 @@ import java.lang.reflect.Method
 import java.util.IdentityHashMap
 import sun.misc.Unsafe
 
-/** Deep-clones one complete path-local host graph while preserving every stable node id. */
+/**
+ * Deep-clones one complete path-local host graph while preserving every stable node id.
+ *
+ * Copies through a worklist, never the host call stack, because a guest can build chains deeper than the host stack.
+ */
 class HostObjectCloner internal constructor() {
     private val unsafe: Unsafe = run {
         val field = Unsafe::class.java.getDeclaredField("theUnsafe")
@@ -17,9 +21,15 @@ class HostObjectCloner internal constructor() {
     internal fun cloneGraph(state: HostGraphState): HostGraphClone {
         if (state.nodeCount == 0) return HostGraphClone(state, 0)
         return try {
-            val seen = IdentityHashMap<Any, Any>()
-            val cloned = state.objectsInIdOrder().map { deepClone(it, seen) }
-            HostGraphClone(state.clonedWith(cloned), seen.size)
+            val copies = IdentityHashMap<Any, Any>()
+            val unfilled = ArrayList<Any>()
+            val cloned = state.objectsInIdOrder().map { copyOf(it, copies, unfilled) }
+            while (unfilled.isNotEmpty()) {
+                val copy = unfilled.removeAt(unfilled.lastIndex)
+                val raw = unfilled.removeAt(unfilled.lastIndex)
+                fill(raw, copy, copies, unfilled)
+            }
+            HostGraphClone(state.clonedWith(cloned), copies.size)
         } catch (fatal: VirtualMachineError) {
             throw fatal
         } catch (failure: Throwable) {
@@ -27,37 +37,37 @@ class HostObjectCloner internal constructor() {
         }
     }
 
+    /** Returns the copy of [raw]; a first sight allocates it empty and appends `raw, copy` to [unfilled]. */
     @Suppress("DEPRECATION")
-    private fun deepClone(raw: Any, seen: IdentityHashMap<Any, Any>): Any {
+    private fun copyOf(raw: Any, copies: IdentityHashMap<Any, Any>, unfilled: MutableList<Any>): Any {
         if (raw.isDirectHostImmutable()) return raw
-        seen[raw]?.let { return it }
-        if (raw.javaClass.isArray) return cloneArray(raw, seen)
-
-        // JDK reflection filters Method's VM-owned fields from getDeclaredFields().
-        // Allocate a real member copy, then preserve its mutable accessibility and visible graph.
-        val cloned = if (raw is Method) {
-            raw.declaringClass.declaredMethods.first { it == raw }.apply {
+        copies[raw]?.let { return it }
+        val copy = when {
+            raw.javaClass.isArray -> ReflectArray.newInstance(raw.javaClass.componentType, ReflectArray.getLength(raw))
+            // JDK reflection filters Method's VM-owned fields from getDeclaredFields().
+            // Allocate a real member copy, then preserve its mutable accessibility and visible graph.
+            raw is Method -> raw.declaringClass.declaredMethods.first { it == raw }.apply {
                 isAccessible = raw.isAccessible
             }
-        } else unsafe.allocateInstance(raw.javaClass)
-        seen[raw] = cloned
-        for (field in instanceFields(raw.javaClass)) copyField(field, raw, cloned, seen)
-        return cloned
+            else -> unsafe.allocateInstance(raw.javaClass)
+        }
+        copies[raw] = copy
+        unfilled.add(raw)
+        unfilled.add(copy)
+        return copy
     }
 
-    private fun cloneArray(raw: Any, seen: IdentityHashMap<Any, Any>): Any {
-        val length = ReflectArray.getLength(raw)
-        val cloned = ReflectArray.newInstance(raw.javaClass.componentType, length)
-        seen[raw] = cloned
-        if (raw.javaClass.componentType.isPrimitive) {
-            System.arraycopy(raw, 0, cloned, 0, length)
+    private fun fill(raw: Any, copy: Any, copies: IdentityHashMap<Any, Any>, unfilled: MutableList<Any>) {
+        if (!raw.javaClass.isArray) {
+            for (field in instanceFields(raw.javaClass)) copyField(field, raw, copy, copies, unfilled)
+        } else if (raw.javaClass.componentType.isPrimitive) {
+            System.arraycopy(raw, 0, copy, 0, ReflectArray.getLength(raw))
         } else {
-            for (index in 0 until length) {
+            for (index in 0 until ReflectArray.getLength(raw)) {
                 val element = ReflectArray.get(raw, index)
-                ReflectArray.set(cloned, index, if (element == null) null else deepClone(element, seen))
+                ReflectArray.set(copy, index, if (element == null) null else copyOf(element, copies, unfilled))
             }
         }
-        return cloned
     }
 
     @Suppress("DEPRECATION")
@@ -65,7 +75,8 @@ class HostObjectCloner internal constructor() {
         field: Field,
         source: Any,
         target: Any,
-        seen: IdentityHashMap<Any, Any>,
+        copies: IdentityHashMap<Any, Any>,
+        unfilled: MutableList<Any>,
     ) {
         val offset = unsafe.objectFieldOffset(field)
         when (field.type) {
@@ -79,7 +90,7 @@ class HostObjectCloner internal constructor() {
             java.lang.Double.TYPE -> unsafe.putDouble(target, offset, unsafe.getDouble(source, offset))
             else -> {
                 val value = unsafe.getObject(source, offset)
-                unsafe.putObject(target, offset, if (value == null) null else deepClone(value, seen))
+                unsafe.putObject(target, offset, if (value == null) null else copyOf(value, copies, unfilled))
             }
         }
     }
