@@ -631,140 +631,41 @@ internal object MethodEditValidator {
         else -> null
     }
 
-    private enum class RegisterKind { UNDEFINED, UNKNOWN, NARROW, ZERO, REFERENCE, WIDE_LOW, WIDE_HIGH }
-
+    /** Reports only definite violations: a read of a never-assigned register, or a return of the wrong category. */
     private fun validateRegisterFlow(
         candidate: ApplicationMethodDefinitionCandidate,
     ): MethodEditRejectionReason? {
         val body = candidate.body
-        val executableRecords = body.instructions.filter { it.instruction.opcode !in OpcodeGroups.PAYLOAD }
-        if (executableRecords.isEmpty()) return null
-        val recordsByPosition = executableRecords.associateBy(EncodedInstruction::position)
-        val nextByPosition = executableRecords.zipWithNext().associate { (current, next) -> current.position to next.position }
-        val exceptionTargetsByPosition = exceptionTargetsByPosition(body, executableRecords)
-        val entryRegisters = MutableList(body.registerCount) { RegisterKind.UNDEFINED }
-        val parameterTypes = candidate.declaration.parameterTypes.map(CharSequence::toString)
-        val parameterWords = parameterTypes.sumOf { if (isWideType(it)) 2 else 1 } +
-            if (Modifier.isStatic(candidate.declaration.accessFlags)) 0 else 1
-        var parameterRegister = body.registerCount - parameterWords
-        if (!Modifier.isStatic(candidate.declaration.accessFlags)) {
-            entryRegisters[parameterRegister++] = RegisterKind.REFERENCE
+        val flow = RegisterFlow.analyze(body, candidate.declaration, body.registerCount) {
+            it.instruction.registerOperands()
         }
-        parameterTypes.forEach { type ->
-            if (isWideType(type)) {
-                entryRegisters[parameterRegister] = RegisterKind.WIDE_LOW
-                entryRegisters[parameterRegister + 1] = RegisterKind.WIDE_HIGH
-                parameterRegister += 2
-            } else {
-                entryRegisters[parameterRegister++] = if (type.startsWith('L') || type.startsWith('[')) {
-                    RegisterKind.REFERENCE
-                } else {
-                    RegisterKind.NARROW
-                }
-            }
-        }
-
-        val incoming = HashMap<LogicalCodePosition, PersistentList<RegisterKind>>()
-        val pending = ArrayDeque<LogicalCodePosition>()
-        incoming[executableRecords.first().position] = entryRegisters.toPersistentList()
-        pending.addLast(executableRecords.first().position)
-        while (pending.isNotEmpty()) {
-            val position = pending.removeFirst()
-            val record = requireNotNull(recordsByPosition[position])
-            var registers = requireNotNull(incoming[position])
-            val instruction = record.instruction
-            readRegisters(instruction).forEach { register ->
-                if (registers[register] == RegisterKind.UNDEFINED) {
+        for (record in body.instructions) {
+            val state = flow.before(record.position) ?: continue
+            for (register in readRegisters(record.instruction)) {
+                if (state[register] == RegisterValue.UNDEFINED) {
                     return MethodEditRejectionReason.StructuralValidationFailure(
                         "Register v$register is read before assignment",
                     )
                 }
             }
-            validateReturnRegister(instruction, registers)?.let { return it }
-
-            val exceptionRegisters = registers
-            registers = applyRegisterWrites(instruction, registers)
-            val successors = buildList {
-                val target = body.controlTargets[position]
-                when (instruction.opcode) {
-                    in OpcodeGroups.GOTO -> target?.let(::add)
-                    in OpcodeGroups.CONDITIONAL_BRANCH -> {
-                        target?.let(::add)
-                        nextByPosition[position]?.let(::add)
-                    }
-                    in OpcodeGroups.SWITCH -> {
-                        body.switchCases[position].orEmpty().mapTo(this) { it.target }
-                        nextByPosition[position]?.let(::add)
-                    }
-                    else -> if (instruction.opcode.canContinue()) nextByPosition[position]?.let(::add)
-                }
-            }
-            for (successor in successors.distinct()) {
-                enqueueRegisterState(successor, registers, recordsByPosition, incoming, pending)
-            }
-            if (instruction.opcode.canThrow()) {
-                for (successor in exceptionTargetsByPosition[position].orEmpty()) {
-                    enqueueRegisterState(successor, exceptionRegisters, recordsByPosition, incoming, pending)
-                }
-            }
+            validateReturnRegister(record.instruction, state)?.let { return it }
         }
         return null
     }
 
-    private fun exceptionTargetsByPosition(
-        body: MethodBody,
-        records: List<EncodedInstruction>,
-    ): Map<LogicalCodePosition, Set<LogicalCodePosition>> {
-        val ranges = body.tryRegions.groupBy { it.start.ordinal to it.end.ordinal }
-            .map { (range, regions) ->
-                Triple(
-                    range.first,
-                    range.second,
-                    regions.flatMap { region -> region.handlers.map(ImportedExceptionHandler::target) }.toSet(),
-                )
-            }
-            .sortedBy { it.first }
-        if (ranges.isEmpty()) return emptyMap()
-        val result = HashMap<LogicalCodePosition, Set<LogicalCodePosition>>()
-        var rangeIndex = 0
-        for (record in records) {
-            while (rangeIndex < ranges.size && record.position.ordinal >= ranges[rangeIndex].second) rangeIndex++
-            if (rangeIndex >= ranges.size) break
-            val range = ranges[rangeIndex]
-            if (record.position.ordinal >= range.first) result[record.position] = range.third
-        }
-        return result
-    }
-
-    private fun enqueueRegisterState(
-        successor: LogicalCodePosition,
-        state: PersistentList<RegisterKind>,
-        recordsByPosition: Map<LogicalCodePosition, EncodedInstruction>,
-        incoming: MutableMap<LogicalCodePosition, PersistentList<RegisterKind>>,
-        pending: ArrayDeque<LogicalCodePosition>,
-    ) {
-        if (successor !in recordsByPosition) return
-        val previous = incoming[successor]
-        val merged = if (previous == null) state else mergeRegisterStates(previous, state)
-        if (previous == null || previous != merged) {
-            incoming[successor] = merged
-            pending.addLast(successor)
-        }
-    }
-
     private fun validateReturnRegister(
         instruction: Instruction,
-        registers: PersistentList<RegisterKind>,
+        state: RegisterFlow.State,
     ): MethodEditRejectionReason? {
-        if (instruction.opcode !in OpcodeGroups.RETURN || instruction.opcode == Opcode.RETURN_VOID) return null
+        if (instruction.opcode != Opcode.RETURN && instruction.opcode != Opcode.RETURN_OBJECT) return null
         val register = (instruction as OneRegisterInstruction).registerA
-        val kind = registers[register]
+        val value = state[register]
         return when {
-            instruction.opcode == Opcode.RETURN_OBJECT && kind == RegisterKind.NARROW ->
+            instruction.opcode == Opcode.RETURN_OBJECT && value == RegisterValue.NARROW ->
                 MethodEditRejectionReason.StructuralValidationFailure(
                     "return-object reads a definitely non-reference value from v$register",
                 )
-            instruction.opcode == Opcode.RETURN && kind == RegisterKind.REFERENCE ->
+            instruction.opcode == Opcode.RETURN && value == RegisterValue.REFERENCE ->
                 MethodEditRejectionReason.StructuralValidationFailure(
                     "return reads a definitely reference value from v$register",
                 )
@@ -772,217 +673,38 @@ internal object MethodEditValidator {
         }
     }
 
-    private fun applyRegisterWrites(
-        instruction: Instruction,
-        input: PersistentList<RegisterKind>,
-    ): PersistentList<RegisterKind> {
-        var registers = input
-        when (instruction.opcode) {
-            Opcode.CONST_4, Opcode.CONST_16, Opcode.CONST, Opcode.CONST_HIGH16 -> {
-                val register = (instruction as OneRegisterInstruction).registerA
-                registers = registers.replacingAt(register, if ((instruction as NarrowLiteralInstruction).narrowLiteral == 0) {
-                    RegisterKind.ZERO
-                } else {
-                    RegisterKind.NARROW
-                })
-            }
-            Opcode.CONST_STRING, Opcode.CONST_STRING_JUMBO, Opcode.CONST_CLASS, Opcode.NEW_INSTANCE,
-            -> registers = registers.replacingAt((instruction as OneRegisterInstruction).registerA, RegisterKind.REFERENCE)
-            Opcode.NEW_ARRAY -> registers = registers.replacingAt(
-                (instruction as TwoRegisterInstruction).registerA,
-                RegisterKind.REFERENCE,
-            )
-            Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16,
-            Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16,
-            -> {
-                instruction as TwoRegisterInstruction
-                registers = registers.replacingAt(instruction.registerA, registers[instruction.registerB])
-            }
-            Opcode.MOVE_WIDE, Opcode.MOVE_WIDE_FROM16, Opcode.MOVE_WIDE_16 -> {
-                instruction as TwoRegisterInstruction
-                registers = registers.replacingAt(instruction.registerA, RegisterKind.WIDE_LOW)
-                    .replacingAt(instruction.registerA + 1, RegisterKind.WIDE_HIGH)
-            }
-            Opcode.MOVE_RESULT_OBJECT -> registers = registers.replacingAt(
-                (instruction as OneRegisterInstruction).registerA,
-                RegisterKind.REFERENCE,
-            )
-            Opcode.MOVE_RESULT_WIDE -> {
-                val register = (instruction as OneRegisterInstruction).registerA
-                registers = registers.replacingAt(register, RegisterKind.WIDE_LOW)
-                    .replacingAt(register + 1, RegisterKind.WIDE_HIGH)
-            }
-            Opcode.MOVE_RESULT -> registers = registers.replacingAt(
-                (instruction as OneRegisterInstruction).registerA,
-                RegisterKind.UNKNOWN,
-            )
-            Opcode.MOVE_EXCEPTION -> registers = registers.replacingAt(
-                (instruction as OneRegisterInstruction).registerA,
-                RegisterKind.REFERENCE,
-            )
-            else -> if (instruction.opcode.setsRegister()) {
-                val destination = when (instruction) {
-                    is OneRegisterInstruction -> instruction.registerA
-                    is TwoRegisterInstruction -> instruction.registerA
-                    is ThreeRegisterInstruction -> instruction.registerA
-                    else -> null
-                } ?: return registers
-                registers = registers.replacingAt(destination, if (instruction.opcode.setsWideRegister()) {
-                    RegisterKind.WIDE_LOW
-                } else {
-                    RegisterKind.UNKNOWN
-                })
-                if (instruction.opcode.setsWideRegister()) {
-                    registers = registers.replacingAt(destination + 1, RegisterKind.WIDE_HIGH)
-                }
-            }
-        }
-        return registers
-    }
-
+    /** Every register word an instruction reads: both words of a wide operand and every argument word. */
     private fun readRegisters(instruction: Instruction): List<Int> {
-        if (instruction.opcode in ORDINARY_INVOKE_OPCODES) return invocationRegisters(instruction)
-        return when {
-            instruction.opcode in OpcodeGroups.CONDITIONAL_BRANCH -> when (instruction) {
-                is TwoRegisterInstruction -> listOf(instruction.registerA, instruction.registerB)
-                is OneRegisterInstruction -> listOf(instruction.registerA)
-                else -> emptyList()
-            }
-            instruction.opcode in OpcodeGroups.RETURN && instruction.opcode != Opcode.RETURN_VOID ->
-                listOf((instruction as OneRegisterInstruction).registerA)
-            instruction.opcode in setOf(Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16,
-                Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16) ->
-                listOf((instruction as TwoRegisterInstruction).registerB)
-            instruction.opcode in setOf(Opcode.MOVE_WIDE, Opcode.MOVE_WIDE_FROM16, Opcode.MOVE_WIDE_16) -> {
-                instruction as TwoRegisterInstruction
-                listOf(instruction.registerB, instruction.registerB + 1)
-            }
-            instruction.opcode.name.endsWith("/2addr") && instruction is TwoRegisterInstruction ->
-                listOf(instruction.registerA, instruction.registerB)
-            instruction.opcode.setsRegister() -> when (instruction) {
-                is ThreeRegisterInstruction -> listOf(instruction.registerB, instruction.registerC)
-                is TwoRegisterInstruction -> listOf(instruction.registerB)
-                else -> emptyList()
-            }
-            else -> when (instruction) {
-                is ThreeRegisterInstruction -> listOf(instruction.registerA, instruction.registerB, instruction.registerC)
-                is TwoRegisterInstruction -> listOf(instruction.registerA, instruction.registerB)
-                is OneRegisterInstruction -> listOf(instruction.registerA)
-                else -> emptyList()
+        val registers = instruction.registerOperands()
+        if (instruction is FiveRegisterInstruction || instruction is RegisterRangeInstruction) return registers
+        return buildList {
+            RegisterEffects.operands(instruction).forEachIndexed { index, operand ->
+                val register = registers.getOrNull(index)
+                if (register == null || !operand.reads) return@forEachIndexed
+                add(register)
+                if (operand.category == ValueCategory.WIDE) add(register + 1)
             }
         }
     }
 
-    private fun mergeRegisterStates(
-        left: PersistentList<RegisterKind>,
-        right: PersistentList<RegisterKind>,
-    ): PersistentList<RegisterKind> = List(left.size) { index ->
-        val a = left[index]
-        val b = right[index]
-        when {
-            a == b -> a
-            a == RegisterKind.UNDEFINED || b == RegisterKind.UNDEFINED -> RegisterKind.UNDEFINED
-            a == RegisterKind.ZERO && b == RegisterKind.REFERENCE -> RegisterKind.REFERENCE
-            b == RegisterKind.ZERO && a == RegisterKind.REFERENCE -> RegisterKind.REFERENCE
-            a == RegisterKind.ZERO && b == RegisterKind.NARROW -> RegisterKind.NARROW
-            b == RegisterKind.ZERO && a == RegisterKind.NARROW -> RegisterKind.NARROW
-            else -> RegisterKind.UNKNOWN
-        }
-    }.toPersistentList()
-
-    private fun invocationRegisters(instruction: Instruction): List<Int> = when (instruction) {
-        is FiveRegisterInstruction -> listOf(
-            instruction.registerC,
-            instruction.registerD,
-            instruction.registerE,
-            instruction.registerF,
-            instruction.registerG,
-        ).take(instruction.registerCount)
-        is RegisterRangeInstruction -> List(instruction.registerCount) { instruction.startRegister + it }
-        else -> emptyList()
-    }
-
+    /** A range reports its last register, the one a too-small register file cannot hold. */
     private fun invalidRegister(instruction: Instruction, registerCount: Int): Int? {
-        fun invalid(register: Int): Int? = register.takeIf { it !in 0 until registerCount }
-
-        when (instruction) {
-            is ThreeRegisterInstruction -> {
-                invalid(instruction.registerA)?.let { return it }
-                invalid(instruction.registerB)?.let { return it }
-                invalid(instruction.registerC)?.let { return it }
-            }
-            is TwoRegisterInstruction -> {
-                invalid(instruction.registerA)?.let { return it }
-                invalid(instruction.registerB)?.let { return it }
-            }
-            is OneRegisterInstruction -> invalid(instruction.registerA)?.let { return it }
-        }
-        if (instruction is FiveRegisterInstruction) {
-            val registers = intArrayOf(
-                instruction.registerC,
-                instruction.registerD,
-                instruction.registerE,
-                instruction.registerF,
-                instruction.registerG,
-            )
-            for (index in 0 until instruction.registerCount) {
-                invalid(registers[index])?.let { return it }
-            }
-        }
-        if (instruction is RegisterRangeInstruction && instruction.registerCount > 0) {
+        if (instruction is RegisterRangeInstruction) {
+            if (instruction.registerCount == 0) return null
             val last = instruction.startRegister.toLong() + instruction.registerCount - 1L
-            if (instruction.startRegister < 0 || last >= registerCount) {
-                return last.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-            }
+            return last.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                .takeIf { instruction.startRegister < 0 || last >= registerCount }
         }
-        return null
+        return instruction.registerOperands().firstOrNull { it !in 0 until registerCount }
     }
 
+    /** The high register of every wide operand of a fixed-register instruction must exist. */
     private fun invalidWideRegister(instruction: Instruction, registerCount: Int): Int? {
-        fun invalidHighRegister(lowRegister: Int): Int? =
-            (lowRegister + 1).takeIf { lowRegister < 0 || it !in 0 until registerCount }
-
-        if (instruction.opcode.setsWideRegister() && instruction is OneRegisterInstruction) {
-            invalidHighRegister(instruction.registerA)?.let { return it }
-        }
-        when (instruction.opcode) {
-            Opcode.MOVE_WIDE, Opcode.MOVE_WIDE_FROM16, Opcode.MOVE_WIDE_16,
-            Opcode.NEG_LONG, Opcode.NOT_LONG, Opcode.NEG_DOUBLE,
-            Opcode.LONG_TO_INT, Opcode.LONG_TO_FLOAT, Opcode.LONG_TO_DOUBLE,
-            Opcode.DOUBLE_TO_INT, Opcode.DOUBLE_TO_LONG, Opcode.DOUBLE_TO_FLOAT,
-            -> invalidHighRegister((instruction as TwoRegisterInstruction).registerB)?.let { return it }
-
-            Opcode.RETURN_WIDE,
-            Opcode.SPUT_WIDE,
-            Opcode.SPUT_WIDE_VOLATILE,
-            -> invalidHighRegister((instruction as OneRegisterInstruction).registerA)?.let { return it }
-
-            Opcode.IPUT_WIDE,
-            Opcode.IPUT_WIDE_VOLATILE,
-            -> invalidHighRegister((instruction as TwoRegisterInstruction).registerA)?.let { return it }
-
-            Opcode.APUT_WIDE,
-            -> invalidHighRegister((instruction as ThreeRegisterInstruction).registerA)?.let { return it }
-
-            Opcode.CMP_LONG, Opcode.CMPL_DOUBLE, Opcode.CMPG_DOUBLE -> {
-                instruction as ThreeRegisterInstruction
-                invalidHighRegister(instruction.registerB)?.let { return it }
-                invalidHighRegister(instruction.registerC)?.let { return it }
-            }
-            in WIDE_BINARY_OPCODES -> {
-                instruction as ThreeRegisterInstruction
-                invalidHighRegister(instruction.registerB)?.let { return it }
-                if (instruction.opcode !in WIDE_SHIFT_OPCODES) {
-                    invalidHighRegister(instruction.registerC)?.let { return it }
-                }
-            }
-            in WIDE_TWO_ADDRESS_OPCODES -> {
-                instruction as TwoRegisterInstruction
-                if (instruction.opcode !in WIDE_TWO_ADDRESS_SHIFT_OPCODES) {
-                    invalidHighRegister(instruction.registerB)?.let { return it }
-                }
-            }
-            else -> Unit
+        if (instruction is FiveRegisterInstruction || instruction is RegisterRangeInstruction) return null
+        val registers = instruction.registerOperands()
+        RegisterEffects.operands(instruction).forEachIndexed { index, operand ->
+            val low = registers.getOrNull(index) ?: return@forEachIndexed
+            if (operand.category == ValueCategory.WIDE && (low < 0 || low + 1 >= registerCount)) return low + 1
         }
         return null
     }
@@ -1099,48 +821,6 @@ internal object MethodEditValidator {
         Opcode.INVOKE_DIRECT_RANGE,
         Opcode.INVOKE_STATIC_RANGE,
         Opcode.INVOKE_INTERFACE_RANGE,
-    )
-    private val WIDE_BINARY_OPCODES = setOf(
-        Opcode.ADD_LONG,
-        Opcode.SUB_LONG,
-        Opcode.MUL_LONG,
-        Opcode.DIV_LONG,
-        Opcode.REM_LONG,
-        Opcode.AND_LONG,
-        Opcode.OR_LONG,
-        Opcode.XOR_LONG,
-        Opcode.SHL_LONG,
-        Opcode.SHR_LONG,
-        Opcode.USHR_LONG,
-        Opcode.ADD_DOUBLE,
-        Opcode.SUB_DOUBLE,
-        Opcode.MUL_DOUBLE,
-        Opcode.DIV_DOUBLE,
-        Opcode.REM_DOUBLE,
-    )
-    private val WIDE_SHIFT_OPCODES = setOf(Opcode.SHL_LONG, Opcode.SHR_LONG, Opcode.USHR_LONG)
-    private val WIDE_TWO_ADDRESS_OPCODES = setOf(
-        Opcode.ADD_LONG_2ADDR,
-        Opcode.SUB_LONG_2ADDR,
-        Opcode.MUL_LONG_2ADDR,
-        Opcode.DIV_LONG_2ADDR,
-        Opcode.REM_LONG_2ADDR,
-        Opcode.AND_LONG_2ADDR,
-        Opcode.OR_LONG_2ADDR,
-        Opcode.XOR_LONG_2ADDR,
-        Opcode.SHL_LONG_2ADDR,
-        Opcode.SHR_LONG_2ADDR,
-        Opcode.USHR_LONG_2ADDR,
-        Opcode.ADD_DOUBLE_2ADDR,
-        Opcode.SUB_DOUBLE_2ADDR,
-        Opcode.MUL_DOUBLE_2ADDR,
-        Opcode.DIV_DOUBLE_2ADDR,
-        Opcode.REM_DOUBLE_2ADDR,
-    )
-    private val WIDE_TWO_ADDRESS_SHIFT_OPCODES = setOf(
-        Opcode.SHL_LONG_2ADDR,
-        Opcode.SHR_LONG_2ADDR,
-        Opcode.USHR_LONG_2ADDR,
     )
     private val NON_VOID_PRIMITIVE_TYPES = setOf('Z', 'B', 'S', 'C', 'I', 'J', 'F', 'D')
 }
