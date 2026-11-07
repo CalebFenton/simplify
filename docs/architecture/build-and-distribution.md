@@ -97,9 +97,11 @@ The maintained legal bundle describes this release's dependency versions. Depend
 update the matching component texts, copyright notices, and source locations; Maven license labels
 alone do not replace upstream notices. Fat-JAR packaging does not merge arbitrary service descriptors.
 
-The optional ProGuard task consumes the distinct SmaliVM fat JAR and uses JMODs from the build JVM.
-It preserves public APIs and attributes, disables obfuscation, and retains the existing warning and
-optimization policy. It is not signing or publication approval.
+The optional ProGuard pipeline consumes the distinct SmaliVM fat JAR and uses JMODs from the build JVM.
+`runProguard` optimizes JVM code into an intermediate JAR, excluding unchanged framework Smali.
+`proguard` packages that output with the Smali using Gradle's ZIP64 writer; ProGuard's direct output
+wrapped the entry count for the full resource-heavy bundle. Public APIs, attributes, disabled
+obfuscation and the existing optimization policy are preserved. This is not signing or publication approval.
 
 ## Framework and Android execution inputs
 

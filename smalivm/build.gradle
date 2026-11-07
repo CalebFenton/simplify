@@ -152,13 +152,16 @@ tasks.register('printSmaliAssemblerClasspath') {
     }
 }
 
-tasks.register('proguard', ProGuardTask) {
+def proguardOutput = layout.buildDirectory.file('proguard/smalivm.jar')
+
+tasks.register('runProguard', ProGuardTask) {
     dependsOn tasks.named('fatJar')
     def inputJar = tasks.named('fatJar', Jar).flatMap { it.archiveFile }
-    def outputJar = layout.buildDirectory.file("libs/${project.name}-${project.version}-proguard.jar")
 
-    injars inputJar
-    outjars outputJar
+    // ProGuard's ZIP writer cannot represent the full framework's entry count.
+    // Optimize JVM code here; the ZIP64 packaging task adds the unchanged Smali.
+    injars inputJar, filter: '!framework/smali/**'
+    outjars proguardOutput
 
     ['java.base', 'java.compiler', 'java.desktop', 'java.logging', 'java.sql', 'java.xml', 'jdk.unsupported'].each { module ->
         libraryjars "${System.properties['java.home']}/jmods/${module}.jmod", jarfilter: '!**.jar', filter: '!module-info.class'
@@ -174,4 +177,16 @@ tasks.register('proguard', ProGuardTask) {
 
     dontwarn
     verbose
+}
+
+tasks.register('proguard', Jar) {
+    dependsOn tasks.named('runProguard')
+    archiveClassifier = 'proguard'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from({ zipTree(proguardOutput.get().asFile) }) {
+        exclude 'META-INF/MANIFEST.MF'
+    }
+    from(sourceSets.main.output) {
+        include 'framework/smali/**'
+    }
 }
