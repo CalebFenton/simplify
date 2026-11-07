@@ -869,9 +869,8 @@
 # LOW 32 BITS ARE ZERO. Dalvik reads a `div-int` operand as a 32-bit register, so the divisor it sees is
 # 0 and it throws; reading the same raw at 64-bit width instead says "divisor 2^32, carry on". This is
 # the shape that catches the divide-by-zero test being asked at a different width from the arithmetic,
-# and it needs no seeded frame at all -- `const-wide` puts the value there, and `OpBuilder` tags it `D`
-# with a `Long` raw (its own documented quirk), so the ambiguity is the real one Dalvik's overloaded
-# const opcodes produce rather than a hand-built `Value`.
+# and it needs no seeded frame at all -- `const-wide` puts the value there as a `Long` raw, so the
+# ambiguity is the real one Dalvik's overloaded const opcodes produce rather than a hand-built `Value`.
 #
 # Verifier-invalid on purpose, on the same grounds as `divIntFallsOffTheEnd()V` above: obfuscators emit
 # register types the verifier would reject, and the engine must still route the path Dalvik takes.

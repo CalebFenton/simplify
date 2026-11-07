@@ -334,21 +334,9 @@ class CmpOpTest {
         }
 
         /**
-         * `cmp-long` reading a register whose raw is a genuinely-computed `Float` -- a fourth op family
-         * with the same cross-domain read, and one nothing in the repository had named: the carry-forward
-         * register's site list covered `BinaryMathOp` and `UnaryMathOp` only, and only their
-         * `Coerce.toInt` reads.
-         *
-         * Bug class: a confidently wrong `Known`, and this one is a *comparison*, so the wrong constant
-         * feeds straight into the `if-*` that follows it -- the fold a deobfuscator acts on. Oracle:
-         * Dalvik reads v0/v1 as 64 bits, which for a 32-bit `Float` raw depends on a register this op does
-         * not read, so the honest answer is that it cannot be determined. `Coerce.toLong(5.9f)` was `5L`,
-         * so this op answered a definite `Known(-1)` (5 < 7).
-         *
-         * Which SIDE of the soundness line: `cmp-long` has exactly one successor, so nothing is explored
-         * more or less; the loss is a fold the engine was not entitled to make. The *downstream* `if-*`
-         * that reads an `Unknown(I)` will fork both arms, which is spec §2.2's "explore more" and is the
-         * correct direction for an unprovable predicate.
+         * `cmp-long` reads v0/v1 as 64 bits; a computed `Float` in v0 supplies 32 of them and the rest is v1,
+         * which the engine does not hold, so the comparison is `Unknown(I)` and the following `if-*` forks.
+         * A value conversion would read 5 and answer a definite -1.
          */
         @Test
         fun aCmpLongReadingAComputedFloatRawIsNotProvable() {
