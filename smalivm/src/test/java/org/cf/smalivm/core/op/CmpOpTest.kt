@@ -153,6 +153,22 @@ class CmpOpTest {
             CoreTester.test(Companion.CLASS_NAME, "cmplDouble()V", initial, expected)
         }
 
+        /**
+         * [BC] `cmpkind` answers 0 when `b == c`, and ART's `HandleCmpl`/`HandleCmpg` test that with IEEE-754
+         * `==`, under which `-0.0 == 0.0`. A total-order compare (`Double.compare`) answers -1/1 here and
+         * folds the following `if-*` to the wrong arm.
+         */
+        @Test
+        fun signedZerosCompareEqualUnderBothBiases() {
+            for (method in listOf("cmplDouble()V", "cmpgDouble()V")) {
+                for ((lhs, rhs) in listOf(-0.0 to 0.0, 0.0 to -0.0)) {
+                    val initial = CoreState().apply { setRegisters(0, lhs, "D", 2, rhs, "D") }
+                    val expected = CoreState().apply { setRegisters(0, 0, "I") }
+                    CoreTester.test(Companion.CLASS_NAME, method, initial, expected)
+                }
+            }
+        }
+
         @BeforeEach
         fun setUp() {
             expected = CoreState()
@@ -249,6 +265,18 @@ class CmpOpTest {
             initial.setRegisters(0, 0.5f, "F", 1, CoreState.UNKNOWN, "F")
             expected.setRegisters(0, CoreState.UNKNOWN, "I")
             CoreTester.test(CLASS_NAME, "cmplFloat()V", initial, expected)
+        }
+
+        /** The float twin of `CmpDouble.signedZerosCompareEqualUnderBothBiases`: IEEE `-0.0f == 0.0f`. */
+        @Test
+        fun signedZerosCompareEqualUnderBothBiases() {
+            for (method in listOf("cmplFloat()V", "cmpgFloat()V")) {
+                for ((lhs, rhs) in listOf(-0.0f to 0.0f, 0.0f to -0.0f)) {
+                    val initial = CoreState().apply { setRegisters(0, lhs, "F", 1, rhs, "F") }
+                    val expected = CoreState().apply { setRegisters(0, 0, "I") }
+                    CoreTester.test(CLASS_NAME, method, initial, expected)
+                }
+            }
         }
 
         @BeforeEach

@@ -482,11 +482,9 @@ Unknown or uncoercible source → `Value.Unknown(resultType)`. **Never throws.**
 
 - Either operand unknown or uncoercible → `Value.Unknown(I)`.
 - Either operand NaN → `1` for `cmpg-*`, `-1` for `cmpl-*`.
-- Otherwise `Long.compare` / `Float.compare` / `Double.compare` on coerced operands.
-
-**Known imprecision, parity-preserving.** `Float.compare(-0.0f, 0.0f) == -1` (Java total ordering)
-where Dalvik's `cmpl-float` answers `0` (IEEE-754, where `-0.0 == 0.0`). Spec §3 lists negative-zero
-compare semantics as out of scope. Do not "fix" it into a fresh divergence from the oracle it matches.
+- Otherwise `Long.compare` for `cmp-long`, and IEEE-754 `>` / `==` / `<` for the float and double forms, so
+  `-0.0` and `0.0` compare equal — ART's `HandleCmpl`/`HandleCmpg` (`interpreter_switch_impl-inl.h`).
+  `Float.compare`/`Double.compare` are not this rule: they order `-0.0` below `0.0`.
 
 Do **not** port the oracle's two `assert(...)` lines (`CmpOp.kt:31-32`): Java asserts are off by
 default so they never ran, and coercion is what actually handles mixed operands. (Gradle's `Test` task
