@@ -24,6 +24,7 @@ class LauncherTest {
     private fun launcher() = Launcher(listOf(OptimizationStrategy {}))
     private fun run(input: String, output: Path, vararg options: String) = launcher().run(arrayOf(input, "--output", output.toString(), "--quiet", *options))
     private fun returned(file: File): Any? = (OptimizerTester.execute(OptimizerTester.services(file), OptimizerTest.CHANGED).trusted()!!.terminatingConsensus(0) as Value.Known).raw
+    private fun Launcher.run(args: Array<String>) = run(SimplifyOptionsParser.parse(args))
 
     @Test fun directoryAndDexInputsProduceExecutableDex() {
         val input = temporaryDirectory.resolve("input.dex")

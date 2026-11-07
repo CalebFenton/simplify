@@ -49,8 +49,7 @@ class Launcher(
         val optimizationCounts: Map<String, Int> get() = flattenCounts(strategyOptimizationCounts)
     }
 
-    fun run(args: Array<String>): Result {
-        val options = SimplifyOptionsParser.parse(args)
+    fun run(options: SimplifyOptions): Result {
         if (options.help) {
             usage(SimplifyOptionsParser.options, output)
             return Result(0, 0, 0, 0, 0, 0, emptyList(), emptyList(), emptyMap())
@@ -65,13 +64,13 @@ class Launcher(
             else -> Level.WARN
         }
         try {
-            return run(options)
+            return simplify(options)
         } finally {
             root.level = previousLevel
         }
     }
 
-    private fun run(options: SimplifyOptions): Result {
+    private fun simplify(options: SimplifyOptions): Result {
         val reporter = Reporter(options, output, error)
         reporter.verbose(1, "Options:\n$options")
         val start = System.currentTimeMillis()
