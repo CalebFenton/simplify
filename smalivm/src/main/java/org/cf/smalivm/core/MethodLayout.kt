@@ -20,8 +20,4 @@ class MethodLayout internal constructor(
     internal val codeAddressesByPosition: PersistentMap<LogicalCodePosition, Int>,
     internal val tryBlocks: PersistentList<ImmutableTryBlock>,
     internal val debugItems: PersistentList<ImmutableDebugItem>,
-    internal val layoutRounds: Int,
-    internal val branchWidenings: Int,
-    internal val paddingChanges: Int,
-    internal val layoutEdgeVisits: Int,
 )
