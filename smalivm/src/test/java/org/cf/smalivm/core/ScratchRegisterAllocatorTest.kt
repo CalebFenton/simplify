@@ -2,7 +2,6 @@ package org.cf.smalivm.core
 
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlinx.collections.immutable.toPersistentMap
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
 import com.android.tools.smali.dexlib2.iface.debug.StartLocal
@@ -232,29 +231,13 @@ class ScratchRegisterAllocatorTest {
     }
 
     @Test
-    fun bothCandidateTransformationsPreserveNarrowReferenceAndWideParameters() {
-        val staticIndex = index(CANDIDATE_SOURCE)
-        val staticServices = VmServices(staticIndex)
-        val staticEdit = staticServices.methodEditor.beginEdit(requireNotNull(staticIndex.methodView(CANDIDATE)))
-        staticEdit.reserveScratchRegisters(2)
-        assertTrue(staticEdit.commit() is MethodEditCommitResult.Committed)
-        assertEquals(7L, executeLong(staticServices, requireNotNull(staticIndex.methodView(RUN_CANDIDATE))))
-
-        val prologueIndex = index(CANDIDATE_SOURCE)
-        val snapshot = prologueIndex.currentSnapshot
-        val method = requireNotNull(snapshot.applicationMethod(CANDIDATE))
-        val allocation = ScratchRegisterAllocator.allocate(
-            requireNotNull(method.body),
-            method.declaration,
-            scratchWordCount = 2,
-            encoding = ScratchRegisterEncoding.PARAMETER_PROLOGUE,
-        ) as ScratchRegisterAllocation.Accepted
-        val assembled = MethodBodyAssembler.assemble(MethodLayoutSolver.solve(allocation.body))
-        installBody(prologueIndex, CANDIDATE, assembled)
-        val prologueOpcodes = assembled.instructions.take(3).map { it.instruction.opcode }
-
-        assertEquals(listOf(Opcode.MOVE, Opcode.MOVE_OBJECT, Opcode.MOVE_WIDE), prologueOpcodes)
-        assertEquals(7L, executeLong(VmServices(prologueIndex), requireNotNull(prologueIndex.methodView(RUN_CANDIDATE))))
+    fun staticRemapPreservesNarrowReferenceAndWideParameters() {
+        val index = index(CANDIDATE_SOURCE)
+        val services = VmServices(index)
+        val edit = services.methodEditor.beginEdit(requireNotNull(index.methodView(CANDIDATE)))
+        edit.reserveScratchRegisters(2)
+        assertTrue(edit.commit() is MethodEditCommitResult.Committed)
+        assertEquals(7L, executeLong(services, requireNotNull(index.methodView(RUN_CANDIDATE))))
     }
 
     @Test
@@ -344,26 +327,6 @@ class ScratchRegisterAllocatorTest {
 
     private fun returnedValue(graph: ExecutionGraph): Value =
         requireNotNull((graph.outcomes.single() as Outcome.Returned).value)
-
-    private fun installBody(index: ClassIndex, methodSignature: String, body: MethodBody) {
-        val snapshot = index.currentSnapshot
-        val method = requireNotNull(snapshot.applicationMethod(methodSignature))
-        val editedMethod = ApplicationMethodDefinition.withBody(
-            method,
-            body,
-            index.programWorkspace.newApplicationMethodRevision(methodSignature),
-        )
-        val definingClass = methodSignature.substringBefore("->")
-        val editedClass = requireNotNull(snapshot.applicationClass(definingClass)).withMethod(editedMethod)
-        val candidate = ProgramSnapshot.candidate(
-            snapshot,
-            index.programWorkspace.newProgramRevision(),
-            snapshot.applicationClasses.mapValues { (type, definition) ->
-                if (type == definingClass) editedClass else definition
-            }.toPersistentMap(),
-        )
-        index.programWorkspace.replaceCurrentSnapshotForTest(candidate)
-    }
 
     private fun index(source: String): ClassIndex {
         val directory = Files.createDirectory(root.resolve("fixture-${fixtureSequence++}"))

@@ -10,10 +10,8 @@ import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.SwitchPayload
 import com.android.tools.smali.dexlib2.iface.instruction.ThreeRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.formats.ArrayPayload
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 
 enum class MethodEditTransactionState {
@@ -98,16 +96,11 @@ class MethodEditTransaction internal constructor(
     }
 
     private val transactionIdentity = Any()
-    private val metrics = MethodEditMetricsCounter()
     private var workspace: ProgramWorkspace? = workspace
     private var revisionGuard: MethodEditRevisionGuard? = revisionGuard
-    private var openTransactionsAfterClose: Int? = null
     private var baselineBody: MethodBody? = methodView.methodBody
     private var baselineIdsByCodeAddress: Map<Int, BaselineInstructionId>? =
-        methodView.instructionAddresses.mapIndexed { ordinal, codeAddress ->
-            metrics.baselineInstructionVisits++
-            codeAddress to BaselineInstructionId(transactionIdentity, ordinal)
-        }.toMap()
+        methodView.instructionAddresses.associateWith { BaselineInstructionId() }
     private var baselinePositionsByCodeAddress: Map<Int, LogicalCodePosition>? =
         methodView.methodBody?.positionsByCodeAddress
     private var baselineInstructions: List<BaselineDraftInstruction>? = methodView.methodBody?.let { body ->
@@ -129,16 +122,11 @@ class MethodEditTransaction internal constructor(
     private var stagedReferenceIdentities: MutableSet<StagedDexReference>? =
         Collections.newSetFromMap(IdentityHashMap())
     private var submittedTryRegions: List<TryRegionSpec>? = null
-    private var nextAnchorSequence = 0
     private var nextCommandSequence = 0
     private var scratchWordCount = 0
 
     var state: MethodEditTransactionState = MethodEditTransactionState.OPEN
         private set
-
-    init {
-        workspace.openMethodEditTransaction()
-    }
 
     fun pendingAnchorForCodeAddress(codeAddress: Int): PendingCodeAnchor {
         ensureOpen()
@@ -163,8 +151,6 @@ class MethodEditTransaction internal constructor(
         check(scratchWordCount <= Int.MAX_VALUE - wordCount) { "Scratch-register reservation count overflow" }
         val firstOffset = scratchWordCount
         scratchWordCount += wordCount
-        metrics.scratchReservationRequests++
-        metrics.scratchWordsReserved += wordCount
         val registers = List(wordCount) { offset ->
             LogicalRegister(
                 transactionIdentity,
@@ -176,7 +162,6 @@ class MethodEditTransaction internal constructor(
 
     fun stageType(descriptor: String): StagedDexReference.Type {
         ensureOpen()
-        metrics.referenceRequests++
         val key = StagedReferenceKey.Type(descriptor)
         return stageReference(key) {
             StagedDexReference.Type(transactionIdentity, descriptor)
@@ -185,7 +170,6 @@ class MethodEditTransaction internal constructor(
 
     fun stageString(value: String): StagedDexReference.String {
         ensureOpen()
-        metrics.referenceRequests++
         val key = StagedReferenceKey.StringValue(value)
         return stageReference(key) {
             StagedDexReference.String(transactionIdentity, value)
@@ -198,7 +182,6 @@ class MethodEditTransaction internal constructor(
         type: String,
     ): StagedDexReference.Field {
         ensureOpen()
-        metrics.referenceRequests++
         val key = StagedReferenceKey.Field(definingClass, name, type)
         return stageReference(key) {
             StagedDexReference.Field(transactionIdentity, definingClass, name, type)
@@ -212,7 +195,6 @@ class MethodEditTransaction internal constructor(
         returnType: String,
     ): StagedDexReference.Method {
         ensureOpen()
-        metrics.referenceRequests++
         val copiedParameterTypes = parameterTypes.toList()
         val key = StagedReferenceKey.Method(definingClass, name, copiedParameterTypes, returnType)
         return stageReference(key) {
@@ -225,7 +207,6 @@ class MethodEditTransaction internal constructor(
         returnType: String,
     ): StagedDexReference.Prototype {
         ensureOpen()
-        metrics.referenceRequests++
         val copiedParameterTypes = parameterTypes.toList()
         val key = StagedReferenceKey.Prototype(copiedParameterTypes, returnType)
         return stageReference(key) {
@@ -248,7 +229,6 @@ class MethodEditTransaction internal constructor(
     fun setTryRegions(tryRegionSpecs: List<TryRegionSpec>) {
         ensureOpen()
         submittedTryRegions = tryRegionSpecs.toList().map(TryRegionSpec::detachedCopy)
-        metrics.editCommandsIndexed++
     }
 
     fun insertInstructionsBefore(
@@ -259,7 +239,6 @@ class MethodEditTransaction internal constructor(
         val copied = copyTemplates(instructionTemplates)
         val anchors = List(copied.size) { newPendingAnchor() }
         requireNotNull(commands).add(EditCommand.Insert(codeAddress, copied, anchors, nextCommandSequence++))
-        metrics.editCommandsIndexed++
         return InsertedInstructionAnchors(anchors)
     }
 
@@ -271,20 +250,17 @@ class MethodEditTransaction internal constructor(
         requireNotNull(commands).add(
             EditCommand.Replace(codeAddress, copyTemplates(instructionTemplates), nextCommandSequence++),
         )
-        metrics.editCommandsIndexed++
     }
 
     fun removeInstruction(codeAddress: Int) {
         ensureOpen()
         requireNotNull(commands).add(EditCommand.Remove(codeAddress, nextCommandSequence++))
-        metrics.editCommandsIndexed++
     }
 
     fun removeInstructions(codeAddresses: Collection<Int>) {
         ensureOpen()
         codeAddresses.toList().forEach { codeAddress ->
             requireNotNull(commands).add(EditCommand.Remove(codeAddress, nextCommandSequence++))
-            metrics.editCommandsIndexed++
         }
     }
 
@@ -302,10 +278,6 @@ class MethodEditTransaction internal constructor(
         ensureOpen()
         finish(MethodEditTransactionState.DISCARDED)
     }
-
-    internal fun metrics(): MethodEditMetrics = metrics.snapshot(
-        workspace?.openMethodEditTransactions ?: requireNotNull(openTransactionsAfterClose),
-    )
 
     private fun commitOpen(): MethodEditCommitResult {
         val workspace = requireNotNull(workspace)
@@ -351,9 +323,8 @@ class MethodEditTransaction internal constructor(
             indexedEdits.removals,
             indexedEdits.anchors,
             resolvedTryRegionSpecs(),
-            metrics,
         )
-        val draftConstruction = MethodBodyDraft.build(resolvedEdit, metrics)
+        val draftConstruction = MethodBodyDraft.build(resolvedEdit)
         val draft = draftConstruction.draft
         if (draft.instructionCount == 0) {
             return reject(
@@ -372,8 +343,6 @@ class MethodEditTransaction internal constructor(
             is ScratchRegisterAllocation.Accepted -> result
             is ScratchRegisterAllocation.Rejected -> return reject(result.reason)
         }
-        metrics.scratchHiddenWords = allocation.hiddenWordCount
-        metrics.scratchSyntheticInstructions = allocation.syntheticInstructionCount
         val logicalBody = allocation.body
         MethodEditValidator.validateLogicalBody(logicalBody)?.let { return reject(it) }
         val logicalCandidateReferences = DexReferenceClosure.fromMethod(currentMethod.declaration, logicalBody)
@@ -397,22 +366,9 @@ class MethodEditTransaction internal constructor(
             currentSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING &&
                 candidateEncoding == StringInstructionEncoding.CONST_STRING_JUMBO
         val layout = MethodLayoutSolver.solve(logicalBody, candidateEncoding)
-        metrics.layoutRounds = layout.layoutRounds
-        metrics.branchWidenings = layout.branchWidenings
-        metrics.paddingChanges = layout.paddingChanges
-        metrics.layoutEdgeVisits = layout.layoutEdgeVisits
-        metrics.payloadElementsCopied = layout.instructions.sumOf { record ->
-            when (val instruction = record.instruction) {
-                is SwitchPayload -> instruction.switchElements.size
-                is ArrayPayload -> instruction.arrayElements.size
-                else -> 0
-            }
-        }
-        metrics.encodedBodyRecordsCreated = layout.instructions.size
         MethodEditValidator.validateLayout(layout, currentSnapshot, projectedReferences)?.let { return reject(it) }
 
         val assembledBody = MethodBodyAssembler.assemble(layout)
-        metrics.methodBodiesAssembled++
         val candidate = ApplicationMethodDefinitionCandidate.from(
             currentMethod,
             assembledBody,
@@ -442,10 +398,6 @@ class MethodEditTransaction internal constructor(
             is PreparedMethodsResult.Accepted -> result.methods
             is PreparedMethodsResult.Rejected -> return reject(result.reason)
         }
-        if (triggersJumboRelayout) {
-            metrics.jumboCommitMethodBodiesAssembled = preparedMethods.size
-            metrics.collateralMethodRevisionsCreated = preparedMethods.size - 1
-        }
 
         val revisionsBySignature = LinkedHashMap<String, ApplicationMethodRevision>(preparedMethods.size)
         val replacementsBySignature = LinkedHashMap<String, ApplicationMethodDefinition>(preparedMethods.size)
@@ -470,7 +422,6 @@ class MethodEditTransaction internal constructor(
         )
         val editedMethod = requireNotNull(candidateSnapshot.applicationMethod(candidate.methodSignature))
         val editedMethodView = MethodView.of(editedMethod, programRevision)
-        metrics.methodViewsBuilt++
         val positionsByAnchor = draftConstruction.positionsByPendingAnchor.mapValues { (_, position) ->
             requireNotNull(allocation.positionsAfterAllocation[position])
         }
@@ -485,8 +436,6 @@ class MethodEditTransaction internal constructor(
         )
 
         workspace.publish(candidateSnapshot)
-        metrics.methodDexReferenceClosuresReplaced += preparedMethods.size
-        metrics.programSnapshotsPublished++
         finish(MethodEditTransactionState.COMMITTED)
         return result
     }
@@ -611,7 +560,6 @@ class MethodEditTransaction internal constructor(
                 return StagedReferenceResolution.Rejected(it)
             }
         }
-        metrics.distinctStagedDexReferences = references.size
         return StagedReferenceResolution.Accepted
     }
 
@@ -648,12 +596,10 @@ class MethodEditTransaction internal constructor(
             }
         for (method in collateralMethods) {
             val layout = MethodLayoutSolver.solve(requireNotNull(method.body), encoding)
-            metrics.layoutEdgeVisits += layout.layoutEdgeVisits
             MethodEditValidator.validateLayout(layout, snapshot, projectedReferences)?.let {
                 return PreparedMethodsResult.Rejected(it)
             }
             val body = MethodBodyAssembler.assemble(layout)
-            metrics.methodBodiesAssembled++
             val candidate = ApplicationMethodDefinitionCandidate.from(method, body, snapshot.hierarchy)
             MethodEditValidator.validateApplicationMethodDefinitionCandidate(candidate, snapshot)?.let {
                 return PreparedMethodsResult.Rejected(it)
@@ -876,7 +822,7 @@ class MethodEditTransaction internal constructor(
             }
         }
 
-    private fun newPendingAnchor(): PendingCodeAnchor = PendingCodeAnchor(transactionIdentity, nextAnchorSequence++)
+    private fun newPendingAnchor(): PendingCodeAnchor = PendingCodeAnchor(transactionIdentity)
 
     private fun reject(reason: MethodEditRejectionReason): MethodEditCommitResult.Rejected {
         finish(MethodEditTransactionState.REJECTED)
@@ -903,10 +849,7 @@ class MethodEditTransaction internal constructor(
         baselinePayloadAddresses = null
         baselineBody = null
         scratchWordCount = 0
-        val workspace = requireNotNull(workspace)
-        workspace.closeMethodEditTransaction()
-        openTransactionsAfterClose = workspace.openMethodEditTransactions
-        this.workspace = null
+        workspace = null
         revisionGuard = null
     }
 

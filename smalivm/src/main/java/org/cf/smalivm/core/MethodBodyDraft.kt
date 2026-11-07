@@ -64,7 +64,6 @@ internal class MethodBodyDraft private constructor(
             removedInstructions: Set<BaselineInstructionId>,
             anchorsByPosition: Map<LogicalCodePosition, List<PendingCodeAnchor>>,
             submittedTryRegions: List<DraftTryRegionSpec>?,
-            metrics: MethodEditMetricsCounter,
         ): ResolvedMethodBodyEdit {
             val records = ArrayList<DraftRecord>(baseline.size)
             val transferOrdinals = LinkedHashMap<LogicalCodePosition, Int>(baseline.size + 1)
@@ -72,14 +71,12 @@ internal class MethodBodyDraft private constructor(
             val anchorOrdinals = LinkedHashMap<PendingCodeAnchor, Int>()
 
             for (baselineInstruction in baseline) {
-                metrics.draftInstructionVisits++
                 val id = baselineInstruction.id
                 val insertions = if (id == null) emptyList() else insertionsByInstruction[id].orEmpty()
                     .sortedBy(DraftInsertion::commandSequence)
                 val firstInsertedOrdinal = records.size.takeIf { insertions.isNotEmpty() }
                 for (insertion in insertions) {
                     insertion.instructions.forEachIndexed { index, instruction ->
-                        metrics.draftInstructionVisits++
                         anchorOrdinals[insertion.anchors[index]] = records.size
                         records += DraftRecord(instruction, baselinePosition = null)
                     }
@@ -88,7 +85,6 @@ internal class MethodBodyDraft private constructor(
                 val replacement = id?.let(replacementsByInstruction::get)
                 val firstReplacementOrdinal = records.size.takeIf { replacement != null }
                 if (replacement != null) {
-                    metrics.draftInstructionVisits += replacement.size
                     replacement.forEach { records += DraftRecord(it, baselinePosition = null) }
                 } else if ((id == null || id !in removedInstructions) && !baselineInstruction.syntheticPayloadPadding) {
                     survivingOrdinals[baselineInstruction.position] = records.size
@@ -265,24 +261,13 @@ internal class MethodBodyDraft private constructor(
                 referenceOperands,
             )
             val resolvedAnchors = anchorOrdinals.mapValues { (_, ordinal) -> positionAt(ordinal) }
-            return ResolvedMethodBodyEdit(
-                logicalBody,
-                resolvedAnchors,
-                tryRegions.sumOf { it.handlers.size },
-            )
+            return ResolvedMethodBodyEdit(logicalBody, resolvedAnchors)
         }
 
-        fun build(
-            resolved: ResolvedMethodBodyEdit,
-            metrics: MethodEditMetricsCounter,
-        ): MethodBodyDraftConstruction {
-            metrics.methodBodyDraftsBuilt++
-            metrics.handlerClausesBuilt = resolved.handlerClauseCount
-            return MethodBodyDraftConstruction(
-                MethodBodyDraft(resolved.body),
-                resolved.positionsByPendingAnchor,
-            )
-        }
+        fun build(resolved: ResolvedMethodBodyEdit): MethodBodyDraftConstruction = MethodBodyDraftConstruction(
+            MethodBodyDraft(resolved.body),
+            resolved.positionsByPendingAnchor,
+        )
 
         private val PAYLOAD_OWNER_OPCODES = setOf(
             Opcode.FILL_ARRAY_DATA,
@@ -297,7 +282,6 @@ internal class MethodBodyDraft private constructor(
 internal data class ResolvedMethodBodyEdit(
     val body: MethodBody,
     val positionsByPendingAnchor: Map<PendingCodeAnchor, LogicalCodePosition>,
-    val handlerClauseCount: Int,
 )
 
 /** A draft plus transaction-owned anchors resolved before the draft is constructed. */

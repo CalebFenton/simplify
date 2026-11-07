@@ -12,67 +12,21 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
 /** Static-CFG liveness with exceptional edges retaining the pre-instruction register state. */
-class DeadRemovalStrategy(
-    private val maxLivenessWork: Long = Long.MAX_VALUE,
-    private val maxLivenessFacts: Long = Long.MAX_VALUE,
-) : OptimizationStrategy {
-    init {
-        require(maxLivenessWork >= 0 && maxLivenessFacts >= 0) { "Liveness budgets must be nonnegative" }
-    }
-
-    internal var lastAddressCount = 0
-        private set
-    internal var lastStaticEdgeCount = 0
-        private set
-    internal var lastWorklistVisits = 0
-        private set
-    internal var lastWorklistEdgeScans = 0
-        private set
-    internal var lastStoredRegisterWords = 0
-        private set
-    internal var lastLivenessWork = 0L
-        private set
-    internal var lastLivenessFacts = 0L
-        private set
-    internal var lastLivenessBudgetExceeded = false
-        private set
-
+class DeadRemovalStrategy : OptimizationStrategy {
     override val optimizationCategories: Set<String> = setOf(
         DEAD_OPS_REMOVED, DEAD_ASSIGNMENTS_REMOVED, DEAD_RESULTS_REMOVED, USELESS_GOTOS_REMOVED, NOPS_REMOVED,
     )
 
     override fun perform(input: StrategyInput) {
-        lastAddressCount = 0
-        lastStaticEdgeCount = 0
-        lastWorklistVisits = 0
-        lastWorklistEdgeScans = 0
-        lastStoredRegisterWords = 0
-        lastLivenessWork = 0
-        lastLivenessFacts = 0
-        lastLivenessBudgetExceeded = false
         val graph = input.structureGraph
         val analysis = Analysis.build(input.graph.methodView) ?: return
         if (analysis.addresses.isEmpty()) return
-        lastAddressCount = analysis.addresses.size
-        lastStaticEdgeCount = analysis.edgeCount
-        val budget = LivenessBudget(maxLivenessWork, maxLivenessFacts)
         // This engine exposes decoded register sets only for visited instructions. An unexplored
         // structural successor is not a proof of no reads. Keep assignments unless coverage is complete.
-        var livenessComplete = analysis.addresses.indices.all {
+        val livenessComplete = analysis.addresses.indices.all {
             !analysis.reachable[it] || graph.wasReached(analysis.addresses[it])
         }
-        if (livenessComplete) {
-            try {
-                lastWorklistVisits = analysis.computeLiveness(graph, budget)
-            } catch (_: LivenessBudgetExceeded) {
-                livenessComplete = false
-                lastLivenessBudgetExceeded = true
-            }
-        }
-        lastWorklistEdgeScans = analysis.edgeScans
-        lastStoredRegisterWords = analysis.storedWords()
-        lastLivenessWork = budget.work
-        lastLivenessFacts = budget.facts
+        if (livenessComplete) analysis.computeLiveness(graph)
 
         val removals = linkedSetOf<Int>()
         fun remove(address: Int, category: String) {
@@ -120,13 +74,11 @@ class DeadRemovalStrategy(
         val predecessors: Array<IntArray>,
         val protectedAddresses: BooleanArray,
         val reachable: BooleanArray,
-        val edgeCount: Int,
     ) {
         val reads = Array(addresses.size) { RegisterSet.EMPTY }
         val assigned = Array(addresses.size) { RegisterSet.EMPTY }
         private val liveIn = Array(addresses.size) { RegisterSet.EMPTY }
         val liveOut = Array(addresses.size) { RegisterSet.EMPTY }
-        var edgeScans = 0
 
         fun isPayloadPadding(index: Int): Boolean {
             val next = method.nextAddress(addresses[index])
@@ -148,13 +100,12 @@ class DeadRemovalStrategy(
             return receiver == method.firstParameterRegister
         }
 
-        fun computeLiveness(graph: ExecutionGraphView, budget: LivenessBudget): Int {
+        fun computeLiveness(graph: ExecutionGraphView) {
             val interner = RegisterSetInterner()
             for (i in addresses.indices) {
-                budget.consumeWork(1)
-                reads[i] = RegisterSet.from(graph.registersRead(addresses[i]), method.registerCount, budget, interner)
-                    .withWidePartners(instructions[i].opcode, method.registerCount, budget, interner)
-                assigned[i] = RegisterSet.from(graph.registersAssigned(addresses[i]), method.registerCount, budget, interner)
+                reads[i] = RegisterSet.from(graph.registersRead(addresses[i]), method.registerCount, interner)
+                    .withWidePartners(instructions[i].opcode, method.registerCount, interner)
+                assigned[i] = RegisterSet.from(graph.registersAssigned(addresses[i]), method.registerCount, interner)
             }
             val work = ArrayDeque<Int>()
             val queued = BooleanArray(addresses.size)
@@ -162,33 +113,20 @@ class DeadRemovalStrategy(
                 work.addLast(i)
                 queued[i] = true
             }
-            var visits = 0
             while (work.isNotEmpty()) {
                 val index = work.removeFirst()
                 queued[index] = false
-                visits++
-                budget.consumeWork(1)
                 var normalOut = RegisterSet.EMPTY
-                for (successor in normal[index]) {
-                    edgeScans++
-                    budget.consumeWork(1)
-                    normalOut = normalOut.union(liveIn[successor], budget, interner)
-                }
+                for (successor in normal[index]) normalOut = normalOut.union(liveIn[successor], interner)
                 var exceptionalOut = RegisterSet.EMPTY
-                for (successor in exceptional[index]) {
-                    edgeScans++
-                    budget.consumeWork(1)
-                    exceptionalOut = exceptionalOut.union(liveIn[successor], budget, interner)
-                }
-                val nextOut = normalOut.union(exceptionalOut, budget, interner)
-                val nextIn = normalOut.minus(assigned[index], budget, interner)
-                    .union(exceptionalOut, budget, interner).union(reads[index], budget, interner)
+                for (successor in exceptional[index]) exceptionalOut = exceptionalOut.union(liveIn[successor], interner)
+                val nextOut = normalOut.union(exceptionalOut, interner)
+                val nextIn = normalOut.minus(assigned[index], interner).union(exceptionalOut, interner)
+                    .union(reads[index], interner)
                 if (nextOut != liveOut[index] || nextIn != liveIn[index]) {
                     liveOut[index] = nextOut
                     liveIn[index] = nextIn
                     for (predecessor in predecessors[index]) {
-                        edgeScans++
-                        budget.consumeWork(1)
                         if (!queued[predecessor]) {
                             queued[predecessor] = true
                             work.addLast(predecessor)
@@ -196,13 +134,6 @@ class DeadRemovalStrategy(
                     }
                 }
             }
-            return visits
-        }
-
-        fun storedWords(): Int {
-            var total = 0
-            for (i in addresses.indices) total += reads[i].size + assigned[i].size + liveIn[i].size + liveOut[i].size
-            return total
         }
 
         companion object {
@@ -235,7 +166,6 @@ class DeadRemovalStrategy(
                 val exceptional = Array(addresses.size) { IntArray(0) }
                 val successors = Array(addresses.size) { IntArray(0) }
                 val predecessorLists = Array(addresses.size) { ArrayList<Int>() }
-                var edgeCount = 0
                 for (i in addresses.indices) {
                     val address = addresses[i]
                     val instruction = instructions[i]
@@ -265,7 +195,6 @@ class DeadRemovalStrategy(
                     exceptional[i] = exceptionalNext.toIntArray()
                     next.addAll(exceptionalNext)
                     successors[i] = next.toIntArray()
-                    edgeCount += next.size
                     for (successor in next) predecessorLists[successor].add(i)
                 }
                 for (terminal in method.terminalInstructionAddresses) protectedAddresses[indexes[terminal] ?: return null] = true
@@ -284,7 +213,7 @@ class DeadRemovalStrategy(
                     }
                 }
                 return Analysis(method, addresses, instructions, indexes, normal, exceptional,
-                    Array(addresses.size) { predecessorLists[it].toIntArray() }, protectedAddresses, reachable, edgeCount)
+                    Array(addresses.size) { predecessorLists[it].toIntArray() }, protectedAddresses, reachable)
             }
         }
     }
@@ -294,23 +223,19 @@ class DeadRemovalStrategy(
         val size: Int get() = values.size
         val isEmpty: Boolean get() = values.isEmpty()
 
-        fun withWidePartners(opcode: Opcode, registerCount: Int, budget: LivenessBudget, interner: RegisterSetInterner): RegisterSet {
+        fun withWidePartners(opcode: Opcode, registerCount: Int, interner: RegisterSetInterner): RegisterSet {
             val name = (opcode as Enum<*>).name
             if (isEmpty || name.startsWith("INVOKE_") ||
                 (!name.contains("WIDE") && !name.contains("LONG") && !name.contains("DOUBLE"))) return this
-            budget.consumeWork(size.toLong())
-            budget.requireAllocation(size.toLong() * 2)
             val widened = values.copyOf(size * 2)
             var count = size
             for (low in values) if (low + 1 < registerCount) widened[count++] = low + 1
-            return sorted(widened, count, budget, interner)
+            return sorted(widened, count, interner)
         }
 
-        fun union(other: RegisterSet, budget: LivenessBudget, interner: RegisterSetInterner): RegisterSet {
+        fun union(other: RegisterSet, interner: RegisterSetInterner): RegisterSet {
             if (isEmpty || this === other) return other
             if (other.isEmpty) return this
-            budget.consumeWork(size.toLong() + other.size)
-            budget.requireAllocation(size.toLong() + other.size)
             val merged = IntArray(size + other.size)
             var left = 0
             var right = 0
@@ -324,14 +249,12 @@ class DeadRemovalStrategy(
             }
             if (count == size && prefixEquals(values, merged, count)) return this
             if (count == other.size && prefixEquals(other.values, merged, count)) return other
-            return interner.intern(RegisterSet(merged.copyOf(count)), budget)
+            return interner.intern(RegisterSet(merged.copyOf(count)))
         }
 
-        fun minus(removed: RegisterSet, budget: LivenessBudget, interner: RegisterSetInterner): RegisterSet {
+        fun minus(removed: RegisterSet, interner: RegisterSetInterner): RegisterSet {
             if (isEmpty || removed.isEmpty) return this
             if (this === removed) return EMPTY
-            budget.consumeWork(size.toLong() + removed.size)
-            budget.requireAllocation(size.toLong())
             val kept = IntArray(size)
             var drop = 0
             var count = 0
@@ -342,7 +265,7 @@ class DeadRemovalStrategy(
             return when (count) {
                 size -> this
                 0 -> EMPTY
-                else -> interner.intern(RegisterSet(kept.copyOf(count)), budget)
+                else -> interner.intern(RegisterSet(kept.copyOf(count)))
             }
         }
 
@@ -361,24 +284,20 @@ class DeadRemovalStrategy(
 
         companion object {
             val EMPTY = RegisterSet(IntArray(0))
-            fun from(source: Set<Int>, registerCount: Int, budget: LivenessBudget, interner: RegisterSetInterner): RegisterSet {
+            fun from(source: Set<Int>, registerCount: Int, interner: RegisterSetInterner): RegisterSet {
                 if (source.isEmpty()) return EMPTY
-                budget.requireAllocation(source.size.toLong())
                 val values = IntArray(source.size)
                 var count = 0
-                for (register in source) {
-                    budget.consumeWork(1)
-                    if (register in 0 until registerCount) values[count++] = register
-                }
-                return sorted(values, count, budget, interner)
+                for (register in source) if (register in 0 until registerCount) values[count++] = register
+                return sorted(values, count, interner)
             }
 
-            private fun sorted(values: IntArray, count: Int, budget: LivenessBudget, interner: RegisterSetInterner): RegisterSet {
+            private fun sorted(values: IntArray, count: Int, interner: RegisterSetInterner): RegisterSet {
                 if (count == 0) return EMPTY
                 java.util.Arrays.sort(values, 0, count)
                 var unique = 1
                 for (i in 1 until count) if (values[i] != values[unique - 1]) values[unique++] = values[i]
-                return interner.intern(RegisterSet(values.copyOf(unique)), budget)
+                return interner.intern(RegisterSet(values.copyOf(unique)))
             }
 
             private fun prefixEquals(expected: IntArray, actual: IntArray, count: Int): Boolean {
@@ -390,40 +309,8 @@ class DeadRemovalStrategy(
 
     private class RegisterSetInterner {
         private val sets = hashMapOf(RegisterSet.EMPTY to RegisterSet.EMPTY)
-        fun intern(candidate: RegisterSet, budget: LivenessBudget): RegisterSet {
-            budget.consumeWork(candidate.size.toLong())
-            sets[candidate]?.let { return it }
-            budget.consumeFacts(candidate.size.toLong())
-            sets[candidate] = candidate
-            return candidate
-        }
+        fun intern(candidate: RegisterSet): RegisterSet = sets.getOrPut(candidate) { candidate }
     }
-
-    private class LivenessBudget(private val maxWork: Long, private val maxFacts: Long) {
-        var work = 0L
-            private set
-        var facts = 0L
-            private set
-        fun consumeWork(amount: Long) {
-            if (amount > maxWork - work) {
-                work = maxWork
-                throw LivenessBudgetExceeded
-            }
-            work += amount
-        }
-        fun consumeFacts(amount: Long) {
-            if (amount > maxFacts - facts) {
-                facts = maxFacts
-                throw LivenessBudgetExceeded
-            }
-            facts += amount
-        }
-        fun requireAllocation(words: Long) {
-            if (words > maxFacts) throw LivenessBudgetExceeded
-        }
-    }
-
-    private object LivenessBudgetExceeded : RuntimeException(null, null, false, false)
 
     companion object {
         const val DEAD_OPS_REMOVED = "dead ops removed"

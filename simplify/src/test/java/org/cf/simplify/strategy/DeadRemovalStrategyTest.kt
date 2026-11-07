@@ -200,34 +200,7 @@ class DeadRemovalStrategyTest {
         assertTrue(has(view(services, owner + "unusedResultWithSideEffects()I"), Opcode.INVOKE_STATIC))
     }
 
-    @Test fun exhaustedLivenessBudgetStillAllowsStructuralCleanupButKeepsAssignments() {
-        val root = temporaryDirectory.resolve("budget")
-        Files.createDirectories(root)
-        Files.writeString(root.resolve("Budget.smali"), """
-            .class public LBudget;
-            .super Ljava/lang/Object;
-            .method public static run()I
-                .locals 1
-                goto :start
-                invoke-static {}, Ljava/lang/System;->gc()V
-                :start
-                const/4 v0, 0x1
-                const/4 v0, 0x2
-                return v0
-            .end method
-        """.trimIndent())
-        val services = services(root.toString())
-        val strategy = DeadRemovalStrategy(0, 0)
-        Optimizer(services, LIMITS, 1, listOf(strategy)).optimize("LBudget;->run()I")
-        val edited = view(services, "LBudget;->run()I")
-        assertTrue(strategy.lastLivenessBudgetExceeded)
-        assertFalse(has(edited, Opcode.INVOKE_STATIC))
-        assertEquals(2, count(edited, Opcode.CONST_4))
-        assertEquals(2, returned(services, "LBudget;->run()I", 0).raw)
-        assertThrows(IllegalArgumentException::class.java) { DeadRemovalStrategy(-1, 0) }
-    }
-
-    @Test fun highRegisterWorklistUsesSparseStorageAndPreservesTheReturnValue() {
+    @Test fun highRegisterWorklistPreservesTheReturnValue() {
         val root = temporaryDirectory.resolve("scale")
         Files.createDirectories(root)
         val smali = buildString {
@@ -237,15 +210,39 @@ class DeadRemovalStrategyTest {
         }
         Files.writeString(root.resolve("Scale.smali"), smali)
         val services = services(root.toString())
-        val strategy = DeadRemovalStrategy()
-        Optimizer(services, LIMITS, 1, listOf(strategy)).optimize("LScale;->run()I")
+        Optimizer(services, LIMITS, 1, listOf(DeadRemovalStrategy())).optimize("LScale;->run()I")
         assertFalse(has(view(services, "LScale;->run()I"), Opcode.MOVE_16))
         assertEquals(7, returned(services, "LScale;->run()I", 0).raw)
-        assertEquals(10001, strategy.lastAddressCount)
-        assertTrue(strategy.lastStaticEdgeCount <= strategy.lastAddressCount)
-        assertTrue(strategy.lastWorklistVisits <= strategy.lastAddressCount * 2)
-        assertTrue(strategy.lastStoredRegisterWords <= strategy.lastAddressCount * 5)
-        assertFalse(strategy.lastLivenessBudgetExceeded)
+    }
+
+    @Test fun livenessOverAMaximumSizeLoopWithThousandsOfLiveRegistersFinishesPromptly() {
+        // Every loop move reads a distinct register, so each loop position carries all of them live, and the
+        // initializing prologue produces one distinct shrinking set per instruction: quadratic in method size.
+        val registers = 10_900
+        val root = temporaryDirectory.resolve("worst")
+        Files.createDirectories(root)
+        val smali = buildString {
+            append(".class public LWorst;\n.super Ljava/lang/Object;\n.method public static run()I\n.registers ${registers + 2}\n")
+            append("const/4 v0, 0x0\nconst/4 v1, 0x1\n")
+            for (register in 2..registers + 1) append("move/16 v$register, v0\n")
+            append(":top\n")
+            for (register in 2..registers + 1) append("move/16 v0, v$register\n")
+            append("if-eqz v1, :exit\nconst/4 v1, 0x0\ngoto/32 :top\n:exit\nreturn v0\n.end method\n")
+        }
+        Files.writeString(root.resolve("Worst.smali"), smali)
+        val services = services(root.toString())
+        val strategy = DeadRemovalStrategy()
+        var performNanos = 0L
+        val timed = OptimizationStrategy { input ->
+            val start = System.nanoTime()
+            strategy.perform(input)
+            performNanos += System.nanoTime() - start
+        }
+        Optimizer(services, LIMITS, 1, listOf(timed)).optimize("LWorst;->run()I")
+        val edited = view(services, "LWorst;->run()I")
+        assertEquals(registers + 1, count(edited, Opcode.MOVE_16))
+        assertEquals(0, returned(services, "LWorst;->run()I", 0).raw)
+        assertTrue(performNanos < 30_000_000_000L, "liveness took ${performNanos / 1_000_000} ms")
     }
 
     private fun optimize(services: VmServices, method: String) =

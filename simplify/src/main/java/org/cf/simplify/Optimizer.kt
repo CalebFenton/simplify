@@ -22,12 +22,11 @@ class Optimizer(
         val completionStatus: CompletionStatus,
         val passLimitReached: Boolean,
         rejections: Collection<Rejection>,
-        counts: Map<String, Map<String, Int>>,
+        counts: Map<String, Int>,
     ) {
         /** Distinct edits the method editor refused; each one is a strategy defect. */
         val rejections: List<Rejection> = Collections.unmodifiableList(rejections.toList())
-        val strategyOptimizationCounts = immutableCounts(counts)
-        val optimizationCounts: Map<String, Int> get() = flattenCounts(strategyOptimizationCounts)
+        val optimizationCounts: Map<String, Int> = Collections.unmodifiableMap(LinkedHashMap(counts))
     }
 
     data class Rejection(val strategy: String, val reason: MethodEditRejectionReason)
@@ -55,10 +54,7 @@ class Optimizer(
                 }
                 when (commitResult) {
                     is MethodEditCommitResult.Committed -> {
-                        val categories = counts.getValue(strategy.name)
-                        input.optimizationCounts.forEach { (category, value) ->
-                            categories[category] = (categories[category] ?: 0) + value
-                        }
+                        counts.addCounts(input.optimizationCounts)
                         commits++
                         committed = true
                         break
@@ -72,19 +68,10 @@ class Optimizer(
     }
 }
 
-internal fun emptyCounts(strategies: List<OptimizationStrategy>): MutableMap<String, MutableMap<String, Int>> =
-    linkedMapOf<String, MutableMap<String, Int>>().apply {
-        for (strategy in strategies) {
-            val categories = getOrPut(strategy.name) { linkedMapOf() }
-            strategy.optimizationCategories.forEach { categories.putIfAbsent(it, 0) }
-        }
+internal fun emptyCounts(strategies: List<OptimizationStrategy>): MutableMap<String, Int> =
+    linkedMapOf<String, Int>().apply {
+        strategies.forEach { strategy -> strategy.optimizationCategories.forEach { putIfAbsent(it, 0) } }
     }
 
-internal fun immutableCounts(counts: Map<String, Map<String, Int>>): Map<String, Map<String, Int>> =
-    Collections.unmodifiableMap(counts.mapValuesTo(linkedMapOf()) { Collections.unmodifiableMap(LinkedHashMap(it.value)) })
-
-internal fun flattenCounts(counts: Map<String, Map<String, Int>>): Map<String, Int> {
-    val flattened = linkedMapOf<String, Int>()
-    counts.values.forEach { categories -> categories.forEach { (key, value) -> flattened[key] = (flattened[key] ?: 0) + value } }
-    return Collections.unmodifiableMap(flattened)
-}
+internal fun MutableMap<String, Int>.addCounts(counts: Map<String, Int>) =
+    counts.forEach { (category, value) -> merge(category, value, Int::plus) }

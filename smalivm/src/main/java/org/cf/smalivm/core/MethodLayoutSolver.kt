@@ -69,22 +69,9 @@ internal object MethodLayoutSolver {
         val maximumRounds = 2 + (2 * gotoCount) + conditionalCount + switchOwnersByPayload.values.sumOf(List<*>::size)
         var assignment: AddressAssignment? = null
         var round = 0
-        var branchWidenings = 0
-        var paddingChanges = 0
-        var layoutEdgeVisits = 0
-        var previousPadding = emptySet<Int>()
         while (round++ < maximumRounds) {
             val current = assignAddresses(body, records, branchStates, groupsByPayload, stringEncoding)
-            paddingChanges += (previousPadding subtract current.paddingAddresses).size
-            paddingChanges += (current.paddingAddresses subtract previousPadding).size
-            previousPadding = current.paddingAddresses
-            layoutEdgeVisits += branchStates.size
-            val widened = widenBranches(body, recordsByPosition, branchStates, current)
-            branchWidenings += widened
-            var changed = widened > 0
-            layoutEdgeVisits += groupsByPayload.values.flatten().flatten().sumOf { owner ->
-                body.switchCases[owner].orEmpty().size
-            }
+            var changed = widenBranches(body, recordsByPosition, branchStates, current) > 0
             val regrouped = regroupSwitchPayloads(body, groupsByPayload, current)
             if (regrouped != groupsByPayload) {
                 groupsByPayload = regrouped
@@ -149,10 +136,6 @@ internal object MethodLayoutSolver {
             finalAssignment.addressesByPosition.toPersistentMap(),
             tryBlocks,
             debugItems,
-            round,
-            branchWidenings,
-            paddingChanges,
-            layoutEdgeVisits,
         )
     }
 
@@ -164,7 +147,6 @@ internal object MethodLayoutSolver {
         val addressesByPosition: Map<LogicalCodePosition, Int>,
         val payloadAddressesByOwner: Map<LogicalCodePosition, Int>,
         val payloadAddressesByGroup: Map<PayloadGroupId, Int>,
-        val paddingAddresses: Set<Int>,
         val codeUnits: Int,
     ) {
         fun addressOf(position: LogicalCodePosition): Int = requireNotNull(addressesByPosition[position]) {
@@ -182,33 +164,26 @@ internal object MethodLayoutSolver {
         val addresses = LinkedHashMap<LogicalCodePosition, Int>()
         val payloadAddressesByOwner = HashMap<LogicalCodePosition, Int>()
         val payloadAddressesByGroup = HashMap<PayloadGroupId, Int>()
-        val paddingAddresses = LinkedHashSet<Int>()
         var address = 0
         for (record in records) {
             if (record.instruction.opcode in SWITCH_PAYLOAD_OPCODES) {
                 val groups = groupsByPayload[record.position].orEmpty().ifEmpty { listOf(emptyList()) }
                 groups.forEachIndexed { index, owners ->
-                    if (address and 1 != 0) {
-                        paddingAddresses += address
-                        address++
-                    }
+                    if (address and 1 != 0) address++
                     addresses.putIfAbsent(record.position, address)
                     payloadAddressesByGroup[PayloadGroupId(record.position, index)] = address
                     owners.forEach { owner -> payloadAddressesByOwner[owner] = address }
                     address += record.instruction.codeUnits
                 }
             } else {
-                if (record.instruction.opcode in PAYLOAD_OPCODES && address and 1 != 0) {
-                    paddingAddresses += address
-                    address++
-                }
+                if (record.instruction.opcode in PAYLOAD_OPCODES && address and 1 != 0) address++
                 addresses[record.position] = address
                 address += instructionWidth(record, branchStates[record.position], stringEncoding)
             }
         }
         val end = body.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value
         if (end != null) addresses[end] = address
-        return AddressAssignment(addresses, payloadAddressesByOwner, payloadAddressesByGroup, paddingAddresses, address)
+        return AddressAssignment(addresses, payloadAddressesByOwner, payloadAddressesByGroup, address)
     }
 
     private fun instructionWidth(

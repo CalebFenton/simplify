@@ -8,8 +8,6 @@ class ProgramWorkspace private constructor(
     internal val programIdentity: ProgramIdentity get() = revisionAuthority.programIdentity
     var currentSnapshot: ProgramSnapshot = initialSnapshot
         private set
-    internal var openMethodEditTransactions: Int = 0
-        private set
 
     internal fun publish(candidateSnapshot: ProgramSnapshot) {
         require(candidateSnapshot.programIdentity === programIdentity) {
@@ -64,15 +62,6 @@ class ProgramWorkspace private constructor(
     internal fun newApplicationMethodRevision(methodSignature: String): ApplicationMethodRevision =
         revisionAuthority.newApplicationMethodRevision(methodSignature)
 
-    internal fun openMethodEditTransaction() {
-        openMethodEditTransactions++
-    }
-
-    internal fun closeMethodEditTransaction() {
-        check(openMethodEditTransactions > 0) { "No method edit transaction is open" }
-        openMethodEditTransactions--
-    }
-
     internal fun replaceCurrentSnapshotForTest(snapshot: ProgramSnapshot) {
         require(snapshot.programIdentity === programIdentity) {
             "Cannot install a test snapshot from another program workspace"
@@ -94,14 +83,12 @@ class ProgramWorkspace private constructor(
 internal class ProgramRevisionAuthority private constructor(
     val programIdentity: ProgramIdentity,
     private var nextProgramSequence: Long,
-    private var nextMethodSequence: Long,
 ) {
-    constructor() : this(ProgramIdentity(), 0, 0)
+    constructor() : this(ProgramIdentity(), 0)
 
     fun newProgramRevision(): ProgramRevision =
         ProgramRevision.create(programIdentity, nextProgramSequence++)
 
     fun newApplicationMethodRevision(methodSignature: String): ApplicationMethodRevision =
-        ApplicationMethodRevision.create(programIdentity, methodSignature, nextMethodSequence++)
-
+        ApplicationMethodRevision(programIdentity, methodSignature)
 }
