@@ -17,12 +17,8 @@ class ProvableTest {
     private val float = VirtualType.of("F")
 
     /**
-     * All six rows of [provableInt], including the order-sensitive pair.
-     *
-     * The `Float`/`Double` row MUST precede the host-object row: `Coerce.toProvableInt` refuses a
-     * floating-point raw (Task 3 -- a device reads the register's bits, and `1.0f` is `0x3F800000`), so
-     * an order that reached the host-object row would report a refused `Float` as a live **pointer** --
-     * an integral raw laundered into a reference, which would then decide comparisons by identity.
+     * Every row of [provableInt]. A `Float`/`Double` raw is unprovable rather than read by its bits, and it
+     * must not reach the host-object row, which would report it as a live pointer.
      */
     @Test
     fun everyLatticePointHasExactlyOneProvableBitsAnswer() {
@@ -101,6 +97,22 @@ class ProvableTest {
         assertTrue(
             sameReference(Value.Known(ref, string), Value.Known(ref, VirtualType.of("Ljava/lang/Object;")))!!,
             "sameReference ignores the tag, because if-eq compares pointers and not types",
+        )
+    }
+
+    /**
+     * A declared tag is only an upper bound on the class of the object a register holds, so a tag that fails
+     * the target proves nothing when the object's own class cannot be determined. Answering `Never` here made
+     * `check-cast` throw a definite `ClassCastException` at an object that may well be a `String`.
+     */
+    @Test
+    fun aKnownReferenceWhoseClassCannotBeDeterminedIsUnprovableRatherThanNever() {
+        val types = InstanceOfTest { candidate, target -> candidate == target || target == VirtualType.OBJECT }
+        val heapRefWithNoObject = Value.Known(HeapRef(7), VirtualType.OBJECT)
+        assertEquals(CastOutcome.Unprovable, castOutcome(heapRefWithNoObject, string, types) { null })
+        assertEquals(
+            CastOutcome.Definitely, castOutcome(heapRefWithNoObject, string, types) { string },
+            "the CONTROL: once the object's class is known, it decides",
         )
     }
 }

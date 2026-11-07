@@ -96,6 +96,23 @@ class FillArrayDataOpTest {
         CoreTester.test(CLASS_NAME, "fillArrayDataBoolean()V", initial, expected)
     }
 
+    /**
+     * ART copies the payload's bytes into the array (`FillArrayData`'s `memcpy`,
+     * `runtime/entrypoints/entrypoint_utils.cc`), so a payload byte `2` sits in a boolean element as `2`. A
+     * `Boolean` raw cannot hold that byte, so the element is unknown rather than a confident `false`.
+     */
+    @Test
+    fun aBooleanPayloadByteOtherThanZeroOrOneFillsAnUnknownElement() {
+        initial.setRegisters(0, BooleanArray(2), "[Z")
+        val graph = CoreTester.execute(CLASS_NAME, "fillArrayDataBooleanTwo()V", initial)
+        val trusted = graph.trusted()
+        assertNotNull(trusted, "the fill completes on every path")
+        val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
+        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val boolean = VirtualType.of("Z")
+        assertEquals(listOf(Value.Unknown(boolean), Value.Known(true, boolean)), listOf(array.element(0), array.element(1)))
+    }
+
     @Test
     fun canFillArrayDataByte() {
         initial.setRegisters(0, ByteArray(4), "[B")

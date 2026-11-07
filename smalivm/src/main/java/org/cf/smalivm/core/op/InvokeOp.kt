@@ -15,7 +15,7 @@ internal class InvokeOp(
     private val argumentRegisters: IntArray,
     private val kind: InvokeKind,
 ) : Op(address) {
-    override val registersRead: Set<Int> get() = argumentRegisters.toSet()
+    override val registersRead: Set<Int> = argumentRegisters.toSet()
 
     override fun execute(frame: Frame): OpExecution =
         OpExecution.single(OpArm.Invoke(target, argumentRegisters, kind))
