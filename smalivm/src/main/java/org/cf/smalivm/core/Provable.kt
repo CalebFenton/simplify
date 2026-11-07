@@ -92,7 +92,10 @@ internal sealed interface CastOutcome {
      */
     data object NullOrInstance : CastOutcome
 
-    /** Nothing decides it: an unknown whose tag does not satisfy, `Top`, or a class walk that cannot answer. */
+    /**
+     * Nothing decides it: an unknown whose tag does not satisfy, `Top`, a known reference whose class cannot
+     * be determined, or a class walk that cannot answer.
+     */
     data object Unprovable : CastOutcome
 }
 
@@ -103,7 +106,9 @@ internal sealed interface CastOutcome {
  *  2. a primitive target: [CastOutcome.Never] ([BC] `instance-of`);
  *  3. an unknown: its tag is an upper bound, so a satisfying tag is [CastOutcome.NullOrInstance] and any
  *     other answer is unprovable;
- *  4. a known reference: tested against every type it is known to have, and one satisfying type decides.
+ *  4. a known reference: tested against its tag and its object's class, and one satisfying type decides.
+ *     The tag alone is an upper bound too, so when the object's class cannot be determined a failing tag
+ *     proves nothing.
  *
  * A [ClassLoadFailure] is ambiguity, never `false`: the walk continues past it, and the answer is unprovable
  * only if nothing satisfied.
@@ -126,7 +131,7 @@ internal fun castOutcome(
         return if (satisfied) CastOutcome.NullOrInstance else CastOutcome.Unprovable
     }
     val runtimeType = runtimeTypeOf(value, heapObjectTypeOf)
-    var unanswerable = false
+    var unanswerable = runtimeType == null
     for (candidate in listOfNotNull(value.type, runtimeType.takeIf { it != value.type })) {
         val satisfied = try {
             types.isInstanceOf(candidate, target)

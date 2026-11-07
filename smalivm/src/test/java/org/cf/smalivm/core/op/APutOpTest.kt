@@ -1125,6 +1125,21 @@ class APutOpTest {
     }
 
     /**
+     * An unknown value's tag is only an upper bound on its class: `Unknown(Ljava/lang/Object;)` may hold a
+     * `String`, so storing it into a `String[]` may succeed or throw (`aastore`, [JVMS] §6.5). Refusing it
+     * from the tag alone invents a definite `ArrayStoreException` and drops the store.
+     */
+    @Test
+    fun anUnknownValueWhoseTagIsNotAssignableMayStillBeStored() {
+        val graph = CoreTester.execute(CLASS_NAME, "putObject()V", CoreState().apply {
+            setRegisters(0, arrayOfNulls<String>(1), "[Ljava/lang/String;", 1, 0, "I", 2, CoreState.UNKNOWN, "Ljava/lang/Object;")
+        })
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf("Ljava/lang/ArrayStoreException;"), CoreTester.escapingTypes(graph))
+        assertTrue(graph.wasReached(2), "the store may succeed, so the fall-through is explored")
+    }
+
+    /**
      * **The inherited half of the ordering, which the corpus cannot see at all.** For a VERIFIED store the
      * order is NPE -> AIOOBE -> ASE ([JVMS] §6.5 `aastore`'s *"Otherwise"* chaining, the same normative
      * device Plan 7's design decision 4 uses for `new-array`), so an `aput-object` with BOTH a bad index and

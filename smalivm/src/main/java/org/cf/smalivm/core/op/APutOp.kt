@@ -1,6 +1,6 @@
 package org.cf.smalivm.core.op
 
-import org.cf.smalivm.core.ClassLoadFailure
+import org.cf.smalivm.core.CastOutcome
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.GuestThrowables
 import org.cf.smalivm.core.HeapRef
@@ -10,14 +10,13 @@ import org.cf.smalivm.core.OpExecution
 import org.cf.smalivm.core.OpUpdate
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Superclasses
-import org.cf.smalivm.core.TypeHierarchy
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.isDalvikNull
-import org.cf.smalivm.core.isDirectHostImmutable
+import org.cf.smalivm.core.InstanceOfTest
+import org.cf.smalivm.core.castOutcome
 import org.cf.smalivm.core.isNull
 import org.cf.smalivm.core.join
-import org.cf.smalivm.core.virtualTypeOfHostClass
 
 /**
  * Stores one element into a tracked array: all seven `aput*` opcodes. The store goes into the array object,
@@ -41,8 +40,8 @@ internal class APutOp(
     private val indexRegister: Int,
     /** True for `aput-object`, the one form whose value operand is read as a reference. */
     private val storesAReference: Boolean,
-    /** Answers `aastore`'s assignability question, which needs runtime types and so cannot be decided at decode. */
-    private val hierarchy: TypeHierarchy,
+    /** Answers `aastore`'s instance test, which needs runtime types and so cannot be decided at decode. */
+    private val types: InstanceOfTest,
     /** Joins an element's old value with the stored one when the index is unprovable. */
     private val superclasses: Superclasses,
 ) : Op(address) {
@@ -78,7 +77,7 @@ internal class APutOp(
         val array = frame.readArrayOperand(arrayRegister)
         val index = frame.read(indexRegister)
 
-        val check = storeCheck(value, componentOf(array), runtimeTypeOf(value, frame))
+        val check = storeCheck(value, componentOf(array)) { frame.heapObject(it)?.type }
         val arrayStore = { update: OpUpdate -> GuestThrowables.throwing(GuestThrowables.arrayStore(value.type), update) }
         if (check == StoreCheck.REFUSED_BY_SHAPE) return OpExecution.single(arrayStore(OpUpdate.NONE))
 
@@ -151,21 +150,16 @@ internal class APutOp(
         ArrayOperand.Null -> null
     }
 
-    /** The class of the object a reference value holds, when the engine knows it. */
-    private fun runtimeTypeOf(value: Value, frame: Frame): VirtualType? {
-        if (value !is Value.Known) return null
-        return when (val raw = value.raw) {
-            is HeapRef -> frame.heapObject(raw)?.type
-            null -> null
-            else -> if (value.type.isReference && raw.isDirectHostImmutable()) virtualTypeOfHostClass(raw.javaClass) else null
-        }
-    }
-
     /**
      * The `ArrayStoreException` decision, first match wins. [component] is null when neither an array object
-     * nor the register tag names one.
+     * nor the register tag names one. Assignability is `aastore`'s instance test of the value against the
+     * component, so it is [castOutcome]'s.
      */
-    private fun storeCheck(value: Value, component: VirtualType?, valueRuntimeType: VirtualType?): StoreCheck {
+    private fun storeCheck(
+        value: Value,
+        component: VirtualType?,
+        heapObjectTypeOf: (HeapRef) -> VirtualType?,
+    ): StoreCheck {
         // Storing null never throws. Dalvik's integral zero is null only in a reference context, which among
         // the array stores is `aput-object`'s value operand alone.
         if ((value.isNull || (value.isDalvikNull && storesAReference)) &&
@@ -179,11 +173,10 @@ internal class APutOp(
         // Only `aput-object` type-checks; no store of a primitive into a primitive array throws.
         if (valueIsPrimitive && component.isPrimitive) return StoreCheck.PERMITTED
         if (valueIsPrimitive != component.isPrimitive) return StoreCheck.REFUSED_BY_SHAPE
-        val valueType = valueRuntimeType ?: value.type ?: return StoreCheck.UNANSWERABLE
-        return try {
-            if (hierarchy.isSubtypeOf(valueType, component)) StoreCheck.PERMITTED else StoreCheck.REFUSED_BY_ASSIGNABILITY
-        } catch (_: ClassLoadFailure) {
-            StoreCheck.UNANSWERABLE
+        return when (castOutcome(value, component, types, heapObjectTypeOf)) {
+            CastOutcome.ReadsAsNull, CastOutcome.Definitely, CastOutcome.NullOrInstance -> StoreCheck.PERMITTED
+            CastOutcome.Never -> StoreCheck.REFUSED_BY_ASSIGNABILITY
+            CastOutcome.Unprovable -> StoreCheck.UNANSWERABLE
         }
     }
 
