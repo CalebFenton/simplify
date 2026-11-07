@@ -646,17 +646,10 @@ class Frame private constructor(
         superclasses: Superclasses,
     ): ArmReconciliation {
         require(arms.size > 1)
-        var cellsVisited = 0
+        val staticDescriptors = footprint.staticDescriptors.sorted()
+        var cellsVisited = staticDescriptors.size * arms.size
         val reconciledClasses = classes.copy()
-        for (descriptor in footprint.staticDescriptors.sorted()) {
-            var value: Value? = null
-            for (arm in arms) {
-                cellsVisited++
-                val armValue = arm.classes.staticCell(descriptor)?.value ?: Value.Top
-                value = value?.let { join(it, armValue, superclasses) } ?: armValue
-            }
-            reconciledClasses.setStaticField(descriptor, value ?: Value.Top)
-        }
+        reconciledClasses.reconcileStatics(staticDescriptors, arms.map { it.classes }, superclasses)
         val reconciled = Frame(
             view = view,
             slots = slots,

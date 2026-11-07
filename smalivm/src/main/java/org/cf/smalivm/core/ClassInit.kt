@@ -166,6 +166,13 @@ internal class ClassInitStore private constructor(
         }
     }
 
+    /** Writes each of [descriptors] joined over [arms] under the same value and owner rule as [merge]. */
+    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassInitStore>, superclasses: Superclasses) {
+        for (descriptor in descriptors) {
+            setStaticCell(descriptor, mergeStaticCells(arms.map { it.statics[descriptor] }, superclasses))
+        }
+    }
+
     /**
      * **JVMS §5.4.2 preparation**: gives every declared static of a class its pre-`<clinit>` value, at the
      * moment the class leaves [ClassInitState.UNINITIALIZED] on this path.
