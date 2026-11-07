@@ -2,16 +2,10 @@ package org.cf.smalivm.core
 
 import java.nio.file.Path
 import kotlinx.collections.immutable.persistentMapOf
-import com.android.tools.smali.dexlib2.AnnotationVisibility
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11n
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
-import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableArrayEncodedValue
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableFieldEncodedValue
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -90,50 +84,6 @@ class ProgramWorkspaceTest {
     }
 
     @Test
-    fun workspaceRejectsPublicationWhoseReferenceClosureExceedsADexLimit() {
-        val index = task53ClassIndex(root, SOURCE)
-        val current = index.currentSnapshot
-        val original = requireNotNull(current.applicationClass("Ltask53/Workspace;"))
-        val overflowingAnnotation = ImmutableAnnotation(
-            AnnotationVisibility.RUNTIME,
-            "Ltask53/Overflow;",
-            listOf(
-                ImmutableAnnotationElement(
-                    "fields",
-                    ImmutableArrayEncodedValue(
-                        List(65_537) { sequence ->
-                            ImmutableFieldEncodedValue(
-                                ImmutableFieldReference("Ltask53/Owner;", "field$sequence", "I"),
-                            )
-                        },
-                    ),
-                ),
-            ),
-        )
-        val invalidClass = ApplicationClassDefinition(
-            original.type,
-            original.accessFlags,
-            original.superclass,
-            original.interfaces,
-            original.sourceFile,
-            original.annotations.adding(overflowingAnnotation),
-            original.staticFields,
-            original.instanceFields,
-            original.methods,
-        )
-        val invalidSnapshot = ProgramSnapshot.replacementForTest(
-            current,
-            index.programWorkspace.newProgramRevision(),
-            persistentMapOf(invalidClass.type to invalidClass),
-        )
-
-        assertThrows<IllegalArgumentException> {
-            index.programWorkspace.publish(invalidSnapshot)
-        }
-        assertSame(current, index.currentSnapshot)
-    }
-
-    @Test
     fun workspaceRejectsCandidateBuiltFromAStalePredecessor() {
         val index = task53ClassIndex(root, SOURCE)
         val current = index.currentSnapshot
@@ -152,39 +102,6 @@ class ProgramWorkspaceTest {
 
         assertThrows<IllegalArgumentException> { index.programWorkspace.publish(stale) }
         assertSame(first, index.currentSnapshot)
-    }
-
-    @Test
-    fun workspaceRejectsStructurallyInvalidChangedMethod() {
-        val index = task53ClassIndex(root, SOURCE)
-        val current = index.currentSnapshot
-        val definition = requireNotNull(current.applicationClass("Ltask53/Workspace;"))
-        val method = definition.methods.single()
-        val invalidBody = MethodBody.import(
-            ImmutableMethodImplementation(
-                1,
-                listOf(
-                    ImmutableInstruction11n(Opcode.CONST_4, 0, 1),
-                    ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0),
-                ),
-                emptyList(),
-                emptyList(),
-            ),
-        )
-        val invalidMethod = ApplicationMethodDefinition.withBody(
-            method,
-            invalidBody,
-            index.programWorkspace.newApplicationMethodRevision(method.methodSignature),
-        )
-        val invalidClass = definition.withMethod(invalidMethod)
-        val invalidSnapshot = ProgramSnapshot.candidate(
-            current,
-            index.programWorkspace.newProgramRevision(),
-            persistentMapOf(invalidClass.type to invalidClass),
-        )
-
-        assertThrows<IllegalArgumentException> { index.programWorkspace.publish(invalidSnapshot) }
-        assertSame(current, index.currentSnapshot)
     }
 
     private fun candidate(

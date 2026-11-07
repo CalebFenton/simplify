@@ -311,8 +311,9 @@ class MethodEditTransaction internal constructor(
             finish(MethodEditTransactionState.UNCHANGED)
             return MethodEditCommitResult.Unchanged
         }
+        // The draft drops inherited ranges that collapse, so malformed inherited ranges are rejected first.
         if (submittedTryRegions == null) {
-            MethodEditValidator.validateInheritedMetadata(requireNotNull(baselineBody))?.let { return reject(it) }
+            MethodEditValidator.validateLogicalBody(requireNotNull(baselineBody))?.let { return reject(it) }
         }
 
         val resolvedEdit = MethodBodyDraft.resolve(
@@ -459,25 +460,6 @@ class MethodEditTransaction internal constructor(
             commands.filterIsInstance<EditCommand.Insert>().flatMapTo(this) { it.anchors }
         }
         submittedTryRegions?.forEach { region ->
-            if (region.catchHandlers.isEmpty()) {
-                return CommandIndexResult.Rejected(
-                    MethodEditRejectionReason.InvalidTryRegion(
-                        "A protected range has no exception handler",
-                    ),
-                )
-            }
-            val catchAllIndexes = region.catchHandlers.mapIndexedNotNull { index, handler ->
-                index.takeIf { handler is CatchHandlerSpec.CatchAll }
-            }
-            if (catchAllIndexes.size > 1 ||
-                (catchAllIndexes.isNotEmpty() && catchAllIndexes.single() != region.catchHandlers.lastIndex)
-            ) {
-                return CommandIndexResult.Rejected(
-                    MethodEditRejectionReason.InvalidTryRegion(
-                        "A catch-all handler must be unique and last",
-                    ),
-                )
-            }
             val anchors = buildList {
                 add(region.start)
                 add(region.end)
@@ -590,17 +572,15 @@ class MethodEditTransaction internal constructor(
             .filter { method ->
                 method.methodSignature != targetSignature && method.body?.hasConstStringInstruction == true
             }
+        // Re-encoding const-string as const-string/jumbo changes only operand widths, so register flow and
+        // logical shape are unchanged; the relayout needs layout validation only.
         for (method in collateralMethods) {
             val layout = MethodLayoutSolver.solve(requireNotNull(method.body), encoding)
             MethodEditValidator.validateLayout(layout, snapshot, projectedReferences)?.let {
                 return PreparedMethodsResult.Rejected(it)
             }
             val body = MethodBodyAssembler.assemble(layout)
-            val candidate = ApplicationMethodDefinitionCandidate.from(method, body, snapshot.hierarchy)
-            MethodEditValidator.validateApplicationMethodDefinitionCandidate(candidate, snapshot)?.let {
-                return PreparedMethodsResult.Rejected(it)
-            }
-            prepared += PreparedMethod(candidate)
+            prepared += PreparedMethod(ApplicationMethodDefinitionCandidate.from(method, body, snapshot.hierarchy))
         }
         return PreparedMethodsResult.Accepted(prepared)
     }

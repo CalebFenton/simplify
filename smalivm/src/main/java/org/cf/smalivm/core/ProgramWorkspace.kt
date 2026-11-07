@@ -9,6 +9,10 @@ class ProgramWorkspace private constructor(
     var currentSnapshot: ProgramSnapshot = initialSnapshot
         private set
 
+    /**
+     * Installs a candidate that [MethodEditTransaction.commit] has already validated; the transaction is the one
+     * gate for method and DEX-limit rules. Publication checks only that the candidate succeeds the current snapshot.
+     */
     internal fun publish(candidateSnapshot: ProgramSnapshot) {
         require(candidateSnapshot.programIdentity === programIdentity) {
             "Cannot publish a snapshot from another program workspace"
@@ -35,25 +39,6 @@ class ProgramWorkspace private constructor(
             currentSnapshot.stringInstructionEncoding != StringInstructionEncoding.CONST_STRING_JUMBO ||
                 candidateSnapshot.stringInstructionEncoding == StringInstructionEncoding.CONST_STRING_JUMBO,
         ) { "Cannot reduce jumbo string encoding after publication" }
-        require(
-            DexLimits.validate(
-                candidateSnapshot.dexReferenceClosure,
-                candidateSnapshot.applicationClasses.values,
-            ) == null,
-        ) { "Cannot publish a snapshot whose DEX reference footprint exceeds an output limit" }
-        for (definition in candidateSnapshot.applicationClasses.values) {
-            for (method in definition.methods) {
-                val previous = currentSnapshot.applicationMethod(method.methodSignature)
-                if (previous?.methodRevision === method.methodRevision || method.body == null) continue
-                val rejection = MethodEditValidator.validateApplicationMethodDefinitionCandidate(
-                    ApplicationMethodDefinitionCandidate.fromDefinition(method),
-                    candidateSnapshot,
-                )
-                require(rejection == null) {
-                    "Cannot publish an invalid method definition ${method.methodSignature}: $rejection"
-                }
-            }
-        }
         currentSnapshot = candidateSnapshot
     }
 

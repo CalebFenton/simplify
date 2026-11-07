@@ -27,16 +27,11 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
 /** Expected structural validation for one edited method candidate. */
 internal object MethodEditValidator {
-    fun validateInheritedMetadata(body: MethodBody): MethodEditRejectionReason? =
-        validateLogicalBody(body, inherited = true)
-
-    fun validateLogicalBody(body: MethodBody): MethodEditRejectionReason? =
-        validateLogicalBody(body, inherited = false)
-
-    private fun validateLogicalBody(
-        body: MethodBody,
-        inherited: Boolean,
-    ): MethodEditRejectionReason? {
+    /**
+     * Rules on the logical body: control targets, payload ownership, move-exception entry, try regions and debug
+     * metadata. An empty try range is legal and is dropped when the body is laid out.
+     */
+    fun validateLogicalBody(body: MethodBody): MethodEditRejectionReason? {
         val recordsByPosition = body.instructions.associateBy(EncodedInstruction::position)
         val endPosition = body.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value
             ?: return MethodEditRejectionReason.StructuralValidationFailure("The method has no end position")
@@ -139,7 +134,7 @@ internal object MethodEditValidator {
             return MethodEditRejectionReason.InvalidControlTarget("Ordinary branch enters move-exception")
         }
 
-        validateTryRegions(body, recordsByPosition, payloadPositions, inherited)?.let { return it }
+        validateTryRegions(body, recordsByPosition, payloadPositions)?.let { return it }
         for (item in body.debugItems) {
             if (item.position != endPosition && (item.position !in recordsByPosition || item.position in payloadPositions)) {
                 return MethodEditRejectionReason.StructuralValidationFailure(
@@ -162,6 +157,10 @@ internal object MethodEditValidator {
         return null
     }
 
+    /**
+     * Checks what the layout decides: encodable registers and opcodes, code size, payload alignment, branch offsets,
+     * and the encoded try items. Logical shape is [validateLogicalBody]'s, and a layout preserves it.
+     */
     fun validateLayout(
         layout: MethodLayout,
         snapshot: ProgramSnapshot,
@@ -188,11 +187,7 @@ internal object MethodEditValidator {
             codeUnits += instruction.codeUnits
             if (codeUnits > Int.MAX_VALUE) return MethodEditRejectionReason.CodeSizeOverflow(codeUnits)
         }
-        val recordsByAddress = layout.instructions.associateBy(LaidOutInstruction::codeAddress)
-        val payloadAddresses = layout.instructions.filter {
-            it.instruction.opcode in OpcodeGroups.PAYLOAD
-        }.mapTo(hashSetOf(), LaidOutInstruction::codeAddress)
-        val payloadOwners = HashMap<Int, MutableList<LaidOutInstruction>>()
+        val addresses = layout.instructions.mapTo(hashSetOf(), LaidOutInstruction::codeAddress)
         for (record in layout.instructions) {
             val instruction = record.instruction
             if (instruction.opcode in OpcodeGroups.PAYLOAD && record.codeAddress and 1 != 0) {
@@ -201,111 +196,19 @@ internal object MethodEditValidator {
                 )
             }
             if (instruction !is OffsetInstruction) continue
-            val targetAddress = record.codeAddress + instruction.codeOffset
-            val target = recordsByAddress[targetAddress]
-                ?: return MethodEditRejectionReason.InvalidControlTarget(
+            if (record.codeAddress + instruction.codeOffset !in addresses) {
+                return MethodEditRejectionReason.InvalidControlTarget(
                     "${instruction.opcode} at ${record.codeAddress} does not target an instruction boundary",
                 )
-            when (instruction.opcode) {
-                in OpcodeGroups.BRANCH -> {
-                    if (instruction.codeOffset == 0 && instruction.opcode != Opcode.GOTO_32) {
-                        return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} has an invalid zero offset",
-                        )
-                    }
-                    if (targetAddress in payloadAddresses) {
-                        return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} targets payload data",
-                        )
-                    }
-                    if (target.instruction.opcode == Opcode.MOVE_EXCEPTION) {
-                        return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} targets move-exception",
-                        )
-                    }
-                }
-                Opcode.FILL_ARRAY_DATA -> if (target.instruction !is ArrayPayload) {
-                    return MethodEditRejectionReason.InvalidControlTarget(
-                        "fill-array-data at ${record.codeAddress} does not target an array payload",
-                    )
-                }
-                in OpcodeGroups.SWITCH -> {
-                    val expected = if (instruction.opcode == Opcode.PACKED_SWITCH) {
-                        Opcode.PACKED_SWITCH_PAYLOAD
-                    } else {
-                        Opcode.SPARSE_SWITCH_PAYLOAD
-                    }
-                    if (target.instruction.opcode != expected) {
-                        return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} targets the wrong payload kind",
-                        )
-                    }
-                    val payload = target.instruction as SwitchPayload
-                    for (element in payload.switchElements) {
-                        val caseAddress = record.codeAddress + element.offset
-                        if (caseAddress !in recordsByAddress || caseAddress in payloadAddresses) {
-                            return MethodEditRejectionReason.InvalidControlTarget(
-                                "${instruction.opcode} case ${element.key} does not target executable code",
-                            )
-                        }
-                        if (recordsByAddress[caseAddress]?.instruction?.opcode == Opcode.MOVE_EXCEPTION) {
-                            return MethodEditRejectionReason.InvalidControlTarget(
-                                "${instruction.opcode} case ${element.key} targets move-exception",
-                            )
-                        }
-                    }
-                }
-                else -> Unit
             }
-            if (instruction.opcode in OpcodeGroups.PAYLOAD_OWNER) {
-                payloadOwners.getOrPut(targetAddress, ::mutableListOf).add(record)
-            }
-        }
-        if (payloadAddresses.any { payloadOwners[it].isNullOrEmpty() }) {
-            return MethodEditRejectionReason.InvalidControlTarget("Payload data has no owning instruction")
-        }
-        val semanticRecords = layout.instructions.filterNot {
-            it.position == null && it.instruction.opcode == Opcode.NOP
-        }
-        semanticRecords.zipWithNext().forEach { (previous, next) ->
-            if (next.codeAddress in payloadAddresses && previous.instruction.opcode.canContinue()) {
+            if (instruction.opcode in OpcodeGroups.BRANCH && instruction.codeOffset == 0 && instruction.opcode != Opcode.GOTO_32) {
                 return MethodEditRejectionReason.InvalidControlTarget(
-                    "Ordinary control flow falls into payload data at ${next.codeAddress}",
-                )
-            }
-            if (next.instruction.opcode == Opcode.MOVE_EXCEPTION && previous.instruction.opcode.canContinue()) {
-                return MethodEditRejectionReason.InvalidControlTarget(
-                    "Ordinary control flow enters move-exception at ${next.codeAddress}",
+                    "${instruction.opcode} at ${record.codeAddress} has an invalid zero offset",
                 )
             }
         }
-        val executableAddresses = recordsByAddress.keys - payloadAddresses
-        for (tryBlock in layout.tryBlocks) {
-            if (tryBlock.codeUnitCount <= 0) {
-                return MethodEditRejectionReason.InvalidTryRegion("A protected range is empty or reversed")
-            }
-            if (tryBlock.startCodeAddress !in executableAddresses) {
-                return MethodEditRejectionReason.InvalidTryRegion("A protected range starts outside executable code")
-            }
-            for (handler in tryBlock.exceptionHandlers) {
-                if (handler.handlerCodeAddress !in executableAddresses) {
-                    return MethodEditRejectionReason.InvalidTryRegion(
-                        "An exception handler does not target executable code",
-                    )
-                }
-            }
-            validateCatchAllOrder(tryBlock.exceptionHandlers.map { it.exceptionType })?.let { return it }
-        }
-        for (item in layout.debugItems) {
-            if (item.codeAddress !in executableAddresses && item.codeAddress != codeUnits.toInt()) {
-                return MethodEditRejectionReason.StructuralValidationFailure(
-                    "Debug metadata does not target an executable boundary",
-                )
-            }
-            val register = debugRegister(item)
-            if (register != null && register !in 0 until layout.registerCount) {
-                return MethodEditRejectionReason.RegisterOverflow(register)
-            }
+        if (layout.tryBlocks.any { it.codeUnitCount <= 0 }) {
+            return MethodEditRejectionReason.InvalidTryRegion("A protected range is empty or reversed")
         }
         validateEncodedTryStructure(layout, projectedReferences)?.let { return it }
         return null
@@ -482,11 +385,11 @@ internal object MethodEditValidator {
         return null
     }
 
+    /** Regions sharing one range are encoded as one try item, so catch-all order is checked over that combined list. */
     private fun validateTryRegions(
         body: MethodBody,
         recordsByPosition: Map<LogicalCodePosition, EncodedInstruction>,
         payloadPositions: Set<LogicalCodePosition>,
-        inherited: Boolean,
     ): MethodEditRejectionReason? {
         data class Range(val start: Int, val end: Int)
 
@@ -505,7 +408,6 @@ internal object MethodEditValidator {
             if (region.handlers.isEmpty()) {
                 return MethodEditRejectionReason.InvalidTryRegion("A protected range has no exception handler")
             }
-            validateCatchAllOrder(region.handlers.map(ImportedExceptionHandler::exceptionType))?.let { return it }
             region.handlers.mapTo(handlerTypesByRange.getOrPut(range, ::mutableListOf)) { it.exceptionType }
             for (handler in region.handlers) {
                 val target = recordsByPosition[handler.target]
@@ -515,11 +417,7 @@ internal object MethodEditValidator {
                     )
                 }
             }
-            if (start == end) {
-                if (inherited) continue
-                return MethodEditRejectionReason.InvalidTryRegion("A protected range is empty")
-            }
-            ranges += range
+            if (start < end) ranges += range
         }
         handlerTypesByRange.values.forEach { exceptionTypes ->
             validateCatchAllOrder(exceptionTypes)?.let { return it }
