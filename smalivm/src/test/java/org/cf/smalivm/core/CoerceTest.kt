@@ -30,31 +30,6 @@ class CoerceTest {
         // by-value table is the contract" is exactly the belief this fix removes.
     }
 
-    /**
-     * The `const-wide` quirk, and it is the discriminator between keying the refusal below on the raw's
-     * RUNTIME TYPE and keying it on the register's DECLARED TAG. `core/Op.kt`'s `buildConst` gives
-     * `const-wide` a `Value.Known(Long, "D")` -- a `D`-tagged register whose raw is a `Long`, because
-     * that opcode serves both `long` and `double` and the mnemonic cannot say which. Those bits ARE the
-     * `Long`, so every integral read of them is exact and must still answer.
-     *
-     * Keyed to the tag, an `I`/`J`-width read of that register would answer "not provable" and turn a
-     * definite answer into a fork -- not a wrong answer, but a precision loss on sanctioned, ordinary
-     * input. `Coerce` is immune to that error by construction, because it is handed a raw and never sees
-     * a tag at all; this test pins the half that the type system cannot state, namely that the values a
-     * `D`-tagged register legitimately holds still coerce.
-     * `BinaryMathOpTest.aWideDivisorWhoseLowThirtyTwoBitsAreZeroThrows` is the op-level pin, asserting
-     * the fork ARITY for exactly this input.
-     */
-    @Test
-    fun aWideRawUnderAFloatingPointTagStillCoercesBecauseTheRuntimeTypeIsWhatDecides() {
-        assertEquals(5, Coerce.toInt(5L))
-        assertEquals(5L, Coerce.toLong(5L))
-        // The value `divIntByWideZeroLowHalf()V` relies on: 2^32's low 32 bits are zero, so an
-        // `I`-width read is a provable zero and the divide definitely throws.
-        assertEquals(0, Coerce.toInt(0x100000000L))
-        assertEquals(0x100000000L, Coerce.toLong(0x100000000L))
-    }
-
     /** A boolean in a register is Dalvik's 1/0, which arithmetic must see as a number. */
     @Test
     fun booleansCoerceToOneAndZero() {

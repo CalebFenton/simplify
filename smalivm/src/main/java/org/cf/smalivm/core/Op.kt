@@ -323,8 +323,7 @@ internal object OpBuilder {
         val value = when (opcode) {
             Opcode.CONST_STRING, Opcode.CONST_STRING_JUMBO ->
                 Value.Known(((instruction as ReferenceInstruction).reference as StringReference).string, STRING)
-            Opcode.CONST_WIDE -> Value.Known((instruction as WideLiteralInstruction).wideLiteral, DOUBLE)
-            Opcode.CONST_WIDE_16, Opcode.CONST_WIDE_32, Opcode.CONST_WIDE_HIGH16 ->
+            Opcode.CONST_WIDE, Opcode.CONST_WIDE_16, Opcode.CONST_WIDE_32, Opcode.CONST_WIDE_HIGH16 ->
                 Value.Known((instruction as WideLiteralInstruction).wideLiteral, LONG)
             else -> Value.Known((instruction as NarrowLiteralInstruction).narrowLiteral, INT)
         }
@@ -948,30 +947,10 @@ internal object OpBuilder {
         return CmpOp(address, instruction.opcode.name, registers.registerA, registers.registerB, registers.registerC)
     }
 
-    // Type tags mirror the old engine's `opcode/ConstOp.kt` `constantTypeString` (lines 89-100)
-    // resolved through `dex/CommonTypes.kt`, because Task 9's differential compares the declared
-    // type verbatim and a naming mismatch there is indistinguishable from a real divergence:
-    //   narrow -> CommonTypes.INTEGER "I"                    (ConstOp.kt:91,    CommonTypes.kt:12)
-    //   string -> CommonTypes.STRING  "Ljava/lang/String;"   (ConstOp.kt:92,    CommonTypes.kt:5)
-    //   wide   -> CommonTypes.DOUBLE  "D" for the plain `const-wide` mnemonic ONLY
-    //                                                        (ConstOp.kt:94-95, CommonTypes.kt:10)
-    //             CommonTypes.LONG    "J" for every sized wide form
-    //                                                        (ConstOp.kt:96-97, CommonTypes.kt:11)
-    // The tag is deliberately ambiguous in Dalvik (one opcode serves int/char/byte/short/float, one
-    // serves long/double), so the raw stays the literal's bit pattern -- an Int for narrow forms and
-    // a Long for wide ones, exactly as the old engine stores it -- and later plans narrow the type by
-    // opcode where it matters. `const-class` (CommonTypes.CLASS = "Ljava/lang/Class;") IS mirrored now,
-    // as [CLASS] below: Plan 8 Task 10 lands it as its own family ([buildConstClass]) whose raw is the
-    // resolved host `Class` object -- not routed to `UnsupportedOp` any more, except when its operand is
-    // unresolvable.
-    //
-    // KNOWN QUIRK, inherited deliberately: `const-wide` therefore ships `Value.Known(Long, "D")`,
-    // which bends the raw-matches-declared-type precondition `Value.kt:45-48` says callers may
-    // trust. One consequence is live today: `joinTypes(D, J)` is Incompatible, so two paths that
-    // assign the same 64-bit literal -- one via `const-wide`, one via `const-wide/16` -- join to
-    // `Top` rather than to the shared constant. The old engine compares type strings too, so this
-    // is a fidelity-preserving quirk rather than a regression, and parity is the binding
-    // requirement. Do not "fix" it here; narrow wide tags by opcode where arithmetic needs it.
+    // A const opcode states only its literal's width: one narrow form serves int/char/byte/short/float and
+    // one wide form serves long/double. So the raw is the literal's bit pattern, an Int under `I` for the
+    // narrow forms and a Long under `J` for every wide form, and a float or double reader reinterprets those
+    // bits through `Coerce`.
     private val INT = VirtualType.of("I")
     private val LONG = VirtualType.of("J")
     private val DOUBLE = VirtualType.of("D")

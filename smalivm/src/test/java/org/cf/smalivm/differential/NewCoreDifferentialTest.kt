@@ -33,7 +33,7 @@ class NewCoreDifferentialTest {
             "spine-nop-then-const" to mapOf(0 to int("42")),
             "spine-goto-skip" to mapOf(0 to int("1")),
             "spine-move-chain" to mapOf(0 to int("9"), 1 to int("9"), 2 to int("9")),
-            "spine-return-wide" to mapOf(0 to known("D", "4886718345")),
+            "spine-return-wide" to mapOf(0 to known("J", "4886718345")),
             "spine-return-string" to mapOf(0 to known("Ljava/lang/String;", "spine")),
             "spine-instance-wide-params" to mapOf(
                 0 to int("7"), 3 to unknown("Lspine/spine;"), 4 to unknown("J"), 5 to absent,
@@ -285,7 +285,7 @@ class NewCoreDifferentialTest {
     fun typeTagsAreProjectedVerbatimFromTheDescriptor() {
 
         val expected = mapOf(
-            "returnWide()J" to NormalizedValue(ValueKind.KNOWN, "D", "4886718345"),
+            "returnWide()J" to NormalizedValue(ValueKind.KNOWN, "J", "4886718345"),
             "returnWideSixteen()J" to NormalizedValue(ValueKind.KNOWN, "J", "42"),
             "returnWideThirtyTwo()J" to NormalizedValue(ValueKind.KNOWN, "J", "1800000"),
             "returnWideHighSixteen()J" to NormalizedValue(ValueKind.KNOWN, "J", "4774378554966147072"),

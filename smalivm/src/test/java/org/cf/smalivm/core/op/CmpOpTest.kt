@@ -75,7 +75,7 @@ class CmpOpTest {
          */
         @Test
         fun aCmpDoubleOnConstWideLiteralBitsOrdersTheDoublesNotTheirBitPatterns() {
-            initial.setRegisters(0, -4611686018427387904L, "D", 2, -4607182418800017408L, "D")
+            initial.setRegisters(0, -4611686018427387904L, "J", 2, -4607182418800017408L, "J")
             expected.setRegisters(0, 1, "I")
             CoreTester.test(Companion.CLASS_NAME, "cmpgDouble()V", initial, expected)
         }

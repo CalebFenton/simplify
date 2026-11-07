@@ -96,7 +96,7 @@ class ConstOpTest {
 
     @Test
     fun canConstWide() {
-        expected.setRegisters(0, 0x4242424242424242L, "D")
+        expected.setRegisters(0, 0x4242424242424242L, "J")
         CoreTester.test(CLASS_NAME, "constWide()V", expected)
     }
 
@@ -116,6 +116,16 @@ class ConstOpTest {
     fun canConstWideHigh16() {
         expected.setRegisters(0, 0x4242000000000000L, "J")
         CoreTester.test(CLASS_NAME, "constWideHigh16()V", expected)
+    }
+
+    /**
+     * Every wide const form writes the same 64 bits, so two paths that load one literal through different
+     * forms agree at the join. A per-mnemonic tag (`D` for `const-wide`, `J` for the sized forms) makes the
+     * two values' types incompatible and the join answers `Top`, losing a constant both paths hold.
+     */
+    @Test
+    fun wideConstFormsOfOneLiteralAgreeAtTheJoin() {
+        CoreTester.assertReturns(CLASS_NAME, "wideFormsOfOneLiteral(I)J", Value.Known(5L, VirtualType.of("J")))
     }
 
     @Test

@@ -241,15 +241,9 @@ class BinaryMathOpTest {
          * unexplored feasible path on a fully-trusted run. Needs no seeded frame: `const-wide` puts the
          * ambiguous raw there, which is the shape Dalvik's overloaded const opcodes actually produce.
          *
-         * **This is also the ONLY test that keys `knownDivisor`'s `Float`/`Double` guard to the raw's
-         * RUNTIME type rather than to its declared tag, so the arity half below is load-bearing.**
-         * `const-wide` ships `Value.Known(Long, "D")` (`Op.kt`'s type-tag table): a `D` TAG over a raw
-         * that is a `java.lang.Long`. A guard written as `rhs.type.descriptor == "F" || == "D"` would
-         * therefore fire here and answer "not provable", turning this definite throw into a
-         * `[Continue, Throw]` FORK -- which `testThrows` alone cannot see, because it asserts a throw
-         * EXISTS and a fork still contains one, on a still-`Complete` run. The tag key does not un-throw
-         * this method, it over-approximates it, which is exactly why only an ARITY assertion catches it.
-         * Same shape as [aKnownZeroIntDivisorThrowsAndDoesNotContinue] and [aZeroFloatDivisorDoesNotFork].
+         * The arity assertions are what separate a definite throw from a `[Continue, Throw]` fork, which
+         * `testThrows` alone cannot see: a fork still contains the throw, on a still-`Complete` run. Same
+         * shape as [aKnownZeroIntDivisorThrowsAndDoesNotContinue] and [aZeroFloatDivisorDoesNotFork].
          */
         @Test
         fun aWideDivisorWhoseLowThirtyTwoBitsAreZeroThrows() {
@@ -425,15 +419,14 @@ class BinaryMathOpTest {
          * separate claim rather than a second example: this domain reads through `Coerce.toDouble`, which is
          * a different function with a different availability rule.
          *
-         * `const-wide v0, 0x4000000000000000` stores `Value.Known(4611686018427387904L, "D")` --
-         * `const-wide` is the one opcode that puts a `Long` raw under a `D` tag, because it serves `long`
-         * and `double` both, and `core/Op.kt`'s `buildConst` records exactly that. So this too is ordinary
-         * compiler output. A device reads the pair's 64 bits as double bits: `2.0 + 2.0 = 4.0`. Read by
-         * value the operand was `4.611686018427388E18` and the sum `9.223372036854776E18`.
+         * `const-wide v0, 0x4000000000000000` stores `Value.Known(4611686018427387904L, "J")`: one wide const
+         * serves `long` and `double` both, so its raw is the literal's bits. A device reads the pair's 64 bits as
+         * double bits: `2.0 + 2.0 = 4.0`. Read by value the operand was `4.611686018427388E18` and the sum
+         * `9.223372036854776E18`.
          */
         @Test
         fun anAddDoubleOnConstWideLiteralBitsAnswersWhatADeviceAnswers() {
-            initial.setRegisters(0, 4611686018427387904L, "D", 2, 4611686018427387904L, "D")
+            initial.setRegisters(0, 4611686018427387904L, "J", 2, 4611686018427387904L, "J")
             expected.setRegisters(0, 4.0, "D")
             CoreTester.test(CLASS_NAME, "addDouble()V", initial, expected)
         }

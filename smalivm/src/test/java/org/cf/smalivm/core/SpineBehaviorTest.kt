@@ -13,7 +13,6 @@ class SpineBehaviorTest {
     private val spine = "Lspine/spine;"
     private val int = VirtualType.of("I")
     private val long = VirtualType.of("J")
-    private val double = VirtualType.of("D")
     private val string = VirtualType.of("Ljava/lang/String;")
 
     @Test
@@ -43,25 +42,11 @@ class SpineBehaviorTest {
 
     @Test
     fun wideConstantSurvivesReturnWide() {
-        // DEVIATION FROM THE BRIEF, deliberate: the brief expected type `J` here, but the fidelity
-        // oracle says `D`. The engine being replaced tags a WIDE constant by MNEMONIC -- the plain
-        // `const-wide` becomes CommonTypes.DOUBLE and every sized form CommonTypes.LONG
-        // (`opcode/ConstOp.kt:93-99`) -- and Task 9's differential compares the declared type
-        // verbatim, so mirroring that quirk is a requirement, not a bug (OpBuilder documents it as a
-        // KNOWN QUIRK and `OpBuilderTest` pins it at decode level). Bug class this behavioral half
-        // catches: someone "fixing" the tag to `J` for tidiness and only discovering it as a
-        // differential divergence a plan later. `returnWide()J`'s method signature says J while its
-        // const says D on purpose -- that asymmetry IS the quirk.
-        CoreTester.assertReturns(spine, "returnWide()J", Value.Known(0x123456789L, double))
+        CoreTester.assertReturns(spine, "returnWide()J", Value.Known(0x123456789L, long))
     }
 
     @Test
-    fun sizedWideConstantIsTaggedLongNotDouble() {
-        // The other side of the same mnemonic split, end to end: `const-wide/16` is a SIZED wide form,
-        // so it is tagged J while the test above's plain `const-wide` is tagged D. Kept as the
-        // behavioral witness that the two branches are genuinely different (a "simplification" that
-        // tagged every wide const the same way would leave the test above green and break only this
-        // one). Oracle: `opcode/ConstOp.kt:96-97` -> CommonTypes.LONG.
+    fun sizedWideConstantSurvivesReturnWide() {
         CoreTester.assertReturns(spine, "returnWideSixteen()J", Value.Known(0x2aL, long))
     }
 
