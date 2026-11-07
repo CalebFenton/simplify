@@ -68,6 +68,7 @@ class Invoker internal constructor(
             )
             is MethodLookup.Runnable -> lookup.method
             is MethodLookup.NoBody -> lookup.method
+            is MethodLookup.DefaultConflict -> lookup.method
         }
 
         onEvent("bind")
@@ -221,7 +222,7 @@ sealed interface InvocationPreparation {
         val isSynchronized: Boolean get() = when (lookup) {
             is MethodLookup.Runnable -> lookup.method.isSynchronized
             is MethodLookup.NoBody -> lookup.method.isSynchronized
-            MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> false
+            is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> false
         }
     }
 

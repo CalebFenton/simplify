@@ -623,7 +623,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                 // input on a chain `superclassOf` just walked successfully, and both are settled
                 // CONSERVATIVELY -- marked initialized so the trigger can proceed, with `STRONG` declared
                 // because an initializer that exists and did not run is exactly the unmodelled case.
-                is MethodLookup.NoBody, MethodLookup.NoSuchClass -> {
+                is MethodLookup.NoBody, is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass -> {
                     settled.add(ancestor)
                     skippedAnInitializer = true
                     seeds.putAll(prepare(ancestor, initializerRuns = false))
@@ -638,7 +638,8 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         return when (resolver.lookupClassInitializer(type)) {
             is MethodLookup.Runnable -> prepare(type, initializerRuns = true)
             MethodLookup.NoSuchMethod -> prepare(type, initializerRuns = false)
-            is MethodLookup.NoBody, MethodLookup.NoSuchClass -> prepare(type, initializerRuns = false)
+            is MethodLookup.NoBody, is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass ->
+                prepare(type, initializerRuns = false)
         }
     }
 

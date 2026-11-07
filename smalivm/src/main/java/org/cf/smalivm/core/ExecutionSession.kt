@@ -1030,6 +1030,22 @@ class ExecutionSession internal constructor(
             }
             preparation as InvocationPreparation.Ready
             if (invoker.receiverIsNull(preparation)) return@planContained planInvokeNullReceiver(node)
+            if (preparation.lookup is MethodLookup.DefaultConflict) {
+                val target = preparation.invocation.target
+                return@planContained planThrow(
+                    node,
+                    normalizeThrow(
+                        ThrowEvidence.Fresh(
+                            ThrowableRecipe.of(
+                                VirtualType.of("Ljava/lang/IncompatibleClassChangeError;"),
+                                "Conflicting default method implementations ${target.definingClass.descriptor}->" +
+                                    target.descriptor,
+                            ),
+                        ),
+                        node.frame,
+                    ),
+                )
+            }
             val initType = invoker.applicableClassInitTarget(preparation.invocation)
             if (initType != null) {
                 planClassInitTrigger(node, initType)?.let { return@planContained it }
@@ -2754,6 +2770,7 @@ class ExecutionSession internal constructor(
             "Ljava/lang/ClassCastException;" -> ClassCastException(recipe.message)
             "Ljava/lang/ExceptionInInitializerError;" ->
                 if (hostCause == null) ExceptionInInitializerError() else ExceptionInInitializerError(hostCause)
+            "Ljava/lang/IncompatibleClassChangeError;" -> IncompatibleClassChangeError(recipe.message)
             "Ljava/lang/InternalError;" -> InternalError(recipe.message)
             "Ljava/lang/NegativeArraySizeException;" -> NegativeArraySizeException(recipe.message)
             "Ljava/lang/NoClassDefFoundError;" -> NoClassDefFoundError(recipe.message)

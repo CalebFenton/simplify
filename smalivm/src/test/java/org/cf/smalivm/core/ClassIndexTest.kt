@@ -2,6 +2,7 @@ package org.cf.smalivm.core
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
 import org.cf.smalivm.dex.SmaliParser
 import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
@@ -518,6 +519,143 @@ class ClassIndexTest {
         )
     }
 
+    /** ART rejects a class whose superclass or interface chain reaches itself (ClassCircularityError). */
+    @Test
+    fun classesOnAnInheritanceCycleAreNotLoadable(@TempDir temp: Path) {
+        val index = indexOf(temp, CYCLE_A, CYCLE_B, CYCLE_CHILD, CYCLE_CALLER, INTERFACE_CYCLE_I, INTERFACE_CYCLE_J)
+
+        assertFalse(index.isLoadable(t("Lcycle/A;")))
+        assertFalse(index.isLoadable(t("Lcycle/B;")))
+        assertFalse(index.isLoadable(t("Lcycle/I;")))
+        assertFalse(index.isLoadable(t("Lcycle/J;")))
+        assertTrue(index.isLoadable(t("Lcycle/Caller;")))
+        assertFalse(index.dispatchWorldIsComplete(t("Lcycle/Caller;")))
+
+        val graph = run(index, "Lcycle/Caller;", "call()V")
+        val escaping = CoreTester.escapingTypes(graph).single()
+        assertTrue(
+            index.isSubtypeOf(t(escaping), t("Ljava/lang/LinkageError;")),
+            "invoking a method of a circular class is a linkage failure, not a call: $escaping",
+        )
+    }
+
+    @Test
+    fun hostInitializationChainTerminatesBelowASuperclassCycle(@TempDir temp: Path) {
+        val index = indexOf(temp, CYCLE_A, CYCLE_B, CYCLE_CHILD)
+
+        assertTimeoutPreemptively(Duration.ofSeconds(10)) {
+            assertThrows(ClassLoadFailure::class.java) { index.hostInitializationChain(t("Lcycle/Child;")) }
+        }
+    }
+
+    /**
+     * JVMS 5.4.3.2 and ART `Class::FindStaticField`: the declaring class, then its direct superinterfaces
+     * recursively, then the superclass.
+     */
+    @Test
+    fun staticFieldResolutionSearchesSuperinterfacesBeforeTheSuperclass(@TempDir temp: Path) {
+        val index = indexOf(temp, STATIC_IFACE, STATIC_SUBIFACE, STATIC_PARENT, STATIC_CHILD, STATIC_IMPL)
+
+        val throughChild = index.resolveStaticField(t("Lsf/Child;"), "X", "I") as StaticFieldLookup.Resolved
+        val throughImplementor = index.resolveStaticField(t("Lsf/Impl;"), "X", "I") as StaticFieldLookup.Resolved
+
+        assertEquals(t("Lsf/Iface;"), throughChild.definingClass)
+        assertEquals("Lsf/Iface;->X:I", throughChild.descriptor)
+        assertEquals(t("Lsf/Iface;"), throughImplementor.definingClass)
+        assertTrue(index.resolveStaticField(t("Lsf/Impl;"), "X", "J") is StaticFieldLookup.NoSuchField)
+    }
+
+    /** ART throws `IncompatibleClassChangeError` when a default-method conflict is invoked, after the null check. */
+    @Test
+    fun twoMaximallySpecificDefaultsAreAConflictThatThrowsOnInvocation(@TempDir temp: Path) {
+        val index = indexOf(temp, DEFAULT_LEFT, DEFAULT_RIGHT, DEFAULT_BOTH)
+
+        assertTrue(index.lookupMethod(t("Ldm/Both;"), "value()I") is MethodLookup.DefaultConflict)
+        assertEquals(
+            listOf("Ljava/lang/IncompatibleClassChangeError;"),
+            CoreTester.escapingTypes(run(index, "Ldm/Both;", "call()I")),
+        )
+        assertEquals(
+            listOf("Ljava/lang/NullPointerException;"),
+            CoreTester.escapingTypes(run(index, "Ldm/Both;", "callOnNull()I")),
+        )
+    }
+
+    @Test
+    fun theSingleNonAbstractMaximalInterfaceMethodIsSelected(@TempDir temp: Path) {
+        val index = indexOf(temp, DEFAULT_RIGHT, ABSTRACT_SIDE, MIXED)
+
+        val lookup = index.lookupMethod(t("Ldm/Mixed;"), "value()I") as MethodLookup.Runnable
+
+        assertEquals(t("Ldm/Right;"), lookup.method.target.definingClass)
+        assertEquals(Value.Known(2, t("I")), (run(index, "Ldm/Mixed;", "call()I").outcomes.single() as Outcome.Returned).value)
+    }
+
+    /** JVMS 5.4.3.3: private and static interface methods are not maximally-specific candidates. */
+    @Test
+    fun staticAndPrivateInterfaceMethodsAreNotInherited(@TempDir temp: Path) {
+        val index = indexOf(temp, DEFAULT_RIGHT, STATIC_SIDE, PRIVATE_SIDE, ONLY_STATIC, ONLY_PRIVATE, STATIC_AND_DEFAULT)
+
+        assertEquals(MethodLookup.NoSuchMethod, index.lookupMethod(t("Ldm/OnlyStatic;"), "value()I"))
+        assertEquals(MethodLookup.NoSuchMethod, index.lookupMethod(t("Ldm/OnlyPrivate;"), "value()I"))
+        val selected = index.lookupMethod(t("Ldm/StaticAndDefault;"), "value()I") as MethodLookup.Runnable
+        assertEquals(t("Ldm/Right;"), selected.method.target.definingClass)
+    }
+
+    /** Framework subclasses of a framework type receive the call too, so one app override is not the target. */
+    @Test
+    fun oneApplicationOverrideOfAFrameworkMethodLeavesDispatchAmbiguous(@TempDir temp: Path) {
+        val index = indexOf(temp, TO_STRING_OVERRIDE)
+        val target = MethodDescriptor(VirtualType.OBJECT, "toString", "()Ljava/lang/String;")
+
+        val lookup = index.resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Override;"), receiverType = null)
+
+        assertTrue(lookup is InvocationLookup.Ambiguous, "a String receiver does not run the app override")
+        val view = index.requireMethodView("Lfw/Override;", "call(Ljava/lang/Object;)Ljava/lang/String;")
+        val frame = Frame.entryFrame(view).also {
+            it.assign(view.parameters.single().register, Value.Known("device", t("Ljava/lang/String;")))
+        }
+        val returned = VmServices(index).newSession(view, entryFrame = frame).run().outcomes.single() as Outcome.Returned
+        assertNotEquals(Value.Known("override", t("Ljava/lang/String;")), returned.value)
+
+        val control = indexOf(Files.createDirectory(temp.resolve("control")), TO_STRING_INHERITED)
+        val inherited = control.resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Plain;"), receiverType = null)
+        assertTrue(inherited is InvocationLookup.Resolved, "no app class changes Object.toString's dispatch")
+    }
+
+    @Test
+    fun anInstantiableClassWithABodylessSelectionIsADispatchCandidate(@TempDir temp: Path) {
+        val index = indexOf(temp, NATIVE_BASE, NATIVE_SUB)
+        val target = MethodDescriptor(t("Lnb/Base;"), "f", "()I")
+
+        val lookup = index.resolveInvocation(target, InvokeKind.VIRTUAL, t("Lnb/Base;"), receiverType = null)
+
+        assertTrue(lookup is InvocationLookup.Ambiguous, "a Base receiver runs the native Base.f, not Sub.f")
+        assertEquals(setOf("Lnb/Base;->f()I", "Lnb/Sub;->f()I"), (lookup as InvocationLookup.Ambiguous).candidates)
+    }
+
+    /** `Class.forName` semantics: `java.util.Map.Entry` is not the binary name of `Map$Entry`. */
+    @Test
+    fun classConstantsAreLoadedByExactBinaryName() {
+        assertNull(classIndex.loadClassConstant("Ljava/util/Map/Entry;"))
+        assertSame(java.util.Map.Entry::class.java, classIndex.loadClassConstant("Ljava/util/Map\$Entry;"))
+        assertSame(Integer.TYPE, classIndex.loadClassConstant("I"))
+    }
+
+    private fun indexOf(directory: Path, vararg sources: String): ClassIndex {
+        sources.forEachIndexed { index, source ->
+            Files.writeString(directory.resolve("source$index.smali"), source.trimIndent())
+        }
+        val manager = ClassManagerFactory().build(
+            directory.toString(),
+            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
+        )
+        return ClassIndex(manager)
+    }
+
+    private fun run(index: ClassIndex, className: String, descriptor: String): ExecutionGraph =
+        VmServices(index).newSession(index.requireMethodView(className, descriptor)).run()
+
     private fun loadKnownIndexedClassAcrossTwoSessions(index: ClassIndex): List<Class<*>> {
         val owner = VmServices(index)
         val view = index.requireMethodView(DYNAMIC_CALLER.descriptor, "call(Ldynamic/Dispatch;)I")
@@ -659,5 +797,243 @@ class ClassIndexTest {
             .super Ljava/lang/Object;
             .implements Ldynamic/AbsentInterface;
         """.trimIndent()
+
+        const val CYCLE_A = """
+            .class public Lcycle/A;
+            .super Lcycle/B;
+
+            .method public static f()V
+                .registers 0
+                return-void
+            .end method
+        """
+
+        const val CYCLE_B = """
+            .class public Lcycle/B;
+            .super Lcycle/A;
+        """
+
+        const val CYCLE_CHILD = """
+            .class public Lcycle/Child;
+            .super Lcycle/A;
+        """
+
+        const val CYCLE_CALLER = """
+            .class public Lcycle/Caller;
+            .super Ljava/lang/Object;
+
+            .method public static call()V
+                .registers 0
+                invoke-static {}, Lcycle/A;->f()V
+                return-void
+            .end method
+        """
+
+        const val INTERFACE_CYCLE_I = """
+            .class public interface abstract Lcycle/I;
+            .super Ljava/lang/Object;
+            .implements Lcycle/J;
+        """
+
+        const val INTERFACE_CYCLE_J = """
+            .class public interface abstract Lcycle/J;
+            .super Ljava/lang/Object;
+            .implements Lcycle/I;
+        """
+
+        const val STATIC_IFACE = """
+            .class public interface abstract Lsf/Iface;
+            .super Ljava/lang/Object;
+            .field public static final X:I = 0x1
+        """
+
+        const val STATIC_SUBIFACE = """
+            .class public interface abstract Lsf/SubIface;
+            .super Ljava/lang/Object;
+            .implements Lsf/Iface;
+        """
+
+        const val STATIC_PARENT = """
+            .class public Lsf/Parent;
+            .super Ljava/lang/Object;
+            .field public static X:I
+        """
+
+        const val STATIC_CHILD = """
+            .class public Lsf/Child;
+            .super Lsf/Parent;
+            .implements Lsf/SubIface;
+        """
+
+        const val STATIC_IMPL = """
+            .class public Lsf/Impl;
+            .super Ljava/lang/Object;
+            .implements Lsf/Iface;
+        """
+
+        const val DEFAULT_LEFT = """
+            .class public interface abstract Ldm/Left;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .registers 2
+                const/4 v0, 0x1
+                return v0
+            .end method
+        """
+
+        const val DEFAULT_RIGHT = """
+            .class public interface abstract Ldm/Right;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .registers 2
+                const/4 v0, 0x2
+                return v0
+            .end method
+        """
+
+        const val DEFAULT_BOTH = """
+            .class public Ldm/Both;
+            .super Ljava/lang/Object;
+            .implements Ldm/Left;
+            .implements Ldm/Right;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Ldm/Both;
+                invoke-direct {v0}, Ldm/Both;-><init>()V
+                invoke-virtual {v0}, Ldm/Both;->value()I
+                move-result v0
+                return v0
+            .end method
+
+            .method public static callOnNull()I
+                .registers 1
+                const/4 v0, 0x0
+                invoke-virtual {v0}, Ldm/Both;->value()I
+                move-result v0
+                return v0
+            .end method
+        """
+
+        const val ABSTRACT_SIDE = """
+            .class public interface abstract Ldm/AbstractSide;
+            .super Ljava/lang/Object;
+
+            .method public abstract value()I
+            .end method
+        """
+
+        const val MIXED = """
+            .class public Ldm/Mixed;
+            .super Ljava/lang/Object;
+            .implements Ldm/AbstractSide;
+            .implements Ldm/Right;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Ldm/Mixed;
+                invoke-direct {v0}, Ldm/Mixed;-><init>()V
+                invoke-virtual {v0}, Ldm/Mixed;->value()I
+                move-result v0
+                return v0
+            .end method
+        """
+
+        const val STATIC_SIDE = """
+            .class public interface abstract Ldm/StaticSide;
+            .super Ljava/lang/Object;
+
+            .method public static value()I
+                .registers 1
+                const/4 v0, 0x3
+                return v0
+            .end method
+        """
+
+        const val PRIVATE_SIDE = """
+            .class public interface abstract Ldm/PrivateSide;
+            .super Ljava/lang/Object;
+
+            .method private value()I
+                .registers 2
+                const/4 v0, 0x4
+                return v0
+            .end method
+        """
+
+        const val ONLY_STATIC = """
+            .class public Ldm/OnlyStatic;
+            .super Ljava/lang/Object;
+            .implements Ldm/StaticSide;
+        """
+
+        const val ONLY_PRIVATE = """
+            .class public Ldm/OnlyPrivate;
+            .super Ljava/lang/Object;
+            .implements Ldm/PrivateSide;
+        """
+
+        const val STATIC_AND_DEFAULT = """
+            .class public Ldm/StaticAndDefault;
+            .super Ljava/lang/Object;
+            .implements Ldm/StaticSide;
+            .implements Ldm/Right;
+        """
+
+        const val TO_STRING_OVERRIDE = """
+            .class public Lfw/Override;
+            .super Ljava/lang/Object;
+
+            .method public toString()Ljava/lang/String;
+                .registers 2
+                const-string v0, "override"
+                return-object v0
+            .end method
+
+            .method public static call(Ljava/lang/Object;)Ljava/lang/String;
+                .registers 2
+                invoke-virtual {p0}, Ljava/lang/Object;->toString()Ljava/lang/String;
+                move-result-object v0
+                return-object v0
+            .end method
+        """
+
+        const val TO_STRING_INHERITED = """
+            .class public Lfw/Plain;
+            .super Ljava/lang/Object;
+        """
+
+        const val NATIVE_BASE = """
+            .class public Lnb/Base;
+            .super Ljava/lang/Object;
+
+            .method public native f()I
+            .end method
+        """
+
+        const val NATIVE_SUB = """
+            .class public Lnb/Sub;
+            .super Lnb/Base;
+
+            .method public f()I
+                .registers 2
+                const/4 v0, 0x1
+                return v0
+            .end method
+        """
     }
 }

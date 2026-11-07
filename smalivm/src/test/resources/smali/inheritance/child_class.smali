@@ -152,3 +152,9 @@
     sget v0, Lgrandparent_class;->intLiteral:I
     return v0
 .end method
+
+.method public static getInterfaceFieldThroughChild()I
+    .locals 1
+    sget v0, Lchild_class;->interfaceField:I
+    return v0
+.end method

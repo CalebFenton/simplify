@@ -151,6 +151,17 @@ class ClassForNameIntegrationTest {
         }
     }
 
+    /** `Class.forName` takes a binary name; ART and the JVM do not retry `.` as the nested-class `$`. */
+    @Test
+    fun canonicalNestedClassNameIsNotABinaryName() {
+        val canonical = forName("java.util.Map.Entry")
+        assertEquals(listOf("Ljava/lang/ClassNotFoundException;"), CoreTester.escapingTypes(canonical))
+        assertNull(canonical.nodePile(invokeAddress(canonical.methodView)).single().hostFailure)
+
+        val binary = forName("java.util.Map\$Entry")
+        assertEquals(emptyList<String>(), CoreTester.escapingTypes(binary))
+    }
+
     private fun session(descriptor: String): ExecutionSession = owner.newSession(view(descriptor))
 
     private fun view(descriptor: String): MethodView =
