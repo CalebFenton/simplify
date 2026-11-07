@@ -259,7 +259,7 @@ internal object ScratchRegisterAllocator {
         } catch (_: IllegalArgumentException) {
             // The source format cannot encode the selected physical registers. Try its legal wider form.
         }
-        if (source.opcode in MOVE_OPCODES && registers.size == 2) {
+        if (source.opcode in OpcodeGroups.MOVE && registers.size == 2) {
             return moveInstruction(moveKind(source.opcode), registers[0], registers[1])
         }
         val singleRegister = registers.singleOrNull()
@@ -649,7 +649,7 @@ internal object ScratchRegisterAllocator {
         in BINARY_OPCODES -> binaryOperands(instruction.opcode)
         in TWO_ADDRESS_OPCODES -> twoAddressOperands(instruction.opcode)
         in LITERAL_OPCODES -> listOf(write(Kind.NARROW), read(Kind.NARROW))
-        in MOVE_OPCODES -> listOf(write(moveKind(instruction.opcode)), read(moveKind(instruction.opcode)))
+        in OpcodeGroups.MOVE -> listOf(write(moveKind(instruction.opcode)), read(moveKind(instruction.opcode)))
         else -> error("No register legalization model for ${instruction.opcode}")
     }
 
@@ -874,7 +874,7 @@ internal object ScratchRegisterAllocator {
                 return@forEachIndexed
             }
             val category = when {
-                index == 0 && record.instruction.opcode in MOVE_OPCODES -> when (moveKind(record.instruction.opcode)) {
+                index == 0 && record.instruction.opcode in OpcodeGroups.MOVE -> when (moveKind(record.instruction.opcode)) {
                     Kind.OBJECT -> RegisterCategory.OBJECT
                     Kind.WIDE -> RegisterCategory.WIDE
                     Kind.NARROW -> before[registers[1]] ?: RegisterCategory.NARROW
@@ -897,12 +897,12 @@ internal object ScratchRegisterAllocator {
         val opcode = record.instruction.opcode
         val next = records.getOrNull(index + 1)?.position
         when {
-            opcode in GOTO_OPCODES -> body.controlTargets[record.position]?.let(::add)
-            opcode in CONDITIONAL_OPCODES -> {
+            opcode in OpcodeGroups.GOTO -> body.controlTargets[record.position]?.let(::add)
+            opcode in OpcodeGroups.CONDITIONAL_BRANCH -> {
                 body.controlTargets[record.position]?.let(::add)
                 next?.let(::add)
             }
-            opcode in SWITCH_OPCODES -> {
+            opcode in OpcodeGroups.SWITCH -> {
                 body.switchCases[record.position].orEmpty().mapTo(this) { it.target }
                 next?.let(::add)
             }
@@ -1026,30 +1026,7 @@ internal object ScratchRegisterAllocator {
     private fun registersAreContiguous(registers: List<Int>): Boolean =
         registers.zipWithNext().all { (left, right) -> right == left + 1 }
 
-    private val MOVE_OPCODES = setOf(
-        Opcode.MOVE,
-        Opcode.MOVE_FROM16,
-        Opcode.MOVE_16,
-        Opcode.MOVE_WIDE,
-        Opcode.MOVE_WIDE_FROM16,
-        Opcode.MOVE_WIDE_16,
-        Opcode.MOVE_OBJECT,
-        Opcode.MOVE_OBJECT_FROM16,
-        Opcode.MOVE_OBJECT_16,
-    )
     private val AMBIGUOUS_BRANCH_OPCODES = setOf(Opcode.IF_EQ, Opcode.IF_NE, Opcode.IF_EQZ, Opcode.IF_NEZ)
-    private val CONDITIONAL_OPCODES = AMBIGUOUS_BRANCH_OPCODES + setOf(
-        Opcode.IF_LT,
-        Opcode.IF_GE,
-        Opcode.IF_GT,
-        Opcode.IF_LE,
-        Opcode.IF_LTZ,
-        Opcode.IF_GEZ,
-        Opcode.IF_GTZ,
-        Opcode.IF_LEZ,
-    )
-    private val GOTO_OPCODES = setOf(Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32)
-    private val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
     private val CONST_NARROW_OPCODES = setOf(Opcode.CONST_4, Opcode.CONST_16, Opcode.CONST, Opcode.CONST_HIGH16)
     private val AGET_OPCODES = Opcode.values().filterTo(hashSetOf()) { it.name.startsWith("aget") }
     private val APUT_OPCODES = Opcode.values().filterTo(hashSetOf()) { it.name.startsWith("aput") }

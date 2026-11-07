@@ -41,7 +41,7 @@ internal object MethodEditValidator {
         val endPosition = body.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value
             ?: return MethodEditRejectionReason.StructuralValidationFailure("The method has no end position")
         val payloadPositions = recordsByPosition.filterValues {
-            it.instruction.opcode in MethodView.PAYLOAD_OPCODES
+            it.instruction.opcode in OpcodeGroups.PAYLOAD
         }.keys
         val payloadOwners = HashMap<LogicalCodePosition, MutableList<EncodedInstruction>>()
 
@@ -56,7 +56,7 @@ internal object MethodEditValidator {
             if (target == null) continue
             val targetRecord = recordsByPosition[target]
             when (instruction.opcode) {
-                in BRANCH_OPCODES -> if (targetRecord == null || target in payloadPositions) {
+                in OpcodeGroups.BRANCH -> if (targetRecord == null || target in payloadPositions) {
                     return MethodEditRejectionReason.InvalidControlTarget(
                         "${instruction.opcode} at ${record.codeAddress} does not target executable code",
                     )
@@ -66,7 +66,7 @@ internal object MethodEditValidator {
                         "fill-array-data at ${record.codeAddress} does not target an array payload",
                     )
                 }
-                in SWITCH_OPCODES -> {
+                in OpcodeGroups.SWITCH -> {
                     val expectedPayload = if (instruction.opcode == Opcode.PACKED_SWITCH) {
                         Opcode.PACKED_SWITCH_PAYLOAD
                     } else {
@@ -101,7 +101,7 @@ internal object MethodEditValidator {
                     )
                 }
             }
-            if (instruction.opcode in PAYLOAD_OWNER_OPCODES) {
+            if (instruction.opcode in OpcodeGroups.PAYLOAD_OWNER) {
                 payloadOwners.getOrPut(target, ::mutableListOf).add(record)
             }
         }
@@ -190,12 +190,12 @@ internal object MethodEditValidator {
         }
         val recordsByAddress = layout.instructions.associateBy(LaidOutInstruction::codeAddress)
         val payloadAddresses = layout.instructions.filter {
-            it.instruction.opcode in MethodView.PAYLOAD_OPCODES
+            it.instruction.opcode in OpcodeGroups.PAYLOAD
         }.mapTo(hashSetOf(), LaidOutInstruction::codeAddress)
         val payloadOwners = HashMap<Int, MutableList<LaidOutInstruction>>()
         for (record in layout.instructions) {
             val instruction = record.instruction
-            if (instruction.opcode in MethodView.PAYLOAD_OPCODES && record.codeAddress and 1 != 0) {
+            if (instruction.opcode in OpcodeGroups.PAYLOAD && record.codeAddress and 1 != 0) {
                 return MethodEditRejectionReason.StructuralValidationFailure(
                     "Payload at ${record.codeAddress} is not aligned to an even code-unit address",
                 )
@@ -207,7 +207,7 @@ internal object MethodEditValidator {
                     "${instruction.opcode} at ${record.codeAddress} does not target an instruction boundary",
                 )
             when (instruction.opcode) {
-                in BRANCH_OPCODES -> {
+                in OpcodeGroups.BRANCH -> {
                     if (instruction.codeOffset == 0 && instruction.opcode != Opcode.GOTO_32) {
                         return MethodEditRejectionReason.InvalidControlTarget(
                             "${instruction.opcode} at ${record.codeAddress} has an invalid zero offset",
@@ -229,7 +229,7 @@ internal object MethodEditValidator {
                         "fill-array-data at ${record.codeAddress} does not target an array payload",
                     )
                 }
-                in SWITCH_OPCODES -> {
+                in OpcodeGroups.SWITCH -> {
                     val expected = if (instruction.opcode == Opcode.PACKED_SWITCH) {
                         Opcode.PACKED_SWITCH_PAYLOAD
                     } else {
@@ -257,7 +257,7 @@ internal object MethodEditValidator {
                 }
                 else -> Unit
             }
-            if (instruction.opcode in PAYLOAD_OWNER_OPCODES) {
+            if (instruction.opcode in OpcodeGroups.PAYLOAD_OWNER) {
                 payloadOwners.getOrPut(targetAddress, ::mutableListOf).add(record)
             }
         }
@@ -326,7 +326,7 @@ internal object MethodEditValidator {
             return MethodEditRejectionReason.RegisterOverflow(body.registerCount - 1)
         }
         val executableInstructions = body.instructions.filter {
-            it.instruction.opcode !in MethodView.PAYLOAD_OPCODES &&
+            it.instruction.opcode !in OpcodeGroups.PAYLOAD &&
                 it.position !in body.syntheticPayloadPaddingPositions
         }
         if (executableInstructions.isEmpty()) {
@@ -637,7 +637,7 @@ internal object MethodEditValidator {
         candidate: ApplicationMethodDefinitionCandidate,
     ): MethodEditRejectionReason? {
         val body = candidate.body
-        val executableRecords = body.instructions.filter { it.instruction.opcode !in MethodView.PAYLOAD_OPCODES }
+        val executableRecords = body.instructions.filter { it.instruction.opcode !in OpcodeGroups.PAYLOAD }
         if (executableRecords.isEmpty()) return null
         val recordsByPosition = executableRecords.associateBy(EncodedInstruction::position)
         val nextByPosition = executableRecords.zipWithNext().associate { (current, next) -> current.position to next.position }
@@ -687,12 +687,12 @@ internal object MethodEditValidator {
             val successors = buildList {
                 val target = body.controlTargets[position]
                 when (instruction.opcode) {
-                    in GOTO_OPCODES -> target?.let(::add)
-                    in CONDITIONAL_OPCODES -> {
+                    in OpcodeGroups.GOTO -> target?.let(::add)
+                    in OpcodeGroups.CONDITIONAL_BRANCH -> {
                         target?.let(::add)
                         nextByPosition[position]?.let(::add)
                     }
-                    in SWITCH_OPCODES -> {
+                    in OpcodeGroups.SWITCH -> {
                         body.switchCases[position].orEmpty().mapTo(this) { it.target }
                         nextByPosition[position]?.let(::add)
                     }
@@ -756,7 +756,7 @@ internal object MethodEditValidator {
         instruction: Instruction,
         registers: PersistentList<RegisterKind>,
     ): MethodEditRejectionReason? {
-        if (instruction.opcode !in RETURN_OPCODES || instruction.opcode == Opcode.RETURN_VOID) return null
+        if (instruction.opcode !in OpcodeGroups.RETURN || instruction.opcode == Opcode.RETURN_VOID) return null
         val register = (instruction as OneRegisterInstruction).registerA
         val kind = registers[register]
         return when {
@@ -843,12 +843,12 @@ internal object MethodEditValidator {
     private fun readRegisters(instruction: Instruction): List<Int> {
         if (instruction.opcode in ORDINARY_INVOKE_OPCODES) return invocationRegisters(instruction)
         return when {
-            instruction.opcode in CONDITIONAL_OPCODES -> when (instruction) {
+            instruction.opcode in OpcodeGroups.CONDITIONAL_BRANCH -> when (instruction) {
                 is TwoRegisterInstruction -> listOf(instruction.registerA, instruction.registerB)
                 is OneRegisterInstruction -> listOf(instruction.registerA)
                 else -> emptyList()
             }
-            instruction.opcode in RETURN_OPCODES && instruction.opcode != Opcode.RETURN_VOID ->
+            instruction.opcode in OpcodeGroups.RETURN && instruction.opcode != Opcode.RETURN_VOID ->
                 listOf((instruction as OneRegisterInstruction).registerA)
             instruction.opcode in setOf(Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16,
                 Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16) ->
@@ -1059,7 +1059,7 @@ internal object MethodEditValidator {
         returnType: String,
         opcode: Opcode,
     ): MethodEditRejectionReason? {
-        if (opcode !in RETURN_OPCODES) return null
+        if (opcode !in OpcodeGroups.RETURN) return null
         val expected = when {
             returnType == "V" -> Opcode.RETURN_VOID
             returnType == "J" || returnType == "D" -> Opcode.RETURN_WIDE
@@ -1087,28 +1087,6 @@ internal object MethodEditValidator {
         Opcode.MOVE_RESULT_WIDE,
         Opcode.MOVE_RESULT_OBJECT,
     )
-    private val RETURN_OPCODES = setOf(Opcode.RETURN_VOID, Opcode.RETURN, Opcode.RETURN_WIDE, Opcode.RETURN_OBJECT)
-    private val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
-    private val PAYLOAD_OWNER_OPCODES = SWITCH_OPCODES + Opcode.FILL_ARRAY_DATA
-    private val BRANCH_OPCODES = setOf(
-        Opcode.GOTO,
-        Opcode.GOTO_16,
-        Opcode.GOTO_32,
-        Opcode.IF_EQ,
-        Opcode.IF_NE,
-        Opcode.IF_LT,
-        Opcode.IF_GE,
-        Opcode.IF_GT,
-        Opcode.IF_LE,
-        Opcode.IF_EQZ,
-        Opcode.IF_NEZ,
-        Opcode.IF_LTZ,
-        Opcode.IF_GEZ,
-        Opcode.IF_GTZ,
-        Opcode.IF_LEZ,
-    )
-    private val GOTO_OPCODES = setOf(Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32)
-    private val CONDITIONAL_OPCODES = BRANCH_OPCODES - GOTO_OPCODES
     private val STATIC_INVOKE_OPCODES = setOf(Opcode.INVOKE_STATIC, Opcode.INVOKE_STATIC_RANGE)
     private val ORDINARY_INVOKE_OPCODES = setOf(
         Opcode.INVOKE_VIRTUAL,

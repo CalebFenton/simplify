@@ -61,7 +61,7 @@ class MethodView internal constructor(
     }
 
     private val storedInstructionAddresses: IntArray = addressToInstruction
-        .filterValues { it.opcode !in PAYLOAD_OPCODES }
+        .filterValues { it.opcode !in OpcodeGroups.PAYLOAD }
         .keys
         .toIntArray()
 
@@ -69,7 +69,7 @@ class MethodView internal constructor(
     val instructionAddresses: IntArray get() = storedInstructionAddresses.copyOf()
 
     private val storedPayloadAddresses: IntArray = addressToInstruction
-        .filterValues { it.opcode in PAYLOAD_OPCODES }
+        .filterValues { it.opcode in OpcodeGroups.PAYLOAD }
         .keys
         .toIntArray()
 
@@ -173,33 +173,7 @@ class MethodView internal constructor(
     override fun toString(): String = signature
 
     companion object {
-        private val TERMINATING_OPCODES = setOf(
-            Opcode.RETURN_VOID, Opcode.RETURN, Opcode.RETURN_WIDE, Opcode.RETURN_OBJECT, Opcode.THROW,
-        )
-
-        /**
-         * Both switch payloads are named now even though Plan 8 lands `switch`: the SET is a static fact
-         * about dexlib's opcode table, and enumerating it once here means Plan 8 inherits the answer
-         * instead of rediscovering it.
-         *
-         * **The two switch entries were DEAD until Plan 8 Task 6 landed `packed-switch`/`sparse-switch`
-         * -- deletable with a green suite -- and they are not now.** No fixture in the repository contained
-         * a switch table before then, so nothing exercised them. Reused rather than widened, exactly as the
-         * plan intended: `OpBuilderTest` asserts both payload opcodes are unsupported while both switch
-         * opcodes are supported, `core/op/SwitchOpTest` asserts the pair (`wasReached` false,
-         * `isPayload` true) on a `Complete` run, and
-         * `NewCoreDifferentialTest.payloadPseudoAddressesAreExcludedFromBOTHEnginesReachedSets` now runs a
-         * switch fixture alongside its `array-data` one -- a harder case, since the oracle does its whole
-         * DISPATCH at the payload address rather than visiting it once.
-         *
-         * `internal` rather than private so the differential's `ResultProjection.payloadAddressesOf` --
-         * the ONE function that decides the projection convention for BOTH engines -- can filter on this
-         * same set rather than hand-writing a second copy that would drift. `OpBuilder.supportedOpcodes`
-         * is `internal` for the same reason.
-         */
-        internal val PAYLOAD_OPCODES = setOf(
-            Opcode.ARRAY_PAYLOAD, Opcode.PACKED_SWITCH_PAYLOAD, Opcode.SPARSE_SWITCH_PAYLOAD,
-        )
+        private val TERMINATING_OPCODES = OpcodeGroups.RETURN + Opcode.THROW
 
         private data class HandlerRange(val startAddress: Int, val endAddress: Int)
 

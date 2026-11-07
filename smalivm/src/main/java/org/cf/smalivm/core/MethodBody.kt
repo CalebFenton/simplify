@@ -193,7 +193,7 @@ class MethodBody private constructor(
                     val targetPosition = positionsByAddress[targetAddress]
                     if (targetPosition != null) controlTargets[sourcePosition] = targetPosition
 
-                    if (instruction.opcode in SWITCH_OPCODES && targetPosition != null) {
+                    if (instruction.opcode in OpcodeGroups.SWITCH && targetPosition != null) {
                         val payload = sourceByAddress[targetAddress] as? SwitchPayload
                         if (payload != null) {
                             switchCases[sourcePosition] = payload.switchElements.map { element ->
@@ -233,7 +233,7 @@ class MethodBody private constructor(
                     record.position.takeIf {
                         record.instruction.opcode == Opcode.NOP &&
                             record.codeAddress and 1 != 0 &&
-                            encoded.getOrNull(index + 1)?.instruction?.opcode in MethodView.PAYLOAD_OPCODES &&
+                            encoded.getOrNull(index + 1)?.instruction?.opcode in OpcodeGroups.PAYLOAD &&
                             record.position !in protectedPositions
                     }
                 }
@@ -287,7 +287,5 @@ class MethodBody private constructor(
                 .mapValues { (_, operands) -> operands.toPersistentList() }
                 .toPersistentMap(),
         )
-
-        private val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
     }
 }

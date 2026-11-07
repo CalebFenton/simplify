@@ -133,8 +133,8 @@ class ExecutionGraph internal constructor(
     override fun wasReached(address: Int): Boolean = nodePile(address).any { it in executedNodes }
 
     /**
-     * Delegated to [methodView], which owns the one definition of "which opcodes are payloads"
-     * ([MethodView.PAYLOAD_OPCODES]). Deliberately a delegation and not a second derivation: two answers
+     * Delegated to [methodView], which reads the one definition of "which opcodes are payloads"
+     * ([OpcodeGroups.PAYLOAD]). Deliberately a delegation and not a second derivation: two answers
      * to this question is how the differential's projection and the consumer's query would drift apart.
      * See [ExecutionGraphView.isPayload] for why the query is on the graph at all when the data is
      * static.

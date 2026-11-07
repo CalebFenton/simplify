@@ -47,14 +47,12 @@ internal object MethodLayoutSolver {
         val recordsByPosition = records.associateBy(EncodedInstruction::position)
         val branchStates = records.mapNotNull { record ->
             when (record.instruction.opcode) {
-                Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32 ->
-                    record.position to BranchState(record.instruction.opcode)
-                in CONDITIONAL_OPCODES -> record.position to BranchState(record.instruction.opcode)
+                in OpcodeGroups.BRANCH -> record.position to BranchState(record.instruction.opcode)
                 else -> null
             }
         }.toMap().toMutableMap()
         val switchOwnersByPayload = LinkedHashMap<LogicalCodePosition, MutableList<LogicalCodePosition>>()
-        records.filter { it.instruction.opcode in SWITCH_OPCODES }.forEach { record ->
+        records.filter { it.instruction.opcode in OpcodeGroups.SWITCH }.forEach { record ->
             val payload = requireNotNull(body.controlTargets[record.position]) {
                 "Switch at ${record.codeAddress} has no payload target"
             }
@@ -64,8 +62,8 @@ internal object MethodLayoutSolver {
             listOf(owners.sortedBy(LogicalCodePosition::ordinal))
         }
 
-        val gotoCount = branchStates.values.count { it.opcode in GOTO_OPCODES }
-        val conditionalCount = branchStates.values.count { it.opcode in CONDITIONAL_OPCODES }
+        val gotoCount = branchStates.values.count { it.opcode in OpcodeGroups.GOTO }
+        val conditionalCount = branchStates.values.count { it.opcode in OpcodeGroups.CONDITIONAL_BRANCH }
         val maximumRounds = 2 + (2 * gotoCount) + conditionalCount + switchOwnersByPayload.values.sumOf(List<*>::size)
         var assignment: AddressAssignment? = null
         var round = 0
@@ -176,7 +174,7 @@ internal object MethodLayoutSolver {
                     address += record.instruction.codeUnits
                 }
             } else {
-                if (record.instruction.opcode in PAYLOAD_OPCODES && address and 1 != 0) address++
+                if (record.instruction.opcode in OpcodeGroups.PAYLOAD && address and 1 != 0) address++
                 addresses[record.position] = address
                 address += instructionWidth(record, branchStates[record.position], stringEncoding)
             }
@@ -219,7 +217,7 @@ internal object MethodLayoutSolver {
                     state.opcode = Opcode.GOTO_32
                     widenings++
                 }
-                state.opcode in CONDITIONAL_OPCODES && !state.expanded &&
+                state.opcode in OpcodeGroups.CONDITIONAL_BRANCH && !state.expanded &&
                     offset !in Short.MIN_VALUE..Short.MAX_VALUE -> {
                     val source = requireNotNull(recordsByPosition[position]).instruction
                     check(source is OneRegisterInstruction || source is TwoRegisterInstruction) {
@@ -286,7 +284,7 @@ internal object MethodLayoutSolver {
                 }
                 continue
             }
-            if (record.instruction.opcode in PAYLOAD_OPCODES && address and 1 != 0) {
+            if (record.instruction.opcode in OpcodeGroups.PAYLOAD && address and 1 != 0) {
                 result += LaidOutInstruction(null, address, ImmutableInstruction10x(Opcode.NOP))
                 address++
             }
@@ -323,7 +321,7 @@ internal object MethodLayoutSolver {
                 ),
             )
         }
-        if (source.opcode in SWITCH_OPCODES) {
+        if (source.opcode in OpcodeGroups.SWITCH) {
             val target = requireNotNull(assignment.payloadAddressesByOwner[record.position])
             return listOf(
                 ImmutableInstruction31t(
@@ -371,7 +369,7 @@ internal object MethodLayoutSolver {
                 Opcode.GOTO -> ImmutableInstruction10t(Opcode.GOTO, offset)
                 Opcode.GOTO_16 -> ImmutableInstruction20t(Opcode.GOTO_16, offset)
                 Opcode.GOTO_32 -> ImmutableInstruction30t(Opcode.GOTO_32, offset)
-                in CONDITIONAL_OPCODES -> when (source) {
+                in OpcodeGroups.CONDITIONAL_BRANCH -> when (source) {
                     is TwoRegisterInstruction -> ImmutableInstruction22t(
                         state.opcode,
                         source.registerA,
@@ -398,10 +396,7 @@ internal object MethodLayoutSolver {
             else -> error("Unsupported debug item type: ${item.javaClass.name}")
         }
 
-    private val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
-    private val SWITCH_PAYLOAD_OPCODES = setOf(Opcode.PACKED_SWITCH_PAYLOAD, Opcode.SPARSE_SWITCH_PAYLOAD)
-    private val PAYLOAD_OPCODES = SWITCH_PAYLOAD_OPCODES + Opcode.ARRAY_PAYLOAD
-    private val GOTO_OPCODES = setOf(Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32)
+    private val SWITCH_PAYLOAD_OPCODES = OpcodeGroups.PAYLOAD - Opcode.ARRAY_PAYLOAD
     private val INVERSE_CONDITIONALS = mapOf(
         Opcode.IF_EQ to Opcode.IF_NE,
         Opcode.IF_NE to Opcode.IF_EQ,
@@ -416,7 +411,6 @@ internal object MethodLayoutSolver {
         Opcode.IF_GTZ to Opcode.IF_LEZ,
         Opcode.IF_LEZ to Opcode.IF_GTZ,
     )
-    private val CONDITIONAL_OPCODES = INVERSE_CONDITIONALS.keys
     private const val EXPANDED_CONDITIONAL_CODE_UNITS = 5
     private const val MAX_TRY_RANGE_CODE_UNITS = 65_535
 }

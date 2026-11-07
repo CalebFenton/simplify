@@ -676,7 +676,7 @@ class MethodEditTransaction internal constructor(
             }
             when (template) {
                 is InstructionTemplate.Encoded -> {
-                    if (instruction is OffsetInstruction || instruction.opcode in MethodView.PAYLOAD_OPCODES) {
+                    if (instruction is OffsetInstruction || instruction.opcode in OpcodeGroups.PAYLOAD) {
                         return invalidTemplate("Encoded templates cannot contain offsets or payload data")
                     }
                     instructions += DraftInstructionTemplate(
@@ -686,7 +686,7 @@ class MethodEditTransaction internal constructor(
                     )
                 }
                 is InstructionTemplate.Branch -> {
-                    if (instruction.opcode !in BRANCH_OPCODES) {
+                    if (instruction.opcode !in OpcodeGroups.BRANCH) {
                         return invalidTemplate("Branch templates require a conditional or goto instruction")
                     }
                     invalidTarget(template.target, knownAnchors)?.let { return TemplateResolution.Rejected(it) }
@@ -710,7 +710,7 @@ class MethodEditTransaction internal constructor(
                     )
                 }
                 is InstructionTemplate.Switch -> {
-                    if (instruction.opcode !in SWITCH_OPCODES) {
+                    if (instruction.opcode !in OpcodeGroups.SWITCH) {
                         return invalidTemplate("Switch templates require a packed-switch or sparse-switch instruction")
                     }
                     invalidTarget(template.payloadTarget, knownAnchors)?.let {
@@ -728,7 +728,7 @@ class MethodEditTransaction internal constructor(
                     )
                 }
                 is InstructionTemplate.Payload -> {
-                    if (instruction.opcode !in MethodView.PAYLOAD_OPCODES) {
+                    if (instruction.opcode !in OpcodeGroups.PAYLOAD) {
                         return invalidTemplate("Payload templates require array or switch payload data")
                     }
                     instructions += DraftInstructionTemplate(instruction, referenceOperands = referenceOperands)
@@ -860,23 +860,5 @@ class MethodEditTransaction internal constructor(
     private companion object {
         const val MAX_NON_JUMBO_STRING_COUNT = 65_536
         const val MAX_REGISTER_COUNT = 65_535
-        val SWITCH_OPCODES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
-        val BRANCH_OPCODES = setOf(
-            Opcode.GOTO,
-            Opcode.GOTO_16,
-            Opcode.GOTO_32,
-            Opcode.IF_EQ,
-            Opcode.IF_NE,
-            Opcode.IF_LT,
-            Opcode.IF_GE,
-            Opcode.IF_GT,
-            Opcode.IF_LE,
-            Opcode.IF_EQZ,
-            Opcode.IF_NEZ,
-            Opcode.IF_LTZ,
-            Opcode.IF_GEZ,
-            Opcode.IF_GTZ,
-            Opcode.IF_LEZ,
-        )
     }
 }
