@@ -1259,14 +1259,14 @@ class BinaryMathOpTest {
 
         @Test
         fun canShlLong() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J")
+            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
             expected.setRegisters(0, 0x10000L shl 5, "J")
             CoreTester.test(CLASS_NAME, "shlLong()V", initial, expected)
         }
 
         @Test
         fun canShlLong2Addr() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J")
+            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
             expected.setRegisters(0, 0x10000L shl 5, "J")
             CoreTester.test(CLASS_NAME, "shlLong2Addr()V", initial, expected)
         }
@@ -1279,21 +1279,21 @@ class BinaryMathOpTest {
             // this is the test that would catch a regression that added one anyway (e.g.
             // copy-pasting the Int path's `and 0x1f`). Oracle: Dalvik's shl-long spec (six-bit shift
             // distance), not engine output.
-            initial.setRegisters(0, 1L, "J", 2, 33L, "J")
+            initial.setRegisters(0, 1L, "J", 2, 33, "I")
             expected.setRegisters(0, 1L shl 33, "J")
             CoreTester.test(CLASS_NAME, "shlLong()V", initial, expected)
         }
 
         @Test
         fun canShrLong() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J")
+            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
             expected.setRegisters(0, 0x10000L shr 5, "J")
             CoreTester.test(CLASS_NAME, "shrLong()V", initial, expected)
         }
 
         @Test
         fun canShrLong2Addr() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J")
+            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
             expected.setRegisters(0, 0x10000L shr 5, "J")
             CoreTester.test(CLASS_NAME, "shrLong2Addr()V", initial, expected)
         }
@@ -1314,14 +1314,14 @@ class BinaryMathOpTest {
 
         @Test
         fun canUshrLong() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J")
+            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
             expected.setRegisters(0, 0x10000L ushr 5, "J")
             CoreTester.test(CLASS_NAME, "ushrLong()V", initial, expected)
         }
 
         @Test
         fun canUshrLong2Addr() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5L, "J")
+            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
             expected.setRegisters(0, 0x10000L ushr 5, "J")
             CoreTester.test(CLASS_NAME, "ushrLong2Addr()V", initial, expected)
         }

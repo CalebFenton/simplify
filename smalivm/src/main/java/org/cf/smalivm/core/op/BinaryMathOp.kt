@@ -73,42 +73,18 @@ internal class BinaryMathOp(
     }
 
     /**
-     * The computed result, or null when it is not provable -- an unknown or uncoercible operand, or a
-     * divisor this op cannot read at its own width ([knownDivisor]) -- which the caller turns into
-     * `Unknown(domain)` rather than a guess.
+     * The computed result, or null when an operand is unknown or not readable at the width this op reads it
+     * (see [Coerce]); the caller turns null into `Unknown(domain)` rather than a guess.
      *
      * A division by a known zero returns null too, because there is no result: the path throws
      * instead. [armsFor] is what distinguishes "no result because unknown" from "no result
      * because it throws", and both route the zero question through the ONE [knownDivisor] below so
-     * they cannot disagree about it -- see that function's KDoc for the defect that made this
-     * necessary.
+     * they cannot disagree about it.
      */
     private fun computed(lhs: Value, rhs: Value): Value? {
         if (lhs !is Value.Known || rhs !is Value.Known) return null
-        // Hoisted out of the domain branches on purpose: it is the same question [armsFor] asks,
-        // so it is asked through the same function rather than re-derived per branch.
-        //
-        // 🔴 KNOWN WIDTH CONFLATION, recorded by Plan 8 Task 3 fix round 2 rather than left to be
-        // discovered. The `"J"` branch below reads BOTH operands through `Coerce.toLong`, i.e. at 64 bits --
-        // but for SHL/SHR/USHR the second operand is Dalvik's 32-bit shift DISTANCE, and [longResult]'s own
-        // comment says so ("Long shifts take an int distance"). Harmless today only because `Coerce.toLong`
-        // sign-extends a narrow raw; it becomes a live defect the moment anything makes that widen refuse,
-        // which is precisely what the (declined) extension of the bit read to the integral widths would do.
-        //
-        // AND THE COVERAGE IS INVERTED, which is the part worth knowing: every core-only long-shift test in
-        // `core/op/BinaryMathOpTest` seeds the distance as a `Long` under a `"J"` tag (`canShlLong`,
-        // `canShlLong2Addr`, `canShlLongWithShiftDistanceAboveThirtyOne`, `canShrLong`, `canShrLong2Addr`,
-        // `canUshrLong`, `canUshrLong2Addr` -- all seven), so the op-level suite ENCODES the conflation
-        // rather than catching it. The one witness that the distance is narrow in practice is the
-        // differential fixture `binary-shl-long`, which seeds `33` under `"I"`. Consequence for whoever
-        // fixes this: a CORRECT change here looks like a regression in exactly one place, and that place is
-        // `newCoreAgreesWithOracleOnEverySupportedFixture`, not any test named after the opcode.
+        // The same zero question [armsFor] asks, through the same function.
         if (canDivideByZero() && knownDivisor(rhs).let { it == null || it == 0L }) return null
-        // The four integral reads below answer null for a Float/Double raw as well as for a non-numeric
-        // one -- a register read at a width whose bits `Coerce` cannot see (see `Coerce.toInt`). Both
-        // reasons land on the same `return null`, i.e. `Unknown(domain)`, which is right for both: an
-        // unprovable value is not a value (spec §2.2). Unlike [knownDivisor] this is not a path question
-        // -- these operators have one successor either way -- so refusing costs a fold, never a path.
         val raw: Any = when (domain.descriptor) {
             "I" -> {
                 val a = Coerce.toInt(lhs.raw) ?: return null
@@ -117,7 +93,11 @@ internal class BinaryMathOp(
             }
             "J" -> {
                 val a = Coerce.toLong(lhs.raw) ?: return null
-                val b = Coerce.toLong(rhs.raw) ?: return null
+                // A long shift's distance is one 32-bit register, not a pair.
+                val b = when (operator) {
+                    Operator.SHL, Operator.SHR, Operator.USHR -> Coerce.toInt(rhs.raw)?.toLong()
+                    else -> Coerce.toLong(rhs.raw)
+                } ?: return null
                 longResult(a, b)
             }
             else -> return floatingResult(lhs, rhs)
