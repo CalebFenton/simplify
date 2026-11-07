@@ -35,7 +35,6 @@ class ApplicationParityTest {
         assertTrue(report.passLimitReachedMethods.isEmpty())
         assertEquals(8, report.targetMethodCount)
         assertEquals(8, report.optimizedMethodCount)
-        assertEquals(4, report.strategyOptimizationCounts.size)
         val predicate = after.classIndex.methodView(PREFIX + "constantPredicate()I")!!
         assertFalse(predicate.instructionAddresses.any { predicate.opcodeAt(it) == Opcode.IF_EQ })
         val recovered = after.classIndex.methodView(PREFIX + "recoveredString()Ljava/lang/String;")!!

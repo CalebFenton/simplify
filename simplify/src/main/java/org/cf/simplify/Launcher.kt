@@ -41,7 +41,7 @@ class Launcher(
         failedMethods: List<String>,
         skippedMethods: List<String>,
         passLimitReachedMethods: List<String>,
-        counts: Map<String, Map<String, Int>>,
+        counts: Map<String, Int>,
     ) {
         /** Methods that threw or whose strategies produced a rejected edit; each one is a defect. */
         val failedMethods: List<String> = Collections.unmodifiableList(failedMethods.toList())
@@ -50,8 +50,7 @@ class Launcher(
         val failedMethodCount: Int get() = failedMethods.size
         val skippedMethodCount: Int get() = skippedMethods.size
         val passLimitReachedMethods: List<String> = Collections.unmodifiableList(passLimitReachedMethods.toList())
-        val strategyOptimizationCounts = immutableCounts(counts)
-        val optimizationCounts: Map<String, Int> get() = flattenCounts(strategyOptimizationCounts)
+        val optimizationCounts: Map<String, Int> = Collections.unmodifiableMap(LinkedHashMap(counts))
     }
 
     fun run(options: SimplifyOptions): Result {
@@ -100,10 +99,7 @@ class Launcher(
                 reporter.methodFailure(signature, failure)
                 continue
             }
-            result.strategyOptimizationCounts.forEach { (strategy, categories) ->
-                val target = counts.getOrPut(strategy) { linkedMapOf() }
-                categories.forEach { (key, value) -> target[key] = (target[key] ?: 0) + value }
-            }
+            counts.addCounts(result.optimizationCounts)
             if (result.passLimitReached) passLimits += signature
             result.rejections.forEach { reporter.rejectedEdit(signature, it) }
             val complete = result.completionStatus is CompletionStatus.Complete
