@@ -31,6 +31,7 @@ class ApplicationParityTest {
         val after = OptimizerTester.services(output.toFile())
         witnesses.forEach { assertEquals(expected[it], result(after, it), it) }
         assertEquals(0, report.failedMethodCount)
+        assertEquals(0, report.skippedMethodCount)
         assertTrue(report.passLimitReachedMethods.isEmpty())
         assertEquals(8, report.targetMethodCount)
         assertEquals(8, report.optimizedMethodCount)

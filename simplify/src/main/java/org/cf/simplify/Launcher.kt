@@ -35,15 +35,20 @@ class Launcher(
     class Result internal constructor(
         val targetMethodCount: Int,
         val optimizedMethodCount: Int,
-        val failedMethodCount: Int,
         val initialInstructionCount: Int,
         val finalInstructionCount: Int,
         val runTimeMillis: Long,
         failedMethods: List<String>,
+        skippedMethods: List<String>,
         passLimitReachedMethods: List<String>,
         counts: Map<String, Map<String, Int>>,
     ) {
+        /** Methods that threw or whose strategies produced a rejected edit; each one is a defect. */
         val failedMethods: List<String> = Collections.unmodifiableList(failedMethods.toList())
+        /** Methods left unoptimized because their analysis was partial. */
+        val skippedMethods: List<String> = Collections.unmodifiableList(skippedMethods.toList())
+        val failedMethodCount: Int get() = failedMethods.size
+        val skippedMethodCount: Int get() = skippedMethods.size
         val passLimitReachedMethods: List<String> = Collections.unmodifiableList(passLimitReachedMethods.toList())
         val strategyOptimizationCounts = immutableCounts(counts)
         val optimizationCounts: Map<String, Int> get() = flattenCounts(strategyOptimizationCounts)
@@ -52,7 +57,7 @@ class Launcher(
     fun run(options: SimplifyOptions): Result {
         if (options.help) {
             usage(SimplifyOptionsParser.options, output)
-            return Result(0, 0, 0, 0, 0, 0, emptyList(), emptyList(), emptyMap())
+            return Result(0, 0, 0, 0, 0, emptyList(), emptyList(), emptyList(), emptyMap())
         }
         val root = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
         val previousLevel = root.level
@@ -82,6 +87,7 @@ class Launcher(
         val initialCount = instructionCount(classIndex, targets)
         var optimized = 0
         val failures = mutableListOf<String>()
+        val skips = mutableListOf<String>()
         val passLimits = mutableListOf<String>()
         val counts = emptyCounts(strategies)
         for ((index, signature) in targets.withIndex()) {
@@ -102,7 +108,11 @@ class Launcher(
             result.rejections.forEach { reporter.rejectedEdit(signature, it) }
             val complete = result.completionStatus is CompletionStatus.Complete
             if (!complete) reporter.verbose(1, "Skipping optimization after partial execution: $signature (${result.completionStatus})")
-            if (complete && result.rejections.isEmpty()) optimized++ else failures += signature
+            when {
+                result.rejections.isNotEmpty() -> failures += signature
+                !complete -> skips += signature
+                else -> optimized++
+            }
             reporter.verbose(2, formatCounts("Optimizations for $signature", result.optimizationCounts))
         }
         val finalCount = instructionCount(classIndex, targets)
@@ -111,8 +121,8 @@ class Launcher(
         if (options.isZip) writeArchive(options.inFile.toPath(), options.outFile.toPath(), writer.writeToBytes(services.currentSnapshot))
         else writer.write(services.currentSnapshot, options.outFile)
         val elapsed = System.currentTimeMillis() - start
-        val result = Result(targets.size, optimized, failures.size, initialCount, finalCount, elapsed, failures, passLimits, counts)
-        reporter.normal("Simplification complete:\n\ttotal methods = ${targets.size}\n\toptimized methods = $optimized\n\tfailed methods = ${failures.size}\n\tpass-limit methods = ${passLimits.size}\n\tinstructions = $initialCount -> $finalCount\n\trun time = $elapsed ms")
+        val result = Result(targets.size, optimized, initialCount, finalCount, elapsed, failures, skips, passLimits, counts)
+        reporter.normal("Simplification complete:\n\ttotal methods = ${targets.size}\n\toptimized methods = $optimized\n\tfailed methods = ${failures.size}\n\tskipped methods = ${skips.size}\n\tpass-limit methods = ${passLimits.size}\n\tinstructions = $initialCount -> $finalCount\n\trun time = $elapsed ms")
         reporter.normal(formatCounts("Total optimizations", result.optimizationCounts))
         return result
     }

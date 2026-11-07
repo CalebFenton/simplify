@@ -88,15 +88,16 @@ class LauncherTest {
         assertEquals(0, returned(output.toFile()))
     }
 
-    @Test fun incompleteAnalysisIsReportedWithoutApplyingStrategyAndFailsTheCommandLine() {
+    @Test fun incompleteAnalysisSkipsTheMethodWithoutFailingTheCommandLine() {
         var attempts = 0
         val launcher = Launcher(listOf(OptimizationStrategy { attempts++ }))
         val args = arrayOf(fixture, "--include-types", "loop", "--max-address-visits", "1", "--output", temporaryDirectory.resolve("partial.dex").toString(), "--quiet")
         val result = launcher.run(args)
         assertEquals(0, attempts)
-        assertEquals(listOf(OptimizerTest.LOOP), result.failedMethods)
+        assertEquals(listOf(OptimizerTest.LOOP), result.skippedMethods)
+        assertEquals(emptyList<String>(), result.failedMethods)
         assertEquals(0, result.optimizedMethodCount)
-        assertEquals(1, Main.run(args, launcher, PrintStream(ByteArrayOutputStream())))
+        assertEquals(0, Main.run(args, launcher, PrintStream(ByteArrayOutputStream())))
     }
 
     @Test fun rejectedStrategyEditFailsTheMethodAndTheCommandLineUnlessErrorsAreIgnored() {
