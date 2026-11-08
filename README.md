@@ -108,8 +108,10 @@ a method fails to execute, or an optimizer edit is rejected; `--ignore-errors` s
 Skipped methods do not change the exit status.
 
 If a run fails, limit it to a few classes or methods with `-it`. If a method exceeds a visit limit, raise
-`--max-address-visits`, `--max-call-depth`, or `--max-method-visits`. To report a problem, run again with `-v`
-or `-vv` and open an issue with the log, the full command, and the APK or DEX or its SHA-256 hash.
+`--max-address-visits`, `--max-call-depth`, or `--max-method-visits`. A method whose analysis would fill the
+JVM heap is skipped with `MEMORY_LIMIT`; give the JVM more heap with `-Xmx` to analyze it. To report a problem,
+run again with `-v` or `-vv` and open an issue with the log, the full command, and the APK or DEX or its SHA-256
+hash.
 
 ## Demo and Debugger
 
