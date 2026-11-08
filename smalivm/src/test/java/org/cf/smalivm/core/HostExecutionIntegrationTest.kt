@@ -5,14 +5,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Task 43 composition evidence that is not established by one focused boundary test.
- *
- * Backend ordering and terminal no-retry behavior remain in [SynchronousInvocationTest]. Debugger and
- * class-initialization shape remain in [BackendCorpusMigrationTest] and [ClassForNameIntegrationTest].
- * Persistent sharing remains in [PersistentStateTest]. Clone/compare, constructor, throw/failure, field,
- * framework-static, effect, and unbounded-path rules remain in their focused suites. This class adds only the
- * missing public composition: opaque reachable-state collapse followed by authorized reflection on disconnected
- * state in the same guest execution.
+ * Composition across host boundaries in one guest execution: opaque reachable-state collapse followed by
+ * authorized reflection on disconnected state. Each boundary rule on its own belongs to its focused suite.
  */
 class HostExecutionIntegrationTest {
     @Test

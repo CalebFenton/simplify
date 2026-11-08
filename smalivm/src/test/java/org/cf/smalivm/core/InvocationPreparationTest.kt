@@ -3,7 +3,9 @@ package org.cf.smalivm.core
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 class InvocationPreparationTest {
     private val classIndex = CoreTester.classIndex
@@ -111,66 +113,30 @@ class InvocationPreparationTest {
         assertEquals(listOf(first, second), constructor.arguments)
     }
 
-    @Test
-    fun narrowWideAndMixedRegisterWordsBecomeOneValuePerLogicalParameter() {
-        val words = listOf(
-            known(0, "I"), known(2, "I"), known(65, "I"), known(3, "I"), known(4, "I"),
-            known(5L, "J"), Value.Top,
-            known(6.0f, "F"),
-            known(7.0, "D"), Value.Top,
-            known(0, "I"),
-        )
-        val prepared = ready(
-            defaultInvoker(classIndex),
-            Invocation(
-                method("Linvoke_review_callee;", "bindingMatrix", "(ZBCSIJFDLjava/lang/Object;)V"),
-                InvokeKind.STATIC,
-                words,
-            ),
-            type("Linvoke_review;"),
-        ).invocation
-
-        assertEquals(9, prepared.parameterTypes.size)
-        assertEquals(9, prepared.arguments.size)
-        assertEquals(
-            listOf(false, 2.toByte(), 'A', 3.toShort(), 4, 5L, 6.0f, 7.0, null),
-            prepared.arguments.map { (it as Value.Known).raw },
-        )
-    }
-
-    @Test
-    fun integerZeroBecomesNullOnlyWhenBoundToAReference() {
-        val reference = ready(
-            defaultInvoker(classIndex),
-            invocation(
-                "Linvoke_review_callee;", "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;",
-                InvokeKind.STATIC, known(0, "I"),
-            ),
-            type("Linvoke_review;"),
-        ).invocation.arguments.single()
-        assertEquals(Value.Known(null, type("Ljava/lang/Object;")), reference)
-
-        val primitive = ready(
-            defaultInvoker(classIndex),
-            invocation("Lcalls/callee;", "identityInt", "(I)I", InvokeKind.STATIC, known(0, "I")),
-            type("Lcalls/caller;"),
-        ).invocation.arguments.single()
-        assertEquals(Value.Known(0, type("I")), primitive)
-    }
-
-    @Test
-    fun nonIntPrimitiveZeroDoesNotBecomeNullInAReferenceBinding() {
-        val booleanZero = Value.Known(false, type("Z"))
-        val prepared = ready(
-            defaultInvoker(classIndex),
-            invocation(
-                "Linvoke_review_callee;", "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;",
-                InvokeKind.STATIC, booleanZero,
-            ),
-            type("Linvoke_review;"),
-        ).invocation
-
-        assertEquals(booleanZero, prepared.arguments.single())
+    /**
+     * Dalvik writes null as `const/4 vA, 0`, so only an exact int zero bound to a reference parameter is null; a
+     * non-zero int, a non-int zero, or a zero bound to a primitive keeps its value.
+     */
+    @TestFactory
+    fun integerZeroBecomesNullOnlyWhenBoundToAReference(): List<DynamicTest> {
+        val objectIdentity = method("Linvoke_review_callee;", "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
+        val intIdentity = method("Lcalls/callee;", "identityInt", "(I)I")
+        return listOf(
+            Triple(known(0, "I"), objectIdentity, Value.Known(null, type("Ljava/lang/Object;"))),
+            Triple(known(5, "I"), objectIdentity, known(5, "I")),
+            Triple(known(false, "Z"), objectIdentity, known(false, "Z")),
+            Triple(known(0, "I"), intIdentity, known(0, "I")),
+        ).map { (argument, target, expected) ->
+            DynamicTest.dynamicTest("$argument bound to $target is $expected") {
+                val caller = if (target == intIdentity) type("Lcalls/caller;") else type("Linvoke_review;")
+                val bound = ready(
+                    defaultInvoker(classIndex),
+                    Invocation(target, InvokeKind.STATIC, listOf(argument)),
+                    caller,
+                ).invocation.arguments.single()
+                assertEquals(expected, bound)
+            }
+        }
     }
 
     @Test

@@ -7,9 +7,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Heap reconciliation (spec §6.3, §6.5). `terminatingConsensus` answering `Known(HeapRef)` proves the
- * returning paths agree about WHICH object a register denotes; these tests are about the separate and
- * strictly harder question of whether they agree about its CONTENTS.
+ * Heap reconciliation. `terminatingConsensus` answering `Known(HeapRef)` proves the returning paths agree
+ * about which object a register denotes; these tests ask whether they agree about its contents.
  */
 class HeapConsensusTest {
 
@@ -35,8 +34,7 @@ class HeapConsensusTest {
         // different elements. Reading either path's heap would be a confident wrong answer; the join
         // must answer Unknown for the disagreeing index and keep the agreeing one.
         //
-        // Expected values from spec §4.1's join table: Known(7,I) ⊔ Known(9,I) -> types join, values
-        // disagree -> Unknown(I); Known(0,I) ⊔ Known(0,I) -> agree -> Known(0,I).
+        // Value join: Known(7,I) ⊔ Known(9,I) is Unknown(I); Known(0,I) ⊔ Known(0,I) is Known(0,I).
         val graph = CoreTester.execute(CLASS_NAME, "forkThenWriteDifferentElements(I)V")
         val trusted = graph.trusted()
         assertNotNull(trusted, "a throw fork whose arms both return still completes")
