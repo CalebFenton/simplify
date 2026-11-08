@@ -145,7 +145,7 @@ internal class ReflectBackend(
 
     /** Applies the probe's policy rule to the method a `Method.invoke` receiver reflects. */
     private fun reflectedTargetDenial(target: Method): String? {
-        val descriptor = target.toReflectedMethodMetadataOrNull()?.descriptor
+        val descriptor = target.toReflectedMethodMetadataOrNull()?.method?.toString()
             ?: return "reflection cannot describe $target"
         val reflected = ReflectionPolicy.parseMethod(descriptor)
         val initializationChain = if (Modifier.isStatic(target.modifiers)) {

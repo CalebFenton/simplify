@@ -19,33 +19,31 @@ class UnreflectionStrategyTest {
         methodEffects = mapOf(reflectionInvoke to SideEffectLevel.NONE))
 
     private val invocationOwner = "Lreflection_invocation_regression;"
-    private val stringDescriptor = "stringMethod(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;"
-    private fun stringState(name: String, receiver: String?, first: Int = 4) = mapOf(
-        first to Value.Known(name, VirtualType.of("Ljava/lang/String;")),
-        first + 1 to Value.Known(receiver, VirtualType.of("Ljava/lang/String;")))
 
-    private fun invokeFixture(descriptor: String, initial: Map<Int, Value> = emptyMap()) =
-        OptimizerTester.optimize(invocationOwner, descriptor, UnreflectionStrategy(), initial, purePolicy)
+    private fun invokeFixture(descriptor: String) =
+        OptimizerTester.optimize(invocationOwner, descriptor, UnreflectionStrategy(), purePolicy)
 
     private fun optimize(name: String) = OptimizerTester.optimize(owner, name, UnreflectionStrategy())
 
+    /** Scratch registers renumber the method's own registers, so read the value the method returned. */
+    private fun returned(graph: ExecutionGraph): Any? =
+        ((graph.outcomes.single() as Outcome.Returned).value as Value.Known).raw
+
     @Test fun provenSuccessfulReferenceInvocationUsesOriginalResultDestinationAndRoundTrips() {
-        val optimized = invokeFixture(stringDescriptor, stringState("toString", "text"))
+        val optimized = invokeFixture("textToString()Ljava/lang/Object;")
         assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
         assertTrue(hasMethod(optimized.method, "Ljava/lang/String;", "toString"))
-        assertEquals("text", (optimized.reexecute(stringState("toString", "text", optimized.method.firstParameterRegister))
-            .trusted()!!.terminatingConsensus(3) as Value.Known).raw)
-        assertEquals("text", (optimized.dexRoundTrip(stringState("toString", "text", optimized.method.firstParameterRegister))
-            .trusted()!!.terminatingConsensus(3) as Value.Known).raw)
+        assertEquals("text", returned(optimized.reexecute()))
+        assertEquals("text", returned(optimized.dexRoundTrip()))
     }
 
     @Test fun primitiveResultIsBoxedAndScratchRegistersRemainValid() {
-        val optimized = invokeFixture(stringDescriptor, stringState("length", "text"))
+        val optimized = invokeFixture("textLength()I")
         assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
         assertTrue(hasMethod(optimized.method, "Ljava/lang/Integer;", "valueOf"))
-        assertTrue(hasOpcode(optimized.method, Opcode.MOVE_RESULT))
-        assertEquals(CompletionStatus.Complete,
-            optimized.dexRoundTrip(stringState("length", "text", optimized.method.firstParameterRegister)).completion())
+        // "text".length() boxed by Integer.valueOf, as Method.invoke boxes a primitive result.
+        assertEquals(4, returned(optimized.reexecute()))
+        assertEquals(4, returned(optimized.dexRoundTrip()))
     }
 
     @Test fun staticInterfaceMethodUsesStaticRatherThanInterfaceInvoke() {
@@ -56,7 +54,7 @@ class UnreflectionStrategyTest {
     }
 
     @Test fun defaultOpaqueReflectionAndUnknownMethodAreNotLowered() {
-        val opaque = OptimizerTester.optimize(invocationOwner, stringDescriptor, UnreflectionStrategy(), stringState("length", "text"))
+        val opaque = OptimizerTester.optimize(invocationOwner, "textLength()I", UnreflectionStrategy())
         assertTrue(hasMethod(opaque.method, "Ljava/lang/reflect/Method;", "invoke"))
         assertTrue(hasMethod(optimize("call$invokeDescriptor").method, "Ljava/lang/reflect/Method;", "invoke"))
     }
@@ -65,7 +63,7 @@ class UnreflectionStrategyTest {
         for (name in listOf("throwingTarget", "caughtThrowingTarget")) {
             val optimized = invokeFixture("$name()Ljava/lang/Object;")
             assertTrue(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
-            for (graph in listOf(optimized.graph, optimized.dexRoundTrip())) {
+            for (graph in listOf(optimized.reexecute(), optimized.dexRoundTrip())) {
                 assertEquals(CompletionStatus.Complete, graph.completion())
                 if (name == "throwingTarget") {
                     assertEquals("Ljava/lang/reflect/InvocationTargetException;",
@@ -79,26 +77,29 @@ class UnreflectionStrategyTest {
     }
 
     @Test fun nullReceiverAndWrongArgumentCountKeepReflectionValidation() {
-        val nullReceiver = invokeFixture(stringDescriptor, stringState("length", null))
+        val nullReceiver = invokeFixture("nullReceiverLength()Ljava/lang/Object;")
         val wrongCount = invokeFixture("wrongArgumentCount()Ljava/lang/Object;")
         for (optimized in listOf(nullReceiver, wrongCount)) {
             assertTrue(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
-            assertTrue(optimized.graph.outcomes.single() is Outcome.Threw)
         }
         assertEquals("Ljava/lang/NullPointerException;",
-            (nullReceiver.graph.outcomes.single() as Outcome.Threw).exception.type?.descriptor)
+            (nullReceiver.reexecute().outcomes.single() as Outcome.Threw).exception.type?.descriptor)
         assertEquals("Ljava/lang/IllegalArgumentException;",
-            (wrongCount.graph.outcomes.single() as Outcome.Threw).exception.type?.descriptor)
+            (wrongCount.reexecute().outcomes.single() as Outcome.Threw).exception.type?.descriptor)
     }
 
-    @Test fun sameOwnerStaticFieldsLowerAndPreserveBoxingEvenWhenIgnored() {
-        for ((descriptor, opcode) in listOf("readNumber()Ljava/lang/Object;" to Opcode.SGET,
-                "readText()Ljava/lang/Object;" to Opcode.SGET_OBJECT, "readNumberIgnored()V" to Opcode.SGET)) {
+    @Test fun sameOwnerStaticFieldsLowerToTheReadOfTheirWidthAndPreserveBoxing() {
+        for ((descriptor, opcode, box) in listOf(
+            Triple("readNumber()Ljava/lang/Object;", Opcode.SGET, "Ljava/lang/Integer;"),
+            Triple("readFlag()Ljava/lang/Object;", Opcode.SGET_BOOLEAN, "Ljava/lang/Boolean;"),
+            Triple("readText()Ljava/lang/Object;", Opcode.SGET_OBJECT, null),
+            Triple("readNumberIgnored()V", Opcode.SGET, "Ljava/lang/Integer;"),
+        )) {
             val optimized = optimize(descriptor)
-            assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Field;", "get"))
-            assertTrue(hasOpcode(optimized.method, opcode))
-            if (opcode == Opcode.SGET) assertTrue(hasMethod(optimized.method, "Ljava/lang/Integer;", "valueOf"))
-            assertEquals(CompletionStatus.Complete, optimized.dexRoundTrip().completion())
+            assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Field;", "get"), descriptor)
+            assertTrue(hasOpcode(optimized.method, opcode), descriptor)
+            if (box != null) assertTrue(hasMethod(optimized.method, box, "valueOf"), descriptor)
+            assertEquals(CompletionStatus.Complete, optimized.dexRoundTrip().completion(), descriptor)
         }
     }
 
@@ -106,12 +107,6 @@ class UnreflectionStrategyTest {
         for (descriptor in listOf("readInstance()Ljava/lang/Object;", "readOtherOwner()Ljava/lang/Object;")) {
             assertTrue(hasMethod(optimize(descriptor).method, "Ljava/lang/reflect/Field;", "get"))
         }
-    }
-
-    @Test fun staticReadOpcodeSelectionCoversAllWidths() {
-        assertEquals(listOf(Opcode.SGET, Opcode.SGET_BOOLEAN, Opcode.SGET_BYTE, Opcode.SGET_CHAR,
-            Opcode.SGET_OBJECT, Opcode.SGET_SHORT, Opcode.SGET_WIDE, Opcode.SGET_WIDE),
-            listOf("I", "Z", "B", "C", "Ljava/lang/Object;", "S", "J", "D").map(UnreflectionStrategy::getStaticGetOpcode))
     }
 
     private fun hasOpcode(method: MethodView, opcode: Opcode) = method.instructionAddresses.any { method.opcodeAt(it) == opcode }

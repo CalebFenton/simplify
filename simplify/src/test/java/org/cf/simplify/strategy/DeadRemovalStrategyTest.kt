@@ -36,6 +36,16 @@ class DeadRemovalStrategyTest {
         assertEquals(2, count(view(services, branch), Opcode.CONST_4))
     }
 
+    @Test fun aConversionFromANarrowSourceDoesNotKeepTheRegisterAboveItLive() {
+        // int-to-long reads only v2; v3 is never read, so its assignment is dead.
+        val services = services()
+        val method = OWNER + "narrowSourceOfWideConversion()J"
+        optimize(services, method)
+        val edited = view(services, method)
+        assertEquals(1, count(edited, Opcode.CONST_4))
+        assertEquals(1L, returned(services, method, 0).raw)
+    }
+
     @Test fun unusedMoveResultsThenPureCallsDisappearOnSuccessivePasses() {
         val services = services()
         for ((name, opcode) in listOf("unusedMoveResult()I" to Opcode.INVOKE_STATIC,

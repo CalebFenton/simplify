@@ -1,14 +1,21 @@
 package org.cf.simplify.strategy
 
-import org.cf.smalivm.core.ExecutionGraphView
-import org.cf.smalivm.core.MethodEditor
+import org.cf.smalivm.core.MethodControlFlow
+import org.cf.smalivm.core.MethodEditTransaction
+import org.cf.smalivm.core.MethodView
+import org.cf.smalivm.core.TrustedGraphView
 import java.util.Collections
 
-class StrategyInput(val structureGraph: ExecutionGraphView, methodEditor: MethodEditor) {
-    val graph = requireNotNull(structureGraph.trusted()) {
-        "Strategy input requires complete analysis: ${structureGraph.completion()}"
-    }
-    val transaction = methodEditor.beginEdit(graph)
+/**
+ * One strategy's view of one completed analysis. [controlFlow] is null when the method's bytecode is malformed; a
+ * strategy then makes no edit that depends on control flow.
+ */
+class StrategyInput internal constructor(
+    val graph: TrustedGraphView,
+    val controlFlow: MethodControlFlow?,
+    val transaction: MethodEditTransaction,
+) {
+    val method: MethodView get() = graph.methodView
     private val counts = linkedMapOf<String, Int>()
     val optimizationCounts: Map<String, Int> get() = Collections.unmodifiableMap(counts)
 
