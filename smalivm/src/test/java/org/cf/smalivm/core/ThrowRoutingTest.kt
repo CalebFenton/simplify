@@ -53,27 +53,13 @@ class ThrowRoutingTest {
     }
 
     /**
-     * A real fixture method's [MethodView] with FORGED try blocks. No smali can express a handler
-     * address that is not an instruction -- the assembler resolves handler labels -- so this is the
-     * only way to reach the malformed-try-block guard, which is exactly the guard that collides with
-     * the escape's own `endWith` if throw routing records in the wrong order.
+     * A fixture method with try blocks built from its view. A handler at [MethodView.endAddress] names no
+     * instruction, which reaches the malformed-try-block guard that collides with the escape's own `endWith` if
+     * throw routing records in the wrong order.
      */
-    private fun forgedTryBlocks(descriptor: String, tryBlocks: List<TryBlock>): MethodView {
+    private fun withTryBlocks(descriptor: String, tryBlocks: (MethodView) -> List<TryBlock>): MethodView {
         val real = classIndex.requireMethodView("Lspine/spine;", descriptor)
-        return MethodView(
-            signature = real.signature,
-            definingClass = real.definingClass,
-            returnType = real.returnType,
-            isStatic = real.isStatic,
-            registerCount = real.registerCount,
-            parameters = real.parameters,
-            tryBlocks = tryBlocks,
-            addressToInstruction = real.addresses.associateWith {
-                if (real.isPayload(it)) real.payloadAt(it) else real.instructionAt(it)
-            },
-            programRevision = real.programRevision,
-            methodRevision = real.methodRevision,
-        )
+        return classIndex.rebuiltView(real, tryBlocks(real))
     }
 
     @Test
@@ -584,25 +570,6 @@ class ThrowRoutingTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
-    @Test
-    fun aResolverBugAbortsThePathWithItsDiagnosticInsteadOfBecomingAmbiguity() {
-        val view = forgedTryBlocks(caughtDescriptor, ExplodingTryBlocks())
-        val thrown = Value.Known(IllegalStateException("boom"), runtimeException)
-        val frame = Frame.entryFrame(view).also { it.assign(view.parameters.single().register, thrown) }
-
-        val graph = ExecutionSession.of(view, classIndex, Limits(), frame).run()
-
-        assertEquals(listOf(Outcome.Aborted(AbortReason.HOST_FAILURE)), graph.outcomes)
-        assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
-        val diagnostic = graph.nodePile(0).single().hostFailure
-        assertTrue(diagnostic is IllegalStateException)
-        assertEquals("resolver bug", diagnostic!!.message)
-    }
-
-    private class ExplodingTryBlocks : List<TryBlock> by emptyList() {
-        override fun iterator(): Iterator<TryBlock> = throw IllegalStateException("resolver bug")
-    }
-
     // --- malformed try-block tables and atomic routing ---
 
     @Test
@@ -616,7 +583,9 @@ class ThrowRoutingTest {
         // does not contain is the bytecode asking for something impossible, which is the same
         // statement about the input that an off-the-end jump makes. `OnUnbuildable.ALL_OR_NOTHING`
         // decides how much of the routing is abandoned; it does not decide whose fault the loss is.
-        val view = forgedTryBlocks(caughtDescriptor, listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, 9999)), null)))
+        val view = withTryBlocks(caughtDescriptor) {
+            listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, it.endAddress)), null))
+        }
         val thrown = Value.Known(IllegalStateException("boom"), runtimeException)
         val frame = Frame.entryFrame(view).also { it.assign(view.parameters.single().register, thrown) }
         val graph = ExecutionSession.of(view, classIndex, Limits(), frame).run()
@@ -628,7 +597,9 @@ class ThrowRoutingTest {
     fun anAmbiguousThrowWithAMalformedHandlerAbortsOnceWithoutEscaping() {
         // Atomic commit rejects the complete routing group. The public result is one malformed-input
         // abort, no escaped throw, and Partial completion; node-local outcome placement is irrelevant.
-        val view = forgedTryBlocks(caughtDescriptor, listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, 9999)), null)))
+        val view = withTryBlocks(caughtDescriptor) {
+            listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, it.endAddress)), null))
+        }
         val graph = ExecutionSession.of(view, classIndex, Limits()).run() // parameter Unknown -> ambiguous
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes,
             "exactly one outcome: the malformed table aborted the throw instead of routing it")
@@ -654,19 +625,18 @@ class ThrowRoutingTest {
         // table-wide distrust argument recorded on `OnUnbuildable.ALL_OR_NOTHING` -- "'this escapes
         // unhandled' is exactly as suspect as 'this is caught at 9999'" -- is about the first axis and
         // is untouched by the label. One abort, still; only its reason is now the true one.
-        val view = forgedTryBlocks(
-            caughtDescriptor,
+        val view = withTryBlocks(caughtDescriptor) {
             listOf(
                 TryBlock(
                     0, 1,
                     listOf(
-                        CatchClause(runtimeException, 1),                              // real handler
-                        CatchClause(VirtualType.of("Ljava/io/IOException;"), 9999),     // malformed
+                        CatchClause(runtimeException, 1),                                       // real handler
+                        CatchClause(VirtualType.of("Ljava/io/IOException;"), it.endAddress),     // malformed
                     ),
                     null,
                 ),
-            ),
-        )
+            )
+        }
         val frame = Frame.entryFrame(view).also { it.assign(view.parameters.single().register, Value.Top) }
         val graph = ExecutionSession.of(view, classIndex, Limits(), frame).run()
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)

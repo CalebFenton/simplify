@@ -1,5 +1,10 @@
 package org.cf.smalivm.core
 
+import com.android.tools.smali.dexlib2.AccessFlags
+import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import io.mockk.every
 import io.mockk.mockk
 import java.time.Duration
@@ -359,18 +364,23 @@ class HandlerResolutionTest {
     private fun block(vararg catches: CatchClause, catchAll: Int? = null): TryBlock =
         TryBlock(0, 10, catches.toList(), catchAll)
 
-    private fun view(tryBlocks: List<TryBlock>): MethodView = MethodView(
-        signature = "Lresolver;->test()V",
-        definingClass = type("Lresolver;"),
-        returnType = type("V"),
-        isStatic = true,
-        registerCount = 0,
-        parameters = emptyList(),
-        tryBlocks = tryBlocks,
-        addressToInstruction = emptyMap(),
-        programRevision = CoreTester.classIndex.currentSnapshot.programRevision,
-        methodRevision = null,
-    )
+    /** A static `()V` framework method of NOPs reaching every address [tryBlocks] names, then `return-void`. */
+    private fun view(tryBlocks: List<TryBlock>): MethodView {
+        val lastAddress = tryBlocks.maxOfOrNull { block ->
+            maxOf(block.endAddress, block.catchAllAddress ?: 0, block.catches.maxOfOrNull(CatchClause::handlerAddress) ?: 0)
+        } ?: 0
+        val instructions = List(lastAddress + 1) { ImmutableInstruction10x(Opcode.NOP) } +
+            ImmutableInstruction10x(Opcode.RETURN_VOID)
+        val implementation = ImmutableMethodImplementation(0, instructions, dexTryBlocks(tryBlocks), null)
+        val declaration = ImmutableMethod("Lresolver;", "test", null, "V", AccessFlags.STATIC.value, null, null, null)
+        val method = FrameworkMethodDefinition(
+            FrameworkMethodIdentity(Any(), "Lresolver;->test()V"),
+            declaration,
+            MethodBody.import(implementation),
+            DynamicLoadingEvidence.EMPTY,
+        )
+        return MethodView.of(method, CoreTester.classIndex.currentSnapshot.programRevision)
+    }
 
     private fun tableHierarchy(): ThrowableHierarchy {
         val facts = mapOf(

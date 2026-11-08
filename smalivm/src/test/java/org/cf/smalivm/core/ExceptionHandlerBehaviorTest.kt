@@ -318,11 +318,12 @@ class ExceptionHandlerBehaviorTest {
         val real = view(descriptor)
         val invokeAddress = real.addresses.single { real.opcodeAt(it).name.startsWith("invoke-") }
         val handlers = real.tryBlocks.flatMap { it.catches }.map(CatchClause::handlerAddress)
+        val afterInvoke = real.nextAddress(invokeAddress)
         val forged = forgedView(
             descriptor,
             listOf(
-                TryBlock(invokeAddress, invokeAddress + 1, listOf(CatchClause(RUNTIME, handlers[0])), null),
-                TryBlock(invokeAddress, invokeAddress + 2, listOf(CatchClause(EXCEPTION, handlers[1])), null),
+                TryBlock(invokeAddress, afterInvoke, listOf(CatchClause(RUNTIME, handlers[0])), null),
+                TryBlock(invokeAddress, real.nextAddress(afterInvoke), listOf(CatchClause(EXCEPTION, handlers[1])), null),
             ),
         )
 
@@ -345,7 +346,7 @@ class ExceptionHandlerBehaviorTest {
                 TryBlock(
                     invokeAddress,
                     real.nextAddress(invokeAddress),
-                    listOf(CatchClause(RUNTIME, validHandler), CatchClause(EXCEPTION, 9999)),
+                    listOf(CatchClause(RUNTIME, validHandler), CatchClause(EXCEPTION, real.endAddress)),
                     null,
                 ),
             ),
@@ -371,7 +372,7 @@ class ExceptionHandlerBehaviorTest {
                 TryBlock(
                     invokeAddress,
                     real.nextAddress(invokeAddress),
-                    listOf(CatchClause(RUNTIME, validHandler), CatchClause(EXCEPTION, 9999)),
+                    listOf(CatchClause(RUNTIME, validHandler), CatchClause(EXCEPTION, real.endAddress)),
                     null,
                 ),
             ),
@@ -426,23 +427,8 @@ class ExceptionHandlerBehaviorTest {
 
     private fun view(descriptor: String): MethodView = CoreTester.classIndex.requireMethodView(CLASS_NAME, descriptor)
 
-    private fun forgedView(descriptor: String, tryBlocks: List<TryBlock>): MethodView {
-        val real = CoreTester.classIndex.requireMethodView(CLASS_NAME, descriptor)
-        return MethodView(
-            signature = real.signature,
-            definingClass = real.definingClass,
-            returnType = real.returnType,
-            isStatic = real.isStatic,
-            registerCount = real.registerCount,
-            parameters = real.parameters,
-            tryBlocks = tryBlocks,
-            addressToInstruction = real.addresses.associateWith {
-                if (real.isPayload(it)) real.payloadAt(it) else real.instructionAt(it)
-            },
-            programRevision = real.programRevision,
-            methodRevision = real.methodRevision,
-        )
-    }
+    private fun forgedView(descriptor: String, tryBlocks: List<TryBlock>): MethodView =
+        CoreTester.classIndex.rebuiltView(view(descriptor), tryBlocks)
 
     private fun assertMalformedRouting(graph: ExecutionGraph, handlerAddresses: List<Int>) {
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)

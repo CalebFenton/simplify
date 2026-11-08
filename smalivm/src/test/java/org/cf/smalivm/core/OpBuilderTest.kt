@@ -985,10 +985,9 @@ class OpBuilderTest {
     }
 
     /**
-     * A real fixture's [MethodView] with its address→instruction map EDITED, so a payload target can name
-     * an address the view does not contain or one holding something else. Same device and same reason as
-     * `CommitTest.forgedTryBlocks`: no smali can express it, because the assembler resolves every label and
-     * -- for a switch specifically -- refuses a target that is not a payload.
+     * A real fixture method with its address→instruction map edited and rebuilt through the body importer, so a
+     * payload target can name an address the method does not contain or one holding something else. No smali can
+     * express it, because the assembler resolves every label and refuses a switch target that is not a payload.
      */
     private fun forgedView(
         className: String,
@@ -1000,18 +999,7 @@ class OpBuilderTest {
             if (real.isPayload(it)) real.payloadAt(it) else real.instructionAt(it)
         }
         edit(instructions)
-        return MethodView(
-            signature = real.signature,
-            definingClass = real.definingClass,
-            returnType = real.returnType,
-            isStatic = real.isStatic,
-            registerCount = real.registerCount,
-            parameters = real.parameters,
-            tryBlocks = real.tryBlocks,
-            addressToInstruction = instructions,
-            programRevision = real.programRevision,
-            methodRevision = real.methodRevision,
-        )
+        return classIndex.rebuiltView(real, instructions = instructions.values.toList())
     }
 
     @Test
