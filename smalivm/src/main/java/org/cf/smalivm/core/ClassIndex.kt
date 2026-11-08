@@ -21,7 +21,8 @@ sealed interface MethodLookup {
     class Runnable(val view: MethodView, val method: ResolvedMethod) : MethodLookup
 
     /**
-     * The defining class is not in the program: a guest `NoClassDefFoundError`, a `LinkageError` that a guest
+     * The defining class is not in the program: a guest `NoClassDefFoundError`, or `ClassCircularityError` for a
+     * class on an inheritance cycle ([GuestThrowables.unresolvedClass]). Both are `LinkageError`s that a guest
      * `catch (Exception)` does not catch (`docs/DALVIK-SEMANTICS.md#resolution-failure-is-one-family-tiered-once`).
      */
     data object NoSuchClass : MethodLookup
@@ -33,9 +34,9 @@ sealed interface MethodLookup {
     data object NoSuchMethod : MethodLookup
 
     /**
-     * Declared, but with no code: abstract, native, a framework declaration, or an array pseudo-method
-     * (`[I->clone()`), a runtime intrinsic with no dex body. A backend executes these; a device raises no linking
-     * error for them.
+     * Declared, but with no code: native, a framework declaration, an array pseudo-method (`[I->clone()`, a runtime
+     * intrinsic with no dex body), or an abstract method answering resolution rather than a receiver's selection. A
+     * backend executes these; a device raises no linking error for them.
      */
     class NoBody(val method: ResolvedMethod) : MethodLookup
 
@@ -45,6 +46,12 @@ sealed interface MethodLookup {
      * null check (`ArtMethod::ThrowInvocationTimeError`). [method] is named on the selecting class.
      */
     class DefaultConflict(val method: ResolvedMethod) : MethodLookup
+
+    /**
+     * Selection on the receiver's class found only the abstract [method]. ART links it unimplemented, and invoking
+     * it throws `AbstractMethodError` after the receiver null check (`ArtMethod::ThrowInvocationTimeError`).
+     */
+    class AbstractSelection(val method: ResolvedMethod) : MethodLookup
 }
 
 /** Kind-correct invocation resolution, before backend selection or receiver-null handling. */
@@ -74,9 +81,12 @@ sealed interface StaticFieldLookup {
 
     /**
      * A class the search needed is absent: the referenced class, or an ancestor reached while walking for an
-     * inherited static. A guest `NoClassDefFoundError`.
+     * inherited static. Accessing the field throws [failure], [GuestThrowables.unresolvedClass] of [type].
      */
-    class NoSuchClass internal constructor(val type: VirtualType) : StaticFieldLookup
+    class NoSuchClass internal constructor(
+        val type: VirtualType,
+        internal val failure: ThrowableRecipe,
+    ) : StaticFieldLookup
 
     /**
      * Every class and interface the search reaches is present, and none declares a static field of this name and
@@ -96,7 +106,11 @@ sealed interface InstanceFieldLookup {
         override fun toString(): String = descriptor
     }
 
-    class NoSuchClass internal constructor(val type: VirtualType) : InstanceFieldLookup
+    /** As [StaticFieldLookup.NoSuchClass]. */
+    class NoSuchClass internal constructor(
+        val type: VirtualType,
+        internal val failure: ThrowableRecipe,
+    ) : InstanceFieldLookup
 
     class NoSuchField internal constructor(val descriptor: String) : InstanceFieldLookup
 }

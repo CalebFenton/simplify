@@ -16,17 +16,9 @@ Each routing command crosses one activation boundary. It searches the immediate 
 A residual escape enters the parent `CallCompletion`. It waits until that activation drains. The host stack does
 not recursively traverse callers.
 
-Caller throws use these exact source keys before handler resolution:
-
-```text
-concrete: (Value, unresolved ThrowableDomain constraints, CallCompatibilityKey)
-symbolic: (ThrowableDomain, CallCompatibilityKey)
-CallCompatibilityKey: (class-init compatibility, tracked-field compatibility)
-```
-
-Handler addresses and route refinements are not source-key fields. One source key causes one state merge and
-one resolver call. The merge keeps suspended caller registers and imports callee heap, class, and static state.
-Routing then repeats the resolved result for each original exit, which preserves path multiplicity.
+Caller throws are grouped by source key before handler resolution; [Exceptions](exceptions.md) defines the
+key. One source key causes one state merge and one resolver call, and routing repeats the resolved result for
+each original exit.
 
 An ordinary nested-callee abort can become a `STRONG` opaque caller continuation. It does not add a run-level
 abort reason. Top-level aborts, class-initializer aborts, and cancellation remain `Partial` and untrusted.

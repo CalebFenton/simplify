@@ -54,7 +54,7 @@ class ClassForNameIntegrationTest {
         assertSame(expected, firstToken)
         assertSame(firstToken, secondToken)
         assertEquals(SideEffectLevel.NONE, first.explored.methodSideEffectLevel())
-        assertNull(first.nodePile(invokeAddress(first.methodView)).last().hostFailure)
+        assertNull(first.nodePile(invokeAddress(first.methodView)).last().outcome.hostFailure)
     }
 
     @Test
@@ -72,7 +72,7 @@ class ClassForNameIntegrationTest {
         assertSame(classIndex.currentResolver().loadClassConstant(FIXTURE), returned.raw)
         assertEquals(classType, returned.type)
         assertTrue(
-            graph.nodePile(session.methodView.nextAddress(invokeAddress)).single().opExecutionStarted,
+            graph.nodePile(session.methodView.nextAddress(invokeAddress)).single().progress is OpProgress.Executed,
             "move-result-object must execute after the retry returned its stable token",
         )
     }
@@ -93,7 +93,7 @@ class ClassForNameIntegrationTest {
 
         assertEquals(listOf("Ljava/lang/ClassNotFoundException;"), CoreTester.escapingTypes(graph))
         assertTrue(graph.outcomes.single() is Outcome.Threw)
-        assertNull(graph.nodePile(invokeAddress(graph.methodView)).single().hostFailure)
+        assertNull(graph.nodePile(invokeAddress(graph.methodView)).single().outcome.hostFailure)
     }
 
     @Test
@@ -109,7 +109,7 @@ class ClassForNameIntegrationTest {
         assertEquals(Value.Unknown(classType), (graph.outcomes.single() as Outcome.Returned).value)
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertTrue(invoke.invocationDiagnostic?.contains("reflection policy denied") == true)
-        assertNull(invoke.hostFailure)
+        assertNull(invoke.outcome.hostFailure)
     }
 
     @Test
@@ -147,7 +147,7 @@ class ClassForNameIntegrationTest {
         for (name in invalidNames) {
             val graph = forName(name)
             assertEquals(listOf("Ljava/lang/ClassNotFoundException;"), CoreTester.escapingTypes(graph), name)
-            assertNull(graph.nodePile(invokeAddress(graph.methodView)).single().hostFailure, name)
+            assertNull(graph.nodePile(invokeAddress(graph.methodView)).single().outcome.hostFailure, name)
         }
     }
 
@@ -156,7 +156,7 @@ class ClassForNameIntegrationTest {
     fun canonicalNestedClassNameIsNotABinaryName() {
         val canonical = forName("java.util.Map.Entry")
         assertEquals(listOf("Ljava/lang/ClassNotFoundException;"), CoreTester.escapingTypes(canonical))
-        assertNull(canonical.nodePile(invokeAddress(canonical.methodView)).single().hostFailure)
+        assertNull(canonical.nodePile(invokeAddress(canonical.methodView)).single().outcome.hostFailure)
 
         val binary = forName("java.util.Map\$Entry")
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(binary))

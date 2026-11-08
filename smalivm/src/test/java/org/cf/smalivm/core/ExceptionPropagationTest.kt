@@ -272,7 +272,7 @@ class ExceptionPropagationTest {
                 it.outcome is Outcome.Returned
         }
         val pairs = returns.associate { node ->
-            val ending = requireNotNull(node.endingFrame)
+            val ending = node.terminalFrame
             val sentinel = (ending.getStaticField(owner, state) as Value.Known).raw as Int
             val ref = ((node.outcome as Outcome.Returned).value as Value.Known).raw as HeapRef
             sentinel to ref

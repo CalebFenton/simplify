@@ -6,9 +6,8 @@ package org.cf.smalivm.core
  * old engine's single parent edge encoded all four at once, which is how a caller's catch handler
  * ended up inheriting a callee's locals.
  *
- * [frame] is pre-op while this node waits on the frontier. After [opExecutionStarted] becomes true,
- * it contains whatever state [op] produced before it returned or threw. It belongs to this node alone --
- * [ExecutionSession] hands every successor a fresh [Frame.copy], so no two nodes ever share one.
+ * What [frame] holds follows [progress]. It belongs to this node alone -- [ExecutionSession] hands every
+ * successor a fresh [Frame.copy], so no two nodes ever share one.
  *
  * [view] is which method this node belongs to. It lives on the *node*, not only on the session, so
  * the scheduler decodes each successor against the node's own method rather than the session's entry
@@ -38,60 +37,29 @@ class ExecutionNode internal constructor(
     val view: MethodView get() = activation.view
     private val mutableChildren = mutableListOf<ExecutionNode>()
 
-    /** True once [ExecutionSession] is about to call [op].`execute`; false for a pre-op limit abort. */
-    var opExecutionStarted: Boolean = false
-        internal set
+    /** How far [op] got on this node; see [OpProgress]. */
+    var progress: OpProgress = OpProgress.Pending
+        private set
 
     /** Successors actually explored from this node; more than one means the path forked. */
     val children: List<ExecutionNode> get() = mutableChildren
 
-    /**
-     * Set when this node ends a path: returned, threw, or aborted. Null for a node that only
-     * continued; a node that both escaped and forked into handlers carries the escape outcome (see
-     * [endWith]).
-     *
-     * An op whose ambiguity ends SEVERAL paths at once (Task 7's `aget`, unproven-null array at an
-     * unproven-in-range index) still leaves only its first ending here: a node ends at most one path,
-     * so the rest are recorded unattributed, with no node of their own (see
-     * `ExecutionSession.recordUnattributedEnding`).
-     *
-     * **What "a path" means here is the ACTIVATION's path, which is not always the RUN's.** A callee's
-     * `return` ends that activation and carries [Outcome.Returned] here -- while the run's own path
-     * continues, in the caller, at the resumed node this one is the parent of. So a node can hold
-     * `Returned` and still have [children], and `ExecutionSession.outcomes` will not have a matching entry:
-     * that list is one `Outcome` per path of the RUN. Only the entry activation's `return` is both.
-     */
-    var outcome: Outcome? = null
-        private set
+    /** The path this node ended, with its exact terminal state; null for a node that only continued. */
+    private var ending: ActivationExit? = null
 
-    /** Exact state of this terminal path. [frame] can remain a conservative multi-arm source summary. */
-    internal var endingFrame: Frame? = null
-        private set
+    /**
+     * Set when this node ends a path: returned, threw, or aborted. Null for a node that only continued; a node
+     * that both escaped and forked into handlers carries the escape outcome. A node ends at most one path, so
+     * when one op ends several, the others are recorded without a node of their own.
+     *
+     * The path is the ACTIVATION's. A callee's `return` carries [Outcome.Returned] here while the run's path
+     * continues in the caller at a resumed node this one is the parent of, so `ExecutionSession.outcomes` has
+     * no matching entry. Only the entry activation's endings are also run outcomes.
+     */
+    val outcome: Outcome? get() = ending?.outcome
 
     /** The state this node's path ended in, or [frame] for a node that ended no path. */
-    internal val terminalFrame: Frame get() = endingFrame ?: frame
-
-    /**
-     * The host `Throwable` that ended a path at this node, when the corresponding [Outcome] is
-     * `Aborted(HOST_FAILURE)`. Kept so a host bug converted into a bounded path abort is still
-     * debuggable: swallowing it would leave an `Aborted(HOST_FAILURE)` with no way to find out what
-     * actually broke. Null when the abort was *detected* rather than caught (malformed control flow
-     * off the end of a method).
-     *
-     * Usually that outcome is this node's own [outcome], but not necessarily: under
-     * `OnUnbuildable.SKIP_ONE` a decode failure in ONE successor of a fork aborts only that lost path
-     * while this node keeps its live siblings, so a non-null `hostFailure` can sit on a node whose
-     * own [outcome] is null (see `ExecutionSession.buildSuccessor`/`recordLostPath`). This node is
-     * where the failure HAPPENED, which is the question a debugger asks; it is not a claim that this
-     * node ended.
-     *
-     * Consequently this holds **at most one** throwable per node, not one per lost path: if several
-     * successors of the same fork fail to decode, each overwrites the previous and only the last
-     * survives. Every loss still gets its own [Outcome], so nothing is under-counted where it matters
-     * -- but do not read this field as "the throwable for lost path N".
-     */
-    var hostFailure: Throwable? = null
-        internal set
+    internal val terminalFrame: Frame get() = ending?.frame ?: frame
 
     /**
      * How much [op] may have perturbed observable state this engine does not model, on **this** path
@@ -102,10 +70,8 @@ class ExecutionNode internal constructor(
      * `NONE`, so the level describes this address rather than every address below it. A node whose op
      * never ran, or whose `execute` raised a host failure, keeps `NONE`.
      *
-     * **Read `ExecutionGraph.sideEffectLevel` rather than this field**, unless you specifically want one
-     * path: that query maxes this over the whole node pile and folds in the separate
-     * `Aborted(UNSUPPORTED_OP)` rule, which is a claim about an op that never ran and so could never have
-     * declared anything.
+     * Read `ExploredPaths.sideEffectLevel` unless you want one path: it maxes this over the address's pile
+     * and adds `STRONG` for a path that aborted for a reason that [AbortReason.impliesStrongEffect].
      */
     var sideEffectLevel: SideEffectLevel = SideEffectLevel.NONE
         internal set
@@ -117,10 +83,6 @@ class ExecutionNode internal constructor(
     /** Human-readable backend/binding refusal retained when resolved decision 6 continues opaquely. */
     var invocationDiagnostic: String? = null
         internal set
-
-    /** Scheduler evidence used by the graph's normal-continuation query. */
-    internal var normalContinuationObserved: Boolean = false
-    internal var exceptionalContinuationObserved: Boolean = false
 
     /**
      * Frames deep this node sits, **0-based**: 0 in the run's own entry activation, 1 inside a method it
@@ -160,29 +122,62 @@ class ExecutionNode internal constructor(
     val isCallEntry: Boolean get() = activation.caller === parent?.activation
 
     /**
-     * Stamps this node's terminal [outcome]. A node ends **at most one** path, so a second stamp is a
-     * scheduler bug rather than a state to tolerate: it would double-count in
-     * [ExecutionSession.outcomes] *and* silently replace one meaning with another -- a genuinely
-     * thrown path that then hit a malformed handler address would report `Aborted` instead of
-     * `Threw`. Loud on purpose, and deliberately **outside** the session's host-failure boundary so
-     * that it surfaces as a bug instead of being swallowed as one more aborted path.
-     *
-     * A node may legitimately carry an outcome *and* [children] (from Task 7 on, an ambiguous throw
-     * both escapes and forks into handlers); what is forbidden is ending twice. When the SAME op ends
-     * more than one path (every ending a guest throw -- `ExecutionSession.applyAll` enforces that mix),
-     * only the first reaches here; the rest are recorded through `ExecutionSession.recordUnattributedEnding`
-     * instead of a second call to this method.
+     * Stamps the path this node ends. A second stamp is a scheduler bug, not a state to tolerate: it would
+     * replace one meaning with another, so a thrown path that then hit a malformed handler address would
+     * report `Aborted` instead of `Threw`. It is outside the session's host-failure boundary so that it fails
+     * loudly instead of becoming one more aborted path.
      */
-    internal fun endWith(outcome: Outcome, exactFrame: Frame = frame) {
-        require(this.outcome == null) {
-            "$this already ended a path; cannot also end with $outcome"
-        }
-        this.outcome = outcome
-        endingFrame = exactFrame
+    internal fun endWith(exit: ActivationExit) {
+        require(ending == null) { "$this already ended a path; cannot also end with ${exit.outcome}" }
+        ending = exit
     }
+
+    /** [op]'s `execute` returned. */
+    internal fun executeReturned() {
+        check(progress == OpProgress.Pending) { "$this already left Pending: $progress" }
+        progress = OpProgress.Executed()
+    }
+
+    /** [op]'s `execute` threw a host failure. */
+    internal fun executeFailed() {
+        check(progress == OpProgress.Pending) { "$this already left Pending: $progress" }
+        progress = OpProgress.Failed
+    }
+
+    /** The scheduler continued this node's path at a following instruction. */
+    internal fun observeNormalContinuation() {
+        executed().continuedNormally = true
+    }
+
+    /** The scheduler routed an exception, or an abort, out of this node. */
+    internal fun observeExceptionalContinuation() {
+        executed().continuedExceptionally = true
+    }
+
+    private fun executed(): OpProgress.Executed =
+        progress as? OpProgress.Executed ?: error("$this observed a continuation before execute returned")
 
     internal fun addChild(child: ExecutionNode) = mutableChildren.add(child)
 
-    override fun toString(): String =
-        "ExecutionNode($op, outcome=$outcome${hostFailure?.let { ", hostFailure=$it" } ?: ""})"
+    override fun toString(): String = "ExecutionNode($op, outcome=$outcome)"
+}
+
+/** How far a node's op got. Each node moves out of [Pending] at most once. */
+sealed interface OpProgress {
+    /** `execute` was not entered: the node is scheduled, or a bound stopped it first. Its frame is pre-op. */
+    data object Pending : OpProgress
+
+    /** `execute` threw a host failure. The frame holds whatever the op wrote before it threw. */
+    data object Failed : OpProgress
+
+    /**
+     * `execute` returned, so the frame is this address's post-op state. Records which continuations the
+     * scheduler then took, for `ExploredPaths.didEveryExecutionContinueNormally`.
+     */
+    class Executed internal constructor() : OpProgress {
+        internal var continuedNormally: Boolean = false
+        internal var continuedExceptionally: Boolean = false
+
+        override fun toString(): String = "Executed"
+    }
 }

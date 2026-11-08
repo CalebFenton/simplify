@@ -143,7 +143,7 @@ class HostExceptionBoundaryBehaviorTest {
             listOf(Value.Known(7, INT)),
             branching.outcomes.filterIsInstance<Outcome.Returned>().mapNotNull(Outcome.Returned::value),
         )
-        assertEquals(1, branching.outcomes.count { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
+        assertEquals(1, branching.outcomes.count { it.abortReason == AbortReason.HOST_FAILURE })
         assertEquals(SideEffectLevel.WEAK, branching.addresses().maxOf(branching.explored::sideEffectLevel))
 
         val caught = execute(vm, "catchTarget()I")

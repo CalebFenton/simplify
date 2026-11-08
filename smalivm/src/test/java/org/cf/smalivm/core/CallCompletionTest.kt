@@ -10,13 +10,12 @@ import org.junit.jupiter.api.assertThrows
 
 class CallCompletionTest {
     @Test
-    fun drainBeforeZeroLeavesTheCollectorOpen() {
+    fun aReplacementThatLeavesAPathOpenReleasesNothing() {
         val completion = CallCompletion()
 
-        assertNull(completion.drainIfComplete())
+        assertNull(completion.replacePath(1, emptyList()))
         assertFalse(completion.isDrained)
-        completion.replacePath(0)
-        assertEquals(emptyList<ActivationExit>(), completion.drainIfComplete()!!.exitsSnapshot())
+        assertEquals(emptyList<ActivationExit>(), completion.replacePath(0, emptyList())!!.exitsSnapshot())
         assertTrue(completion.isDrained)
     }
 
@@ -24,44 +23,32 @@ class CallCompletionTest {
     fun replacingOnePathAccountsForSameActivationAndNestedPathsAtomically() {
         val completion = CallCompletion()
 
-        completion.replacePath(2)
-        completion.replacePath(0)
-        assertNull(completion.drainIfComplete(), "one of the two replacement paths is still open")
-        completion.replacePath(0)
+        assertNull(completion.replacePath(2, emptyList()))
+        assertNull(completion.replacePath(0, emptyList()), "one of the two replacement paths is still open")
 
-        assertEquals(emptyList<ActivationExit>(), completion.drainIfComplete()!!.exitsSnapshot())
+        assertEquals(emptyList<ActivationExit>(), completion.replacePath(0, emptyList())!!.exitsSnapshot())
     }
 
     @Test
-    fun negativePathCountFailsBeforeStateChanges() {
+    fun lateVoteAfterReleaseFailsLoudly() {
         val completion = CallCompletion()
-        completion.replacePath(0)
+        completion.replacePath(0, emptyList())
 
-        assertThrows<IllegalArgumentException> { completion.replacePath(0) }
-        assertEquals(emptyList<ActivationExit>(), completion.drainIfComplete()!!.exitsSnapshot())
+        assertThrows<IllegalStateException> { completion.replacePath(0, emptyList()) }
     }
 
     @Test
-    fun secondDrainAndLateVoteFailLoudly() {
-        val completion = CallCompletion()
-        completion.replacePath(0)
-        completion.drainIfComplete()
-
-        assertThrows<IllegalStateException> { completion.drainIfComplete() }
-        assertThrows<IllegalStateException> { completion.replacePath(0) }
-    }
-
-    @Test
-    fun drainTransfersFramesInVoteOrderAndReleaseDropsBatchStorage() {
+    fun releaseTransfersFramesInVoteOrderAndReleaseDropsBatchStorage() {
         val view = CoreTester.classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
         val frame = Frame.entryFrame(view)
-        val exits = List(5) { ActivationExit.Aborted(frame.copy(), AbortReason.MALFORMED_INPUT) }
+        val exits = List(5) {
+            ActivationExit.Aborted(frame.copy(), Outcome.Aborted(AbortReason.MALFORMED_INPUT))
+        }
         val completion = CallCompletion()
-        completion.replacePath(2, exits.take(2))
-        completion.replacePath(0, exits.drop(2))
-        completion.replacePath(0)
+        assertNull(completion.replacePath(2, exits.take(2)))
+        assertNull(completion.replacePath(0, exits.drop(2)))
 
-        val batch = completion.drainIfComplete()!!
+        val batch = completion.replacePath(0, emptyList())!!
 
         assertEquals(5, batch.retainedFrames)
         assertEquals(exits, batch.exitsSnapshot())
@@ -75,18 +62,14 @@ class CallCompletionTest {
     fun cancellationReleasesFramesAndRejectsLateVotes() {
         val view = CoreTester.classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
         val completion = CallCompletion()
-        val retained = ActivationExit.Aborted(Frame.entryFrame(view), AbortReason.TIMEOUT)
-        completion.replacePath(
-            replacementOpenPaths = 1,
-            exits = listOf(retained),
-        )
+        val retained = ActivationExit.Aborted(Frame.entryFrame(view), Outcome.Aborted(AbortReason.TIMEOUT))
+        completion.replacePath(openPaths = 1, ended = listOf(retained))
 
         val exits = completion.cancelAndRelease()
 
         assertSame(retained, exits.single())
         assertTrue(completion.isDrained)
-        assertThrows<IllegalStateException> { completion.replacePath(0) }
-        assertThrows<IllegalStateException> { completion.drainIfComplete() }
+        assertThrows<IllegalStateException> { completion.replacePath(0, emptyList()) }
         assertThrows<IllegalStateException> { completion.cancelAndRelease() }
     }
 }

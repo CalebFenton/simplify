@@ -31,12 +31,11 @@ internal class NewArrayOp(
     override fun execute(frame: Frame): OpExecution {
         val length = (frame.read(lengthRegister) as? Value.Known)?.let { Coerce.toInt(it.raw) }
         val type = arrayType.type
-        val resolutionFailure = GuestThrowables.throwing(GuestThrowables.noClassDefFound(type))
         if (length == null) {
             // An unprovable length may be negative, so NegativeArraySizeException is feasible too.
             val nonNegative = when (arrayType) {
                 is TypeOperand.Present -> OpArm.Continue(OpUpdate.assign(destRegister, Value.Unknown(type)))
-                is TypeOperand.Absent -> resolutionFailure
+                is TypeOperand.Absent -> GuestThrowables.throwing(arrayType.failure)
             }
             return OpExecution.of(nonNegative, GuestThrowables.throwing(GuestThrowables.negativeArraySize(null)))
         }
@@ -45,7 +44,7 @@ internal class NewArrayOp(
             is TypeOperand.Present -> OpExecution.single(
                 OpArm.Continue(OpUpdate.allocateArray(AllocationTarget.Register(destRegister), type, length)),
             )
-            is TypeOperand.Absent -> OpExecution.single(resolutionFailure)
+            is TypeOperand.Absent -> OpExecution.single(GuestThrowables.throwing(arrayType.failure))
         }
     }
 

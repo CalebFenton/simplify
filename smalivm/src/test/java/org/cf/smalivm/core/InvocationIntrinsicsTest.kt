@@ -106,7 +106,7 @@ class InvocationIntrinsicsTest {
 
         assertEquals(listOf(Outcome.Returned(Value.Unknown(intArrayType))), graph.outcomes)
         assertEquals(0, probeNextHeapId(session.currentNode!!.frame))
-        assertTrue(graph.addresses().flatMap(graph::nodePile).all { it.hostFailure == null })
+        assertTrue(graph.addresses().flatMap(graph::nodePile).all { it.outcome.hostFailure == null })
     }
 
     @Test
@@ -391,7 +391,7 @@ class InvocationIntrinsicsTest {
 
     private fun invocationDiagnostics(graph: ExecutionGraph): String = graph.addresses()
         .flatMap(graph::nodePile)
-        .joinToString { "${it.address}:${it.invocationDiagnostic}:${it.sideEffectLevel}:${it.hostFailure}" }
+        .joinToString { "${it.address}:${it.invocationDiagnostic}:${it.sideEffectLevel}:${it.outcome.hostFailure}" }
 
     private companion object {
         const val INTRINSICS = "Lintrinsic_call_sites;"

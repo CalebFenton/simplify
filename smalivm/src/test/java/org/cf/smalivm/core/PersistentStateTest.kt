@@ -340,7 +340,7 @@ class PersistentStateTest {
             "initializer register v0 must hold its own sget result, not caller v0",
         )
         assertEquals(Value.Known(55, int), retry.frame.peek(0))
-        assertFalse(retry.opExecutionStarted, "the retry remains pre-op scheduler work")
+        assertEquals(OpProgress.Pending, retry.progress, "the retry remains pre-op scheduler work")
     }
 
     @Test

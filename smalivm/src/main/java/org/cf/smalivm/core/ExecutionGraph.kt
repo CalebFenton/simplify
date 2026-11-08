@@ -21,7 +21,6 @@ class ExecutionGraph internal constructor(
     private val addressToNodesInThisRunsActivation: Map<Int, List<ExecutionNode>>,
     outcomes: Iterable<Outcome>,
     private val completion: CompletionStatus,
-    private val executedNodes: Set<ExecutionNode>,
     /** The class hierarchy every consensus join consults, so `ref ⊔ ref` answers the nearest common superclass. */
     internal val superclasses: TypeHierarchy,
 ) {
@@ -52,7 +51,7 @@ class ExecutionGraph internal constructor(
      * True when a node at [address] ran its op. Ungated, for coverage on a truncated run: a `false` proves
      * nothing until the run completes, and never for a payload. [TrustedGraphView.isDead] is the dead-code proof.
      */
-    fun wasReached(address: Int): Boolean = nodePile(address).any { it in executedNodes }
+    fun wasReached(address: Int): Boolean = nodePile(address).any { it.progress is OpProgress.Executed }
 
     /** True when the scheduler ever dequeued a node at [address], whether or not its op ran. */
     fun wasAttempted(address: Int): Boolean = nodePile(address).isNotEmpty()
@@ -72,7 +71,8 @@ class ExecutionGraph internal constructor(
     fun nodePile(address: Int): List<ExecutionNode> = addressToNodes[address].orEmpty()
 
     /** [nodePile] restricted to nodes whose op ran: the only nodes whose frame is this address's post-op state. */
-    internal fun executedPile(address: Int): List<ExecutionNode> = nodePile(address).filter { it in executedNodes }
+    internal fun executedPile(address: Int): List<ExecutionNode> =
+        nodePile(address).filter { it.progress is OpProgress.Executed }
 
     /**
      * The nodes that returned normally in this run's own activation, in address order. Only the entry

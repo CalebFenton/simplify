@@ -8,9 +8,9 @@ application {
 
 dependencies {
     implementation project(':smalivm')
-    runtimeOnly depends.slf4j_nop
+    runtimeOnly libs.slf4j.nop
 
-    testImplementation depends.junit_compile
-    testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_launcher
+    testImplementation libs.junit.api
+    testRuntimeOnly libs.junit.engine
+    testRuntimeOnly libs.junit.launcher
 }

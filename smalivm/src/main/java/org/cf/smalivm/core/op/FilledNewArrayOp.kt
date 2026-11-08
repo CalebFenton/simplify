@@ -37,7 +37,7 @@ internal class FilledNewArrayOp(
     override fun execute(frame: Frame): OpExecution {
         val elements = elementRegisters.map { frame.read(it) }
         // ART resolves the type before it checks the component kind.
-        if (arrayType is TypeOperand.Absent) return resolutionFailure(arrayType.type)
+        if (arrayType is TypeOperand.Absent) return resolutionFailure(arrayType.failure)
         val type = arrayType.type
         val component = checkNotNull(type.componentType) { "OpBuilder decodes filled-new-array only for an array type, not $type" }
         if (component.isPrimitive && component != INT) {

@@ -38,14 +38,15 @@ class Invoker internal constructor(
         resolved as InvocationLookup.Resolved
         val method = when (val lookup = resolved.lookup) {
             MethodLookup.NoSuchClass -> return InvocationPreparation.ThrowResolution(
-                GuestThrowables.noClassDefFound(call.target.definingClass),
+                GuestThrowables.unresolvedClass(call.target.definingClass, resolver.hierarchy),
             )
             MethodLookup.NoSuchMethod -> return InvocationPreparation.ThrowResolution(
-                GuestThrowables.noSuchMethod(call.target),
+                GuestThrowables.noSuchMethod(call.target, call.kind),
             )
             is MethodLookup.Runnable -> lookup.method
             is MethodLookup.NoBody -> lookup.method
             is MethodLookup.DefaultConflict -> lookup.method
+            is MethodLookup.AbstractSelection -> lookup.method
         }
 
         val words = method.target.argumentWords(call.kind)
@@ -78,13 +79,9 @@ class Invoker internal constructor(
     internal fun applicableClassInitTarget(call: PreparedInvocation): VirtualType? = call.classInitTarget
 
     /** Selects a backend for an already prepared call. The scheduler applies the returned plan. */
-    internal fun plan(
-        preparation: InvocationPreparation.Ready,
-        hostMaterializable: (Value) -> Boolean,
-        trackedReference: (Value) -> Boolean,
-    ): InvocationPlan {
+    internal fun plan(preparation: InvocationPreparation.Ready, frame: Frame): InvocationPlan {
         val declines = mutableListOf<String>()
-        val metadata = preparation.invocation.probeMetadata(hostMaterializable, trackedReference)
+        val metadata = preparation.invocation.probeMetadata(frame)
         for (backend in backends) {
             when (val probe = backend.probe(metadata, preparation.lookup)) {
                 is BackendProbe.Declined -> declines += "${backend.name}: ${probe.diagnostic}"
@@ -170,7 +167,8 @@ sealed interface InvocationPreparation {
         val isSynchronized: Boolean get() = when (lookup) {
             is MethodLookup.Runnable -> lookup.method.isSynchronized
             is MethodLookup.NoBody -> lookup.method.isSynchronized
-            is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> false
+            is MethodLookup.DefaultConflict, is MethodLookup.AbstractSelection, MethodLookup.NoSuchClass,
+            MethodLookup.NoSuchMethod -> false
         }
     }
 

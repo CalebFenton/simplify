@@ -16,22 +16,8 @@ internal class ReflectBackend(
         if (call.kind == InvokeKind.SUPER || (call.kind == InvokeKind.DIRECT && !constructor)) {
             return BackendProbe.Declined("reflection does not implement ${call.kind} special invocation")
         }
-        val initializationChain = if (call.kind == InvokeKind.STATIC || constructor) {
-            try {
-                resolver.hostInitializationChain(call.target.definingClass)
-            } catch (_: ClassLoadFailure) {
-                return BackendProbe.Denied("reflection cannot prove the host initialization chain for ${call.target}")
-            }
-        } else {
-            emptyList()
-        }
-        val decision = policy.decide(
-            call.target,
-            hostInitializationChain = initializationChain,
-        )
-        if (decision is ReflectionDecision.Denied) {
-            return BackendProbe.Denied("reflection policy denied ${call.target} by ${decision.rule}")
-        }
+        val initializesClass = call.kind == InvokeKind.STATIC || constructor
+        authorization(call.target, initializesClass)?.let { return BackendProbe.Denied(it) }
 
         val receiverAvailable = when {
             call.kind == InvokeKind.STATIC -> true
@@ -41,7 +27,27 @@ internal class ReflectBackend(
         if (!receiverAvailable || call.arguments.any { !it.isHostMaterializable }) {
             return BackendProbe.Declined("${call.target} has an unknown or unmaterializable argument")
         }
-        return BackendProbe.Execute(policy.effectOf(call.target))
+        if (call.target !in REFLECTIVE_INVOCATIONS) return BackendProbe.Execute(policy.effectOf(call.target))
+        // A reflective invocation runs whatever its receiver names, so that target's policy and effect decide.
+        val reflected = call.receiver?.reflectedTarget
+            ?: return BackendProbe.Denied("reflection cannot describe the target of ${call.target}")
+        authorization(reflected.method, reflected.initializesClass)?.let { return BackendProbe.Denied(it) }
+        return BackendProbe.Execute(policy.effectOf(reflected.method))
+    }
+
+    /** The policy's denial of [target], or null when it is authorized. */
+    private fun authorization(target: MethodDescriptor, initializesClass: Boolean): String? {
+        val initializationChain = if (initializesClass) {
+            try {
+                resolver.hostInitializationChain(target.definingClass)
+            } catch (_: ClassLoadFailure) {
+                return "reflection cannot prove the host initialization chain for $target"
+            }
+        } else {
+            emptyList()
+        }
+        val decision = policy.decide(target, initializationChain)
+        return if (decision is ReflectionDecision.Denied) "reflection policy denied $target by ${decision.rule}" else null
     }
 
     override fun execute(call: SelectedHostCall): SynchronousCallResult {
@@ -121,16 +127,14 @@ internal class ReflectBackend(
     }
 
     /**
-     * Runs a guest `Method.invoke` only when the policy also authorizes the reflected method, because
-     * authorizing `Method.invoke` alone would run any host method the guest can name. The reflected method
-     * is called directly so that `Method.invoke`'s own failures keep their types: nested JDK 21 reflection
+     * Runs a guest `Method.invoke`, whose reflected method the probe authorized. The reflected method is
+     * called directly so that `Method.invoke`'s own failures keep their types: nested JDK 21 reflection
      * reports the null-receiver NullPointerException as an IllegalArgumentException of the outer call.
      */
     private fun invokeReflectedMethod(call: SelectedHostCall): SynchronousCallResult {
         val target = call.receiver as? Method ?: return SynchronousCallResult.InfrastructureFailure(
             IllegalArgumentException("Method.invoke requires a reflected Method receiver"),
         )
-        reflectedTargetDenial(target)?.let { return SynchronousCallResult.InfrastructureFailure(SecurityException(it)) }
         val arguments = when (val raw = call.arguments[1]) {
             null -> emptyArray<Any?>()
             is Array<*> -> raw
@@ -141,24 +145,6 @@ internal class ReflectBackend(
         return hostBoundary({ targetThrew(it) }) {
             SynchronousCallResult.Returned(importReturn(target.invoke(call.arguments[0], *arguments), call.returnType))
         }
-    }
-
-    /** Applies the probe's policy rule to the method a `Method.invoke` receiver reflects. */
-    private fun reflectedTargetDenial(target: Method): String? {
-        val descriptor = target.toReflectedMethodMetadataOrNull()?.method?.toString()
-            ?: return "reflection cannot describe $target"
-        val reflected = ReflectionPolicy.parseMethod(descriptor)
-        val initializationChain = if (Modifier.isStatic(target.modifiers)) {
-            try {
-                resolver.hostInitializationChain(reflected.definingClass)
-            } catch (_: ClassLoadFailure) {
-                return "reflection cannot prove the host initialization chain for $reflected"
-            }
-        } else {
-            emptyList()
-        }
-        val decision = policy.decide(reflected, initializationChain)
-        return if (decision is ReflectionDecision.Denied) "reflection policy denied $reflected by ${decision.rule}" else null
     }
 
     private inline fun invokeTarget(block: () -> SynchronousCallResult): SynchronousCallResult =
@@ -176,4 +162,19 @@ internal class ReflectBackend(
 
     private fun importReturn(raw: Any?, declaredType: VirtualType): HostReturn =
         if (declaredType.isVoid) HostReturn.Void else HostReturn.Value(raw.toHostValue(declaredType))
+
+    private companion object {
+        val REFLECTIVE_INVOCATIONS = setOf(
+            MethodDescriptor(
+                VirtualType.of("Ljava/lang/reflect/Method;"),
+                "invoke",
+                "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+            ),
+            MethodDescriptor(
+                VirtualType.of("Ljava/lang/reflect/Constructor;"),
+                "newInstance",
+                "([Ljava/lang/Object;)Ljava/lang/Object;",
+            ),
+        )
+    }
 }

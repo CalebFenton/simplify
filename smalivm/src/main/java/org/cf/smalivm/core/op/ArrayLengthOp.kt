@@ -30,7 +30,7 @@ internal class ArrayLengthOp(
     private fun assigning(value: Value): OpArm = OpArm.Continue(OpUpdate.assign(destRegister, value))
 
     private fun throwingNullArray(): OpArm =
-        GuestThrowables.throwing(GuestThrowables.nullPointer("Attempt to get length of null array"))
+        GuestThrowables.throwing(GuestThrowables.nullPointer(GuestThrowables.NullOperand.ARRAY_LENGTH))
 
     override fun toString(): String = "$name r$destRegister, r$arrayRegister"
 

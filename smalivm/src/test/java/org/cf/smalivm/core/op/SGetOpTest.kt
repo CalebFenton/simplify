@@ -222,15 +222,15 @@ class SGetOpTest {
      * `[DEVICE](Tier B, nterp default, API 36)`, fixture `Fx_SGetAbsentType` against
      * `Fx_SGetPresentType` -- the same ROW-23 family ruling that re-expressed `const-class`/
      * `instance-of`/`check-cast`/`new-instance`'s absent-type rows in Tasks 15/17, and the authority
-     * `StaticFieldLookup.NoSuchClass`'s KDoc records. The message is the binary base name
-     * (`NewArrayOp`'s shape) -- asserted only so it cannot drift silently, never as fidelity.
+     * `StaticFieldLookup.NoSuchClass`'s KDoc records. The message is ART's `DoResolveType` text, as the
+     * Tier-A recording shows for `Fx_SGetAbsentType`.
      */
     @Test
     fun staticUnknownClassFieldThrowsException() {
         CoreTester.testThrows(
             CLASS_NAME, "getStaticUnknownClassField()V",
             exceptionType = "Ljava/lang/NoClassDefFoundError;",
-            message = "some.unknown.classzzzzz",
+            message = "Failed resolution of: Lsome/unknown/classzzzzz;",
         )
         // The negative halves, `NewInstanceOpTest.anAbsentClassThrowsNoClassDefFoundErrorWithoutFallingThrough`'s
         // shape: the fall-through is only provably unexplored on a run that explored everything, and a

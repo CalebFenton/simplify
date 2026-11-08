@@ -114,8 +114,8 @@ class ReflectBackendTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is NoSuchMethodException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is NoSuchMethodException)
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
     }
 
@@ -161,7 +161,7 @@ class ReflectBackendTest {
         assertEquals(
             listOf(Outcome.Returned(null)),
             graph.outcomes,
-            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
+            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals("number:9", raw.selected)
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
@@ -265,7 +265,7 @@ class ReflectBackendTest {
             )
             val lookup = MethodLookup.NoBody(ResolvedMethod(target, intType, emptyList(), isSynchronized = false))
 
-            val plan = invoker.planOn(InvocationPreparation.Ready(prepared, lookup, emptySet()), Frame.entryFrame(callerView()))
+            val plan = invoker.plan(InvocationPreparation.Ready(prepared, lookup, emptySet()), Frame.entryFrame(callerView()))
 
             assertTrue(plan is InvocationPlan.Execute, kind.toString())
             assertEquals(1, later.probes, kind.toString())
@@ -304,7 +304,7 @@ class ReflectBackendTest {
         frame.assign(0, Value.Known(tracked.raw, stringType))
         val unmaterializable = invoke(owner, objectTarget, InvokeKind.STATIC, frame = frame).run()
         assertEquals(Value.Unknown(intType), unmaterializable.outcomes.single().returnedValue())
-        assertNull(unmaterializable.nodePile(0).single().hostFailure)
+        assertNull(unmaterializable.nodePile(0).single().outcome.hostFailure)
     }
 
     @Test
@@ -344,7 +344,7 @@ class ReflectBackendTest {
         assertEquals(
             listOf(Outcome.Returned(null)),
             graph.outcomes,
-            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
+            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
@@ -402,11 +402,54 @@ class ReflectBackendTest {
 
             assertEquals(expectedMutations, ReflectionExternalSentinel.externalMutations, reflectedAuthorization.toString())
             if (expectedMutations == 0) {
-                assertEquals(listOf(Outcome.Aborted(AbortReason.HOST_FAILURE)), graph.outcomes)
-                assertTrue(graph.nodePile(0).single().hostFailure is SecurityException)
+                // A denied reflected target is a policy denial like a denied direct call: opaque, not a host failure.
+                assertEquals(listOf(Outcome.Returned(Value.Unknown(objectType))), graph.outcomes)
+                assertTrue(
+                    graph.nodePile(0).single().invocationDiagnostic!!.contains("reflection policy denied $reflected"),
+                )
             } else {
                 assertEquals(listOf(Outcome.Returned(Value.Known(null, objectType))), graph.outcomes)
             }
+        }
+    }
+
+    /**
+     * `Method.invoke` runs what its receiver reflects, so the call's effect is that target's policy effect, not
+     * the entry point's. Each case configures `Method.invoke`'s own effect the opposite way.
+     */
+    @Test
+    fun aReflectiveInvocationTakesItsEffectFromTheReflectedTarget() {
+        val methodType = type("Ljava/lang/reflect/Method;")
+        val methodInvoke = method(methodType, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
+        val pureLength = method(stringType, "length", "()I")
+        val effectfulMutation = method(fixtureType, "mutateExternal", "()V")
+        val cases = listOf(
+            Triple(pureLength, String::class.java.getMethod("length"), Value.Known("abc", stringType)),
+            Triple(
+                effectfulMutation,
+                ReflectBackendFixture::class.java.getDeclaredMethod("mutateExternal"),
+                Value.Known(null, objectType),
+            ),
+        )
+        for ((reflected, hostMethod, receiver) in cases) {
+            val expected = if (reflected == pureLength) SideEffectLevel.NONE else SideEffectLevel.STRONG
+            val entryEffect = if (expected == SideEffectLevel.NONE) SideEffectLevel.STRONG else SideEffectLevel.NONE
+            val vm = VmServices(
+                classIndex,
+                ReflectionPolicy(
+                    exactSafeMethods = setOf(methodInvoke, reflected),
+                    methodEffects = mapOf(methodInvoke to entryEffect, pureLength to SideEffectLevel.NONE),
+                ),
+            )
+            val frame = Frame.entryFrame(callerView())
+            frame.assign(0, Value.Known(frame.heap.allocateHostObject(methodType, hostMethod), methodType))
+            frame.assign(1, receiver)
+            frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
+
+            val graph = invoke(vm, methodInvoke, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1, 2)).run()
+
+            assertEquals(CompletionStatus.Complete, graph.completion(), reflected.toString())
+            assertEquals(expected, graph.explored.sideEffectLevel(0), reflected.toString())
         }
     }
 
@@ -577,8 +620,8 @@ class ReflectBackendTest {
             backends = listOf(ReflectBackend(policy, classIndex.currentResolver()), later),
         )
         val node = session.step()!!
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is NoSuchMethodException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is NoSuchMethodException)
         assertEquals(0, later.probes)
     }
 
@@ -592,7 +635,7 @@ class ReflectBackendTest {
         val fatal = method(fixtureType, "throwFatal", "()V")
         val session = invoke(vm(exactSafe = setOf(fatal)), fatal, InvokeKind.STATIC)
         assertThrows<StackOverflowError> { session.step() }
-        assertNull(session.currentNode!!.hostFailure)
+        assertNull(session.currentNode!!.outcome.hostFailure)
     }
 
     @Test
@@ -680,8 +723,8 @@ class ReflectBackendTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is HostGraphOwnershipException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is HostGraphOwnershipException)
         assertEquals(SideEffectLevel.STRONG, node.sideEffectLevel)
         assertEquals(SideEffectLevel.STRONG, node.activation.declaredEffect)
     }
@@ -708,7 +751,7 @@ class ReflectBackendTest {
         assertEquals(
             listOf(Outcome.Returned(null)),
             graph.outcomes,
-            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
+            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
         assertEquals(expected, terminal.heap.hostObjectAt(ref))

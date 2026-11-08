@@ -1,8 +1,8 @@
 # Execution Graph and Optimizer Contract
 
-## Kotlin editor contract — V1 continuation
+## Editor contract
 
-The resumed Kotlin core separates method structure, execution evidence, and editing:
+SmaliVM separates method structure, execution evidence, and editing:
 
 - `ClassIndex.requireMethodView(className, methodDescriptor)` returns the current immutable method.
   `VmServices.newSession(view)` captures the entire program revision, including future callees and
@@ -20,7 +20,7 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
   revision, not whole-program evidence; it is not permission to optimize from a partial or stale graph.
 - `MethodEditTransaction` stages insertion, replacement, removal, try regions, scratch registers,
   control targets, and DEX references. Addresses refer to its original method body; control targets use
-  transaction-owned `PendingCodeAnchor` values, not mutable `MethodLocation` objects.
+  transaction-owned `PendingCodeAnchor` values.
 - `commit()` returns `Committed`, `Unchanged`, or `Rejected`. Rejection and `discard()` publish nothing.
   `commit()` is the only validation gate: a `Rejected` reason names the rule the edit breaks, and
   publication rechecks only snapshot identity and revision order.
@@ -51,7 +51,7 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
 - **Dead code.** `TrustedGraphView.isDead(address)` is the only dead-code proof: true for an executable
   instruction no path reached. `ExecutionGraph.wasReached` is ungated coverage; its `false` proves nothing.
 - **Payloads.** `.array-data`, `packed-switch-data` and `sparse-switch-data` are data that control flow
-  never reaches ([CON] B22), so `wasReached` is false for them on every run and `isDead` is false for them.
+  never reaches, so `wasReached` is false for them on every run and `isDead` is false for them.
 - **Post-op state.** The state at an address is the state after its op ran; consensus at an op's address
   is the value it produced. When the op destroys or never computes the needed value (a `check-cast`
   recast, an unemulated `Method.invoke`), read its parents through `parentAddresses` and the
@@ -75,7 +75,7 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
   aborted on an unsupported opcode. It is `NONE` for an address no op ran at. `methodSideEffectLevel` is
   the maximum over the method.
 
-## Kotlin demo and debugger consumers
+## Demo and debugger consumers
 
 - `demoapp` uses `VmServices`, entry frames, and per-VM emulator registration. Its print emulator
   declares a strong host side effect. Its exact reflection policy is local to the demo; it does not
@@ -89,5 +89,3 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
   classes come from one lazily serialized immutable snapshot. `FrameworkCatalog.classDefinition`
   exposes cached immutable framework source for disassembly without exposing a mutable builder.
   Executable indexes and current/breakpoint markers come from `MethodView`; payloads are not numbered.
-
-

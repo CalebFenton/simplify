@@ -47,7 +47,7 @@ internal object SynchronousInvocationFixtures {
             ),
             VirtualType.of(CALLER),
         ) as InvocationPreparation.Ready
-        return invoker.planOn(preparation, Frame.entryFrame(view(CALLER, "callsNativeCallee()I")))
+        return invoker.plan(preparation, Frame.entryFrame(view(CALLER, "callsNativeCallee()I")))
     }
 
     fun allNodes(root: ExecutionNode): List<ExecutionNode> {

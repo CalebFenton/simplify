@@ -568,7 +568,7 @@ object Fixtures {
                 "Registered as an ORACLE DEFECT: the migrated NewArrayOpTest.nonExistentClassNameThrowsException " +
                 "expectation changed type deliberately, and it now needs testThrows rather than testCaught " +
                 "because an Error escapes a catch(Exception)",
-            escapes = setOf("java.lang.NoClassDefFoundError:does.not.exist"),
+            escapes = setOf("java.lang.NoClassDefFoundError:Failed resolution of: [Ldoes/not/exist;"),
         ),
         CoreRegression(
             fixture = Fixture(

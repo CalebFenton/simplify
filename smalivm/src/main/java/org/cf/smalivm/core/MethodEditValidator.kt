@@ -350,21 +350,28 @@ internal object MethodEditValidator {
         candidate: ApplicationMethodDefinitionCandidate,
     ): MethodEditRejectionReason? {
         val body = candidate.body
-        val flow = RegisterFlow.analyze(body, candidate.declaration, body.registerCount) {
+        val controlFlow = checkNotNull(MethodControlFlow.of(body)) {
+            "Logical validation accepted a body whose control flow is malformed"
+        }
+        val flow = RegisterFlow.analyze(controlFlow, candidate.declaration, body.registerCount, body.registerCount) {
             it.instruction.registerOperands()
         }
-        body.instructions.forEachIndexed { index, record ->
-            val state = flow.before(record.position) ?: return@forEachIndexed
-            for (register in readRegisters(record.instruction)) {
+        for (index in 0 until controlFlow.size) {
+            val record = controlFlow.recordAt(index)
+            val state = flow.before(record.position) ?: continue
+            for (register in RegisterEffects.registersRead(record.instruction)) {
                 if (state[register] == RegisterValue.UNDEFINED) return ReadBeforeAssignment(record.codeAddress, register)
             }
             if (hasReturnCategoryMismatch(record.instruction, state)) {
                 return ReturnCategoryMismatch(record.codeAddress, (record.instruction as OneRegisterInstruction).registerA)
             }
-            if (record.instruction.opcode.canContinue()) {
-                val next = body.instructions.getOrNull(index + 1) ?: return FallsPastMethodEnd
-                if (next.instruction.opcode in OpcodeGroups.PAYLOAD) return FallsIntoPayload(next.codeAddress)
-                if (next.instruction.opcode == Opcode.MOVE_EXCEPTION) return FallsIntoMoveException(next.codeAddress)
+            if (controlFlow.fallsOffCode(index)) {
+                val next = record.codeAddress + record.instruction.codeUnits
+                return if (next in body.instructionsByCodeAddress) FallsIntoPayload(next) else FallsPastMethodEnd
+            }
+            val successor = controlFlow.fallthroughSuccessor(index) ?: continue
+            if (controlFlow.instructionAt(successor).opcode == Opcode.MOVE_EXCEPTION) {
+                return FallsIntoMoveException(controlFlow.addressAt(successor))
             }
         }
         return null
@@ -377,20 +384,6 @@ internal object MethodEditValidator {
         }
         return (instruction.opcode == Opcode.RETURN_OBJECT && value == RegisterValue.NARROW) ||
             (instruction.opcode == Opcode.RETURN && value == RegisterValue.REFERENCE)
-    }
-
-    /** Every register word an instruction reads: both words of a wide operand and every argument word. */
-    private fun readRegisters(instruction: Instruction): List<Int> {
-        val registers = instruction.registerOperands()
-        if (instruction is FiveRegisterInstruction || instruction is RegisterRangeInstruction) return registers
-        return buildList {
-            RegisterEffects.operands(instruction).forEachIndexed { index, operand ->
-                val register = registers.getOrNull(index)
-                if (register == null || !operand.reads) return@forEachIndexed
-                add(register)
-                if (operand.category == ValueCategory.WIDE) add(register + 1)
-            }
-        }
     }
 
     /** A range reports its last register, the one a too-small register file cannot hold. */

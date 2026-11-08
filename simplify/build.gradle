@@ -9,17 +9,14 @@ application {
 dependencies {
     implementation project(':smalivm')
 
-    implementation depends.commons_cli
-    implementation depends.slf4j_api
-    implementation depends.logback
+    implementation libs.commons.cli
+    implementation libs.slf4j.api
+    implementation libs.logback
 
-    testImplementation rootProject.project(':smalivm').sourceSets.test.output
-    testImplementation depends.junit_compile
-    testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_launcher
+    testImplementation libs.junit.api
+    testRuntimeOnly libs.junit.engine
+    testRuntimeOnly libs.junit.launcher
 }
-
-test.dependsOn project(':smalivm').tasks.getByName('testClasses')
 
 tasks.withType(Test).configureEach {
     maxParallelForks = 2

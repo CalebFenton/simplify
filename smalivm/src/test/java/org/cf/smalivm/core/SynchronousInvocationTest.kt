@@ -190,15 +190,15 @@ class SynchronousInvocationTest {
         val continuation = failedCallee.children.single()
 
         assertEquals(invokeAt, invoke.address)
-        assertSame(cause, failedCallee.hostFailure)
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), failedCallee.outcome)
+        assertSame(cause, failedCallee.outcome.hostFailure)
+        assertEquals(AbortReason.HOST_FAILURE, failedCallee.outcome.abortReason)
         assertEquals(RETURNS_SEVEN_SIGNATURE, failedCallee.view.signature)
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertSame(invoke.activation, continuation.activation)
         assertEquals(callerView.nextAddress(invokeAt), continuation.address)
-        assertFalse(continuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, continuation.progress)
         assertEquals(listOf(olderSibling, continuation), session.frontier)
-        assertFalse(olderSibling.opExecutionStarted)
+        assertEquals(OpProgress.Pending, olderSibling.progress)
         assertEquals(1, selections())
 
         val moveResult = session.step()!!
@@ -208,7 +208,7 @@ class SynchronousInvocationTest {
         assertEquals(Outcome.Returned(Value.Unknown(intType)), callerReturn.outcome)
         assertEquals(listOf(Outcome.Returned(Value.Unknown(intType))), session.outcomes)
         assertEquals(listOf(olderSibling), session.frontier)
-        assertFalse(olderSibling.opExecutionStarted)
+        assertEquals(OpProgress.Pending, olderSibling.progress)
     }
 
     @Test
@@ -348,10 +348,10 @@ class SynchronousInvocationTest {
         val olderSibling = session.frontier.first()
         val failed = session.step()!!
 
-        assertSame(cause, failed.hostFailure)
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), failed.outcome)
+        assertSame(cause, failed.outcome.hostFailure)
+        assertEquals(AbortReason.HOST_FAILURE, failed.outcome.abortReason)
         assertEquals(listOf(olderSibling), session.frontier)
-        assertFalse(olderSibling.opExecutionStarted)
+        assertEquals(OpProgress.Pending, olderSibling.progress)
         assertSame(failed, session.currentNode)
         assertEquals(entry.signature, failed.view.signature)
         assertEquals(entry.nextAddress(0), failed.address)
@@ -365,7 +365,7 @@ class SynchronousInvocationTest {
         val session = session(CALLER, "callsNativeCallee()I", vm)
 
         assertSame(fatal, assertThrows<StackOverflowError> { session.step() })
-        assertEquals(null, session.currentNode!!.hostFailure)
+        assertEquals(null, session.currentNode!!.outcome.hostFailure)
     }
 
     @Test
@@ -394,7 +394,7 @@ class SynchronousInvocationTest {
         assertSame(invokes.first().activation, invokes.last().activation)
         assertNotSame(invokes.first().activation, initializer.activation)
         assertSame(invokes.first().activation, initializer.activation.caller)
-        assertTrue(initializer.opExecutionStarted)
+        assertTrue(initializer.progress is OpProgress.Executed)
         assertEquals(Value.Known(9, intType), graph.outcomes.single().returnedValue())
     }
 

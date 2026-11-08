@@ -276,7 +276,7 @@ object CoreTester {
                     val host = graph.addresses().asSequence()
                         .flatMap { graph.nodePile(it).asSequence() }
                         .filter { it.outcome is Outcome.Threw }
-                        .mapNotNull { (it.endingFrame ?: it.frame).heap.hostObjectAt(raw) as? Throwable }
+                        .mapNotNull { it.terminalFrame.heap.hostObjectAt(raw) as? Throwable }
                         .firstOrNull()
                     host?.message ?: throw AssertionError("no tracked throwable at $raw")
                 }
@@ -423,8 +423,8 @@ object CoreTester {
             .filter { it.outcome is Outcome.Returned && it.activation.returnSite == null }
             .toList()
         if (returned.isEmpty()) return null
-        val first = (returned.first().endingFrame ?: returned.first().frame).heap.hostObjectAt(ref) ?: return null
-        return if (returned.all { (it.endingFrame ?: it.frame).heap.hostObjectAt(ref) === first }) first else null
+        val first = returned.first().terminalFrame.heap.hostObjectAt(ref) ?: return null
+        return if (returned.all { it.terminalFrame.heap.hostObjectAt(ref) === first }) first else null
     }
 
     /**

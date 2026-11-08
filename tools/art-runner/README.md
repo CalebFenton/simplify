@@ -12,13 +12,12 @@ tools/art-runner/run-batch.sh                    # all fixtures
 tools/art-runner/run-batch.sh Fx_DivOverflow     # one
 ```
 
-Assembly uses Google's maintained `com.android.tools.smali:smali:3.0.10`, resolved by
-`:smalivm:printSmaliAssemblerClasspath`, and its `com.android.tools.smali.smali.Main` CLI.
+Assembly uses SmaliVM's Smali dependency, resolved by `:smalivm:printSmaliAssemblerClasspath`,
+and its `com.android.tools.smali.smali.Main` CLI.
 The host needs the repository's Gradle-compatible JDK; Docker supplies ART, so a host
 Android SDK is not required. Both the fixture assembler and the isolated Tier B probe
-runner resolve their classpath through Gradle on every invocation. They no longer read
-`build/art-runner/smali-classpath.txt`; Gradle caches the dependency artifacts instead.
-The API level still comes from `SmaliParser.DEX_API_LEVEL`, with `--jobs 1` for assembly.
+runner resolve their classpath through Gradle on every invocation.
+The API level comes from `SmaliParser.DEX_API_LEVEL`, with `--jobs 1` for assembly.
 
 One line per fixture:
 

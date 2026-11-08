@@ -23,7 +23,7 @@ class OpaqueTrackedFieldTest {
             read.children.map { it.frame.heap.trackedFieldAt(ref)!!.accessibility },
         )
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
+        assertEquals(listOf(Value.Known(0x13, INTEGER)), returnedValues(graph))
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
@@ -43,7 +43,7 @@ class OpaqueTrackedFieldTest {
             listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN),
             read.children.map { it.frame.heap.trackedFieldAt(ref)!!.accessibility },
         )
-        assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
+        assertEquals(listOf(Value.Known(0x13, INTEGER)), returnedValues(graph))
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
@@ -66,7 +66,7 @@ class OpaqueTrackedFieldTest {
         for (method in listOf("opaqueArrayWrappedFieldThenGet()I", "opaqueObjectWrappedFieldThenGet()I")) {
             val graph = CoreTester.execute(UNRELATED.descriptor, method)
 
-            assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph), method)
+            assertEquals(listOf(Value.Known(0x13, INTEGER)), returnedValues(graph), method)
             assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph), method)
         }
     }
@@ -77,7 +77,7 @@ class OpaqueTrackedFieldTest {
         val invoke = opaqueInvoke(graph, OPAQUE_ONE)
 
         assertEquals(1, invoke.children.size)
-        assertEquals(listOf(Value.Known(0x10, INT), Value.Known(0x10, INT)), returnedValues(graph))
+        assertEquals(listOf(Value.Known(0x10, INTEGER), Value.Known(0x10, INTEGER)), returnedValues(graph))
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph))
     }
 
@@ -90,7 +90,7 @@ class OpaqueTrackedFieldTest {
 
         assertEquals(1, invoke.children.size)
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
+        assertEquals(listOf(Value.Known(0x13, INTEGER)), returnedValues(graph))
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
@@ -168,6 +168,7 @@ class OpaqueTrackedFieldTest {
 
     private companion object {
         val INT = VirtualType.of("I")
+        val INTEGER = VirtualType.of("Ljava/lang/Integer;") // Field.get boxes a primitive field
         val INT_ARRAY = VirtualType.of("[I")
         val BUILDER = VirtualType.of("Ljava/lang/StringBuilder;")
         val DECLARING = VirtualType.of("Lorg/cf/smalivm/DummyClass;")

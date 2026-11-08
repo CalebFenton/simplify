@@ -37,7 +37,7 @@ internal class ConstClassOp(
     override val registersAssigned: Set<Int> = destinationRegisters(destRegister, isWide = false)
 
     override fun execute(frame: Frame): OpExecution = when (operand) {
-        is TypeOperand.Absent -> resolutionFailure(operand.type)
+        is TypeOperand.Absent -> resolutionFailure(operand.failure)
         is TypeOperand.Present ->
             OpExecution.single(OpArm.Continue(OpUpdate.assign(destRegister, Value.Known(operand.resolved, CLASS))))
     }

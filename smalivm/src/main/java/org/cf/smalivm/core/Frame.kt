@@ -34,7 +34,7 @@ internal data class CallCompatibilityKey(
  * [Value] accessors project it away.
  */
 class Frame private constructor(
-    private val view: MethodView,
+    internal val view: MethodView,
     private var slots: PersistentList<RegisterSlot?>,
     private var assigned: PersistentSet<Int>,
     private var read: PersistentSet<Int>,

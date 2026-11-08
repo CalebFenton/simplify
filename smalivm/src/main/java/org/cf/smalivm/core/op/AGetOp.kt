@@ -34,19 +34,20 @@ internal class AGetOp(
     override fun execute(frame: Frame): OpExecution = when (val array = frame.readArrayOperand(arrayRegister)) {
         is ArrayOperand.Unprovable -> OpExecution.of(
             OpArm.Continue(OpUpdate.assign(destRegister, unknownElementOf(array.tag))),
-            GuestThrowables.throwing(GuestThrowables.nullPointer()),
-            GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null)),
+            GuestThrowables.throwing(NULL_ARRAY),
+            GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null, null)),
         )
-        ArrayOperand.Null -> OpExecution.single(GuestThrowables.throwing(GuestThrowables.nullPointer()))
+        ArrayOperand.Null -> OpExecution.single(GuestThrowables.throwing(NULL_ARRAY))
         is ArrayOperand.NotTracked ->
             OpExecution.single(OpArm.Continue(OpUpdate.assign(destRegister, unknownElementOf(array.tag))))
         is ArrayOperand.Tracked -> when (val index = array.array.indexOf(frame.read(indexRegister))) {
             ArrayIndex.Unprovable -> OpExecution.of(
                 OpArm.Continue(OpUpdate.assign(destRegister, Value.Unknown(array.component))),
-                GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null)),
+                GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(array.array.length, null)),
             )
-            is ArrayIndex.OutOfBounds ->
-                OpExecution.single(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(index.index)))
+            is ArrayIndex.OutOfBounds -> OpExecution.single(
+                GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(array.array.length, index.index)),
+            )
             is ArrayIndex.InBounds ->
                 OpExecution.single(OpArm.Continue(OpUpdate.assign(destRegister, array.array.element(index.index))))
         }
@@ -60,4 +61,8 @@ internal class AGetOp(
         if (tag == null) Value.Top else Value.Unknown(tag.componentType ?: tag)
 
     override fun toString(): String = "$name r$destRegister, r$arrayRegister, r$indexRegister"
+
+    private companion object {
+        val NULL_ARRAY = GuestThrowables.nullPointer(GuestThrowables.NullOperand.ARRAY_READ)
+    }
 }

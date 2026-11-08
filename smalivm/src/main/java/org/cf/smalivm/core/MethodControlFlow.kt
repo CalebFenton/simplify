@@ -1,36 +1,36 @@
 package org.cf.smalivm.core
 
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
-import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.SwitchPayload
-import com.android.tools.smali.dexlib2.iface.instruction.formats.ArrayPayload
 
 /**
- * Every control-flow edge the Dalvik bytecode of one [MethodView] permits, whether or not an execution took it.
- * Instructions are numbered by their position in [MethodView.instructionAddresses]; payload data is not an
- * instruction, and the method entry is index 0.
+ * Every control-flow edge the Dalvik bytecode of one method body permits, whether or not an execution took it.
+ * Instructions are numbered in body order without payload data, so index `i` is the instruction at
+ * [MethodView.instructionAddresses]`[i]`, and the method entry is index 0.
  *
  * Normal edges are fall-through, branch and switch-case edges. Exceptional edges run from each instruction that can
  * throw to every handler of the try range covering it, and carry the register state from before that instruction.
  */
 class MethodControlFlow private constructor(
-    val method: MethodView,
+    private val records: Array<EncodedInstruction>,
     private val addresses: IntArray,
-    private val instructions: Array<Instruction>,
     private val normal: Array<IntArray>,
     private val exceptional: Array<IntArray>,
     private val predecessors: Array<IntArray>,
+    private val fallthrough: IntArray,
+    private val fallsOffCode: BooleanArray,
     private val handlerEntries: BooleanArray,
     private val reachable: BooleanArray,
 ) {
-    val size: Int get() = addresses.size
+    val size: Int get() = records.size
 
     fun addressAt(index: Int): Int = addresses[index]
 
-    fun instructionAt(index: Int): Instruction = instructions[index]
+    fun instructionAt(index: Int): Instruction = records[index].instruction
+
+    internal fun positionAt(index: Int): LogicalCodePosition = records[index].position
+
+    internal fun recordAt(index: Int): EncodedInstruction = records[index]
 
     fun indexOf(address: Int): Int? = addresses.binarySearch(address).takeIf { it >= 0 }
 
@@ -49,6 +49,15 @@ class MethodControlFlow private constructor(
     /** Whether a try range names [index] as a handler. */
     fun isHandlerEntry(index: Int): Boolean = handlerEntries[index]
 
+    /** The instruction [index] falls through to, or null when it cannot continue or falls off the code. */
+    fun fallthroughSuccessor(index: Int): Int? = fallthrough[index].takeIf { it >= 0 }
+
+    /** Whether [index] can continue but the next code unit is payload data or past the last instruction. */
+    internal fun fallsOffCode(index: Int): Boolean = fallsOffCode[index]
+
+    /** Whether a reachable instruction falls off the code, which ART's verifier rejects. */
+    internal val hasReachableFallOff: Boolean get() = records.indices.any { reachable[it] && fallsOffCode[it] }
+
     /**
      * The instruction before [index] when falling through from it is the only way to enter [index]: [index] is not
      * the method entry, not a handler entry, and no other edge targets it. The register state entering [index] is then
@@ -57,98 +66,70 @@ class MethodControlFlow private constructor(
     fun fallthroughPredecessor(index: Int): Int? {
         if (index == 0 || handlerEntries[index]) return null
         val previous = index - 1
-        if (predecessors[index].any { it != previous }) return null
-        return previous.takeIf { method.canContinue(addresses[it]) && method.nextAddress(addresses[it]) == addresses[index] }
+        if (fallthrough[previous] != index || predecessors[index].any { it != previous }) return null
+        return previous
     }
 
-    /** Registers the instruction at [index] reads; a wide operand names both halves of its pair. */
-    fun registersRead(index: Int): IntArray = registerEffect(index, reads = true)
+    /** Registers the instruction at [index] reads, ascending; a wide operand names both halves of its pair. */
+    fun registersRead(index: Int): IntArray = RegisterEffects.registersRead(records[index].instruction)
 
-    /** Registers the instruction at [index] writes; a wide operand names both halves of its pair. */
-    fun registersWritten(index: Int): IntArray = registerEffect(index, reads = false)
-
-    private fun registerEffect(index: Int, reads: Boolean): IntArray {
-        val instruction = instructions[index]
-        val registers = instruction.registerOperands()
-        // Invokes and filled-new-array read every argument word and write none.
-        if (instruction is FiveRegisterInstruction || instruction is RegisterRangeInstruction) {
-            return if (reads) registers.toSortedSet().toIntArray() else IntArray(0)
-        }
-        val result = sortedSetOf<Int>()
-        RegisterEffects.operands(instruction).forEachIndexed { operand, effect ->
-            val register = registers.getOrNull(operand) ?: return@forEachIndexed
-            if (if (reads) !effect.reads else !effect.writes) return@forEachIndexed
-            result += register
-            if (effect.category == ValueCategory.WIDE) result += register + 1
-        }
-        return result.toIntArray()
-    }
+    /** Registers the instruction at [index] writes, ascending; a wide operand names both halves of its pair. */
+    fun registersWritten(index: Int): IntArray = RegisterEffects.registersWritten(records[index].instruction)
 
     companion object {
         /**
-         * The control flow of [method], or null when its bytecode names a branch, switch-case or handler target that
-         * is not an instruction, a switch or `fill-array-data` without a payload of the matching kind, overlapping
-         * try ranges, or a reachable instruction that falls through into payload data or off the end of the code. The
-         * Dalvik verifier rejects each of these.
+         * The control flow of [body], or null when the body names a branch, switch-case or handler target that is not
+         * an instruction, a switch or `fill-array-data` target that is not a payload of the matching kind, or
+         * overlapping try ranges. The Dalvik verifier rejects each of these. A reachable fall off the code is recorded
+         * rather than rejected, so the editor can name it.
          */
-        fun of(method: MethodView): MethodControlFlow? {
-            val addresses = method.instructionAddresses
-            val size = addresses.size
-            val instructions = Array(size) { method.instructionAt(addresses[it]) }
-            fun indexOf(address: Int): Int? = addresses.binarySearch(address).takeIf { it >= 0 }
-
-            val handlerEntries = BooleanArray(size)
-            val handlers = arrayOfNulls<IntArray>(size)
-            for (index in 0 until size) {
-                if (!mayThrow(instructions[index].opcode)) continue
-                val table = when (val lookup = method.handlerTableAt(addresses[index])) {
-                    HandlerTableLookup.None -> continue
-                    HandlerTableLookup.MalformedMetadata -> return null
-                    is HandlerTableLookup.Found -> lookup.table
-                }
-                val targets = LinkedHashSet<Int>()
-                for (clause in table.clauses) targets += indexOf(clause.handlerAddress) ?: return null
-                handlers[index] = targets.toIntArray()
-            }
-            for (block in method.tryBlocks) {
-                for (clause in block.catches) handlerEntries[indexOf(clause.handlerAddress) ?: return null] = true
-                block.catchAllAddress?.let { handlerEntries[indexOf(it) ?: return null] = true }
-            }
+        internal fun of(body: MethodBody): MethodControlFlow? {
+            val bodyRecords = body.instructions
+            val records = bodyRecords.filter { it.instruction.opcode !in OpcodeGroups.PAYLOAD }.toTypedArray()
+            val size = records.size
+            val indexByPosition = HashMap<LogicalCodePosition, Int>(size * 2)
+            records.forEachIndexed { index, record -> indexByPosition[record.position] = index }
+            val bodyIndexByPosition = HashMap<LogicalCodePosition, Int>(bodyRecords.size * 2)
+            bodyRecords.forEachIndexed { index, record -> bodyIndexByPosition[record.position] = index }
 
             val normal = Array(size) { IntArray(0) }
+            val fallthrough = IntArray(size) { -1 }
             val fallsOffCode = BooleanArray(size)
             for (index in 0 until size) {
-                val address = addresses[index]
-                val instruction = instructions[index]
-                val opcode = instruction.opcode
+                val record = records[index]
+                val opcode = record.instruction.opcode
                 val successors = LinkedHashSet<Int>()
                 when (opcode) {
                     in OpcodeGroups.BRANCH -> {
-                        val target = indexOf(address + (instruction as OffsetInstruction).codeOffset) ?: return null
-                        successors += target
+                        successors += body.controlTargets[record.position]?.let(indexByPosition::get) ?: return null
                     }
                     in OpcodeGroups.PAYLOAD_OWNER -> {
-                        val payloadAddress = address + (instruction as OffsetInstruction).codeOffset
-                        if (!method.isPayload(payloadAddress)) return null
-                        val payload = method.payloadAt(payloadAddress)
-                        if (opcode == Opcode.FILL_ARRAY_DATA) {
-                            if (payload !is ArrayPayload) return null
-                        } else {
-                            if (payload !is SwitchPayload) return null
-                            for (element in payload.switchElements) {
-                                successors += indexOf(address + element.offset) ?: return null
-                            }
+                        val payload = body.controlTargets[record.position]
+                            ?.let(bodyIndexByPosition::get)
+                            ?.let(bodyRecords::get)
+                        if (payload?.instruction?.opcode != PAYLOAD_BY_OWNER.getValue(opcode)) return null
+                        for (case in body.switchCases[record.position].orEmpty()) {
+                            successors += indexByPosition[case.target] ?: return null
                         }
                     }
                     else -> Unit
                 }
                 if (opcode.canContinue()) {
-                    val next = indexOf(address + instruction.codeUnits)
-                    if (next == null) fallsOffCode[index] = true else successors += next
+                    val next = bodyRecords.getOrNull(requireNotNull(bodyIndexByPosition[record.position]) + 1)
+                    val nextIndex = next?.position?.let(indexByPosition::get)
+                    if (nextIndex == null) {
+                        fallsOffCode[index] = true
+                    } else {
+                        fallthrough[index] = nextIndex
+                        successors += nextIndex
+                    }
                 }
                 normal[index] = successors.toIntArray()
             }
-            val exceptional = Array(size) { handlers[it] ?: IntArray(0) }
+
+            val handlerEntries = BooleanArray(size)
+            val exceptional = exceptionalEdges(body, records, indexByPosition, bodyIndexByPosition, handlerEntries)
+                ?: return null
 
             val predecessorLists = Array(size) { ArrayList<Int>(2) }
             for (index in 0 until size) {
@@ -164,18 +145,67 @@ class MethodControlFlow private constructor(
                 pending += 0
                 while (pending.isNotEmpty()) {
                     val index = pending.removeFirst()
-                    if (fallsOffCode[index]) return null
                     for (successor in normal[index]) if (!reachable[successor]) { reachable[successor] = true; pending += successor }
                     for (successor in exceptional[index]) if (!reachable[successor]) { reachable[successor] = true; pending += successor }
                 }
             }
             return MethodControlFlow(
-                method, addresses, instructions, normal, exceptional,
-                Array(size) { predecessorLists[it].toIntArray() }, handlerEntries, reachable,
+                records,
+                IntArray(size) { records[it].codeAddress },
+                normal,
+                exceptional,
+                Array(size) { predecessorLists[it].toIntArray() },
+                fallthrough,
+                fallsOffCode,
+                handlerEntries,
+                reachable,
             )
         }
 
-        /** dexlib2 does not flag `fill-array-data` as throwing; Dalvik throws for a null or too-short array. */
+        /**
+         * Handler entries per instruction, marking every handler target in [handlerEntries]. Regions sharing one
+         * range form one try item whose clauses keep their order. A region ends before its end position.
+         */
+        private fun exceptionalEdges(
+            body: MethodBody,
+            records: Array<EncodedInstruction>,
+            indexByPosition: Map<LogicalCodePosition, Int>,
+            bodyIndexByPosition: Map<LogicalCodePosition, Int>,
+            handlerEntries: BooleanArray,
+        ): Array<IntArray>? {
+            val bodySize = body.instructions.size
+            val targetsByRange = LinkedHashMap<IntRange, LinkedHashSet<Int>>()
+            for (region in body.tryRegions) {
+                val start = bodyIndexByPosition[region.start] ?: bodySize
+                val end = bodyIndexByPosition[region.end] ?: bodySize
+                val targets = targetsByRange.getOrPut(start until end, ::LinkedHashSet)
+                for (handler in region.handlers) {
+                    val target = indexByPosition[handler.target] ?: return null
+                    handlerEntries[target] = true
+                    targets += target
+                }
+            }
+            val ranges = targetsByRange.keys.filterNot(IntRange::isEmpty).sortedBy(IntRange::first)
+            if (ranges.zipWithNext().any { (previous, next) -> next.first <= previous.last }) return null
+
+            val exceptional = Array(records.size) { IntArray(0) }
+            for (range in ranges) {
+                val targets = requireNotNull(targetsByRange[range]).toIntArray()
+                for (bodyIndex in range) {
+                    val index = indexByPosition[body.instructions[bodyIndex].position] ?: continue
+                    if (mayThrow(records[index].instruction.opcode)) exceptional[index] = targets
+                }
+            }
+            return exceptional
+        }
+
+        /** ART's opcode table flags `fill-array-data` as throwing (a null or too-short array); dexlib2 does not. */
         private fun mayThrow(opcode: Opcode): Boolean = opcode.canThrow() || opcode == Opcode.FILL_ARRAY_DATA
+
+        private val PAYLOAD_BY_OWNER = mapOf(
+            Opcode.FILL_ARRAY_DATA to Opcode.ARRAY_PAYLOAD,
+            Opcode.PACKED_SWITCH to Opcode.PACKED_SWITCH_PAYLOAD,
+            Opcode.SPARSE_SWITCH to Opcode.SPARSE_SWITCH_PAYLOAD,
+        )
     }
 }

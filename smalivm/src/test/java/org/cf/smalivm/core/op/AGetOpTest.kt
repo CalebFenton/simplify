@@ -211,21 +211,9 @@ class AGetOpTest {
     }
 
     /**
-     * **INHERITED** ([JVMS] §6.5 `iaload`), and `testCaught` rather than `testThrows`: `getWithCatch()V`
-     * (`ops/aget_test.smali:20-36`) declares a `Ljava/lang/Exception;` handler around the `aget`, an NPE is
-     * an `Exception`, so the throw is CAUGHT, `move-exception v0` binds it, and the run RETURNS -- which
-     * produces no `Outcome.Threw` at all. That is the shape the corpus's `testSimpleException` asserted and
-     * the opposite of what `testThrows` asserts.
-     *
-     * Address **2**, not 1: `aget` is format 23x = TWO code units, so the `nop` sits at 2 and address 1 does
-     * not exist. `wasReached(1)` would be silently `false` (an empty `nodePile(1)`), i.e. a green assertion
-     * testing nothing.
-     *
-     * **No message is asserted, deliberately.** The corpus asserted none, and the contrast with
-     * `ArrayLengthOp`'s NPE -- which *does* carry one -- is not accidental: there the corpus asserts the
-     * string AND [ART] emits exactly it (`common_throws.cc:639-667`). [ART] also has per-opcode texts for
-     * these two (*"Attempt to read from null array"* / *"…write to null array"*), so a later plan may adopt
-     * them; that would be an improvement, not a fix, and nothing here is pinned in a way that blocks it.
+     * **INHERITED** ([JVMS] §6.5 `iaload`), caught by `getWithCatch()V`'s `Ljava/lang/Exception;` handler.
+     * The message is [ART]'s `aget` text from `ThrowNullPointerExceptionFromDexPC` (`common_throws.cc`).
+     * Address 2: `aget` is format 23x, two code units.
      */
     @Test
     fun nullArrayValueThrowsNullPointerExceptionAndHasNoChildrenAndAssignsNoRegisters() {
@@ -233,6 +221,7 @@ class AGetOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "getWithCatch()V", initial,
             exceptionType = "Ljava/lang/NullPointerException;",
+            message = "Attempt to read from null array",
             caughtInRegister = 0,
             unreachedAddress = 2,
         )
@@ -240,17 +229,8 @@ class AGetOpTest {
     }
 
     /**
-     * **INHERITED** ([JVMS] §6.5), and caught for the same reason as the NPE above -- an AIOOBE is an
-     * `Exception` too, so this fixture's handler covers both and both migrate onto `testCaught`.
-     *
-     * **The message is a PINNED ENGINE CHOICE that deliberately does NOT match any runtime.** Nothing
-     * *specifies* an AIOOBE message -- [BC] names no array exception at all, [JVMS] specifies no text -- and
-     * the one real runtime string is [ART]'s `"length=%d; index=%d"`
-     * (`runtime/common_throws.cc:131-134`, quoted verbatim in `docs/DALVIK-SEMANTICS.md`). So `"10"` below is
-     * a divergence from ART, not a match: the corpus asserted no message, nothing downstream reads one, and
-     * [RT] records that the text changed between runtimes anyway. Asserted only so it cannot drift silently
-     * -- a test asserting an exception *message* is never evidence of Dalvik fidelity, per
-     * `docs/DALVIK-SEMANTICS.md`'s "compare types, not strings".
+     * **INHERITED** ([JVMS] §6.5). The message is [ART]'s `ThrowArrayIndexOutOfBoundsException` text,
+     * `"length=%d; index=%d"` (`common_throws.cc`), the form the Tier-A recording shows for `aput`.
      */
     @Test
     fun outOfBoundsIndexThrowsArrayIndexOutOfBoundsExceptionAndHasNoChildrenAndAssignsNoRegisters() {
@@ -258,7 +238,7 @@ class AGetOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "getWithCatch()V", initial,
             exceptionType = "Ljava/lang/ArrayIndexOutOfBoundsException;",
-            message = "10",
+            message = "length=5; index=10",
             caughtInRegister = 0,
             unreachedAddress = 2,
         )
@@ -344,11 +324,9 @@ class AGetOpTest {
     }
 
     /**
-     * A negative index is an ORDINARY bounds exception rather than a distinct one: ART compares unsigned
-     * (`Array::CheckIsValidIndex`), so `index < 0` and `index >= length` are the same check and the same
-     * throw (**INHERITED**, [JVMS] §6.5). Never covered by the corpus, and the bug class is a bare
-     * `index >= length` test, which lets `-1` fall through to `element(-1)` and turns a guest AIOOBE into a
-     * host `ArrayIndexOutOfBoundsException` -- i.e. `Aborted(HOST_FAILURE)` instead of an explorable path.
+     * A negative index is an ordinary bounds exception: ART compares unsigned (`Array::CheckIsValidIndex`),
+     * so `index < 0` and `index >= length` are one check and one throw (**INHERITED**, [JVMS] §6.5). A bare
+     * `index >= length` test would read `element(-1)` and fail the host.
      */
     @Test
     fun aNegativeKnownIndexIsAnOrdinaryBoundsException() {
@@ -356,7 +334,7 @@ class AGetOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "getWithCatch()V", initial,
             exceptionType = "Ljava/lang/ArrayIndexOutOfBoundsException;",
-            message = "-1",
+            message = "length=3; index=-1",
             caughtInRegister = 0,
             unreachedAddress = 2,
         )

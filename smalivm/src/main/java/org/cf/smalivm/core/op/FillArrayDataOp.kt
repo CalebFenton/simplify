@@ -17,8 +17,8 @@ import org.cf.smalivm.core.VirtualType
  * address is never executed (payloads must not be reachable by control flow, [CON] B22).
  *
  * ART's `FillArrayData` checks null, then that the payload fits, then copies every element at once, so a
- * payload longer than the array stores nothing and an array longer than the payload keeps its tail. A fill
- * into an array the engine cannot name records `STRONG`; a fill into a tracked array records `WEAK`.
+ * payload longer than the array stores nothing and an array longer than the payload keeps its tail. Only an
+ * arm that fills declares an effect: `STRONG` into an array the engine cannot name, `WEAK` into a tracked one.
  */
 internal class FillArrayDataOp(
     address: Int,
@@ -32,22 +32,19 @@ internal class FillArrayDataOp(
     override val registersRead: Set<Int> = setOf(arrayRegister)
 
     override fun execute(frame: Frame): OpExecution = when (val array = frame.readArrayOperand(arrayRegister)) {
-        ArrayOperand.Null -> OpExecution.single(GuestThrowables.throwing(GuestThrowables.nullPointer()))
-        is ArrayOperand.Unprovable -> {
-            val effect = OpUpdate.effect(SideEffectLevel.STRONG)
-            OpExecution.of(
-                buildList<OpArm> {
-                    add(OpArm.Continue(effect))
-                    add(GuestThrowables.throwing(GuestThrowables.nullPointer(), effect))
-                    // An empty payload fits every array, so only a non-empty one can be too long.
-                    if (payloadElements.isNotEmpty()) add(GuestThrowables.throwing(tooShort(), effect))
-                },
-            )
-        }
+        ArrayOperand.Null -> OpExecution.single(GuestThrowables.throwing(NULL_ARRAY))
+        is ArrayOperand.Unprovable -> OpExecution.of(
+            buildList<OpArm> {
+                add(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)))
+                add(GuestThrowables.throwing(NULL_ARRAY))
+                // An empty payload fits every array, so only a non-empty one can be too long.
+                if (payloadElements.isNotEmpty()) add(GuestThrowables.throwing(overrun(length = null)))
+            },
+        )
         is ArrayOperand.NotTracked -> OpExecution.single(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)))
         is ArrayOperand.Tracked -> {
             if (payloadElements.size > array.array.length) {
-                OpExecution.single(GuestThrowables.throwing(tooShort()))
+                OpExecution.single(GuestThrowables.throwing(overrun(array.array.length)))
             } else {
                 val write = OpUpdate.writeArrayElements(
                     array.ref,
@@ -84,12 +81,13 @@ internal class FillArrayDataOp(
         return Value.Known(raw, component)
     }
 
-    private fun tooShort(): ThrowableRecipe = GuestThrowables.arrayIndexOutOfBounds(null)
+    private fun overrun(length: Int?): ThrowableRecipe = GuestThrowables.fillArrayDataOverrun(length, payloadElements.size)
 
     /** The payload is decoded away at build time, so its address is not rendered. */
     override fun toString(): String = "$name r$arrayRegister, :payload"
 
     private companion object {
         val INT: VirtualType = VirtualType.of("I")
+        val NULL_ARRAY = GuestThrowables.nullPointer(GuestThrowables.NullOperand.FILL_ARRAY_DATA)
     }
 }

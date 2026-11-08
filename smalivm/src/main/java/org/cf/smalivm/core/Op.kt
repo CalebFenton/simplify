@@ -38,11 +38,9 @@ import org.cf.smalivm.core.op.TypeOperand
 import org.cf.smalivm.core.op.UnaryMathOp
 import org.cf.smalivm.core.op.UnaryOperation
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.builder.BuilderOffsetInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
@@ -108,13 +106,8 @@ private class Decoding(
     val reference: Reference get() = (instruction as ReferenceInstruction).reference
     val typeReference: VirtualType get() = VirtualType.of((reference as TypeReference).type)
 
-    /** dexlib resolves the label, so the target is a real code address and never a raw offset. */
-    val target: Int
-        get() = view.controlTargetAt(address) ?: when (instruction) {
-            is BuilderOffsetInstruction -> instruction.target.codeAddress
-            is OffsetInstruction -> address + instruction.codeOffset
-            else -> error("${instruction.opcode.name} is not an offset instruction")
-        }
+    /** The instruction start the body resolves this branch or payload target to; null when there is none. */
+    val target: Int? get() = view.controlTargetAt(address)
 
     /** The register list of a `35c` or `3rc` instruction. */
     val registerList: IntArray?
@@ -132,7 +125,10 @@ private class Decoding(
 
     /** A type operand, present when the class is in the loaded set. */
     fun typeOperand(type: VirtualType): TypeOperand<Unit> =
-        if (resolver.hierarchy.isLoadable(type)) TypeOperand.Present(type, Unit) else TypeOperand.Absent(type)
+        if (resolver.hierarchy.isLoadable(type)) TypeOperand.Present(type, Unit) else absent(type)
+
+    fun absent(type: VirtualType): TypeOperand.Absent =
+        TypeOperand.Absent(type, GuestThrowables.unresolvedClass(type, resolver.hierarchy))
 }
 
 /**
@@ -158,7 +154,9 @@ internal object OpBuilder {
 
     private fun decoderFor(opcode: Opcode): Decoder? = when (opcode) {
         Opcode.NOP -> { d -> NopOp(d.address) }
-        Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32 -> { d -> GotoOp(d.address, d.name, d.target) }
+        Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32 -> { d ->
+            d.target?.let { GotoOp(d.address, d.name, it) } ?: d.unsupported
+        }
         Opcode.IF_EQ, Opcode.IF_EQZ -> branch(IfComparison.EQ)
         Opcode.IF_NE, Opcode.IF_NEZ -> branch(IfComparison.NE)
         Opcode.IF_LT, Opcode.IF_LTZ -> branch(IfComparison.LT)
@@ -306,27 +304,18 @@ internal object OpBuilder {
 
     /** `22t` names both operands; `21t` names one and compares it with zero. */
     private fun branch(comparison: IfComparison): Decoder = { d ->
-        IfOp(d.address, d.name, comparison, d.target, d.registerA, (d.instruction as? TwoRegisterInstruction)?.registerB)
+        d.target?.let { target ->
+            IfOp(d.address, d.name, comparison, target, d.registerA, (d.instruction as? TwoRegisterInstruction)?.registerB)
+        } ?: d.unsupported
     }
 
-    /**
-     * Each case's offset is relative to the switch, not to the payload, as both payload formats specify. A
-     * payload target that is not a switch table makes the instruction unsupported; a malformed case target is
-     * left to the scheduler, which drops only that successor and reports the loss.
-     */
+    /** Each case target is the one the body resolved; a payload target that is not a switch table is unsupported. */
     private fun switch(dispatch: SwitchDispatch): Decoder = { d ->
-        val payloadAddress = d.target
-        val payload = payloadAddress.takeIf { d.view.hasAddress(it) && d.view.isPayload(it) }
-            ?.let { d.view.payloadAt(it) as? SwitchPayload }
-        if (payload == null) {
+        val namesSwitchTable = d.target?.let { d.view.isPayload(it) && d.view.payloadAt(it) is SwitchPayload } == true
+        if (!namesSwitchTable) {
             d.unsupported
         } else {
-            val importedCases = d.view.switchCasesAt(d.address)
-            val cases = if (importedCases.isNotEmpty()) {
-                importedCases.map { (key, target) -> SwitchOp.Case(key, target) }
-            } else {
-                payload.switchElements.map { SwitchOp.Case(it.key, d.address + it.offset) }
-            }
+            val cases = d.view.switchCasesAt(d.address).map { (key, target) -> SwitchOp.Case(key, target) }
             SwitchOp(d.address, d.name, d.registerA, cases, d.address + d.instruction.codeUnits, dispatch)
         }
     }
@@ -342,7 +331,7 @@ internal object OpBuilder {
     /**
      * The class is loaded first, because the host loader also resolves host-only classes the class model does
      * not contain. When the load fails, the class model decides which failure it is: a class absent from it
-     * is a guest `NoClassDefFoundError`, and a class it contains that the host cannot load (many framework
+     * is a guest resolution failure, and a class it contains that the host cannot load (many framework
      * `java.*` classes) is an engine limitation, so the instruction is unsupported.
      */
     private fun constClass(d: Decoding): Op {
@@ -351,7 +340,7 @@ internal object OpBuilder {
         val type = VirtualType.of(descriptor)
         return when {
             hostClass != null -> ConstClassOp(d.address, d.registerA, TypeOperand.Present(type, hostClass))
-            !d.resolver.hierarchy.isLoadable(type) -> ConstClassOp(d.address, d.registerA, TypeOperand.Absent(type))
+            !d.resolver.hierarchy.isLoadable(type) -> ConstClassOp(d.address, d.registerA, d.absent(type))
             else -> d.unsupported
         }
     }
@@ -388,7 +377,7 @@ internal object OpBuilder {
     private fun newInstance(d: Decoding): Op {
         val type = d.typeReference
         val fields = d.resolver.instanceFieldDefaults(type)
-        val instance = if (fields != null) TypeOperand.Present(type, fields) else TypeOperand.Absent(type)
+        val instance = if (fields != null) TypeOperand.Present(type, fields) else d.absent(type)
         return NewInstanceOp(d.address, d.name, d.registerA, instance)
     }
 
@@ -402,8 +391,7 @@ internal object OpBuilder {
 
     /** A payload target that is not `.array-data` makes the instruction unsupported. */
     private fun fillArrayData(d: Decoding): Op {
-        val target = d.target
-        val payload = target.takeIf { d.view.hasAddress(it) && d.view.isPayload(it) }
+        val payload = d.target?.takeIf { d.view.isPayload(it) }
             ?.let { d.view.payloadAt(it) as? ArrayPayload }
             ?: return d.unsupported
         return FillArrayDataOp(d.address, d.name, d.registerA, payload.elementWidth, payload.arrayElements)

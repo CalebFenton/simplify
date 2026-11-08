@@ -185,7 +185,7 @@ class PublicExecutionApiTest {
         val threw = graph.outcomes.filterIsInstance<Outcome.Threw>().single().exception as Value.Known
         assertEquals(VirtualType.of("Ljava/lang/RuntimeException;"), threw.type)
         assertTrue(threw.raw is HeapRef)
-        assertEquals(1, graph.outcomes.count { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
+        assertEquals(1, graph.outcomes.count { it.abortReason == AbortReason.HOST_FAILURE })
     }
 
     private companion object {

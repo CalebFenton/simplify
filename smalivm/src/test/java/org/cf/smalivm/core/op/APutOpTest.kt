@@ -467,22 +467,10 @@ class APutOpTest {
     // ------------------------------------------------------------------------------------------
 
     /**
-     * A definitely-null array is a DEFINITE `NullPointerException` -- no fork, no store (**INHERITED**,
-     * [JVMS] §6.5 `iastore`).
-     *
-     * The index is seeded **10** against a null array on purpose: that pins the ORDER. [JVMS] §6.5's
-     * `Otherwise` chaining makes NPE strictly precede the bounds exception, so an implementation that
-     * consulted the index first would leave an `ArrayIndexOutOfBoundsException` in v0 and fail here.
-     *
-     * `testCaught`, never `testThrows`: `putWithCatch()V` declares a `Ljava/lang/Exception;` handler around
-     * the `aput`, an NPE is an `Exception`, so the throw is CAUGHT, `move-exception v0` binds it and the run
-     * RETURNS -- producing no `Outcome.Threw` at all. Address **2**, not 1: 23x is TWO code units, so the
-     * `nop` sits at 2 and `wasReached(1)` would be silently false (`nodePile(1)` is empty), i.e. a green
-     * assertion testing nothing.
-     *
-     * No message asserted: the corpus asserts none. [ART] does have a per-opcode text for this one
-     * (*"Attempt to write to null array"*, `common_throws.cc:657`), so a later plan may adopt it -- an
-     * improvement rather than a fix, and nothing here blocks it.
+     * A definitely-null array is a definite `NullPointerException` -- no fork, no store (**INHERITED**,
+     * [JVMS] §6.5 `iastore`). Index 10 against a null array pins the order: NPE precedes the bounds check.
+     * The message is [ART]'s `aput` text (`ThrowNullPointerExceptionFromDexPC`), which the Tier-A recording
+     * shows for `Fx_AputNullArrayBadIndex`.
      */
     @Test
     fun aDefinitelyNullArrayThrowsNullPointerExceptionBeforeLookingAtTheIndex() {
@@ -490,6 +478,7 @@ class APutOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "putWithCatch()V", initial,
             exceptionType = "Ljava/lang/NullPointerException;",
+            message = "Attempt to write to null array",
             caughtInRegister = 0,
             unreachedAddress = 2,
         )
@@ -599,18 +588,9 @@ class APutOpTest {
     }
 
     /**
-     * A negative index is an ORDINARY bounds exception rather than a distinct one: ART compares unsigned
-     * (`Array::CheckIsValidIndex`), so `index < 0` and `index >= length` are the same check and the same
-     * throw (**INHERITED**, [JVMS] §6.5). The bug class is a bare `index >= length` test, which lets `-1`
-     * through to `setElement(-1, …)` and turns a guest exception into a HOST failure -- i.e.
-     * `Aborted(HOST_FAILURE)` instead of an explorable path.
-     *
-     * **The message is a PINNED ENGINE CHOICE that deliberately does NOT match any runtime.** Nothing
-     * specifies an AIOOBE message -- [BC] names no array exception at all, [JVMS] specifies no text -- and
-     * the one real runtime string is [ART]'s `"length=%d; index=%d"` (`runtime/common_throws.cc:131-134`,
-     * quoted verbatim in `docs/DALVIK-SEMANTICS.md`, this repo's verified-quote registry). So `"-1"` is a
-     * divergence from ART, not a match, asserted only so it cannot drift silently -- a test asserting an
-     * exception *message* is never evidence of Dalvik fidelity.
+     * A negative index is an ordinary bounds exception: ART compares unsigned (`Array::CheckIsValidIndex`),
+     * so `index < 0` and `index >= length` are one check and one throw (**INHERITED**, [JVMS] §6.5). The
+     * message is [ART]'s `"length=%d; index=%d"`, as the Tier-A recording shows for `Fx_AputNegativeIndex`.
      */
     @Test
     fun aNegativeKnownIndexIsAnOrdinaryBoundsException() {
@@ -618,27 +598,16 @@ class APutOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "putWithCatch()V", initial,
             exceptionType = "Ljava/lang/ArrayIndexOutOfBoundsException;",
-            message = "-1",
+            message = "length=3; index=-1",
             caughtInRegister = 0,
             unreachedAddress = 2,
         )
     }
 
     /**
-     * The direction "always fork" gets wrong: a PROVABLY non-null array with an unknown index forks only
-     * the bounds exception. Forking the NPE too would tell a deobfuscator a `catch (NullPointerException)`
-     * handler is reachable on a path Dalvik cannot take.
-     *
-     * The values half of this row is [anUnknownIndexJoinsEveryElementWithTheStoredValue]; this is the SHAPE
-     * half, and the shape is the half no migrated test can see.
-     *
-     * **It also pins that a SPECULATIVE bounds exception carries NO message** (review finding F3: that claim
-     * was in `APutOp`'s KDoc and nothing failed when it was reverted). There is no offending index on this
-     * row -- the index is precisely what is unprovable -- so naming one would fabricate a constant, which is
-     * the one thing spec §2.2 forbids outright. Contrast [aNegativeKnownIndexIsAnOrdinaryBoundsException],
-     * where the index IS known and the message is the pinned engine choice. Asserting `null` here does not
-     * block a later plan from adopting ART's `"length=%d; index=%d"` shape, which needs the *index*: it would
-     * change the DEFINITE row's text, not this one's.
+     * A provably non-null array with an unknown index forks only the bounds exception; forking the NPE too
+     * would make an unreachable `catch (NullPointerException)` reachable. The speculative exception carries
+     * no message, because ART's text names the index the engine does not know.
      */
     @Test
     fun aProvableArrayWithAnUnknownIndexForksOnlyTheBoundsException() {
@@ -648,6 +617,7 @@ class APutOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertTrue(graph.wasReached(2), "the store itself must still be explored")
         assertEquals(listOf("Ljava/lang/ArrayIndexOutOfBoundsException;"), CoreTester.escapingTypes(graph))
+        assertEquals(listOf<String?>(null), escapingMessages(graph))
     }
 
     /**
@@ -946,24 +916,10 @@ class APutOpTest {
     }
 
     /**
-     * The first of the four `ArrayStoreException` migrations: a `Ljava/lang/String;`-typed register stored
-     * into an `[I` by a **plain** `aput`.
-     *
-     * **This input is verifier-invalid, and that is what makes the engine's answer a CHOICE rather than a
-     * fidelity claim.** A reference register as the source of an int-like `aput` is
-     * `VERIFY_ERROR_BAD_CLASS_HARD` ([CON] B1; [ART] `VerifyAPut`), so there is no Dalvik behaviour here to
-     * match and the INHERITED rule that only `aastore` throws ASE does not reach this input at all. Given a
-     * free choice, refusing loudly beats the alternative -- letting the store succeed would write a `String`
-     * into an element the engine has typed `I`, a type lie every later `aget` propagates and no consumer can
-     * detect (spec §2.2 prefers the over-approximating error). It also keeps four corpus values
-     * byte-identical. Never write this down as "Dalvik throws here".
-     *
-     * **The message is the value type's binary name, and it is a PINNED ENGINE CHOICE.**
-     * `Tester.testSimpleException` never checked a message, so this one is new rather than migrated; it
-     * matches what the engine being replaced computed (`ClassNameUtils.internalToBinary(store.type)`) and it
-     * deliberately does NOT match [ART], whose ASE text is a two-class *"... cannot be stored in an array of
-     * type ..."* form. Asserted once, here, so it cannot drift silently; the other three ASE migrations do
-     * not repeat it, because a second copy of the same pin adds no discrimination.
+     * A `Ljava/lang/String;` register stored into an `[I` by a plain `aput`. Verifier-invalid
+     * (`VERIFY_ERROR_BAD_CLASS_HARD`, [CON] B1; [ART] `VerifyAPut`), so refusing it is the engine's choice:
+     * a successful store would put a `String` into an element typed `I`. The message uses ART's
+     * `ThrowArrayStoreException` form over the value's and the array's runtime classes (`common_throws.cc`).
      */
     @Test
     fun incompatibleValueTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters() {
@@ -971,7 +927,7 @@ class APutOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "putWithCatch()V", initial,
             exceptionType = "Ljava/lang/ArrayStoreException;",
-            message = "java.lang.String",
+            message = "java.lang.String cannot be stored in an array of type int[]",
             caughtInRegister = 0,
             unreachedAddress = 2,
         )
@@ -1093,21 +1049,10 @@ class APutOpTest {
     // ------------------------------------------------------------------------------------------
 
     /**
-     * **Bug class, and the one the object-over-tag rule exists to prevent: a covariant array whose REGISTER
-     * TAG hides an ASE that a real device throws.** A `String[]` sitting in a register tagged
-     * `[Ljava/lang/Object;` is legal covariance (**INHERITED**, [JLS] §4.10.3 -- the verifier proves the
-     * declared and runtime types COMPATIBLE, never equal), and `aastore` tests the **actual** component type
-     * of the array ([JVMS] §6.5), so storing an `Integer` into it throws.
-     *
-     * A declared-types-only check reads the component as `Ljava/lang/Object;`, permits the store, and **DROPS
-     * A FEASIBLE THROW** -- the worst outcome this engine can have (spec §2.2). Discriminating by
-     * construction: derive the component from the tag instead of from the tracked array and this test goes
-     * green-to-red, which no other test in this file can say.
-     *
-     * The message is the same PINNED ENGINE CHOICE as
-     * [incompatibleValueTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters]'s, asserted a second
-     * time here only because a *different* rule produces it -- the `aastore`-tier refusal rather than the
-     * shape refusal -- and one message helper serving both is worth pinning from both sides.
+     * A `String[]` in a register tagged `[Ljava/lang/Object;` is legal covariance ([JLS] §4.10.3), and
+     * `aastore` tests the array's actual component ([JVMS] §6.5), so storing an `Integer` throws. A component
+     * read from the tag would permit the store and drop the throw. The message names the runtime classes,
+     * as in the Tier-A recording's `Fx_AputObjectIncompatible`.
      */
     @Test
     fun aCovariantlyTaggedArrayStillThrowsForAnIncompatibleComponent() {
@@ -1117,7 +1062,7 @@ class APutOpTest {
                 setRegisters(0, arrayOf("Caladan"), "[Ljava/lang/Object;", 1, 0, "I", 2, 42, "Ljava/lang/Integer;")
             },
             exceptionType = "Ljava/lang/ArrayStoreException;",
-            message = "java.lang.Integer",
+            message = "java.lang.Integer cannot be stored in an array of type java.lang.String[]",
         )
     }
 
@@ -1300,20 +1245,13 @@ class APutOpTest {
     }
 
     /**
-     * The complement of [anUnloadableComponentTypeIsAmbiguityNotAHostFailure]: when the assignability
-     * question IS answerable and the answer is no, the store *definitely* throws, so the unprovable-array
-     * row's `Continue` becomes **infeasible** and is not explored. The array may still be null and the index
-     * may still be out of range, so those two throws stay.
+     * When the assignability question is answerable and the answer is no, the store definitely throws, so
+     * the unprovable-array row explores no fall-through; the array may still be null and the index out of
+     * range. A refusal against the tag's component holds for any narrower runtime component.
      *
-     * This is the mirror defect in its milder form (review finding F4's shape): forking a fall-through the
-     * store cannot take keeps a dead block alive. Sound for the same reason
-     * [unknownArrayWithIncompatibleTypeThrowsArrayStoreExceptionHasNoChildrenAndAssignsNoRegisters] is --
-     * the tag's component is a supertype of the real one, so a refusal against it holds for any narrower
-     * component. **The residual runs the other way and is recorded as a carry-forward**: the VALUE's tag is
-     * likewise only a supertype of its runtime class, so a `Known(hostString, "Ljava/lang/Object;")` stored
-     * into a `[Ljava/lang/String;` is refused here while `aastore` would permit it -- an invented infeasible
-     * throw, the lesser of the two errors but still one. Plan 9's tracked guest objects close it, by
-     * preferring the object's own type on the value side exactly as this rule already does on the array side.
+     * Every arm throws, and ART checks null, bounds and assignability before it writes
+     * (`ObjectArray::CheckAssignable` before `SetWithoutChecks`), so nothing is stored and the address
+     * declares no effect.
      */
     @Test
     fun anUnprovableArrayWithADefinitelyUnassignableValueExploresNoNormalPath() {
@@ -1330,33 +1268,53 @@ class APutOpTest {
             CoreTester.escapingTypes(graph),
         )
         assertFalse(graph.wasReached(2), "the store cannot complete, so there is no fall-through to explore")
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0), "an arm that only throws stores nothing")
+    }
+
+    /**
+     * An unknown array's tag bounds its runtime type from above: a `String[]` can sit behind an
+     * `[Ljava/lang/Object;` tag, so storing a `String` may succeed and may throw `ArrayStoreException`
+     * (`aastore`, [JVMS] §6.5). Permitting it from the tag alone drops a feasible throw.
+     */
+    @Test
+    fun anUnknownArrayWhoseTagComponentIsNotFinalMayRefuseAnAssignableValue() {
+        val graph = CoreTester.execute(CLASS_NAME, "putObject()V", CoreState().apply {
+            setRegisters(0, CoreState.UNKNOWN, "[Ljava/lang/Object;", 1, 0, "I", 2, "Arrakis", "Ljava/lang/String;")
+        })
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertTrue(graph.wasReached(2), "the store may succeed")
         assertEquals(
-            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
-            "STRONG even though every transition throws -- the deliberate over-approximation `APutOp`'s row 1 " +
-                "explains, hedging the value-side residual that makes this refusal only as definite as a tag",
+            listOf(
+                "Ljava/lang/NullPointerException;",
+                "Ljava/lang/ArrayIndexOutOfBoundsException;",
+                "Ljava/lang/ArrayStoreException;",
+            ),
+            CoreTester.escapingTypes(graph),
         )
     }
 
     /**
-     * **The one shape review finding m2 turned up: Dalvik's integral zero is null only under the `OBJECT`
-     * suffix**, so a **plain** `aput` of `Known(0, "I")` into a reference-component array is refused by the
-     * shape rule rather than permitted by the null rule.
-     *
-     * The bug it prevents is subtle enough to be worth a test of its own. `isDalvikNull` recognises the
-     * integer 0, and [BC]'s *"In terms of bitwise representation, `(Object) null == (int) 0`"* is a claim
-     * about a REFERENCE context -- which is why `isDalvikNull`'s own KDoc says it exists for `aput-object`'s
-     * null rule. Applied to every suffix, the null rule *pre-empted* the shape rule and stored
-     * `Known(0, "Ljava/lang/String;")`: an `Integer` raw under a reference type, which is exactly the "type
-     * lie every later `aget` propagates" that the shape refusal exists to prevent, manufactured by the one
-     * rule meant to be its exception.
-     *
-     * Verifier-invalid input either way ([CON] B1 -- an int-like `aput` requires a primitive-component
-     * array), so no fidelity claim moves and this is the engine's own choice made consistent with itself. The
-     * message is the value type's binary name as always, here `"int"`, which is also the only assertion in
-     * the file that exercises `binaryNameOf`'s primitive rows.
-     *
-     * [canPutConstZeroNullObject] is the other side and must keep passing: same zero, same reference
-     * component, but through `aput-object`, where the null rule is exactly right.
+     * `java.lang.String` is final, so an array tagged `[Ljava/lang/String;` has exactly that runtime type and
+     * a `String` value always type-checks: no `ArrayStoreException` is feasible.
+     */
+    @Test
+    fun anUnknownArrayWhoseTagComponentIsFinalAcceptsAnAssignableValue() {
+        val graph = CoreTester.execute(CLASS_NAME, "putObject()V", CoreState().apply {
+            setRegisters(0, CoreState.UNKNOWN, "[Ljava/lang/String;", 1, 0, "I", 2, "Arrakis", "Ljava/lang/String;")
+        })
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertTrue(graph.wasReached(2), "the store may succeed")
+        assertEquals(
+            listOf("Ljava/lang/NullPointerException;", "Ljava/lang/ArrayIndexOutOfBoundsException;"),
+            CoreTester.escapingTypes(graph),
+        )
+    }
+
+    /**
+     * Dalvik's integral zero is null only under the `OBJECT` suffix ([BC]: *"`(Object) null == (int) 0`"* is
+     * a reference-context fact), so a plain `aput` of `Known(0, "I")` into a reference array is refused by
+     * the shape rule rather than stored as null. Verifier-invalid ([CON] B1); the message names the value's
+     * primitive type the way `PrettyDescriptor` does. [canPutConstZeroNullObject] is the `aput-object` side.
      */
     @Test
     fun aPlainAputOfDalviksZeroIntoAReferenceArrayIsRefusedRatherThanStoredAsNull() {
@@ -1366,7 +1324,7 @@ class APutOpTest {
                 setRegisters(0, arrayOfNulls<String>(1), "[Ljava/lang/String;", 1, 0, "I", 2, 0, "I")
             },
             exceptionType = "Ljava/lang/ArrayStoreException;",
-            message = "int",
+            message = "int cannot be stored in an array of type java.lang.String[]",
         )
     }
 
@@ -1499,17 +1457,14 @@ class APutOpTest {
         assertEquals(emptySet<Int>(), graph.registersAssigned(0), "and an aput declares no register assigned")
     }
 
-    /**
-     * Every ESCAPING throw's MESSAGE, in the same order. Read off the `aput` node's own frame rather than
-     * through `terminatingHeapObject`: the throwable was synthesized there, and heap consensus reconciles only
-     * RETURNING paths, which an escaping throw by definition is not.
-     */
+    /** Every escaping throw's message, read off the `aput` node's ending frame, where the throwable was made. */
     private fun escapingMessages(graph: ExecutionGraph): List<String?> =
         graph.outcomes.filterIsInstance<Outcome.Threw>().map { threw ->
             val ref = (threw.exception as Value.Known).raw as HeapRef
-            val obj = graph.nodePile(0).first().frame.heapObject(ref)
+            val frame = graph.nodePile(0).first().terminalFrame
+            val obj = frame.heapObject(ref)
             assertTrue(obj is HeapObject.GuestThrowable, "no synthesized throwable at $ref; got $obj")
-            (graph.nodePile(0).first().frame.heap.hostObjectAt(ref) as Throwable).message
+            (frame.heap.hostObjectAt(ref) as Throwable).message
         }
 
     /**

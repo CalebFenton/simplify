@@ -24,7 +24,7 @@ class OpArmStateTest {
         val throws = graph.outcomes.filterIsInstance<Outcome.Threw>()
         assertEquals(2, throws.size)
         val source = graph.nodePile(0).single()
-        val sourceEnding = requireNotNull(source.endingFrame)
+        val sourceEnding = source.terminalFrame
         val refs = throws.map { (it.exception as Value.Known).raw as HeapRef }
         // `single`: the source ending owns its own arm's allocation and not the other throw event's.
         val sourceRef = refs.single { sourceEnding.heapObject(it) != null }
@@ -57,7 +57,7 @@ class OpArmStateTest {
             throws.map { it.exception.type }.toSet(),
         )
         assertEquals(2, refs.toSet().size, "independent fresh throw events must keep distinct identities")
-        val sourceEnding = requireNotNull(graph.nodePile(0).single().endingFrame)
+        val sourceEnding = graph.nodePile(0).single().terminalFrame
         assertTrue(
             guestThrowables(sourceEnding).single() in refs,
             "each throw event materializes exactly one throwable, owned by its own ending frame",
@@ -85,7 +85,7 @@ class OpArmStateTest {
         val endings = graph.addresses().flatMap(graph::nodePile).filter { it.outcome != null }
         for (node in endings) {
             val expected = if (node.outcome == Outcome.Returned(returned.single { it != caught })) emptyList() else listOf(escaped.raw)
-            assertEquals(expected, guestThrowables(requireNotNull(node.endingFrame)), "${node.outcome}")
+            assertEquals(expected, guestThrowables(node.terminalFrame), "${node.outcome}")
         }
     }
 
@@ -141,7 +141,7 @@ class OpArmStateTest {
         assertEquals(2, graph.outcomes.size)
         assertEquals(CompletionStatus.Complete, graph.completion())
         val storeFailures = graph.addresses().flatMap(graph::nodePile).filter { it.outcome != null }
-            .flatMap { guestThrowables(requireNotNull(it.endingFrame)) }
+            .flatMap { guestThrowables(it.terminalFrame) }
         assertEquals(1, storeFailures.size, "the ArrayStoreException is materialized once, after arm commit")
     }
 
@@ -228,7 +228,7 @@ class OpArmStateTest {
 
         val array = graph.trusted()!!.terminatingConsensus(0) as Value.Known
         val returned = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single()
-        assertEquals(List(length) { Value.Known(0, INT) }, returned.endingFrame!!.heap.arrayAt(array.raw as HeapRef)!!.elements())
+        assertEquals(List(length) { Value.Known(0, INT) }, returned.terminalFrame.heap.arrayAt(array.raw as HeapRef)!!.elements())
     }
 
     /** Every guest throwable in [frame]'s heap, in allocation order. */
