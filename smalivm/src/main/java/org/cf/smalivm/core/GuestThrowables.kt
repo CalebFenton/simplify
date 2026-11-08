@@ -50,7 +50,8 @@ internal object GuestThrowables {
     fun throwing(recipe: ThrowableRecipe, update: OpUpdate = OpUpdate.NONE): OpArm.Throw =
         OpArm.Throw(update, ThrowEvidence.Fresh(recipe))
 
-    fun divideByZero(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.ARITHMETIC, "/ by zero")
+    /** ART's `ThrowArithmeticExceptionDivideByZero()` text. */
+    fun divideByZero(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.ARITHMETIC, "divide by zero")
 
     /** ART's `throw` of a null reference, which carries no message (`ThrowNullPointerException()`). */
     fun nullPointer(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.NULL_POINTER)

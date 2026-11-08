@@ -65,7 +65,7 @@ class BinaryMathOpTest {
      * first real exercise of the atomic commit primitive.
      *
      * Every expectation below has Dalvik itself as its oracle, not engine output: integral `div`/`rem`
-     * by zero throws `ArithmeticException("/ by zero")`, a known non-zero divisor cannot throw whatever
+     * by zero throws `ArithmeticException("divide by zero")`, a known non-zero divisor cannot throw whatever
      * the dividend is (integer overflow does not throw -- `Integer.MIN_VALUE / -1` yields
      * `Integer.MIN_VALUE`), and float/double division by zero yields +/-Infinity or NaN and never
      * throws at all.
@@ -95,7 +95,7 @@ class BinaryMathOpTest {
             initial.setRegisters(0, 12, "I", 1, 0, "I")
             CoreTester.testThrows(
                 CLASS_NAME, "divInt()V", initial,
-                exceptionType = "Ljava/lang/ArithmeticException;", message = "/ by zero",
+                exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
             // The "and does not continue" half has to be asserted separately: `testThrows`
             // deliberately says nothing about whether a normal path also ran (see its KDoc), so
@@ -118,7 +118,7 @@ class BinaryMathOpTest {
             initial.setRegisters(0, 12L, "J", 2, 0L, "J")
             CoreTester.testThrows(
                 CLASS_NAME, "divLong()V", initial,
-                exceptionType = "Ljava/lang/ArithmeticException;", message = "/ by zero",
+                exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
         }
 
@@ -132,7 +132,7 @@ class BinaryMathOpTest {
             initial.setRegisters(0, 12, "I", 1, 0, "I")
             CoreTester.testThrows(
                 CLASS_NAME, "remInt()V", initial,
-                exceptionType = "Ljava/lang/ArithmeticException;", message = "/ by zero",
+                exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
         }
 
@@ -153,7 +153,7 @@ class BinaryMathOpTest {
             initial.setRegisters(0, 12L, "J", 2, 0L, "J")
             CoreTester.testThrows(
                 CLASS_NAME, "remLong()V", initial,
-                exceptionType = "Ljava/lang/ArithmeticException;", message = "/ by zero",
+                exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
         }
 
@@ -249,7 +249,7 @@ class BinaryMathOpTest {
         fun aWideDivisorWhoseLowThirtyTwoBitsAreZeroThrows() {
             CoreTester.testThrows(
                 CLASS_NAME, "divIntByWideZeroLowHalf()V",
-                exceptionType = "Ljava/lang/ArithmeticException;", message = "/ by zero",
+                exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
             val graph = CoreTester.execute(CLASS_NAME, "divIntByWideZeroLowHalf()V")
             // Derived from the instruction formats, and asserted rather than trusted so the @9 claim

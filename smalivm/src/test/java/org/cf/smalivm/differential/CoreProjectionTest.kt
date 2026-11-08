@@ -83,7 +83,7 @@ class CoreProjectionTest {
             "binary-div-double" to mapOf(0 to known("D", "2.5")),
             "binary-div-double-by-zero" to mapOf(0 to known("D", "Infinity")),
             "binary-div-int-by-zero-caught" to mapOf(
-                0 to known("Ljava/lang/ArithmeticException;", "java.lang.ArithmeticException: / by zero"),
+                0 to known("Ljava/lang/ArithmeticException;", "java.lang.ArithmeticException: divide by zero"),
             ),
             "cmp-long-greater" to mapOf(0 to int("1")),
             "cmp-float-nan-cmpg" to mapOf(0 to int("1"), 1 to known("F", "1.0")),
@@ -195,7 +195,7 @@ class CoreProjectionTest {
             methodDescriptor = "divInt()V",
             seededRegisters = mapOf(0 to (12 to "I"), 1 to (0 to "I")),
         )
-        assertEquals(listOf("java.lang.ArithmeticException:/ by zero"), CORE.run(divByZero).unhandledExceptions)
+        assertEquals(listOf("java.lang.ArithmeticException:divide by zero"), CORE.run(divByZero).unhandledExceptions)
     }
 
     @Test
@@ -206,7 +206,7 @@ class CoreProjectionTest {
             methodDescriptor = "ambiguousLocalDivide(I)V",
             observeRegisters = emptySet(),
         )
-        assertEquals(listOf("java.lang.ArithmeticException:/ by zero"), CORE.run(fixture).unhandledExceptions)
+        assertEquals(listOf("java.lang.ArithmeticException:divide by zero"), CORE.run(fixture).unhandledExceptions)
     }
 
     @Test

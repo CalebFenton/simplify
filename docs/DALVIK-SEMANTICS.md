@@ -283,9 +283,8 @@ division and remainder never throw. **DEVICE**(Tier A, `-Xint`, `art_standalone 
 `±x / ±0` is an infinity whose sign follows IEEE-754 (`+1 / -0.0 = -∞`), `0 / 0` is NaN, and `rem` by either
 signed zero is NaN.
 
-The engine's message is `"/ by zero"` (`GuestThrowables.divideByZero`). Unverified: no fixture records ART's
-text, and ART's `ThrowArithmeticExceptionDivideByZero` (`runtime/common_throws.cc`) has not been checked
-against it.
+The message is ART's `"divide by zero"` (`ThrowArithmeticExceptionDivideByZero`, `runtime/common_throws.cc`;
+`GuestThrowables.divideByZero`), not the JVM's `"/ by zero"`. Source read; no fixture records the text.
 
 ---
 
@@ -822,7 +821,7 @@ not know (an unprovable index, length, or runtime class) is omitted rather than 
 | `NoClassDefFoundError`, earlier init failure | `PrettyDescriptor` of the class | **ART** `ThrowEarlierClassFailure` |
 | `NoSuchMethodError` | `No <kind> method <name><proto> in class <descriptor> or its super classes` | **DEVICE** (`Fx_InvokeMissingMethod`) |
 | `IncompatibleClassChangeError`, default conflict | `Conflicting default method implementations <class>-><name><proto>` | engine text; ART's `ThrowInvocationTimeError` text is not modelled |
-| `ArithmeticException` | `/ by zero` | unverified against ART |
+| `ArithmeticException` | `divide by zero` | `ThrowArithmeticExceptionDivideByZero`, source read |
 
 `PrettyDescriptor` spells `I` as `int`, `Lfoo/Bar;` as `foo.Bar`, and `[[Lfoo/Bar;` as `foo.Bar[][]`.
 
