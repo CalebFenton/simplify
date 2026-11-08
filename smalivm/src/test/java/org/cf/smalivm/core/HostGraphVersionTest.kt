@@ -12,7 +12,7 @@ import org.junit.jupiter.api.assertThrows
  * Versioning of the host object graph across guest mirror writes, forks, merges and selected-call
  * finalization.
  */
-class HostGraphVersionTest : DirectHostTestBase() {
+internal class HostGraphVersionTest : DirectHostTestBase() {
     @Test
     fun mirroredGuestWriteAfterForkDetachesOnlyTheWritingPath() {
         val parent = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))

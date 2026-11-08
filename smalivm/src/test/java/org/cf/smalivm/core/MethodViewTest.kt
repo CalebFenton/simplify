@@ -195,9 +195,8 @@ class MethodViewTest {
 
     @Test
     fun aPayloadPseudoInstructionIsReportedAsDataRatherThanAsAnOrdinaryAddress() {
-        // Plan 13's editor must not relocate a payload as if it were an instruction, and Plan 14's
-        // dead-code strategy must not read an unreached payload as dead code. Both need this set, and
-        // `addresses()` alone cannot distinguish them.
+        // The method editor must not relocate a payload as an instruction, and dead-code removal must not
+        // read an unreached payload as dead code; `addresses()` alone cannot tell them apart.
         val view = CoreTester.classIndex.requireMethodView("Lfill_array_data_test;", "fillArrayDataInt()V")
         val payload = view.payloadAddresses.single()
         assertTrue(view.isPayload(payload))

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
  * How objects returned by a selected host call map back to HeapRefs, and how finalization prunes
  * unreachable graph nodes.
  */
-class HostReturnAdmissionTest : DirectHostTestBase() {
+internal class HostReturnAdmissionTest : DirectHostTestBase() {
     @Test
     fun selectedMutationPrunesAnUnownedChildButKeepsAChildWithItsOwnHeapRef() {
         // Bug class: refresh retains every historical node even after no VM-owned root can reach it.

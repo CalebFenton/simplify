@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
  * Admission of host objects into the VM heap: mutable host values live behind a HeapRef, each path owns its
  * own copy, and immutable values keep their runtime type.
  */
-class HostObjectAdmissionTest : DirectHostTestBase() {
+internal class HostObjectAdmissionTest : DirectHostTestBase() {
     @Test
     @Suppress("DEPRECATION")
     fun reflectedMethodClonesRemainInvocableAndIsolateAccessibility() {

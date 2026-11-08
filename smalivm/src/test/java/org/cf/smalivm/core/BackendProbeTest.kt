@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
  * What a backend sees when probing and executing a call: heap metadata during the probe, Java objects only
  * when selected.
  */
-class BackendProbeTest : DirectHostTestBase() {
+internal class BackendProbeTest : DirectHostTestBase() {
     @Test
     fun probesSeeHeapMetadataAndOnlyTheSelectedBackendSeesJavaObjects() {
         val builder = StringBuilder("a")
