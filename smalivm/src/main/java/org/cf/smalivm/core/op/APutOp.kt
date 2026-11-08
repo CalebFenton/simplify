@@ -9,11 +9,10 @@ import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpExecution
 import org.cf.smalivm.core.OpUpdate
 import org.cf.smalivm.core.SideEffectLevel
-import org.cf.smalivm.core.Superclasses
+import org.cf.smalivm.core.TypeHierarchy
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.isDalvikNull
-import org.cf.smalivm.core.InstanceOfTest
 import org.cf.smalivm.core.castOutcome
 import org.cf.smalivm.core.isNull
 import org.cf.smalivm.core.join
@@ -40,10 +39,8 @@ internal class APutOp(
     private val indexRegister: Int,
     /** True for `aput-object`, the one form whose value operand is read as a reference. */
     private val storesAReference: Boolean,
-    /** Answers `aastore`'s instance test, which needs runtime types and so cannot be decided at decode. */
-    private val types: InstanceOfTest,
-    /** Joins an element's old value with the stored one when the index is unprovable. */
-    private val superclasses: Superclasses,
+    /** Answers `aastore`'s instance test, and joins an element with the stored value when the index is unprovable. */
+    private val hierarchy: TypeHierarchy,
 ) : Op(address) {
 
     /** Whether the store throws `ArrayStoreException`, and if it refuses, which rule refused it. */
@@ -124,7 +121,7 @@ internal class APutOp(
             ArrayIndex.Unprovable -> OpExecution.of(
                 buildList<OpArm> {
                     if (check.storeCanProceed) {
-                        val joined = List(array.array.length) { join(array.array.element(it), stored, superclasses) }
+                        val joined = List(array.array.length) { join(array.array.element(it), stored, hierarchy) }
                         add(OpArm.Continue(OpUpdate.writeArrayElements(array.ref, 0, joined).then(weak)))
                     }
                     add(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null)))
@@ -173,7 +170,7 @@ internal class APutOp(
         // Only `aput-object` type-checks; no store of a primitive into a primitive array throws.
         if (valueIsPrimitive && component.isPrimitive) return StoreCheck.PERMITTED
         if (valueIsPrimitive != component.isPrimitive) return StoreCheck.REFUSED_BY_SHAPE
-        return when (castOutcome(value, component, types, heapObjectTypeOf)) {
+        return when (castOutcome(value, component, hierarchy, heapObjectTypeOf)) {
             CastOutcome.ReadsAsNull, CastOutcome.Definitely, CastOutcome.NullOrInstance -> StoreCheck.PERMITTED
             CastOutcome.Never -> StoreCheck.REFUSED_BY_ASSIGNABILITY
             CastOutcome.Unprovable -> StoreCheck.UNANSWERABLE

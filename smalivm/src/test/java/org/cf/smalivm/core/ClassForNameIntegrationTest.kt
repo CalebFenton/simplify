@@ -47,7 +47,7 @@ class ClassForNameIntegrationTest {
     fun sourceInvalidDexBinaryNameLoadsAsAStableLocalClassToken() {
         val first = session("sourceInvalidLocalBinaryNameLoads()Ljava/lang/Class;").run()
         val second = session("sourceInvalidLocalBinaryNameLoads()Ljava/lang/Class;").run()
-        val expected = classIndex.loadClassConstant(OBFUSCATED_FIXTURE)
+        val expected = classIndex.currentResolver().loadClassConstant(OBFUSCATED_FIXTURE)
         val firstToken = ((first.outcomes.single() as Outcome.Returned).value as Value.Known).raw
         val secondToken = ((second.outcomes.single() as Outcome.Returned).value as Value.Known).raw
 
@@ -69,7 +69,7 @@ class ClassForNameIntegrationTest {
         assertEquals(2, invokes.size, "Class.forName must retry at the same invoke address")
         assertTrue(initializerNodes.isNotEmpty(), "guest initialization must be scheduler-visible")
         assertEquals(1, staticInt(graph, "guestInitCount"), "the guest initializer must run once")
-        assertSame(classIndex.loadClassConstant(FIXTURE), returned.raw)
+        assertSame(classIndex.currentResolver().loadClassConstant(FIXTURE), returned.raw)
         assertEquals(classType, returned.type)
         assertTrue(
             graph.nodePile(session.methodView.nextAddress(invokeAddress)).single().opExecutionStarted,

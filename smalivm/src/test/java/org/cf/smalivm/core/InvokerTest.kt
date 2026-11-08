@@ -352,12 +352,12 @@ class InvokerTest {
         val child = VirtualType.of("Lchild_class;")
         val parent = VirtualType.of("Lparent_class;")
         val impl = VirtualType.of("Linvoke_single_impl;")
-        val direct = classIndex.resolveInvocation(
+        val direct = classIndex.currentResolver().resolveInvocation(
             MethodDescriptor(child, "<init>", "()V"), InvokeKind.DIRECT, child, child,
         ) as InvocationLookup.Resolved
         assertEquals("Lchild_class;-><init>()V", (direct.lookup as MethodLookup.Runnable).view.signature)
 
-        val superCall = classIndex.resolveInvocation(
+        val superCall = classIndex.currentResolver().resolveInvocation(
             MethodDescriptor(parent, "parentMethod", "()Ljava/lang/String;"), InvokeKind.SUPER, child, child,
         ) as InvocationLookup.Resolved
         assertEquals(
@@ -365,7 +365,7 @@ class InvokerTest {
             (superCall.lookup as MethodLookup.Runnable).view.signature,
         )
 
-        val virtual = classIndex.resolveInvocation(
+        val virtual = classIndex.currentResolver().resolveInvocation(
             MethodDescriptor(parent, "abstractMethod", "()Ljava/lang/String;"), InvokeKind.VIRTUAL, child, child,
         ) as InvocationLookup.Resolved
         assertEquals(
@@ -373,7 +373,7 @@ class InvokerTest {
             (virtual.lookup as MethodLookup.Runnable).view.signature,
         )
 
-        val iface = classIndex.resolveInvocation(
+        val iface = classIndex.currentResolver().resolveInvocation(
             MethodDescriptor(VirtualType.of("Linvoke_single_interface;"), "value", "()I"),
             InvokeKind.INTERFACE,
             impl,

@@ -1904,7 +1904,6 @@ class DirectHostObjectTest {
             2,
             true,
             CoreTester.classIndex,
-            CoreTester.classIndex,
         )
 
         val arm = op.execute(frame).arms.single() as OpArm.Continue
@@ -1931,7 +1930,6 @@ class DirectHostObjectTest {
             1,
             2,
             true,
-            CoreTester.classIndex,
             CoreTester.classIndex,
         )
 

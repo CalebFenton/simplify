@@ -7,9 +7,11 @@ import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 
-/** Immutable bundled-framework meaning with catalog-owned lazy materialization. */
+/**
+ * Immutable bundled-framework meaning. Class and method definitions materialize lazily, once per catalog and under
+ * its lock, so sessions on different threads share one definition, and one [FrameworkMethodIdentity], per method.
+ */
 class FrameworkCatalog private constructor(
-    private val catalogIdentity: Any,
     internal val artifact: FrameworkArtifact,
 ) {
     private sealed interface MaterializedClass {
@@ -26,6 +28,7 @@ class FrameworkCatalog private constructor(
         artifact.classes.values.flatMap(FrameworkClassArtifact::dynamicLoadingMethods),
     )
 
+    @Synchronized
     fun method(methodSignature: String): FrameworkMethodDefinition? {
         if (materializedMethods.containsKey(methodSignature)) return materializedMethods[methodSignature]
         val method = declaredMethod(methodSignature.substringBefore("->"), methodSignature.substringAfter("->"))
@@ -33,6 +36,7 @@ class FrameworkCatalog private constructor(
         return method
     }
 
+    @Synchronized
     internal fun declaredMethod(definingClass: String, descriptor: String): FrameworkMethodDefinition? {
         val artifactEntry = artifact.classes[definingClass] ?: return null
         if (descriptor !in artifactEntry.methodDescriptors) return null
@@ -40,12 +44,13 @@ class FrameworkCatalog private constructor(
         if (materializedMethods.containsKey(signature)) return materializedMethods[signature]
         val method = classDefinition(definingClass)?.methods
             ?.firstOrNull { methodDescriptor(it) == descriptor }
-            ?.let { buildMethod(catalogIdentity, it) }
+            ?.let(::buildMethod)
         materializedMethods[signature] = method
         return method
     }
 
     /** Immutable framework source for consumer disassembly; materialized once per catalog. */
+    @Synchronized
     fun classDefinition(type: String): ImmutableClassDef? {
         when (val cached = materializedClasses[type]) {
             is MaterializedClass.Loaded -> return cached.definition
@@ -72,7 +77,7 @@ class FrameworkCatalog private constructor(
     }
 
     internal companion object {
-        fun fromArtifact(artifact: FrameworkArtifact): FrameworkCatalog = FrameworkCatalog(Any(), artifact)
+        fun fromArtifact(artifact: FrameworkArtifact): FrameworkCatalog = FrameworkCatalog(artifact)
 
         private fun methodDescriptor(method: com.android.tools.smali.dexlib2.iface.Method): String =
             method.name + method.parameterTypes.joinToString(separator = "", prefix = "(", postfix = ")") +
@@ -84,10 +89,7 @@ class FrameworkCatalog private constructor(
                 value == "Use StringFactory instead." || value == "Stub!"
             }
 
-        private fun buildMethod(
-            catalogIdentity: Any,
-            method: ImmutableMethod,
-        ): FrameworkMethodDefinition {
+        private fun buildMethod(method: ImmutableMethod): FrameworkMethodDefinition {
             val signature = com.android.tools.smali.dexlib2.formatter.DexFormatter.INSTANCE.getMethodDescriptor(method)
             val body = method.implementation
                 ?.takeUnless(::isUnsupportedFrameworkStub)
@@ -105,7 +107,7 @@ class FrameworkCatalog private constructor(
                 null,
             )
             return FrameworkMethodDefinition(
-                FrameworkMethodIdentity(catalogIdentity, signature),
+                FrameworkMethodIdentity(signature),
                 declaration,
                 body,
                 body?.let { DynamicLoadingEvidence.fromBody(signature, it) } ?: DynamicLoadingEvidence.EMPTY,

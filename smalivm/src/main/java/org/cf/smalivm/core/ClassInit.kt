@@ -157,7 +157,7 @@ internal class ClassInitStore private constructor(
     }
 
     /** Writes each of [descriptors] joined over [arms] under the same value and owner rule as [merge]. */
-    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassInitStore>, superclasses: Superclasses) {
+    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassInitStore>, superclasses: TypeHierarchy) {
         for (descriptor in descriptors) {
             setStaticCell(descriptor, mergeStaticCells(arms.map { it.statics[descriptor] }, superclasses))
         }
@@ -246,7 +246,7 @@ internal class ClassInitStore private constructor(
 
     companion object {
         /** Joins one exact-lifecycle call partition. Callers must partition incompatible states first. */
-        fun merge(stores: List<ClassInitStore>, superclasses: Superclasses): ClassInitStore {
+        fun merge(stores: List<ClassInitStore>, superclasses: TypeHierarchy): ClassInitStore {
             require(stores.isNotEmpty())
             val first = stores.first()
             if (stores.all { it.states === first.states && it.statics === first.statics }) return first.copy()
@@ -267,7 +267,7 @@ internal class ClassInitStore private constructor(
             return ClassInitStore(mergedStates, mergedStatics)
         }
 
-        private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: Superclasses): StaticCell {
+        private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: TypeHierarchy): StaticCell {
             val present = cells.filterNotNull()
             if (present.isEmpty()) return StaticCell(Value.Top, StaticCellProvenance.GUEST_WRITE)
             if (present.size != cells.size) {
@@ -497,7 +497,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
             }
             // A framework class's `<clinit>` never runs, and is not even resolved. `Ljava/lang/Object;` declares
             // none and is on every chain, so only a framework class that declares one counts as skipped.
-            if (resolver.isFrameworkClass(ancestor)) {
+            if (resolver.hierarchy.isFrameworkClass(ancestor)) {
                 settled.add(ancestor)
                 if (resolver.hasClassInitializer(ancestor)) skippedAnInitializer = true
                 seeds.putAll(prepare(ancestor, initializerRuns = false))
@@ -575,7 +575,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         var current: VirtualType? = type
         while (current != null && seen.add(current)) {
             chain.add(current)
-            current = resolver.superclassOf(current)
+            current = resolver.hierarchy.superclassOf(current)
         }
         return chain.asReversed()
     }

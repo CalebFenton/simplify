@@ -48,7 +48,7 @@ class VmServices(
             view,
             this,
             limits,
-            entryFrame?.sanitizedCopyForPublicEntry() ?: Frame.entryFrame(view, resolver.classIndex),
+            entryFrame?.sanitizedCopyForPublicEntry() ?: Frame.entryFrame(view, resolver),
             resolver,
             decode,
             if (backends == null) Invoker(resolver, invocationServices) else Invoker(resolver, backends),

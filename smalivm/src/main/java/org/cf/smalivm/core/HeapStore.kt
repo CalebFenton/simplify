@@ -1064,7 +1064,7 @@ internal class HeapStore private constructor(
          * Joins one outcome partition. An object absent from any path stays absent. Callers partition by
          * tracked-field compatibility first, so every store agrees on each tracked field's accessibility.
          */
-        fun merge(stores: List<HeapStore>, superclasses: Superclasses): HeapStore {
+        fun merge(stores: List<HeapStore>, superclasses: TypeHierarchy): HeapStore {
             require(stores.isNotEmpty())
             val first = stores.first()
             require(stores.all { it.trackedFields == first.trackedFields }) {
@@ -1142,7 +1142,7 @@ internal class HeapStore private constructor(
          */
         internal fun mergeObject(
             objects: List<HeapObject>,
-            superclasses: Superclasses,
+            superclasses: TypeHierarchy,
             sameGraph: Boolean,
         ): HeapObject? {
             val first = objects.first()

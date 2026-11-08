@@ -107,7 +107,12 @@ class ProvableTest {
      */
     @Test
     fun aKnownReferenceWhoseClassCannotBeDeterminedIsUnprovableRatherThanNever() {
-        val types = InstanceOfTest { candidate, target -> candidate == target || target == VirtualType.OBJECT }
+        val types = object : TypeHierarchy {
+            override fun isInstanceOf(candidate: VirtualType, target: VirtualType) =
+                candidate == target || target == VirtualType.OBJECT
+            override fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean = error("castOutcome asks only isInstanceOf")
+            override fun superclassOf(type: VirtualType): VirtualType? = error("castOutcome asks only isInstanceOf")
+        }
         val heapRefWithNoObject = Value.Known(HeapRef(7), VirtualType.OBJECT)
         assertEquals(CastOutcome.Unprovable, castOutcome(heapRefWithNoObject, string, types) { null })
         assertEquals(

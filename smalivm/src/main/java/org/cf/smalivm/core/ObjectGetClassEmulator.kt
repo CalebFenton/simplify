@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 /** Implements Object.getClass from the tracked runtime type. */
-internal class ObjectGetClassEmulator(private val classIndex: ClassIndex) : EmulatorHandler {
+internal class ObjectGetClassEmulator(private val resolver: ProgramSnapshotResolver) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
         val receiver = requireNotNull(call.receiver) { "Object.getClass requires a receiver" }
         val runtimeType = when (receiver) {
@@ -12,7 +12,7 @@ internal class ObjectGetClassEmulator(private val classIndex: ClassIndex) : Emul
             )
             is EmulatorValue.Unknown -> return returnUnknown(call.returnType)
         }
-        val classToken = classIndex.loadClassConstant(runtimeType.descriptor)
+        val classToken = resolver.loadClassConstant(runtimeType.descriptor)
             ?: return returnUnknown(call.returnType)
         return SynchronousCallResult.Returned(
             HostReturn.Value(HostValue.Reference(classToken, call.returnType)),

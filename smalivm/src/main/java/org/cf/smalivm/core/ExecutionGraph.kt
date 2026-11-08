@@ -23,7 +23,7 @@ class ExecutionGraph internal constructor(
     private val completion: CompletionStatus,
     private val executedNodes: Set<ExecutionNode>,
     /** The class hierarchy every consensus join consults, so `ref ⊔ ref` answers the nearest common superclass. */
-    internal val superclasses: Superclasses,
+    internal val superclasses: TypeHierarchy,
 ) {
 
     val programRevision: ProgramRevision = methodView.programRevision

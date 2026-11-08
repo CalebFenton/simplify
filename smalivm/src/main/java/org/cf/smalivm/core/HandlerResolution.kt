@@ -22,11 +22,6 @@ data class TryBlock(
     fun covers(address: Int): Boolean = address in startAddress until endAddress
 }
 
-/** Boolean subtype capability used by ordinary value operations. It can throw [ClassLoadFailure]. */
-fun interface TypeHierarchy {
-    fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean
-}
-
 internal enum class TypeRelation { YES, NO, UNKNOWN }
 
 internal enum class ThrowableTypeKind { CLASS, INTERFACE, UNKNOWN }
@@ -43,7 +38,10 @@ internal data class ThrowableTypeFacts(
     val descriptorPresent: Boolean,
 )
 
-/** Absence-total throwable hierarchy, separate from Boolean subtyping. Present-model defects propagate. */
+/**
+ * Throwable routing facts. Total over classes the program lacks: where [TypeHierarchy] throws [ClassLoadFailure],
+ * this answers [TypeRelation.UNKNOWN]. Any other failure propagates.
+ */
 internal fun interface ThrowableHierarchy {
     fun facts(type: VirtualType): ThrowableTypeFacts
 

@@ -9,7 +9,7 @@ class ProgramSnapshot private constructor(
     val applicationClasses: PersistentMap<String, ApplicationClassDefinition>,
     val outputApiPolicy: OutputApiPolicy,
     val stringInstructionEncoding: StringInstructionEncoding,
-    val hierarchy: HierarchySnapshot,
+    internal val hierarchy: HierarchySnapshot,
     val dynamicLoadingEvidence: DynamicLoadingEvidence,
     internal val dexReferenceClosure: DexReferenceClosure,
     val frameworkCatalog: FrameworkCatalog,

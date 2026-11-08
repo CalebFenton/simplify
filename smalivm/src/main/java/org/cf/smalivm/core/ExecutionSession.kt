@@ -166,7 +166,7 @@ class ExecutionSession internal constructor(
     private val decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
     private val invoker: Invoker,
 ) {
-    private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy
+    private val throwableHierarchy: ThrowableHierarchy = resolver.hierarchy
     private val frontierNodes = ArrayDeque<ExecutionNode>()
     private val pendingCallRoutings = ArrayDeque<PendingCallRouting>()
 
@@ -588,7 +588,7 @@ class ExecutionSession internal constructor(
         require(cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             "Static projection requested for a cell that is not an unresolved prepared seed: $field ($cell)"
         }
-        if (!resolver.isFrameworkClass(transition.definingClass)) {
+        if (!resolver.hierarchy.isFrameworkClass(transition.definingClass)) {
             raiseSynchronousEffect(node, SideEffectLevel.STRONG)
             return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
         }
@@ -658,7 +658,7 @@ class ExecutionSession internal constructor(
      * Plans the class-init an op asked for: initialize this class, then run the op again at its own address.
      *
      * Inside [planContained] because [ClassInitPlanner] walks the superclass chain, and
-     * [ClassIndex.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
+     * [TypeHierarchy.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
      * end the path and not the run.
      */
     private fun planInitClass(node: ExecutionNode, type: VirtualType): Committable =
@@ -1161,7 +1161,7 @@ class ExecutionSession internal constructor(
         if (call.target.name != "<init>") return null
         val ref = (call.receiver as? Value.Known)?.raw as? HeapRef ?: return null
         val runtimeType = node.frame.heapObject(ref)?.type ?: return null
-        if (!resolver.isSubtypeOf(runtimeType, call.target.definingClass)) return null
+        if (!resolver.hierarchy.isSubtypeOf(runtimeType, call.target.definingClass)) return null
         val enclosingConstructor = node.view.signature.substringAfter("->").startsWith("<init>(")
         // The outer guest constructor owns final completion. Marking after its base call would make a later
         // throw from the outer constructor look like successful initialization.
@@ -2600,4 +2600,5 @@ class ExecutionSession internal constructor(
     private fun addToPile(node: ExecutionNode) {
         node.activation.addressToNodes.getOrPut(node.address) { mutableListOf() }.add(node)
     }
+
 }

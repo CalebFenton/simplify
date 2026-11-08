@@ -57,14 +57,6 @@ internal fun sameReference(a: Value, b: Value): Boolean? {
 }
 
 /**
- * Whether a value of one type is an instance of another, over arrays and primitives as well as classes. May
- * raise [ClassLoadFailure] for a class the program does not contain.
- */
-fun interface InstanceOfTest {
-    fun isInstanceOf(candidate: VirtualType, target: VirtualType): Boolean
-}
-
-/**
  * The instance test over a [Value], in order:
  *  1. a register that reads as a null reference: [CastOutcome.ReadsAsNull], before anything else, because a
  *     null passes a cast even to a primitive type;
@@ -81,7 +73,7 @@ fun interface InstanceOfTest {
 internal fun castOutcome(
     value: Value,
     target: VirtualType,
-    types: InstanceOfTest,
+    types: TypeHierarchy,
     heapObjectTypeOf: (HeapRef) -> VirtualType?,
 ): CastOutcome {
     if (value.readsAsNullReference) return CastOutcome.ReadsAsNull

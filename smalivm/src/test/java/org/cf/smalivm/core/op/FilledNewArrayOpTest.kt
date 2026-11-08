@@ -406,7 +406,7 @@ class FilledNewArrayOpTest {
      * `NoClassDefFoundError` and friends, all `Error`s. [ART] puts it in the same place:
      * `DoFilledNewArray` calls `ResolveVerifyAndClinit` and bails with a pending exception.
      *
-     * **Deliberately the same ruling, the same reason and the same `ClassIndex.isLoadable` as `new-array`'s**
+     * **Deliberately the same ruling, the same reason and the same `HierarchySnapshot.isLoadable` as `new-array`'s**
      * (design decision 4), not a second answer: absence is a FACT rather than an unknown, because spec §3
      * makes multidex a non-goal, so the throw is DEFINITE and does not fork. Forking here would explore a
      * normal path that cannot happen, for every absent class in an obfuscated APK.

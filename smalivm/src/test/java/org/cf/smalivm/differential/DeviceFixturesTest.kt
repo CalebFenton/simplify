@@ -120,7 +120,7 @@ class DeviceFixturesTest {
         }
         for (name in DeviceFixtures.supportClassNames) {
             assertTrue(
-                coreIndex.isLoadable(VirtualType.of("L$name;")),
+                coreIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("L$name;")),
                 "support class $name must be loadable -- the fixture that measures it needs it resolvable, " +
                     "just never invoked",
             )

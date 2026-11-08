@@ -489,7 +489,7 @@ class Frame private constructor(
     internal fun reconcileOpArms(
         arms: List<Frame>,
         footprint: ReconciliationFootprint,
-        superclasses: Superclasses,
+        superclasses: TypeHierarchy,
     ): Frame {
         require(arms.size > 1)
         val staticDescriptors = footprint.staticDescriptors.sorted()
@@ -633,7 +633,7 @@ class Frame private constructor(
     )
 
     /** Caller registers plus stores joined over exactly one callee outcome partition. */
-    internal fun mergedCalleeState(callees: List<Frame>, superclasses: Superclasses): Frame {
+    internal fun mergedCalleeState(callees: List<Frame>, superclasses: TypeHierarchy): Frame {
         require(callees.isNotEmpty())
         return Frame(
             view = view,
@@ -672,11 +672,11 @@ class Frame private constructor(
         fun entryFrame(view: MethodView): Frame = entryFrame(view, HeapStore(HeapIds()), ClassInitStore())
 
         /** Default session input; constructor receivers own fresh fields when their layout is known. */
-        internal fun entryFrame(view: MethodView, classIndex: ClassIndex): Frame {
+        internal fun entryFrame(view: MethodView, resolver: ProgramSnapshotResolver): Frame {
             val frame = entryFrame(view)
             if (!view.isStatic && view.signature.substringAfter("->").startsWith("<init>(")) {
                 // An unresolved superclass leaves the receiver unknown, rather than inventing its fields.
-                classIndex.instanceFieldDefaults(view.definingClass)?.let { fields ->
+                resolver.instanceFieldDefaults(view.definingClass)?.let { fields ->
                     frame.assign(view.firstParameterRegister, frame.allocateObject(view.definingClass, fields))
                     frame.assigned = persistentSetOf()
                 }

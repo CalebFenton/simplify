@@ -22,7 +22,7 @@ class ValueJoinTest {
      * pass it explicitly -- which is the point: a default would let a production call site lose precision
      * engine-wide with nothing failing.
      */
-    private val hierarchy: Superclasses = CoreTester.classIndex
+    private val hierarchy: TypeHierarchy = CoreTester.classIndex
 
     @Test
     fun agreeingKnownsJoinToTheKnown() {

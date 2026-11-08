@@ -205,7 +205,7 @@ class InvokeReviewTest {
 
     @Test
     fun ambiguousDispatchCandidatesAreOrderedCopiedAndImmutable() {
-        val lookup = CoreTester.classIndex.resolveInvocation(
+        val lookup = CoreTester.classIndex.currentResolver().resolveInvocation(
             MethodDescriptor(VirtualType.of("Linvoke_dispatch_base;"), "value", "()I"),
             InvokeKind.VIRTUAL,
             VirtualType.of(REVIEW),

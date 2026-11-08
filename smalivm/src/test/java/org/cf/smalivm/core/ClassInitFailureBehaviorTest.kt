@@ -204,7 +204,7 @@ class ClassInitFailureBehaviorTest {
             ),
         )
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = vm.newSession(view("hostOnlyError()I")).run()
         val clauses = graph.methodView.tryBlocks.flatMap(TryBlock::catches)
         val wrapperHandler = clauses.single {

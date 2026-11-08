@@ -4,12 +4,11 @@ import org.cf.smalivm.core.CastOutcome
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.FrameValue
 import org.cf.smalivm.core.GuestThrowables
-import org.cf.smalivm.core.InstanceOfTest
+import org.cf.smalivm.core.HierarchySnapshot
 import org.cf.smalivm.core.Op
 import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpExecution
 import org.cf.smalivm.core.OpUpdate
-import org.cf.smalivm.core.ThrowableHierarchy
 import org.cf.smalivm.core.ThrowableRecipe
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
@@ -32,8 +31,7 @@ internal class CheckCastOp(
     override val name: String,
     private val targetRegister: Int,
     private val castType: TypeOperand<Unit>,
-    private val types: InstanceOfTest,
-    private val throwableHierarchy: ThrowableHierarchy,
+    private val hierarchy: HierarchySnapshot,
 ) : Op(address) {
 
     override val registersRead: Set<Int> = setOf(targetRegister)
@@ -46,7 +44,7 @@ internal class CheckCastOp(
         val value = frameValue.value
         val narrowed = narrowedOrUnchanged(value, target)
         if (frameValue is FrameValue.RefinedThrowable) return castRefinedThrowable(frameValue, narrowed, target)
-        return when (castOutcome(value, target, types) { frame.heapObject(it)?.type }) {
+        return when (castOutcome(value, target, hierarchy) { frame.heapObject(it)?.type }) {
             // Null passes every cast, and every content of a satisfying tag passes too.
             CastOutcome.ReadsAsNull, CastOutcome.Definitely, CastOutcome.NullOrInstance ->
                 OpExecution.single(OpArm.Continue(OpUpdate.assign(targetRegister, narrowed)))
@@ -66,7 +64,7 @@ internal class CheckCastOp(
                 GuestThrowables.throwing(classCastException(source.value, target), OpUpdate.assign(targetRegister, source)),
             )
         }
-        val partition = partitionThrowableDomain(source.domain, target, throwableHierarchy)
+        val partition = partitionThrowableDomain(source.domain, target, hierarchy)
         val arms = buildList<OpArm> {
             partition.matching?.let { add(OpArm.Continue(OpUpdate.assign(targetRegister, FrameValue.refined(narrowed, it)))) }
             partition.residual?.let {

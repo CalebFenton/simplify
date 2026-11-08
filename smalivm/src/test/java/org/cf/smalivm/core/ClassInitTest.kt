@@ -54,11 +54,11 @@ class ClassInitTest {
             "the ancestor-searching lookup hands back the SUPERCLASS's initializer: $inherited",
         )
         assertEquals(
-            MethodLookup.NoSuchMethod, classIndex.lookupClassInitializer(HEIR),
+            MethodLookup.NoSuchMethod, classIndex.currentResolver().lookupClassInitializer(HEIR),
             "...and the declared-only lookup correctly finds nothing",
         )
-        assertFalse(classIndex.hasClassInitializer(HEIR))
-        assertTrue(classIndex.hasClassInitializer(WITNESS), "a class that DOES declare one is still found")
+        assertFalse(classIndex.currentResolver().hasClassInitializer(HEIR))
+        assertTrue(classIndex.currentResolver().hasClassInitializer(WITNESS), "a class that DOES declare one is still found")
         // Initializing `heir` runs grandparent's initializer as the ancestor's, then settles `heir` itself with
         // nothing to run.
         val frame = plannerFrame()
@@ -78,8 +78,8 @@ class ClassInitTest {
         // Integer declares <clinit> in the captured framework, but framework initialization is suppressed.
         // NewInstanceOpTest.theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit checks
         // the same policy through new-instance rather than directly through the planner.
-        assertTrue(classIndex.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
-        assertFalse(classIndex.isFrameworkClass(WITNESS), "a fixture class is an application class")
+        assertTrue(classIndex.currentSnapshot.hierarchy.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
+        assertFalse(classIndex.currentSnapshot.hierarchy.isFrameworkClass(WITNESS), "a fixture class is an application class")
         val plan = defaultInvoker(classIndex).planClassInit(plannerFrame(), INTEGER)
         assertNull(plan.context, "a framework <clinit> is NEVER run")
         assertTrue(plan.settled.map { it.descriptor }.contains(INTEGER.descriptor), "but it IS marked initialized")

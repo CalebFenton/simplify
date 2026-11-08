@@ -253,7 +253,7 @@ class InitialProgramImportTest {
             rejected.rejectedCode?.rejection,
         )
         assertNull(index.methodView("$REJECTED_INVOKE->sixRegisters()V"), "rejected code has no view to decode")
-        assertFalse(index.isLoadable(VirtualType.of(REJECTED_INVOKE)))
+        assertFalse(index.currentSnapshot.hierarchy.isLoadable(VirtualType.of(REJECTED_INVOKE)))
         val caller = requireNotNull(index.methodView("$CALLER->callsRejectedClass()I"))
         val escaping = CoreTester.escapingTypes(VmServices(index).newSession(caller).run()).single()
         assertTrue(
@@ -360,8 +360,8 @@ class InitialProgramImportTest {
             )
             val method = requireNotNull(index.currentSnapshot.applicationMethod("$type->run(${row.parameters})I"))
             assertEquals(row.expected, method.rejectedCode?.rejection, row.shape)
-            assertFalse(index.isLoadable(VirtualType.of(type)), row.shape)
-            assertTrue(index.isLoadable(VirtualType.of(HEALTHY)), row.shape)
+            assertFalse(index.currentSnapshot.hierarchy.isLoadable(VirtualType.of(type)), row.shape)
+            assertTrue(index.currentSnapshot.hierarchy.isLoadable(VirtualType.of(HEALTHY)), row.shape)
         }
     }
 
