@@ -2,6 +2,8 @@ package org.cf.smalivm.core
 
 import java.lang.reflect.Modifier
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -10,13 +12,14 @@ class ReflectedMemberQueryTest {
     private val classIndex = CoreTester.classIndex
     private val methodType = VirtualType.of("Ljava/lang/reflect/Method;")
     private val intType = VirtualType.of("I")
+    private val STRING_LENGTH = ImmutableMethodReference("Ljava/lang/String;", "length", emptyList<String>(), "I")
 
     @Test
     fun reportsHeapBackedMethodByFullDescriptorAndModifiers() {
         val graph = graphOf("getStringLengthMethod()Ljava/lang/reflect/Method;")
         val address = graph.methodView.addresses.single { graph.methodView.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT }
         val expected = ReflectedMethodMetadata(
-            "Ljava/lang/String;->length()I",
+            STRING_LENGTH,
             String::class.java.getDeclaredMethod("length").modifiers,
             String::class.java.modifiers,
         )
@@ -30,7 +33,7 @@ class ReflectedMemberQueryTest {
         val graph = graphOf("getPublicInstanceField()Ljava/lang/reflect/Field;")
         val address = graph.methodView.addresses.single { graph.methodView.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT }
         val expected = ReflectedFieldMetadata(
-            "Lorg/cf/smalivm/DummyClass;->publicInstanceField:I",
+            ImmutableFieldReference("Lorg/cf/smalivm/DummyClass;", "publicInstanceField", "I"),
             Modifier.PUBLIC or Modifier.FINAL,
         )
 
@@ -50,7 +53,7 @@ class ReflectedMemberQueryTest {
         assertEquals(Opcode.CONST_4, graph.methodView.opcodeAt(parents.single()))
         assertEquals(
             ReflectedMethodMetadata(
-                "Ljava/lang/String;->length()I",
+                STRING_LENGTH,
                 String::class.java.getDeclaredMethod("length").modifiers,
                 String::class.java.modifiers,
             ),
@@ -75,7 +78,7 @@ class ReflectedMemberQueryTest {
             nodeAt(view, secondAddress, methodFrame(view, length)),
         )
         val expected = ReflectedMethodMetadata(
-            "Ljava/lang/String;->length()I",
+            STRING_LENGTH,
             length.modifiers,
             String::class.java.modifiers,
         )
@@ -124,7 +127,7 @@ class ReflectedMemberQueryTest {
 
         assertEquals(
             ReflectedMethodMetadata(
-                "Ljava/lang/String;->length()I",
+                STRING_LENGTH,
                 length.modifiers,
                 String::class.java.modifiers,
             ),
@@ -141,7 +144,7 @@ class ReflectedMemberQueryTest {
         assertEquals(
             "Lorg/cf/smalivm/core/ReflectedMethodDescriptorFixture;->" +
                 "allTypes(ZBCSIJFDLjava/lang/Object;[I[[Ljava/lang/String;)V",
-            graph.reflectedMethodOverExploredPaths(0, 0)?.descriptor,
+            graph.reflectedMethodOverExploredPaths(0, 0)?.method?.toString(),
         )
     }
 
@@ -156,7 +159,10 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, fieldFrame(view, firstField)),
             nodeAt(view, secondAddress, fieldFrame(view, firstField)),
         )
-        val expected = ReflectedFieldMetadata(firstField.descriptor, firstField.modifiers)
+        val expected = ReflectedFieldMetadata(
+            ImmutableFieldReference(firstField.declaringType.descriptor, firstField.name, firstField.fieldType.descriptor),
+            firstField.modifiers,
+        )
         assertEquals(expected, sameFields.reflectedFieldOverExploredPaths(0, 0))
         assertEquals(expected, sameFields.reflectedFieldOverExploredPaths(intArrayOf(0, secondAddress), 0))
         assertEquals(expected, sameFields.trusted()!!.reflectedField(intArrayOf(0, secondAddress), 0))

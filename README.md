@@ -106,7 +106,7 @@ java -jar sdbg/build/libs/sdbg.jar sdbg/resources 'LTest;->addNumbers()V'
 
 The Kotlin demo shows VM-local emulator registration and execution with known and unknown inputs.
 Its explicit reflection policy permits only the host operations needed by the examples.
-The Java files under `org.cf.demosmali` remain guest fixture sources, not the host application.
+The guest executes the smali in `demoapp/resources`; `demoapp/guest-src` holds its Java source for reading.
 
 SDBG supports breakpoints, step/next/continue, register and static-field inspection, and disassembly
 through the Kotlin debugger. See [SDBG usage](sdbg/README.md). Exit the console with Ctrl-D.

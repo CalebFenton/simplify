@@ -25,6 +25,14 @@
     return-wide v0
 .end method
 
+.method public static narrowSourceOfWideConversion()J
+    .locals 4
+    const/4 v2, 0x1
+    const/4 v3, 0x5
+    int-to-long v0, v2
+    return-wide v0
+.end method
+
 .method public static liveOnBranch(I)I
     .locals 1
     const/4 v0, 0x1

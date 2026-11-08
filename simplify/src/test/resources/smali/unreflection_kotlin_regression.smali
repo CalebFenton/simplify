@@ -4,6 +4,19 @@
 .field public static number:I = 0x29
 .field public static text:Ljava/lang/String; = "static"
 .field public instance:I
+.field public static flag:Z = true
+
+.method public static readFlag()Ljava/lang/Object;
+    .registers 3
+    const-class v0, Lunreflection_kotlin_regression;
+    const-string v1, "flag"
+    invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
+    move-result-object v0
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    move-result-object v2
+    return-object v2
+.end method
 
 .method public static call(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
     .registers 4

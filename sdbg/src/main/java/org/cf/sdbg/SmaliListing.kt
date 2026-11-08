@@ -20,7 +20,7 @@ import java.io.StringWriter
 import java.io.Writer
 
 /** A listing of the immutable program used by this debug session. */
-class SmaliListing(private val services: VmServices) {
+internal class SmaliListing(private val services: VmServices) {
     private val snapshot = services.currentSnapshot
 
     // The public snapshot boundary preserves annotations, debug items and bodyless methods too.

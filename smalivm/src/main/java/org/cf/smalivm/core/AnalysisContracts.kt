@@ -1,5 +1,8 @@
 package org.cf.smalivm.core
 
+import com.android.tools.smali.dexlib2.iface.reference.FieldReference
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+
 /**
  * Why a register reads [Value.Top]: whether any path in scope **held** a value there at all.
  *
@@ -103,13 +106,13 @@ enum class RegisterOccupancy {
 
 /** Immutable identity data needed to replace one exact reflected method invocation with Dalvik bytecode. */
 data class ReflectedMethodMetadata(
-    val descriptor: String,
+    val method: MethodReference,
     val modifiers: Int,
     val declaringClassModifiers: Int,
 )
 
 /** Immutable identity data needed to replace one exact reflected field read with Dalvik bytecode. */
-data class ReflectedFieldMetadata(val descriptor: String, val modifiers: Int)
+data class ReflectedFieldMetadata(val field: FieldReference, val modifiers: Int)
 
 /**
  * The queries whose answers a consumer would **act on** — fold a constant, delete a method — and
@@ -178,6 +181,17 @@ interface TrustedGraphView {
     fun methodSideEffectLevel(): SideEffectLevel
     /** See [ExecutionGraphView.didEveryExecutionContinueNormallyOverExploredPaths]. */
     fun didEveryExecutionContinueNormally(address: Int): Boolean
+    /**
+     * True when [address] holds an executable instruction that no explored path reached. The run is complete, so
+     * this proves the instruction dead. Payload data and addresses outside the method are never dead.
+     */
+    fun isDead(address: Int): Boolean
+    /** See [ExecutionGraphView.parentAddresses]. */
+    fun parentAddresses(address: Int): IntArray
+    /** See [ExecutionGraphView.children]. */
+    fun children(address: Int): IntArray
+    /** See [ExecutionGraphView.sideEffectLevel]. */
+    fun sideEffectLevel(address: Int): SideEffectLevel
     /** See [ExecutionGraphView.terminatingStaticFieldConsensusOverExploredPaths]. */
     fun terminatingStaticFieldConsensus(type: VirtualType, fieldDescriptor: String): Value
     /**

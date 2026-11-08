@@ -1,5 +1,6 @@
 package org.cf.smalivm.core
 
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
@@ -210,20 +211,23 @@ class ExecutionGraph internal constructor(
     }
 
     override fun reflectedFieldOverExploredPaths(address: Int, register: Int): ReflectedFieldMetadata? =
-        unanimousValue(1, { address }) { reflectedFieldIn(it, register) }
-            ?.let { ReflectedFieldMetadata(it.descriptor, it.modifiers) }
+        unanimousValue(1, { address }) { reflectedFieldIn(it, register) }?.toReflectedFieldMetadata()
 
     override fun reflectedFieldOverExploredPaths(
         addresses: IntArray,
         register: Int,
     ): ReflectedFieldMetadata? =
-        unanimousValue(addresses.size, { addresses[it] }) { reflectedFieldIn(it, register) }
-            ?.let { ReflectedFieldMetadata(it.descriptor, it.modifiers) }
+        unanimousValue(addresses.size, { addresses[it] }) { reflectedFieldIn(it, register) }?.toReflectedFieldMetadata()
 
     private fun reflectedFieldIn(node: ExecutionNode, register: Int): TrackedFieldValue? {
         val ref = (valueIn(node, register) as? Value.Known)?.raw as? HeapRef ?: return null
         return node.frame.trackedFieldAt(ref)?.metadata
     }
+
+    private fun TrackedFieldValue.toReflectedFieldMetadata() = ReflectedFieldMetadata(
+        ImmutableFieldReference(declaringType.descriptor, name, fieldType.descriptor),
+        modifiers,
+    )
 
     private inline fun <T : Any> unanimousValue(
         addressCount: Int,
@@ -686,6 +690,15 @@ class ExecutionGraph internal constructor(
 
         override fun didEveryExecutionContinueNormally(address: Int): Boolean =
             didEveryExecutionContinueNormallyOverExploredPaths(address)
+
+        override fun isDead(address: Int): Boolean =
+            methodView.hasAddress(address) && !isPayload(address) && !wasReached(address)
+
+        override fun parentAddresses(address: Int): IntArray = this@ExecutionGraph.parentAddresses(address)
+
+        override fun children(address: Int): IntArray = this@ExecutionGraph.children(address)
+
+        override fun sideEffectLevel(address: Int): SideEffectLevel = this@ExecutionGraph.sideEffectLevel(address)
 
         override fun terminatingHeapObject(ref: HeapRef): HeapObject? =
             terminatingHeapObjectOverExploredPaths(ref)

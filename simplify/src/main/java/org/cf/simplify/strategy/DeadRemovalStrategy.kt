@@ -1,12 +1,13 @@
 package org.cf.simplify.strategy
 
 import java.util.ArrayDeque
-import org.cf.smalivm.core.ExecutionGraphView
-import org.cf.smalivm.core.MethodView
+import org.cf.smalivm.core.MethodControlFlow
 import org.cf.smalivm.core.SideEffectLevel
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.iface.instruction.*
-import com.android.tools.smali.dexlib2.iface.instruction.formats.ArrayPayload
+import com.android.tools.smali.dexlib2.iface.instruction.DualReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.Instruction
+import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.CallSiteReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
@@ -18,98 +19,107 @@ class DeadRemovalStrategy : OptimizationStrategy {
     )
 
     override fun perform(input: StrategyInput) {
-        val graph = input.structureGraph
-        val analysis = Analysis.build(input.graph.methodView) ?: return
-        if (analysis.addresses.isEmpty()) return
-        // This engine exposes decoded register sets only for visited instructions. An unexplored
-        // structural successor is not a proof of no reads. Keep assignments unless coverage is complete.
-        val livenessComplete = analysis.addresses.indices.all {
-            !analysis.reachable[it] || graph.wasReached(analysis.addresses[it])
-        }
-        if (livenessComplete) analysis.computeLiveness(graph)
+        val graph = input.graph
+        val flow = input.controlFlow ?: return
+        if (flow.size == 0) return
+        val analysis = Analysis(flow)
+        // Registers an unexplored structural successor reads are not a proof of no reads. Keep assignments
+        // unless every structurally reachable instruction ran.
+        val livenessComplete = (0 until flow.size).none { flow.isReachable(it) && graph.isDead(flow.addressAt(it)) }
+        if (livenessComplete) analysis.computeLiveness()
 
+        val method = flow.method
         val removals = linkedSetOf<Int>()
         fun remove(address: Int, category: String) {
             if (removals.add(address)) input.recordOptimization(category)
         }
-        for (index in analysis.addresses.indices) {
-            val address = analysis.addresses[index]
-            val instruction = analysis.instructions[index]
+        for (index in 0 until flow.size) {
+            val address = flow.addressAt(index)
+            val instruction = flow.instructionAt(index)
             val opcode = instruction.opcode
-            if (!analysis.reachable[index]) {
-                if (!analysis.protectedAddresses[index] && opcode !in PAYLOAD_OWNERS && !isTerminal(opcode) &&
-                    !analysis.isPayloadPadding(index)) remove(address, DEAD_OPS_REMOVED)
+            if (!flow.isReachable(index)) {
+                if (!analysis.isProtected(index) && opcode !in PAYLOAD_OWNERS && !analysis.isPayloadPadding(index)) {
+                    remove(address, DEAD_OPS_REMOVED)
+                }
                 continue
             }
-            if (!graph.wasReached(address)) continue
-            if ((opcode as Enum<*>).name.startsWith("GOTO") && instruction is OffsetInstruction &&
-                instruction.codeOffset == instruction.codeUnits) remove(address, USELESS_GOTOS_REMOVED)
+            if (graph.isDead(address)) continue
+            if (opcode in GOTOS && (instruction as OffsetInstruction).codeOffset == instruction.codeUnits) {
+                remove(address, USELESS_GOTOS_REMOVED)
+            }
             if (opcode == Opcode.NOP && !analysis.isPayloadPadding(index)) remove(address, NOPS_REMOVED)
             if (!livenessComplete || graph.sideEffectLevel(address) != SideEffectLevel.NONE ||
-                !input.graph.didEveryExecutionContinueNormally(address) || analysis.isSelfInitialization(index)) continue
+                !graph.didEveryExecutionContinueNormally(address) || analysis.isSelfInitialization(index)) continue
             val assigned = analysis.assigned[index]
             if (!assigned.isEmpty && opcode.setsRegister() && !opcode.setsResult() &&
                 !assigned.intersects(analysis.liveOut[index])) {
-                remove(address, if (isMoveResult(opcode)) DEAD_RESULTS_REMOVED else DEAD_ASSIGNMENTS_REMOVED)
+                remove(address, if (opcode in MOVE_RESULTS) DEAD_RESULTS_REMOVED else DEAD_ASSIGNMENTS_REMOVED)
             }
-            if ((opcode as Enum<*>).name.startsWith("INVOKE_") && !isOneArgumentClassForName(instruction)) {
-                val returnType = invokeReturnType(instruction)
-                val next = analysis.indexByAddress[analysis.method.nextAddress(address)]
-                if (returnType != null && returnType != "V" &&
-                    (next == null || !isMoveResult(analysis.instructions[next].opcode))) {
-                    remove(address, DEAD_RESULTS_REMOVED)
-                }
+            val returnType = invokeReturnType(instruction)
+            if (returnType != null && returnType != "V" && !isClassForName(instruction) &&
+                moveResultAfter(method, address) == null) {
+                remove(address, DEAD_RESULTS_REMOVED)
             }
         }
         if (removals.isNotEmpty()) input.transaction.removeInstructions(removals)
     }
 
-    private class Analysis(
-        val method: MethodView,
-        val addresses: IntArray,
-        val instructions: Array<Instruction>,
-        val indexByAddress: Map<Int, Int>,
-        val normal: Array<IntArray>,
-        val exceptional: Array<IntArray>,
-        val predecessors: Array<IntArray>,
-        val protectedAddresses: BooleanArray,
-        val reachable: BooleanArray,
-    ) {
-        val reads = Array(addresses.size) { RegisterSet.EMPTY }
-        val assigned = Array(addresses.size) { RegisterSet.EMPTY }
-        private val liveIn = Array(addresses.size) { RegisterSet.EMPTY }
-        val liveOut = Array(addresses.size) { RegisterSet.EMPTY }
+    private class Analysis(val flow: MethodControlFlow) {
+        private val size = flow.size
+        private val normal = Array(size) { flow.normalSuccessors(it) }
+        private val exceptional = Array(size) { flow.exceptionalSuccessors(it) }
+        private val predecessors = Array(size) { flow.predecessors(it) }
+        private val protected = protectedInstructions()
+        val assigned = Array(size) { RegisterSet.EMPTY }
+        private val reads = Array(size) { RegisterSet.EMPTY }
+        private val liveIn = Array(size) { RegisterSet.EMPTY }
+        val liveOut = Array(size) { RegisterSet.EMPTY }
+
+        fun isProtected(index: Int): Boolean = protected[index]
 
         fun isPayloadPadding(index: Int): Boolean {
-            val next = method.nextAddress(addresses[index])
-            return method.hasAddress(next) && method.isPayload(next)
+            val next = flow.method.nextAddress(flow.addressAt(index))
+            return flow.method.hasAddress(next) && flow.method.isPayload(next)
         }
 
+        /** A constructor's `invoke-direct` of `<init>` on its own receiver initializes `this` and must stay. */
         fun isSelfInitialization(index: Int): Boolean {
-            if (!method.signature.contains(";-><init>(")) return false
-            val instruction = instructions[index]
-            if (instruction.opcode != Opcode.INVOKE_DIRECT && instruction.opcode != Opcode.INVOKE_DIRECT_RANGE)
-                return false
-            val reference = (instruction as? ReferenceInstruction)?.reference as? MethodReference ?: return false
-            if (reference.name != "<init>") return false
-            val receiver = when (instruction) {
-                is RegisterRangeInstruction -> instruction.startRegister
-                is FiveRegisterInstruction -> instruction.registerC
-                else -> return false
-            }
-            return receiver == method.firstParameterRegister
+            val method = flow.method
+            if (!method.signature.substringAfter("->").startsWith("<init>(")) return false
+            val instruction = flow.instructionAt(index)
+            if (instruction.opcode != Opcode.INVOKE_DIRECT && instruction.opcode != Opcode.INVOKE_DIRECT_RANGE) return false
+            if (invokedMethod(instruction)?.name != "<init>") return false
+            return invokeRegisters(instruction).firstOrNull() == method.firstParameterRegister
         }
 
-        fun computeLiveness(graph: ExecutionGraphView) {
+        /**
+         * Unreachable instructions that stay because something still names them: the code from each handler entry up
+         * to its first non-continuing instruction, the successors of a kept switch, and the method's terminals.
+         */
+        private fun protectedInstructions(): BooleanArray {
+            val result = BooleanArray(size)
+            for (index in 0 until size) {
+                if (flow.isHandlerEntry(index)) {
+                    for (covered in index until size) {
+                        result[covered] = true
+                        if (!flow.instructionAt(covered).opcode.canContinue()) break
+                    }
+                }
+                if (flow.instructionAt(index).opcode in SWITCHES) for (target in normal[index]) result[target] = true
+            }
+            for (terminal in flow.method.terminalInstructionAddresses) flow.indexOf(terminal)?.let { result[it] = true }
+            return result
+        }
+
+        fun computeLiveness() {
             val interner = RegisterSetInterner()
-            for (i in addresses.indices) {
-                reads[i] = RegisterSet.from(graph.registersRead(addresses[i]), method.registerCount, interner)
-                    .withWidePartners(instructions[i].opcode, method.registerCount, interner)
-                assigned[i] = RegisterSet.from(graph.registersAssigned(addresses[i]), method.registerCount, interner)
+            for (i in 0 until size) {
+                reads[i] = RegisterSet.from(flow.registersRead(i), flow.method.registerCount, interner)
+                assigned[i] = RegisterSet.from(flow.registersWritten(i), flow.method.registerCount, interner)
             }
             val work = ArrayDeque<Int>()
-            val queued = BooleanArray(addresses.size)
-            for (i in addresses.indices.reversed()) {
+            val queued = BooleanArray(size)
+            for (i in (0 until size).reversed()) {
                 work.addLast(i)
                 queued[i] = true
             }
@@ -135,103 +145,12 @@ class DeadRemovalStrategy : OptimizationStrategy {
                 }
             }
         }
-
-        companion object {
-            fun build(method: MethodView): Analysis? {
-                val addresses = method.instructionAddresses
-                val instructions = Array(addresses.size) { method.instructionAt(addresses[it]) }
-                val indexes = HashMap<Int, Int>(addresses.size)
-                for (i in addresses.indices) indexes[addresses[i]] = i
-                val protectedAddresses = BooleanArray(addresses.size)
-                val handlers = Array(addresses.size) { linkedSetOf<Int>() }
-                for (block in method.tryBlocks) {
-                    val targets = linkedSetOf<Int>()
-                    for (handler in block.catches) targets.add(handler.handlerAddress)
-                    block.catchAllAddress?.let(targets::add)
-                    for (target in targets) {
-                        val start = indexes[target] ?: return null
-                        for (i in start until addresses.size) {
-                            protectedAddresses[i] = true
-                            if (!instructions[i].opcode.canContinue()) break
-                        }
-                    }
-                    val found = addresses.binarySearch(block.startAddress)
-                    val start = if (found >= 0) found else -found - 1
-                    for (i in start until addresses.size) {
-                        if (addresses[i] >= block.endAddress) break
-                        if (mayThrow(instructions[i].opcode)) handlers[i].addAll(targets)
-                    }
-                }
-                val normal = Array(addresses.size) { IntArray(0) }
-                val exceptional = Array(addresses.size) { IntArray(0) }
-                val successors = Array(addresses.size) { IntArray(0) }
-                val predecessorLists = Array(addresses.size) { ArrayList<Int>() }
-                for (i in addresses.indices) {
-                    val address = addresses[i]
-                    val instruction = instructions[i]
-                    val opcode = instruction.opcode
-                    val next = linkedSetOf<Int>()
-                    val exceptionalNext = linkedSetOf<Int>()
-                    if (opcode in PAYLOAD_OWNERS) {
-                        if (instruction !is OffsetInstruction) return null
-                        val payloadAddress = address + instruction.codeOffset
-                        if (!method.hasAddress(payloadAddress) || !method.isPayload(payloadAddress)) return null
-                        val payload = method.payloadAt(payloadAddress)
-                        if (opcode == Opcode.PACKED_SWITCH || opcode == Opcode.SPARSE_SWITCH) {
-                            if (payload !is SwitchPayload) return null
-                            for (element in payload.switchElements) {
-                                val target = indexes[address + element.offset] ?: return null
-                                next.add(target)
-                                protectedAddresses[target] = true
-                            }
-                        } else if (payload !is ArrayPayload) return null
-                    } else if (instruction is OffsetInstruction &&
-                        ((opcode as Enum<*>).name.startsWith("IF_") || !opcode.canContinue())) {
-                        next.add(indexes[address + instruction.codeOffset] ?: return null)
-                    }
-                    if (opcode.canContinue()) next.add(indexes[method.nextAddress(address)] ?: return null)
-                    if (mayThrow(opcode)) for (handler in handlers[i]) exceptionalNext.add(indexes[handler] ?: return null)
-                    normal[i] = next.toIntArray()
-                    exceptional[i] = exceptionalNext.toIntArray()
-                    next.addAll(exceptionalNext)
-                    successors[i] = next.toIntArray()
-                    for (successor in next) predecessorLists[successor].add(i)
-                }
-                for (terminal in method.terminalInstructionAddresses) protectedAddresses[indexes[terminal] ?: return null] = true
-                val reachable = BooleanArray(addresses.size)
-                if (addresses.isNotEmpty()) {
-                    val pending = ArrayDeque<Int>()
-                    pending.add(0)
-                    reachable[0] = true
-                    while (pending.isNotEmpty()) {
-                        for (next in successors[pending.removeFirst()]) {
-                            if (!reachable[next]) {
-                                reachable[next] = true
-                                pending.addLast(next)
-                            }
-                        }
-                    }
-                }
-                return Analysis(method, addresses, instructions, indexes, normal, exceptional,
-                    Array(addresses.size) { predecessorLists[it].toIntArray() }, protectedAddresses, reachable)
-            }
-        }
     }
 
     /** Sorted sparse register words: memory does not scale with the largest register number. */
     private class RegisterSet private constructor(private val values: IntArray) {
         val size: Int get() = values.size
         val isEmpty: Boolean get() = values.isEmpty()
-
-        fun withWidePartners(opcode: Opcode, registerCount: Int, interner: RegisterSetInterner): RegisterSet {
-            val name = (opcode as Enum<*>).name
-            if (isEmpty || name.startsWith("INVOKE_") ||
-                (!name.contains("WIDE") && !name.contains("LONG") && !name.contains("DOUBLE"))) return this
-            val widened = values.copyOf(size * 2)
-            var count = size
-            for (low in values) if (low + 1 < registerCount) widened[count++] = low + 1
-            return sorted(widened, count, interner)
-        }
 
         fun union(other: RegisterSet, interner: RegisterSetInterner): RegisterSet {
             if (isEmpty || this === other) return other
@@ -284,7 +203,7 @@ class DeadRemovalStrategy : OptimizationStrategy {
 
         companion object {
             val EMPTY = RegisterSet(IntArray(0))
-            fun from(source: Set<Int>, registerCount: Int, interner: RegisterSetInterner): RegisterSet {
+            fun from(source: IntArray, registerCount: Int, interner: RegisterSetInterner): RegisterSet {
                 if (source.isEmpty()) return EMPTY
                 val values = IntArray(source.size)
                 var count = 0
@@ -319,11 +238,10 @@ class DeadRemovalStrategy : OptimizationStrategy {
         const val USELESS_GOTOS_REMOVED = "useless gotos removed"
         const val NOPS_REMOVED = "nops removed"
         private val PAYLOAD_OWNERS = setOf(Opcode.FILL_ARRAY_DATA, Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
-        private fun mayThrow(opcode: Opcode): Boolean = opcode.canThrow() || opcode == Opcode.FILL_ARRAY_DATA
-        private fun isMoveResult(opcode: Opcode): Boolean =
-            opcode == Opcode.MOVE_RESULT || opcode == Opcode.MOVE_RESULT_WIDE || opcode == Opcode.MOVE_RESULT_OBJECT
-        private fun isTerminal(opcode: Opcode): Boolean = opcode == Opcode.RETURN_VOID || opcode == Opcode.RETURN ||
-            opcode == Opcode.RETURN_WIDE || opcode == Opcode.RETURN_OBJECT || opcode == Opcode.THROW
+        private val SWITCHES = setOf(Opcode.PACKED_SWITCH, Opcode.SPARSE_SWITCH)
+        private val GOTOS = setOf(Opcode.GOTO, Opcode.GOTO_16, Opcode.GOTO_32)
+
+        /** The declared return type of an invoke, or null for any other instruction. */
         private fun invokeReturnType(instruction: Instruction): String? {
             if (instruction is DualReferenceInstruction) return (instruction.reference2 as? MethodProtoReference)?.returnType
             return when (val reference = (instruction as? ReferenceInstruction)?.reference) {

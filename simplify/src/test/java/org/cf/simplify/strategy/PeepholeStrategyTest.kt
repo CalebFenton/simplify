@@ -1,7 +1,10 @@
 package org.cf.simplify.strategy
 
+import org.cf.simplify.Optimizer
 import org.cf.simplify.OptimizerTester
 import org.cf.smalivm.core.CompletionStatus
+import org.cf.smalivm.core.Limits
+import java.io.File
 import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.Value
 import com.android.tools.smali.dexlib2.Opcode
@@ -65,5 +68,16 @@ class PeepholeStrategyTest {
     private fun hasInvoke(method: MethodView, owner: String, name: String) = method.instructionAddresses.any {
         val reference = (method.instructionAt(it) as? ReferenceInstruction)?.reference as? MethodReference
         reference?.definingClass == owner && reference.name == name
+    }
+
+    @Test fun castRemovalCommitsInAMethodWhoseDeadPaddingNopCarriesALine() {
+        // dx emits `.line` on the alignment nop between return-void and the array payload.
+        val services = OptimizerTester.services(File("src/test/resources/obfuscated-example"))
+        val signature = "Lorg/cf/obfuscated/Reflection;->reflectedFieldLookup()V"
+        val result = Optimizer(services, Limits(), 1, listOf(PeepholeStrategy())).optimize(signature)
+        assertEquals(emptyList<Optimizer.Rejection>(), result.rejections)
+        assertEquals(1, result.committedEditCount)
+        val method = requireNotNull(services.classIndex.methodView(signature))
+        assertFalse(method.instructionAddresses.any { method.opcodeAt(it) == Opcode.CHECK_CAST })
     }
 }

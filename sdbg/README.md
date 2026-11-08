@@ -34,14 +34,14 @@ Smali DeBuGger (SDBG)
 
 ```plaintext
 Commands:
-  help         Displays help information about the specified command
+  help         Display help information about the specified command.
   cls, clear   Clears the screen
   list, l      List source code
   where, w     Shows current instruction index and which function you are in
   step, s      Step to next line of code including stepping into methods
   next, n      Execute next line of code without entering methods
   info, i      List information about target
-  print, p     Print value stored in a register, parameter, or static field
+  print, p     Print value stored in variable or static field
   break, b     Suspend program at specified function, instruction index, or
                  index offset
   continue, c  Continue executing until next break point
@@ -76,6 +76,10 @@ Listing indexes count executable instructions, not source lines or DEX code unit
 both at index zero. `list 0,2` selects an inclusive instruction range; labels, debug
 directives, and unnumbered payload data remain as context. `list LTest;` lists a class.
 Listings also work inside framework callees.
+
+Targets use dex descriptor syntax: a class is `LTest;`, a method is `addParameters(II)I` in the
+current class or `LTest;->addParameters(II)I`, and a static field is `LTest;->name:I`. A malformed
+or unknown target prints `invalid target;` with the reason and changes nothing.
 
 The first application listing serializes the immutable application snapshot once and caches
 the decoded classes. Large applications can therefore make the first listing slower.

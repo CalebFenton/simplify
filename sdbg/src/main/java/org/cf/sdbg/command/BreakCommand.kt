@@ -1,80 +1,71 @@
 package org.cf.sdbg.command
 
-import org.cf.sdbg.Main
+import org.cf.sdbg.SmaliReference
 import org.cf.smalivm.core.Breakpoint
 import org.cf.smalivm.core.MethodLookup
 import org.cf.smalivm.core.VirtualType
 import picocli.CommandLine
-import picocli.CommandLine.ParentCommand
 
-sealed class BreakTarget
-data class BreakTargetMethod(val methodSignature: String) : BreakTarget()
-data class BreakTargetIndex(val index: Int) : BreakTarget()
-object BreakTargetInvalid : BreakTarget()
-
-@CommandLine.Command(name = "break", aliases = ["b"], mixinStandardHelpOptions = true, version = [Main.version],
+@CommandLine.Command(name = "break", aliases = ["b"], mixinStandardHelpOptions = true,
         description = ["Suspend program at specified function, instruction index, or index offset"])
-class BreakCommand : DebuggerCommand() {
-    @ParentCommand
-    lateinit var parent: CliCommands
+internal class BreakCommand : DebuggerCommand() {
     @CommandLine.Parameters(index = "0", arity = "0..1", paramLabel = "TARGET",
-            description = ["index-number | method | class->method | +offset | -offset"])
+            description = ["index-number | +offset | -offset | method | class->method"])
     var target: String? = null
 
-    private fun parseTarget(target: String?): BreakTarget {
-        if (target == null) {
-            return debugger.currentInstructionIndex?.let { BreakTargetIndex(it) } ?: BreakTargetInvalid
-        }
-        val guessedType = ReferenceType.guess(target)
-        return when {
-            target.startsWith('-') || target.startsWith('+') -> {
-                val offset = target.toIntOrNull() ?: return BreakTargetInvalid
-                val index = debugger.currentInstructionIndex ?: return BreakTargetInvalid
-                val resolved = index.toLong() + offset
-                if (resolved !in 0..Int.MAX_VALUE.toLong()) return BreakTargetInvalid
-                BreakTargetIndex(resolved.toInt())
-            }
-            guessedType == ReferenceType.INTERNAL_METHOD_SIGNATURE -> BreakTargetMethod(target)
-            guessedType == ReferenceType.INTERNAL_METHOD_DESCRIPTOR -> {
-                val className = currentView.definingClass.descriptor
-                BreakTargetMethod("$className->$target")
-            }
-            target.toIntOrNull() != null -> BreakTargetIndex(index = target.toInt())
-            else -> BreakTargetInvalid
-        }
+    private sealed interface Target {
+        /** An instruction index in the current method, not yet checked against its bounds. */
+        data class Index(val index: Long) : Target
+        data class Method(val owner: VirtualType, val descriptor: String) : Target
+        data class Invalid(val reason: String) : Target
     }
 
-    private fun printInvalid(message: String) {
-        parent.out.println("invalid target; $message")
+    private fun parseTarget(target: String?): Target {
+        val current = debugger.currentInstructionIndex
+        if (target == null) return current?.let { Target.Index(it.toLong()) } ?: Target.Invalid(NO_CURRENT_INSTRUCTION)
+        if (INDEX.matches(target)) return target.toLongOrNull()?.let(Target::Index) ?: Target.Invalid(INDEX_OUT_OF_RANGE)
+        if (OFFSET.matches(target)) {
+            current ?: return Target.Invalid(NO_CURRENT_INSTRUCTION)
+            val offset = target.toLongOrNull() ?: return Target.Invalid(INDEX_OUT_OF_RANGE)
+            return Target.Index(current + offset)
+        }
+        return when (val reference = SmaliReference.parse(target)) {
+            is SmaliReference.Method -> Target.Method(reference.owner ?: currentView.definingClass, reference.descriptor)
+            is SmaliReference.Type -> Target.Invalid("expected a method, got class ${reference.type}")
+            is SmaliReference.Field -> Target.Invalid("expected a method, got field ${reference.owner}->${reference.name}")
+            is SmaliReference.Malformed -> Target.Invalid(reference.reason)
+        }
     }
 
     override fun run() {
-        when (val parsedTarget = parseTarget(target)) {
-            is BreakTargetMethod -> {
-                val lookup = Main.services.classIndex.lookupMethod(
-                    VirtualType.of(parsedTarget.methodSignature.substringBefore("->")),
-                    parsedTarget.methodSignature.substringAfter("->"))
+        when (val parsed = parseTarget(target)) {
+            is Target.Method -> {
+                val lookup = debugSession.services.classIndex.lookupMethod(parsed.owner, parsed.descriptor)
                 val method = (lookup as? MethodLookup.Runnable)?.view
                 if (method == null || method.instructionCount == 0) {
                     printInvalid("concrete method not found")
                     return
                 }
                 debugger.addBreakpoint(Breakpoint(method.signature, 0))
-                parent.out.println("breakpoint set for ${method.signature}")
+                out.println("breakpoint set for ${method.signature}")
             }
-            is BreakTargetIndex -> {
+            is Target.Index -> {
                 val method = currentView
-                if (parsedTarget.index !in 0 until method.instructionCount) {
-                    printInvalid("index out of range")
+                if (parsed.index !in 0 until method.instructionCount) {
+                    printInvalid(INDEX_OUT_OF_RANGE)
                     return
                 }
-                debugger.addBreakpoint(Breakpoint(method.signature, parsedTarget.index))
-                parent.out.println("breakpoint set for ${method.signature} @ ${parsedTarget.index}")
+                debugger.addBreakpoint(Breakpoint(method.signature, parsed.index.toInt()))
+                out.println("breakpoint set for ${method.signature} @ ${parsed.index}")
             }
-            is BreakTargetInvalid -> {
-                printInvalid("unable to parse")
-                return
-            }
+            is Target.Invalid -> printInvalid(parsed.reason)
         }
+    }
+
+    private companion object {
+        const val NO_CURRENT_INSTRUCTION = "no current instruction"
+        const val INDEX_OUT_OF_RANGE = "index out of range"
+        val INDEX = Regex("\\d+")
+        val OFFSET = Regex("[+-]\\d+")
     }
 }
