@@ -4,14 +4,12 @@ Sdbg is a Smali debugger powered by SmaliVM. The command line interface is loose
 
 [![demo](https://asciinema.org/a/327115.svg)](https://asciinema.org/a/327115)
 
-Right now, it's only an experiment, so if you have feature suggestions, feel free to create an issue or pull request.
-
 SDBG drives one Kotlin `ExecutionSession`. Unknown inputs can fork execution into multiple paths.
 VM limits bound execution; a finished session can report partial analysis or guest exceptions.
 
 ## Building
 
-From the root of this repository, with JDK 21 selected through `JAVA_HOME`:
+From the root of this repository (see the [root README](../README.md) for prerequisites):
 
 ```bash
 ./gradlew :sdbg:fatJar
@@ -53,7 +51,7 @@ Start the included example:
 java -jar sdbg/build/libs/sdbg.jar sdbg/resources 'LTest;->addNumbers()V'
 ```
 
-Then enter:
+Then enter these commands, one per line:
 
 ```text
 list

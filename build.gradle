@@ -1,6 +1,11 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '2.4.21' apply false
+    alias(libs.plugins.kotlin.jvm) apply false
 }
+
+// Host reflection into guest-visible java.lang objects needs this module opening at runtime.
+def hostReflectionOpens = 'java.base/java.lang'
+def javaVersion = 21
+def jacocoVersion = libs.versions.jacoco.get()
 
 def legalFiles = copySpec {
     from rootProject.file('LICENSE'), rootProject.file('THIRD_PARTY_NOTICES')
@@ -12,7 +17,6 @@ def legalFiles = copySpec {
 }
 
 allprojects {
-    apply plugin: 'idea'
     apply plugin: 'jacoco'
 
     repositories {
@@ -21,68 +25,7 @@ allprojects {
     }
 
     jacoco {
-        toolVersion = '0.8.16'
-    }
-}
-
-subprojects {
-    apply plugin: 'org.jetbrains.kotlin.jvm'
-    group = 'org.cf'
-    version = '2.0.0-SNAPSHOT'
-
-    ext {
-        depends = [
-                commons_lang     : 'org.apache.commons:commons-lang3:3.21.0',
-                commons_cli      : 'commons-cli:commons-cli:1.11.0',
-                guava            : 'com.google.guava:guava:33.8.0-jre',
-                junit_compile    : 'org.junit.jupiter:junit-jupiter-api:6.1.3',
-                junit_engine     : 'org.junit.jupiter:junit-jupiter-engine:6.1.3',
-                junit_launcher   : 'org.junit.platform:junit-platform-launcher:6.1.3',
-                kotlinx_immutable: 'org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm:0.5.2',
-                mockito          : 'org.mockito:mockito-junit-jupiter:5.24.0',
-                mockk            : 'io.mockk:mockk:1.14.11',
-                proguard_gradle : 'com.guardsquare:proguard-gradle:7.10.0',
-                slf4j_api        : 'org.slf4j:slf4j-api:2.0.20',
-                slf4j_nop        : 'org.slf4j:slf4j-nop:2.0.20',
-                logback          : 'ch.qos.logback:logback-classic:1.6.6',
-        ]
-    }
-
-    kotlin {
-        jvmToolchain(21)
-    }
-
-    tasks.withType(Jar).configureEach {
-        zip64 = true
-        into('META-INF') { with legalFiles }
-        manifest.attributes('Implementation-Version': project.version)
-    }
-
-    plugins.withId('application') {
-        distributions.main.contents { with legalFiles }
-        application.applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
-
-        tasks.register('fatJar', Jar) {
-            dependsOn configurations.runtimeClasspath
-            archiveFileName = "${project.name}.jar"
-            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-            exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
-            manifest.attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
-            from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-            with jar
-        }
-    }
-
-    tasks.withType(JavaCompile).configureEach {
-        options.release = 21
-        options.fork = true
-        options.compilerArgs.addAll(['-Xlint:unchecked', '-Xlint:deprecation'])
-    }
-
-    tasks.withType(Test).configureEach {
-        useJUnitPlatform()
-        jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
-        maxParallelForks = Runtime.runtime.availableProcessors()
+        toolVersion = jacocoVersion
     }
 
     tasks.withType(JacocoReport).configureEach {
@@ -94,6 +37,49 @@ subprojects {
     }
 }
 
+subprojects {
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    group = 'org.cf'
+    version = '2.0.0-SNAPSHOT'
+
+    kotlin {
+        jvmToolchain(javaVersion)
+    }
+
+    tasks.withType(Jar).configureEach {
+        zip64 = true
+        into('META-INF') { with legalFiles }
+        manifest.attributes('Implementation-Version': project.version)
+    }
+
+    plugins.withId('application') {
+        distributions.main.contents { with legalFiles }
+        application.applicationDefaultJvmArgs = ["--add-opens=${hostReflectionOpens}=ALL-UNNAMED"]
+
+        tasks.register('fatJar', Jar) {
+            dependsOn configurations.runtimeClasspath
+            archiveFileName = "${project.name}.jar"
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
+            manifest.attributes('Main-Class': application.mainClass.get(), 'Add-Opens': hostReflectionOpens)
+            from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+            with jar
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = javaVersion
+        options.fork = true
+        options.compilerArgs.addAll(['-Xlint:unchecked', '-Xlint:deprecation'])
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        jvmArgs "--add-opens=${hostReflectionOpens}=ALL-UNNAMED"
+        maxParallelForks = Runtime.runtime.availableProcessors()
+    }
+}
+
 // Aggregate coverage focuses on the VM and optimizer, not the demo and debugger applications.
 def reportProjects = [project(':smalivm'), project(':simplify')]
 tasks.register('jacocoRootReport', JacocoReport) {
@@ -102,11 +88,6 @@ tasks.register('jacocoRootReport', JacocoReport) {
     dependsOn(reportProjects.collect { it.tasks.named('test') })
     sourceDirectories.from(reportProjects.collect { it.sourceSets.main.allSource.srcDirs })
     classDirectories.from(reportProjects.collect { it.sourceSets.main.output.classesDirs })
-    executionData.from(reportProjects.collect { it.tasks.named('test').get().extensions.getByType(JacocoTaskExtension).destinationFile })
-    reports {
-        html.required = true
-        xml.required = true
-        csv.required = false
-    }
+    executionData.from(reportProjects.collect { p -> p.tasks.named('test').map { it.extensions.getByType(JacocoTaskExtension).destinationFile } })
 }
 
