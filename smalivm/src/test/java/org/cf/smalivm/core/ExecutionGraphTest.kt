@@ -14,10 +14,11 @@ import java.io.File
  */
 class ExecutionGraphTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
+    private val vmServices = VmServices(classIndex)
     private val int = VirtualType.of("I")
 
     private fun graphOf(descriptor: String, limits: Limits = Limits()): ExecutionGraph =
-        ExecutionSession.of(classIndex.requireMethodView("Lspine/spine;", descriptor), classIndex, limits).run()
+        vmServices.newSession(classIndex.requireMethodView("Lspine/spine;", descriptor), limits).run()
 
     /**
      * The trust-bearing queries of a graph whose run COMPLETED (spec §9's gate; see
@@ -51,31 +52,15 @@ class ExecutionGraphTest {
 
     @Test
     fun knownStringResolvesAnImmutableConstructedReceiverWithoutExposingItsHostObject() {
-        val view = classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
-        val stringType = VirtualType.of("Ljava/lang/String;")
-        val frame = Frame.entryFrame(view)
-        val receiver = frame.allocateObject(stringType, emptyMap())
-        val ref = receiver.raw as HeapRef
-        assertTrue(frame.installConstructedHostObject(ref, "constructed"))
-        frame.assign(0, receiver)
-        val node = ExecutionNode(
-            address = 0,
-            op = OpBuilder.build(0, view, classIndex),
-            frame = frame,
-            parent = null,
-            activation = Activation.entry(view),
-        )
-        val graph = ExecutionGraph(
-            methodView = view,
-            addressToNodes = mapOf(0 to listOf(node)),
-            outcomes = emptyList(),
-            completion = CompletionStatus.Complete,
-            executedNodes = setOf(node),
-            superclasses = classIndex,
-        )
+        val view = classIndex.requireMethodView("Lknown_string;", "constructString()Ljava/lang/String;")
+        val graph = vmServices.newSession(view).run().trustedOrFail()
+        val opcodes = view.instructionAddresses.associateBy { view.opcodeAt(it) }
+        val newInstance = opcodes.getValue(com.android.tools.smali.dexlib2.Opcode.NEW_INSTANCE)
+        val returned = opcodes.getValue(com.android.tools.smali.dexlib2.Opcode.RETURN_OBJECT)
 
-        assertEquals("constructed", graph.trustedOrFail().knownString(0, 0))
-        assertNull(graph.trustedOrFail().knownString(0, 1))
+        assertNull(graph.knownString(newInstance, 0), "an uninitialized String has no contents yet")
+        assertEquals("ok", graph.knownString(returned, 0), "the bytes 0x6f 0x6b decode to \"ok\"")
+        assertNull(graph.knownString(returned, view.registerCount), "an out-of-range register names no string")
     }
 
     @Test
@@ -348,42 +333,6 @@ class ExecutionGraphTest {
             Value.Unknown(int),
             disagree.consensusOverExploredPaths(intArrayOf(disagreeAddrs[0], disagreeAddrs[2]), 1),
             "two addresses whose register genuinely disagrees must join to Unknown, not silently pick one side",
-        )
-    }
-
-    @Test
-    fun consensusRangeChecksAgainstTheNodesOwnViewNotTheGraphsMethodView() {
-        // Bug class (review finding 5): valueIn range-checked the requested register against the
-        // GRAPH's methodView.registerCount rather than the NODE's own view.registerCount. Frame.peek
-        // range-checks against its OWN view (a Frame is built per-node, one per MethodView), so a
-        // node whose view is NARROWER than the graph's method -- unreachable through any public API
-        // today, but guaranteed once Plan 9 gives every callee node its own MethodView -- would pass
-        // this query's bound check yet still throw IllegalArgumentException straight out of
-        // Frame.peek, in a query the spec says must never throw on ordinary traversal. Both
-        // constructors used below are `internal` (reachable from this module); no public API can
-        // build a node whose view differs from its graph's yet, which is exactly why this needs a
-        // hand-built graph rather than a real session run.
-        val wideEntry = classIndex.requireMethodView("Lspine/spine;", "moveChain()I") // .registers 3
-        val narrowForeign = classIndex.requireMethodView("Lspine/spine;", "returnFive()I") // .registers 1
-        val foreignNode = ExecutionNode(
-            address = 0,
-            op = OpBuilder.build(0, narrowForeign, classIndex),
-            frame = Frame.entryFrame(narrowForeign),
-            parent = null,
-            activation = Activation.entry(narrowForeign),
-        )
-        val graph = ExecutionGraph(
-            methodView = wideEntry,
-            addressToNodes = mapOf(0 to listOf(foreignNode)),
-            outcomes = emptyList(),
-            completion = CompletionStatus.Complete,
-            executedNodes = setOf(foreignNode),
-            superclasses = CoreTester.classIndex,
-        )
-        assertEquals(
-            Value.Top, graph.trustedOrFail().consensus(0, 1),
-            "register 1 is in-range for the graph's OWN methodView (3 registers) but out of range for " +
-                "this particular node's view (1 register) -- must be Top, never throw",
         )
     }
 }

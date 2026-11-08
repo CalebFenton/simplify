@@ -307,7 +307,7 @@ class ExceptionHandlerBehaviorTest {
             ),
         )
 
-        val graph = ExecutionSession.of(forged, CoreTester.classIndex, Limits()).run()
+        val graph = CoreTester.vmServices.newSession(forged).run()
 
         assertMalformedRouting(graph, handlers)
     }
@@ -326,7 +326,7 @@ class ExceptionHandlerBehaviorTest {
             ),
         )
 
-        val graph = ExecutionSession.of(forged, CoreTester.classIndex, Limits()).run()
+        val graph = CoreTester.vmServices.newSession(forged).run()
 
         assertMalformedRouting(graph, handlers)
     }
@@ -351,7 +351,7 @@ class ExceptionHandlerBehaviorTest {
             ),
         )
 
-        val graph = ExecutionSession.of(forged, CoreTester.classIndex, Limits()).run()
+        val graph = CoreTester.vmServices.newSession(forged).run()
 
         assertMalformedRouting(graph, listOf(validHandler))
     }
@@ -377,12 +377,7 @@ class ExceptionHandlerBehaviorTest {
             ),
         )
         val calleeSignature = "$CLASS_NAME->throwInCallee(Ljava/lang/Throwable;)V"
-        val session = ExecutionSession.of(
-            forged,
-            CoreTester.classIndex,
-            Limits(),
-            Frame.entryFrame(forged),
-        ) { address, currentView, index ->
+        val session = CoreTester.vmServices.newSession(forged, Limits(), null) { address, currentView, resolver ->
             if (currentView.signature == calleeSignature && address == 0) {
                 val parameter = currentView.parameters.single().register
                 object : Op(address) {
@@ -395,7 +390,7 @@ class ExceptionHandlerBehaviorTest {
                     )
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
 

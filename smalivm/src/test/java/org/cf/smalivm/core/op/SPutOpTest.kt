@@ -138,7 +138,7 @@ class SPutOpTest {
      * `<clinit>` assigns, then reads it back:
      *  - correct order: init prelude runs (`testInt1 = alwaysZero = 0`, `testInt2 = 1`), THEN the
      *    re-executed `sput` writes 0x2a, and the `sget` reads 0x2a;
-     *  - a `sput` that skipped `Transition.InitClass` writes 0x2a first, the `sget`'s own trigger then
+     *  - a `sput` that skipped `OpArm.InitClass` writes 0x2a first, the `sget`'s own trigger then
      *    runs the `<clinit>` OVER it, and the method returns 0 -- red here.
      * `testInt2 = 1` is asserted alongside so "the prelude ran at all" and "it ran in the right order"
      * are separately visible.

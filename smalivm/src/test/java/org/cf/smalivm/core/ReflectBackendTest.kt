@@ -529,14 +529,13 @@ class ReflectBackendTest {
         val policy = ReflectionPolicy(exactSafeMethods = setOf(target))
         val reflection = ReflectBackend(policy, classIndex.currentResolver())
         val later = CountingBackend()
-        val invoker = invokerOf(classIndex, listOf(reflection, later))
         val owner = VmServices(classIndex, policy)
         val entry = view("Lcalls/caller;", "callsThrowingCalleeWithCatch()I")
         val frame = Frame.entryFrame(entry)
         val original = StringBuilder("before")
         val ref = frame.allocateHostObject(builderType, original)
         frame.assign(0, Value.Known(ref, builderType))
-        val session = ExecutionSession.of(entry, owner, Limits(), frame, ::realOrInjected, invoker)
+        val session = owner.newSession(entry, Limits(), frame, listOf(reflection, later), ::realOrInjected)
 
         session.run()
 
@@ -575,7 +574,7 @@ class ReflectBackendTest {
             owner,
             cases.first().first,
             InvokeKind.STATIC,
-            invoker = invokerOf(classIndex, listOf(ReflectBackend(policy, classIndex.currentResolver()), later)),
+            backends = listOf(ReflectBackend(policy, classIndex.currentResolver()), later),
         )
         val node = session.step()!!
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
@@ -653,7 +652,7 @@ class ReflectBackendTest {
     @Test
     fun failedPrefinalizeConstructorInstallationBecomesHostFailureAfterFinalization() {
         // Bug class: finalization failure keeps the backend's declared NONE and understates an unmodeled result.
-        // Oracle: Plan 11 Task 42 raises finalization failure to STRONG on the invoke and its activation.
+        // Oracle: a finalization failure raises the effect to STRONG on the invoke and its activation.
         val constructorType = type("Lorg/cf/smalivm/core/ReflectOverloadedConstructor;")
         val target = method(constructorType, "<init>", "(I)V")
         lateinit var session: ExecutionSession
@@ -663,7 +662,6 @@ class ReflectBackendTest {
             override fun execute(call: SelectedHostCall): SynchronousCallResult =
                 ConstructedHostObjectResult(session.currentNode!!.frame)
         }
-        val invoker = invokerOf(classIndex, listOf(backend))
         val owner = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(target)))
         val entry = callerView()
         val frame = Frame.entryFrame(entry)
@@ -671,14 +669,14 @@ class ReflectBackendTest {
         frame.assign(0, receiver)
         frame.assign(1, Value.Known(1, intType))
         val resume = entry.nextAddress(0)
-        session = ExecutionSession.of(entry, owner, Limits(), frame, { address, view, index ->
+        session = owner.newSession(entry, Limits(), frame, listOf(backend)) { address, view, resolver ->
             when {
-                view.signature != entry.signature -> OpBuilder.build(address, view, index)
+                view.signature != entry.signature -> OpBuilder.build(address, view, resolver)
                 address == 0 -> invokeOp(address, target, intArrayOf(0, 1), InvokeKind.DIRECT)
                 address == resume -> returnResult(address)
-                else -> OpBuilder.build(address, view, index)
+                else -> OpBuilder.build(address, view, resolver)
             }
-        }, invoker)
+        }
 
         val node = session.step()!!
 
@@ -771,29 +769,24 @@ class ReflectBackendTest {
         values: List<Value> = emptyList(),
         frame: Frame? = null,
         registers: IntArray = IntArray(values.size) { it },
-        invoker: Invoker? = null,
+        backends: List<Backend>? = null,
     ): ExecutionSession {
         val entry = callerView()
         val entryFrame = frame ?: Frame.entryFrame(entry).also { seeded ->
             values.forEachIndexed(seeded::assign)
         }
         val resume = entry.nextAddress(0)
-        val opFactory: (Int, MethodView, ClassIndex) -> Op = { address, view, index ->
+        return vm.newSession(entry, Limits(), entryFrame, backends) { address, view, resolver ->
             when {
-                view.signature != entry.signature -> OpBuilder.build(address, view, index)
+                view.signature != entry.signature -> OpBuilder.build(address, view, resolver)
                 address == 0 -> invokeOp(address, target, registers, kind)
                 address == resume -> returnResult(address)
-                else -> OpBuilder.build(address, view, index)
+                else -> OpBuilder.build(address, view, resolver)
             }
-        }
-        return if (invoker == null) {
-            ExecutionSession.of(entry, vm, Limits(), entryFrame, opFactory)
-        } else {
-            ExecutionSession.of(entry, vm, Limits(), entryFrame, opFactory, invoker)
         }
     }
 
-    private fun realOrInjected(address: Int, view: MethodView, index: ClassIndex): Op =
+    private fun realOrInjected(address: Int, view: MethodView, resolver: ProgramSnapshotResolver): Op =
         if (view.signature == "Lcalls/caller;->callsThrowingCalleeWithCatch()I" && address == 0) {
             invokeOp(
                 address,
@@ -802,7 +795,7 @@ class ReflectBackendTest {
                 InvokeKind.STATIC,
             )
         } else {
-            OpBuilder.build(address, view, index)
+            OpBuilder.build(address, view, resolver)
         }
 
     private fun executeDirect(
@@ -850,13 +843,12 @@ class ReflectBackendTest {
     private fun invokeOp(address: Int, target: MethodDescriptor, registers: IntArray, kind: InvokeKind) =
         object : Op(address) {
             override val name = "invoke-reflection-test"
-            override fun execute(frame: Frame) =
-                listOf(Transition.Invoke(target, registers, kind)).asOpExecution()
+            override fun execute(frame: Frame) = OpExecution.single(OpArm.Invoke(target, registers, kind))
         }
 
     private fun returnResult(address: Int) = object : Op(address) {
         override val name = "return-reflection-test-result"
-        override fun execute(frame: Frame) = listOf(Transition.Return(frame.takeResult())).asOpExecution()
+        override fun execute(frame: Frame) = OpExecution.single(OpArm.Return.fromValue(frame.takeResult()))
     }
 
     private fun vm(

@@ -15,23 +15,22 @@ internal object SynchronousInvocationFixtures {
     fun view(className: String, descriptor: String): MethodView =
         classIndex.requireMethodView(className, descriptor)
 
+    /** A session over the production backends of [vm], whose emulator registrations the test controls. */
+    fun session(
+        className: String,
+        descriptor: String,
+        vm: VmServices,
+        limits: Limits = Limits(),
+    ): ExecutionSession = vm.newSession(view(className, descriptor), limits)
+
+    /** A session whose calls select among [backends] alone, for failures no production backend produces. */
     fun session(
         className: String,
         descriptor: String,
         backends: List<Backend>,
         limits: Limits = Limits(),
-        opFactory: (Int, MethodView, ClassIndex) -> Op = OpBuilder::build,
-    ): ExecutionSession {
-        val view = view(className, descriptor)
-        return ExecutionSession.of(
-            view,
-            classIndex,
-            limits,
-            Frame.entryFrame(view),
-            opFactory,
-            invokerOf(classIndex, backends),
-        )
-    }
+    ): ExecutionSession =
+        VmServices(classIndex).newSession(view(className, descriptor), limits, null, backends, OpBuilder::build)
 
     fun nativeCallSession(
         backend: Backend,
@@ -61,6 +60,40 @@ internal object SynchronousInvocationFixtures {
         collect(root)
         return result
     }
+}
+
+/** Registers [handler] for exactly [target] on this VM. It accepts unknown arguments, so it runs whenever selected. */
+internal fun VmServices.emulate(
+    target: MethodDescriptor,
+    effect: SideEffectLevel = SideEffectLevel.NONE,
+    handler: EmulatorHandler,
+) = invocationServices.emulators.register(
+    EmulatorRegistration(
+        EmulatorMatcher.Exact(target),
+        EmulatorCapability(handlesUnknownArguments = true),
+        effect,
+        handler,
+    ),
+)
+
+/**
+ * Counts backend selections for [target] in sessions this VM starts afterwards. Every selection probes the
+ * emulator backend first, which consults this never-matching predicate unless an exact registration for
+ * [target] answers first.
+ */
+internal fun VmServices.countSelections(target: MethodDescriptor): () -> Int {
+    var selections = 0
+    invocationServices.emulators.register(
+        EmulatorRegistration(
+            EmulatorMatcher.Predicate("selections of $target") { candidate ->
+                if (candidate == target) selections++
+                false
+            },
+            EmulatorCapability(handlesUnknownArguments = false),
+            SideEffectLevel.NONE,
+        ) { error("a never-matching predicate is never executed") },
+    )
+    return { selections }
 }
 
 internal class ScriptedSynchronousBackend(

@@ -2,12 +2,10 @@
 .super Ljava/lang/Object;
 
 # ---------------------------------------------------------------------------------------
-# The CALLER half of Plan 9 Task 14's fixtures.
+# The CALLER half of the invocation fixtures.
 #
-# Every `invoke-static` here is a REAL instruction (Format35c, THREE code units), so
-# `nextAddress` past a call is the real width. HISTORICAL: Task 14 used `ExecutionSession.opFactory`
-# because invoke decoding had not landed. Task 20 added the real `InvokeOp` and retired
-# `ratchet-invoke-static`; scheduler-isolation tests still use the seam deliberately.
+# Every `invoke-static` here is a real instruction (Format35c, three code units), so
+# `nextAddress` past a call is the real width.
 #
 # Addresses are METHOD-LOCAL: whole-method insertions are address-safe, editing instructions
 # inside a method is not, and several tests pin exact addresses.
@@ -145,9 +143,8 @@
     return v0
 .end method
 
-# the caller has a handler that WOULD catch what the callee throws. Plan 12 owns cross-frame
-# unwind, so Task 14 must abort rather than either (a) reporting the throw as escaping this
-# method, which drops this handler as a feasible path, or (b) silently resuming.
+# the caller has a handler that catches what the callee throws, so the throw neither escapes
+# this method nor lets the normal path resume.
 .method public static callsThrowingCalleeWithCatch()I
     .registers 1
     :try_start
@@ -188,8 +185,8 @@
     return v0
 .end method
 
-# calls a method with no body. Plan 11's backends own it; until then the call must abort
-# conservatively rather than crash building a MethodView for a bodyless method.
+# calls a method with no body: no backend runs it, so the call continues opaquely rather than
+# building a MethodView for a bodyless method.
 .method public static callsNativeCallee()I
     .registers 1
     invoke-static {}, Lcalls/callee;->nativeCallee()I
@@ -197,8 +194,7 @@
     return v0
 .end method
 
-# calls a method that does not exist on a class that does. Task 15 makes this a guest
-# NoClassDefFoundError family answer; Task 14 refuses conservatively.
+# calls a method that does not exist on a class that does: guest NoSuchMethodError.
 .method public static callsAbsentMethod()I
     .registers 1
     invoke-static {}, Lcalls/callee;->noSuchMethod()I

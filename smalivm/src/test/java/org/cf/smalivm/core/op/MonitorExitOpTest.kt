@@ -150,7 +150,7 @@ class MonitorExitOpTest {
         val caught = graph.trusted()!!.terminatingConsensus(1) as Value.Known
         val ref = caught.raw as HeapRef
         assertEquals(VirtualType.of(NPE), caught.type)
-        assertTrue(graph.terminatingHostObjectOverExploredPaths(ref) is NullPointerException)
+        assertTrue(CoreTester.terminatingHostObject(graph, ref) is NullPointerException)
     }
 
     private fun assertSingleEscapingNpe(graph: org.cf.smalivm.core.ExecutionGraph) {

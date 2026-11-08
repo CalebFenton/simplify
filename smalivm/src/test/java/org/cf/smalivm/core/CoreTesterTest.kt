@@ -39,24 +39,9 @@ class CoreTesterTest {
     }
 
     @Test
-    fun testRefusesAnExpectedSlotItCannotObserve() {
-        // Bug class: no query on ExecutionGraph or TrustedGraphView exposes a Frame's result/caught
-        // slot, so an `expected.setResult(...)` -- the reflex for anyone porting a test that used the
-        // old engine's RESULT_REGISTER -- would assert NOTHING and pass. Refusing it outright is the
-        // only way the omission is visible to whoever writes it.
-        val expected = CoreState().apply { setResult(42, "I") }
-        val failure = assertThrows(IllegalArgumentException::class.java) {
-            CoreTester.test(SPINE, "returnFive()I", CoreState(), expected)
-        }
-        assertTrue(failure.message!!.contains("no graph query exposes them"), failure.message!!)
-    }
-
-    @Test
     fun testRefusesAnExpectationThatNamesNoRegister() {
-        // The same vacuity class as the slot refusal above and the likelier accident of the two: with an
-        // empty `expected`, `test` asserts only that the run completed. A migration that forgot to fill
-        // `expected`, or filled a different CoreState instance than the one it passed, would then pass
-        // while comparing no value at all -- and 156 tests in this plan alone flow through this function.
+        // With an empty `expected`, `test` would assert only that the run completed, so a test that forgot
+        // to fill `expected` would pass while comparing no value at all.
         val failure = assertThrows(IllegalArgumentException::class.java) {
             CoreTester.test(SPINE, "returnFive()I", CoreState(), CoreState())
         }

@@ -46,7 +46,7 @@ class HostExecutionIntegrationTest {
         assertEquals(Value.Known(7, VirtualType.of("I")), (graph.outcomes.single() as Outcome.Returned).value)
         assertEquals(HostGraphContents.Unknown, affected.contents)
         assertTrue(preserved.contents is HostGraphContents.Known)
-        assertEquals("visible", graph.terminatingHostObjectOverExploredPaths(admitted[1].raw as HeapRef).toString())
+        assertEquals("visible", CoreTester.terminatingHostObject(graph, admitted[1].raw as HeapRef).toString())
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 

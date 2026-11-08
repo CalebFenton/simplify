@@ -84,26 +84,22 @@ class ProgramSnapshotExecutionTest {
     @Test
     fun recursiveApplicationActivationMatchingIncludesProgramAndMethodRevision() {
         val index = index("activation-revision")
-        val snapshotA = index.currentSnapshot
         val viewA = requireNotNull(index.methodView(RECURSIVE))
-        val resolverA = index.resolver(snapshotA)
         lateinit var viewB: MethodView
         val scheduleCurrentView = object : Backend {
             override val name: String = "schedule-current-test-view"
             override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe =
                 BackendProbe.Schedule(viewB, 0)
         }
-        val invoker = Invoker(resolverA, listOf(scheduleCurrentView))
         val frame = Frame.entryFrame(viewA).also {
             it.assign(viewA.parameters.single().register, Value.Known(1, INT))
         }
-        val sessionA = ExecutionSession.of(
+        val sessionA = VmServices(index).newSession(
             viewA,
-            index,
             Limits(),
             frame,
-            OpBuilder::build,
-            invoker,
+            backends = listOf(scheduleCurrentView),
+            decode = OpBuilder::build,
         )
         val snapshotB = replaceMethod(index, RECURSIVE, returnsInt(7))
         index.programWorkspace.publish(snapshotB)

@@ -3,6 +3,7 @@ package org.cf.smalivm.differential
 import java.io.File
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
+import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.HeapObject
@@ -114,7 +115,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
                         "<instance ${obj.type.descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')}>"
                     }
                 is HeapObject.GuestThrowable, is HeapObject.HostObject ->
-                    graph.terminatingHostObjectOverExploredPaths(ref)?.let(ResultProjection::reprOf)
+                    CoreTester.terminatingHostObject(graph, ref)?.let(ResultProjection::reprOf)
                         ?: "<unknown ${obj.type}>"
                 is HeapObject.TrackedArray -> ResultProjection.listRepr(
                     obj.elements().map { element ->

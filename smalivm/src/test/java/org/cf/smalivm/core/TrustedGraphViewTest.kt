@@ -5,28 +5,19 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * Bug class: **completion-gated trust documented but not enforced.** Spec §9 says a consumer may act
- * on consensus only from a run whose exploration finished, and until this gate existed that rule was
- * KDoc only -- on a `Partial` run `consensus(addr, r)` handed back a confident `Value.Known` and
- * `methodSideEffectLevel()` handed back `NONE`, so a strategy could fold a constant, or delete a
- * method, from an exploration that stopped at a bound without ever consulting [CompletionStatus].
- * The safe path was strictly LONGER than the unsafe one, which is the wrong incentive on the single
- * rule that prevents wrong optimizations.
+ * Completion-gated trust: trust-bearing queries live on [TrustedGraphView], reachable only through
+ * [ExecutionGraph.trusted], which is null unless exploration finished. The raw twins stay on
+ * [ExecutionGraph] under `...OverExploredPaths` names for consumers that want the truncated picture.
  *
- * The fix is type-level, not documentation: the trust-bearing queries live on [TrustedGraphView],
- * reachable only through [ExecutionGraph.trusted], which is null for a `Partial` run. The raw twins
- * stay on [ExecutionGraph] under `...OverExploredPaths` names for the consumers that legitimately
- * want the truncated picture (Plan 10's debugger, Plan 11's differential).
- *
- * Oracle: spec §9 (completion-gated trust) and `CompletionStatus.canTrustConsensus` -- the gate is
- * defined by that one predicate rather than a second `is Complete` test, so the two can never drift.
+ * Oracle: spec §9 (completion-gated trust) and `CompletionStatus.canTrustConsensus`.
  */
 class TrustedGraphViewTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
+    private val vm = VmServices(classIndex)
     private val int = VirtualType.of("I")
 
     private fun sessionOf(descriptor: String, limits: Limits = Limits()): ExecutionSession =
-        ExecutionSession.of(classIndex.requireMethodView("Lspine/spine;", descriptor), classIndex, limits)
+        vm.newSession(classIndex.requireMethodView("Lspine/spine;", descriptor), limits)
 
     private fun graphOf(descriptor: String, limits: Limits = Limits()): ExecutionGraph =
         sessionOf(descriptor, limits).run()
@@ -47,9 +38,8 @@ class TrustedGraphViewTest {
 
     @Test
     fun normalContinuationCoversCompletedCallsButNotUnexecutedNodes() {
-        val call = ExecutionSession.of(
+        val call = vm.newSession(
             classIndex.requireMethodView("Lcalls/caller;", "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
         ).run()
         assertTrue(call.trusted()!!.didEveryExecutionContinueNormally(0))
         val partial = graphOf("loopRevisitChangesRegister()V", Limits(maxAddressVisits = 1, maxSteps = 100))

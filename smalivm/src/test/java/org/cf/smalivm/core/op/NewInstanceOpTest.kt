@@ -94,8 +94,8 @@ class NewInstanceOpTest {
 
     /**
      * Side effects: NONE, pinned rather than assumed -- the [FilledNewArrayOp]/[ThrowOp] precedent. A
-     * fresh allocation perturbs nothing the engine does not model exactly, and `NewInstanceOp` calls
-     * `Frame.recordSideEffect` nowhere. The fixture class declares no `<clinit>` and extends
+     * fresh allocation perturbs nothing the engine does not model exactly, and `NewInstanceOp` declares
+     * no effect on any arm. The fixture class declares no `<clinit>` and extends
      * `Ljava/lang/Object;` (which declares none either), so the class-init prelude settles with
      * nothing skipped and the SCHEDULER declares nothing -- a spurious STRONG here would stop every
      * fold in any method that allocates.
@@ -130,8 +130,8 @@ class NewInstanceOpTest {
 
     /**
      * THE CLASS-INIT INTEGRATION PROOF: `new-instance` of an app class WITH a guest `<clinit>` runs
-     * the initializer -- through the real op's `Transition.InitClass`, not `ClassInitTest`'s
-     * `InitClassStub`. `Lclass_init/witness;` is Task 16's ordinary-`<clinit>` fixture; the trigger
+     * the initializer through the real op's `OpArm.InitClass`. `Lclass_init/witness;` is the
+     * ordinary-`<clinit>` fixture; the trigger
      * protocol re-executes the op at its own address once the prelude returns, so the pile at the
      * `new-instance` address holds TWO nodes (first pass asks, second pass allocates) -- asserted
      * exactly, because a wrong count in either direction is a broken trigger (0 re-executions means

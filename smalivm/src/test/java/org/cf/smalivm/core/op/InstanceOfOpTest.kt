@@ -497,8 +497,8 @@ class InstanceOfOpTest {
      * defect and its documented `NONE` row killed 0 of 858 tests, which is why the absence is *declared*
      * and pinned rather than left implicit.
      *
-     * Every row is driven, not just one, because `recordSideEffect` is a per-op call and a single row
-     * could carry it: the folding row, the refusing row, the null row, and the array-interface row.
+     * Every row is driven, not just one, because an effect is declared per arm and a single row could
+     * carry it: the folding row, the refusing row, the null row, and the array-interface row.
      */
     @Test
     fun aTypeTestDeclaresNoSideEffectOnEveryRow() {

@@ -328,7 +328,7 @@ class SGetOpTest {
     }
 
     /**
-     * `sget` declares NO side effect of its own -- `SGetOp` calls `recordSideEffect` nowhere, pinned
+     * `sget` declares NO side effect of its own -- `SGetOp` declares no effect on any arm, pinned
      * rather than assumed (the `FilledNewArrayOp`/`ThrowOp` precedent) -- and the STRONG a framework
      * read carries is the SCHEDULER's declaration for the skipped `Integer.<clinit>`
      * (`ExecutionSession.declareSkippedInitializerEffect`), not the op's. Both halves in one test

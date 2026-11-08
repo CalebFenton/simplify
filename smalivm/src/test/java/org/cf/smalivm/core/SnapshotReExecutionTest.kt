@@ -114,20 +114,16 @@ class SnapshotReExecutionTest {
             override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe =
                 BackendProbe.Declined("test host decline")
         }
-        val frameworkSession = ExecutionSession.of(
+        val frameworkSession = services.newSession(
             frameworkCaller,
-            services,
             Limits(),
-            Frame.entryFrame(frameworkCaller),
-            OpBuilder::build,
-            Invoker(
-                resolver,
-                listOf(
-                    ApplicationBytecodeBackend(resolver),
-                    hostDecline,
-                    FrameworkBytecodeBackend(resolver),
-                ),
+            entryFrame = null,
+            backends = listOf(
+                ApplicationBytecodeBackend(resolver),
+                hostDecline,
+                FrameworkBytecodeBackend(resolver),
             ),
+            decode = OpBuilder::build,
         )
         assertEquals(0, frameworkSession.step()!!.address)
 

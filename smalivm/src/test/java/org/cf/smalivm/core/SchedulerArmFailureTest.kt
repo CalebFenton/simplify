@@ -24,9 +24,9 @@ class SchedulerArmFailureTest {
                 OpArm.Continue(OpUpdate.writeStatic(STATE_FIELD, Value.Known(22, INT))),
             )
         }
-        val graph = ExecutionSession.of(caller, CoreTester.vmServices, Limits(), initial) { address, current, index ->
+        val graph = CoreTester.vmServices.newSession(caller, Limits(), initial) { address, current, resolver ->
             if (current.signature == callee.signature && address == 0) fork
-            else OpBuilder.build(address, current, index)
+            else OpBuilder.build(address, current, resolver)
         }.run()
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
@@ -56,9 +56,9 @@ class SchedulerArmFailureTest {
             OpArm.Continue(failedUpdate),
             OpArm.Continue(OpUpdate.writeStatic(STATE_FIELD, Value.Known(44, INT))),
         )
-        val graph = ExecutionSession.of(caller, CoreTester.vmServices, Limits(), initial) { address, current, index ->
+        val graph = CoreTester.vmServices.newSession(caller, Limits(), initial) { address, current, resolver ->
             if (current.signature == callee.signature && address == 0) fork
-            else OpBuilder.build(address, current, index)
+            else OpBuilder.build(address, current, resolver)
         }.run()
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
@@ -162,8 +162,8 @@ class SchedulerArmFailureTest {
             OpArm.Continue(OpUpdate.assign(0, Value.Known(7, INT))),
             OpArm.Invoke(target, IntArray(0), InvokeKind.STATIC),
         )
-        val session = ExecutionSession.of(view, vm, Limits(), Frame.entryFrame(view)) { address, current, index ->
-            if (address == 0) fork else OpBuilder.build(address, current, index)
+        val session = vm.newSession(view, Limits(), null) { address, current, resolver ->
+            if (address == 0) fork else OpBuilder.build(address, current, resolver)
         }
 
         assertSame(fatal, assertThrows<StackOverflowError> { session.step() })
@@ -174,13 +174,8 @@ class SchedulerArmFailureTest {
     private fun sessionWithArms(vararg arms: OpArm): ExecutionSession {
         val view = view("armFailureSibling()I")
         val fork = scripted(*arms)
-        return ExecutionSession.of(
-            view,
-            CoreTester.classIndex,
-            Limits(),
-            Frame.entryFrame(view),
-        ) { address, current, index ->
-            if (address == 0) fork else OpBuilder.build(address, current, index)
+        return CoreTester.vmServices.newSession(view, Limits(), null) { address, current, resolver ->
+            if (address == 0) fork else OpBuilder.build(address, current, resolver)
         }
     }
 

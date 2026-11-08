@@ -11,7 +11,6 @@ import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.SideEffectLevel
-import org.cf.smalivm.core.Transition
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -670,14 +669,12 @@ class IfOpTest {
     /**
      * **The fork's arity in the direction the twelve `IF_FALSE_VISITATIONS` tests are blind to.** A
      * spurious fork adds nothing to `{0, 2, 3}`, so an implementation that forked *every* predicate
-     * would pass all twelve. Migrated corpus tests are evidence about values, not about how many paths
-     * exist -- measured five consecutive times across Plans 6 and 7 -- so the arity has to be asserted
-     * directly.
+     * would pass all twelve. Visitation tests are evidence about values, not about how many paths
+     * exist, so the arity has to be asserted directly.
      *
-     * Also pins the **transition ORDER for a real op**, which `CommitTest`'s generic test cannot: that
-     * one injects a scripted op through the `opFactory` seam, so swapping [IfOp]'s own two transitions
-     * leaves it green. Fall-through first, matching the oracle's `arrayOf(nextAddress, targetAddress)`
-     * (`opcode/IfOp.kt:45`).
+     * Also pins the **arm ORDER for a real op**, which `CommitTest`'s scripted ops cannot: swapping
+     * [IfOp]'s own two arms leaves those green. Fall-through first, matching the oracle's
+     * `arrayOf(nextAddress, targetAddress)`.
      */
     @Test
     fun aProvableFalsePredicateTakesExactlyOneTransitionWhichVisitationCannotSee() {
@@ -1110,7 +1107,7 @@ class IfOpTest {
      *
      *  - the per-pair verdict is a literal matrix below — that is the row-selection claim, i.e. the
      *    disjointness. Any new or widened gate that shadows another changes a cell;
-     *  - the expansion from a verdict to the expected [Transition] list is written out here rather than
+     *  - the expansion from a verdict to the expected [OpArm] list is written out here rather than
      *    computed through [IfComparison.holdsFor], so the test cannot agree with the implementation by
      *    construction.
      *

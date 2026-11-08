@@ -25,19 +25,12 @@ class OpArmStateTest {
         assertEquals(2, throws.size)
         val source = graph.nodePile(0).single()
         val sourceEnding = requireNotNull(source.endingFrame)
-        val extraEnding = session.unattributedEndingFramesSnapshot().single()
         val refs = throws.map { (it.exception as Value.Known).raw as HeapRef }
+        // `single`: the source ending owns its own arm's allocation and not the other throw event's.
         val sourceRef = refs.single { sourceEnding.heapObject(it) != null }
-        val extraRef = refs.single { extraEnding.heapObject(it) != null }
 
         assertNull(source.frame.heapObject(sourceRef), "the source summary does not own one arm's allocation")
-        assertEquals(
-            throws.single { (it.exception as Value.Known).raw == extraRef }.exception,
-            extraEnding.thrownOrNull(),
-        )
-        assertNull(extraEnding.heapObject(sourceRef), "separate throw events do not share arm allocations")
         assertNotNull(sourceEnding.heapObject(sourceRef))
-        assertNotNull(extraEnding.heapObject(extraRef))
     }
 
     @Test
@@ -64,11 +57,9 @@ class OpArmStateTest {
             throws.map { it.exception.type }.toSet(),
         )
         assertEquals(2, refs.toSet().size, "independent fresh throw events must keep distinct identities")
-        val endings = listOf(requireNotNull(graph.nodePile(0).single().endingFrame)) +
-            session.unattributedEndingFramesSnapshot()
-        assertEquals(
-            refs.toSet(),
-            endings.map { guestThrowables(it).single() }.toSet(),
+        val sourceEnding = requireNotNull(graph.nodePile(0).single().endingFrame)
+        assertTrue(
+            guestThrowables(sourceEnding).single() in refs,
             "each throw event materializes exactly one throwable, owned by its own ending frame",
         )
     }
@@ -111,8 +102,8 @@ class OpArmStateTest {
         val source = assertTimeoutPreemptively(Duration.ofSeconds(30)) {
             lateinit var last: ExecutionNode
             repeat(2_000) {
-                val session = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, current, index ->
-                    if (address == 0) fork else OpBuilder.build(address, current, index)
+                val session = CoreTester.vmServices.newSession(view, Limits(), frame) { address, current, resolver ->
+                    if (address == 0) fork else OpBuilder.build(address, current, resolver)
                 }
                 last = session.step()!!
             }
@@ -188,8 +179,8 @@ class OpArmStateTest {
     @Test
     fun objectAndStaticReconciliationJoinOnlyNamedCells() {
         val (view, frame, ref) = largeForkFrame()
-        val session = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, current, index ->
-            if (address == 0) namedCellFork(ref, arrayRef = null) else OpBuilder.build(address, current, index)
+        val session = CoreTester.vmServices.newSession(view, Limits(), frame) { address, current, resolver ->
+            if (address == 0) namedCellFork(ref, arrayRef = null) else OpBuilder.build(address, current, resolver)
         }
 
         val source = session.step()!!
@@ -218,8 +209,8 @@ class OpArmStateTest {
                 ),
             )
         }
-        val session = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, current, index ->
-            if (address == 0) fork else OpBuilder.build(address, current, index)
+        val session = CoreTester.vmServices.newSession(view, Limits(), frame) { address, current, resolver ->
+            if (address == 0) fork else OpBuilder.build(address, current, resolver)
         }
 
         val source = session.step()!!

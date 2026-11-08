@@ -431,28 +431,28 @@ class EmulateBackendTest {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
         val target = method(CALLEE, "identityInt", "(I)I")
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
-            else OpBuilder.build(address, method, index)
+            else OpBuilder.build(address, method, resolver)
         }
     }
 
     private fun identityObjectSession(vm: VmServices, entry: MethodView, frame: Frame): ExecutionSession {
         val target = method(INVOKE_REVIEW_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
-            else OpBuilder.build(address, method, index)
+            else OpBuilder.build(address, method, resolver)
         }
     }
 
     private fun instanceSession(vm: VmServices, target: MethodDescriptor, receiver: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, receiver) }
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) {
                 invokeOp(address, target, intArrayOf(0), InvokeKind.VIRTUAL)
             } else {
-                OpBuilder.build(address, method, index)
+                OpBuilder.build(address, method, resolver)
             }
         }
     }
@@ -460,9 +460,9 @@ class EmulateBackendTest {
     private fun textUtilsSession(vm: VmServices, target: MethodDescriptor, value: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
-            else OpBuilder.build(address, method, index)
+            else OpBuilder.build(address, method, resolver)
         }
     }
 
@@ -493,8 +493,7 @@ class EmulateBackendTest {
         kind: InvokeKind = InvokeKind.STATIC,
     ) = object : Op(address) {
         override val name = "invoke-emulator-test"
-        override fun execute(frame: Frame): OpExecution =
-            listOf(Transition.Invoke(target, registers, kind)).asOpExecution()
+        override fun execute(frame: Frame): OpExecution = OpExecution.single(OpArm.Invoke(target, registers, kind))
     }
 
     private fun registration(

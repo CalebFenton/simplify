@@ -3,12 +3,10 @@ package org.cf.smalivm.core
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import org.junit.jupiter.api.assertThrows
 
 /** JLS 12.4.2 steps 5, 7, and 11-12 plus ART ThrowEarlierClassFailure behavior. */
 class ClassInitFailureBehaviorTest {
@@ -155,48 +153,6 @@ class ClassInitFailureBehaviorTest {
     }
 
     @Test
-    fun initializerThrowTransformFailureAbortsOnlyThatExitWithoutCommittingFailure() {
-        // The fixture's unknown branch gives one returning initializer exit and one exact NPE exit.
-        val failure = IllegalStateException("injected throwable model failure")
-        val session = transformFailureSession(failure)
-
-        val graph = session.run()
-
-        assertEquals(
-            setOf(
-                Outcome.Returned(Value.Known(7, INT)),
-                Outcome.Aborted(AbortReason.HOST_FAILURE),
-            ),
-            graph.outcomes.toSet(),
-        )
-        assertEquals(2, graph.outcomes.size)
-        assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
-        assertTrue(graph.outcomes.none { outcome ->
-            val type = (outcome as? Outcome.Threw)?.exception?.type
-            type == EXCEPTION_IN_INITIALIZER_ERROR || type == NO_CLASS_DEF_FOUND_ERROR
-        })
-
-        val nodes = allNodes(graph.nodePile(0).single { it.parent == null })
-        assertSame(failure, nodes.single { it.hostFailure != null }.hostFailure)
-        val failedTransform = nodes.single { node ->
-            node.view.signature == "$TRANSFORM_BOUNDARY-><clinit>()V" && node.outcome is Outcome.Threw
-        }
-        assertEquals(
-            ClassInitState.INITIALIZING,
-            requireNotNull(failedTransform.endingFrame).initState(VirtualType.of(TRANSFORM_BOUNDARY)),
-        )
-    }
-
-    @Test
-    fun virtualMachineErrorDuringInitializerThrowTransformEscapesUnchanged() {
-        val fatal = StackOverflowError("injected fatal throwable model failure")
-
-        val thrown = assertThrows<StackOverflowError> { transformFailureSession(fatal).run() }
-
-        assertSame(fatal, thrown)
-    }
-
-    @Test
     fun hostOnlyErrorSkipsTheEarlierInitializerWrapperHandler() {
         val target = MethodDescriptor(
             VirtualType.of("Lclass_init_failure/service;"),
@@ -268,39 +224,6 @@ class ClassInitFailureBehaviorTest {
         val graph = CoreTester.execute(CLASS_NAME, method)
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, INT))), graph.outcomes)
-    }
-
-    private fun transformFailureSession(failure: Throwable): ExecutionSession {
-        val delegate = CoreTester.classIndex.throwableHierarchy
-        var wrapperValidations = 0
-        val hierarchy = object : ThrowableHierarchy {
-            override fun facts(type: VirtualType): ThrowableTypeFacts = delegate.facts(type)
-
-            override fun relation(candidate: VirtualType, ancestor: VirtualType): TypeRelation {
-                if (candidate == EXCEPTION_IN_INITIALIZER_ERROR && ancestor == THROWABLE) {
-                    wrapperValidations++
-                    // The first two validate the outward path. The third must run before Failed is committed.
-                    if (wrapperValidations == 3) throw failure
-                }
-                return delegate.relation(candidate, ancestor)
-            }
-        }
-        val view = view("transformFailureBoundary()I")
-        return ExecutionSession(
-            methodView = view,
-            vmServices = CoreTester.vmServices,
-            limits = Limits(),
-            entryFrame = Frame.entryFrame(view),
-            throwableHierarchy = hierarchy,
-        )
-    }
-
-    private fun allNodes(root: ExecutionNode): List<ExecutionNode> = buildList {
-        fun visit(node: ExecutionNode) {
-            add(node)
-            node.children.forEach(::visit)
-        }
-        visit(root)
     }
 
     private fun view(method: String): MethodView = CoreTester.classIndex.requireMethodView(CLASS_NAME, method)

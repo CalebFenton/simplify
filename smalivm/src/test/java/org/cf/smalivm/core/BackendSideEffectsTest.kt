@@ -108,12 +108,12 @@ class BackendSideEffectsTest {
 
     private fun FixtureRun.returnedHostObject(): Any {
         val returned = graph.returnedValue() as Value.Known
-        return requireNotNull(graph.terminatingHostObjectOverExploredPaths(returned.raw as HeapRef))
+        return requireNotNull(CoreTester.terminatingHostObject(graph, returned.raw as HeapRef))
     }
 
     private fun FixtureRun.hostObjectInRegister(register: Int): Any {
         val value = graph.trusted()!!.terminatingConsensus(register) as Value.Known
-        return requireNotNull(graph.terminatingHostObjectOverExploredPaths(value.raw as HeapRef))
+        return requireNotNull(CoreTester.terminatingHostObject(graph, value.raw as HeapRef))
     }
 
     private data class FixtureRun(

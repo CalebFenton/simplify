@@ -80,13 +80,8 @@ class ExecutionGraph internal constructor(
     val methodView: MethodView,
     /** Union over EVERY activation of [methodView], including recursive ones -- see the class KDoc. */
     private val addressToNodes: Map<Int, List<ExecutionNode>>,
-    /**
-     * The run's OWN activation only. Feeds [returningNodes] and therefore the whole terminating family, and
-     * nothing else. Defaulted to [addressToNodes] so a hand-built test graph (there are several) states one
-     * map when it has no recursion to distinguish -- which is also the honest default, since for a
-     * non-recursive run the two maps are equal by construction.
-     */
-    private val addressToNodesInThisRunsActivation: Map<Int, List<ExecutionNode>> = addressToNodes,
+    /** The run's OWN activation only. Feeds [returningNodes] and therefore the whole terminating family. */
+    private val addressToNodesInThisRunsActivation: Map<Int, List<ExecutionNode>>,
     outcomes: Iterable<Outcome>,
     private val completion: CompletionStatus,
     private val executedNodes: Set<ExecutionNode>,
@@ -452,14 +447,6 @@ class ExecutionGraph internal constructor(
                 )
             }
         }
-    }
-
-    /** Test/harness-only Java resolution. The public heap query never exposes mutable host state. */
-    internal fun terminatingHostObjectOverExploredPaths(ref: HeapRef): Any? {
-        val returned = returningNodes()
-        if (returned.isEmpty()) return null
-        val first = (returned.first().endingFrame ?: returned.first().frame).hostObjectAt(ref) ?: return null
-        return if (returned.all { (it.endingFrame ?: it.frame).hostObjectAt(ref) === first }) first else null
     }
 
     /**

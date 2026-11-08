@@ -126,7 +126,7 @@ class HostExceptionBoundaryBehaviorTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(INTERNAL_ERROR, returned.type)
         assertNotEquals(source.raw, returnedRef)
-        assertTrue(graph.terminatingHostObjectOverExploredPaths(returnedRef) is InternalError)
+        assertTrue(CoreTester.terminatingHostObject(graph, returnedRef) is InternalError)
     }
 
     @Test

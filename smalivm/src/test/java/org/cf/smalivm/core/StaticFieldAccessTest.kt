@@ -42,7 +42,7 @@ class StaticFieldAccessTest {
      * content -- a build that seeded on completion would read `Top` inside the `<clinit>` and then
      * clobber its writes (`ClassInitStore.prepare`'s KDoc names this test as its pin). Also the
      * mutate-to-prove witness for `sget`'s class-init trigger (MEASURED,
-     * `Fx_StaticFieldDoesInitialize`): an op that skips `Transition.InitClass` never runs the
+     * `Fx_StaticFieldDoesInitialize`): an op that skips `OpArm.InitClass` never runs the
      * `<clinit>`, and all three field expectations plus the register go red.
      */
     @Test

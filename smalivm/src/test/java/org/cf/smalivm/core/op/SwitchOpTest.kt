@@ -5,7 +5,6 @@ import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
-import org.cf.smalivm.core.ExecutionSession
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.Limits
 import org.cf.smalivm.core.MethodView
@@ -14,7 +13,7 @@ import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpBuilder
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
-import org.cf.smalivm.core.Transition
+import org.cf.smalivm.core.currentResolver
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.assertArrayEquals
@@ -301,20 +300,17 @@ class SwitchOpTest {
     /**
      * **An UNPROVABLE selector forks the fall-through FIRST and then every distinct target, in payload
      * order.** Two claims in one assertion, and each needs the other:
-     *  - **arity**, because a set-valued visitation assertion cannot count paths (measured five
-     *    consecutive times across Plans 6 and 7: a migrated test is evidence about values, not about how
-     *    many paths exist);
+     *  - **arity**, because a set-valued visitation assertion cannot count paths;
      *  - **construction order**, because the op's successor list is deterministic even though public
-     *    `graph.outcomes` order has no semantic meaning. Transitions are pushed onto the LIFO frontier
-     *    reversed, so the first declared transition becomes the first child.
+     *    `graph.outcomes` order has no semantic meaning. Arms are pushed onto the LIFO frontier
+     *    reversed, so the first declared arm becomes the first child.
      *
      * **This is the switch's own focused construction-order unit.** It does not define public outcome order.
      *
      * Fall-through first also matches `IfOp`, and deliberately does NOT match the oracle, which appends
-     * it LAST (`opcode/SwitchPayloadOp.kt:29-31`). That is not a parity break worth avoiding: the
-     * oracle's unknown-selector children come out in `HashMap` iteration order (`:57-65` walks
-     * `targetKeyToOffset.values`), so **its switch fork order is not well defined at all** and can never
-     * be a parity requirement. A later plan must not try to make it one.
+     * it LAST. That is not a parity break: the oracle's unknown-selector children come out in `HashMap`
+     * iteration order, so **its switch fork order is not well defined at all** and is not a parity
+     * requirement.
      */
     @Test
     fun anUnprovableSelectorForksTheFallThroughFirstAndThenEveryTarget() {
@@ -344,13 +340,12 @@ class SwitchOpTest {
      * **Both selector kinds, because they reach the coincidence through different code and only one of them
      * tests the SPELLING.** The unprovable half exercises the dedup in the fork row. The provable half
      * exercises `dispatchOn`'s answer, where the *matching target* happens to equal the fall-through: there
-     * the op must emit `Transition.Continue` and not `Transition.Jump(fallThroughAddress)`. That difference
-     * is invisible to the graph -- `ExecutionSession.planFor` resolves `Continue` to `view.nextAddress`,
-     * which is the same address, so both spellings build the same single node -- so it is asserted on the
-     * op's own transition list, which is the only place it is observable at all. It matters because
-     * `Continue` is what says "this op did not choose a target here", and a `Jump` to the fall-through would
-     * make a later reader (Plan 10's listing, Plan 13's editor) believe a case edge exists where the table
-     * merely names the next instruction.
+     * the op must emit `OpArm.Continue` and not `OpArm.Jump(fallThroughAddress)`. That difference is
+     * invisible to the graph -- `Continue` resolves to `view.nextAddress`, which is the same address, so both
+     * spellings build the same single node -- so it is asserted on the op's own arm list, which is the only
+     * place it is observable at all. It matters because `Continue` is what says "this op did not choose a
+     * target here", and a `Jump` to the fall-through would make a listing or editor believe a case edge
+     * exists where the table merely names the next instruction.
      */
     @Test
     fun aCaseTargetingItsOwnFallThroughIsOneSuccessorRatherThanTwoNodesAtOneAddress() {
@@ -364,7 +359,7 @@ class SwitchOpTest {
         assertEquals(1, graph.nodePile(ADDRESS_FALL_THROUGH).size, "ONE node at that address, not two")
         assertEquals(2, graph.outcomes.size, "and two ended paths, not three")
 
-        // The PROVABLE half: key 0 is decided, its target IS the fall-through, and the transition must be
+        // The PROVABLE half: key 0 is decided, its target IS the fall-through, and the arm must be
         // spelled `Continue`.
         val view = viewOf(method)
         val frame = Frame.entryFrame(view)
@@ -655,9 +650,9 @@ class SwitchOpTest {
     }
 
     /**
-     * **Side effects are `NONE` on every row, declared and pinned.** `Frame.recordSideEffect` is called
-     * nowhere in `core/op/SwitchOp.kt`. A switch chooses a successor and touches nothing outside its own
-     * frame -- there is no register write and no heap write to over-approximate.
+     * **Side effects are `NONE` on every row, declared and pinned.** No `SwitchOp` arm declares an effect.
+     * A switch chooses a successor and touches nothing outside its own frame -- there is no register write
+     * and no heap write to over-approximate.
      *
      * The mutation that proves this ADDS a declaration rather than removing one, because a spurious
      * `STRONG` is the silent and expensive direction: `methodSideEffectLevelOverExploredPaths` maxes over
@@ -695,20 +690,17 @@ class SwitchOpTest {
      * path-local, so reconvergence is not mistaken for 502 loop iterations and the default budget of 500
      * keeps every feasible path.
      *
-     * **AND IT PINS A DECISION THIS TASK MADE: `SwitchOp` does NOT cap its fork arity.** The alternative
-     * on offer was `Transition.Abort(POLICY_REFUSED)` above some N, and it is refused for three reasons.
-     * (1) It would refuse methods the engine handles: 501 forks in one `commit` completes here, and a
-     * 60000-case table whose cases all target ONE address
-     * dedupes to a single successor -- a cap keyed on table size would refuse it anyway. (2) The address
-     * limit already converts the cliff into a refusal, with a reason that says which bound was hit. (3)
-     * Frontier width is a SCHEDULER concern, not one op's: N sequential diamonds reach the same wall
-     * (measured, in `IfOpTest`), so a per-op cap would cover one construct out of two and put a magic
-     * number in the fork-policy layer. The residual is stated rather than hidden: a maximal 65535-case
-     * table would build 65536 persistent frame wrappers inside one `commit`; address and step limits act
-     * only after dequeue. `hostFailureOutcome` rethrows `VirtualMachineError`.
+     * **`SwitchOp` does NOT cap its fork arity** with `OpArm.Abort(POLICY_REFUSED)` above some N. (1) It
+     * would refuse methods the engine handles: 501 forks in one `commit` completes here, and a 60000-case
+     * table whose cases all target ONE address dedupes to a single successor -- a cap keyed on table size
+     * would refuse it anyway. (2) The address limit already converts the cliff into a refusal, with a reason
+     * that says which bound was hit. (3) Frontier width is a SCHEDULER concern, not one op's: N sequential
+     * diamonds reach the same wall (measured, in `IfOpTest`), so a per-op cap would cover one construct out
+     * of two. The residual: a maximal 65535-case table builds 65536 persistent frame wrappers inside one
+     * `commit`; address and step limits act only after dequeue, and a `VirtualMachineError` escapes the run.
      *
-     * The `POLICY_REFUSED` assertion below is what makes the decision falsifiable: adding a cap makes the
-     * reason set change, so a later plan cannot add one silently.
+     * The `POLICY_REFUSED` assertion below is what makes the decision falsifiable: adding a cap changes the
+     * reason set.
      */
     @Test
     fun fiveHundredAndOneDistinctTargetsKeepEveryLoopFreeSiblingPath() {
@@ -743,26 +735,17 @@ class SwitchOpTest {
 
     /**
      * **One malformed case target loses ITS path and keeps its siblings**, reporting
-     * [AbortReason.MALFORMED_INPUT] rather than `HOST_FAILURE`. A switch table pointing off the end of
-     * the method is exactly the shape an obfuscator emits, and before Task 2 it was indistinguishable in
-     * aggregate from a bug in this engine.
+     * [AbortReason.MALFORMED_INPUT] rather than `HOST_FAILURE`: a switch table pointing off the end of the
+     * method is the shape an obfuscator emits, and must stay distinguishable from a bug in this engine.
      *
-     * **Driven through the `opFactory` seam, because no smali can express it**: the assembler resolves
+     * **Driven through the session's decode seam, because no smali can express it**: the assembler resolves
      * every `.packed-switch` label to a placed location, so a case target that is not an address in the
-     * method is not assemblable -- the same reason `CommitTest` injects its malformed targets. The op
-     * built here is a REAL [SwitchOp] with a real fixture's view, not a `Scripted` stand-in, so the
-     * transition list under test is the one the op itself produces.
+     * method is not assemblable. The op built here is a REAL [SwitchOp] with a real fixture's view, so the
+     * arm list under test is the one the op itself produces.
      *
-     * **This also settles `commit`'s group-mixing row, which the plan named this op as the plausible
-     * first violator of.** It is unreachable, and the closing argument is structural rather than about
-     * uniformity: `applyAll` calls `planFor` once PER TRANSITION, and `planFor` maps each `Continue` and
-     * each `Jump` to a `Committable` holding exactly ONE `SuccessorSpec` with
-     * `OnUnbuildable.SKIP_ONE`. So a switch never produces a multi-spec group at all -- there is nothing
-     * for a group to mix. `ExecutionSession`'s own comment at the abandonment site says the same
-     * ("`Continue`/`Jump` groups are single-spec SKIP_ONE, `Throw` groups uniformly ALL_OR_NOTHING").
-     * Task 2's typed `lostReasons` is what makes the loss *reportable* as `MALFORMED_INPUT`, which is a
-     * different claim and is the one asserted below; the row itself stays open as a latency about mixed
-     * groups, and this task does not close it.
+     * A switch never produces a multi-spec commit group: each `Continue` and each `Jump` arm is planned as
+     * its own group holding exactly ONE successor with `OnUnbuildable.SKIP_ONE`, so there is nothing for a
+     * group to mix.
      */
     @Test
     fun oneMalformedCaseTargetLosesItsOwnPathAndReportsMalformedInput() {
@@ -776,8 +759,8 @@ class SwitchOpTest {
             fallThroughAddress = ADDRESS_FALL_THROUGH,
             dispatch = SwitchDispatch.PACKED,
         )
-        val graph = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, v, index ->
-            if (address == ADDRESS_SWITCH) malformed else OpBuilder.build(address, v, index)
+        val graph = CoreTester.vmServices.newSession(view, Limits(), frame) { address, current, resolver ->
+            if (address == ADDRESS_SWITCH) malformed else OpBuilder.build(address, current, resolver)
         }.run()
 
         assertEquals(
@@ -822,10 +805,10 @@ class SwitchOpTest {
         CoreTester.classIndex.requireMethodView(CLASS_NAME, methodDescriptor)
 
     private fun switchOpOf(methodDescriptor: String): Op =
-        OpBuilder.build(ADDRESS_SWITCH, viewOf(methodDescriptor), CoreTester.classIndex)
+        OpBuilder.build(ADDRESS_SWITCH, viewOf(methodDescriptor), CoreTester.classIndex.currentResolver())
 
     /**
-     * The switch node's children **in transition order**, which is the only channel that can see fork
+     * The switch node's children **in arm order**, which is the only channel that can see fork
      * arity and fork order (a visitation set can see neither). One node at the switch address always:
      * nothing forks before it in any of these fixtures.
      */
