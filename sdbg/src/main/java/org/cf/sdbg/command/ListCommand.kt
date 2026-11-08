@@ -1,65 +1,72 @@
 package org.cf.sdbg.command
 
-import org.cf.sdbg.Main
+import org.cf.sdbg.SmaliReference
 import picocli.CommandLine
-import picocli.CommandLine.ParentCommand
-
-sealed class ListTarget
-data class ListTargetClass(val classDescriptor: String) : ListTarget()
-data class ListTargetMethod(val methodSignature: String) : ListTarget()
-data class ListTargetRange(val start: Int, val stop: Int = start) : ListTarget()
-object ListTargetInvalid : ListTarget()
 
 @CommandLine.Command(name = "list", aliases = ["l"], mixinStandardHelpOptions = true,
         description = ["List source code"])
-class ListCommand : DebuggerCommand() {
-    @ParentCommand
-    lateinit var parent: CliCommands
+internal class ListCommand : DebuggerCommand() {
     @CommandLine.Parameters(index = "0", arity = "0..1", paramLabel = "TARGET",
             description = ["- | index-number | start#,end# | class | method | class->method"])
     var target: String? = null
 
-    private fun parseTarget(target: String?): ListTarget {
-        if (target == null) return ListTargetMethod(currentView.signature)
-        return when (ReferenceType.guess(target)) {
-            ReferenceType.INTERNAL_CLASS_DESCRIPTOR -> ListTargetClass(target)
-            ReferenceType.INTERNAL_METHOD_SIGNATURE -> ListTargetMethod(target)
-            ReferenceType.INTERNAL_METHOD_DESCRIPTOR -> ListTargetMethod("${currentView.definingClass.descriptor}->$target")
-            else -> when {
-                target == "-" -> debugger.currentInstructionIndex?.let { ListTargetRange(it) } ?: ListTargetInvalid
-                target.contains(',') -> {
-                    val parts = target.split(',', limit = 2)
-                    val start = parts[0].toIntOrNull() ?: return ListTargetInvalid
-                    val stop = parts[1].toIntOrNull() ?: return ListTargetInvalid
-                    ListTargetRange(start, stop)
-                }
-                else -> target.toIntOrNull()?.let { ListTargetRange(it) } ?: ListTargetInvalid
-            }
+    private sealed interface Target {
+        data class Class(val descriptor: String) : Target
+        data class Method(val signature: String) : Target
+        /** An inclusive instruction range in the current method, not yet checked against its bounds. */
+        data class Range(val start: Long, val stop: Long) : Target
+        data class Invalid(val reason: String) : Target
+    }
+
+    private fun parseTarget(target: String?): Target {
+        if (target == null) return Target.Method(currentView.signature)
+        if (target == "-") {
+            val index = debugger.currentInstructionIndex?.toLong() ?: return Target.Invalid("no current instruction")
+            return Target.Range(index, index)
+        }
+        RANGE.matchEntire(target)?.let { match ->
+            val start = match.groupValues[1].toLongOrNull() ?: return Target.Invalid(RANGE_OUT_OF_BOUNDS)
+            val stop = match.groupValues[2].ifEmpty { match.groupValues[1] }.toLongOrNull()
+                ?: return Target.Invalid(RANGE_OUT_OF_BOUNDS)
+            return Target.Range(start, stop)
+        }
+        return when (val reference = SmaliReference.parse(target)) {
+            is SmaliReference.Type -> Target.Class(reference.type.descriptor)
+            is SmaliReference.Method ->
+                Target.Method("${reference.owner ?: currentView.definingClass}->${reference.descriptor}")
+            is SmaliReference.Field ->
+                Target.Invalid("expected a class or method, got field ${reference.owner}->${reference.name}")
+            is SmaliReference.Malformed -> Target.Invalid(reference.reason)
         }
     }
 
     override fun run() {
+        val listing = debugSession.listing
         when (val parsed = parseTarget(target)) {
-            is ListTargetClass -> {
-                if (!Main.listing.hasClass(parsed.classDescriptor)) {
-                    parent.out.println("invalid target; class descriptor not found")
+            is Target.Class -> {
+                if (!listing.hasClass(parsed.descriptor)) {
+                    printInvalid("class descriptor not found")
                     return
                 }
-                Main.listing.writeClass(parent.out, parsed.classDescriptor, debugger)
+                listing.writeClass(out, parsed.descriptor, debugger)
             }
-            is ListTargetMethod -> {
-                if (!Main.listing.writeMethod(parent.out, parsed.methodSignature, debugger)) {
-                    parent.out.println("invalid target; method signature not found")
-                }
+            is Target.Method -> {
+                if (!listing.writeMethod(out, parsed.signature, debugger)) printInvalid("method signature not found")
             }
-            is ListTargetRange -> {
-                if (parsed.start < 0 || parsed.start > parsed.stop || parsed.stop >= currentView.instructionCount) {
-                    parent.out.println("invalid target; instruction range out of bounds")
+            is Target.Range -> {
+                if (parsed.start > parsed.stop || parsed.stop >= currentView.instructionCount) {
+                    printInvalid(RANGE_OUT_OF_BOUNDS)
                     return
                 }
-                Main.listing.writeMethod(parent.out, currentView.signature, debugger, parsed.start, parsed.stop)
+                listing.writeMethod(out, currentView.signature, debugger, parsed.start.toInt(), parsed.stop.toInt())
             }
-            ListTargetInvalid -> parent.out.println("invalid target; unable to parse or no current instruction")
+            is Target.Invalid -> printInvalid(parsed.reason)
         }
+    }
+
+    private companion object {
+        const val RANGE_OUT_OF_BOUNDS = "instruction range out of bounds"
+        /** `index` or `start,stop`; both bounds are inclusive. */
+        val RANGE = Regex("(\\d+)(?:,(\\d+))?")
     }
 }
