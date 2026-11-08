@@ -425,6 +425,18 @@
     return-object v0
 .end method
 
+# 2 + 3 folds; boxing the unknown sum with p0 must not stop the method from being optimized.
+.method public static boxedParameterSum(I)Ljava/lang/Integer;
+    .locals 2
+    const/4 v0, 0x2
+    const/4 v1, 0x3
+    add-int v0, v0, v1
+    add-int v0, v0, p0
+    invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+    move-result-object v0
+    return-object v0
+.end method
+
 .method public static unreachedMove()I
     .locals 1
     const/4 v0, 0x1

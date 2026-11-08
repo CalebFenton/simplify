@@ -257,6 +257,16 @@ class ConstantPropagationStrategyTest {
         }
     }
 
+    @Test fun boxingAnUnknownIntStillLetsTheMethodBeOptimized() {
+        val services = services()
+        val method = OWNER + "boxedParameterSum(I)Ljava/lang/Integer;"
+        val result = optimize(services, method)
+        assertEquals(CompletionStatus.Complete, result.completionStatus)
+        // 2 + 3 becomes a constant; the sum with the unknown parameter stays.
+        val edited = view(services, method)
+        assertEquals(1, edited.instructionAddresses.count { edited.opcodeAt(it) == Opcode.ADD_INT })
+    }
+
     @Test fun unknownDisagreeingUnreachedAndUnsupportedInstructionsRemain() {
         val services = services()
         for ((name, opcode) in listOf(

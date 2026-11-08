@@ -226,6 +226,24 @@ class ReflectBackendTest {
         },
     )
 
+    /**
+     * A subclass constructor's chained superclass `<init>` initializes the subclass object; a reflected superclass
+     * constructor would build a different object (or none, for an abstract class). JLS 12.5: the new object keeps
+     * the class named by `new`, so `instance-of` that class is true after construction.
+     */
+    @TestFactory
+    fun aChainedSuperclassConstructorKeepsTheSubclassObject(): List<DynamicTest> = listOf(
+        "abstract Number" to "Lsuperclass_constructor/own_number;",
+        "concrete IllegalStateException" to "Lsuperclass_constructor/own_state_error;",
+    ).map { (superclass, subclass) ->
+        DynamicTest.dynamicTest(superclass) {
+            val graph = CoreTester.execute(subclass, "constructIsOwnClass()Z")
+
+            assertEquals(listOf(Outcome.Returned(Value.Known(true, type("Z")))), graph.outcomes)
+            assertEquals(CompletionStatus.Complete, graph.completion())
+        }
+    }
+
     @Test
     fun unsupportedDirectAndSuperCallsDeclineBeforeExecution() {
         ReflectionExternalSentinel.reset()
