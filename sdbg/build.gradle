@@ -8,12 +8,12 @@ application {
 
 dependencies {
     implementation project(':smalivm')
-    implementation 'info.picocli:picocli-shell-jline3:4.7.7'
-    implementation 'org.fusesource.jansi:jansi:2.4.3'
-    implementation depends.slf4j_api
-    implementation depends.logback
+    implementation libs.picocli.shell.jline3
+    implementation libs.jansi
+    implementation libs.slf4j.api
+    implementation libs.logback
 
-    testImplementation depends.junit_compile
-    testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_launcher
+    testImplementation libs.junit.api
+    testRuntimeOnly libs.junit.engine
+    testRuntimeOnly libs.junit.launcher
 }

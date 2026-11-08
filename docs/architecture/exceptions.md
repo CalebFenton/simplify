@@ -29,19 +29,25 @@ identity before host-graph finalization, import, or routing. Newly returned and 
 same recursive identity-map importer as target throws, preserving causes, null terminators, cycles, and host
 materialization.
 
-The scheduler partitions caller throws before handler resolution. Concrete throws use the original `Value.Known`
-(including its `HeapRef` and public type tag), unresolved required/excluded domain constraints, and
-`CallCompatibilityKey`. Fully known domains for the same concrete value remain one source because the merged
-heap supplies their runtime type. Symbolic throws use `(ThrowableDomain, CallCompatibilityKey)`. The compatibility
-key contains class-initialization and tracked-field compatibility. Handler addresses are not source-key fields.
+The scheduler partitions caller throws by source key before handler resolution:
+
+```text
+concrete: (Value.Known, unresolved ThrowableDomain constraints, CallCompatibilityKey)
+symbolic: (ThrowableDomain, CallCompatibilityKey)
+CallCompatibilityKey: (class-init compatibility, tracked-field compatibility)
+```
+
+A concrete key uses the original `Value.Known`, including its `HeapRef` and public type tag. Fully known domains
+for the same concrete value form one source because the merged heap supplies their runtime type. Handler
+addresses and route refinements are not source-key fields.
 
 Each source key merges callee state once into the suspended caller frame. Caller registers remain unchanged.
 The merged heap supplies a concrete throwable's runtime type without replacing its `Value` tag. Concrete
 required/excluded partitions and symbolic domains remain attached to their `FrameValue`. The shared resolver then
 runs once at the caller's invoke address.
 
-Routing repeats that result for each original exit. This preserves path multiplicity without repeated merges or
-lookups. Each exit's selected handlers and residual escape remain one `ALL_OR_NOTHING` group. A malformed target
+Routing repeats that result for each original exit, which preserves path multiplicity without repeated merges
+or lookups. Each exit's selected handlers and residual escape remain one `ALL_OR_NOTHING` group. A malformed target
 commits no sibling route. Residual escapes enter the parent completion and cross the next boundary only after it
 drains.
 
@@ -54,4 +60,4 @@ decision and builds the throwable for every trigger: ops, invocations, and emula
 code ends the trigger's path as `MALFORMED_INPUT`. Analyzer limits, unsupported operations, and host failures
 remain `Partial` and do not create failed-class state.
 
-There is no handler cache and no exception path cap.
+The resolver has no handler cache and no exception path cap.

@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -36,8 +36,7 @@ jobs:
         run: >-
           ./gradlew --no-daemon --max-workers=2 --continue
           build jacocoRootReport
-          :simplify:fatJar :demoapp:fatJar :sdbg:fatJar :smalivm:fatJar
-          :smalivm:proguard
+          :simplify:fatJar :demoapp:fatJar :sdbg:fatJar :smalivm:proguard
 
       - name: Smoke test packaged applications
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -61,7 +60,7 @@ jobs:
             simplify/build/reports/tests/
             sdbg/build/test-results/**/TEST-*.xml
             sdbg/build/reports/tests/
-          if-no-files-found: warn
+          if-no-files-found: ${{ steps.build.outcome == 'success' && 'error' || 'warn' }}
           retention-days: 14
 
       # Coverage stays with the run; no external service credentials or publication.
