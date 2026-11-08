@@ -68,9 +68,9 @@ completion gate, for the debugger and tests; every rule below holds for both.
   run's own activation; a callee's or a recursive activation's return does not vote, nor does a throwing
   or aborted path. `terminatingConsensus` agreeing on a ref says nothing about the object's contents;
   `terminatingHeapObject` joins those element by element.
-- **No absence in band.** `reflectedMethod`, `reflectedField`, `arrayLength`, `knownString` and
-  `terminatingHeapObject` return an `Agreement`: `Agreed(value)`, `Disagree`, `Absent` (a path holds no
-  value of that kind) or `NoPath` (no op ran there, or no path returned).
+- **No absence in band.** `reflectedMethod`, `reflectedField`, `arrayLength`, `arrayElementClasses`,
+  `knownString` and `terminatingHeapObject` return an `Agreement`: `Agreed(value)`, `Disagree`, `Absent` (a path
+  holds no value of that kind) or `NoPath` (no op ran there, or no path returned).
 - **`Value.Top` pairings.** A `Top` consensus is read with `RegisterOccupancy`: `HELD` means live and
   unknowable; `NEVER_ASSIGNED` means no path holds a readable value, which is not "free" (the high half of
   a live wide pair also answers it; `availableRegisters` answers "free"); `NO_PATH` means no op ran there,

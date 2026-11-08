@@ -2,8 +2,8 @@ package org.cf.smalivm.core
 
 /**
  * Every throwable type the engine constructs itself, with the host object that stands for one on the heap. The
- * guest cause lives in the heap object; only `ExceptionInInitializerError` also carries it on the host object,
- * because its host constructor takes the cause.
+ * guest cause lives in the heap object; only `ExceptionInInitializerError` and `InvocationTargetException` also
+ * carry it on the host object, because their host constructors take the cause.
  */
 internal enum class SynthesizedThrowable(
     descriptor: String,
@@ -22,9 +22,15 @@ internal enum class SynthesizedThrowable(
         "Ljava/lang/ExceptionInInitializerError;",
         { _, cause -> if (cause == null) ExceptionInInitializerError() else ExceptionInInitializerError(cause) },
     ),
+    ILLEGAL_ACCESS("Ljava/lang/IllegalAccessException;", { message, _ -> IllegalAccessException(message) }),
+    ILLEGAL_ARGUMENT("Ljava/lang/IllegalArgumentException;", { message, _ -> IllegalArgumentException(message) }),
     INCOMPATIBLE_CLASS_CHANGE(
         "Ljava/lang/IncompatibleClassChangeError;",
         { message, _ -> IncompatibleClassChangeError(message) },
+    ),
+    INVOCATION_TARGET(
+        "Ljava/lang/reflect/InvocationTargetException;",
+        { _, cause -> java.lang.reflect.InvocationTargetException(cause) },
     ),
     INTERNAL_ERROR("Ljava/lang/InternalError;", { message, _ -> InternalError(message) }),
     NEGATIVE_ARRAY_SIZE("Ljava/lang/NegativeArraySizeException;", { message, _ -> NegativeArraySizeException(message) }),
@@ -178,6 +184,68 @@ internal object GuestThrowables {
     )
 
     fun internalError(message: String): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.INTERNAL_ERROR, message)
+
+    /** ART `VerifyObjectIsClass`: `Method.invoke` of an instance method with a null receiver. */
+    fun nullReflectiveReceiver(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.NULL_POINTER, "null receiver")
+
+    /** ART `InvalidReceiverError`: `Method.invoke` of an instance method of [expected] on an [actual] receiver. */
+    fun invalidReflectiveReceiver(expected: VirtualType, actual: VirtualType): ThrowableRecipe = ThrowableRecipe(
+        SynthesizedThrowable.ILLEGAL_ARGUMENT,
+        "Expected receiver of type ${prettyDescriptor(expected)}, but got ${prettyDescriptor(actual)}",
+    )
+
+    /** ART `CheckArgsForInvokeMethod`. */
+    fun reflectiveArgumentCount(expected: Int, actual: Int): ThrowableRecipe = ThrowableRecipe(
+        SynthesizedThrowable.ILLEGAL_ARGUMENT,
+        "Wrong number of arguments; expected $expected, got $actual",
+    )
+
+    /**
+     * ART `BuildArgArrayFromObjectArray`: argument [index] (0-based) of [method] cannot be passed as [parameter].
+     * [actual] is the argument's class, or null for a null argument.
+     */
+    fun reflectiveArgument(
+        method: MethodSignature,
+        index: Int,
+        parameter: VirtualType,
+        actual: VirtualType?,
+    ): ThrowableRecipe = ThrowableRecipe(
+        SynthesizedThrowable.ILLEGAL_ARGUMENT,
+        "method ${prettyDescriptor(method.definingClass)}.${method.name} argument ${index + 1} has type " +
+            "${prettyDescriptor(parameter)}, got ${actual?.let(::prettyDescriptor) ?: "null"}",
+    )
+
+    /**
+     * ART `InvokeMethod`'s access failure: [caller] cannot access the selected [method], whose dex access flags are
+     * [accessFlags]. `PrettyJavaAccessFlags` ends each flag with a space, so the text has two before `method`.
+     */
+    fun reflectiveIllegalAccess(caller: VirtualType, accessFlags: Int, method: MethodSignature): ThrowableRecipe {
+        val flags = JAVA_ACCESS_FLAG_NAMES.filter { (flag, _) -> accessFlags and flag != 0 }
+            .joinToString("") { (_, name) -> "$name " }
+        return ThrowableRecipe(
+            SynthesizedThrowable.ILLEGAL_ACCESS,
+            "Class java.lang.Class<${prettyDescriptor(caller)}> cannot access $flags method ${prettyMethod(method)} " +
+                "of class java.lang.Class<${prettyDescriptor(method.definingClass)}>",
+        )
+    }
+
+    /** ART `InvokeMethodImpl`: whatever the target of `Method.invoke` throws leaves as this wrapper's cause. */
+    fun invocationTarget(cause: ThrownSubject): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.INVOCATION_TARGET, cause = cause)
+
+    /** ART `PrettyJavaAccessFlags`' bits in its order; on a method the transient and volatile bits are varargs and bridge. */
+    private val JAVA_ACCESS_FLAG_NAMES = listOf(
+        0x0001 to "public",
+        0x0004 to "protected",
+        0x0002 to "private",
+        0x0010 to "final",
+        0x0008 to "static",
+        0x0400 to "abstract",
+        0x0200 to "interface",
+        0x0080 to "transient",
+        0x0040 to "volatile",
+        0x0020 to "synchronized",
+    )
 
     /** ART's `PrettyDescriptor`: `I` -> `int`, `Lfoo/Bar;` -> `foo.Bar`, `[[Lfoo/Bar;` -> `foo.Bar[][]`. */
     private fun prettyDescriptor(type: VirtualType): String {

@@ -46,14 +46,12 @@ class UnreflectionStrategy : OptimizationStrategy {
         if (argumentsValue.isNull || argumentsValue.isDalvikNull) {
             if (parameters.isNotEmpty()) return
         } else {
-            // Heap-backed arrays do not expose per-element proof here. Leave them reflective.
-            val arguments = argumentsValue.raw as? Array<*> ?: return
-            if (arguments.size != parameters.size) return
+            val classes = (input.graph.arrayElementClasses(parents, registers[2]) as? Agreement.Agreed)?.value ?: return
+            if (classes.size != parameters.size) return
             for ((index, type) in parameters.withIndex()) {
                 val primitive = Primitive.of(type) ?: continue
-                val argument = arguments[index] ?: return
                 // Reflection permits widening; the unbox sequence only preserves exact wrappers.
-                if ("L${argument.javaClass.name.replace('.', '/')};" != primitive.wrapper) return
+                if (classes[index]?.descriptor != primitive.wrapper) return
             }
         }
         val transaction = input.transaction

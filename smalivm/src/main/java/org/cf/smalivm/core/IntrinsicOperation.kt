@@ -47,7 +47,7 @@ internal sealed interface IntrinsicOperation {
             } else {
                 frame.getStaticField(field.declaringType, field.descriptor)
             }
-            fieldGetResult(value, field.fieldType)
+            reflectionBoxed(value, field.fieldType)
         }
         ReadThrowableCause -> when (val receiver = invocation.receiver) {
             is Value.Known -> {

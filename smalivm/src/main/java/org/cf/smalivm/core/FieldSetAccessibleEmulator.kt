@@ -1,19 +1,33 @@
 package org.cf.smalivm.core
 
-/** Requests a path-local accessibility replacement for one tracked Field identity. */
+import java.lang.reflect.Method
+
+/**
+ * `AccessibleObject.setAccessible(boolean)`: a path-local accessibility replacement for one tracked Field identity,
+ * or the flag of a host `Method`, which the path's host graph holds like any other host state. libcore's
+ * `setAccessible0` refuses only some `Constructor`s, so a Method's flag is set unconditionally.
+ */
 internal class FieldSetAccessibleEmulator : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
-        val field = call.receiver as? TrackedFieldEmulatorValue
-            ?: return SynchronousCallResult.Returned(HostReturn.Void)
         val enabled = ((call.arguments.singleOrNull() as? EmulatorValue.Known)?.javaValue as? Boolean)
             ?: return SynchronousCallResult.InfrastructureFailure(
-                IllegalArgumentException("Field.setAccessible requires one known boolean"),
+                IllegalArgumentException("AccessibleObject.setAccessible requires one known boolean"),
             )
-        return IntrinsicCallResult(
-            IntrinsicOperation.SetTrackedFieldAccessible(
-                field.metadata,
-                if (enabled) FieldAccessibility.OVERRIDDEN else FieldAccessibility.LANGUAGE_CHECKS,
-            ),
-        )
+        return when (val receiver = call.receiver) {
+            is TrackedFieldEmulatorValue -> IntrinsicCallResult(
+                IntrinsicOperation.SetTrackedFieldAccessible(
+                    receiver.metadata,
+                    if (enabled) FieldAccessibility.OVERRIDDEN else FieldAccessibility.LANGUAGE_CHECKS,
+                ),
+            )
+            is EmulatorValue.Known -> when (val method = receiver.javaValue) {
+                is Method -> hostBoundary({ SynchronousCallResult.InfrastructureFailure(it) }) {
+                    method.isAccessible = enabled
+                    SynchronousCallResult.Returned(HostReturn.Void)
+                }
+                else -> SynchronousCallResult.Returned(HostReturn.Void)
+            }
+            else -> SynchronousCallResult.Returned(HostReturn.Void)
+        }
     }
 }

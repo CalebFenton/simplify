@@ -4,7 +4,8 @@ package org.cf.smalivm.core
  * Turns a drained callee's exits into the caller's continuations: one resumed successor per return, an opaque
  * continuation per aborted partition, and the caller's handler routes for each thrown partition. Exits whose caller
  * states are compatible merge into one caller frame first, then expand back to one successor per exit, so duplicate
- * path results stay observable.
+ * path results stay observable. A reflective call's exits first pass through its [ReturnSite.reflectiveReturn]:
+ * results are boxed and throws leave wrapped, so the caller's handlers see what `Method.invoke` throws.
  *
  * Writes only effect levels, continuation observations, and run truncation; the session builds and schedules what
  * [route] returns.
@@ -22,6 +23,12 @@ internal class CallRouter(
         val returned = exits.filterIsInstance<ActivationExit.Returned>()
         var threw = exits.filterIsInstance<ActivationExit.Threw>()
         var aborted = exits.filterIsInstance<ActivationExit.Aborted>()
+        val reflective = site.reflectiveReturn
+        if (reflective != null && threw.isNotEmpty()) {
+            val wrapped = reflective.wrapThrows(threw, hierarchy)
+            threw = wrapped.filterIsInstance<ActivationExit.Threw>()
+            aborted += wrapped.filterIsInstance<ActivationExit.Aborted>()
+        }
         aborted.forEach { runOutcomes.markTruncated(it.outcome.reason) }
         // An aborted callee path leaves its call incomplete; so does a routing abort below.
         if (aborted.isNotEmpty()) activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
@@ -53,7 +60,8 @@ internal class CallRouter(
                     OnUnbuildable.SKIP_ONE,
                     FrameOrigin.CallerPartition(requireNotNull(merged[partition])),
                 ) { frame ->
-                    exit.frameValue?.let(frame::setResult)
+                    if (reflective == null) exit.frameValue?.let(frame::setResult)
+                    else frame.setResult(reflective.result(exit.frameValue))
                     site.constructorReceiver?.let(frame.heap::markInitialized)
                 }
             }

@@ -19,7 +19,7 @@ internal class FieldGetEmulator(
             return targetThrew(NullPointerException())
         }
         if (metadata.domain is TrackedFieldDomain.Host && !hostFieldReadIsAuthorized(metadata, resolver, reflectionPolicy)) {
-            return returnUnknown(fieldGetResultType(metadata.fieldType))
+            return returnUnknown(reflectionBoxedType(metadata.fieldType))
         }
         val receiverType = receiverType(argument)
         val receiverClass = (argument as? EmulatorValue.Known)?.javaValue?.javaClass
@@ -45,7 +45,7 @@ internal class FieldGetEmulator(
         return when (metadata.domain) {
             TrackedFieldDomain.Virtual -> when {
                 metadata.storage == FieldStorage.INSTANCE && argument is EmulatorValue.Unknown ->
-                    returnUnknown(fieldGetResultType(metadata.fieldType))
+                    returnUnknown(reflectionBoxedType(metadata.fieldType))
                 else -> IntrinsicCallResult(IntrinsicOperation.ReadVirtualField(metadata))
             }
             is TrackedFieldDomain.Host -> readAuthorizedHostField(metadata, argument)
@@ -122,7 +122,7 @@ internal class FieldGetEmulator(
         val receiver = if (field.storage == FieldStorage.STATIC) {
             null
         } else {
-            (argument as? EmulatorValue.Known)?.javaValue ?: return returnUnknown(fieldGetResultType(field.fieldType))
+            (argument as? EmulatorValue.Known)?.javaValue ?: return returnUnknown(reflectionBoxedType(field.fieldType))
         }
         val declaringClass = (field.domain as TrackedFieldDomain.Host).declaringClass
         return when (
@@ -136,34 +136,34 @@ internal class FieldGetEmulator(
                 SynchronousCallResult.Returned(HostReturn.Value(value))
             }
             is HostFieldRead.TargetThrew -> SynchronousCallResult.TargetThrew(read.throwable)
-            is HostFieldRead.Unsupported -> returnUnknown(fieldGetResultType(field.fieldType))
+            is HostFieldRead.Unsupported -> returnUnknown(reflectionBoxedType(field.fieldType))
             is HostFieldRead.InfrastructureFailure -> SynchronousCallResult.InfrastructureFailure(read.cause)
         }
     }
 }
 
-/** The type of `Field.get`'s result for a field of [fieldType]: its wrapper class when primitive. */
-internal fun fieldGetResultType(fieldType: VirtualType): VirtualType =
-    if (fieldType.isPrimitive) {
-        virtualTypeOfHostClass(ClassNameUtils.getPrimitiveClass(fieldType.descriptor).kotlin.javaObjectType)
+/** The type reflection (`Field.get`, `Method.invoke`) returns for a value of [type]: its wrapper class when primitive. */
+internal fun reflectionBoxedType(type: VirtualType): VirtualType =
+    if (type.isPrimitive) {
+        virtualTypeOfHostClass(ClassNameUtils.getPrimitiveClass(type.descriptor).kotlin.javaObjectType)
     } else {
-        fieldType
+        type
     }
 
 /**
- * `Field.get`'s result for a field of [fieldType] holding [value]. `java.lang.reflect.Field.get` boxes a
- * primitive into its wrapper, so the result is always one reference, never a wide register pair.
+ * What reflection returns for [value] of [type]. `Field.get` and `Method.invoke` box a primitive into its wrapper
+ * as `valueOf` does (ART `BoxPrimitive`), so the result is always one reference, never a wide register pair.
  */
-internal fun fieldGetResult(value: Value, fieldType: VirtualType): Value {
-    if (!fieldType.isPrimitive) return value
-    val wrapper = fieldGetResultType(fieldType)
+internal fun reflectionBoxed(value: Value, type: VirtualType): Value {
+    if (!type.isPrimitive) return value
+    val wrapper = reflectionBoxedType(type)
     val known = value as? Value.Known ?: return Value.Unknown(wrapper)
-    val boxed: Any? = when (fieldType.descriptor) {
+    val boxed: Any? = when (type.descriptor) {
         "I" -> Coerce.toInt(known.raw)
         "J" -> Coerce.toLong(known.raw)
         "F" -> Coerce.toFloat(known.raw)
         "D" -> Coerce.toDouble(known.raw)
-        else -> (Coerce.narrowStore(known, fieldType) as? Value.Known)?.raw
+        else -> (Coerce.narrowStore(known, type) as? Value.Known)?.raw
     }
     return if (boxed == null) Value.Unknown(wrapper) else Value.Known(boxed, wrapper)
 }

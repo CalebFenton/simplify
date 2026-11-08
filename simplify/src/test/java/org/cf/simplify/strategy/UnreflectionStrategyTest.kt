@@ -15,7 +15,10 @@ class UnreflectionStrategyTest {
         "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
     // A reflective call's effect is what its reflected target changes, so these targets are effect-free.
     private val purePolicy = ReflectionPolicy(
-        safeClasses = setOf("Ljava/lang/Class;", "Ljava/lang/reflect/Method;", "Ljava/lang/String;", "Ljava/lang/Integer;", "Ljava/util/Comparator;")
+        safeClasses = setOf(
+            "Ljava/lang/Class;", "Ljava/lang/reflect/Method;", "Ljava/lang/String;", "Ljava/lang/Integer;",
+            "Ljava/lang/Long;", "Ljava/util/Comparator;",
+        )
             .map(VirtualType::of).toSet(),
     )
 
@@ -52,6 +55,21 @@ class UnreflectionStrategyTest {
         assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
         assertTrue(hasOpcode(optimized.method, Opcode.INVOKE_STATIC))
         assertFalse(hasOpcode(optimized.method, Opcode.INVOKE_INTERFACE))
+    }
+
+    @Test fun applicationTargetWithExactWrapperArgumentsLowersToADirectCall() {
+        val optimized = invokeFixture("applicationIntegerArguments()Ljava/lang/Object;")
+        assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
+        assertTrue(hasMethod(optimized.method, invocationOwner, "addInts"))
+        // 40 + 2, boxed by Integer.valueOf as Method.invoke boxes it.
+        assertEquals(42, returned(optimized.reexecute()))
+        assertEquals(42, returned(optimized.dexRoundTrip()))
+    }
+
+    @Test fun applicationTargetWithAWideningArgumentStaysReflective() {
+        val optimized = invokeFixture("applicationWidenedArgument()Ljava/lang/Object;")
+        assertTrue(hasMethod(optimized.method, "Ljava/lang/reflect/Method;", "invoke"))
+        assertEquals(5L, returned(optimized.reexecute()))
     }
 
     @Test fun defaultOpaqueReflectionAndUnknownMethodAreNotLowered() {

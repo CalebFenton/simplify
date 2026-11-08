@@ -254,7 +254,8 @@ internal class CallCompletion : PathSink {
  * [invokeNode] is retained rather than its frame copied, because the caller's registers must be read at resume
  * time from the node's post-op frame, and a debugger walking the call stack wants the node.
  * [constructorReceiver] is the object a normal return completes ([Activation.initializedReceiver]); the fallback
- * values describe the call for the opaque continuation an aborted callee path resumes through.
+ * values describe the call for the opaque continuation an aborted callee path resumes through. [reflectiveReturn]
+ * is set when the call is a `Method.invoke` of this activation's method: it converts each exit as reflection does.
  */
 internal class ReturnSite(
     val invokeNode: ExecutionNode,
@@ -263,6 +264,7 @@ internal class ReturnSite(
     val fallbackArguments: List<Value>? = null,
     val fallbackArgumentTypes: List<VirtualType>? = null,
     val fallbackReturnType: VirtualType? = null,
+    val reflectiveReturn: ReflectiveReturn? = null,
 )
 
 /**
