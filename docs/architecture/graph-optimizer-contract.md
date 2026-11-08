@@ -37,8 +37,17 @@ SmaliVM separates method structure, execution evidence, and editing:
   re-executes the published method and restarts at the first strategy.
   Only committed changes contribute to optimization counts. Partial analysis authorizes no rewrite.
 - Effect and identity proofs remain conservative: volatile accesses, array writes, synchronization,
-  and observable exceptions are retained; equal string contents alone do not authorize interning.
-  Reflective calls require proven normal continuation and no side effects before lowering.
+  and observable exceptions are retained. Reflective calls require proven normal continuation and no
+  side effects before lowering.
+- Constant propagation folds a known `String` into a `const-string`, whose interned object is not the
+  computed one, only where the method does not observe the object's identity. The object is followed
+  from the folded register through `move-object*` copies and `check-cast` over every edge of the
+  method's `MethodControlFlow`, taken or not, until each register holding it is redefined; it is
+  observed when it reaches a two-register `if-eq`/`if-ne` or a `monitor-enter`/`monitor-exit`.
+  `if-eqz`/`if-nez` test only for null. Identity inside callees, fields, arrays and returned values is
+  treated as unobserved. A copy whose source provably holds the same `const-string` on every path
+  folds regardless. A `String` constructor is kept and followed by the literal, and only when a later
+  instruction still reads the object it built.
 
 ## Analysis query contract
 
