@@ -1139,7 +1139,9 @@ reads (`FieldGetEmulator`) apply ART's access rule: ART's `VerifyAccess` (`runti
 private member only to its declaring class and grants nestmates nothing (**ART**), unlike the JVM.
 
 `const-class` and reflective class loads go through one host class loader per program, loading without
-initialization, so `const-class` identity holds program-wide.
+initialization, so `const-class` identity holds program-wide. `Class.forName(String)` then initializes the
+class it loaded, an application or a framework class (**ART**, `Class.classForName` with `initialize = true`);
+a framework class's skipped initializer records its effect at the call as any other trigger does.
 
 ### `Method.invoke` of an application method
 

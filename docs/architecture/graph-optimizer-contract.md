@@ -49,8 +49,12 @@ SmaliVM separates method structure, execution evidence, and editing:
   folds regardless. A `String` constructor is kept and followed by the literal, and only when a later
   instruction still reads the object it built.
 - Dead removal deletes a dead assignment, an unused call result, or a void call other than a constructor only
-  when every structurally reachable instruction ran, the op continued normally on every execution and its
-  effect is `NONE`. A constructor call goes only with its allocation.
+  when the op continued normally on every execution and its effect is `NONE`. Liveness reads every
+  instruction's registers from the code, so code no execution reached, such as a handler, still counts as a
+  reader. A constructor call goes only with its allocation, and a handler keeps its `move-exception`.
+- Peephole turns `Class.forName` into `const-class` when every execution returned the same class and the call
+  has no effect, so whatever initialization it triggered is unobservable and happens at the class's next
+  trigger instead.
 - **Dead allocations.** An object the method allocates (`new-instance`, `new-array`, `filled-new-array*`)
   whose identity and state no kept instruction observes is removed with every instruction whose only purpose
   is that object. A forward pass over the static control flow records which allocations each register may
@@ -95,7 +99,9 @@ completion gate, for the debugger and tests; every rule below holds for both.
 - **Post-op state.** The state at an address is the state after its op ran; consensus at an op's address
   is the value it produced. When the op destroys or never computes the needed value (a `check-cast`
   recast, an unemulated `Method.invoke`), read its parents through `parentAddresses` and the
-  multi-address overloads. Only nodes whose op ran vote; a node a bound stopped stays in `nodePile`.
+  multi-address overloads. A parent is the op that ran before in the same activation: the op after a call
+  reports the call, and an op retried after the class initialization it triggered reports the op before its
+  first attempt. Only nodes whose op ran vote; a node a bound stopped stays in `nodePile`.
 - **Per-address scope.** `consensus`, `registerValues`, `registerOccupancy`, the reflected-member queries
   and `sideEffectLevel` union every activation of the method, recursive ones included, because a rewrite
   at an address must hold on every activation that executes it.

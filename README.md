@@ -87,22 +87,15 @@ gives these method bodies:
 .method public static test1()I
     .registers 2
 
-    new-instance v0, Ljava/lang/Integer;
-
-    const/4 v1, 0x1
-
-    invoke-direct {v0, v1}, Ljava/lang/Integer;-><init>(I)V
-
-    invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
-
     const/4 v0, 0x1
 
     return v0
 .end method
 ```
 
-Constant propagation folds the addition and the result of `intValue()`, and dead code removal deletes the
-unused inputs of `add-int`. The `Integer` allocation, constructor, and call remain.
+Constant propagation folds the addition and the result of `intValue()`. Dead code removal then deletes the unused
+inputs of `add-int` and the `Integer` that nothing observes any more: its allocation, constructor and call change
+nothing outside the object.
 
 Simplify reads a Smali directory, a DEX file, or an APK. APK output replaces `classes.dex`, keeps every other
 entry unchanged, and must be signed again before installation. An archive that also contains `classes2.dex`

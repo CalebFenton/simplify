@@ -5,6 +5,7 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -57,6 +58,49 @@ class ObfuscatedApplicationTest {
         expected.forEach { (method, value) -> assertEquals(value, result(reloaded, method), method) }
     }
 
+    /** The bundled example app simplifies to the code `ObfuscatedApp/README.md` shows. */
+    @Test fun exampleAppSimplifiesToItsReadmeOutput() {
+        val output = temporaryDirectory.resolve("example.apk")
+        val report = Launcher().run(
+            SimplifyOptionsParser.parse(
+                arrayOf(
+                    "obfuscated-app.apk",
+                    "--include-types", "Reflection;->reflectSecretMethod\\(|WhiteNoise;->(messyMethod|convolutedMethod)\\(",
+                    "--output", output.toString(),
+                    "--quiet",
+                ),
+            ),
+        )
+        assertEquals(0, report.failedMethodCount)
+        assertEquals(0, report.skippedMethodCount)
+        val classIndex = OptimizerTester.services(output.toFile()).classIndex
+
+        val reflection = requireNotNull(classIndex.methodView(REFLECTION + "reflectSecretMethod()V"))
+        assertEquals(
+            listOf("Ljava/io/PrintStream;->println", "Ljava/lang/Exception;->printStackTrace"),
+            calls(reflection),
+        )
+        assertEquals(listOf("magic answer = 42"), strings(reflection))
+
+        val messy = requireNotNull(classIndex.methodView(EXAMPLE_WHITE_NOISE + "messyMethod()V"))
+        assertEquals(listOf("Lorg/cf/obfuscated/WhiteNoise;->realTarget"), calls(messy))
+        assertEquals(listOf(Opcode.INVOKE_STATIC, Opcode.RETURN_VOID), messy.instructionAddresses.map(messy::opcodeAt))
+
+        val convoluted = requireNotNull(classIndex.methodView(EXAMPLE_WHITE_NOISE + "convolutedMethod()I"))
+        assertEquals(50, result(OptimizerTester.services(output.toFile()), EXAMPLE_WHITE_NOISE + "convolutedMethod()I"))
+        assertTrue(calls(convoluted).isEmpty())
+    }
+
+    private fun calls(method: MethodView): List<String> = method.instructionAddresses.asList().mapNotNull {
+        ((method.instructionAt(it) as? ReferenceInstruction)?.reference as? MethodReference)?.let { reference ->
+            "${reference.definingClass}->${reference.name}"
+        }
+    }
+
+    private fun strings(method: MethodView): List<String> = method.instructionAddresses.asList().mapNotNull {
+        ((method.instructionAt(it) as? ReferenceInstruction)?.reference as? StringReference)?.string
+    }
+
     private fun hasCall(method: MethodView, owner: String, name: String) =
         method.instructionAddresses.any {
             val reference = (method.instructionAt(it) as? ReferenceInstruction)?.reference as? MethodReference
@@ -79,5 +123,7 @@ class ObfuscatedApplicationTest {
     companion object {
         const val PREFIX = "Lorg/cf/obfuscated/OptimizationWitness;->"
         const val WHITE_NOISE = "Lorg/cf/obfuscated/WhiteNoise;->convolutedMethod()I"
+        const val REFLECTION = "Lorg/cf/obfuscated/Reflection;->"
+        const val EXAMPLE_WHITE_NOISE = "Lorg/cf/obfuscated/WhiteNoise;->"
     }
 }
