@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 /**
  * What the engine can prove about the 32 bits a comparison reads out of a register. A question is provable
  * exactly when every bit it reads is determined by the value the lattice holds; an unprovable successor set
- * explores more, and an unprovable value answers [Value.Unknown] (spec §2.2).
+ * explores more, and an unprovable value answers [Value.Unknown].
  */
 internal sealed interface ProvableInt {
     /** These 32 bits are exactly [bits], read signed, which is how Dalvik compares them. */

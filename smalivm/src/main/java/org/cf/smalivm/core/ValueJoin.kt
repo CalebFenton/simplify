@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 /**
- * The reconciliation operator ⊔ (spec §4.1):
+ * The reconciliation operator ⊔:
  *
  *     Known a ⊔ Known b = a                      if a agrees with b
  *                       = Unknown(join(Ta,Tb))   if types join
@@ -14,7 +14,7 @@ package org.cf.smalivm.core
  * Dalvik writes null as `const vA, 0`, and the verifier merges that zero constant into any reference type.
  *
  * Information only ever decreases across a join; nothing below re-derives a value the
- * paths did not all carry. This is what makes consensus trustworthy (spec §6).
+ * paths did not all carry, which is what makes consensus trustworthy.
  *
  * [hierarchy] has no default: `joinTypes` is the one function every consensus query routes through, so a
  * call site that silently fell back to the hierarchy-free rule would lose precision with nothing failing.

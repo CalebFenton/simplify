@@ -3,17 +3,16 @@ package org.cf.smalivm.core
 /**
  * A validated Dalvik type descriptor (`I`, `J`, `Ljava/lang/String;`, `[[I`, ...).
  *
- * Replaces the old engine's raw `type: String` tag (spec §4.1): construction validates
- * against the descriptor grammar and throws instead of repairing. Carries *shape*
- * classification only (primitive/wide/reference/array/void); hierarchy questions
- * (assignability, common supertype) need a class manager and arrive with the spine.
+ * Construction validates against the descriptor grammar and throws instead of repairing. Carries
+ * *shape* classification only (primitive/wide/reference/array/void); hierarchy questions
+ * (assignability, common supertype) belong to [TypeHierarchy].
  *
  * Equality is structural on [descriptor].
  */
 public class VirtualType private constructor(public val descriptor: String) {
     internal val isVoid: Boolean get() = descriptor == "V"
     internal val isPrimitive: Boolean get() = descriptor.length == 1 && descriptor[0] in PRIMITIVE_CODES
-    /** Wide primitives occupy two register slots (spec §4.1). */
+    /** Wide primitives occupy two register slots. */
     internal val isWide: Boolean get() = descriptor == "J" || descriptor == "D"
     internal val isArray: Boolean get() = descriptor[0] == '['
     /** Reference kinds: class types and arrays (arrays of primitives included). */
