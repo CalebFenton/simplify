@@ -41,7 +41,7 @@ class Invoker internal constructor(
                 GuestThrowables.noClassDefFound(call.target.definingClass),
             )
             MethodLookup.NoSuchMethod -> return InvocationPreparation.ThrowResolution(
-                GuestThrowables.noSuchMethod(call.target),
+                GuestThrowables.noSuchMethod(call.target, call.kind),
             )
             is MethodLookup.Runnable -> lookup.method
             is MethodLookup.NoBody -> lookup.method
@@ -78,13 +78,9 @@ class Invoker internal constructor(
     internal fun applicableClassInitTarget(call: PreparedInvocation): VirtualType? = call.classInitTarget
 
     /** Selects a backend for an already prepared call. The scheduler applies the returned plan. */
-    internal fun plan(
-        preparation: InvocationPreparation.Ready,
-        hostMaterializable: (Value) -> Boolean,
-        trackedReference: (Value) -> Boolean,
-    ): InvocationPlan {
+    internal fun plan(preparation: InvocationPreparation.Ready, frame: Frame): InvocationPlan {
         val declines = mutableListOf<String>()
-        val metadata = preparation.invocation.probeMetadata(hostMaterializable, trackedReference)
+        val metadata = preparation.invocation.probeMetadata(frame)
         for (backend in backends) {
             when (val probe = backend.probe(metadata, preparation.lookup)) {
                 is BackendProbe.Declined -> declines += "${backend.name}: ${probe.diagnostic}"

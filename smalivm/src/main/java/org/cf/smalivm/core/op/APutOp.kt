@@ -4,18 +4,19 @@ import org.cf.smalivm.core.CastOutcome
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.GuestThrowables
 import org.cf.smalivm.core.HeapRef
+import org.cf.smalivm.core.HierarchySnapshot
 import org.cf.smalivm.core.Op
 import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpExecution
 import org.cf.smalivm.core.OpUpdate
 import org.cf.smalivm.core.SideEffectLevel
-import org.cf.smalivm.core.TypeHierarchy
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
-import org.cf.smalivm.core.isDalvikNull
 import org.cf.smalivm.core.castOutcome
+import org.cf.smalivm.core.isDalvikNull
 import org.cf.smalivm.core.isNull
 import org.cf.smalivm.core.join
+import org.cf.smalivm.core.runtimeTypeOf
 
 /**
  * Stores one element into a tracked array: all seven `aput*` opcodes. The store goes into the array object,
@@ -28,8 +29,9 @@ import org.cf.smalivm.core.join
  *
  * The stored element is the value as the array's component holds it ([slotWrite]), typed with the
  * component. An unknown value or index loses precision only where the write may have landed: an unknown
- * index joins every element with the stored value. A store into an array the engine cannot name (unprovable
- * or untracked) records `STRONG`; a store into a tracked array records `WEAK`.
+ * index joins every element with the stored value. ART checks before it writes, so only an arm that stores
+ * declares an effect: `STRONG` into an array the engine cannot name (unprovable or untracked), `WEAK` into a
+ * tracked one.
  */
 internal class APutOp(
     address: Int,
@@ -39,8 +41,8 @@ internal class APutOp(
     private val indexRegister: Int,
     /** True for `aput-object`, the one form whose value operand is read as a reference. */
     private val storesAReference: Boolean,
-    /** Answers `aastore`'s instance test, and joins an element with the stored value when the index is unprovable. */
-    private val hierarchy: TypeHierarchy,
+    /** Answers `aastore`'s instance test and which classes are final, and joins an element with the stored value. */
+    private val hierarchy: HierarchySnapshot,
 ) : Op(address) {
 
     /** Whether the store throws `ArrayStoreException`, and if it refuses, which rule refused it. */
@@ -74,35 +76,37 @@ internal class APutOp(
         val array = frame.readArrayOperand(arrayRegister)
         val index = frame.read(indexRegister)
 
-        val check = storeCheck(value, componentOf(array)) { frame.heapObject(it)?.type }
-        val arrayStore = { update: OpUpdate -> GuestThrowables.throwing(GuestThrowables.arrayStore(value.type), update) }
-        if (check == StoreCheck.REFUSED_BY_SHAPE) return OpExecution.single(arrayStore(OpUpdate.NONE))
+        val heapObjectTypeOf = { ref: HeapRef -> frame.heapObject(ref)?.type }
+        val component = componentOf(array)
+        val runtimeArrayType = when (array) {
+            is ArrayOperand.Tracked -> array.array.type
+            is ArrayOperand.Unprovable -> array.tag?.takeIf { component != null && isExact(component) }
+            is ArrayOperand.NotTracked -> array.tag.takeIf { component != null && isExact(component) }
+            ArrayOperand.Null -> null
+        }
+        val check = storeCheck(value, component, componentIsExact = runtimeArrayType != null, heapObjectTypeOf)
+        val arrayStore = GuestThrowables.throwing(
+            GuestThrowables.arrayStore(runtimeClassOf(value, heapObjectTypeOf), runtimeArrayType),
+        )
+        if (check == StoreCheck.REFUSED_BY_SHAPE) return OpExecution.single(arrayStore)
 
         return when (array) {
-            is ArrayOperand.Unprovable -> {
-                val effect = OpUpdate.effect(SideEffectLevel.STRONG)
-                OpExecution.of(
-                    buildList<OpArm> {
-                        if (check.storeCanProceed) add(OpArm.Continue(effect))
-                        add(GuestThrowables.throwing(GuestThrowables.nullPointer(), effect))
-                        add(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null), effect))
-                        if (check.arrayStoreIsFeasible) add(arrayStore(effect))
-                    },
-                )
-            }
-            ArrayOperand.Null -> OpExecution.single(GuestThrowables.throwing(GuestThrowables.nullPointer()))
-            is ArrayOperand.NotTracked -> {
-                val effect = OpUpdate.effect(SideEffectLevel.STRONG)
-                OpExecution.of(
-                    buildList<OpArm> {
-                        if (check.storeCanProceed) add(OpArm.Continue(effect))
-                        if (check.arrayStoreIsFeasible) add(arrayStore(effect))
-                    },
-                )
-            }
-            is ArrayOperand.Tracked -> storeInto(array, index, storedValue(value, array.component), check) {
-                arrayStore(OpUpdate.NONE)
-            }
+            is ArrayOperand.Unprovable -> OpExecution.of(
+                buildList<OpArm> {
+                    if (check.storeCanProceed) add(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)))
+                    add(GuestThrowables.throwing(NULL_ARRAY))
+                    add(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null, null)))
+                    if (check.arrayStoreIsFeasible) add(arrayStore)
+                },
+            )
+            ArrayOperand.Null -> OpExecution.single(GuestThrowables.throwing(NULL_ARRAY))
+            is ArrayOperand.NotTracked -> OpExecution.of(
+                buildList<OpArm> {
+                    if (check.storeCanProceed) add(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)))
+                    if (check.arrayStoreIsFeasible) add(arrayStore)
+                },
+            )
+            is ArrayOperand.Tracked -> storeInto(array, index, storedValue(value, array.component), check, arrayStore)
         }
     }
 
@@ -111,29 +115,47 @@ internal class APutOp(
         indexOperand: Value,
         stored: Value,
         check: StoreCheck,
-        arrayStore: () -> OpArm.Throw,
+        arrayStore: OpArm.Throw,
     ): OpExecution {
         val weak = OpUpdate.effect(SideEffectLevel.WEAK)
+        val length = array.array.length
         return when (val index = array.array.indexOf(indexOperand)) {
             is ArrayIndex.OutOfBounds ->
-                OpExecution.single(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(index.index)))
+                OpExecution.single(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(length, index.index)))
             // The write landed on exactly one element, so each element is its old value or the stored one.
             ArrayIndex.Unprovable -> OpExecution.of(
                 buildList<OpArm> {
                     if (check.storeCanProceed) {
-                        val joined = List(array.array.length) { join(array.array.element(it), stored, hierarchy) }
+                        val joined = List(length) { join(array.array.element(it), stored, hierarchy) }
                         add(OpArm.Continue(OpUpdate.writeArrayElements(array.ref, 0, joined).then(weak)))
                     }
-                    add(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(null)))
-                    if (check.arrayStoreIsFeasible) add(arrayStore())
+                    add(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(length, null)))
+                    if (check.arrayStoreIsFeasible) add(arrayStore)
                 },
             )
             is ArrayIndex.InBounds -> {
-                if (!check.storeCanProceed) return OpExecution.single(arrayStore())
+                if (!check.storeCanProceed) return OpExecution.single(arrayStore)
                 val store = OpArm.Continue(OpUpdate.writeArrayElement(array.ref, index.index, stored).then(weak))
-                if (check.arrayStoreIsFeasible) OpExecution.of(store, arrayStore()) else OpExecution.single(store)
+                if (check.arrayStoreIsFeasible) OpExecution.of(store, arrayStore) else OpExecution.single(store)
             }
         }
+    }
+
+    /**
+     * Whether every array whose component is assignable to [component] has exactly that component, so a
+     * register tag names the runtime array type: a primitive, a final class, or an array of either.
+     */
+    private fun isExact(component: VirtualType): Boolean = when {
+        component.isPrimitive -> true
+        component.isArray -> isExact(requireNotNull(component.componentType))
+        else -> hierarchy.isFinal(component)
+    }
+
+    /** The class ART names for the stored value: a primitive's type, else the object's runtime class. */
+    private fun runtimeClassOf(value: Value, heapObjectTypeOf: (HeapRef) -> VirtualType?): VirtualType? = when {
+        value.type?.isPrimitive == true -> value.type
+        value is Value.Known -> runtimeTypeOf(value, heapObjectTypeOf)
+        else -> null
     }
 
     /**
@@ -150,11 +172,13 @@ internal class APutOp(
     /**
      * The `ArrayStoreException` decision, first match wins. [component] is null when neither an array object
      * nor the register tag names one. Assignability is `aastore`'s instance test of the value against the
-     * component, so it is [castOutcome]'s.
+     * component, so it is [castOutcome]'s. A tag's component bounds the runtime component from above, so
+     * against an inexact one a refusal holds and an acceptance does not.
      */
     private fun storeCheck(
         value: Value,
         component: VirtualType?,
+        componentIsExact: Boolean,
         heapObjectTypeOf: (HeapRef) -> VirtualType?,
     ): StoreCheck {
         // Storing null never throws. Dalvik's integral zero is null only in a reference context, which among
@@ -171,7 +195,9 @@ internal class APutOp(
         if (valueIsPrimitive && component.isPrimitive) return StoreCheck.PERMITTED
         if (valueIsPrimitive != component.isPrimitive) return StoreCheck.REFUSED_BY_SHAPE
         return when (castOutcome(value, component, hierarchy, heapObjectTypeOf)) {
-            CastOutcome.ReadsAsNull, CastOutcome.Definitely, CastOutcome.NullOrInstance -> StoreCheck.PERMITTED
+            CastOutcome.ReadsAsNull -> StoreCheck.PERMITTED
+            CastOutcome.Definitely, CastOutcome.NullOrInstance ->
+                if (componentIsExact) StoreCheck.PERMITTED else StoreCheck.UNANSWERABLE
             CastOutcome.Never -> StoreCheck.REFUSED_BY_ASSIGNABILITY
             CastOutcome.Unprovable -> StoreCheck.UNANSWERABLE
         }
@@ -185,4 +211,8 @@ internal class APutOp(
         }
 
     override fun toString(): String = "$name r$valueRegister, r$arrayRegister, r$indexRegister"
+
+    private companion object {
+        val NULL_ARRAY = GuestThrowables.nullPointer(GuestThrowables.NullOperand.ARRAY_WRITE)
+    }
 }

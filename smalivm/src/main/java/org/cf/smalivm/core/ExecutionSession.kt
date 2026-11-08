@@ -820,7 +820,7 @@ class ExecutionSession internal constructor(
                 is InvocationPreparation.Ready -> prepared
             }
             if (receiverIsNull(transition.kind, preparation.invocation.receiver)) {
-                return@planContained planInvokeNullReceiver(node)
+                return@planContained planInvokeNullReceiver(node, transition)
             }
             if (preparation.lookup is MethodLookup.DefaultConflict) {
                 return@planContained planThrow(
@@ -839,11 +839,7 @@ class ExecutionSession internal constructor(
                 raiseSynchronousEffect(node, SideEffectLevel.WEAK)
             }
             when (
-                val plan = invoker.plan(
-                    preparation,
-                    node.frame::isHostMaterializable,
-                    node.frame::isTrackedReference,
-                )
+                val plan = invoker.plan(preparation, node.frame)
             ) {
                 is InvocationPlan.RunGuest -> {
                     val guestPlan = plan
@@ -1111,7 +1107,7 @@ class ExecutionSession internal constructor(
             } else {
                 node.frame.getStaticField(operation.field.declaringType, operation.field.descriptor)
             }
-            synchronousContinuation(node, value, constructorReceiver = null)
+            synchronousContinuation(node, fieldGetResult(value, operation.field.fieldType), constructorReceiver = null)
         }
         IntrinsicOperation.ReadThrowableCause -> {
             val receiver = plan.invocation.receiver
@@ -1342,7 +1338,7 @@ class ExecutionSession internal constructor(
         argumentTypes: List<VirtualType>,
         receiverType: VirtualType?,
     ): Committable {
-        if (receiverIsNull(transition.kind, arguments.firstOrNull())) return planInvokeNullReceiver(node)
+        if (receiverIsNull(transition.kind, arguments.firstOrNull())) return planInvokeNullReceiver(node, transition)
         node.dispatchCandidates = opaque.candidates
         node.invocationDiagnostic = opaque.diagnostic
         node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.STRONG)
@@ -1425,10 +1421,13 @@ class ExecutionSession internal constructor(
         )
     }
 
-    private fun planInvokeNullReceiver(node: ExecutionNode): Committable =
+    private fun planInvokeNullReceiver(node: ExecutionNode, transition: OpArm.Invoke): Committable =
         planThrow(
             node,
-            normalizeThrow(ThrowEvidence.Fresh(GuestThrowables.nullPointer("invoke receiver is null")), node.frame),
+            normalizeThrow(
+                ThrowEvidence.Fresh(GuestThrowables.nullInvokeReceiver(transition.target, transition.kind)),
+                node.frame,
+            ),
         )
 
     /**

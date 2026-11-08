@@ -1,5 +1,9 @@
 package org.cf.smalivm.core
 
+import java.lang.reflect.Constructor
+import java.lang.reflect.Executable
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.Collections
 
 /** Scheduler-local call input with one atomic value per register word in the invoke instruction. */
@@ -78,14 +82,21 @@ class PreparedInvocation private constructor(
     }
 }
 
-/** Probe-only argument facts. This type contains no Java value, scheduler [Value], or [HeapRef]. */
+/**
+ * Probe-only argument facts. This type contains no Java value, scheduler [Value], or [HeapRef].
+ * [reflectedTarget] is what a reflected `Method` or `Constructor` value names.
+ */
 data class ProbeArgument(
     val type: VirtualType?,
     val isLatticeKnown: Boolean,
     val isHostMaterializable: Boolean,
     val isNullReference: Boolean,
     val isTrackedReference: Boolean,
+    val reflectedTarget: ReflectedTarget? = null,
 )
+
+/** A reflected method or constructor; invoking it initializes its class when it is static or a constructor. */
+data class ReflectedTarget(val method: MethodDescriptor, val initializesClass: Boolean)
 
 /** Immutable metadata used before one backend accepts execution. */
 class BackendInvocation internal constructor(
@@ -101,29 +112,40 @@ class BackendInvocation internal constructor(
     val arguments: List<ProbeArgument> = Collections.unmodifiableList(arguments.toList())
 }
 
-internal fun PreparedInvocation.probeMetadata(
-    hostMaterializable: (Value) -> Boolean,
-    trackedReference: (Value) -> Boolean,
-): BackendInvocation = BackendInvocation(
+internal fun PreparedInvocation.probeMetadata(frame: Frame): BackendInvocation = BackendInvocation(
     target,
     callerClass,
     kind,
     returnType,
     parameterTypes.toList(),
-    receiver?.toProbeArgument(hostMaterializable, trackedReference),
-    arguments.map { it.toProbeArgument(hostMaterializable, trackedReference) },
+    receiver?.toProbeArgument(frame),
+    arguments.map { it.toProbeArgument(frame) },
 )
 
-private fun Value.toProbeArgument(
-    hostMaterializable: (Value) -> Boolean,
-    trackedReference: (Value) -> Boolean,
-): ProbeArgument = ProbeArgument(
+private fun Value.toProbeArgument(frame: Frame): ProbeArgument = ProbeArgument(
     type,
     isLatticeKnown = this is Value.Known,
-    isHostMaterializable = hostMaterializable(this),
+    isHostMaterializable = frame.isHostMaterializable(this),
     isNullReference = readsAsNullReference,
-    isTrackedReference = trackedReference(this),
+    isTrackedReference = frame.isTrackedReference(this),
+    reflectedTarget = ((this as? Value.Known)?.raw as? HeapRef)
+        ?.let { frame.hostObjectAt(it) as? Executable }
+        ?.reflectedTargetOrNull(),
 )
+
+/** What a reflected method or constructor names, or null when the host cannot describe it. */
+internal fun Executable.reflectedTargetOrNull(): ReflectedTarget? = hostBoundary({ null }) {
+    val owner = virtualTypeOfHostClass(declaringClass)
+    val parameters = parameterTypes.joinToString("") { virtualTypeOfHostClass(it).descriptor }
+    when (this) {
+        is Method -> ReflectedTarget(
+            MethodDescriptor(owner, name, "($parameters)${virtualTypeOfHostClass(returnType).descriptor}"),
+            initializesClass = Modifier.isStatic(modifiers),
+        )
+        is Constructor<*> -> ReflectedTarget(MethodDescriptor(owner, "<init>", "($parameters)V"), initializesClass = true)
+        else -> null
+    }
+}
 
 /** A value returned by a synchronous backend. Mutable references carry their actual JVM object. */
 sealed interface HostValue {
