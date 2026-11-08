@@ -1,13 +1,6 @@
-# WORKLIST ROW 12, FIRST HALF -- "Ordering: NPE strictly precedes AIOOBE precedes ASE".
-# Class B, and named the HIGHEST-VALUE ITEM on the whole worklist.
-#
-# WHY IT IS THE HIGHEST-VALUE ITEM: the ordering rests entirely on [JVMS] `aastore`'s
-# "Otherwise" chaining -- pure inheritance, no ART citation, no [BC] support. And
-# worklist row 8 is a DOCUMENTED case of ART inverting exactly this kind of inherited
-# ordering: `new-array`'s inherited rule is "resolve the component type, then check the
-# size", and ART's `CheckArrayAlloc` (`entrypoint_utils-inl.h:292-322`) tests the count
-# FIRST. One inherited ordering rule already turned out to be backwards, so this one is
-# not entitled to the benefit of the doubt.
+# Ordering: NPE strictly precedes AIOOBE precedes ASE. The order rests on [JVMS] `aastore`'s
+# "Otherwise" chaining with no ART or [BC] support, and ART already inverts the inherited order for
+# `new-array` (see Fx_NewArrayAbsentTypeNegativeLength), so it is measured here.
 #
 # THIS FIXTURE'S CELL: null array AND an out-of-range index, simultaneously. If NPE wins
 # the answer is `java.lang.NullPointerException`; if the bounds check somehow runs first

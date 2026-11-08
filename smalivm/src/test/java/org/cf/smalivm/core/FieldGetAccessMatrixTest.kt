@@ -236,7 +236,7 @@ class FieldGetAccessMatrixTest {
         val metadata = virtualField(FieldVisibility.PRIVATE, FieldStorage.INSTANCE)
         val result = FieldSetAccessibleEmulator().execute(
             EmulatorInvocation(
-                MethodDescriptor(FIELD, "setAccessible", "(Z)V"),
+                MethodSignature(FIELD, "setAccessible", "(Z)V"),
                 UNRELATED,
                 InvokeKind.VIRTUAL,
                 VirtualType.of("V"),
@@ -258,7 +258,7 @@ class FieldGetAccessMatrixTest {
     @Test
     fun setAccessibleRegistrationDeclaresWeakEffectAndTheLaterAliasReadUsesTheOverride() {
         val vm = VmServices(classIndex)
-        val target = MethodDescriptor(FIELD, "setAccessible", "(Z)V")
+        val target = MethodSignature(FIELD, "setAccessible", "(Z)V")
         val registration = requireNotNull(vm.invocationServices.emulators.find(target))
 
         val graph = CoreTester.execute(UNRELATED.descriptor, "readPrivateInstanceWithAliasOverride()I")
@@ -360,7 +360,7 @@ class FieldGetAccessMatrixTest {
         val lookup = FieldLookupEmulator(classIndex.currentResolver(), policy)
         val result = lookup.execute(
             EmulatorInvocation(
-                MethodDescriptor(CLASS, "getDeclaredField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;"),
+                MethodSignature(CLASS, "getDeclaredField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;"),
                 UNRELATED,
                 InvokeKind.VIRTUAL,
                 FIELD,
@@ -413,7 +413,7 @@ class FieldGetAccessMatrixTest {
     fun sameDescriptorFromAnotherLoaderCannotReuseHostPolicyAuthorization() {
         val duplicateClass = duplicateFieldHostFixtureClass()
         val metadata = hostMetadata(duplicateClass.getDeclaredField("publicStatic"))
-        val exactField = StaticFieldDescriptor(metadata.declaringType, metadata.name, metadata.fieldType)
+        val exactField = FieldSignature(metadata.declaringType, metadata.name, metadata.fieldType)
         val policies = listOf(
             ReflectionPolicy(safeClasses = setOf(metadata.declaringType)),
             ReflectionPolicy(exactSafeStaticFields = setOf(exactField)),
@@ -438,7 +438,7 @@ class FieldGetAccessMatrixTest {
         val metadata = hostMetadata(java.lang.Integer::class.java.getDeclaredField("MAX_VALUE"))
         val comparable = VirtualType.of("Ljava/lang/Comparable;")
         val unsafeInterface = ReflectionPolicy(
-            exactUnsafeMethods = setOf(MethodDescriptor(comparable, "<clinit>", "()V")),
+            exactUnsafeMethods = setOf(MethodSignature(comparable, "<clinit>", "()V")),
             safeClasses = setOf(metadata.declaringType),
         )
         val authorized = ReflectionPolicy(safeClasses = setOf(metadata.declaringType))
@@ -625,7 +625,7 @@ class FieldGetAccessMatrixTest {
         return nodes
     }
 
-    private fun lookup(type: VirtualType, name: String, target: MethodDescriptor): SynchronousCallResult {
+    private fun lookup(type: VirtualType, name: String, target: MethodSignature): SynchronousCallResult {
         val lookup = FieldLookupEmulator(classIndex.currentResolver(), ReflectionPolicy())
         return lookup.execute(
             EmulatorInvocation(
@@ -729,7 +729,7 @@ class FieldGetAccessMatrixTest {
 
     private class InvokeTestOp(
         address: Int,
-        val target: MethodDescriptor,
+        val target: MethodSignature,
         private val registers: IntArray,
     ) : Op(address) {
         override val name: String = "field-get-test-invoke"
@@ -771,9 +771,9 @@ class FieldGetAccessMatrixTest {
         val HOST_FIXTURE = virtualTypeOfHostClass(HostFieldFixture::class.java)
         val HOST_PACKAGE_FIXTURE = virtualTypeOfHostClass(FieldHostFixture::class.java)
 
-        val FIELD_GET = MethodDescriptor(FIELD, "get", "(Ljava/lang/Object;)Ljava/lang/Object;")
-        val FIELD_SET_ACCESSIBLE = MethodDescriptor(FIELD, "setAccessible", "(Z)V")
-        val CLASS_GET_FIELD = MethodDescriptor(CLASS, "getField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
+        val FIELD_GET = MethodSignature(FIELD, "get", "(Ljava/lang/Object;)Ljava/lang/Object;")
+        val FIELD_SET_ACCESSIBLE = MethodSignature(FIELD, "setAccessible", "(Z)V")
+        val CLASS_GET_FIELD = MethodSignature(CLASS, "getField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;")
 
 
         private val accessCases = listOf(
@@ -864,7 +864,7 @@ private class HostFieldFixture {
 
 private fun Outcome.returnedValue(): Value? = (this as Outcome.Returned).value
 
-private fun ExecutionNode.invocationTarget(): MethodDescriptor? {
+private fun ExecutionNode.invocationTarget(): MethodSignature? {
     val invoke = op as? org.cf.smalivm.core.op.InvokeOp ?: return null
     return (invoke.execute(frame).arms.single() as OpArm.Invoke).target
 }

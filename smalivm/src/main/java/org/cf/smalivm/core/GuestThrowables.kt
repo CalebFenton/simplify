@@ -50,7 +50,8 @@ internal object GuestThrowables {
     fun throwing(recipe: ThrowableRecipe, update: OpUpdate = OpUpdate.NONE): OpArm.Throw =
         OpArm.Throw(update, ThrowEvidence.Fresh(recipe))
 
-    fun divideByZero(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.ARITHMETIC, "/ by zero")
+    /** ART's `ThrowArithmeticExceptionDivideByZero()` text. */
+    fun divideByZero(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.ARITHMETIC, "divide by zero")
 
     /** ART's `throw` of a null reference, which carries no message (`ThrowNullPointerException()`). */
     fun nullPointer(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.NULL_POINTER)
@@ -68,18 +69,17 @@ internal object GuestThrowables {
         ThrowableRecipe(SynthesizedThrowable.NULL_POINTER, operand.message)
 
     /** ART's `ThrowNullPointerExceptionForFieldAccess` over the resolved field and the running [method]. */
-    fun nullFieldAccess(field: InstanceFieldLookup.Resolved, method: MethodDescriptor, isRead: Boolean): ThrowableRecipe {
-        val name = field.descriptor.substringAfter("->").substringBefore(':')
+    fun nullFieldAccess(field: InstanceFieldLookup.Resolved, method: MethodSignature, isRead: Boolean): ThrowableRecipe {
         val access = if (isRead) "read from" else "write to"
         return ThrowableRecipe(
             SynthesizedThrowable.NULL_POINTER,
-            "Attempt to $access field '${prettyDescriptor(field.type)} ${prettyDescriptor(field.definingClass)}.$name' " +
+            "Attempt to $access field '${prettyDescriptor(field.type)} ${prettyDescriptor(field.definingClass)}.${field.field.name}' " +
                 "on a null object reference in method '${prettyMethod(method)}'",
         )
     }
 
     /** ART's `ThrowNullPointerExceptionForMethodAccess` over the call site's referenced [target]. */
-    fun nullInvokeReceiver(target: MethodDescriptor, kind: InvokeKind): ThrowableRecipe = ThrowableRecipe(
+    fun nullInvokeReceiver(target: MethodSignature, kind: InvokeKind): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.NULL_POINTER,
         "Attempt to invoke ${kind.artName} method '${prettyMethod(target)}' on a null object reference",
     )
@@ -154,15 +154,15 @@ internal object GuestThrowables {
         ThrowableRecipe(SynthesizedThrowable.NO_SUCH_FIELD, fieldDescriptor)
 
     /** ART's `ThrowNoSuchMethodError` over the call site's referenced [method] and invoke [kind]. */
-    fun noSuchMethod(method: MethodDescriptor, kind: InvokeKind): ThrowableRecipe = ThrowableRecipe(
+    fun noSuchMethod(method: MethodSignature, kind: InvokeKind): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.NO_SUCH_METHOD,
         "No ${kind.artName} method ${method.nameAndProto} in class ${method.definingClass.descriptor} or its super classes",
     )
 
     /** A call that resolves to more than one maximally specific default method. */
-    fun conflictingDefaultMethods(method: MethodDescriptor): ThrowableRecipe = ThrowableRecipe(
+    fun conflictingDefaultMethods(method: MethodSignature): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.INCOMPATIBLE_CLASS_CHANGE,
-        "Conflicting default method implementations ${method.definingClass.descriptor}->${method.nameAndProto}",
+        "Conflicting default method implementations $method",
     )
 
     /**
@@ -170,7 +170,7 @@ internal object GuestThrowables {
      * abstract [method]: `abstract method "<PrettyMethod>" on receiver <PrettyClass>`. A receiver whose class the
      * engine does not know omits the message.
      */
-    fun abstractMethod(method: MethodDescriptor, receiverClass: VirtualType?): ThrowableRecipe = ThrowableRecipe(
+    fun abstractMethod(method: MethodSignature, receiverClass: VirtualType?): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.ABSTRACT_METHOD,
         receiverClass?.let {
             "abstract method \"${prettyMethod(method)}\" on receiver java.lang.Class<${prettyDescriptor(it)}>"
@@ -203,9 +203,9 @@ internal object GuestThrowables {
     }
 
     /** ART's `PrettyMethod` with its signature: `int java.lang.String.indexOf(int, int)`. */
-    private fun prettyMethod(method: MethodDescriptor): String {
-        val returnType = prettyDescriptor(VirtualType.of(method.proto.substringAfter(')')))
-        val parameters = method.parameterTypes().joinToString(", ", transform = ::prettyDescriptor)
+    private fun prettyMethod(method: MethodSignature): String {
+        val returnType = prettyDescriptor(method.returnType)
+        val parameters = method.parameterTypes.joinToString(", ", transform = ::prettyDescriptor)
         return "$returnType ${prettyDescriptor(method.definingClass)}.${method.name}($parameters)"
     }
 

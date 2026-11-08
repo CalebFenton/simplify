@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.cf.smalivm.core.requireMethodView
 
 /**
  * The twelve `if-*` opcodes (`22t`) and their `*z` forms (`21t`). Migrated from

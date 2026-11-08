@@ -17,10 +17,9 @@ internal object InitialProgramImporter {
         val frameworkCatalog = FrameworkCatalog.fromArtifact(FrameworkArtifact.load())
         val importedApplicationClasses = definedApplicationClasses(input.classes, frameworkCatalog.artifact).map { immutable ->
             val methods = immutable.methods.map { method ->
-                val methodSignature = com.android.tools.smali.dexlib2.formatter.DexFormatter.INSTANCE.getMethodDescriptor(method)
                 ApplicationMethodDefinition.import(
                     method,
-                    revisionAuthority.newApplicationMethodRevision(methodSignature),
+                    revisionAuthority.newApplicationMethodRevision(MethodSignature.of(method)),
                 )
             }
             ApplicationClassDefinition(

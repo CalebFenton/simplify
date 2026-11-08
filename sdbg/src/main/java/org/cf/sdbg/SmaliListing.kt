@@ -3,17 +3,16 @@ package org.cf.sdbg
 import org.cf.smalivm.core.Breakpoint
 import org.cf.smalivm.core.Debugger
 import org.cf.smalivm.core.MethodLookup
+import org.cf.smalivm.core.MethodSignature
 import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.ProgramDexWriter
 import org.cf.smalivm.core.VmServices
-import org.cf.smalivm.core.VirtualType
 import com.android.tools.smali.baksmali.Adaptors.ClassDefinition
 import com.android.tools.smali.baksmali.Adaptors.MethodDefinition
 import com.android.tools.smali.baksmali.BaksmaliOptions
 import com.android.tools.smali.baksmali.formatter.BaksmaliFormatter
 import com.android.tools.smali.baksmali.formatter.BaksmaliWriter
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
-import com.android.tools.smali.dexlib2.formatter.DexFormatter
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.Method
 import java.io.StringWriter
@@ -39,16 +38,19 @@ internal class SmaliListing(private val services: VmServices) {
         writeListing(writer, text.toString(), definition.classDef.methods.iterator(), debugger, 0, Int.MAX_VALUE)
     }
 
-    fun writeMethod(writer: Writer, signature: String, debugger: Debugger, start: Int = 0, stop: Int = Int.MAX_VALUE): Boolean {
+    fun writeMethod(
+        writer: Writer,
+        signature: MethodSignature,
+        debugger: Debugger,
+        start: Int = 0,
+        stop: Int = Int.MAX_VALUE,
+    ): Boolean {
         require(start >= 0 && stop >= start) { "Invalid instruction range: $start,$stop" }
-        val owner = signature.substringBefore("->")
-        if (!hasClass(owner)) return false
-        val lookup = services.classIndex.lookupMethod(VirtualType.of(owner), signature.substringAfter("->"))
-        val resolvedSignature = (lookup as? MethodLookup.Runnable)?.view?.signature ?: signature
-        val definition = classDefinition(resolvedSignature.substringBefore("->"))
-        val method = definition.classDef.methods.firstOrNull {
-            DexFormatter.INSTANCE.getMethodDescriptor(it) == resolvedSignature
-        }
+        if (!hasClass(signature.definingClass.descriptor)) return false
+        val resolved = (services.classIndex.lookupMethod(signature) as? MethodLookup.Runnable)?.view?.signature
+            ?: signature
+        val definition = classDefinition(resolved.definingClass.descriptor)
+        val method = definition.classDef.methods.firstOrNull { MethodSignature.of(it) == resolved }
             ?: return false
         val text = StringWriter()
         val output = BaksmaliWriter(text)
@@ -88,15 +90,14 @@ internal class SmaliListing(private val services: VmServices) {
         val cursor = debugger.cursor
         val formatter = BaksmaliFormatter()
         var view: MethodView? = null
-        var signature: String? = null
+        var signature: MethodSignature? = null
         var address: Int? = null
         for (line in text.lineSequence()) {
             val trimmed = line.trim()
             if (line.startsWith(".method ")) {
                 val method = methods.next()
-                signature = DexFormatter.INSTANCE.getMethodDescriptor(method)
-                view = (services.classIndex.lookupMethod(
-                    VirtualType.of(method.definingClass), signature.substringAfter("->")) as? MethodLookup.Runnable)?.view
+                signature = MethodSignature.of(method)
+                view = (services.classIndex.lookupMethod(signature) as? MethodLookup.Runnable)?.view
                 address = null
                 val shortDescriptor = formatter.getShortMethodDescriptor(method)
                 check(line.endsWith(shortDescriptor)) { "Unexpected Baksmali method header: $line" }

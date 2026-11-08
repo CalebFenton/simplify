@@ -2,17 +2,17 @@ package org.cf.smalivm.core
 
 /** How an emulator registration selects a resolved method. */
 sealed interface EmulatorMatcher {
-    data class Exact(val target: MethodDescriptor) : EmulatorMatcher
+    data class Exact(val target: MethodSignature) : EmulatorMatcher
 
     class Predicate(
         val id: String,
-        private val predicate: (MethodDescriptor) -> Boolean,
+        private val predicate: (MethodSignature) -> Boolean,
     ) : EmulatorMatcher {
         init {
             require(id.isNotBlank()) { "An emulator predicate needs a stable non-blank ID" }
         }
 
-        internal fun matches(target: MethodDescriptor): Boolean = predicate(target)
+        internal fun matches(target: MethodSignature): Boolean = predicate(target)
     }
 }
 
@@ -32,7 +32,7 @@ data class EmulatorRegistration(
 
 /** Deterministic per-VM emulator registrations. */
 class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = emptyList()) {
-    private val exactRegistrations = linkedMapOf<MethodDescriptor, EmulatorRegistration>()
+    private val exactRegistrations = linkedMapOf<MethodSignature, EmulatorRegistration>()
     private val predicateRegistrations = linkedMapOf<String, PredicateRegistration>()
 
     init {
@@ -49,7 +49,7 @@ class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = em
     }
 
     /** Finds an exact registration first, then the first matching predicate in registration order. */
-    fun find(target: MethodDescriptor): EmulatorRegistration? =
+    fun find(target: MethodSignature): EmulatorRegistration? =
         exactRegistrations[target]
             ?: predicateRegistrations.values.firstOrNull { it.matcher.matches(target) }?.registration
 

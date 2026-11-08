@@ -106,8 +106,8 @@ class DebuggerTest {
             }
         }
         collect(outerInvoke)
-        assertTrue(nestedNodes.any { it.view.signature == "$INVOKE_REVIEW->innerWithTwoHandlers()I" })
-        assertTrue(nestedNodes.any { it.view.signature == "Linvoke_review_callee;->throwsNpe()V" })
+        assertTrue(nestedNodes.any { it.view.signature.toString() == "$INVOKE_REVIEW->innerWithTwoHandlers()I" })
+        assertTrue(nestedNodes.any { it.view.signature.toString() == "Linvoke_review_callee;->throwsNpe()V" })
         assertTrue(nestedNodes.filter { it.activation !== outerInvoke.activation }.all { it.progress is OpProgress.Executed })
         assertSame(outerInvoke.activation, continuation.activation)
         assertEquals(3, continuation.address)
@@ -172,7 +172,7 @@ class DebuggerTest {
         val retry = debugger.stepOver()!!
 
         val initializerEntry = trigger.children.single()
-        assertEquals(CLASS_INIT_WITNESS, initializerEntry.view.signature)
+        assertEquals(CLASS_INIT_WITNESS, initializerEntry.view.signature.toString())
         assertTrue(initializerEntry.progress is OpProgress.Executed)
         assertTrue(initializerEntry.children.single().progress is OpProgress.Executed)
         assertTrue(initializerEntry.children.single().children.single().progress is OpProgress.Executed)
@@ -572,9 +572,9 @@ class DebuggerTest {
     @Test
     fun breakpointChangesReturnResultsAndExposeStableImmutableInsertionOrderedSnapshots() {
         val debugger = Debugger(sessionOf("returnFive()I"))
-        val first = Breakpoint("Lfuture/first;->run()V", 3)
-        val second = Breakpoint("Lfuture/second;->run()V", 1)
-        val third = Breakpoint("Lfuture/third;->run()V", 2)
+        val first = Breakpoint(MethodSignature.parse("Lfuture/first;->run()V"), 3)
+        val second = Breakpoint(MethodSignature.parse("Lfuture/second;->run()V"), 1)
+        val third = Breakpoint(MethodSignature.parse("Lfuture/third;->run()V"), 2)
 
         assertTrue(debugger.addBreakpoint(first))
         assertTrue(debugger.addBreakpoint(second))
@@ -604,7 +604,7 @@ class DebuggerTest {
         val direct = sessionOf("returnFive()I")
         val driven = sessionOf("returnFive()I")
         val debugger = Debugger(driven)
-        debugger.addBreakpoint(Breakpoint("Lnever/reached;->future()V", 17))
+        debugger.addBreakpoint(Breakpoint(MethodSignature.parse("Lnever/reached;->future()V"), 17))
 
         direct.run()
         assertNull(debugger.runToBreakpoint())
@@ -1126,18 +1126,18 @@ class DebuggerTest {
     )
 
     private data class StructuralTrace(
-        val methodSignature: String,
+        val methodSignature: MethodSignature,
         val address: Int,
         val outcome: Outcome?,
         val executed: Boolean,
     )
 
     private data class FinalNodeFact(
-        val methodSignature: String,
+        val methodSignature: MethodSignature,
         val address: Int,
         val outcome: Outcome?,
         val executed: Boolean,
-        val children: List<Pair<String, Int>>,
+        val children: List<Pair<MethodSignature, Int>>,
         val sideEffectLevel: SideEffectLevel,
         val dispatchCandidates: Set<String>,
         val invocationDiagnostic: String?,
@@ -1331,7 +1331,7 @@ class DebuggerTest {
         const val CLASS_FOR_NAME = "Lbackend/class_for_name_test;"
         const val CLASS_INIT_TRIGGER = "Lclass_init/trigger;"
         const val CLASS_INIT_WITNESS = "Lclass_init/witness;-><clinit>()V"
-        const val CALLEE_RETURNS_SEVEN = "Lcalls/callee;->returnsSeven()I"
+        val CALLEE_RETURNS_SEVEN = MethodSignature.parse("Lcalls/callee;->returnsSeven()I")
         const val DEBUGGER_FIXTURE = "Ldebugger_paths;"
         const val INCOMPLETE_BASE = "Lincomplete/base;"
         const val INCOMPLETE_BASE_SOURCE = """

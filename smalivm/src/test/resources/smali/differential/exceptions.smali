@@ -1,8 +1,8 @@
 .class public Ldifferential/exceptions;
 .super Ljava/lang/Object;
 
-# The parameter is an unknown divisor, so both normal return and ArithmeticException are feasible.
-# The exception is synthesized on one arm of the local div-int rather than in a called method.
+# The divisor is an unknown parameter, so both normal return and ArithmeticException are feasible;
+# the exception arises from a local div-int, not a callee.
 .method public static ambiguousLocalDivide(I)V
     .locals 1
 

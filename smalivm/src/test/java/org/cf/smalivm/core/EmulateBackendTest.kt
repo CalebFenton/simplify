@@ -444,7 +444,7 @@ class EmulateBackendTest {
         }
     }
 
-    private fun instanceSession(vm: VmServices, target: MethodDescriptor, receiver: Value): ExecutionSession {
+    private fun instanceSession(vm: VmServices, target: MethodSignature, receiver: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, receiver) }
         return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
@@ -456,7 +456,7 @@ class EmulateBackendTest {
         }
     }
 
-    private fun textUtilsSession(vm: VmServices, target: MethodDescriptor, value: Value): ExecutionSession {
+    private fun textUtilsSession(vm: VmServices, target: MethodSignature, value: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
         return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
@@ -487,7 +487,7 @@ class EmulateBackendTest {
 
     private fun invokeOp(
         address: Int,
-        target: MethodDescriptor,
+        target: MethodSignature,
         registers: IntArray,
         kind: InvokeKind = InvokeKind.STATIC,
     ) = object : Op(address) {
@@ -496,7 +496,7 @@ class EmulateBackendTest {
     }
 
     private fun registration(
-        target: MethodDescriptor,
+        target: MethodSignature,
         handlesUnknownArguments: Boolean = false,
         effect: SideEffectLevel = SideEffectLevel.STRONG,
         handler: EmulatorHandler,
@@ -510,7 +510,7 @@ class EmulateBackendTest {
     private fun predicateRegistration(
         id: String,
         effect: SideEffectLevel,
-        predicate: (MethodDescriptor) -> Boolean,
+        predicate: (MethodSignature) -> Boolean,
         handler: EmulatorHandler,
     ) = EmulatorRegistration(
         EmulatorMatcher.Predicate(id, predicate),
@@ -526,7 +526,7 @@ class EmulateBackendTest {
         classIndex.requireMethodView(className, descriptor)
 
     private fun method(definingClass: String, name: String, proto: String) =
-        MethodDescriptor(VirtualType.of(definingClass), name, proto)
+        MethodSignature(VirtualType.of(definingClass), name, proto)
 
     private fun Outcome.returnedValue(): Value? = (this as Outcome.Returned).value
 

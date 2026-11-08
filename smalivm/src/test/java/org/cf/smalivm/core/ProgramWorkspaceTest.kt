@@ -53,7 +53,7 @@ class ProgramWorkspaceTest {
             ApplicationMethodDefinition.withBody(
                 method,
                 body,
-                index.programWorkspace.newApplicationMethodRevision("Lwrong;->value()I"),
+                index.programWorkspace.newApplicationMethodRevision(MethodSignature.parse("Lwrong;->value()I")),
             )
         }
     }

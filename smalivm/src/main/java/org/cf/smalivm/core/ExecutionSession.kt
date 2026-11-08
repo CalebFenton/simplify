@@ -289,22 +289,18 @@ class ExecutionSession internal constructor(
         node: ExecutionNode,
         transition: OpArm.ProjectStatic,
     ): Committable = planContained(node) {
-        val field = staticFieldDescriptor(
-            transition.definingClass,
-            transition.fieldDescriptor,
-            transition.fieldType,
-        )
-        val cell = node.frame.classes.staticCell(transition.fieldDescriptor)
+        val field = transition.field
+        val cell = node.frame.classes.staticCell(field.toString())
         require(cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             "Static projection requested for a cell that is not an unresolved prepared seed: $field ($cell)"
         }
-        val unknown: (Frame) -> Value = { Value.Unknown(transition.fieldType) }
-        if (!hierarchy.isFrameworkClass(transition.definingClass)) {
+        val unknown: (Frame) -> Value = { Value.Unknown(transition.field.type) }
+        if (!hierarchy.isFrameworkClass(transition.field.definingClass)) {
             raiseEffect(node, SideEffectLevel.STRONG)
             return@planContained staticProjection(node, transition, unknown)
         }
         val initializationChain = try {
-            resolver.hostInitializationChain(transition.definingClass)
+            resolver.hostInitializationChain(transition.field.definingClass)
         } catch (_: ClassLoadFailure) {
             raiseEffect(node, SideEffectLevel.STRONG)
             return@planContained staticProjection(node, transition, unknown)
@@ -336,7 +332,7 @@ class ExecutionSession internal constructor(
         project: (Frame) -> Value,
     ): Committable = continueAt(node, node.view.nextAddress(node.address)) { frame ->
         val value = project(frame)
-        frame.classes.setHostProjection(transition.fieldDescriptor, value)
+        frame.classes.setHostProjection(transition.field.toString(), value)
         frame.assign(transition.register, value)
     }
 
@@ -514,7 +510,7 @@ class ExecutionSession internal constructor(
                 fallbackArgumentTypes = invocation.opaqueArgumentTypes(),
                 fallbackReturnType = invocation.returnType,
             ),
-            constructing = receiverRef.takeIf { invocation.target.name == "<init>" },
+            constructing = receiverRef.takeIf { invocation.target.isConstructor },
         )
         activations.add(activation)
         return Committable(
@@ -1084,5 +1080,5 @@ internal fun hostFailureOutcome(failure: Throwable): Outcome.Aborted {
 
 /** The object a constructor entry point is constructing, or null when [view] is not a constructor. */
 private fun entryConstructorReceiver(view: MethodView, entryFrame: Frame): HeapRef? =
-    if (view.isStatic || !view.signature.substringAfter("->").startsWith("<init>(")) null
+    if (view.isStatic || !view.signature.isConstructor) null
     else (entryFrame.peek(view.firstParameterRegister) as? Value.Known)?.raw as? HeapRef

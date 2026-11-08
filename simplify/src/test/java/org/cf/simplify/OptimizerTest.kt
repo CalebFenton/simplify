@@ -134,8 +134,8 @@ class OptimizerTest {
     }
 
     companion object {
-        const val NO_OP = "Ltask64/Skeleton;->aNoOp()V"
-        const val CHANGED = "Ltask64/Skeleton;->changed()I"
-        const val LOOP = "Ltask64/Skeleton;->loop()V"
+        val NO_OP = MethodSignature.parse("Ltask64/Skeleton;->aNoOp()V")
+        val CHANGED = MethodSignature.parse("Ltask64/Skeleton;->changed()I")
+        val LOOP = MethodSignature.parse("Ltask64/Skeleton;->loop()V")
     }
 }

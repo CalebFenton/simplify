@@ -81,6 +81,5 @@ if [[ $STALE -eq 1 ]]; then
     echo "assemble.sh: fixtures -> $FIXTURES_DEX (api $API_LEVEL)" >&2
 fi
 
-# Now truthful rather than aspirational: a level change forced both dexes above to rebuild before we
-# get here, so the stamp records the level the dexes on disk were actually assembled at.
+# A level change rebuilt both dexes above, so the stamp is the level the dexes on disk were assembled at.
 echo "$API_LEVEL" > "$OUT/api-level.txt"

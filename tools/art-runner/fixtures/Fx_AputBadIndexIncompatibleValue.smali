@@ -1,4 +1,4 @@
-# WORKLIST ROW 12, SECOND HALF -- AIOOBE strictly precedes ASE.
+# Ordering: AIOOBE strictly precedes ASE.
 #
 # THIS FIXTURE'S CELL: a valid, non-null `String[1]`, an out-of-range index, AND an
 # unassignable value, all at once. Three conditions, one instruction, so exactly one
@@ -6,10 +6,10 @@
 #
 #   AIOOBE -> the inherited [JVMS] `aastore` chaining holds for this pair.
 #   ASE    -> ART checks assignability before bounds, and `DALVIK-SEMANTICS.md`'s
-#             ordering claim is backwards the same way row 8's was.
+#             ordering claim is backwards.
 #
 # Read this together with `Fx_AputNullArrayBadIndex`: the two together pin the full
-# NPE -> AIOOBE -> ASE chain that row 12 asserts, and neither one alone can.
+# NPE -> AIOOBE -> ASE chain, and neither one alone can.
 #
 # SELF-CONTAINED: allocates its own array and its own incompatible value.
 

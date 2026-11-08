@@ -7,12 +7,6 @@ import org.junit.jupiter.api.assertThrows
 
 class BreakpointTest {
     @Test
-    fun emptyOrBlankMethodSignatureIsRejected() {
-        assertThrows<IllegalArgumentException> { Breakpoint("", 0) }
-        assertThrows<IllegalArgumentException> { Breakpoint("   ", 0) }
-    }
-
-    @Test
     fun negativeInstructionIndexIsRejected() {
         assertThrows<IllegalArgumentException> { Breakpoint(METHOD, -1) }
     }
@@ -29,7 +23,7 @@ class BreakpointTest {
 
     @Test
     fun changedMethodSignatureIsNotEqual() {
-        assertNotEquals(Breakpoint(METHOD, 2), Breakpoint("Lother;->run()V", 2))
+        assertNotEquals(Breakpoint(METHOD, 2), Breakpoint(MethodSignature.parse("Lother;->run()V"), 2))
     }
 
     @Test
@@ -38,6 +32,6 @@ class BreakpointTest {
     }
 
     private companion object {
-        const val METHOD = "Lexample;->run()V"
+        val METHOD = MethodSignature.parse("Lexample;->run()V")
     }
 }

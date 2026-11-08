@@ -2,9 +2,8 @@ package org.cf.smalivm.core
 
 import java.util.Collections
 
-data class Breakpoint(val methodSignature: String, val instructionIndex: Int) {
+data class Breakpoint(val methodSignature: MethodSignature, val instructionIndex: Int) {
     init {
-        require(methodSignature.isNotBlank()) { "Breakpoint method signature must not be blank" }
         require(instructionIndex >= 0) { "Breakpoint instruction index must not be negative" }
     }
 }

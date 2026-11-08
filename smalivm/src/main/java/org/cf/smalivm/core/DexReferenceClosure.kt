@@ -132,7 +132,7 @@ internal class DexReferenceClosure private constructor(
 
         internal fun projectedProgramClosure(
             definitions: Collection<ApplicationClassDefinition>,
-            replacedMethodSignature: String,
+            replacedMethodSignature: MethodSignature,
             replacement: DexReferenceClosure,
         ): DexReferenceClosure = definitions.fold(EMPTY) { result, definition ->
             result.plus(fromApplicationClass(definition, replacedMethodSignature, replacement))
@@ -140,7 +140,7 @@ internal class DexReferenceClosure private constructor(
 
         private fun fromApplicationClass(
             definition: ApplicationClassDefinition,
-            replacedMethodSignature: String?,
+            replacedMethodSignature: MethodSignature?,
             replacement: DexReferenceClosure?,
         ): DexReferenceClosure {
             val collector = Collector()

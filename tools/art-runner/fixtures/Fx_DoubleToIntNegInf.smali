@@ -1,4 +1,4 @@
-# WORKLIST ROW 3 -- Double->Int narrowing, genuinely D-tagged. Source is -Infinity (neg-double of +Inf).
+# Double->Int narrowing, genuinely D-tagged. Source is -Infinity (neg-double of +Inf).
 # [JLS] 5.1.3: a narrowing double->int saturates at the Int bounds; -Infinity -> Integer.MIN_VALUE.
 # Expected: java.lang.Integer(-2147483648).
 .class public LFx_DoubleToIntNegInf;

@@ -445,13 +445,13 @@ class BackendCorpusMigrationTest {
         return FixtureRun(session, graph, seeded)
     }
 
-    private fun vm(exactSafe: Set<MethodDescriptor>): VmServices =
+    private fun vm(exactSafe: Set<MethodSignature>): VmServices =
         VmServices(classIndex, ReflectionPolicy(exactSafeMethods = exactSafe))
 
     private fun view(owner: String, descriptor: String): MethodView =
         classIndex.requireMethodView(owner, descriptor)
 
-    private fun method(owner: VirtualType, name: String, proto: String) = MethodDescriptor(owner, name, proto)
+    private fun method(owner: VirtualType, name: String, proto: String) = MethodSignature(owner, name, proto)
 
     private fun ExecutionGraph.returnedValue(): Value? {
         val outcome = outcomes.single()

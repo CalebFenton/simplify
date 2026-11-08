@@ -1,60 +1,32 @@
 #!/usr/bin/env bash
-# Compares the Tier A batch against a recorded golden, so a pin bump cannot silently
-# re-answer a settled question.
+# Compares the Tier A batch against the recorded golden, so a pin bump or a fixture edit cannot
+# silently re-answer a settled question.
 #
 #     tools/art-runner/check-golden.sh             # compare; nonzero exit on any mismatch
-#     tools/art-runner/check-golden.sh --update    # re-record, once a human has accepted it
+#     tools/art-runner/check-golden.sh --update    # re-record, once a human has accepted the diff
 #
-# WHY A GOLDEN AND NOT `git diff` ON A CAPTURED FILE. Every answer this corpus feeds into
-# DALVIK-SEMANTICS.md cites a PINNED THIRD-PARTY ARTIFACT (`art_standalone` from Alpine
-# edge/testing, see Dockerfile). Bumping that pin is a one-line edit whose effect on the
-# answers is otherwise invisible: nothing fails, the numbers just quietly become different
-# numbers. This script is the thing that fails.
+# A mismatch has three causes: the image changed (the version block, checked first), a fixture
+# changed (the source hashes and the diff), or ART answers differently (what remains).
+# Exit status: 2 means the image is not the one recorded against, 1 means a fixture or ART answer
+# moved, 0 means no drift.
 #
-# A MISMATCH HAS EXACTLY THREE CAUSES, and only the third is interesting:
-#   1. the image changed        -> the version block below, which runs FIRST
-#   2. a fixture changed        -> the diff, plus the list of records that moved
-#   3. ART changed its answer   -> what is left once 1 and 2 are ruled out
-# Exit status: 2 means cause 1 is in play, 1 means cause 2 or 3, 0 means no drift.
+# The header records what the answers were produced from: the art_standalone version, the dex API
+# level, and the SHA-256 of every dispatcher and fixture source. `DeviceFixturesTest` checks the API
+# level and the hashes without Docker, so an edited fixture cannot keep a stale answer green.
 #
-# CAUSE 1 IS TWO DIFFERENT SITUATIONS AND THEY ARE NOT HANDLED THE SAME WAY. Only the first
-# of them is a reason to refuse to look:
-#   - the Dockerfile pin and the image label DISAGREE. Nothing is comparable: the batch would
-#     measure an artifact that is not the one under test. Stop, say "rebuild".
-#   - the pin and the image AGREE and only the GOLDEN is older -- i.e. somebody bumped the
-#     pin and rebuilt, the ordinary workflow. This IS comparable, so the batch runs and the
-#     diff is printed, labelled with the version on each side. Exiting early here was a real
-#     bug: "the image moved" does not say WHETHER an answer moved, and this script's own
-#     acceptance procedure is "read the diff, THEN --update". With the diff withheld, the
-#     only route left was `--update` blind followed by `git diff` -- exactly the workflow the
-#     paragraph above argues against. The status is still 2, because cause 1 is confirmed
-#     present and no script can know how much of the diff it explains.
+# The golden pins ART's message text on purpose: it detects drift in one tool, and a changed message
+# is a change worth noticing. Only non-semantic churn is normalized:
+#   1. ` (declaration of 'X' appears in <path>.dex)`, a verifier-diagnostic suffix naming the dex a
+#      class came from, is dropped.
+#   2. Any absolute `*.dex` path becomes `<DEX>`; container mount paths leak into messages such as
+#      `UnsatisfiedLinkError`'s `DexPathList`.
+# The `RUNTIME` line is compared: an ART version change is what this file exists to catch.
 #
-# THIS FILE PINS ART'S EXACT MESSAGE TEXT, and that contradicts README.md's "don't pin ART
-# message text" rule ON PURPOSE. That rule governs FIDELITY assertions ACROSS runtimes,
-# where a diagnostic string is a version artifact and not a semantic. A golden is a DRIFT
-# DETECTOR for ONE tool, which is a different job: an ART whose wording changed changed
-# something, and noticing is the entire point. Do NOT "fix" this into message-stripping --
-# that deletes the signal the file exists to carry.
-#
-# MODE: `-Xint` only, the mandated default (run-batch.sh invariant 1). The AOT tier of this
-# image is demonstrably unsound, so a golden of it would pin a wrong answer as the truth.
-#
-# NORMALIZATION -- ONLY genuinely non-semantic churn, one rule per reason. A golden that
-# churns for uninteresting reasons is a golden somebody deletes.
-#   1. `(declaration of 'X' appears in <path>.dex)`, the suffix ART appends to verifier
-#      diagnostics, is DROPPED: it names the dex a class was loaded from, which moves
-#      whenever the harness reorganises its build outputs, and the class name it repeats
-#      already appears twice earlier in the same diagnostic.
-#   2. Any absolute `*.dex` path becomes `<DEX>`: the container-side mount path is a
-#      harness detail, and it leaks into genuine diagnostics -- `UnsatisfiedLinkError`
-#      renders the whole `DexPathList`, mount paths and all.
-# NOTHING ELSE is normalized. In particular the `RUNTIME` line's `java.vm.version` IS
-# COMPARED: an ART version change is precisely the event this file exists to catch, so
-# normalizing it away would defeat the file.
+# Mode is always `-Xint`: this image's AOT tier is unsound (see run-batch.sh).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
 GOLDEN="$HERE/golden/tier-a-batch.txt"
 IMAGE="${ART_RUNNER_IMAGE:-simplify-art-runner:pinned}"
 VER_LABEL=org.cf.simplify.art-standalone-version
@@ -68,21 +40,24 @@ case "${1:-}" in
     *) echo "check-golden.sh: unknown argument '$1' (expected --update or nothing)" >&2; exit 2 ;;
 esac
 
-# Rules 1 and 2 above, in that order: rule 1 removes the whole parenthetical including its
-# path, so rule 2 only ever sees paths that are load-bearing parts of a message.
+# Rule 1 removes the whole parenthetical including its path, so rule 2 sees only message paths.
 normalize() {
     sed -e "s/ (declaration of '[^']*' appears in [^)]*)//g" \
         -e 's#/[^ "]*\.dex#<DEX>#g'
 }
 
-# The golden's leading `#` block is provenance, not an observation, so it is not compared.
+# The leading `#` block is provenance, not an observation, so it is not compared.
 body() {
     sed -n '/^[^#]/,$p' "$1"
 }
 
-# Names the records a unified diff moved, so the reader does not have to parse the diff to
-# learn which fixture to go look at. Not every changed line carries a fixture name: the
-# `RUNTIME` line and anything a fixture printed itself (a `<clinit>`) do not.
+# One `# source-sha256: <hash>  <path>` line per batch input, paths relative to this directory.
+source_hashes() {
+    (cd "$HERE" && sha256sum dispatcher/*.smali fixtures/*.smali) | sed 's/^/# source-sha256: /'
+}
+
+# Names the records a unified diff moved. The RUNTIME line and lines a fixture printed itself (a
+# `<clinit>`) carry no fixture name.
 report_moved() {
     local moved
     moved="$(printf '%s\n' "$1" | awk -F'\t' '/^[-+]FIXTURE\t/ { print $2 }' | sort -u)"
@@ -115,9 +90,7 @@ if [[ $UPDATE -eq 0 ]]; then
     printf '    %-26s %s\n' "Dockerfile pins" "${PINNED_VER:-<unreadable>}"
     printf '    %-26s %s\n' "the image actually has" "${IMAGE_VER:-<unlabelled>}"
 
-    # THE PIN AND THE IMAGE DISAGREE -> nothing here is comparable, so stop. The batch would
-    # run against an artifact that is not the one under test, and every line of the diff
-    # would answer a question nobody asked.
+    # The image is not the pinned artifact, so no answer it gives is comparable.
     if [[ "$PINNED_VER" != "$IMAGE_VER" ]]; then
         echo "FAIL: the image on this host is not the pinned one, so there is nothing" >&2
         echo "  meaningful to compare. Rebuild and re-run:" >&2
@@ -125,14 +98,8 @@ if [[ $UPDATE -eq 0 ]]; then
         exit 2
     fi
 
-    # THE PIN AND THE IMAGE AGREE BUT THE GOLDEN IS OLDER -> the maintainer bumped the pin
-    # and rebuilt, which is the NORMAL workflow, and the artifact is perfectly comparable.
-    # So the batch STILL RUNS and the diff is STILL PRINTED. Exiting here instead would be a
-    # bug: "the image moved" does not say WHETHER an answer moved, and the acceptance
-    # procedure is "read the diff, then --update". Refusing to print it leaves `--update`
-    # blind-then-`git diff` as the only route, which is the workflow this script exists to
-    # replace. The exit status stays 2 because cause 1 is confirmed present and this script
-    # cannot know how much of the diff it explains -- that is the human's call.
+    # The pin moved and the image was rebuilt, but the golden is older. The answers are still
+    # comparable, so the batch runs and the diff is printed; the status stays 2.
     if [[ "$GOLDEN_VER" != "$IMAGE_VER" ]]; then
         IMAGE_MOVED=1
     fi
@@ -142,10 +109,8 @@ OBSERVED="$(mktemp)"
 RUN_ERR="$(mktemp)"
 trap 'rm -f "$OBSERVED" "$RUN_ERR"' EXIT
 
-# `ART_RUNNER_MODE=int` is set rather than defaulted, so an exported `aot` in the caller's
-# environment cannot quietly compare the golden against a tier that is not an oracle.
-# run-batch.sh's stderr is held back rather than discarded: it is assemble.sh chatter on a
-# good run, but on a bad one it is the sentinel diagnostic and the path to the raw logs.
+# `ART_RUNNER_MODE=int` is set explicitly so an exported `aot` cannot select a tier that is not an
+# oracle. run-batch.sh's stderr is kept for the failure report.
 if ! ART_RUNNER_MODE=int ART_RUNNER_IMAGE="$IMAGE" "$HERE/run-batch.sh" 2>"$RUN_ERR" \
         | normalize > "$OBSERVED"; then
     echo "check-golden.sh: the batch did not complete, so there is nothing to compare." >&2
@@ -163,6 +128,8 @@ if [[ $UPDATE -eq 1 ]]; then
         echo "# mode: -Xint (the mandated default; the AOT tier is not an oracle)"
         echo "# image: $IMAGE"
         echo "# art-standalone: $IMAGE_VER"
+        echo "# dex-api-level: $(cat "$REPO/build/art-runner/api-level.txt")"
+        source_hashes
         cat "$OBSERVED"
     } > "$GOLDEN"
     echo "check-golden.sh: recorded $(body "$GOLDEN" | wc -l) records to $GOLDEN"
@@ -173,14 +140,15 @@ fi
 GOLDEN_LABEL='golden'
 OBSERVED_LABEL='observed (-Xint, this run)'
 if [[ $IMAGE_MOVED -eq 1 ]]; then
-    # Name the versions in the diff labels, so the two sides say which artifact produced them.
     GOLDEN_LABEL="golden (art_standalone $GOLDEN_VER)"
     OBSERVED_LABEL="observed (-Xint, art_standalone $IMAGE_VER)"
 fi
 
-# `|| true` because `diff` exits 1 on a difference, which here is data and not an error.
+# `|| true`: `diff` exits 1 on a difference, which here is data and not an error.
 DELTA="$(diff -u --label "$GOLDEN_LABEL" --label "$OBSERVED_LABEL" \
         <(body "$GOLDEN") "$OBSERVED" || true)"
+SOURCE_DELTA="$(diff -u --label 'golden sources' --label 'current sources' \
+        <(grep '^# source-sha256: ' "$GOLDEN") <(source_hashes) || true)"
 RECORDS="$(body "$GOLDEN" | wc -l)"
 
 if [[ $IMAGE_MOVED -eq 1 ]]; then
@@ -200,14 +168,22 @@ if [[ $IMAGE_MOVED -eq 1 ]]; then
     exit 2
 fi
 
-if [[ -z "$DELTA" ]]; then
+if [[ -z "$DELTA" && -z "$SOURCE_DELTA" ]]; then
     echo "==> OK: Tier A still answers what the golden recorded ($RECORDS records, -Xint)"
     exit 0
 fi
 
-printf '%s\n' "$DELTA"
-echo "FAIL: the Tier A batch no longer matches the golden." >&2
-report_moved "$DELTA"
+if [[ -n "$SOURCE_DELTA" ]]; then
+    printf '%s\n' "$SOURCE_DELTA"
+    echo "Sources changed since the golden was recorded." >&2
+fi
+if [[ -n "$DELTA" ]]; then
+    printf '%s\n' "$DELTA"
+    report_moved "$DELTA"
+else
+    echo "  Every answer is unchanged." >&2
+fi
+echo "FAIL: the golden does not describe the current batch." >&2
 echo "  art_standalone $IMAGE_VER is unchanged, so this is a fixture edit or ART answering" >&2
 echo "  differently. Decide which, then accept it with --update." >&2
 exit 1

@@ -70,7 +70,7 @@ class MethodTryRegionEditTest {
             listOf("Ljava/lang/Exception;", "Ljava/lang/ArithmeticException;"),
             newTable.clauses.map { (it as HandlerClause.Typed).exceptionType.descriptor },
         )
-        assertEquals(setOf(METHOD), committed.createdMethodRevisionsBySignature.keys)
+        assertEquals(setOf(METHOD), committed.createdMethodRevisionsBySignature.keys.map { it.toString() }.toSet())
         assertTrue(index.currentSnapshot.dexReferenceClosure.types.contains("Ljava/lang/ArithmeticException;"))
 
         val reloaded = reload(index)
@@ -319,7 +319,7 @@ class MethodTryRegionEditTest {
         assertEquals(StringInstructionEncoding.CONST_STRING_JUMBO, snapshotB.stringInstructionEncoding)
         assertEquals(65_537, snapshotB.dexReferenceClosure.strings.size)
         assertTrue(NEW_CATCH_TYPE in snapshotB.dexReferenceClosure.strings)
-        assertEquals(setOf(METHOD, COLLATERAL), committed.createdMethodRevisionsBySignature.keys)
+        assertEquals(setOf(METHOD, COLLATERAL), committed.createdMethodRevisionsBySignature.keys.map { it.toString() }.toSet())
         assertNotSame(targetA.methodRevision, snapshotB.applicationMethod(METHOD)?.methodRevision)
         assertNotSame(collateralA.methodRevision, snapshotB.applicationMethod(COLLATERAL)?.methodRevision)
         assertSame(unaffectedA, snapshotB.applicationMethod(UNAFFECTED))
@@ -552,9 +552,9 @@ class MethodTryRegionEditTest {
         val editedMethod = ApplicationMethodDefinition.withBody(
             method,
             body,
-            index.programWorkspace.newApplicationMethodRevision(methodSignature),
+            index.programWorkspace.newApplicationMethodRevision(method.methodSignature),
         )
-        val definingClass = methodSignature.substringBefore("->")
+        val definingClass = method.methodSignature.definingClass.descriptor
         val editedClass = requireNotNull(snapshot.applicationClass(definingClass)).withMethod(editedMethod)
         val candidate = ProgramSnapshot.candidate(
             snapshot,

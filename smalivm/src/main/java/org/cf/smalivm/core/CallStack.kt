@@ -75,12 +75,12 @@ class Activation private constructor(
      * type must be provably a subtype of [target]'s class.
      */
     internal fun initializedReceiver(
-        target: MethodDescriptor,
+        target: MethodSignature,
         receiver: Value?,
         frame: Frame,
         hierarchy: TypeHierarchy,
     ): HeapRef? {
-        if (target.name != "<init>") return null
+        if (!target.isConstructor) return null
         val ref = (receiver as? Value.Known)?.raw as? HeapRef ?: return null
         if (generateSequence(this) { it.caller }.any { it.constructing == ref }) return null
         val runtimeType = frame.heapObject(ref)?.type ?: return null
@@ -280,7 +280,7 @@ class CallStack internal constructor(
     /** Frames deep the top activation sits, 0-based, as [Activation.depth]. */
     val depth: Int get() = frames.size - 1
 
-    override fun toString(): String = "CallStack(${frames.joinToString(" <- ") { it.view.signature }})"
+    override fun toString(): String = "CallStack(${frames.joinToString(" <- ") { it.view.signature.toString() }})"
 
     internal companion object {
         fun of(top: Activation): CallStack = CallStack(generateSequence(top) { it.caller }.toList())

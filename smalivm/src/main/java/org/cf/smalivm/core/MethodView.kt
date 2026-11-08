@@ -16,9 +16,7 @@ data class ParameterSlot(val register: Int, val type: VirtualType)
  * exposes immutable dexlib instruction interfaces.
  */
 class MethodView private constructor(
-    val signature: String,
-    val definingClass: VirtualType,
-    val returnType: VirtualType,
+    val signature: MethodSignature,
     val isStatic: Boolean,
     parameters: List<ParameterSlot>,
     internal val methodBody: MethodBody,
@@ -27,6 +25,8 @@ class MethodView private constructor(
     val methodRevision: ApplicationMethodRevision?,
     val methodAccessFlags: Int,
 ) {
+    val definingClass: VirtualType get() = signature.definingClass
+    val returnType: VirtualType get() = signature.returnType
     val registerCount: Int = methodBody.registerCount
     private val addressToInstruction: Map<Int, Instruction> = methodBody.instructionsByCodeAddress
     val isSynchronized: Boolean = java.lang.reflect.Modifier.isSynchronized(methodAccessFlags) ||
@@ -159,7 +159,7 @@ class MethodView private constructor(
         }
     }
 
-    override fun toString(): String = signature
+    override fun toString(): String = signature.toString()
 
     companion object {
         private val TERMINATING_OPCODES = OpcodeGroups.RETURN + Opcode.THROW
@@ -197,10 +197,7 @@ class MethodView private constructor(
             programRevision: ProgramRevision,
         ): MethodView = of(
             method.methodSignature,
-            method.declaration.definingClass,
-            method.declaration.returnType,
             method.declaration.accessFlags,
-            method.declaration.parameterTypes.map(CharSequence::toString),
             requireNotNull(method.body) { "Cannot build a MethodView for a method with no body: ${method.methodSignature}" },
             programRevision,
             method.methodRevision,
@@ -211,10 +208,7 @@ class MethodView private constructor(
             programRevision: ProgramRevision,
         ): MethodView = of(
             method.methodSignature,
-            method.declaration.definingClass,
-            method.declaration.returnType,
             method.declaration.accessFlags,
-            method.declaration.parameterTypes.map(CharSequence::toString),
             requireNotNull(method.body) { "Cannot build a MethodView for a method with no body: ${method.methodSignature}" },
             programRevision,
             methodRevision = null,
@@ -222,21 +216,15 @@ class MethodView private constructor(
         )
 
         private fun of(
-            signature: String,
-            definingClass: String,
-            returnType: String,
+            signature: MethodSignature,
             accessFlags: Int,
-            parameterTypes: List<String>,
             body: MethodBody,
             programRevision: ProgramRevision,
             methodRevision: ApplicationMethodRevision?,
             frameworkMethodIdentity: FrameworkMethodIdentity? = null,
         ): MethodView {
             val isStatic = java.lang.reflect.Modifier.isStatic(accessFlags)
-            val types = buildList {
-                if (!isStatic) add(VirtualType.of(definingClass))
-                parameterTypes.mapTo(this, VirtualType::of)
-            }
+            val types = if (isStatic) signature.parameterTypes else listOf(signature.definingClass) + signature.parameterTypes
             val width = types.sumOf { if (it.isWide) 2 else 1 }
             var register = body.registerCount - width
             val parameters = types.map { type ->
@@ -244,8 +232,6 @@ class MethodView private constructor(
             }
             return MethodView(
                 signature,
-                VirtualType.of(definingClass),
-                VirtualType.of(returnType),
                 isStatic,
                 parameters,
                 body,

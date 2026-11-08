@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- F/D divide-by-zero routing (JVM counterparts fdiv/ddiv/frem/drem).
+# F/D divide-by-zero routing (JVM counterparts fdiv/ddiv/frem/drem).
 # div-float of a positive value by NEGATIVE zero. This is the IEEE-754 crux: the sign of the
 # zero divisor flips the sign of the infinity, and no ArithmeticException is thrown (unlike the
 # integral div-by-zero, which does throw). -0.0f is built as neg-float(0.0f) so the operand is

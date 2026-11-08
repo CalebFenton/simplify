@@ -14,6 +14,8 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.cf.simplify.methodView
+import org.cf.simplify.optimize
 
 class PeepholeStrategyTest {
     private fun optimize(method: String) = OptimizerTester.optimize(

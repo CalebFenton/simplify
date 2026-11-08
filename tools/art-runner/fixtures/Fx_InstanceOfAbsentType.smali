@@ -1,4 +1,4 @@
-# WORKLIST ROW 20 -- instance-of naming an ABSENT type. Lcom/example/DefinitelyMissing; resolves
+# Instance-of naming an ABSENT type. Lcom/example/DefinitelyMissing; resolves
 # against nothing. Per ART's INSTANCE_OF handler the type is resolved BEFORE the null-source shortcut,
 # so even a null source drives resolution, which fails. Source is null to prove the throw comes from
 # resolution and not from the object. Left to propagate.

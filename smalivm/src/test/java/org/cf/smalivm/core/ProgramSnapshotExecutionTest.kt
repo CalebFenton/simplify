@@ -151,9 +151,9 @@ class ProgramSnapshotExecutionTest {
         val changedMethod = ApplicationMethodDefinition.withBody(
             method,
             body,
-            index.programWorkspace.newApplicationMethodRevision(methodSignature),
+            index.programWorkspace.newApplicationMethodRevision(method.methodSignature),
         )
-        val classType = methodSignature.substringBefore("->")
+        val classType = method.methodSignature.definingClass.descriptor
         val currentClass = requireNotNull(current.applicationClass(classType))
         val changedClass = ApplicationClassDefinition(
             currentClass.type,
@@ -164,7 +164,7 @@ class ProgramSnapshotExecutionTest {
             currentClass.annotations,
             currentClass.staticFields,
             currentClass.instanceFields,
-            currentClass.methods.map { if (it.methodSignature == methodSignature) changedMethod else it },
+            currentClass.methods.map { if (it.methodSignature == method.methodSignature) changedMethod else it },
         )
         return ProgramSnapshot.candidate(
             current,

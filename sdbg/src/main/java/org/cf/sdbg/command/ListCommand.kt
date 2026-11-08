@@ -1,6 +1,7 @@
 package org.cf.sdbg.command
 
 import org.cf.sdbg.SmaliReference
+import org.cf.smalivm.core.MethodSignature
 import picocli.CommandLine
 
 @CommandLine.Command(name = "list", aliases = ["l"], mixinStandardHelpOptions = true,
@@ -12,7 +13,7 @@ internal class ListCommand : DebuggerCommand() {
 
     private sealed interface Target {
         data class Class(val descriptor: String) : Target
-        data class Method(val signature: String) : Target
+        data class Method(val signature: MethodSignature) : Target
         /** An inclusive instruction range in the current method, not yet checked against its bounds. */
         data class Range(val start: Long, val stop: Long) : Target
         data class Invalid(val reason: String) : Target
@@ -30,12 +31,10 @@ internal class ListCommand : DebuggerCommand() {
                 ?: return Target.Invalid(RANGE_OUT_OF_BOUNDS)
             return Target.Range(start, stop)
         }
-        return when (val reference = SmaliReference.parse(target)) {
+        return when (val reference = SmaliReference.parse(target, currentView.definingClass)) {
             is SmaliReference.Type -> Target.Class(reference.type.descriptor)
-            is SmaliReference.Method ->
-                Target.Method("${reference.owner ?: currentView.definingClass}->${reference.descriptor}")
-            is SmaliReference.Field ->
-                Target.Invalid("expected a class or method, got field ${reference.owner}->${reference.name}")
+            is SmaliReference.Method -> Target.Method(reference.signature)
+            is SmaliReference.Field -> Target.Invalid("expected a class or method, got field ${reference.signature}")
             is SmaliReference.Malformed -> Target.Invalid(reference.reason)
         }
     }

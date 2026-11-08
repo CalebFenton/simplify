@@ -3,7 +3,9 @@ package org.cf.sdbg
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import org.cf.smalivm.core.ClassIndex
+import org.cf.smalivm.core.MalformedSignatureException
 import org.cf.smalivm.core.MethodLookup
+import org.cf.smalivm.core.MethodSignature
 import org.cf.smalivm.core.VmServices
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
@@ -40,13 +42,15 @@ internal class Initialize : Callable<Int> {
 
     override fun call(): Int {
         setLogLevel(verbosity.size)
-        val method = SmaliReference.parse(methodSignature)
-        require(method is SmaliReference.Method && method.owner != null) {
-            "Expected a method signature Lpkg/Name;->name(params)return: $methodSignature"
+        val method = try {
+            MethodSignature.parse(methodSignature)
+        } catch (_: MalformedSignatureException) {
+            null
         }
+        require(method != null) { "Expected a method signature Lpkg/Name;->name(params)return: $methodSignature" }
         println("Starting debugger for $methodSignature from $inputFile")
         val services = VmServices(ClassIndex.open(inputFile))
-        val lookup = services.classIndex.lookupMethod(method.owner, method.descriptor)
+        val lookup = services.classIndex.lookupMethod(method)
         val view = requireNotNull((lookup as? MethodLookup.Runnable)?.view) {
             "No concrete method: $methodSignature"
         }

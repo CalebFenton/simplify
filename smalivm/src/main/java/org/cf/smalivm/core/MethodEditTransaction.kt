@@ -309,7 +309,7 @@ class MethodEditTransaction internal constructor(
         encoding: StringInstructionEncoding,
         codeAddressesByAnchor: Map<PendingCodeAnchor, Int>,
     ): MethodEditCommitResult.Committed {
-        val revisionsBySignature = LinkedHashMap<String, ApplicationMethodRevision>(candidates.size)
+        val revisionsBySignature = LinkedHashMap<MethodSignature, ApplicationMethodRevision>(candidates.size)
         val replacements = candidates.map { candidate ->
             val methodRevision = workspace.newApplicationMethodRevision(candidate.methodSignature)
             revisionsBySignature[candidate.methodSignature] = methodRevision

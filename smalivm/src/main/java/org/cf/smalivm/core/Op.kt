@@ -436,13 +436,7 @@ internal object OpBuilder {
         if (registers == null) {
             d.unsupported
         } else {
-            val reference = d.reference as MethodReference
-            val proto = "(${reference.parameterTypes.joinToString("")})${reference.returnType}"
-            InvokeOp(
-                d.address, d.name,
-                MethodDescriptor(VirtualType.of(reference.definingClass), reference.name, proto),
-                registers, kind,
-            )
+            InvokeOp(d.address, d.name, MethodSignature.of(d.reference as MethodReference), registers, kind)
         }
     }
 

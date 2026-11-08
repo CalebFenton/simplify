@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 internal class MethodEditRevisionGuard private constructor(
-    val methodSignature: String,
+    val methodSignature: MethodSignature,
     val methodRevision: ApplicationMethodRevision?,
     val programRevision: ProgramRevision?,
 ) {

@@ -1,4 +1,4 @@
-# WORKLIST ROW 3 -- Double->Int narrowing, genuinely D-tagged. Source is a FINITE value below the
+# Double->Int narrowing, genuinely D-tagged. Source is a FINITE value below the
 # Int range: -(2^32) = -4294967296.0, built via long-to-double then neg-double.
 # [JLS] 5.1.3: a narrowing double->int saturates; a finite value < Integer.MIN_VALUE -> MIN_VALUE.
 # Expected: java.lang.Integer(-2147483648).

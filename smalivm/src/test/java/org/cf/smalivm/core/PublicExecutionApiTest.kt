@@ -154,7 +154,7 @@ class PublicExecutionApiTest {
 
     @Test
     fun partialGraphKeepsReturnedAndThrownPathsWithoutTrustedQueries() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwNested",
             "()V",

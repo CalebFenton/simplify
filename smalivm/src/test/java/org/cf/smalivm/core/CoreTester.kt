@@ -379,12 +379,10 @@ object CoreTester {
     }
 
     /**
-     * The class a fully-qualified field descriptor names, i.e. everything before `->`. The inverse of
-     * `ClassIndex.fieldDescriptorOf`, needed because [CoreState] stores one flat key while
+     * The class a fully-qualified field descriptor names. [CoreState] stores one flat key while
      * [TrustedGraphView.terminatingStaticFieldConsensus] and [ClassState.getStaticField] take the pair.
      */
-    private fun declaringClassOf(fieldDescriptor: String): VirtualType =
-        VirtualType.of(fieldDescriptor.substringBefore("->"))
+    private fun declaringClassOf(fieldDescriptor: String): VirtualType = FieldSignature.parse(fieldDescriptor).definingClass
 
     /** [initialRegisters]-shaped overload of [execute] taking the harness's own state type. */
     fun execute(

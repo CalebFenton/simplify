@@ -3,6 +3,7 @@ package org.cf.sdbg
 import org.cf.smalivm.core.Breakpoint
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.Debugger
+import org.cf.smalivm.core.MethodSignature
 import org.cf.smalivm.core.VmServices
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -19,7 +20,7 @@ class SmaliListingTest {
             "sparse()I" to ".sparse-switch",
             "array()[I" to ".array-data",
         )) {
-            val signature = "LDebugFixture;->$descriptor"
+            val signature = MethodSignature.parse("LDebugFixture;->$descriptor")
             val view = requireNotNull(services.classIndex.methodView(signature))
             val debugger = Debugger(services.newSession(view))
             val lastIndex = view.instructionCount - 1
@@ -53,7 +54,7 @@ class SmaliListingTest {
     @Test
     fun classListingPreservesDeclarationsAndDoesNotLeakMarkersAcrossMethods() {
         val services = services()
-        val view = requireNotNull(services.classIndex.methodView("LDebugFixture;->exercise()I"))
+        val view = requireNotNull(services.classIndex.methodView(MethodSignature.parse("LDebugFixture;->exercise()I")))
         val debugger = Debugger(services.newSession(view))
         debugger.addBreakpoint(Breakpoint(view.signature, 0))
         val output = StringWriter()
@@ -65,9 +66,9 @@ class SmaliListingTest {
         assertTrue(text.contains(".source \"DebugFixture.java\""), text)
         assertEquals(1, INDEXED.findAll(text).count { it.groupValues[2].contains('>') }, text)
         assertEquals(1, INDEXED.findAll(text).count { it.groupValues[2].contains('b') }, text)
-        assertFalse(listing.writeMethod(StringWriter(), "LDebugFixture;->missing()V", debugger))
+        assertFalse(listing.writeMethod(StringWriter(), MethodSignature.parse("LDebugFixture;->missing()V"), debugger))
         val bodyless = StringWriter()
-        assertTrue(listing.writeMethod(bodyless, "LDebugFixture;->bodyless()V", debugger))
+        assertTrue(listing.writeMethod(bodyless, MethodSignature.parse("LDebugFixture;->bodyless()V"), debugger))
         assertFalse(INDEXED.containsMatchIn(bodyless.toString()))
     }
 

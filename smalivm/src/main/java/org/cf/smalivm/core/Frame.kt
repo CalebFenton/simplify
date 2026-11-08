@@ -470,7 +470,7 @@ class Frame private constructor(
         /** Default session input; a constructor's receiver is a fresh object when its field layout is known. */
         internal fun entryFrame(view: MethodView, resolver: ProgramSnapshotResolver): Frame {
             val frame = entryFrame(view)
-            if (!view.isStatic && view.signature.substringAfter("->").startsWith("<init>(")) {
+            if (!view.isStatic && view.signature.isConstructor) {
                 // An unresolved superclass leaves the receiver unknown, rather than inventing its fields.
                 resolver.instanceFieldDefaults(view.definingClass)?.let { fields ->
                     frame.seed(view.firstParameterRegister, FrameValue.plain(frame.allocateObject(view.definingClass, fields)))

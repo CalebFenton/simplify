@@ -103,7 +103,7 @@ class InvokeReviewTest {
         val innerView = view(REVIEW, "innerWithHandler()V")
         val badHandler = innerView.tryBlocks.single().catches.single().handlerAddress
         val graph = CoreTester.vmServices.newSession(outer, Limits(), null) { address, v, resolver ->
-            if (v.signature == innerSignature && address == badHandler) error("synthetic handler decode failure")
+            if (v.signature.toString() == innerSignature && address == badHandler) error("synthetic handler decode failure")
             OpBuilder.build(address, v, resolver)
         }.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
@@ -222,7 +222,7 @@ class InvokeReviewTest {
     @Test
     fun ambiguousDispatchCandidatesAreOrderedCopiedAndImmutable() {
         val lookup = CoreTester.classIndex.currentResolver().resolveInvocation(
-            MethodDescriptor(VirtualType.of("Linvoke_dispatch_base;"), "value", "()I"),
+            MethodSignature(VirtualType.of("Linvoke_dispatch_base;"), "value", "()I"),
             InvokeKind.VIRTUAL,
             VirtualType.of(REVIEW),
             receiverType = null,

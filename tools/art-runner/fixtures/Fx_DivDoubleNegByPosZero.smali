@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- div-double (JVM counterpart ddiv). (-1.0) / (+0.0).
+# Div-double (JVM counterpart ddiv). (-1.0) / (+0.0).
 # [JVMS] ddiv (IEEE-754): a negative dividend over positive zero -> -Infinity.
 # Expected: java.lang.Double(-Infinity).
 .class public LFx_DivDoubleNegByPosZero;

@@ -8,7 +8,7 @@ import java.util.IdentityHashMap
 
 /** Selected host state for one accepted synchronous backend. */
 class SelectedHostCall private constructor(
-    val target: MethodDescriptor,
+    val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,
     val returnType: VirtualType,
@@ -160,7 +160,7 @@ class SelectedHostCall private constructor(
             )
             try {
                 val materializer = ArrayMaterializer(frame, classLoader)
-                val receiver = if (call.kind == InvokeKind.DIRECT && call.target.name == "<init>") {
+                val receiver = if (call.kind == InvokeKind.DIRECT && call.target.isConstructor) {
                     null
                 } else {
                     call.receiver?.let(materializer::select)

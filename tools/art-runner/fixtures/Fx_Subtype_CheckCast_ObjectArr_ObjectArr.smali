@@ -1,8 +1,8 @@
-# ROW 24 subtype matrix cell: ObjectArr check-cast ObjectArr -> expected 1 (cast succeeds).
+# Subtype matrix cell: ObjectArr check-cast ObjectArr -> expected 1 (cast succeeds).
 # [JLS] Reflexive: a type is castable to itself (JLS 4.10.3); Object[] IS Object[].
 # check-cast is observed by CATCHING ClassCastException: success falls through and returns boxed 1,
 # a caught CCE returns boxed 0 -- the same 1/0 grammar as the instance-of cells, so the two ops are
-# directly comparable. (Boxing runs on the device and the oracle, not the clean core.)
+# directly comparable.
 # Cited: Tier A, -Xint, art_standalone 0_git20251009-r2.
 .class public LFx_Subtype_CheckCast_ObjectArr_ObjectArr;
 .super Ljava/lang/Object;

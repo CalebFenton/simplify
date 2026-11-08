@@ -1,4 +1,4 @@
-# WORKLIST ROW 14 CONTROL -- filled-new-array naming a PRESENT type (java.lang.String).
+# Control: Filled-new-array naming a PRESENT type (java.lang.String).
 # The control for Fx_FilledNewArrayAbsentType: same opcode, a type that DOES resolve. A clean length
 # proves filled-new-array's resolution path works and isolates the absent-type fixture's throw.
 # Expected: java.lang.Integer(1).

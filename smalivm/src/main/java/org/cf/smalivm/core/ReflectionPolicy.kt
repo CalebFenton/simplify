@@ -18,11 +18,11 @@ sealed interface ReflectionDecision {
 
 /** Immutable reflection authorization with explicit priority. */
 class ReflectionPolicy(
-    exactUnsafeMethods: Set<MethodDescriptor> = emptySet(),
-    exactSafeMethods: Set<MethodDescriptor> = emptySet(),
+    exactUnsafeMethods: Set<MethodSignature> = emptySet(),
+    exactSafeMethods: Set<MethodSignature> = emptySet(),
     safeClasses: Set<VirtualType> = emptySet(),
-    methodEffects: Map<MethodDescriptor, SideEffectLevel> = emptyMap(),
-    exactSafeStaticFields: Set<StaticFieldDescriptor> = emptySet(),
+    methodEffects: Map<MethodSignature, SideEffectLevel> = emptyMap(),
+    exactSafeStaticFields: Set<FieldSignature> = emptySet(),
 ) {
     private val exactUnsafeMethods = exactUnsafeMethods.toSet()
     private val exactSafeMethods = exactSafeMethods.toSet()
@@ -31,11 +31,11 @@ class ReflectionPolicy(
     private val exactSafeStaticFields = exactSafeStaticFields.toSet()
 
     fun decide(
-        target: MethodDescriptor,
+        target: MethodSignature,
         hostInitializationChain: List<VirtualType> = emptyList(),
     ): ReflectionDecision = when {
         target in exactUnsafeMethods -> ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE)
-        hostInitializationChain.any { classInitializer(it) in exactUnsafeMethods } ->
+        hostInitializationChain.any { MethodSignature.classInitializer(it) in exactUnsafeMethods } ->
             ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE)
         target in exactSafeMethods -> ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE)
         target.definingClass in safeClasses -> ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS)
@@ -43,14 +43,14 @@ class ReflectionPolicy(
     }
 
     /** Authorization does not imply purity. Only an explicit proof narrows the default strong effect. */
-    fun effectOf(target: MethodDescriptor): SideEffectLevel = methodEffects[target] ?: SideEffectLevel.STRONG
+    fun effectOf(target: MethodSignature): SideEffectLevel = methodEffects[target] ?: SideEffectLevel.STRONG
 
     /** Authorizes one static read without exposing policy collections or loading a host class. */
     fun decideStaticRead(
-        field: StaticFieldDescriptor,
+        field: FieldSignature,
         hostInitializationChain: List<VirtualType>,
     ): ReflectionDecision = when {
-        hostInitializationChain.any { classInitializer(it) in exactUnsafeMethods } ->
+        hostInitializationChain.any { MethodSignature.classInitializer(it) in exactUnsafeMethods } ->
             ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE)
         field in exactSafeStaticFields -> ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE)
         field.definingClass in safeClasses -> ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS)
@@ -62,9 +62,9 @@ class ReflectionPolicy(
         field: TrackedFieldValue,
         hostInitializationChain: List<VirtualType>,
     ): ReflectionDecision = when {
-        hostInitializationChain.any { classInitializer(it) in exactUnsafeMethods } ->
+        hostInitializationChain.any { MethodSignature.classInitializer(it) in exactUnsafeMethods } ->
             ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE)
-        field.storage == FieldStorage.STATIC && StaticFieldDescriptor(
+        field.storage == FieldStorage.STATIC && FieldSignature(
             field.declaringType,
             field.name,
             field.fieldType,
@@ -77,8 +77,8 @@ class ReflectionPolicy(
         /** Loads fresh immutable policy data for one VM owner. */
         fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy =
             ReflectionPolicy(
-                exactUnsafeMethods = loadDefinitions(classLoader, "unsafe_methods.cfg").map(::parseMethod).toSet(),
-                exactSafeMethods = loadDefinitions(classLoader, "safe_methods.cfg").map(::parseMethod).toSet(),
+                exactUnsafeMethods = loadDefinitions(classLoader, "unsafe_methods.cfg").map(MethodSignature::parse).toSet(),
+                exactSafeMethods = loadDefinitions(classLoader, "safe_methods.cfg").map(MethodSignature::parse).toSet(),
                 safeClasses = loadDefinitions(classLoader, "safe_classes.cfg").map(VirtualType::of).toSet(),
                 methodEffects = loadDefinitions(classLoader, "method_effects.cfg").associate(::parseEffect),
             )
@@ -94,23 +94,10 @@ class ReflectionPolicy(
             }
         }
 
-        internal fun parseMethod(signature: String): MethodDescriptor {
-            val separator = signature.indexOf("->")
-            require(separator > 0) { "Malformed reflection method policy entry: $signature" }
-            val member = signature.substring(separator + 2)
-            val protoStart = member.indexOf('(')
-            require(protoStart > 0) { "Malformed reflection method policy entry: $signature" }
-            return MethodDescriptor(
-                VirtualType.of(signature.substring(0, separator)),
-                member.substring(0, protoStart),
-                member.substring(protoStart),
-            )
-        }
-
-        private fun parseEffect(definition: String): Pair<MethodDescriptor, SideEffectLevel> {
+        private fun parseEffect(definition: String): Pair<MethodSignature, SideEffectLevel> {
             val separator = definition.lastIndexOf(' ')
             require(separator > 0) { "Malformed reflection method effect entry: $definition" }
-            val method = parseMethod(definition.substring(0, separator))
+            val method = MethodSignature.parse(definition.substring(0, separator))
             val effect = try {
                 SideEffectLevel.valueOf(definition.substring(separator + 1))
             } catch (failure: IllegalArgumentException) {
@@ -118,7 +105,5 @@ class ReflectionPolicy(
             }
             return method to effect
         }
-
-        private fun classInitializer(type: VirtualType) = MethodDescriptor(type, "<clinit>", "()V")
     }
 }

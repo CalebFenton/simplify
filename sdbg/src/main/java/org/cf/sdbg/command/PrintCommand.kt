@@ -35,10 +35,9 @@ internal class PrintCommand : DebuggerCommand() {
             out.println("$name: ${state.readRegister(register.toInt())}")
             return
         }
-        when (val reference = SmaliReference.parse(value)) {
+        when (val reference = SmaliReference.parse(value, currentClass = null)) {
             is SmaliReference.Field -> {
-                val resolved = debugSession.services.classIndex.resolveStaticField(
-                    reference.owner, reference.name, reference.type.descriptor)
+                val resolved = debugSession.services.classIndex.resolveStaticField(reference.signature)
                 if (resolved is StaticFieldLookup.Resolved) {
                     out.println("${resolved.descriptor}: ${state.getStaticField(resolved.definingClass, resolved.descriptor)}")
                 } else {

@@ -46,6 +46,8 @@ tools/art-runner/check-golden.sh --update    # accept a change, once you know wh
 
 Run `--update` only after reading the diff and deciding which of three things happened: the image changed (the script prints the versions first, so you can rule that out without thinking), a fixture changed, or ART changed its answer. Only the last is a finding. What the comparison normalizes away, and why each rule is there, is in the script's header.
 
+The header also records the dex API level and a SHA-256 of every dispatcher and fixture source. `DeviceFixturesTest` recomputes both in `./gradlew test`, so CI fails when a fixture changes without a new recording. CI does not run `check-golden.sh` itself: it needs the pinned `art_standalone`, which Alpine `edge/testing` no longer publishes.
+
 After changing assembler dependencies, compare freshly assembled dexes without changing
 the recorded data:
 
@@ -83,7 +85,7 @@ or accept a new golden merely to accommodate a different image already on the ho
 
 A measurement from this runner is cited `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)` in `docs/DALVIK-SEMANTICS.md`. The parenthetical — **tier, interpreter mode, artifact version** — is mandatory, because the two facts that most nearly broke this harness are invisible without it: the AOT tier is unsound (hence `-Xint`), and a modern device's default interpreter (`nterp`, Tier B only) reads a register differently. A citation that says only "measured on a device" hides both, so one missing field means it is not a `[DEVICE]` citation.
 
-`[DEVICE]` is **tier-1**: on a question of what the runtime does it outranks an `[ART]` source reading, Android's docs, [JLS]/[JVMS], and the differential oracle's expectation. Two things it can't settle — a verifier question about input ART refuses to link (Tier A *can* report ART's own verdict as a catchable `VerifyError`, which is its alone), and a register-read question (that needs Tier B's `nterp`). The rule, the exceptions and the ranking live in `docs/DALVIK-SEMANTICS.md`'s tier ranking.
+`[DEVICE]` is **tier-1**: on a question of what the runtime does it outranks an `[ART]` source reading, Android's docs, [JLS]/[JVMS], and the core's own expectations. Two things it can't settle — a verifier question about input ART refuses to link (Tier A *can* report ART's own verdict as a catchable `VerifyError`, which is its alone), and a register-read question (that needs Tier B's `nterp`). The rule, the exceptions and the ranking live in `docs/DALVIK-SEMANTICS.md`'s tier ranking.
 
 Every citation must name a fixture here so anyone can re-run it in under a second (`run-batch.sh Fx_Name`). A measurement nobody can reproduce is an anecdote with a better tag.
 

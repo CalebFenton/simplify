@@ -147,7 +147,7 @@ class CoreTesterTest {
             "ambiguousLocalDivide(I)V",
             CoreState(),
             exceptionType = "Ljava/lang/ArithmeticException;",
-            message = "/ by zero",
+            message = "divide by zero",
         )
     }
 
@@ -405,7 +405,7 @@ class CoreTesterTest {
             BINARY_MATH, "divIntWithCatch()V",
             CoreState().apply { setRegisters(0, 12, "I", 1, 0, "I") },
             exceptionType = "Ljava/lang/ArithmeticException;",
-            message = "/ by zero",
+            message = "divide by zero",
             caughtInRegister = 0,
         )
     }
@@ -423,7 +423,7 @@ class CoreTesterTest {
                 BINARY_MATH, "divInt()V",
                 CoreState().apply { setRegisters(0, 12, "I", 1, 0, "I") },
                 exceptionType = "Ljava/lang/ArithmeticException;",
-                message = "/ by zero",
+                message = "divide by zero",
                 caughtInRegister = 0,
             )
         }
@@ -471,7 +471,7 @@ class CoreTesterTest {
                 caughtInRegister = 0,
             )
         }
-        assertTrue(failure.message!!.contains("/ by zero"), "must compare the messages: ${failure.message}")
+        assertTrue(failure.message!!.contains("divide by zero"), "must compare the messages: ${failure.message}")
     }
 
     @Test

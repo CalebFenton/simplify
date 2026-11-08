@@ -67,7 +67,7 @@ class ClassInitFailureBehaviorTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, INT))), graph.outcomes)
         val returning = graph.addresses().flatMap(graph::nodePile).single {
-            it.view.signature == "$CLASS_NAME->newInstance()I" && it.outcome is Outcome.Returned
+            it.view.signature.toString() == "$CLASS_NAME->newInstance()I" && it.outcome is Outcome.Returned
         }
         val frame = returning.terminalFrame
         val throwableTypes = heapRefsOf(frame).mapNotNull { ref ->
@@ -161,7 +161,7 @@ class ClassInitFailureBehaviorTest {
 
     @Test
     fun initializerHostFailureStaysPartialAndDoesNotBecomeGuestFailure() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lclass_init_failure/service;"),
             "fail",
             "()V",
@@ -185,7 +185,7 @@ class ClassInitFailureBehaviorTest {
 
     @Test
     fun hostOnlyErrorSkipsTheEarlierInitializerWrapperHandler() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lclass_init_failure/service;"),
             "fail",
             "()V",

@@ -17,7 +17,7 @@ class FrameworkCatalogTest {
         val index = task53ClassIndex(root, SOURCE)
         val workspace = index.programWorkspace
         val first = workspace.currentSnapshot
-        val method = first.frameworkCatalog.method("Ljava/lang/Object;->clone()Ljava/lang/Object;")
+        val method = first.frameworkCatalog.method(MethodSignature.parse("Ljava/lang/Object;->clone()Ljava/lang/Object;"))
 
         assertNotNull(method)
         assertNotNull(method!!.body)
@@ -34,7 +34,7 @@ class FrameworkCatalogTest {
         assertSame(method, second.frameworkCatalog.method(method.methodSignature))
         assertSame(method.identity, second.frameworkCatalog.method(method.methodSignature)!!.identity)
         assertTrue(first.hierarchy.contains("Landroid/app/Activity;"))
-        val lazyMethod = requireNotNull(first.frameworkCatalog.method("Landroid/app/Activity;->isFinishing()Z"))
+        val lazyMethod = requireNotNull(first.frameworkCatalog.method(MethodSignature.parse("Landroid/app/Activity;->isFinishing()Z")))
         val secondProjection = requireNotNull(first.frameworkCatalog.method(lazyMethod.methodSignature))
         assertSame(lazyMethod.identity, secondProjection.identity)
         assertNotNull(lazyMethod.body)
@@ -51,7 +51,7 @@ class FrameworkCatalogTest {
         val start = java.util.concurrent.CountDownLatch(1)
         val pool = java.util.concurrent.Executors.newFixedThreadPool(threads)
         try {
-            val lookups = List(threads) { pool.submit<FrameworkMethodIdentity> { start.await(); catalog.method(signature)!!.identity } }
+            val lookups = List(threads) { pool.submit<FrameworkMethodIdentity> { start.await(); catalog.method(MethodSignature.parse(signature))!!.identity } }
             start.countDown()
             val identities = lookups.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
             assertTrue(identities.all { it === identities.first() }, "one identity per framework method")
@@ -64,7 +64,7 @@ class FrameworkCatalogTest {
     fun concreteCapturedFrameworkBodyRemainsExecutableAsGuestBytecode() {
         val index = task53ClassIndex(root, SOURCE)
         val method = requireNotNull(
-            index.currentSnapshot.frameworkCatalog.method("Ljava/lang/Integer;->numberOfLeadingZeros(I)I"),
+            index.currentSnapshot.frameworkCatalog.method(MethodSignature.parse("Ljava/lang/Integer;->numberOfLeadingZeros(I)I")),
         )
         val view = MethodView.of(method, index.currentSnapshot.programRevision)
         val frame = Frame.entryFrame(view)
@@ -80,7 +80,7 @@ class FrameworkCatalogTest {
     fun modernFrameworkMethodMaterializesAndExecutesWithWideResult() {
         val index = task53ClassIndex(root, SOURCE)
         val method = requireNotNull(
-            index.currentSnapshot.frameworkCatalog.method("Ljava/lang/Math;->multiplyFull(II)J"),
+            index.currentSnapshot.frameworkCatalog.method(MethodSignature.parse("Ljava/lang/Math;->multiplyFull(II)J")),
         )
         val view = MethodView.of(method, index.currentSnapshot.programRevision)
         val frame = Frame.entryFrame(view)

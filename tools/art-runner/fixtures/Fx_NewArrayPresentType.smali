@@ -1,4 +1,4 @@
-# WORKLIST ROW 7 CONTROL -- new-array whose component type is PRESENT (java.lang.String).
+# Control: New-array whose component type is PRESENT (java.lang.String).
 # The control for Fx_NewArrayAbsentType: same opcode, a component that DOES resolve, so a batch in
 # which "everything fails to resolve" would fail here too and be caught. A clean length proves
 # new-array's component-resolution path works.

@@ -53,15 +53,15 @@ internal class ProgramSnapshotResolver internal constructor(
     }
 
     /**
-     * Looks [methodDescriptor] up from [definingClass]: the class and its superclasses, then the maximally-specific
+     * Looks [method] up from its defining class: the class and its superclasses, then the maximally-specific
      * superinterface methods. It answers symbolic resolution; [resolveInvocation] selects on a receiver's class.
      *
      * An absent class and an absent member are guest resolution failures. A declared method with no body
      * (abstract, native, a framework declaration, an array pseudo-method) is [MethodLookup.NoBody]; a backend
      * executes it. `<clinit>` is not inherited, so class initialization asks [lookupClassInitializer] instead.
      */
-    fun lookupMethod(definingClass: VirtualType, methodDescriptor: String): MethodLookup =
-        lookupMethod(definingClass, methodDescriptor, selection = false)
+    fun lookupMethod(method: MethodSignature): MethodLookup =
+        lookupMethod(method.definingClass, method.nameAndProto, selection = false)
 
     /**
      * [lookupMethod] for a receiver whose class is exactly [receiverClass], as ART selects through its vtable or
@@ -95,7 +95,7 @@ internal class ProgramSnapshotResolver internal constructor(
 
     /** Resolves one invoke under its opcode-specific lookup rule. */
     fun resolveInvocation(
-        target: MethodDescriptor,
+        target: MethodSignature,
         kind: InvokeKind,
         callerClass: VirtualType,
         receiverType: VirtualType?,
@@ -103,7 +103,7 @@ internal class ProgramSnapshotResolver internal constructor(
         val referenced = if (kind == InvokeKind.STATIC && target.nameAndProto == ClassIndex.CLASS_INITIALIZER_DESCRIPTOR) {
             lookupClassInitializer(target.definingClass)
         } else {
-            lookupMethod(target.definingClass, target.nameAndProto)
+            lookupMethod(target)
         }
         if (referenced is MethodLookup.NoSuchClass || referenced is MethodLookup.NoSuchMethod) {
             return InvocationLookup.Resolved(referenced)
@@ -224,15 +224,8 @@ internal class ProgramSnapshotResolver internal constructor(
             if (!searched.add(descriptor)) continue
             val owner = VirtualType.of(descriptor)
             val declaration = hierarchy.declarations[descriptor] ?: return staticFieldClassMissing(owner)
-            val wanted = ClassIndex.fieldDescriptorOf(owner, name, fieldTypeDescriptor)
-            declaredStaticFields(owner).firstOrNull { it.descriptor == wanted }?.let { declared ->
-                return StaticFieldLookup.Resolved(
-                    owner,
-                    declared.descriptor,
-                    declared.type,
-                    Modifier.isVolatile(declared.modifiers),
-                )
-            }
+            declaredStaticFields(owner).firstOrNull { it.field.hasNameAndType(name, fieldTypeDescriptor) }
+                ?.let { return StaticFieldLookup.Resolved(it.field, Modifier.isVolatile(it.modifiers)) }
             // Popped last-in first-out: every superinterface subtree, in declaration order, before the superclass.
             declaration.superclass?.let(pending::addLast)
             declaration.interfaces.asReversed().forEach(pending::addLast)
@@ -256,15 +249,8 @@ internal class ProgramSnapshotResolver internal constructor(
         var current: VirtualType? = referencedClass
         while (current != null) {
             val definingClass = current
-            val wanted = ClassIndex.fieldDescriptorOf(definingClass, name, fieldTypeDescriptor)
-            declaredInstanceFields(definingClass).firstOrNull { it.descriptor == wanted }?.let { declared ->
-                return InstanceFieldLookup.Resolved(
-                    definingClass,
-                    declared.descriptor,
-                    declared.type,
-                    Modifier.isVolatile(declared.modifiers),
-                )
-            }
+            declaredInstanceFields(definingClass).firstOrNull { it.field.hasNameAndType(name, fieldTypeDescriptor) }
+                ?.let { return InstanceFieldLookup.Resolved(it.field, Modifier.isVolatile(it.modifiers)) }
             current = try {
                 hierarchy.superclassOf(definingClass)
             } catch (_: ClassLoadFailure) {
@@ -299,7 +285,7 @@ internal class ProgramSnapshotResolver internal constructor(
         val fields = LinkedHashMap<String, Value>()
         for (declaringClass in chain.asReversed()) {
             for (field in declaredInstanceFields(declaringClass)) {
-                fields[field.descriptor] = defaultValueOf(field.type)
+                fields[field.field.toString()] = defaultValueOf(field.field.type)
             }
         }
         return fields
@@ -313,42 +299,36 @@ internal class ProgramSnapshotResolver internal constructor(
     fun declaredStaticFields(type: VirtualType): List<StaticFieldDeclaration> {
         if (!type.isReference || type.isArray) return emptyList()
         return snapshotFields(type, static = true).map { field ->
-            val fieldType = VirtualType.of(field.type)
-            StaticFieldDeclaration(
-                descriptor = ClassIndex.fieldDescriptorOf(VirtualType.of(field.definingClass), field.name, field.type),
-                type = fieldType,
-                literal = literalOf(field, fieldType),
-                modifiers = field.accessFlags,
-            )
+            val signature = FieldSignature.of(field)
+            StaticFieldDeclaration(signature, literalOf(field, signature.type), field.accessFlags)
         }
     }
 
     /** [type]'s own declared instance fields, in dex order. */
-    fun declaredInstanceFields(type: VirtualType): List<InstanceFieldDeclaration> {
+    fun declaredInstanceFields(type: VirtualType): List<FieldDeclaration> {
         if (!type.isReference || type.isArray) return emptyList()
-        return snapshotFields(type, static = false).map { field ->
-            InstanceFieldDeclaration(
-                descriptor = ClassIndex.fieldDescriptorOf(VirtualType.of(field.definingClass), field.name, field.type),
-                type = VirtualType.of(field.type),
-                modifiers = field.accessFlags,
-            )
-        }
+        return snapshotFields(type, static = false).map { field -> FieldDeclaration(FieldSignature.of(field), field.accessFlags) }
     }
 
     /** [type]'s declared static and instance fields with exact access metadata. */
     fun declaredFields(type: VirtualType): List<FieldDeclaration> =
-        declaredStaticFields(type).map { FieldDeclaration.of(type, it.descriptor, it.type, it.modifiers) } +
-            declaredInstanceFields(type).map { FieldDeclaration.of(type, it.descriptor, it.type, it.modifiers) }
+        declaredStaticFields(type).map { FieldDeclaration(it.field, it.modifiers) } + declaredInstanceFields(type)
+
+    private fun FieldSignature.hasNameAndType(name: String, typeDescriptor: String): Boolean =
+        this.name == name && type.descriptor == typeDescriptor
 
     private sealed interface SnapshotMethod {
         val declaration: ImmutableMethod
+        val signature: MethodSignature
 
         class Application(val definition: ApplicationMethodDefinition) : SnapshotMethod {
             override val declaration get() = definition.declaration
+            override val signature get() = definition.methodSignature
         }
 
         class Framework(val definition: FrameworkMethodDefinition) : SnapshotMethod {
             override val declaration get() = definition.declaration
+            override val signature get() = definition.methodSignature
         }
     }
 
@@ -411,7 +391,9 @@ internal class ProgramSnapshotResolver internal constructor(
 
     private fun lookupDeclaredMethod(definingClass: VirtualType, descriptor: String): MethodLookup {
         if (!hierarchy.isLoadable(definingClass)) return MethodLookup.NoSuchClass
-        if (!definingClass.isReference || definingClass.isArray) return lookupMethod(definingClass, descriptor)
+        if (!definingClass.isReference || definingClass.isArray) {
+            return lookupMethod(definingClass, descriptor, selection = false)
+        }
         return declaredSnapshotMethod(definingClass.descriptor, descriptor)?.let(::lookupOf) ?: MethodLookup.NoSuchMethod
     }
 
@@ -428,34 +410,27 @@ internal class ProgramSnapshotResolver internal constructor(
 
     private fun resolvedSnapshotMethod(
         method: SnapshotMethod,
-        definingClass: VirtualType = VirtualType.of(method.declaration.definingClass),
-    ): ResolvedMethod = ResolvedMethod(
-        MethodDescriptor(
-            definingClass,
-            method.declaration.name,
-            method.declaration.parameterTypes.joinToString(separator = "", prefix = "(", postfix = ")") +
-                method.declaration.returnType,
-        ),
-        VirtualType.of(method.declaration.returnType),
-        method.declaration.parameterTypes.map { VirtualType.of(it.toString()) },
-        Modifier.isSynchronized(method.declaration.accessFlags) ||
-            AccessFlags.DECLARED_SYNCHRONIZED.isSet(method.declaration.accessFlags),
-    )
-
-    private fun runnable(view: MethodView): MethodLookup.Runnable {
-        val descriptor = view.signature.substringAfter("->")
-        val name = descriptor.substringBefore('(')
-        val proto = descriptor.substring(name.length)
-        val parameterTypes = view.parameters.drop(if (view.isStatic) 0 else 1).map(ParameterSlot::type)
-        return MethodLookup.Runnable(
-            view,
-            ResolvedMethod(MethodDescriptor(view.definingClass, name, proto), view.returnType, parameterTypes, view.isSynchronized),
+        definingClass: VirtualType = method.signature.definingClass,
+    ): ResolvedMethod {
+        val declared = method.signature
+        val target = if (definingClass == declared.definingClass) {
+            declared
+        } else {
+            MethodSignature(definingClass, declared.name, declared.parameterTypes, declared.returnType)
+        }
+        return ResolvedMethod(
+            target,
+            Modifier.isSynchronized(method.declaration.accessFlags) ||
+                AccessFlags.DECLARED_SYNCHRONIZED.isSet(method.declaration.accessFlags),
         )
     }
 
+    private fun runnable(view: MethodView): MethodLookup.Runnable =
+        MethodLookup.Runnable(view, ResolvedMethod(view.signature, view.isSynchronized))
+
     /** Dex 037 `invoke-super` against an interface method selects the most specific inherited default. */
-    private fun resolveInterfaceSuper(callerClass: VirtualType, target: MethodDescriptor): InvocationLookup {
-        val candidates = LinkedHashMap<String, MethodView>()
+    private fun resolveInterfaceSuper(callerClass: VirtualType, target: MethodSignature): InvocationLookup {
+        val candidates = LinkedHashMap<MethodSignature, MethodView>()
         for (name in hierarchy.declaredAncestors(callerClass.descriptor).sorted()) {
             val type = VirtualType.of(name)
             if (hierarchy.isFrameworkClass(type) || !hierarchy.isInterface(type)) continue
@@ -476,7 +451,7 @@ internal class ProgramSnapshotResolver internal constructor(
         return when (mostSpecific.size) {
             1 -> InvocationLookup.Resolved(runnable(mostSpecific.single()))
             0 -> InvocationLookup.Resolved(lookupDeclaredMethod(target.definingClass, target.nameAndProto))
-            else -> InvocationLookup.Ambiguous(mostSpecific.mapTo(linkedSetOf()) { it.signature })
+            else -> InvocationLookup.Ambiguous(mostSpecific.mapTo(linkedSetOf()) { it.signature.toString() })
         }
     }
 
@@ -487,7 +462,7 @@ internal class ProgramSnapshotResolver internal constructor(
     private fun dispatchCandidates(declaredType: VirtualType, descriptor: String): LinkedHashMap<String, MethodLookup> {
         val candidates = LinkedHashMap<String, MethodLookup>()
         for (type in hierarchy.instantiableApplicationSubtypes(declaredType)) {
-            val lookup = lookupMethod(type, descriptor)
+            val lookup = lookupMethod(type, descriptor, selection = false)
             selectedSignature(lookup)?.let { candidates.putIfAbsent(it, lookup) }
         }
         return candidates
@@ -508,7 +483,7 @@ internal class ProgramSnapshotResolver internal constructor(
             is MethodLookup.AbstractSelection -> lookup.method
             MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> return null
         }
-        return "${method.target.definingClass.descriptor}->${method.target.nameAndProto}"
+        return method.target.toString()
     }
 
     private fun snapshotFields(type: VirtualType, static: Boolean): List<Field> {

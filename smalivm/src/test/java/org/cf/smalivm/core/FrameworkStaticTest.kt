@@ -43,7 +43,7 @@ class FrameworkStaticTest {
         assertSame(java.util.Collections.EMPTY_LIST, CoreTester.terminatingHostObject(graph, ref))
         assertEquals(
             Value.Known(ref, EMPTY_LIST_TYPE),
-            graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.descriptor),
+            graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.toString()),
         )
     }
 
@@ -51,7 +51,7 @@ class FrameworkStaticTest {
     fun exactUnsafeInitializerOutranksOverlappingSafeFieldAndClassRules() {
         val field = field("Ljava/lang/System;", "out", "Ljava/io/PrintStream;")
         val policy = ReflectionPolicy(
-            exactUnsafeMethods = setOf(MethodDescriptor(field.definingClass, "<clinit>", "()V")),
+            exactUnsafeMethods = setOf(MethodSignature(field.definingClass, "<clinit>", "()V")),
             exactSafeStaticFields = setOf(field),
             safeClasses = setOf(field.definingClass),
         )
@@ -67,7 +67,7 @@ class FrameworkStaticTest {
         val field = field("Ljava/lang/Integer;", "TYPE", "Ljava/lang/Class;")
         val number = VirtualType.of("Ljava/lang/Number;")
         val unsafeSuperclass = ReflectionPolicy(
-            exactUnsafeMethods = setOf(MethodDescriptor(number, "<clinit>", "()V")),
+            exactUnsafeMethods = setOf(MethodSignature(number, "<clinit>", "()V")),
             exactSafeStaticFields = setOf(field),
         )
         val authorized = ReflectionPolicy(exactSafeStaticFields = setOf(field))
@@ -133,7 +133,7 @@ class FrameworkStaticTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(TRUE)))
         val view = view("immutableReference()Ljava/lang/Boolean;")
         val frame = Frame.entryFrame(view)
-        frame.classes.setStaticField(TRUE.descriptor, Value.Known(false, TRUE.type))
+        frame.classes.setStaticField(TRUE.toString(), Value.Known(false, TRUE.type))
         frame.classes.complete(TRUE.definingClass)
 
         val graph = vm.newSession(view, entryFrame = frame).run()
@@ -201,7 +201,7 @@ class FrameworkStaticTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(EMPTY_LIST)))
         val view = view("siblingProjection(I)Ljava/util/List;")
         val frame = Frame.entryFrame(view).apply { assign(1, Value.Unknown(intType)) }
-        assertNull(frame.classes.staticCell(EMPTY_LIST.descriptor))
+        assertNull(frame.classes.staticCell(EMPTY_LIST.toString()))
 
         val graph = vm.newSession(view, entryFrame = frame).run()
         val returning = returningNodes(graph, view)
@@ -214,9 +214,9 @@ class FrameworkStaticTest {
         }
         val successorCells = graph.addresses().flatMap(graph::nodePile)
             .filter { it.outcome != null }
-            .mapNotNull { it.terminalFrame.classes.staticCell(EMPTY_LIST.descriptor) }
+            .mapNotNull { it.terminalFrame.classes.staticCell(EMPTY_LIST.toString()) }
         assertTrue(successorCells.isNotEmpty(), "the returning successors hold the projected static")
-        assertNull(frame.classes.staticCell(EMPTY_LIST.descriptor), "projection writes only successor frames, never the seed")
+        assertNull(frame.classes.staticCell(EMPTY_LIST.toString()), "projection writes only successor frames, never the seed")
     }
 
     @Test
@@ -235,7 +235,7 @@ class FrameworkStaticTest {
         assertEquals(Value.Known(existingRef, EMPTY_LIST_TYPE), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(
             Value.Known(existingRef, EMPTY_LIST_TYPE),
-            graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.descriptor),
+            graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.toString()),
         )
         // Heap ids are run-wide and the first probe consumed its id, so the run allocated nothing iff the next
         // probe answers exactly one higher.
@@ -314,7 +314,7 @@ class FrameworkStaticTest {
             EMPTY_LIST,
         )
 
-        fun field(owner: String, name: String, type: String): StaticFieldDescriptor =
-            StaticFieldDescriptor(VirtualType.of(owner), name, VirtualType.of(type))
+        fun field(owner: String, name: String, type: String): FieldSignature =
+            FieldSignature(VirtualType.of(owner), name, VirtualType.of(type))
     }
 }
