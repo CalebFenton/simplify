@@ -112,18 +112,33 @@ internal class ProgramInput private constructor(
         }
 
         /** [definition] as immutable values, refused as ART's DEX file verifier refuses its file. */
-        private fun immutableClass(definition: ClassDef): ImmutableClassDef = ImmutableClassDef(
-            definition.type,
-            definition.accessFlags,
-            definition.superclass,
-            definition.interfaces,
-            definition.sourceFile,
-            definition.annotations,
-            definition.staticFields,
-            definition.instanceFields,
-            definition.directMethods.map(::immutableMethod),
-            definition.virtualMethods.map(::immutableMethod),
-        )
+        private fun immutableClass(definition: ClassDef): ImmutableClassDef {
+            for (field in definition.fields) {
+                malformedSignature { FieldSignature.of(field) }?.let { reason ->
+                    throw ProgramInputException("Field ${DexFormatter.INSTANCE.getFieldDescriptor(field)} $reason")
+                }
+            }
+            return ImmutableClassDef(
+                definition.type,
+                definition.accessFlags,
+                definition.superclass,
+                definition.interfaces,
+                definition.sourceFile,
+                definition.annotations,
+                definition.staticFields,
+                definition.instanceFields,
+                definition.directMethods.map(::immutableMethod),
+                definition.virtualMethods.map(::immutableMethod),
+            )
+        }
+
+        /** Why ART's DEX file verifier refuses a member id whose name or types do not parse, or null. */
+        private inline fun malformedSignature(read: () -> Unit): String? = try {
+            read()
+            null
+        } catch (failure: MalformedSignatureException) {
+            "has a malformed signature: ${failure.reason}"
+        }
 
         private fun immutableMethod(method: Method): ImmutableMethod {
             val code = method.implementation?.let {
@@ -151,13 +166,15 @@ internal class ProgramInput private constructor(
 
         /**
          * Why ART's DEX file verifier (`libdexfile/dex/dex_file_verifier.cc`) refuses the file holding [method]
-         * with [code], or null. Only native and abstract methods lack code (`CheckMethodAccessFlags`); the registers
-         * hold the receiver and parameter words, `ins_size`; and every try range and handler lies inside the code
-         * (`CheckIntraCodeItem`, `CheckAndGetHandlerOffsets`). dexlib2 does not expose `ins_size`, so the words come
-         * from the prototype, which is what a DEX writer stores; a code item whose `ins_size` disagrees with its
-         * prototype fails ART's method verifier instead, which rejects only the class.
+         * with [code], or null. A method id names a MemberName and type descriptors (`CheckInterMethodIdItem`);
+         * only native and abstract methods lack code (`CheckMethodAccessFlags`); the registers hold the receiver and
+         * parameter words, `ins_size`; and every try range and handler lies inside the code (`CheckIntraCodeItem`,
+         * `CheckAndGetHandlerOffsets`). dexlib2 does not expose `ins_size`, so the words come from the prototype,
+         * which is what a DEX writer stores; a code item whose `ins_size` disagrees with its prototype fails ART's
+         * method verifier instead, which rejects only the class.
          */
         private fun dexFileVerifierError(method: Method, code: ImmutableMethodImplementation?): String? {
+            malformedSignature { MethodSignature.of(method) }?.let { return it }
             val codeForbidden = Modifier.isAbstract(method.accessFlags) || Modifier.isNative(method.accessFlags)
             if (code == null) return if (codeForbidden) null else "has no code but is neither native nor abstract"
             if (codeForbidden) return "has code but is native or abstract"
