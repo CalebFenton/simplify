@@ -9,7 +9,9 @@ import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 
 class ReflectBackendTest {
@@ -128,22 +130,17 @@ class ReflectBackendTest {
         assertEquals(Value.Known(42, intType), graph.outcomes.single().returnedValue())
     }
 
-    @Test
-    fun canCastIntegerToByte() {
-        val byteType = type("B")
-        val target = method("Ljava/lang/Byte;", "valueOf", "(B)Ljava/lang/Byte;")
-        val graph = invoke(VmServices(classIndex), target, InvokeKind.STATIC, listOf(Value.Known(6.toByte(), byteType))).run()
+    @TestFactory
+    fun staticValueOfBoxesTheExactPrimitiveArgument(): List<DynamicTest> = listOf(
+        Triple("Ljava/lang/Byte;", "B", 6.toByte()),
+        Triple("Ljava/lang/Short;", "S", 5.toShort()),
+    ).map { (box, primitive, raw) ->
+        DynamicTest.dynamicTest("$box.valueOf($primitive)") {
+            val target = method(box, "valueOf", "($primitive)$box")
+            val graph = invoke(VmServices(classIndex), target, InvokeKind.STATIC, listOf(Value.Known(raw, type(primitive)))).run()
 
-        assertEquals(Value.Known(6.toByte(), type("Ljava/lang/Byte;")), graph.outcomes.single().returnedValue())
-    }
-
-    @Test
-    fun canGetShortValueOfShort() {
-        val shortType = type("S")
-        val target = method("Ljava/lang/Short;", "valueOf", "(S)Ljava/lang/Short;")
-        val graph = invoke(VmServices(classIndex), target, InvokeKind.STATIC, listOf(Value.Known(5.toShort(), shortType))).run()
-
-        assertEquals(Value.Known(5.toShort(), type("Ljava/lang/Short;")), graph.outcomes.single().returnedValue())
+            assertEquals(Value.Known(raw, type(box)), graph.outcomes.single().returnedValue())
+        }
     }
 
     @Test
@@ -211,28 +208,23 @@ class ReflectBackendTest {
         assertEquals(receiverRef, (identitySession.currentNode!!.frame.peek(0) as Value.Known).raw)
     }
 
-    @Test
-    fun booleanConstructorUpdatesExistingReceiver() {
-        val booleanType = type("Ljava/lang/Boolean;")
-        assertConstructor(booleanType, "(Z)V", listOf(Value.Known(true, type("Z"))), true)
-    }
-
-    @Test
-    fun uuidConstructorBindsTwoWideArguments() {
-        val uuidType = type("Ljava/util/UUID;")
-        assertConstructor(
-            uuidType,
-            "(JJ)V",
-            listOf(Value.Known(0x42L, type("J")), Value.Known(0x1337L, type("J"))),
-            UUID(0x42L, 0x1337L),
-        )
-    }
-
-    @Test
-    fun characterConstructorUpdatesExistingReceiver() {
-        val characterType = type("Ljava/lang/Character;")
-        assertConstructor(characterType, "(C)V", listOf(Value.Known('a', type("C"))), 'a')
-    }
+    @TestFactory
+    fun hostConstructorUpdatesTheExistingReceiver(): List<DynamicTest> = listOf(
+        DynamicTest.dynamicTest("Boolean(Z)") {
+            assertConstructor(type("Ljava/lang/Boolean;"), "(Z)V", listOf(Value.Known(true, type("Z"))), true)
+        },
+        DynamicTest.dynamicTest("Character(C)") {
+            assertConstructor(type("Ljava/lang/Character;"), "(C)V", listOf(Value.Known('a', type("C"))), 'a')
+        },
+        DynamicTest.dynamicTest("UUID(JJ) binds two wide arguments") {
+            assertConstructor(
+                type("Ljava/util/UUID;"),
+                "(JJ)V",
+                listOf(Value.Known(0x42L, type("J")), Value.Known(0x1337L, type("J"))),
+                UUID(0x42L, 0x1337L),
+            )
+        },
+    )
 
     @Test
     fun unsupportedDirectAndSuperCallsDeclineBeforeExecution() {
@@ -453,6 +445,38 @@ class ReflectBackendTest {
         }
     }
 
+    /**
+     * `Constructor.newInstance` runs the reflected constructor, so it returns a new instance and its effect is that
+     * constructor's effect. A path-local copy of the guest's `Constructor` must stay a working constructor.
+     */
+    @Test
+    fun aReflectiveConstructionTakesItsEffectFromTheReflectedConstructor() {
+        val constructorType = type("Ljava/lang/reflect/Constructor;")
+        val newInstance = method(constructorType, "newInstance", "([Ljava/lang/Object;)Ljava/lang/Object;")
+        val pureConstructor = method("Ljava/lang/StringBuilder;", "<init>", "()V")
+        val vm = VmServices(
+            classIndex,
+            ReflectionPolicy(
+                exactSafeMethods = setOf(newInstance, pureConstructor),
+                methodEffects = mapOf(newInstance to SideEffectLevel.STRONG, pureConstructor to SideEffectLevel.NONE),
+            ),
+        )
+        val frame = Frame.entryFrame(callerView())
+        val hostConstructor = StringBuilder::class.java.getConstructor()
+        frame.assign(0, Value.Known(frame.heap.allocateHostObject(constructorType, hostConstructor), constructorType))
+        frame.assign(1, Value.Known(null, type("[Ljava/lang/Object;")))
+
+        val session = invoke(vm, newInstance, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1))
+        val graph = session.run()
+
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        val outcome = graph.outcomes.single()
+        assertTrue(outcome is Outcome.Returned, "newInstance of a public no-argument constructor returns: $outcome")
+        val returned = outcome.returnedValue() as Value.Known
+        assertTrue(session.currentNode!!.terminalFrame!!.heap.hostObjectAt(returned.raw as HeapRef) is StringBuilder)
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
+    }
+
     @Test
     fun exactUnsafeClassInitializerBlocksStaticAndConstructorBeforeHostClassResolution() {
         ReflectionExternalSentinel.reset()
@@ -655,8 +679,7 @@ class ReflectBackendTest {
 
     @Test
     fun exactMutationPreservesPolicyDeclaredNoneAndImportsChangedContents() {
-        // Bug class: exact VM-owned mutation is mistaken for an unmodeled external effect and raised to WEAK.
-        // Oracle: Plan 11 Task 42 keeps declared NONE when reconciliation proves Equal or Different modeled state.
+        // An exact VM-owned mutation is modeled state, so reconciliation keeps the policy-declared NONE.
         val target = method(fixtureType, "appendVoid", "(Ljava/lang/StringBuilder;)V")
         val policy = ReflectionPolicy(
             exactSafeMethods = setOf(target),
@@ -673,8 +696,8 @@ class ReflectBackendTest {
 
     @Test
     fun unprovableFinalGraphRaisesPolicyDeclaredNoneToStrong() {
-        // Bug class: declared NONE survives when exact host-graph reconciliation cannot prove modeled state.
-        // Oracle: Plan 11 raises Unprovable reconciliation to STRONG while retaining the detached graph and ref.
+        // When reconciliation cannot prove the host graph matches modeled state, declared NONE rises to STRONG;
+        // the detached graph and its ref are retained.
         val target = method(fixtureType, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
         val policy = ReflectionPolicy(
             exactSafeMethods = setOf(target),
@@ -694,8 +717,7 @@ class ReflectBackendTest {
 
     @Test
     fun failedPrefinalizeConstructorInstallationBecomesHostFailureAfterFinalization() {
-        // Bug class: finalization failure keeps the backend's declared NONE and understates an unmodeled result.
-        // Oracle: a finalization failure raises the effect to STRONG on the invoke and its activation.
+        // A finalization failure raises the effect to STRONG on the invoke and its activation.
         val constructorType = type("Lorg/cf/smalivm/core/ReflectOverloadedConstructor;")
         val target = method(constructorType, "<init>", "(I)V")
         lateinit var session: ExecutionSession

@@ -4,7 +4,7 @@
 .method public static pureLength(Ljava/lang/String;)I
     .locals 1
 
-    invoke-static {p0}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->pureLength(Ljava/lang/String;)I
+    invoke-static {p0}, Lorg/cf/smalivm/core/BackendHostFixture;->pureLength(Ljava/lang/String;)I
     move-result v0
     return v0
 .end method
@@ -27,7 +27,7 @@
     .locals 1
 
     move-object v0, p0
-    invoke-static {p0}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->mutate(Ljava/lang/StringBuilder;)V
+    invoke-static {p0}, Lorg/cf/smalivm/core/BackendHostFixture;->mutate(Ljava/lang/StringBuilder;)V
     return-object v0
 .end method
 
@@ -35,7 +35,7 @@
     .locals 1
 
     :try_start
-    invoke-static {p0}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->mutateThenThrow(Ljava/lang/StringBuilder;)V
+    invoke-static {p0}, Lorg/cf/smalivm/core/BackendHostFixture;->mutateThenThrow(Ljava/lang/StringBuilder;)V
     :try_end
     .catch Ljava/lang/IllegalStateException; {:try_start .. :try_end} :caught
 

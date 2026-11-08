@@ -14,7 +14,7 @@ class FrameworkCatalogTest {
 
     @Test
     fun indexedCatalogKeepsStableRunnableFrameworkMethodIdentityAcrossPublication() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val workspace = index.programWorkspace
         val first = workspace.currentSnapshot
         val method = first.frameworkCatalog.method(MethodSignature.parse("Ljava/lang/Object;->clone()Ljava/lang/Object;"))
@@ -62,7 +62,7 @@ class FrameworkCatalogTest {
 
     @Test
     fun concreteCapturedFrameworkBodyRemainsExecutableAsGuestBytecode() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val method = requireNotNull(
             index.currentSnapshot.frameworkCatalog.method(MethodSignature.parse("Ljava/lang/Integer;->numberOfLeadingZeros(I)I")),
         )
@@ -78,7 +78,7 @@ class FrameworkCatalogTest {
 
     @Test
     fun modernFrameworkMethodMaterializesAndExecutesWithWideResult() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val method = requireNotNull(
             index.currentSnapshot.frameworkCatalog.method(MethodSignature.parse("Ljava/lang/Math;->multiplyFull(II)J")),
         )
@@ -97,7 +97,7 @@ class FrameworkCatalogTest {
 
     private companion object {
         const val SOURCE = """
-            .class public Ltask53/FrameworkCaller;
+            .class public Lprogram/FrameworkCaller;
             .super Ljava/lang/Object;
 
             .method public static call(Ljava/lang/Object;)Ljava/lang/Object;

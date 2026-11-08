@@ -90,7 +90,7 @@ class MethodTryRegionEditTest {
         val edit = VmServices(index).methodEditor.beginEdit(view)
         val anchors = anchors(edit, view)
         val arithmetic = edit.stageType("Ljava/lang/ArithmeticException;")
-        val removedType = edit.stageType("Ltask57/RemovedCatch;")
+        val removedType = edit.stageType("Ltryedit/RemovedCatch;")
         edit.setTryRegions(
             listOf(
                 TryRegionSpec(
@@ -119,7 +119,7 @@ class MethodTryRegionEditTest {
             anchorsAddress(committed, anchors.exceptionHandler),
             committed.editedMethodView.tryBlocks.single().catchAllAddress,
         )
-        assertFalse(index.currentSnapshot.dexReferenceClosure.types.contains("Ltask57/RemovedCatch;"))
+        assertFalse(index.currentSnapshot.dexReferenceClosure.types.contains("Ltryedit/RemovedCatch;"))
 
         val reloaded = reload(index)
         val reloadedTry = requireNotNull(reloaded.methodView(METHOD)).tryBlocks.single()
@@ -487,7 +487,7 @@ class MethodTryRegionEditTest {
         val rangeCount = 17_000
         val index = index(
             buildString {
-                appendLine(".class public Ltask57/ManyRanges;")
+                appendLine(".class public Ltryedit/ManyRanges;")
                 appendLine(".super Ljava/lang/Object;")
                 appendLine(".method public static run()V")
                 appendLine(".registers 1")
@@ -499,7 +499,7 @@ class MethodTryRegionEditTest {
             },
         )
         val snapshot = index.currentSnapshot
-        val view = requireNotNull(index.methodView("Ltask57/ManyRanges;->run()V"))
+        val view = requireNotNull(index.methodView("Ltryedit/ManyRanges;->run()V"))
         val edit = VmServices(index).methodEditor.beginEdit(view)
         val boundaries = (0..rangeCount).map(edit::pendingAnchorForCodeAddress)
         val handler = edit.pendingAnchorForCodeAddress(rangeCount + 1)
@@ -543,7 +543,7 @@ class MethodTryRegionEditTest {
 
     private fun index(source: String = SOURCE): ClassIndex {
         val directory = Files.createDirectory(root.resolve("fixture-${fixtureSequence++}"))
-        return task53ClassIndex(directory, source)
+        return classIndexFromSource(directory, source)
     }
 
     private fun installBody(index: ClassIndex, methodSignature: String, body: MethodBody) {
@@ -573,7 +573,7 @@ class MethodTryRegionEditTest {
 
     /** A fresh import of [SOURCE] whose string section holds exactly 65,536 entries. */
     private fun stringBoundaryIndex(): ClassIndex {
-        val annotationType = "Ltask57/StringBoundary;"
+        val annotationType = "Ltryedit/StringBoundary;"
         val existingStrings = index().currentSnapshot.dexReferenceClosure.strings
         var stringCount = existingStrings.size + if (annotationType in existingStrings) 0 else 1
         val annotation = StringBuilder("\n.annotation runtime $annotationType\n")
@@ -596,14 +596,14 @@ class MethodTryRegionEditTest {
 
     private companion object {
         val INT = VirtualType.of("I")
-        const val CLASS_TYPE = "Ltask57/TryEdit;"
-        const val METHOD = "Ltask57/TryEdit;->run()I"
-        const val COLLATERAL = "Ltask57/TryEdit;->collateral()V"
-        const val UNAFFECTED = "Ltask57/TryEdit;->unaffected()V"
-        const val TRY_BOUNDARY = "Ltask57/TryEdit;->tryBoundary()V"
-        const val NEW_CATCH_TYPE = "Ltask57/NewCatch;"
+        const val CLASS_TYPE = "Ltryedit/TryEdit;"
+        const val METHOD = "Ltryedit/TryEdit;->run()I"
+        const val COLLATERAL = "Ltryedit/TryEdit;->collateral()V"
+        const val UNAFFECTED = "Ltryedit/TryEdit;->unaffected()V"
+        const val TRY_BOUNDARY = "Ltryedit/TryEdit;->tryBoundary()V"
+        const val NEW_CATCH_TYPE = "Ltryedit/NewCatch;"
         const val SOURCE = """
-            .class public Ltask57/TryEdit;
+            .class public Ltryedit/TryEdit;
             .super Ljava/lang/Object;
 
             .method public static run()I
@@ -643,9 +643,9 @@ class MethodTryRegionEditTest {
             .end method
         """
 
-        const val EXCEPTION_FLOW_METHOD = "Ltask57/ExceptionFlow;->run()I"
+        const val EXCEPTION_FLOW_METHOD = "Ltryedit/ExceptionFlow;->run()I"
         const val EXCEPTION_FLOW_SOURCE = """
-            .class public Ltask57/ExceptionFlow;
+            .class public Ltryedit/ExceptionFlow;
             .super Ljava/lang/Object;
 
             .method public static run()I
@@ -658,9 +658,9 @@ class MethodTryRegionEditTest {
             .end method
         """
 
-        const val FILL_FLOW_METHOD = "Ltask57/FillFlow;->run()I"
+        const val FILL_FLOW_METHOD = "Ltryedit/FillFlow;->run()I"
         const val FILL_FLOW_SOURCE = """
-            .class public Ltask57/FillFlow;
+            .class public Ltryedit/FillFlow;
             .super Ljava/lang/Object;
 
             .method public static run()I

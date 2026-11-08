@@ -51,7 +51,8 @@ class StaticFieldAccessTest {
             setFields(CLASS_NAME, "alwaysZero:I", 0, "testInt1:I", 0, "testInt2:I", 1)
             setRegisters(0, 1, "I")
         }
-        CoreTester.test(CLASS_NAME, "getTestInt2()I", expected)
+        // From process start: the initializer's writes to these non-final statics are what the test reads.
+        CoreTester.test(CLASS_NAME, "getTestInt2()I", expected, EntryClassState.FRESH_PROCESS)
     }
 
     @Test

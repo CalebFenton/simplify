@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test
 /**
  * Each bug class here is a silent wrong answer rather than a crash:
  *
- *  1. **Colliding node piles.** A caller's address 0 and a callee's address 0 are different program points;
+ *  1. Colliding node piles. A caller's address 0 and a callee's address 0 are different program points;
  *     merging their piles lets a callee's returning node vote in the caller's `terminatingConsensus`.
- *  2. **A colliding visit budget.** Visits are scoped per activation, so loop-free callees that each start at
+ *  2. A colliding visit budget. Visits are scoped per activation, so loop-free callees that each start at
  *     address 0 do not share one budget and spuriously make the run `Partial`.
- *  3. **Colliding heap ids.** A callee frame shares the caller's heap id space; a fresh id space would give
+ *  3. Colliding heap ids. A callee frame shares the caller's heap id space; a fresh id space would give
  *     the callee's first object the caller's first id, and heap consensus would treat two objects as one.
  */
 class InvokerTest {
@@ -144,7 +144,7 @@ class InvokerTest {
     @Test
     fun anArgumentLandsInTheCalleesHighestRegister() {
         // Parameters occupy the highest registers. `identityInt(I)I` has `.registers 1`, so its parameter is v0,
-        // and the 6 coming back proves the binding landed where Dalvik puts it.
+        // and the 6 coming back proves the binding is where Dalvik puts it.
         val graph = run("passesAnArgument()I")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Known(6, int), graph.trusted()!!.terminatingConsensus(0))
@@ -200,8 +200,6 @@ class InvokerTest {
         assertEquals(listOf(Outcome.Returned(Value.Known(5, int))), graph.outcomes)
     }
 
-    // --- an incomplete call is unanalyzable, so it declares STRONG ---
-
     @Test
     fun aFullyAnalyzedThrowingCalleeDoesNotInventAStrongEffect() {
         // A callee that throws and is caught by the caller ran to completion, so the invoke address reports the
@@ -238,8 +236,6 @@ class InvokerTest {
             "and still not every address: the caller's own const declared nothing and completed",
         )
     }
-
-    // --- recursion into the entry method: reachability unions, the run's return value does not ---
 
     @Test
     fun aRecursiveActivationsReachedAddressesAreNotReportedAsDeadCode() {
@@ -307,8 +303,6 @@ class InvokerTest {
         assertEquals(2, base.size, "`:base` is a const and a return; the fixture changed if it is not")
         return base
     }
-
-    // --- resolution: what the Invoker refuses, and that none of it is a host crash ---
 
     @Test
     fun anAbsentMemberOfALoadedClassThrowsTheMeasuredGuestError() {
@@ -415,8 +409,6 @@ class InvokerTest {
         val failure = graph.nodePile(0).single().outcome.hostFailure
         assertTrue(failure is IllegalArgumentException, "the frame's own range check is what raised: $failure")
     }
-
-    // --- the Invoker on its own, with no session ---
 
     @Test
     fun theInvokerResolvesAStaticTargetToARunnableBodyWithoutASession() {

@@ -15,31 +15,14 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 /**
- * The twelve binary math/logic operators across four operand domains and three instruction shapes
- * (register/register/register, `/2addr`, and literal), plus [DivideByZero] -- the divide-by-zero
- * routing that makes `div`/`rem` the first ops in this engine to return TWO transitions.
- *
- * **Nothing here runs against the oracle any more.** The last three oracle-backed tests were migrated
- * in this task, and two of them needed their fixture method repaired first:
- *
- *  - [IntegerMath.canDivIntWithCatchWithUnknownValueVisitsExceptionHandler] was waiting on the fork.
- *    Its SEED moved -- see the note in its body -- because the oracle reaches the handler for an
- *    infeasible reason; its expected addresses are byte-identical.
- *  - [LongMath.canDivLongWithCatchWithUnkownValueVisitsExceptionHandler] was waiting on the fork too,
- *    and on `divLongWithCatch()V`'s overlapping wide register pairs (`div-long v0, v0, v1` under
- *    `.locals 2`: the lhs pair is {v0,v1} and the rhs pair is {v1,v2}). The fixture's rhs operand now
- *    reads v2 under `.locals 4`; see that method's comment for the derivation.
- *  - [DoubleMath.canDivDoubleWithDivisionByZero] was never waiting on the fork at all -- float and
- *    double division by zero yields +/-Infinity and never throws -- only on the identical
- *    register-pair defect in `divDoubleWithCatch()V`, repaired the same way.
- *
- * Both repairs leave every code address unchanged (`Instruction23x` is two code units whichever
- * registers it names), so no address-asserting expectation moved. `divIntWithCatch()V` and
- * `divFloatWithCatch()V` are narrow and were verified defect-free rather than assumed so.
+ * The binary arithmetic and logical instructions in every operand domain and instruction shape, and their
+ * divide-by-zero routing. Semantics: `docs/DALVIK-SEMANTICS.md`, "Binary operations".
  */
 class BinaryMathOpTest {
 
@@ -48,11 +31,8 @@ class BinaryMathOpTest {
     }
 
     /**
-     * Liveness pin, matching the shape of UnaryMathOp's and CmpOp's: `add-int v0, v0, v1`
-     * (Instruction23x) aliases its destination to its LHS operand (v0), so `registersAssigned` alone
-     * already reports v0 as touched. The RHS operand (v1) is a DIFFERENT register that
-     * `registersAssigned` never names, so dropping it from `registersRead` is a real liveness loss
-     * that only a query reading `registersRead` directly -- never a value assertion -- can see.
+     * `add-int v0, v0, v1` names v0 as its destination, so only `registersRead` shows the read of v1. Bug
+     * class: dropping the right-hand operand register from liveness.
      */
     @Test
     fun addIntReportsBothOperandRegistersAsRead() {
@@ -61,20 +41,11 @@ class BinaryMathOpTest {
     }
 
     /**
-     * Divide-by-zero routing: the first op in this engine to return two transitions, and therefore the
-     * first real exercise of the atomic commit primitive.
+     * Integral `div`/`rem` by zero throws `ArithmeticException("divide by zero")`, a provably non-zero divisor
+     * cannot throw, and float/double division never throws.
      *
-     * Every expectation below has Dalvik itself as its oracle, not engine output: integral `div`/`rem`
-     * by zero throws `ArithmeticException("divide by zero")`, a known non-zero divisor cannot throw whatever
-     * the dividend is (integer overflow does not throw -- `Integer.MIN_VALUE / -1` yields
-     * `Integer.MIN_VALUE`), and float/double division by zero yields +/-Infinity or NaN and never
-     * throws at all.
-     *
-     * Addresses: the plain `divInt()V`/`divLong()V`/`remInt()V` methods are the math op at @0
-     * (`Instruction23x`, two code units) followed by `return-void` at @2, and the `*WithCatch()V` ones
-     * add the handler at @3 and its `goto` back to the return at @4.
-     * [aMalformedFallThroughDoesNotDiscardTheFeasibleExceptionalBranch]'s fixture is deliberately laid
-     * out differently and states its own addresses.
+     * Addresses: the plain `divInt()V`/`divLong()V`/`remInt()V` methods are the op at @0 and `return-void` at
+     * @2; the `*WithCatch()V` methods add the handler at @3 and its `goto` back to the return at @4.
      */
     @Nested
     @DisplayName("with a divisor that may be zero")
@@ -87,8 +58,8 @@ class BinaryMathOpTest {
         }
 
         /**
-         * Bug class: continuing past a division that DEFINITELY throws, which explores a path Dalvik
-         * never takes and lets a fabricated quotient vote into consensus.
+         * Bug class: continuing past a division that definitely throws, which explores a path Dalvik never
+         * takes and lets a fabricated quotient vote into consensus.
          */
         @Test
         fun aKnownZeroIntDivisorThrowsAndDoesNotContinue() {
@@ -97,14 +68,9 @@ class BinaryMathOpTest {
                 CLASS_NAME, "divInt()V", initial,
                 exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
-            // The "and does not continue" half has to be asserted separately: `testThrows`
-            // deliberately says nothing about whether a normal path also ran (see its KDoc), so
-            // returning `[Continue, Throw]` for a KNOWN zero would satisfy the call above unchanged.
+            // `testThrows` also passes for a `[Continue, Throw]` fork, so the fall-through is asserted here.
             val graph = CoreTester.execute(CLASS_NAME, "divInt()V", initial)
-            // The completion gate is NOT redundant with `testThrows`'s: an absent address is a
-            // dead-code claim, and `wasReached` answers false identically for a genuinely unexplored
-            // fall-through and for one a truncated run never got to (`CoreTester.testVisitation`'s
-            // KDoc). Hand-written `wasReached` negatives need the gate written out by hand.
+            // An unreached address proves dead code only on a run that explored everything.
             assertEquals(
                 CompletionStatus.Complete, graph.completion(),
                 "the fall-through is only provably unexplored on a run that explored everything",
@@ -112,7 +78,7 @@ class BinaryMathOpTest {
             assertFalse(graph.wasReached(2), "a definite throw must not also explore the fall-through")
         }
 
-        /** The `J` half. A separate domain in [BinaryMathOp], so a separate feasible-throw claim. */
+        /** The `long` domain checks its divisor separately from `int`. */
         @Test
         fun aKnownZeroLongDivisorThrows() {
             initial.setRegisters(0, 12L, "J", 2, 0L, "J")
@@ -123,9 +89,8 @@ class BinaryMathOpTest {
         }
 
         /**
-         * `rem` by a known zero throws too -- `rem-int` computes the remainder of the same division, so
-         * Dalvik raises the identical `ArithmeticException`. Bug class: treating divide-by-zero as a
-         * property of the `div` mnemonic rather than of the division.
+         * `rem-int` computes the remainder of the same division, so it throws the same `ArithmeticException`.
+         * Bug class: treating divide-by-zero as a property of the `div` mnemonic rather than of the division.
          */
         @Test
         fun aKnownZeroIntModulusThrows() {
@@ -137,16 +102,8 @@ class BinaryMathOpTest {
         }
 
         /**
-         * `rem` by a known zero throws for LONG too, mirroring [aKnownZeroIntModulusThrows]. Restores
-         * the INTENT of the deleted mockk test
-         * `longModuloByZeroExceptionIsCaughtAndHasNoChildrenAndAssignsNoRegisters`, which the design
-         * spec names as a "fix, don't port" false positive (spec §10): it constructed `DIV_LONG`, not
-         * `REM_LONG` -- a copy-paste of its own DIV sibling -- so `rem-long`'s own zero-divisor behavior
-         * went untested both before this migration and after it; neither `canRemLong` nor
-         * `canRemLong2Addr` uses a zero divisor. Bug class: `canDivideByZero()`'s operator and domain
-         * guards agreeing for some combinations but not others -- e.g. recognizing REM for `I` but not
-         * `J` -- which neither the existing INT-domain REM test nor the existing LONG-domain DIV test
-         * can catch on its own; see Mutation evidence.
+         * Bug class: the zero-divisor guard recognizing `rem` in the `int` domain but not in `long`, which
+         * neither [aKnownZeroIntModulusThrows] nor [aKnownZeroLongDivisorThrows] can catch alone.
          */
         @Test
         fun aKnownZeroLongModulusThrows() {
@@ -158,11 +115,9 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The soundness claim, stated over OUTCOMES rather than addresses: an unknown divisor makes both
-         * a normal return and a throw feasible, so a run that reports Complete must contain both. Bug
-         * class: an unexplored feasible path on a fully-trusted run -- the worst outcome this engine can
-         * have (spec §2.2, more forks never fewer). `divInt()V` has no handler, so the exceptional path
-         * leaves the method and shows up as [Outcome.Threw] instead of as a visited address.
+         * An unknown divisor makes both a normal return and a throw feasible, so a run that reports Complete
+         * must contain both. Bug class: an unexplored feasible path on a trusted run. `divInt()V` has no
+         * handler, so the throw leaves the method as [Outcome.Threw].
          */
         @Test
         fun anUnknownIntDivisorExploresBothTheThrowAndTheReturn() {
@@ -174,14 +129,8 @@ class BinaryMathOpTest {
         }
 
         /**
-         * `rem` forks on an ambiguous divisor exactly as `div` does, because `rem-int` by zero throws
-         * exactly as `div-int` does.
-         *
-         * INTENDED DIVERGENCE from the oracle, which forks only for `DIV` (`opcode/BinaryMathOp.kt:64`
-         * tests `mathOperator == MathOperator.DIV`) even though its own `doIntegerOperation` catches
-         * `ArithmeticException` for `REM` too (`:185`). On an unknown divisor the oracle therefore
-         * explores one fewer feasible path than exists while still reporting the run complete -- which
-         * is the soundness class this rewrite exists to remove.
+         * `rem-int` by zero throws as `div-int` does, so an unknown divisor forks it the same way. Bug class:
+         * forking only for `div`, which drops a feasible throw on a run that still reports Complete.
          */
         @Test
         fun anUnknownIntModulusDivisorForksLikeDivisionDoes() {
@@ -193,13 +142,9 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The normal path's quotient is [Value.Unknown], never a guess: the divisor was not known, so
-         * neither is the result. Bug class: routing the fork correctly while still fabricating a
-         * constant for the branch that did not throw.
-         *
-         * Asserted at address **2**, the fall-through successor, not at the forking node's own address:
-         * @0's frame is shared with the throwing path, so an assertion there is one address away from
-         * this test's own claim about "the normal path".
+         * The normal path's quotient is [Value.Unknown]: the divisor was not known, so neither is the result.
+         * Bug class: routing the fork correctly while fabricating a constant for the branch that did not
+         * throw. Asserted at the fall-through @2, because @0's frame is shared with the throwing path.
          */
         @Test
         fun theNormalPathOfTheForkAssignsAnUnknownQuotient() {
@@ -211,14 +156,9 @@ class BinaryMathOpTest {
         }
 
         /**
-         * Dalvik does not write a division's destination register when the division throws, so a path
-         * that DEFINITELY throws must leave the pre-op value standing. Bug class: a throwing node
-         * reporting `Unknown(domain)` for its destination -- harmless-looking as a move up the lattice,
-         * but type-wrong rather than merely imprecise when the register held a reference, and visible
-         * both through `consensus` here and to any handler successor, which copies this same post-op
-         * frame.
-         *
-         * The `[Continue, Throw]` fork deliberately still assigns; see [BinaryMathOp.execute].
+         * A division that throws does not write its destination, so a definite throw leaves the pre-op value
+         * standing. Bug class: a throwing node assigning `Unknown(domain)`, which is type-wrong when the
+         * register held a reference and is copied into any handler's frame.
          */
         @Test
         fun aDefinitelyThrowingDivisionLeavesItsDestinationRegisterAlone() {
@@ -230,20 +170,10 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The zero test must be asked at the SAME width the arithmetic is performed at.
-         * `divIntByWideZeroLowHalf()V`'s divisor is written by a `const-wide` as the 64-bit 2^32, so
-         * reading it as an `Int` gives 0 (the low 32 bits) while reading it as a `Long` gives 2^32.
-         * Dalvik reads a `div-int` operand as a 32-bit register, so it throws.
-         *
-         * Bug class, and it was real: asking the routing question at 64-bit width while `computed` asked
-         * it at 32-bit produced "no result because the path throws" AND "continue normally" at once --
-         * `Unknown(I)` assigned, one arm, no `OpArm.Throw`, run reporting `Complete`. An
-         * unexplored feasible path on a fully-trusted run. Needs no seeded frame: `const-wide` puts the
-         * ambiguous raw there, which is the shape Dalvik's overloaded const opcodes actually produce.
-         *
-         * The arity assertions are what separate a definite throw from a `[Continue, Throw]` fork, which
-         * `testThrows` alone cannot see: a fork still contains the throw, on a still-`Complete` run. Same
-         * shape as [aKnownZeroIntDivisorThrowsAndDoesNotContinue] and [aZeroFloatDivisorDoesNotFork].
+         * The zero test reads the divisor at the arithmetic's width. `divIntByWideZeroLowHalf()V`'s divisor is
+         * a `const-wide` 2^32, whose low 32 bits are 0, and `div-int` reads one 32-bit register, so it throws.
+         * Bug class: asking the zero question at 64 bits while computing at 32, which assigns `Unknown(I)` and
+         * continues without the throw on a run reporting Complete.
          */
         @Test
         fun aWideDivisorWhoseLowThirtyTwoBitsAreZeroThrows() {
@@ -252,20 +182,18 @@ class BinaryMathOpTest {
                 exceptionType = "Ljava/lang/ArithmeticException;", message = "divide by zero",
             )
             val graph = CoreTester.execute(CLASS_NAME, "divIntByWideZeroLowHalf()V")
-            // Derived from the instruction formats, and asserted rather than trusted so the @9 claim
-            // below cannot go vacuous if the fixture is edited: const/16 @0 (Format21s, 2 code units),
-            // const-wide @2 (Format51l, 5), div-int @7 (Instruction23x, 2), return-void @9.
+            // From the instruction formats: const/16 @0, const-wide @2, div-int @7, return-void @9. Asserted so
+            // the @9 claim below cannot go vacuous if the fixture changes.
             assertArrayEquals(intArrayOf(0, 2, 7, 9), graph.addresses(), "fixture layout moved: $graph")
             assertEquals(CompletionStatus.Complete, graph.completion(), "the throw is the only path: $graph")
-            assertEquals(1, graph.outcomes.size, "a definite throw has exactly ONE outcome: $graph")
+            assertEquals(1, graph.outcomes.size, "a definite throw has exactly one outcome: $graph")
             assertFalse(graph.wasReached(9), "and the fall-through past the division must not run")
         }
 
         /**
          * An `I`-domain divide reading a computed `Float` divisor reads its 32 bits: `0.5f` is
-         * `0x3F000000 == 1056964608`, so `10 / 1056964608` is `0` and Dalvik does not throw. A value
-         * conversion would read `0` and route the op to `[Throw]` alone, dropping the normal path on a run
-         * still reporting `Complete`.
+         * `0x3F000000 == 1056964608`, so `10 / 1056964608` is `0` and nothing throws. A value conversion would
+         * read `0` and route the op to a throw alone.
          */
         @Test
         fun anIntDivideReadingAComputedFloatDivisorDividesByItsBits() {
@@ -276,8 +204,8 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The `J` half: `div-long v0, v0, v2` reads the 64 bits at v2/v3, which for `0.5` are
-         * `0x3FE0000000000000 == 4602678819172646912`, so `10 / that` is `0` and Dalvik does not throw.
+         * The `long` case: `div-long v0, v0, v2` reads the 64 bits at v2/v3, which for `0.5` are
+         * `0x3FE0000000000000 == 4602678819172646912`, so `10 / that` is `0` and nothing throws.
          */
         @Test
         fun aLongDivideReadingAComputedDoubleDivisorDividesByItsBits() {
@@ -288,10 +216,9 @@ class BinaryMathOpTest {
         }
 
         /**
-         * A zero FLOAT divisor produces no fork at all -- one transition, one successor, one outcome.
-         * Asserted as fork ARITY rather than as a value (`FloatMath` already pins the Infinity), because
-         * that is the half a domain-agnostic guard would break: `0f`'s bits are an integral zero, so an
+         * A zero float divisor produces one outcome, not a fork. `0f`'s bits are an integral zero, so an
          * integral zero check reached from the float domain would fork a throw float division never makes.
+         * [aFloatDivisionByZeroYieldsInfinity] pins the value.
          */
         @Test
         fun aZeroFloatDivisorDoesNotFork() {
@@ -301,20 +228,68 @@ class BinaryMathOpTest {
             assertTrue(graph.outcomes.single() is Outcome.Returned, "and it is a normal return")
         }
 
+        /** Float division by zero yields Infinity rather than throwing, so the divide-by-zero fork is integral-only. */
+        @Test
+        fun aFloatDivisionByZeroYieldsInfinity() {
+            initial.setRegisters(0, 1f, "F", 1, 0f, "F")
+            CoreTester.test(
+                CLASS_NAME, "divFloat()V", initial,
+                CoreState().apply { setRegisters(0, Float.POSITIVE_INFINITY, "F") },
+            )
+        }
+
+        /** The `double` case of [aFloatDivisionByZeroYieldsInfinity]. */
+        @Test
+        fun aDoubleDivisionByZeroYieldsInfinity() {
+            initial.setRegisters(0, 1.0, "D", 2, 0.0, "D")
+            CoreTester.test(
+                CLASS_NAME, "divDouble()V", initial,
+                CoreState().apply { setRegisters(0, Double.POSITIVE_INFINITY, "D") },
+            )
+        }
+
+        /** A float division by zero cannot throw, so its handler at @3 is never reached. */
+        @Test
+        fun aFloatDivisionByZeroNeverReachesItsHandler() {
+            initial.setRegisters(0, 5f, "F", 1, 0f, "F")
+            CoreTester.testVisitation(CLASS_NAME, "divFloatWithCatch()V", initial, intArrayOf(0, 2))
+        }
+
+        /** The `double` case of [aFloatDivisionByZeroNeverReachesItsHandler]. */
+        @Test
+        fun aDoubleDivisionByZeroNeverReachesItsHandler() {
+            initial.setRegisters(0, 5.0, "D", 2, 0.0, "D")
+            CoreTester.testVisitation(CLASS_NAME, "divDoubleWithCatch()V", initial, intArrayOf(0, 2))
+        }
+
+        /** Bug class: an unknown divisor exploring only one feasible path, leaving the handler unvisited. */
+        @Test
+        fun anUnknownIntDivisorVisitsTheExceptionHandler() {
+            initial.setRegisters(0, 12, "I", 1, CoreState.UNKNOWN, "I")
+            CoreTester.testVisitation(CLASS_NAME, "divIntWithCatch()V", initial, intArrayOf(0, 2, 3, 4))
+        }
+
+        /** The `long` case of [anUnknownIntDivisorVisitsTheExceptionHandler]. */
+        @Test
+        fun anUnknownLongDivisorVisitsTheExceptionHandler() {
+            initial.setRegisters(0, 5L, "J", 2, CoreState.UNKNOWN, "J")
+            CoreTester.testVisitation(CLASS_NAME, "divLongWithCatch()V", initial, intArrayOf(0, 2, 3, 4))
+        }
+
         /**
-         * One branch of the fork has a malformed target -- `divIntFallsOffTheEnd()V`'s fall-through
-         * runs off the end of the method -- and the other has a real handler. The feasible branch must
-         * still be explored (`OnUnbuildable.SKIP_ONE`), and the lost one must make the run Partial.
-         *
-         * Two bug classes at once, and they pull in opposite directions: discarding the feasible
-         * exceptional branch because a sibling was malformed, and reporting Complete for an exploration
-         * that lost a path. `CommitTest` reaches this through the op-injection seam; this is the
-         * behavioral witness that a real opcode gets there.
-         *
-         * It is also the ONLY witness that a real opcode's malformed target reports
-         * `AbortReason.MALFORMED_INPUT` rather than `HOST_FAILURE` -- every other test of that
-         * distinction drives `commit` through the injection seam, so without the exact reason asserted
-         * here the whole split would rest on scripted transitions.
+         * Bug class: forking on "the result is unknown" instead of "the divisor may be zero". A known non-zero
+         * divisor cannot throw whatever the dividend is, so the handler at @3 is infeasible for this input.
+         */
+        @Test
+        fun anUnknownDividendOverAKnownNonZeroDivisorDoesNotFork() {
+            initial.setRegisters(0, CoreState.UNKNOWN, "I", 1, 5, "I")
+            CoreTester.testVisitation(CLASS_NAME, "divIntWithCatch()V", initial, intArrayOf(0, 2))
+        }
+
+        /**
+         * `divIntFallsOffTheEnd()V`'s fall-through runs off the end of the method and its exceptional branch
+         * reaches a real handler. Bug classes: discarding the feasible branch because its sibling was
+         * malformed, and reporting the lost path as Complete or as a host failure instead of malformed input.
          */
         @Test
         fun aMalformedFallThroughDoesNotDiscardTheFeasibleExceptionalBranch() {
@@ -323,8 +298,7 @@ class BinaryMathOpTest {
             assertEquals(
                 CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)),
                 graph.completion(),
-                "the lost fall-through must make the run Partial, and as MALFORMED bytecode, " +
-                    "not as a failure of this engine",
+                "the lost fall-through must make the run Partial as malformed input, not as a host failure",
             )
             // @1 is the handler (jumped over by the leading `goto`), @2 its `return-void`.
             assertTrue(graph.wasReached(1), "the feasible exceptional branch must still be explored")
@@ -332,946 +306,312 @@ class BinaryMathOpTest {
         }
 
         /**
-         * The correction to CARRY-FORWARD's framing, pinned so nobody "fixes" it back. Two synthesized
-         * exceptions get distinct heap ids and therefore do NOT agree -- which is right: two paths that
-         * each throw a fresh ArithmeticException do not throw one object in Dalvik. Moving to the heap
-         * makes that identity explicit; it does not and must not collapse it.
-         *
-         * `divIntTwiceByZeroWithCatch()V`'s own comment records why its two throws are routed through an
-         * UNLOADABLE catch type rather than a matching one: a matching clause would make BOTH throws
-         * DEFINITELY caught, and `ThrowRoutingTest.handlerPathIsReachedAndTheThrowingPathDoesNotEscape`
-         * already pins that a definitely-caught throw never becomes an `Outcome.Threw` at all -- so this
-         * assertion's own `refs` list would be permanently empty (0 == 0, vacuously true) and could never
-         * fail no matter what `HeapIds` did.
+         * Each synthesized `ArithmeticException` is its own object, so two escaping throws carry distinct heap
+         * refs. The fixture routes both through an unloadable catch type: a matching clause would catch both
+         * definitely, and a definitely-caught throw never becomes an [Outcome.Threw], leaving nothing to compare.
          */
         @Test
-        fun twoSeparatelySynthesizedExceptionsStillDoNotAgree() {
+        fun twoSynthesizedExceptionsAreDistinctObjects() {
             val graph = CoreTester.execute(CLASS_NAME, "divIntTwiceByZeroWithCatch()V", CoreState().apply {
                 setRegisters(0, 10, "I", 1, 0, "I")
             })
             val refs = graph.outcomes.filterIsInstance<Outcome.Threw>()
                 .mapNotNull { (it.exception as? Value.Known)?.raw as? HeapRef }
-            // Non-vacuousness first, or the assertion below proves nothing: `assertEquals(0, 0)` passes
-            // no matter what HeapIds does. Two, not merely "at least one" -- this fixture's whole point
-            // is exercising a SECOND synthesis, and one escaping throw alone cannot show two allocations
-            // failing to collide.
+            // Both throws must escape, or the distinctness check below passes vacuously.
             assertEquals(2, refs.size, "expected both synthesized exceptions to escape: $refs")
             assertEquals(refs.size, refs.distinct().size, "each synthesis is its own object: $refs")
         }
     }
 
     @Nested
-    @DisplayName("with binary doubles")
-    inner class DoubleMath {
-        private lateinit var initial: CoreState
-        private lateinit var expected: CoreState
-
-        @BeforeEach
-        fun setUp() {
-            expected = CoreState()
-            initial = CoreState()
-        }
-
-        @Test
-        fun canAddDouble() {
-            initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
-            expected.setRegisters(0, 0.5 + 20.5, "D")
-            CoreTester.test(CLASS_NAME, "addDouble()V", initial, expected)
-        }
-
+    @DisplayName("reading operands written at another type")
+    inner class OperandReads {
         /**
-         * The 64-bit twin of [FloatMath.anAddFloatOnConstLoadedLiteralBitsAnswersWhatADeviceAnswers], and a
-         * separate claim rather than a second example: this domain reads through `Coerce.toDouble`, which is
-         * a different function with a different availability rule.
-         *
-         * `const-wide v0, 0x4000000000000000` stores `Value.Known(4611686018427387904L, "J")`: one wide const
-         * serves `long` and `double` both, so its raw is the literal's bits. A device reads the pair's 64 bits as
-         * double bits: `2.0 + 2.0 = 4.0`. Read by value the operand was `4.611686018427388E18` and the sum
-         * `9.223372036854776E18`.
+         * `add-int` reads boolean, byte, char, and short registers as the 32-bit ints they hold, and an unknown
+         * operand makes the sum unknown. Expected values are Kotlin `Int` arithmetic on the seeds.
          */
-        @Test
-        fun anAddDoubleOnConstWideLiteralBitsAnswersWhatADeviceAnswers() {
-            initial.setRegisters(0, 4611686018427387904L, "J", 2, 4611686018427387904L, "J")
-            expected.setRegisters(0, 4.0, "D")
-            CoreTester.test(CLASS_NAME, "addDouble()V", initial, expected)
-        }
-
-        @Test
-        fun canAddDouble2Addr() {
-            initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
-            expected.setRegisters(0, 0.5 + 20.5, "D")
-            CoreTester.test(CLASS_NAME, "addDouble2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canDivDouble() {
-            initial.setRegisters(0, 22.9, "D", 2, 0.5, "D")
-            expected.setRegisters(0, 22.9 / 0.5, "D")
-            CoreTester.test(CLASS_NAME, "divDouble()V", initial, expected)
-        }
-
-        @Test
-        fun canDivDouble2Addr() {
-            initial.setRegisters(0, 22.9, "D", 2, 0.5, "D")
-            expected.setRegisters(0, 22.9 / 0.5, "D")
-            CoreTester.test(CLASS_NAME, "divDouble2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canDivDoubleWithDivisionByZero() {
-            // Migrated in the divide-by-zero task. It was never waiting on the fork -- doubles never
-            // fork -- only on `divDoubleWithCatch()V`'s overlapping wide register pairs, which that
-            // task repaired (rhs at v2 under `.locals 4`). The seed moves from v1 to v2 to follow the
-            // repaired operand; the expected addresses are byte-identical to the oracle-derived ones.
-            initial.setRegisters(0, 5.0, "D", 2, 0.0, "D")
-            // Floats and doubles do not throw exceptions for div0
-            val expectedAddresses = intArrayOf(0, 2)
-            CoreTester.testVisitation(CLASS_NAME, "divDoubleWithCatch()V", initial, expectedAddresses)
-        }
-
-        /**
-         * Double division by zero yields Infinity rather than throwing -- which is why the
-         * divide-by-zero fork is integral-only. Without this, moving `dividesByZero` up out of the
-         * integral branches would pass the whole suite.
-         */
-        @Test
-        fun dividingADoubleByZeroYieldsInfinityRatherThanThrowing() {
-            initial.setRegisters(0, 1.0, "D", 2, 0.0, "D")
-            expected.setRegisters(0, Double.POSITIVE_INFINITY, "D")
-            CoreTester.test(CLASS_NAME, "divDouble()V", initial, expected)
-        }
-
-        @Test
-        fun canMulDouble() {
-            initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
-            expected.setRegisters(0, 0.5 * 20.5, "D")
-            CoreTester.test(CLASS_NAME, "mulDouble()V", initial, expected)
-        }
-
-        @Test
-        fun canMulDouble2Addr() {
-            initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
-            expected.setRegisters(0, 0.5 * 20.5, "D")
-            CoreTester.test(CLASS_NAME, "mulDouble2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canRemDouble() {
-            initial.setRegisters(0, 22.9, "D", 2, 0.5, "D")
-            expected.setRegisters(0, 22.9 % 0.5, "D")
-            CoreTester.test(CLASS_NAME, "remDouble()V", initial, expected)
-        }
-
-        @Test
-        fun canRemDouble2Addr() {
-            initial.setRegisters(0, 22.9, "D", 2, 0.5, "D")
-            expected.setRegisters(0, 22.9 % 0.5, "D")
-            CoreTester.test(CLASS_NAME, "remDouble2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canSubDouble() {
-            initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
-            expected.setRegisters(0, 0.5 - 20.5, "D")
-            CoreTester.test(CLASS_NAME, "subDouble()V", initial, expected)
-        }
-
-        @Test
-        fun canSubDouble2Addr() {
-            initial.setRegisters(0, 0.5, "D", 2, 20.5, "D")
-            expected.setRegisters(0, 0.5 - 20.5, "D")
-            CoreTester.test(CLASS_NAME, "subDouble2Addr()V", initial, expected)
-        }
-    }
-
-    @Nested
-    @DisplayName("with binary floats")
-    inner class FloatMath {
-        private lateinit var initial: CoreState
-        private lateinit var expected: CoreState
-
-        @BeforeEach
-        fun setUp() {
-            initial = CoreState()
-            expected = CoreState()
-        }
-
-        @Test
-        fun canAddFloat() {
-            initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
-            expected.setRegisters(0, 0.5f + 20.5f, "F")
-            CoreTester.test(CLASS_NAME, "addFloat()V", initial, expected)
-        }
-
-        /**
-         * `add-float` reading two registers loaded the way a compiler loads a float literal, which is
-         * `const v0, 0x3f800000` -> `Value.Known(1065353216, "I")` (`core/Op.kt`'s `buildConst`; the raw is
-         * an `Int` and the tag is `I`, because `const` serves int/char/byte/short/float alike).
-         *
-         * Bug class, and it is the more severe of the two halves Plan 8 Task 3 touched: a confident wrong
-         * constant on **verifier-VALID** dex -- ordinary compiler output, not the unverifiable input
-         * `Coerce.toInt`'s boundary is about. Oracle: a device reads v0's 32 bits AS float bits, so
-         * `0x3f800000` is `1.0f` and the sum is `2.0f`. Read by value the operand was `1.0653532E9` and the
-         * sum `2.1307064E9` -- nine orders of magnitude out, folded as a definite `Known`.
-         *
-         * The seed is discriminating by construction: `1065353216` is meaningless as a float VALUE and is
-         * exactly `1.0f` as float BITS, so no arithmetic slip can produce `2.0f` by accident. Numbers
-         * derived from `Float.intBitsToFloat` and cross-checked on a live JVM, not read off this engine.
-         */
-        @Test
-        fun anAddFloatOnConstLoadedLiteralBitsAnswersWhatADeviceAnswers() {
-            initial.setRegisters(0, 1065353216, "I", 1, 1065353216, "I")
-            expected.setRegisters(0, 2.0f, "F")
-            CoreTester.test(CLASS_NAME, "addFloat()V", initial, expected)
-        }
-
-        @Test
-        fun canAddFloat2Addr() {
-            initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
-            expected.setRegisters(0, 0.5f + 20.5f, "F")
-            CoreTester.test(CLASS_NAME, "addFloat2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canDivFloat() {
-            initial.setRegisters(0, 22.9f, "F", 1, 0.5f, "F")
-            expected.setRegisters(0, 22.9f / 0.5f, "F")
-            CoreTester.test(CLASS_NAME, "divFloat()V", initial, expected)
-        }
-
-        @Test
-        fun canDivFloat2Addr() {
-            initial.setRegisters(0, 22.9f, "F", 1, 0.5f, "F")
-            expected.setRegisters(0, 22.9f / 0.5f, "F")
-            CoreTester.test(CLASS_NAME, "divFloat2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canDivFloatWithDivisionByZero() {
-            initial.setRegisters(0, 5f, "F", 1, 0f, "F")
-            // Floats and doubles do not throw exceptions for div0
-            val expected = intArrayOf(0, 2)
-            CoreTester.testVisitation(CLASS_NAME, "divFloatWithCatch()V", initial, expected)
-        }
-
-        /**
-         * Float division by zero yields Infinity rather than throwing -- which is why the
-         * divide-by-zero fork is integral-only. Without this, moving `dividesByZero` up out of the
-         * integral branches would pass the whole suite.
-         */
-        @Test
-        fun dividingAFloatByZeroYieldsInfinityRatherThanThrowing() {
-            initial.setRegisters(0, 1f, "F", 1, 0f, "F")
-            expected.setRegisters(0, Float.POSITIVE_INFINITY, "F")
-            CoreTester.test(CLASS_NAME, "divFloat()V", initial, expected)
-        }
-
-        @Test
-        fun canMulFloat() {
-            initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
-            expected.setRegisters(0, 0.5f * 20.5f, "F")
-            CoreTester.test(CLASS_NAME, "mulFloat()V", initial, expected)
-        }
-
-        @Test
-        fun canMulFloat2Addr() {
-            initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
-            expected.setRegisters(0, 0.5f * 20.5f, "F")
-            CoreTester.test(CLASS_NAME, "mulFloat2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canRemFloat() {
-            initial.setRegisters(0, 22.9f, "F", 1, 0.5f, "F")
-            expected.setRegisters(0, 22.9f % 0.5f, "F")
-            CoreTester.test(CLASS_NAME, "remFloat()V", initial, expected)
-        }
-
-        @Test
-        fun canRemFloat2Addr() {
-            initial.setRegisters(0, 22.9f, "F", 1, 0.5f, "F")
-            expected.setRegisters(0, 22.9f % 0.5f, "F")
-            CoreTester.test(CLASS_NAME, "remFloat2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canSubFloat() {
-            initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
-            expected.setRegisters(0, 0.5f - 20.5f, "F")
-            CoreTester.test(CLASS_NAME, "subFloat()V", initial, expected)
-        }
-
-        @Test
-        fun canSubFloat2Addr() {
-            initial.setRegisters(0, 0.5f, "F", 1, 20.5f, "F")
-            expected.setRegisters(0, 0.5f - 20.5f, "F")
-            CoreTester.test(CLASS_NAME, "subFloat2Addr()V", initial, expected)
-        }
-    }
-
-    @Nested
-    @DisplayName("with binary integers")
-    inner class IntegerMath {
-        private lateinit var initial: CoreState
-        private lateinit var expected: CoreState
-
-        @Test
-        fun canAddByteAndChar() {
-            val b: Byte = 0xf
-            initial.setRegisters(0, 'a', "C", 1, b, "B")
-            expected.setRegisters(0, 'a'.code.toByte() + b, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddInt() {
-            initial.setRegisters(0, -3, "I", 1, 7, "I")
-            expected.setRegisters(0, -3 + 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddInt2Addr() {
-            initial.setRegisters(0, -3, "I", 1, 7, "I")
-            expected.setRegisters(0, -3 + 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt2Addr()V", initial, expected)
-        }
+        @TestFactory
+        fun addIntReadsEveryIntLikeOperand(): List<DynamicTest> = listOf(
+            fold("addInt()V", int('a'.code + 0xf), 0, 'a', "C", 1, 0xf.toByte(), "B"),
+            fold("addInt()V", int(1 + 11), 0, true, "Z", 1, 11, "I"),
+            fold("addInt()V", int(-3 + 0xf), 0, -3, "I", 1, 0xf.toByte(), "B"),
+            fold("addInt()V", int('$'.code + 11), 0, '$', "C", 1, 11, "I"),
+            fold("addInt()V", int(5 + 11), 0, 5.toShort(), "S", 1, 11, "I"),
+            fold("addInt()V", unknown("I"), 0, CoreState.UNKNOWN, "C", 1, 5, "I"),
+            fold("addInt()V", unknown("I"), 0, CoreState.UNKNOWN, "C", 1, CoreState.UNKNOWN, "B"),
+            fold("addInt()V", unknown("I"), 0, -3, "I", 1, CoreState.UNKNOWN, "I"),
+        )
 
         /**
          * `add-int` reads v0's 32 bits as a signed int; `5.9f` is `0x40BCCCCD`, i.e. 1086115021, so a device
-         * answers `1086115028`. A [JLS] §5.1.3 value conversion of the raw would answer 12.
+         * answers `1086115028`. A JLS §5.1.3 value conversion of the raw would answer 12.
          */
         @Test
         fun anIntDomainOperatorReadingAComputedFloatRawAddsItsBits() {
-            initial.setRegisters(0, 5.9f, "F", 1, 7, "I")
-            expected.setRegisters(0, 1086115028, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndBoolean() {
-            val value = true
-            initial.setRegisters(0, value, "Z", 1, 11, "I")
-            expected.setRegisters(0, 1 + 11, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndByte() {
-            val b: Byte = 0xf
-            initial.setRegisters(0, -3, "I", 1, b, "B")
-            expected.setRegisters(0, 12, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndChar() {
-            // Compiler will actually produce something like this.
-            initial.setRegisters(0, "$"[0], "C", 1, 11, "I")
-            expected.setRegisters(0, "$"[0].code + 11, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndShort() {
-            val value: Short = 5
-            initial.setRegisters(0, value, "S", 1, 11, "I")
-            expected.setRegisters(0, value + 11, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndUnknownChar() {
-            initial.setRegisters(0, CoreState.UNKNOWN, "C", 1, 5, "I")
-            expected.setRegisters(0, CoreState.UNKNOWN, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndUnknownCharAndByte() {
-            initial.setRegisters(0, CoreState.UNKNOWN, "C", 1, CoreState.UNKNOWN, "B")
-            expected.setRegisters(0, CoreState.UNKNOWN, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntAndUnknownInt() {
-            initial.setRegisters(0, -3, "I", 1, CoreState.UNKNOWN, "I")
-            expected.setRegisters(0, CoreState.UNKNOWN, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntLit16() {
-            initial.setRegisters(0, -0xf, "I")
-            expected.setRegisters(0, -0xf + 0xff, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canAddIntLit8() {
-            initial.setRegisters(0, -0xf, "I")
-            expected.setRegisters(0, -0xf + 0xf, "I")
-            CoreTester.test(Companion.CLASS_NAME, "addIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canAndInt() {
-            initial.setRegisters(0, 2, "I", 1, 7, "I")
-            expected.setRegisters(0, 2 and 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "andInt()V", initial, expected)
-        }
-
-        @Test
-        fun canAndInt2Addr() {
-            initial.setRegisters(0, 2, "I", 1, 7, "I")
-            expected.setRegisters(0, 2 and 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "andInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canAndIntLit16() {
-            initial.setRegisters(0, 2, "I")
-            expected.setRegisters(0, 2 and 0xff, "I")
-            CoreTester.test(Companion.CLASS_NAME, "andIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canAndIntLit8() {
-            initial.setRegisters(0, 2, "I")
-            expected.setRegisters(0, 2 and 0xf, "I")
-            CoreTester.test(Companion.CLASS_NAME, "andIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canDivInt() {
-            initial.setRegisters(0, 12, "I", 1, 3, "I")
-            expected.setRegisters(0, 12 / 3, "I")
-            CoreTester.test(Companion.CLASS_NAME, "divInt()V", initial, expected)
+            CoreTester.test(
+                CLASS_NAME, "addInt()V",
+                CoreState().apply { setRegisters(0, 5.9f, "F", 1, 7, "I") },
+                CoreState().apply { setRegisters(0, 1086115028, "I") },
+            )
         }
 
         /**
-         * Bug class: rounding to the nearest integer instead of truncating toward zero. A fraction of
-         * exactly 0.5 is the case that uniquely distinguishes them -- round-half-up gives 3, truncation
-         * gives 2 -- and no surviving `canDivInt*` test has that shape: `12÷3=4` is exact, and
-         * `canDivIntLit16`/`canDivIntLit8` (`256÷255≈1.004`, `16÷15≈1.067`) both have a fraction under
-         * 0.5, where rounding and truncating agree. Restores the value claim of the deleted mockk test
-         * `intDivisionWithLiteralEqualsExpected` (`10÷4`), which this task's original adjudication
-         * wrongly verdicted a duplicate of `canDivIntLit16`/`canDivIntLit8` -- neither of those witnesses
-         * the half-integer case. Oracle: Dalvik's `div-int` truncates toward zero, so `10÷4` is exactly
-         * `2`, never the `3` naive rounding would give; written as the literal `2` rather than `10 / 4`
-         * so the expected value is not derived through the same operator the mutation this test exists
-         * to catch would also change.
-         */
-        @Test
-        fun canDivIntWithExactlyHalfIntegerQuotientTruncatesTowardZero() {
-            initial.setRegisters(0, 10, "I", 1, 4, "I")
-            expected.setRegisters(0, 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "divInt()V", initial, expected)
-        }
-
-        @Test
-        fun canDivInt2Addr() {
-            initial.setRegisters(0, 12, "I", 1, 3, "I")
-            expected.setRegisters(0, 12 / 3, "I")
-            CoreTester.test(Companion.CLASS_NAME, "divInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canDivIntLit16() {
-            initial.setRegisters(0, 0x100, "I")
-            expected.setRegisters(0, 1, "I")
-            CoreTester.test(Companion.CLASS_NAME, "divIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canDivIntLit8() {
-            initial.setRegisters(0, 0x10, "I")
-            expected.setRegisters(0, 1, "I")
-            CoreTester.test(Companion.CLASS_NAME, "divIntLit8()V", initial, expected)
-        }
-
-        /**
-         * Bug class: an ambiguous divisor exploring only ONE of two feasible paths, leaving the catch
-         * handler unvisited on a run that still reports Complete. Oracle for the addresses: the
-         * fixture's own control flow -- `div-int` @0 forks, the fall-through returns at @2, the handler
-         * is @3 and its `goto` back to the return is @4.
-         *
-         * **The SEED moved and the expected addresses did not.** The corpus seeded an unknown DIVIDEND
-         * over a known divisor of 5, because the oracle's fork condition tests whether the *result* is
-         * unknown (`opcode/BinaryMathOp.kt:64-67`) rather than whether the *divisor* is -- so it
-         * reaches @3 for an infeasible reason: `unknown / 5` cannot throw, since only a zero divisor
-         * makes `div-int` throw in Dalvik. Keeping that seed would have made this test's own name false
-         * here. The ambiguity moves to the divisor, which is what "an unknown value visits the
-         * exception handler" actually requires; the original seed's behavior is pinned separately by
-         * [anUnknownDividendOverAKnownNonZeroDivisorDoesNotFork].
-         */
-        @Test
-        fun canDivIntWithCatchWithUnknownValueVisitsExceptionHandler() {
-            initial.setRegisters(0, 12, "I", 1, CoreState.UNKNOWN, "I")
-            val expectedAddresses = intArrayOf(0, 2, 3, 4)
-            CoreTester.testVisitation(Companion.CLASS_NAME, "divIntWithCatch()V", initial, expectedAddresses)
-        }
-
-        /**
-         * Bug class: forking on "the result is unknown" instead of "the divisor may be zero", which
-         * explores a throw Dalvik cannot produce. A known non-zero divisor means `div-int` cannot throw
-         * whatever the dividend is, so the handler at @3 is unreachable for this input and only @0/@2
-         * run. That is a precision claim, not a soundness one -- the dropped path is infeasible.
-         *
-         * This is the corpus seed of [canDivIntWithCatchWithUnknownValueVisitsExceptionHandler], kept
-         * with the expectation corrected from the oracle's [0, 2, 3, 4]: an INTENDED DIVERGENCE, since
-         * the oracle over-approximates here in the opposite direction to its `rem` under-approximation.
-         */
-        @Test
-        fun anUnknownDividendOverAKnownNonZeroDivisorDoesNotFork() {
-            initial.setRegisters(0, CoreState.UNKNOWN, "I", 1, 5, "I")
-            CoreTester.testVisitation(Companion.CLASS_NAME, "divIntWithCatch()V", initial, intArrayOf(0, 2))
-        }
-
-        @Test
-        fun canMulInt() {
-            initial.setRegisters(0, -3, "I", 1, 7, "I")
-            expected.setRegisters(0, -3 * 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "mulInt()V", initial, expected)
-        }
-
-        @Test
-        fun canMulInt2Addr() {
-            initial.setRegisters(0, -3, "I", 1, 10, "I")
-            expected.setRegisters(0, -3 * 10, "I")
-            CoreTester.test(Companion.CLASS_NAME, "mulInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canMulIntLit16() {
-            initial.setRegisters(0, -3, "I")
-            expected.setRegisters(0, -3 * 0xff, "I")
-            CoreTester.test(Companion.CLASS_NAME, "mulIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canMulIntLit8() {
-            initial.setRegisters(0, -3, "I")
-            expected.setRegisters(0, -3 * 0xf, "I")
-            CoreTester.test(Companion.CLASS_NAME, "mulIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canOrInt() {
-            initial.setRegisters(0, 5, "I", 1, 2, "I")
-            expected.setRegisters(0, 5 or 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "orInt()V", initial, expected)
-        }
-
-        @Test
-        fun canOrInt2Addr() {
-            initial.setRegisters(0, 5, "I", 1, 2, "I")
-            expected.setRegisters(0, 5 or 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "orInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canOrIntLit16() {
-            initial.setRegisters(0, 5, "I")
-            expected.setRegisters(0, 5 or 0xff, "I")
-            CoreTester.test(Companion.CLASS_NAME, "orIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canOrIntLit8() {
-            initial.setRegisters(0, 5, "I")
-            expected.setRegisters(0, 5 or 0xf, "I")
-            CoreTester.test(Companion.CLASS_NAME, "orIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canRemInt() {
-            initial.setRegisters(0, 7, "I", 1, 5, "I")
-            expected.setRegisters(0, 7 % 5, "I")
-            CoreTester.test(Companion.CLASS_NAME, "remInt()V", initial, expected)
-        }
-
-        @Test
-        fun canRemInt2Addr() {
-            initial.setRegisters(0, 7, "I", 1, 5, "I")
-            expected.setRegisters(0, 7 % 5, "I")
-            CoreTester.test(Companion.CLASS_NAME, "remInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canRemIntLit16() {
-            initial.setRegisters(0, 0x100, "I")
-            expected.setRegisters(0, 0x100 % 0xff, "I")
-            CoreTester.test(Companion.CLASS_NAME, "remIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canRemIntLit8() {
-            initial.setRegisters(0, 0x10, "I")
-            expected.setRegisters(0, 0x10 % 0xf, "I")
-            CoreTester.test(Companion.CLASS_NAME, "remIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canRSubInt() {
-            initial.setRegisters(0, 7, "I")
-            expected.setRegisters(0, 0xff - 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "RSubInt()V", initial, expected)
-        }
-
-        @Test
-        fun canRSubIntLit8() {
-            initial.setRegisters(0, 7, "I")
-            expected.setRegisters(0, 0xf - 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "RSubIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canShlInt() {
-            initial.setRegisters(0, 5, "I", 1, 2, "I")
-            expected.setRegisters(0, 5 shl 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "shlInt()V", initial, expected)
-        }
-
-        @Test
-        fun canShlInt2Addr() {
-            initial.setRegisters(0, 5, "I", 1, 2, "I")
-            expected.setRegisters(0, 5 shl 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "shlInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canShlIntLit8() {
-            initial.setRegisters(0, 3, "I")
-            expected.setRegisters(0, 3 shl 0x2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "shlIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canShrInt() {
-            initial.setRegisters(0, 7, "I", 1, 2, "I")
-            expected.setRegisters(0, 7 shr 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "shrInt()V", initial, expected)
-        }
-
-        @Test
-        fun canShrInt2Addr() {
-            initial.setRegisters(0, 7, "I", 1, 2, "I")
-            expected.setRegisters(0, 7 shr 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "shrInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canShrIntLit8() {
-            // The fixture (`.locals 1`) reads only v0 -- `shr-int/lit8 v0, v0, 0x2` has no second
-            // register operand, the shift distance is the literal 0x2. The oracle-derived corpus set
-            // register 1 too (dead: never read, and out of range for this method's declared register
-            // count), a copy-paste artifact from the register-register `canShrInt` above it that the
-            // old engine's unbounded register map tolerated silently. Corrected to match its literal-
-            // form siblings (canShlIntLit8, canUshrIntLit8), which seed only v0.
-            initial.setRegisters(0, 7, "I")
-            expected.setRegisters(0, 7 shr 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "shrIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canSubInt() {
-            initial.setRegisters(0, -3, "I", 1, 7, "I")
-            expected.setRegisters(0, -3 - 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "subInt()V", initial, expected)
-        }
-
-        @Test
-        fun canSubInt2Addr() {
-            initial.setRegisters(0, -3, "I", 1, 7, "I")
-            expected.setRegisters(0, -3 - 7, "I")
-            CoreTester.test(Companion.CLASS_NAME, "subInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canUshrInt() {
-            initial.setRegisters(0, -14, "I", 1, 2, "I")
-            expected.setRegisters(0, -14 ushr 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "ushrInt()V", initial, expected)
-        }
-
-        @Test
-        fun canUshrInt2Addr() {
-            initial.setRegisters(0, -14, "I", 1, 2, "I")
-            expected.setRegisters(0, -14 ushr 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "ushrInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canUshrIntLit8() {
-            initial.setRegisters(0, -14, "I")
-            expected.setRegisters(0, -14 ushr 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "ushrIntLit8()V", initial, expected)
-        }
-
-        @Test
-        fun canXorInt() {
-            initial.setRegisters(0, 7, "I", 1, 2, "I")
-            expected.setRegisters(0, 7 xor 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "xorInt()V", initial, expected)
-        }
-
-        @Test
-        fun canXorInt2Addr() {
-            initial.setRegisters(0, 7, "I", 1, 2, "I")
-            expected.setRegisters(0, 7 xor 2, "I")
-            CoreTester.test(Companion.CLASS_NAME, "xorInt2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canXorIntLit16() {
-            initial.setRegisters(0, 7, "I")
-            expected.setRegisters(0, 7 xor 0x10, "I")
-            CoreTester.test(Companion.CLASS_NAME, "xorIntLit16()V", initial, expected)
-        }
-
-        @Test
-        fun canXorIntLit8() {
-            initial.setRegisters(0, 7, "I")
-            expected.setRegisters(0, 7 xor 3, "I")
-            CoreTester.test(Companion.CLASS_NAME, "xorIntLit8()V", initial, expected)
-        }
-
-        @BeforeEach
-        fun setUp() {
-            initial = CoreState()
-            expected = CoreState()
-        }
-    }
-
-    @Nested
-    @DisplayName("with binary longs")
-    inner class LongMath {
-        private lateinit var initial: CoreState
-        private lateinit var expected: CoreState
-
-        @BeforeEach
-        fun setUp() {
-            initial = CoreState()
-            expected = CoreState()
-        }
-
-        @Test
-        fun canAddLong() {
-            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J")
-            expected.setRegisters(0, 0x100000000L + 0x200000000L, "J")
-            CoreTester.test(CLASS_NAME, "addLong()V", initial, expected)
-        }
-
-        @Test
-        fun canAddLong2Addr() {
-            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J")
-            expected.setRegisters(0, 0x100000000L + 0x200000000L, "J")
-            CoreTester.test(CLASS_NAME, "addLong2Addr()V", initial, expected)
-        }
-
-        /**
-         * The `J`-domain twin of [IntegerMath.anIntDomainOperatorReadingAComputedFloatRawAddsItsBits], with the
-         * opposite answer: this domain reads through `Coerce.toLong`, which needs all 64 bits of the pair.
-         * `add-long` reads v0/v1 as 64 bits; `5.9f` supplies 32, and the other half is v1, which the engine
-         * does not hold here, so the answer is `Unknown`. A value conversion would answer `Known(12)`.
+         * The `long` counterpart answers differently: `add-long` reads v0/v1 as 64 bits, `5.9f` supplies only
+         * 32, and the engine does not hold v1, so the sum is `Unknown`. A value conversion would answer 12.
          */
         @Test
         fun aLongDomainOperatorReadingAComputedFloatRawIsNotProvable() {
-            initial.setRegisters(0, 5.9f, "F", 2, 7L, "J")
-            expected.setRegisters(0, CoreState.UNKNOWN, "J")
-            CoreTester.test(CLASS_NAME, "addLong()V", initial, expected)
-        }
-
-        @Test
-        fun canAndLong() {
-            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J")
-            expected.setRegisters(0, 0x12345abcdL and 0x1234567890L, "J")
-            CoreTester.test(CLASS_NAME, "andLong()V", initial, expected)
-        }
-
-        @Test
-        fun canAndLong2Addr() {
-            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J")
-            expected.setRegisters(0, 0x12345abcdL and 0x1234567890L, "J")
-            CoreTester.test(CLASS_NAME, "andLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canDivLong() {
-            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J")
-            expected.setRegisters(0, 0x300000000L / 3L, "J")
-            CoreTester.test(CLASS_NAME, "divLong()V", initial, expected)
-        }
-
-        @Test
-        fun canDivLong2Addr() {
-            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J")
-            expected.setRegisters(0, 0x300000000L / 3L, "J")
-            CoreTester.test(CLASS_NAME, "divLong2Addr()V", initial, expected)
+            CoreTester.test(
+                CLASS_NAME, "addLong()V",
+                CoreState().apply { setRegisters(0, 5.9f, "F", 2, 7L, "J") },
+                CoreState().apply { setRegisters(0, CoreState.UNKNOWN, "J") },
+            )
         }
 
         /**
-         * Bug class: a dividend smaller in magnitude than its divisor producing a nonzero quotient --
-         * e.g. rounding to the nearest integer instead of truncating toward zero. No surviving
-         * `canDivLong*`/`canDivInt*` test has this shape: every other one's dividend is either an exact
-         * multiple of its divisor or otherwise larger in magnitude. Restores the value claim of the
-         * deleted mockk test `longDivisionWithThreeArgumentsAndResultLessThanOneEqualsZero`, whose
-         * literals this keeps (traceable to the original); that test also asserted `op.toString()`,
-         * restored separately in `OpBuilderTest`. Oracle: Dalvik's `div-long` truncates toward zero, so
-         * a smaller-magnitude dividend is exactly 0 -- never a fraction, and never rounded up to 1.
-         * Written as the literal `0L` rather than `1120403456L / 1149239296L`: expected values come
-         * from the domain rule, not from an expression using the very operator the mutation this test
-         * exists to catch would also change.
+         * A compiler loads a float literal with `const v0, 0x3f800000`, which stores `Known(1065353216, I)`
+         * because `const` serves int, char, byte, short, and float alike. A device reads those 32 bits as float
+         * bits, so the sum is `1.0f + 1.0f = 2.0f`. Bug class: reading the raw by value, which folds the
+         * verifier-valid sum to a definite `2.1307064E9`.
          */
         @Test
-        fun canDivLongWithDividendSmallerThanDivisorTruncatesToZero() {
-            initial.setRegisters(0, 1120403456L, "J", 2, 1149239296L, "J")
-            expected.setRegisters(0, 0L, "J")
-            CoreTester.test(CLASS_NAME, "divLong()V", initial, expected)
+        fun anAddFloatOnConstLoadedLiteralBitsAnswersWhatADeviceAnswers() {
+            CoreTester.test(
+                CLASS_NAME, "addFloat()V",
+                CoreState().apply { setRegisters(0, 1065353216, "I", 1, 1065353216, "I") },
+                CoreState().apply { setRegisters(0, 2.0f, "F") },
+            )
         }
 
         /**
-         * The `J` half of [IntegerMath.canDivIntWithCatchWithUnknownValueVisitsExceptionHandler], and
-         * the same bug class. The original name's "Unkown" typo is kept deliberately: the corpus name
-         * is how a reviewer greps the oracle suite to confirm this migration is 1:1 and nothing was
-         * silently dropped.
-         *
-         * The seed's ambiguity was already on the divisor here, so only its REGISTER moved -- v1 to v2
-         * -- following `divLongWithCatch()V`'s repaired rhs operand. Expected addresses are
-         * byte-identical to the oracle-derived ones.
+         * The `double` case, read through a different coercion: `const-wide v0, 0x4000000000000000` stores
+         * `Known(4611686018427387904, J)`, whose 64 bits are `2.0`, so the sum is `4.0`. Read by value it
+         * would be `9.223372036854776E18`.
          */
         @Test
-        fun canDivLongWithCatchWithUnkownValueVisitsExceptionHandler() {
-            initial.setRegisters(0, 5L, "J", 2, CoreState.UNKNOWN, "J")
-            val expectedAddresses = intArrayOf(0, 2, 3, 4)
-            CoreTester.testVisitation(CLASS_NAME, "divLongWithCatch()V", initial, expectedAddresses)
-        }
-
-        @Test
-        fun canMulLong() {
-            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J")
-            expected.setRegisters(0, 0x300000000L * 3L, "J")
-            CoreTester.test(CLASS_NAME, "mulLong()V", initial, expected)
-        }
-
-        @Test
-        fun canMulLong2Addr() {
-            initial.setRegisters(0, 0x300000000L, "J", 2, 3L, "J")
-            expected.setRegisters(0, 0x300000000L * 3L, "J")
-            CoreTester.test(CLASS_NAME, "mulLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canOrLong() {
-            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J")
-            expected.setRegisters(0, 0x12345abcdL or 0x1234567890L, "J")
-            CoreTester.test(CLASS_NAME, "orLong()V", initial, expected)
-        }
-
-        @Test
-        fun canOrLong2Addr() {
-            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J")
-            expected.setRegisters(0, 0x12345abcdL or 0x1234567890L, "J")
-            CoreTester.test(CLASS_NAME, "orLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canRemLong() {
-            initial.setRegisters(0, 0x300000123L, "J", 2, 3L, "J")
-            expected.setRegisters(0, 0x300000123L % 3L, "J")
-            CoreTester.test(CLASS_NAME, "remLong()V", initial, expected)
-        }
-
-        @Test
-        fun canRemLong2Addr() {
-            initial.setRegisters(0, 0x300000123L, "J", 2, 3L, "J")
-            expected.setRegisters(0, 0x300000123L % 3L, "J")
-            CoreTester.test(CLASS_NAME, "remLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canShlLong() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
-            expected.setRegisters(0, 0x10000L shl 5, "J")
-            CoreTester.test(CLASS_NAME, "shlLong()V", initial, expected)
-        }
-
-        @Test
-        fun canShlLong2Addr() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
-            expected.setRegisters(0, 0x10000L shl 5, "J")
-            CoreTester.test(CLASS_NAME, "shlLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canShlLongWithShiftDistanceAboveThirtyOne() {
-            // Bug class: masking a wide shift's distance to the INT rule's 5 bits instead of
-            // Dalvik's 6 for a wide shift -- which would compute `shl 1` instead of `shl 33`. Kotlin's
-            // `Long shl Int` already masks to 6 bits on its own, so no source-level mask is needed;
-            // this is the test that would catch a regression that added one anyway (e.g.
-            // copy-pasting the Int path's `and 0x1f`). Oracle: Dalvik's shl-long spec (six-bit shift
-            // distance), not engine output.
-            initial.setRegisters(0, 1L, "J", 2, 33, "I")
-            expected.setRegisters(0, 1L shl 33, "J")
-            CoreTester.test(CLASS_NAME, "shlLong()V", initial, expected)
-        }
-
-        @Test
-        fun canShrLong() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
-            expected.setRegisters(0, 0x10000L shr 5, "J")
-            CoreTester.test(CLASS_NAME, "shrLong()V", initial, expected)
-        }
-
-        @Test
-        fun canShrLong2Addr() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
-            expected.setRegisters(0, 0x10000L shr 5, "J")
-            CoreTester.test(CLASS_NAME, "shrLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canSubLong() {
-            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J")
-            expected.setRegisters(0, 0x100000000L - 0x200000000L, "J")
-            CoreTester.test(CLASS_NAME, "subLong()V", initial, expected)
-        }
-
-        @Test
-        fun canSubLong2Addr() {
-            initial.setRegisters(0, 0x100000000L, "J", 2, 0x200000000L, "J")
-            expected.setRegisters(0, 0x100000000L - 0x200000000L, "J")
-            CoreTester.test(CLASS_NAME, "subLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canUshrLong() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
-            expected.setRegisters(0, 0x10000L ushr 5, "J")
-            CoreTester.test(CLASS_NAME, "ushrLong()V", initial, expected)
-        }
-
-        @Test
-        fun canUshrLong2Addr() {
-            initial.setRegisters(0, 0x10000L, "J", 2, 5, "I")
-            expected.setRegisters(0, 0x10000L ushr 5, "J")
-            CoreTester.test(CLASS_NAME, "ushrLong2Addr()V", initial, expected)
-        }
-
-        @Test
-        fun canXorLong() {
-            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J")
-            expected.setRegisters(0, 0x12345abcdL xor 0x1234567890L, "J")
-            CoreTester.test(CLASS_NAME, "xorLong()V", initial, expected)
-        }
-
-        @Test
-        fun canXorLong2Addr() {
-            initial.setRegisters(0, 0x12345abcdL, "J", 2, 0x1234567890L, "J")
-            expected.setRegisters(0, 0x12345abcdL xor 0x1234567890L, "J")
-            CoreTester.test(CLASS_NAME, "xorLong2Addr()V", initial, expected)
+        fun anAddDoubleOnConstWideLiteralBitsAnswersWhatADeviceAnswers() {
+            CoreTester.test(
+                CLASS_NAME, "addDouble()V",
+                CoreState().apply { setRegisters(0, 4611686018427387904L, "J", 2, 4611686018427387904L, "J") },
+                CoreState().apply { setRegisters(0, 4.0, "D") },
+            )
         }
     }
+
+    /**
+     * Each operator folds known operands to the same value in every instruction shape that encodes it: 23x,
+     * `/2addr`, and for `int` the `/lit8` and `/lit16` forms. Expected values are Kotlin arithmetic on the
+     * same operands, which implements the JVMS operators that "Binary operations" in
+     * `docs/DALVIK-SEMANTICS.md` records as inherited. A literal row's expected value spells out the literal
+     * its fixture method encodes.
+     */
+    @Nested
+    @DisplayName("with known operands")
+    inner class KnownOperands {
+        @TestFactory
+        fun intOperatorsFoldInEveryShape(): List<DynamicTest> = listOf(
+            ints(-3, 7, -3 + 7, "addInt()V", "addInt2Addr()V"),
+            ints(-3, 7, -3 - 7, "subInt()V", "subInt2Addr()V"),
+            ints(-3, 7, -3 * 7, "mulInt()V", "mulInt2Addr()V"),
+            ints(12, 3, 12 / 3, "divInt()V", "divInt2Addr()V"),
+            ints(7, 5, 7 % 5, "remInt()V", "remInt2Addr()V"),
+            ints(6, 3, 6 and 3, "andInt()V", "andInt2Addr()V"),
+            ints(5, 2, 5 or 2, "orInt()V", "orInt2Addr()V"),
+            ints(7, 2, 7 xor 2, "xorInt()V", "xorInt2Addr()V"),
+            ints(5, 2, 5 shl 2, "shlInt()V", "shlInt2Addr()V"),
+            ints(7, 2, 7 shr 2, "shrInt()V", "shrInt2Addr()V"),
+            ints(-14, 2, -14 ushr 2, "ushrInt()V", "ushrInt2Addr()V"),
+        ).flatten() + listOf(
+            intLiteral("addIntLit8()V", 5, 5 + 0xf),
+            intLiteral("addIntLit16()V", -0xf, -0xf + 0xff),
+            intLiteral("RSubIntLit8()V", 7, 0xf - 7),
+            intLiteral("RSubInt()V", 7, 0xff - 7),
+            intLiteral("mulIntLit8()V", -3, -3 * 0xf),
+            intLiteral("mulIntLit16()V", -3, -3 * 0xff),
+            intLiteral("divIntLit8()V", 0x10, 0x10 / 0xf),
+            intLiteral("divIntLit16()V", 0x100, 0x100 / 0xff),
+            intLiteral("remIntLit8()V", 0x10, 0x10 % 0xf),
+            intLiteral("remIntLit16()V", 0x100, 0x100 % 0xff),
+            intLiteral("andIntLit8()V", 0x1e, 0x1e and 0xf),
+            intLiteral("andIntLit16()V", 0x1fe, 0x1fe and 0xff),
+            intLiteral("orIntLit8()V", 0x150, 0x150 or 0xf),
+            intLiteral("orIntLit16()V", 0x150, 0x150 or 0xff),
+            intLiteral("xorIntLit8()V", 7, 7 xor 0x3),
+            intLiteral("xorIntLit16()V", 7, 7 xor 0x10),
+            intLiteral("shlIntLit8()V", 3, 3 shl 0x2),
+            intLiteral("shrIntLit8()V", 7, 7 shr 0x2),
+            intLiteral("ushrIntLit8()V", -14, -14 ushr 0x2),
+        )
+
+        /** A shift distance is one 32-bit register, so it is seeded as `I`. */
+        @TestFactory
+        fun longOperatorsFoldInEveryShape(): List<DynamicTest> = listOf(
+            longs(0x100000000L, 0x200000000L, 0x100000000L + 0x200000000L, "addLong()V", "addLong2Addr()V"),
+            longs(0x100000000L, 0x200000000L, 0x100000000L - 0x200000000L, "subLong()V", "subLong2Addr()V"),
+            longs(0x300000000L, 3L, 0x300000000L * 3L, "mulLong()V", "mulLong2Addr()V"),
+            longs(0x300000000L, 3L, 0x300000000L / 3L, "divLong()V", "divLong2Addr()V"),
+            longs(0x300000123L, 3L, 0x300000123L % 3L, "remLong()V", "remLong2Addr()V"),
+            longs(0x12345abcdL, 0x1234567890L, 0x12345abcdL and 0x1234567890L, "andLong()V", "andLong2Addr()V"),
+            longs(0x12345abcdL, 0x1234567890L, 0x12345abcdL or 0x1234567890L, "orLong()V", "orLong2Addr()V"),
+            longs(0x12345abcdL, 0x1234567890L, 0x12345abcdL xor 0x1234567890L, "xorLong()V", "xorLong2Addr()V"),
+            longShifts(0x10000L, 5, 0x10000L shl 5, "shlLong()V", "shlLong2Addr()V"),
+            longShifts(0x10000L, 5, 0x10000L shr 5, "shrLong()V", "shrLong2Addr()V"),
+            longShifts(0x10000L, 5, 0x10000L ushr 5, "ushrLong()V", "ushrLong2Addr()V"),
+        ).flatten()
+
+        @TestFactory
+        fun floatOperatorsFoldInEveryShape(): List<DynamicTest> = listOf(
+            floats(0.5f, 20.5f, 0.5f + 20.5f, "addFloat()V", "addFloat2Addr()V"),
+            floats(0.5f, 20.5f, 0.5f - 20.5f, "subFloat()V", "subFloat2Addr()V"),
+            floats(0.5f, 20.5f, 0.5f * 20.5f, "mulFloat()V", "mulFloat2Addr()V"),
+            floats(22.9f, 0.5f, 22.9f / 0.5f, "divFloat()V", "divFloat2Addr()V"),
+            floats(22.9f, 0.5f, 22.9f % 0.5f, "remFloat()V", "remFloat2Addr()V"),
+        ).flatten()
+
+        @TestFactory
+        fun doubleOperatorsFoldInEveryShape(): List<DynamicTest> = listOf(
+            doubles(0.5, 20.5, 0.5 + 20.5, "addDouble()V", "addDouble2Addr()V"),
+            doubles(0.5, 20.5, 0.5 - 20.5, "subDouble()V", "subDouble2Addr()V"),
+            doubles(0.5, 20.5, 0.5 * 20.5, "mulDouble()V", "mulDouble2Addr()V"),
+            doubles(22.9, 0.5, 22.9 / 0.5, "divDouble()V", "divDouble2Addr()V"),
+            doubles(22.9, 0.5, 22.9 % 0.5, "remDouble()V", "remDouble2Addr()V"),
+        ).flatten()
+
+        /**
+         * Bug class: masking a long shift's distance to the `int` rule's 5 bits instead of 6, which computes
+         * `shl 1` instead of `shl 33`. Expected value: 2^33, hand-computed.
+         */
+        @Test
+        fun aLongShiftKeepsADistanceAboveThirtyOne() {
+            CoreTester.test(
+                CLASS_NAME, "shlLong()V",
+                CoreState().apply { setRegisters(0, 1L, "J", 2, 33, "I") },
+                CoreState().apply { setRegisters(0, 8589934592L, "J") },
+            )
+        }
+
+        private fun ints(lhs: Int, rhs: Int, expected: Int, vararg methods: String) =
+            methods.map { fold(it, int(expected), 0, lhs, "I", 1, rhs, "I") }
+
+        private fun intLiteral(method: String, lhs: Int, expected: Int) = fold(method, int(expected), 0, lhs, "I")
+
+        private fun longs(lhs: Long, rhs: Long, expected: Long, vararg methods: String) =
+            methods.map { fold(it, long(expected), 0, lhs, "J", 2, rhs, "J") }
+
+        private fun longShifts(lhs: Long, distance: Int, expected: Long, vararg methods: String) =
+            methods.map { fold(it, long(expected), 0, lhs, "J", 2, distance, "I") }
+
+        private fun floats(lhs: Float, rhs: Float, expected: Float, vararg methods: String) =
+            methods.map { fold(it, Value.Known(expected, VirtualType.of("F")), 0, lhs, "F", 1, rhs, "F") }
+
+        private fun doubles(lhs: Double, rhs: Double, expected: Double, vararg methods: String) =
+            methods.map { fold(it, Value.Known(expected, VirtualType.of("D")), 0, lhs, "D", 2, rhs, "D") }
+    }
+
+    /**
+     * Two's-complement boundaries, where a plausible wrong implementation (widened arithmetic, a host
+     * `Math.*Exact`, a 6-bit int shift mask, a throw on `MIN_VALUE / -1`) disagrees with Dalvik. Dalvik's
+     * integral ops are the JVM's: JLS 15.17.2 (`MIN_VALUE / -1` overflows to `MIN_VALUE`, no exception),
+     * JLS 15.17.3 (the remainder takes the dividend's sign and `MIN_VALUE % -1` is 0), JLS 15.19 (an int
+     * shift uses the distance's low 5 bits, a long shift its low 6), and JLS 15.18.2/15.17.1 (add, sub and
+     * mul wrap). Every expected value is written out by hand from those rules.
+     */
+    @Nested
+    @DisplayName("at two's-complement boundaries")
+    inner class IntegralBoundaries {
+        @TestFactory
+        fun minValueOverMinusOneOverflowsWithoutThrowingInEveryDivRemForm(): List<DynamicTest> = listOf(
+            fold("divInt()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            fold("divInt2Addr()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            fold("divIntLit8ByMinusOne()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I"),
+            fold("divIntLit16ByMinusOne()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I"),
+            fold("remInt()V", int(0), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            fold("remInt2Addr()V", int(0), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            fold("remIntLit8ByMinusOne()V", int(0), 0, Int.MIN_VALUE, "I"),
+            fold("remIntLit16ByMinusOne()V", int(0), 0, Int.MIN_VALUE, "I"),
+            fold("divLong()V", long(Long.MIN_VALUE), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+            fold("divLong2Addr()V", long(Long.MIN_VALUE), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+            fold("remLong()V", long(0L), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+            fold("remLong2Addr()V", long(0L), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+        )
+
+        /**
+         * JLS 15.17.2-3: the quotient rounds toward zero and the remainder takes the dividend's sign. `10 / 4`
+         * is 2 where rounding half up gives 3, and a dividend smaller than its divisor gives 0.
+         */
+        @TestFactory
+        fun theRemainderTakesTheDividendsSignAndTheQuotientTruncatesTowardZero(): List<DynamicTest> = listOf(
+            fold("remInt()V", int(-1), 0, -7, "I", 1, 3, "I"),
+            fold("remInt()V", int(1), 0, 7, "I", 1, -3, "I"),
+            fold("remIntLit8()V", int(-2), 0, -17, "I"),
+            fold("divInt()V", int(-3), 0, -7, "I", 1, 2, "I"),
+            fold("divInt()V", int(2), 0, 10, "I", 1, 4, "I"),
+            fold("remLong()V", long(-1L), 0, -7L, "J", 2, 3L, "J"),
+            fold("remLong()V", long(1L), 0, 7L, "J", 2, -3L, "J"),
+            fold("divLong()V", long(-3L), 0, -7L, "J", 2, 2L, "J"),
+            fold("divLong()V", long(0L), 0, 1120403456L, "J", 2, 1149239296L, "J"),
+        )
+
+        /** JLS 15.19: an int shift reads the low 5 bits of its distance, so 32 is 0, 33 is 1 and -1 is 31. */
+        @TestFactory
+        fun anIntShiftMasksItsDistanceToFiveBits(): List<DynamicTest> = listOf(
+            fold("shlInt()V", int(1), 0, 1, "I", 1, 32, "I"),
+            fold("shlInt()V", int(2), 0, 1, "I", 1, 33, "I"),
+            fold("shlInt()V", int(Int.MIN_VALUE), 0, 1, "I", 1, -1, "I"),
+            fold("shrInt()V", int(-4), 0, -8, "I", 1, 33, "I"),
+            fold("ushrInt()V", int(1), 0, -1, "I", 1, -1, "I"),
+            fold("ushrInt2Addr()V", int(-1), 0, -1, "I", 1, 32, "I"),
+            fold("shlIntLit8By33()V", int(2), 0, 1, "I"),
+            fold("ushrIntLit8ByMinusOne()V", int(1), 0, -1, "I"),
+        )
+
+        /** JLS 15.19: a long shift reads the low 6 bits of its 32-bit distance, so 64 is 0 and -1 is 63. */
+        @TestFactory
+        fun aLongShiftMasksItsDistanceToSixBits(): List<DynamicTest> = listOf(
+            fold("shlLong()V", long(1L), 0, 1L, "J", 2, 64, "I"),
+            fold("shlLong()V", long(2L), 0, 1L, "J", 2, 65, "I"),
+            fold("shlLong()V", long(Long.MIN_VALUE), 0, 1L, "J", 2, -1, "I"),
+            fold("shrLong()V", long(-1L), 0, Long.MIN_VALUE, "J", 2, 127, "I"),
+            fold("ushrLong()V", long(1L), 0, -1L, "J", 2, 127, "I"),
+            fold("ushrLong2Addr()V", long(-1L), 0, -1L, "J", 2, 64, "I"),
+        )
+
+        /**
+         * JLS 15.18.2 and 15.17.1: the result is the low 32 (or 64) bits of the exact result. Hand values:
+         * `MAX + 0xff` is `MIN + 254`; `MAX * 15` is `15 * 2^31 - 15`, which is `2^31 - 15` mod 2^32;
+         * `0xff - MIN` is `2^31 + 255`, which is `MIN + 255`.
+         */
+        @TestFactory
+        fun addSubAndMulWrapRatherThanSaturateOrThrow(): List<DynamicTest> = listOf(
+            fold("addInt()V", int(Int.MIN_VALUE), 0, Int.MAX_VALUE, "I", 1, 1, "I"),
+            fold("subInt()V", int(Int.MAX_VALUE), 0, Int.MIN_VALUE, "I", 1, 1, "I"),
+            fold("mulInt()V", int(-2), 0, Int.MAX_VALUE, "I", 1, 2, "I"),
+            fold("mulInt()V", int(0), 0, 0x10000, "I", 1, 0x10000, "I"),
+            fold("addIntLit16()V", int(-2147483394), 0, Int.MAX_VALUE, "I"),
+            fold("mulIntLit8()V", int(2147483633), 0, Int.MAX_VALUE, "I"),
+            fold("RSubInt()V", int(-2147483393), 0, Int.MIN_VALUE, "I"),
+            fold("addLong()V", long(Long.MIN_VALUE), 0, Long.MAX_VALUE, "J", 2, 1L, "J"),
+            fold("subLong()V", long(Long.MAX_VALUE), 0, Long.MIN_VALUE, "J", 2, 1L, "J"),
+            fold("mulLong()V", long(-2L), 0, Long.MAX_VALUE, "J", 2, 2L, "J"),
+        )
+    }
+
+    /** Runs [method] on the `(register, raw, type)` [seeds] and asserts v0 folds to [expected] with no throw. */
+    private fun fold(method: String, expected: Value, vararg seeds: Any?): DynamicTest =
+        DynamicTest.dynamicTest("$method ${seeds.toList()} -> $expected") {
+            val graph = CoreTester.execute(CLASS_NAME, method, CoreState().apply { setRegisters(*seeds) })
+            assertEquals(CompletionStatus.Complete, graph.completion())
+            assertEquals(
+                emptyList<Outcome.Threw>(),
+                graph.outcomes.filterIsInstance<Outcome.Threw>(),
+                "only a zero divisor throws",
+            )
+            assertEquals(expected, graph.trusted()!!.terminatingConsensus(0))
+        }
+
+    private fun int(raw: Int) = Value.Known(raw, VirtualType.of("I"))
+
+    private fun long(raw: Long) = Value.Known(raw, VirtualType.of("J"))
+
+    private fun unknown(type: String) = Value.Unknown(VirtualType.of(type))
 }

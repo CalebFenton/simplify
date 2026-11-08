@@ -7,7 +7,7 @@ import java.lang.reflect.Modifier
 import java.util.Collections
 
 /** Scheduler-local call input with one atomic value per register word in the invoke instruction. */
-class Invocation private constructor(
+internal class Invocation private constructor(
     val target: MethodSignature,
     val kind: InvokeKind,
     internal val registerFrameValues: List<FrameValue>,
@@ -28,7 +28,7 @@ class Invocation private constructor(
 }
 
 /** One resolved call at the backend boundary, with one value per logical parameter. */
-class PreparedInvocation private constructor(
+internal class PreparedInvocation private constructor(
     val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,
@@ -86,7 +86,7 @@ class PreparedInvocation private constructor(
  * Probe-only argument facts. This type contains no Java value, scheduler [Value], or [HeapRef].
  * [reflectedTarget] is what a reflected `Method` or `Constructor` value names.
  */
-data class ProbeArgument(
+internal data class ProbeArgument(
     val type: VirtualType?,
     val isLatticeKnown: Boolean,
     val isHostMaterializable: Boolean,
@@ -96,10 +96,10 @@ data class ProbeArgument(
 )
 
 /** A reflected method or constructor; invoking it initializes its class when it is static or a constructor. */
-data class ReflectedTarget(val method: MethodSignature, val initializesClass: Boolean)
+internal data class ReflectedTarget(val method: MethodSignature, val initializesClass: Boolean)
 
 /** Immutable metadata used before one backend accepts execution. */
-class BackendInvocation internal constructor(
+internal class BackendInvocation internal constructor(
     val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,
@@ -151,10 +151,12 @@ internal fun Executable.reflectedTargetOrNull(): ReflectedTarget? = hostBoundary
 }
 
 /** A value returned by a synchronous backend. Mutable references carry their actual JVM object. */
-sealed interface HostValue {
-    val type: VirtualType
+public sealed interface HostValue {
+    /** The value's declared type. */
+    public val type: VirtualType
 
-    data class Primitive(val value: Any, override val type: VirtualType) : HostValue {
+    /** A boxed primitive whose box class matches [type]. */
+    public data class Primitive(val value: Any, override val type: VirtualType) : HostValue {
         init {
             val valid = when (type.descriptor) {
                 "Z" -> value is Boolean
@@ -171,13 +173,15 @@ sealed interface HostValue {
         }
     }
 
-    data class TypedNull(override val type: VirtualType) : HostValue {
+    /** A null reference of a reference [type]. */
+    public data class TypedNull(override val type: VirtualType) : HostValue {
         init {
             require(type.isReference) { "Typed host null requires a reference type, not $type" }
         }
     }
 
-    data class Reference(
+    /** A non-null host object; [type] is its declared type. */
+    public data class Reference(
         val value: Any,
         override val type: VirtualType,
     ) : HostValue {
@@ -188,24 +192,30 @@ sealed interface HostValue {
 }
 
 /** A returned value. Void is distinct from a returned typed null. */
-sealed interface HostReturn {
-    data object Void : HostReturn
-    data class Value(val value: HostValue) : HostReturn
+public sealed interface HostReturn {
+    /** A void return. */
+    public data object Void : HostReturn
+    /** A returned [value]. */
+    public data class Value(val value: HostValue) : HostReturn
 }
 
 /** A guest-visible target throwable. [type] is the backend's declared tag; JVM identity sets runtime type. */
-data class HostThrowable(val type: VirtualType, val throwable: Throwable) {
+public data class HostThrowable(val type: VirtualType, val throwable: Throwable) {
     init {
         require(type.isReference) { "Imported host throwable requires a reference type, not $type" }
     }
 }
 
 /** Result from one accepted synchronous backend execution. These are not scheduler [Outcome] values. */
-sealed interface SynchronousCallResult {
-    data class Returned(val value: HostReturn) : SynchronousCallResult
-    data class TargetThrew(val throwable: HostThrowable) : SynchronousCallResult
-    data class NeedsClassInit(val type: VirtualType) : SynchronousCallResult
-    data class InfrastructureFailure(val cause: Throwable) : SynchronousCallResult
+public sealed interface SynchronousCallResult {
+    /** The target returned normally. */
+    public data class Returned(val value: HostReturn) : SynchronousCallResult
+    /** The target threw a guest-visible [throwable]. */
+    public data class TargetThrew(val throwable: HostThrowable) : SynchronousCallResult
+    /** The call cannot run until [type] is initialized. */
+    public data class NeedsClassInit(val type: VirtualType) : SynchronousCallResult
+    /** The host failed outside the target; [cause] is the host error. */
+    public data class InfrastructureFailure(val cause: Throwable) : SynchronousCallResult
 }
 
 /** A value the host produced for [declaredType]; a reference keeps its runtime class. */
@@ -236,7 +246,7 @@ internal inline fun <T> hostBoundary(onFailure: (Throwable) -> T, block: () -> T
 }
 
 /** Pre-execution backend decision. Only [Declined] permits another backend. */
-sealed interface BackendProbe {
+internal sealed interface BackendProbe {
     data class Declined(val diagnostic: String) : BackendProbe
     data class Denied(val diagnostic: String) : BackendProbe
     data class Schedule(val view: MethodView, val entryAddress: Int) : BackendProbe
@@ -254,26 +264,6 @@ sealed interface BackendProbe {
         }
     }
 }
-
-/** A scheduler operation requested without exposing heap identity or lattice values to its handler. */
-internal sealed interface IntrinsicOperation {
-    data class AllocateTrackedField(val metadata: TrackedFieldValue) : IntrinsicOperation
-    data object CloneArrayReceiver : IntrinsicOperation
-    data class InitializeEnumReceiver(
-        val name: EmulatorValue,
-        val ordinal: EmulatorValue,
-    ) : IntrinsicOperation
-    data class ReadVirtualField(val field: TrackedFieldValue) : IntrinsicOperation
-    data object ReadThrowableCause : IntrinsicOperation
-    data class SetTrackedFieldAccessible(
-        val metadata: TrackedFieldValue,
-        val accessibility: FieldAccessibility,
-    ) : IntrinsicOperation
-    data class ReturnUnknown(val type: VirtualType) : IntrinsicOperation
-}
-
-/** Internal result applied only by the scheduler. */
-internal data class IntrinsicCallResult(val operation: IntrinsicOperation) : SynchronousCallResult
 
 /** A host constructor completed. The scheduler installs [instance] at the existing receiver ref. */
 internal data class ConstructedHostObjectResult(val instance: Any) : SynchronousCallResult
@@ -294,13 +284,13 @@ internal class BoundSynchronousExecutor(
 }
 
 /** Probes one prepared invocation without receiving scheduler-owned mutable state. */
-interface Backend {
+internal interface Backend {
     val name: String
     fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe
 }
 
 /** A backend that can execute synchronously after its [BackendProbe.Execute] is accepted. */
-interface SynchronousBackend : Backend {
+internal interface SynchronousBackend : Backend {
     fun execute(call: SelectedHostCall): SynchronousCallResult
 }
 

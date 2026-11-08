@@ -11,7 +11,7 @@ import com.android.tools.smali.dexlib2.iface.instruction.Instruction
  * Normal edges are fall-through, branch and switch-case edges. Exceptional edges run from each instruction that can
  * throw to every handler of the try range covering it, and carry the register state from before that instruction.
  */
-class MethodControlFlow private constructor(
+public class MethodControlFlow private constructor(
     private val records: Array<EncodedInstruction>,
     private val addresses: IntArray,
     private val normal: Array<IntArray>,
@@ -22,35 +22,39 @@ class MethodControlFlow private constructor(
     private val handlerEntries: BooleanArray,
     private val reachable: BooleanArray,
 ) {
-    val size: Int get() = records.size
+    /** Number of instructions. */
+    public val size: Int get() = records.size
 
-    fun addressAt(index: Int): Int = addresses[index]
+    /** Code address of instruction [index]. */
+    public fun addressAt(index: Int): Int = addresses[index]
 
-    fun instructionAt(index: Int): Instruction = records[index].instruction
+    /** Instruction [index]. */
+    public fun instructionAt(index: Int): Instruction = records[index].instruction
 
     internal fun positionAt(index: Int): LogicalCodePosition = records[index].position
 
     internal fun recordAt(index: Int): EncodedInstruction = records[index]
 
-    fun indexOf(address: Int): Int? = addresses.binarySearch(address).takeIf { it >= 0 }
+    /** Index of the instruction at [address], or null when none starts there. */
+    public fun indexOf(address: Int): Int? = addresses.binarySearch(address).takeIf { it >= 0 }
 
     /** Fall-through, branch and switch-case successors of [index]. Each read returns a copy. */
-    fun normalSuccessors(index: Int): IntArray = normal[index].copyOf()
+    public fun normalSuccessors(index: Int): IntArray = normal[index].copyOf()
 
     /** Handler entries [index] reaches when it throws. Each read returns a copy. */
-    fun exceptionalSuccessors(index: Int): IntArray = exceptional[index].copyOf()
+    public fun exceptionalSuccessors(index: Int): IntArray = exceptional[index].copyOf()
 
     /** Instructions with a normal or exceptional edge into [index]. Each read returns a copy. */
-    fun predecessors(index: Int): IntArray = predecessors[index].copyOf()
+    public fun predecessors(index: Int): IntArray = predecessors[index].copyOf()
 
     /** Whether some path of edges from the method entry reaches [index]. */
-    fun isReachable(index: Int): Boolean = reachable[index]
+    public fun isReachable(index: Int): Boolean = reachable[index]
 
     /** Whether a try range names [index] as a handler. */
-    fun isHandlerEntry(index: Int): Boolean = handlerEntries[index]
+    public fun isHandlerEntry(index: Int): Boolean = handlerEntries[index]
 
     /** The instruction [index] falls through to, or null when it cannot continue or falls off the code. */
-    fun fallthroughSuccessor(index: Int): Int? = fallthrough[index].takeIf { it >= 0 }
+    public fun fallthroughSuccessor(index: Int): Int? = fallthrough[index].takeIf { it >= 0 }
 
     /** Whether [index] can continue but the next code unit is payload data or past the last instruction. */
     internal fun fallsOffCode(index: Int): Boolean = fallsOffCode[index]
@@ -63,7 +67,7 @@ class MethodControlFlow private constructor(
      * the method entry, not a handler entry, and no other edge targets it. The register state entering [index] is then
      * exactly the state after that instruction. Null otherwise.
      */
-    fun fallthroughPredecessor(index: Int): Int? {
+    public fun fallthroughPredecessor(index: Int): Int? {
         if (index == 0 || handlerEntries[index]) return null
         val previous = index - 1
         if (fallthrough[previous] != index || predecessors[index].any { it != previous }) return null
@@ -71,12 +75,12 @@ class MethodControlFlow private constructor(
     }
 
     /** Registers the instruction at [index] reads, ascending; a wide operand names both halves of its pair. */
-    fun registersRead(index: Int): IntArray = RegisterEffects.registersRead(records[index].instruction)
+    public fun registersRead(index: Int): IntArray = RegisterEffects.registersRead(records[index].instruction)
 
     /** Registers the instruction at [index] writes, ascending; a wide operand names both halves of its pair. */
-    fun registersWritten(index: Int): IntArray = RegisterEffects.registersWritten(records[index].instruction)
+    public fun registersWritten(index: Int): IntArray = RegisterEffects.registersWritten(records[index].instruction)
 
-    companion object {
+    internal companion object {
         /**
          * The control flow of [body], or null when the body names a branch, switch-case or handler target that is not
          * an instruction, a switch or `fill-array-data` target that is not a payload of the matching kind, or

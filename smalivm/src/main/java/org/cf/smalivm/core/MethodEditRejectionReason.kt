@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 import com.android.tools.smali.dexlib2.Opcode
 
 /** A DEX section whose item count or size an edit can exceed. */
-enum class DexSection(val sectionName: String) {
+public enum class DexSection(internal val sectionName: String) {
     TYPE_IDS("type_ids"),
     PROTO_IDS("proto_ids"),
     FIELD_IDS("field_ids"),
@@ -15,97 +15,98 @@ enum class DexSection(val sectionName: String) {
  * The rule an open method edit breaks, one case per rule. Code addresses before layout are the edited body's
  * logical addresses; [describe] renders the reason for people.
  */
-sealed interface MethodEditRejectionReason {
-    data object StaleMethodRevision : MethodEditRejectionReason
-    data object StaleProgramRevision : MethodEditRejectionReason
+public sealed interface MethodEditRejectionReason {
+    public data object StaleMethodRevision : MethodEditRejectionReason
+    public data object StaleProgramRevision : MethodEditRejectionReason
 
-    data class InvalidCodeAddress(val codeAddress: Int) : MethodEditRejectionReason
-    data class PayloadCodeAddress(val codeAddress: Int) : MethodEditRejectionReason
-    data class ConflictingCommands(val codeAddress: Int) : MethodEditRejectionReason
-    data class EmptyInstructionList(val codeAddress: Int) : MethodEditRejectionReason
+    public data class InvalidCodeAddress(val codeAddress: Int) : MethodEditRejectionReason
+    public data class PayloadCodeAddress(val codeAddress: Int) : MethodEditRejectionReason
+    public data class ConflictingCommands(val codeAddress: Int) : MethodEditRejectionReason
+    public data class EmptyInstructionList(val codeAddress: Int) : MethodEditRejectionReason
 
-    data object ForeignAnchor : MethodEditRejectionReason
-    data object ForeignLogicalRegister : MethodEditRejectionReason
-    data object ForeignStagedReference : MethodEditRejectionReason
+    public data object ForeignAnchor : MethodEditRejectionReason
+    public data object ForeignLogicalRegister : MethodEditRejectionReason
+    public data object ForeignStagedReference : MethodEditRejectionReason
 
-    data class UnencodableInstruction(val opcode: Opcode) : MethodEditRejectionReason
-    data class TemplateOpcodeMismatch(val opcode: Opcode) : MethodEditRejectionReason
-    data class LogicalRegisterCountMismatch(
+    public data class UnencodableInstruction(val opcode: Opcode) : MethodEditRejectionReason
+    public data class TemplateOpcodeMismatch(val opcode: Opcode) : MethodEditRejectionReason
+    public data class LogicalRegisterCountMismatch(
         val opcode: Opcode,
         val registerOperands: Int,
         val logicalRegisters: Int,
     ) : MethodEditRejectionReason
-    data class BaselineRegisterOutOfRange(val register: Int) : MethodEditRejectionReason
-    data class WideScratchPairOutsideReservation(val offset: Int) : MethodEditRejectionReason
-    data class ReferenceOperandCountMismatch(
+    public data class BaselineRegisterOutOfRange(val register: Int) : MethodEditRejectionReason
+    public data class WideScratchPairOutsideReservation(val offset: Int) : MethodEditRejectionReason
+    public data class ReferenceOperandCountMismatch(
         val opcode: Opcode,
         val expected: Int,
         val actual: Int,
     ) : MethodEditRejectionReason
-    data class ReferenceKindMismatch(val opcode: Opcode) : MethodEditRejectionReason
-    data object UnstagedReference : MethodEditRejectionReason
+    public data class ReferenceKindMismatch(val opcode: Opcode) : MethodEditRejectionReason
+    public data object UnstagedReference : MethodEditRejectionReason
 
-    data class MalformedDescriptor(val descriptor: String) : MethodEditRejectionReason
-    data class MalformedMemberName(val name: String) : MethodEditRejectionReason
-    data class InvalidTypeOperand(val opcode: Opcode, val descriptor: String) : MethodEditRejectionReason
-    data class CatchTypeNotClass(val descriptor: String) : MethodEditRejectionReason
-    data class CatchTypeNotThrowable(val descriptor: String) : MethodEditRejectionReason
+    public data class MalformedDescriptor(val descriptor: String) : MethodEditRejectionReason
+    public data class MalformedMemberName(val name: String) : MethodEditRejectionReason
+    public data class InvalidTypeOperand(val opcode: Opcode, val descriptor: String) : MethodEditRejectionReason
+    public data class CatchTypeNotClass(val descriptor: String) : MethodEditRejectionReason
+    public data class CatchTypeNotThrowable(val descriptor: String) : MethodEditRejectionReason
 
-    data class MissingControlTarget(val codeAddress: Int) : MethodEditRejectionReason
-    data class BranchTargetNotExecutable(val codeAddress: Int) : MethodEditRejectionReason
-    data class WrongPayloadTarget(val codeAddress: Int) : MethodEditRejectionReason
-    data class SwitchCasesMismatchPayload(val codeAddress: Int) : MethodEditRejectionReason
-    data class SwitchCaseTargetNotExecutable(val codeAddress: Int, val key: Int) : MethodEditRejectionReason
-    data class UnownedPayload(val codeAddress: Int) : MethodEditRejectionReason
-    data object PayloadAtMethodEntry : MethodEditRejectionReason
-    data class FallsIntoPayload(val codeAddress: Int) : MethodEditRejectionReason
-    data class FallsIntoMoveException(val codeAddress: Int) : MethodEditRejectionReason
-    data class BranchIntoMoveException(val codeAddress: Int) : MethodEditRejectionReason
-    data object FallsPastMethodEnd : MethodEditRejectionReason
-    data object NoExecutableCode : MethodEditRejectionReason
+    public data class MissingControlTarget(val codeAddress: Int) : MethodEditRejectionReason
+    public data class BranchTargetNotExecutable(val codeAddress: Int) : MethodEditRejectionReason
+    public data class WrongPayloadTarget(val codeAddress: Int) : MethodEditRejectionReason
+    public data class SwitchCasesMismatchPayload(val codeAddress: Int) : MethodEditRejectionReason
+    public data class SwitchCaseTargetNotExecutable(val codeAddress: Int, val key: Int) : MethodEditRejectionReason
+    public data class UnownedPayload(val codeAddress: Int) : MethodEditRejectionReason
+    public data object PayloadAtMethodEntry : MethodEditRejectionReason
+    public data class FallsIntoPayload(val codeAddress: Int) : MethodEditRejectionReason
+    public data class FallsIntoMoveException(val codeAddress: Int) : MethodEditRejectionReason
+    public data class BranchIntoMoveException(val codeAddress: Int) : MethodEditRejectionReason
+    public data object FallsPastMethodEnd : MethodEditRejectionReason
+    public data object NoExecutableCode : MethodEditRejectionReason
 
-    data class InvalidArrayElementWidth(val codeAddress: Int, val elementWidth: Int) : MethodEditRejectionReason
-    data class SwitchPayloadTooLarge(val codeAddress: Int, val elementCount: Int) : MethodEditRejectionReason
-    data class PackedSwitchKeysNotConsecutive(val codeAddress: Int) : MethodEditRejectionReason
-    data class SparseSwitchKeysNotSorted(val codeAddress: Int) : MethodEditRejectionReason
+    public data class InvalidArrayElementWidth(val codeAddress: Int, val elementWidth: Int) : MethodEditRejectionReason
+    public data class SwitchPayloadTooLarge(val codeAddress: Int, val elementCount: Int) : MethodEditRejectionReason
+    public data class PackedSwitchKeysNotConsecutive(val codeAddress: Int) : MethodEditRejectionReason
+    public data class SparseSwitchKeysNotSorted(val codeAddress: Int) : MethodEditRejectionReason
 
-    data object ReversedTryRange : MethodEditRejectionReason
-    data object EmptyTryRange : MethodEditRejectionReason
-    data object TryRangeStartNotExecutable : MethodEditRejectionReason
-    data object TryRangeWithoutHandler : MethodEditRejectionReason
-    data object HandlerTargetNotExecutable : MethodEditRejectionReason
-    data object CatchAllNotLast : MethodEditRejectionReason
-    data object OverlappingTryRanges : MethodEditRejectionReason
-    data class TooManyTryItems(val count: Int) : MethodEditRejectionReason
-    data object HandlerTypeOutsideReferenceClosure : MethodEditRejectionReason
-    data class HandlerListOffsetOverflow(val offset: Long) : MethodEditRejectionReason
-    data class MoveExceptionOutsideHandler(val codeAddress: Int) : MethodEditRejectionReason
+    public data object ReversedTryRange : MethodEditRejectionReason
+    public data object EmptyTryRange : MethodEditRejectionReason
+    public data object TryRangeStartNotExecutable : MethodEditRejectionReason
+    public data object TryRangeWithoutHandler : MethodEditRejectionReason
+    public data object HandlerTargetNotExecutable : MethodEditRejectionReason
+    public data object CatchAllNotLast : MethodEditRejectionReason
+    public data object OverlappingTryRanges : MethodEditRejectionReason
+    public data class TooManyTryItems(val count: Int) : MethodEditRejectionReason
+    public data object HandlerTypeOutsideReferenceClosure : MethodEditRejectionReason
+    public data class HandlerListOffsetOverflow(val offset: Long) : MethodEditRejectionReason
+    public data class MoveExceptionOutsideHandler(val codeAddress: Int) : MethodEditRejectionReason
 
-    data class UnsupportedDebugItem(val debugItemType: Int) : MethodEditRejectionReason
+    public data class UnsupportedDebugItem(val debugItemType: Int) : MethodEditRejectionReason
 
-    data class RegisterOverflow(val register: Int) : MethodEditRejectionReason
-    data class RegisterCountReduced(val baselineRegisterCount: Int, val registerCount: Int) :
+    public data class RegisterOverflow(val register: Int) : MethodEditRejectionReason
+    public data class RegisterCountReduced(val baselineRegisterCount: Int, val registerCount: Int) :
         MethodEditRejectionReason
-    data class CodeSizeOverflow(val codeUnits: Long) : MethodEditRejectionReason
-    data class OpcodeUnavailable(val opcode: Opcode, val apiLevel: Int) : MethodEditRejectionReason
-    data class MisalignedPayload(val codeAddress: Int) : MethodEditRejectionReason
-    data class BranchOffsetNotAtInstruction(val codeAddress: Int) : MethodEditRejectionReason
-    data class ZeroBranchOffset(val codeAddress: Int) : MethodEditRejectionReason
-    data class DexReferenceLimit(val section: DexSection) : MethodEditRejectionReason
+    public data class CodeSizeOverflow(val codeUnits: Long) : MethodEditRejectionReason
+    public data class OpcodeUnavailable(val opcode: Opcode, val apiLevel: Int) : MethodEditRejectionReason
+    public data class MisalignedPayload(val codeAddress: Int) : MethodEditRejectionReason
+    public data class BranchOffsetNotAtInstruction(val codeAddress: Int) : MethodEditRejectionReason
+    public data class ZeroBranchOffset(val codeAddress: Int) : MethodEditRejectionReason
+    public data class DexReferenceLimit(val section: DexSection) : MethodEditRejectionReason
 
-    data class MoveResultWithoutResult(val codeAddress: Int) : MethodEditRejectionReason
-    data class MoveResultTypeMismatch(val codeAddress: Int, val expected: Opcode) : MethodEditRejectionReason
-    data class InvokeArgumentWordMismatch(
+    public data class MoveResultWithoutResult(val codeAddress: Int) : MethodEditRejectionReason
+    public data class MoveResultTypeMismatch(val codeAddress: Int, val expected: Opcode) : MethodEditRejectionReason
+    public data class InvokeArgumentWordMismatch(
         val codeAddress: Int,
         val expectedWords: Int,
         val actualWords: Int,
     ) : MethodEditRejectionReason
-    data class SplitWideArgument(val codeAddress: Int) : MethodEditRejectionReason
-    data class ReturnOpcodeMismatch(val codeAddress: Int, val expected: Opcode) : MethodEditRejectionReason
-    data class ReadBeforeAssignment(val codeAddress: Int, val register: Int) : MethodEditRejectionReason
-    data class ReturnCategoryMismatch(val codeAddress: Int, val register: Int) : MethodEditRejectionReason
+    public data class SplitWideArgument(val codeAddress: Int) : MethodEditRejectionReason
+    public data class ReturnOpcodeMismatch(val codeAddress: Int, val expected: Opcode) : MethodEditRejectionReason
+    public data class ReadBeforeAssignment(val codeAddress: Int, val register: Int) : MethodEditRejectionReason
+    public data class ReturnCategoryMismatch(val codeAddress: Int, val register: Int) : MethodEditRejectionReason
 
-    fun describe(): String = when (this) {
+    /** A one-sentence explanation for users. */
+    public fun describe(): String = when (this) {
         StaleMethodRevision -> "The method changed after this edit began"
         StaleProgramRevision -> "The program changed after the analysis this edit is based on"
         is InvalidCodeAddress -> "No instruction starts at code address $codeAddress"

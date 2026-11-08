@@ -8,7 +8,7 @@ package org.cf.smalivm.core
  * [ExecutionSession] keeps ownership of null routing, class-init scheduling, frame construction, effects,
  * frontier changes, and result application.
  */
-class Invoker internal constructor(
+internal class Invoker internal constructor(
     internal val resolver: ProgramSnapshotResolver,
     private val backends: List<Backend>,
 ) {
@@ -157,8 +157,36 @@ class Invoker internal constructor(
 internal fun receiverIsNull(kind: InvokeKind, receiver: Value?): Boolean =
     kind != InvokeKind.STATIC && receiver?.readsAsNullReference == true
 
+/** The runtime type dispatch selects by: the tracked receiver object's type, or null for a static call. */
+internal fun receiverRuntimeType(kind: InvokeKind, receiver: Value?, frame: Frame): VirtualType? =
+    if (kind == InvokeKind.STATIC) null
+    else ((receiver as? Value.Known)?.raw as? HeapRef)?.let { frame.heapObject(it)?.type }
+
+/**
+ * What a linked method that cannot be invoked throws after the receiver null check (ART's
+ * `ThrowInvocationTimeError`), or null when the call proceeds.
+ */
+internal fun InvocationPreparation.Ready.invocationTimeError(receiverType: VirtualType?): ThrowableRecipe? =
+    when (lookup) {
+        is MethodLookup.DefaultConflict -> GuestThrowables.conflictingDefaultMethods(invocation.target)
+        is MethodLookup.AbstractSelection -> GuestThrowables.abstractMethod(lookup.method.target, receiverType)
+        else -> null
+    }
+
+/** The values an opaque call can reach: the receiver, then the arguments. */
+internal fun PreparedInvocation.opaqueArguments(): List<Value> = listOfNotNull(receiver) + arguments
+
+internal fun PreparedInvocation.opaqueArgumentTypes(): List<VirtualType> =
+    (if (receiver == null) emptyList() else listOf(target.definingClass)) + parameterTypes
+
+/** The declared type of each of [valueCount] register words of a call site whose target never bound. */
+internal fun OpArm.Invoke.opaqueArgumentTypes(valueCount: Int): List<VirtualType> {
+    val words = target.argumentWords(kind)
+    return List(valueCount) { word -> words.typeAt(word) ?: VirtualType.OBJECT }
+}
+
 /** Pure result of invocation resolution and logical binding. */
-sealed interface InvocationPreparation {
+internal sealed interface InvocationPreparation {
     class Ready internal constructor(
         val invocation: PreparedInvocation,
         internal val lookup: MethodLookup,
@@ -177,12 +205,12 @@ sealed interface InvocationPreparation {
 }
 
 /** One argument's landing place in the callee's frame. Public inspection unwraps [value]. */
-class ParameterBinding internal constructor(val register: Int, internal val frameValue: FrameValue) {
+internal class ParameterBinding internal constructor(val register: Int, internal val frameValue: FrameValue) {
     val value: Value get() = frameValue.value
 }
 
 /** What the [Invoker] decided about one call. Sealed so the scheduler handles every case. */
-sealed interface InvocationPlan {
+internal sealed interface InvocationPlan {
     /**
      * Run [view] as a nested [Activation], entering at [entryAddress] with [parameterBindings] seeded into
      * the callee's own frame. The callee's frame shares the caller's heap id space; the scheduler builds it
@@ -218,7 +246,7 @@ sealed interface InvocationPlan {
  * A call no backend models: resolution was ambiguous, the call site's arity contradicts the resolved method,
  * policy denied it, or every backend declined. The same answer whether binding or backend selection found it.
  */
-class OpaqueInvocation internal constructor(
+internal class OpaqueInvocation internal constructor(
     val returnType: VirtualType,
     val candidates: Set<String>,
     val diagnostic: String? = null,

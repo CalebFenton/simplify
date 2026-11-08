@@ -12,14 +12,16 @@ import com.android.tools.smali.smali.smaliFlexLexer
 import com.android.tools.smali.smali.smaliParser
 import com.android.tools.smali.smali.smaliTreeWalker
 
-object SmaliParser {
-    const val DEX_API_LEVEL = 20
+/** Assembles Smali source into dexlib class definitions. */
+public object SmaliParser {
+    /** API level used when assembling Smali. */
+    public const val DEX_API_LEVEL: Int = 20
 
     /** The Smali source did not lex, parse, or assemble; the reasons are on standard error. */
-    class SyntaxException internal constructor(message: String) : RuntimeException(message)
+    internal class SyntaxException internal constructor(message: String) : RuntimeException(message)
 
     /** Assembles one Smali class with [apiLevel]'s opcode table, interning its references in [dexBuilder]. */
-    fun parse(
+    internal fun parse(
         path: String,
         inputStream: InputStream,
         dexBuilder: DexBuilder,

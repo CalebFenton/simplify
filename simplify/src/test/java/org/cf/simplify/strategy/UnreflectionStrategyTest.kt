@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class UnreflectionStrategyTest {
-    private val owner = "Lunreflection_kotlin_regression;"
+    private val owner = "Lunreflection;"
     private val invokeDescriptor = "(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"
     private val reflectionInvoke = MethodSignature(VirtualType.of("Ljava/lang/reflect/Method;"), "invoke",
         "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
@@ -24,7 +24,7 @@ class UnreflectionStrategyTest {
         ).associateWith { SideEffectLevel.NONE },
     )
 
-    private val invocationOwner = "Lreflection_invocation_regression;"
+    private val invocationOwner = "Lreflective_invocation;"
 
     private fun invokeFixture(descriptor: String) =
         OptimizerTester.optimize(invocationOwner, descriptor, UnreflectionStrategy(), purePolicy)
@@ -95,19 +95,27 @@ class UnreflectionStrategyTest {
     }
 
     @Test fun sameOwnerStaticFieldsLowerToTheReadOfTheirWidthAndPreserveBoxing() {
-        for ((descriptor, opcode, box) in listOf(
-            Triple("readNumber()Ljava/lang/Object;", Opcode.SGET, "Ljava/lang/Integer;"),
-            Triple("readFlag()Ljava/lang/Object;", Opcode.SGET_BOOLEAN, "Ljava/lang/Boolean;"),
-            Triple("readText()Ljava/lang/Object;", Opcode.SGET_OBJECT, null),
-            Triple("readNumberIgnored()V", Opcode.SGET, "Ljava/lang/Integer;"),
+        // Expected values are the fixture's static field initializers.
+        for ((descriptor, opcode, box, expected) in listOf(
+            FieldRead("readNumber()Ljava/lang/Object;", Opcode.SGET, "Ljava/lang/Integer;", 0x29),
+            FieldRead("readFlag()Ljava/lang/Object;", Opcode.SGET_BOOLEAN, "Ljava/lang/Boolean;", true),
+            FieldRead("readText()Ljava/lang/Object;", Opcode.SGET_OBJECT, null, "static"),
+            FieldRead("readNumberIgnored()V", Opcode.SGET, "Ljava/lang/Integer;", null),
         )) {
             val optimized = optimize(descriptor)
             assertFalse(hasMethod(optimized.method, "Ljava/lang/reflect/Field;", "get"), descriptor)
             assertTrue(hasOpcode(optimized.method, opcode), descriptor)
             if (box != null) assertTrue(hasMethod(optimized.method, box, "valueOf"), descriptor)
-            assertEquals(CompletionStatus.Complete, optimized.dexRoundTrip().completion(), descriptor)
+            val roundTrip = optimized.dexRoundTrip()
+            assertEquals(CompletionStatus.Complete, roundTrip.completion(), descriptor)
+            if (expected != null) {
+                assertEquals(expected, returned(optimized.reexecute()), descriptor)
+                assertEquals(expected, returned(roundTrip), descriptor)
+            }
         }
     }
+
+    private data class FieldRead(val descriptor: String, val opcode: Opcode, val box: String?, val expected: Any?)
 
     @Test fun instanceAndOtherOwnerFieldsRemainReflective() {
         for (descriptor in listOf("readInstance()Ljava/lang/Object;", "readOtherOwner()Ljava/lang/Object;")) {

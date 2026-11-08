@@ -160,13 +160,8 @@
     return-void
 .end method
 
-# --- Plan 8 Task 4 additions. Everything above is the corpus fixture, untouched. ---
-
-# THE SAME-ADDRESS FORK: an unprovable predicate whose branch TARGET IS the fall-through, which is an
-# ordinary opaque-predicate emission and what `switch` also produces when a case offset is +3. Two
-# transitions naming ONE address, so `commit` builds two nodes there with independent frame copies --
-# the shape `CARRY-FORWARD.md`'s Plan 8 item 1 claimed could not be expressed. Note the offset is +2
-# (one 21t instruction), not 0: [BC] forbids a zero branch offset for the `if` rows too.
+# An unprovable branch whose target is the next instruction: both transitions name one address, and each
+# gets its own node and frame copy there. The offset is +2, not 0, because [BC] forbids a zero `if` offset.
 .method public static ifEqualZeroToFallThrough(I)V
     .registers 2
 
@@ -176,10 +171,8 @@
     return-void
 .end method
 
-# PATH EXPLOSION, made observable. Nine sequential diamonds over ONE unprovable parameter, no loop:
-# 2^9 = 512 paths reach the final address and `ExecutionSession.addressVisits` is session-GLOBAL, so
-# the 500-visit budget is consumed by sibling paths rather than by loop iterations and the method
-# self-truncates. Nine `if-eqz` on an unknown parameter is unremarkable obfuscated code.
+# Nine sequential diamonds over one unknown parameter, no loop: 2^9 = 512 paths reach the final address.
+# Address visits are counted per path, so sibling paths do not exhaust the visit limit.
 .method public static nineUnknownDiamonds(I)V
     .registers 2
 
@@ -213,16 +206,8 @@
     return-void
 .end method
 
-# TWO `const-class` INSTRUCTIONS ON ONE CLASS YIELD THE SAME REFERENCE, so this `if-eq` has ONE
-# successor and forking it would explore a branch no device can take. [VER] states it as a
-# parenthetical in its monitor-verification section: "the result values from two const-class
-# instructions on the same class will be the same reference, but the verifier doesn't recognize this".
-# The verifier being conservative about it is what makes it a RUNTIME guarantee this engine may lean on.
-#
-# `const-class` lands in Task 10, so today this decodes to an UnsupportedOp and the run is Partial --
-# which is what `IfOpTest.twoConstClassResultsForOneClassMustBeOneReferenceAndNotAFork` asserts, on
-# purpose, so it FAILS ON ARRIVAL the day Task 10 lands the opcode and forces the identity-stability
-# decision to be made deliberately rather than inherited from whatever its cache happens to do.
+# [VER], on monitor verification: "the result values from two const-class instructions on the same class
+# will be the same reference, but the verifier doesn't recognize this". So this `if-eq` has one successor.
 .method public static ifEqualTwoConstClassesOfOneClass()V
     .registers 2
 
@@ -237,10 +222,8 @@
     return-void
 .end method
 
-# RECONCILIATION, the disagreeing half: one arm assigns v0 and the other does not, so the two nodes at
-# the join address hold different values for it and per-address consensus is their JOIN (Top) rather
-# than either arm's. This is the fork's whole purpose -- explore both, reconcile at the join -- and it
-# is the shape `nop`-only corpus fixtures cannot show, because a `nop` assigns nothing on either arm.
+# One arm assigns v0 and the other does not, so the two nodes at the join hold different values and
+# per-address consensus is their join (Top).
 .method public static ifEqualZeroSkippingAnAssignment(I)V
     .registers 2
 
@@ -252,9 +235,8 @@
     return-void
 .end method
 
-# RECONCILIATION, the agreeing half: both arms assign the SAME value, so consensus at the join is that
-# value and a `Complete` run lets a consumer fold it even though the predicate was never decided. The
-# payoff the whole engine exists for.
+# Both arms assign the same value, so consensus at the join is that value even though the predicate is
+# undecided.
 .method public static ifEqualZeroAssigningOneOnBothArms(I)V
     .registers 2
 
@@ -271,18 +253,8 @@
     return-void
 .end method
 
-# ROOM FOR TWO WIDE PAIRS, and the reason it has to exist: `ifEqual()V` above has `.locals 2`, so a
-# `J`/`D`-tagged seed in v1 has nowhere to put the pair's high half -- `Frame.assign` reserves
-# `register + 1`, which is out of range, and the seed throws before the op runs. The oracle's flat
-# string-keyed state has no high half at all, so the corpus could express a register file no device can
-# have: `if-eq v0, v1` with a long in v0 and a double in v1 needs (v0,v1) AND (v1,v2) at once.
-#
-# Same three addresses as `ifEqual()V` (`22t` at 0, `nop` at 2, `return-void` at 3), so the migrated
-# visitation expectations apply unchanged; only the operand REGISTERS differ, which is a change in where
-# the harness reads a value and not a change to the value. The operand TYPES are still not
-# verifier-valid (`if-eq` wants both refs or both integral, and `IsIntegralTypes` excludes `kLongLo`,
-# `kFloat` and `kDoubleLo`) -- that is the recorded CORPUS-tier property of these fixtures, and it is
-# what makes their answers engine choices rather than fidelity targets.
+# `ifEqual()V` with room for `J`/`D` operands: a wide seed occupies its register and the next, so the
+# operands are v0 and v2. Same addresses as `ifEqual()V`: the `22t` at 0, `nop` at 2, `return-void` at 3.
 .method public static ifEqualWithRoomForWidePairs()V
     .locals 4
 
@@ -294,22 +266,11 @@
     return-void
 .end method
 
-# --- the two DIFFERENTIAL witnesses for Task 4's engine choices (fix round 1) ---
-#
-# Both are TRUE DIAMONDS: the branch target is reachable only by the jump, so a fork shows up as one
-# extra reached address, and both arms are inert with respect to v0 -- the observed register -- so the
-# two engines agree about every value and differ only in the path set. That is the construction
-# `Fixtures.intendedDivergences`' ORACLE_MISJUDGES_FEASIBILITY entries already use.
-#
-# The oracle applies `lhs.raw === rhs.raw` for EVERY ifType whenever either raw is non-numeric
-# (`opcode/IfOp.kt:56-58`, `:65-67`), so it derives `cmp ∈ {0, 1}` and answers both of these
-# DEFINITELY. The core forks, because a pointer's magnitude is not something the lattice holds. Without
-# these two fixtures the difference would be invisible to the only instrument that watches for a
-# reconciliation toward the oracle.
+# Core regressions in `differential/Fixtures.kt`: true diamonds whose taken arm is reachable only by the
+# jump, so a fork shows as one extra reached address. Both inputs are verifier-rejected engine choices.
 
-# `if-lt` over two distinct live references. Different literals on purpose: equal literals would be
-# interned to one object and the comparison would be provable (identical pointer), which is a different
-# row. Oracle: cmp = 1, so `if-lt` is definitely false and the taken arm at address 9 is never scheduled.
+# `if-lt` over two distinct live references; distinct literals, because one interned literal would make
+# the pointers identical and the comparison provable. A fork reaches the taken arm at 9.
 .method public static branchOnOrderingOverTwoDistinctReferences()V
     .locals 3
 
@@ -332,11 +293,8 @@
     return-void
 .end method
 
-# `if-eq` between a live reference and a NON-ZERO integer. Oracle: `"alpha" === Integer(5)` is false, so
-# cmp = 1 and `if-eq` is definitely false; the taken arm at address 8 is never scheduled. A pointer is
-# provably non-ZERO, which decides a comparison against 0 and nothing else -- it is not provably
-# different from 5, so the core forks. (Against zero it does NOT fork: that is the `*z` null-check row,
-# and `core/op/IfOpTest.testIfObjectNotEqualZero` pins it definite.)
+# `if-eq` between a live reference and the integer 5. A pointer is provably non-zero, which decides a
+# comparison against 0 only, so this forks and reaches the taken arm at 8.
 .method public static branchOnEqualityBetweenAReferenceAndANonZeroInt()V
     .locals 3
 

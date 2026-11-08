@@ -178,9 +178,10 @@ class PersistentStateTest {
 
         assertEquals(ClassInitState.INITIALIZED, lifecycleChanged.initState(objectType))
         assertEquals(Value.Known(1, int), lifecycleChanged.getStaticField(objectType, STATIC_FIELD))
-        assertEquals(ClassInitState.UNINITIALIZED, staticChanged.initState(objectType))
+        // An entry frame's untriggered class reads by the default arbitrary-entry state.
+        assertEquals(ClassInitState.UNKNOWN, staticChanged.initState(objectType))
         assertEquals(Value.Known(2, int), staticChanged.getStaticField(objectType, STATIC_FIELD))
-        assertEquals(ClassInitState.UNINITIALIZED, parent.initState(objectType))
+        assertEquals(ClassInitState.UNKNOWN, parent.initState(objectType))
         assertEquals(Value.Known(1, int), parent.getStaticField(objectType, STATIC_FIELD))
     }
 
@@ -209,7 +210,7 @@ class PersistentStateTest {
     }
 
     @Test
-    fun debuggerConsensusClassAndStaticReadsChangeNoState() {
+    fun observerReadsRecordNoLivenessAndCreateNoObjectVersions() {
         // Observers read through the ExecutionState facade, which records no liveness and creates no versions.
         val frame = frame().also {
             it.assign(0, Value.Known(1, int))
@@ -543,7 +544,7 @@ class PersistentStateTest {
     }
 
     @Test
-    fun compatibilityHashAndGroupingDoNotTraverseTheirMaps() {
+    fun compatibilityKeyHashAndEqualityDoNotWalkTheMaps() {
         // Bug class: CallCompatibilityKey equality/hash walks both compatibility maps at every group lookup.
         // Oracle: group lookups by a shared-root key over two 1,000-entry maps cost about what they cost over
         // one-entry maps; lookups that walk the maps cost thousands of times as much.
@@ -592,10 +593,10 @@ class PersistentStateTest {
     }
 
     @Test
-    fun selectedCompactionCostIgnoresDeadGuestOnlyHeapObjects() {
-        // Bug class: every selected call scans and sorts all historical HeapObjects before host execution.
-        // Oracle: work starts from live guest refs and the graph-backed ref index, so selected calls cost about the
-        // same beside 20,000 dead objects as beside none; scanning the heap per call costs hundreds of times as much.
+    fun hostCallSelectionCostIgnoresDeadHeapObjects() {
+        // Bug class: every selected call scans the whole heap before host execution. Oracle: selection starts from
+        // the call's receiver and arguments, so selected calls cost about the same beside 20,000 dead objects as
+        // beside none; scanning the heap per call costs hundreds of times as much.
         val small = SelectedCallFrame(deadObjects = 0)
         val large = SelectedCallFrame(deadObjects = 20_000)
 

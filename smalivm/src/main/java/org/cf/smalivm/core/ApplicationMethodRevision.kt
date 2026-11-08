@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 /** Opaque revision token for one immutable application method definition. */
-class ApplicationMethodRevision internal constructor(
+public class ApplicationMethodRevision internal constructor(
     private val programIdentity: ProgramIdentity,
     internal val methodSignature: MethodSignature,
 ) {

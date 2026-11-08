@@ -1,15 +1,11 @@
 .class public Lclass_init/trigger;
 .super Ljava/lang/Object;
 
-# ---------------------------------------------------------------------------------------
-# METHOD-ENTRY triggers of class initialization: every method here reaches its callee
-# through a real `invoke-static` (35c, three code units).
-#
-# Addresses are METHOD-LOCAL, so adding whole methods is address-safe; editing instructions
-# inside one shifts the rest of that method and several tests pin exact addresses.
-# ---------------------------------------------------------------------------------------
+# Method-entry triggers of class initialization, each through a real `invoke-static` (35c, three
+# code units). Addresses are method-local: adding whole methods is address-safe, editing
+# instructions inside one is not, and tests pin exact addresses.
 
-# METHOD-ENTRY trigger of a class WITH a guest `<clinit>`.
+# Method-entry trigger of a class with a guest `<clinit>`.
 # @0 invoke-static (35c, 3 units), @3 const/4 (1), @4 return (1).
 .method public static callsWitnessTouch()I
     .registers 1
@@ -18,8 +14,8 @@
     return v0
 .end method
 
-# METHOD-ENTRY trigger of a class with NO guest `<clinit>`. Nothing runs, so the marks land
-# on the callee's own entry frame and the invoke is NOT re-executed: one node at @0.
+# Method-entry trigger of a class with no guest `<clinit>`. Nothing runs, so the marks land on
+# the callee's entry frame and the invoke is not re-executed: one node at @0.
 # @0 invoke-static (3 units), @3 const/4, @4 return.
 .method public static callsNoClinitTouch()I
     .registers 1
@@ -28,8 +24,8 @@
     return v0
 .end method
 
-# METHOD-ENTRY trigger three classes deep (divergence 4 through `planInvoke` rather than
-# through `planInitClass`). @0 invoke-static (3 units), @3 const/4, @4 return.
+# Method-entry trigger three classes deep, superclass first through `planInvoke`.
+# @0 invoke-static (3 units), @3 const/4, @4 return.
 .method public static callsChildTouch()I
     .registers 1
     invoke-static {}, Lclass_init/child;->touch()V
@@ -37,13 +33,10 @@
     return v0
 .end method
 
-# THE `<clinit>`-ENTRY CARVE-OUT. Bytecode may call a `<clinit>` directly, and obfuscator
-# output does. ART's static-call predicate explicitly excludes a class initializer.
-#
-# Without the carve-out this call would trigger `witness`'s own initialization, which
-# schedules the SAME `<clinit>` as a prelude: the initializer would run TWICE on one path
-# and its writes would be applied twice. The `Initializing` guard cannot cover it -- at the
-# call site the class is still `Uninitialized`, because nothing has marked it yet.
+# A direct call to `<clinit>`, which obfuscator output contains. ART's static-call predicate
+# excludes a class initializer, so the call must not trigger `witness`'s initialization;
+# otherwise the same `<clinit>` would also run as a prelude and apply its writes twice. The
+# `Initializing` guard cannot catch this: the class is still `Uninitialized` at the call site.
 #
 # @0 invoke-static (3 units), @3 const/4, @4 return.
 .method public static callsWitnessClinitDirectly()I
@@ -53,8 +46,8 @@
     return v0
 .end method
 
-# METHOD-ENTRY trigger of a class whose `<clinit>` THROWS. The initializer fails, so this
-# path cannot continue -- the caller's `const/4`/`return` must never execute.
+# Method-entry trigger of a class whose `<clinit>` throws. The path cannot continue: the
+# caller's `const/4`/`return` never execute.
 # @0 invoke-static (3 units), @3 const/4, @4 return.
 .method public static callsFailingTouch()I
     .registers 1

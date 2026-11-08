@@ -22,8 +22,8 @@ internal fun registerPrintlnEmulator(services: VmServices) {
                     "(Ljava/lang/String;)V",
                 ),
             ),
-            // System.out need not be a materialized host stream: the demo deliberately redirects
-            // this exact overload to its own console, including explicitly labeled unknown text.
+            // The receiver may be a tracked guest reference rather than a host stream, and unknown text
+            // prints as a labeled placeholder.
             capability = EmulatorCapability(handlesUnknownArguments = true, receivesTrackedReferences = true),
             effect = SideEffectLevel.STRONG,
             handler = EmulatorHandler { call ->

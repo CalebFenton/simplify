@@ -23,7 +23,7 @@ class ClassInitHostileInputTest {
 
     @Test
     fun aDeepSuperclassChainOfInitializersRunsTopDownAndPlansInLinearTime(@TempDir temp: Path) {
-        // Each class's initializer stores one more than its superclass's static, so the read is the chain depth
+        // Each class's initializer stores one more than its superclass's final static, so the read is the chain depth
         // only when every initializer ran exactly once, superclass first. Planning re-asks once per initializer,
         // and each plan walks the chain once: eight times the chain costs a plan about eight times as much. A
         // walk that rescans the chain for every class it adds costs about sixty-four times as much.
@@ -63,7 +63,7 @@ class ClassInitHostileInputTest {
                 .class public L$pkg/C$index;
                 .super $superclass
 
-                .field public static depth:I
+                .field public static final depth:I
 
                 .method static constructor <clinit>()V
                     .registers 1

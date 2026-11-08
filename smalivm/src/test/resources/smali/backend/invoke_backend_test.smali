@@ -14,7 +14,7 @@
 .method public static primitiveZero(I)Ljava/lang/Object;
     .locals 1
 
-    invoke-static {p0}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->boxBoolean(Z)Ljava/lang/Object;
+    invoke-static {p0}, Lorg/cf/smalivm/core/BackendHostFixture;->boxBoolean(Z)Ljava/lang/Object;
     move-result-object v0
     return-object v0
 .end method
@@ -55,7 +55,7 @@
     .locals 1
 
     move-object v0, p3
-    invoke-static {p0, p1, p2, p3}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->mutateThird(JILjava/lang/StringBuilder;)V
+    invoke-static {p0, p1, p2, p3}, Lorg/cf/smalivm/core/BackendHostFixture;->mutateThird(JILjava/lang/StringBuilder;)V
     return-object v0
 .end method
 
@@ -96,7 +96,7 @@
 .method public static boxedZeroUsesReferenceBranches()I
     .locals 2
 
-    invoke-static {}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->boxedZero()Ljava/lang/Number;
+    invoke-static {}, Lorg/cf/smalivm/core/BackendHostFixture;->boxedZero()Ljava/lang/Number;
     move-result-object v0
     if-eqz v0, :bad
     packed-switch v0, :switch_data
@@ -116,7 +116,7 @@
 .method public static arbitraryNumberUsesReferenceBranches()I
     .locals 2
 
-    invoke-static {}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->arbitraryNumber()Ljava/lang/Number;
+    invoke-static {}, Lorg/cf/smalivm/core/BackendHostFixture;->arbitraryNumber()Ljava/lang/Number;
     move-result-object v0
     if-eqz v0, :bad
     packed-switch v0, :switch_data
@@ -138,7 +138,7 @@
 
     const/4 v0, 0x1
     new-array v1, v0, [Ljava/lang/CharSequence;
-    invoke-static {}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->builderAsObject()Ljava/lang/Object;
+    invoke-static {}, Lorg/cf/smalivm/core/BackendHostFixture;->builderAsObject()Ljava/lang/Object;
     move-result-object v2
     const/4 v3, 0x0
     aput-object v2, v1, v3
@@ -149,7 +149,7 @@
 .method public static opaqueThenAuthorizedLength(Ljava/lang/Object;Ljava/lang/StringBuilder;)I
     .locals 1
 
-    invoke-static {p0}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->opaque(Ljava/lang/Object;)V
+    invoke-static {p0}, Lorg/cf/smalivm/core/BackendHostFixture;->opaque(Ljava/lang/Object;)V
     invoke-virtual {p1}, Ljava/lang/StringBuilder;->length()I
     move-result v0
     return v0
@@ -230,15 +230,15 @@
     .locals 2
 
     const/4 v1, 0x1
-    invoke-static {v1}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
+    invoke-static {v1}, Lorg/cf/smalivm/core/BackendHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
     move-result-object v0
 
     const/16 v1, 0x16
-    invoke-static {v1}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
+    invoke-static {v1}, Lorg/cf/smalivm/core/BackendHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
     move-result-object v0
 
     const/16 v1, 0x14d
-    invoke-static {v1}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
+    invoke-static {v1}, Lorg/cf/smalivm/core/BackendHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
     move-result-object v0
 
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->length()I
@@ -249,7 +249,7 @@
 .method public static dirtyArrayNeedsInit([I)I
     .locals 1
 
-    invoke-static {p0}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->arrayNeedsInit([I)I
+    invoke-static {p0}, Lorg/cf/smalivm/core/BackendHostFixture;->arrayNeedsInit([I)I
     move-result v0
     return v0
 .end method
@@ -293,7 +293,7 @@
     if-eqz p0, :without_local
 
     const/16 v1, 0x309
-    invoke-static {v1}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
+    invoke-static {v1}, Lorg/cf/smalivm/core/BackendHostFixture;->freshBuilder(I)Ljava/lang/StringBuilder;
     move-result-object v0
     invoke-static {p1}, Linvoke_backend_test;->guestHostLength(Ljava/lang/StringBuilder;)V
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->length()I
@@ -310,7 +310,7 @@
 .method public static opaqueEntrySetValueThenMapGet(Ljava/util/Map$Entry;Ljava/util/Map;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
     .locals 1
 
-    invoke-static {p0, p3}, Lorg/cf/smalivm/core/BackendCorpusHostFixture;->opaqueEntrySetValue(Ljava/util/Map$Entry;Ljava/lang/Object;)V
+    invoke-static {p0, p3}, Lorg/cf/smalivm/core/BackendHostFixture;->opaqueEntrySetValue(Ljava/util/Map$Entry;Ljava/lang/Object;)V
     invoke-interface {p1, p2}, Ljava/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
     move-result-object v0
     return-object v0

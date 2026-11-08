@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
 /**
- * An immutable, single-revision execution result for one method (spec §5.4): the nodes every explored path
+ * An immutable, single-revision execution result for one method: the nodes every explored path
  * produced, piled by address. Every read is pure, so an observer cannot perturb what it measures.
  *
  * The value queries live on [ExploredPaths]: [explored] answers them over whatever this run walked, and
@@ -13,11 +13,11 @@ import kotlinx.collections.immutable.toPersistentList
  * liveness and [completion]. Which nodes each query reads, and why, is stated in
  * `docs/architecture/graph-optimizer-contract.md`.
  */
-class ExecutionGraph internal constructor(
-    val methodView: MethodView,
+public class ExecutionGraph internal constructor(
+    internal val methodView: MethodView,
     /** Union over every activation of [methodView], including recursive ones. */
     private val addressToNodes: Map<Int, List<ExecutionNode>>,
-    /** The run's OWN activation only. Feeds [returningNodes] and therefore the whole terminating family. */
+    /** The run's own activation only. Feeds [returningNodes]. */
     private val addressToNodesInThisRunsActivation: Map<Int, List<ExecutionNode>>,
     outcomes: Iterable<Outcome>,
     private val completion: CompletionStatus,
@@ -25,8 +25,8 @@ class ExecutionGraph internal constructor(
     internal val superclasses: TypeHierarchy,
 ) {
 
-    val programRevision: ProgramRevision = methodView.programRevision
-    val methodRevision: ApplicationMethodRevision? = methodView.methodRevision
+    internal val programRevision: ProgramRevision = methodView.programRevision
+    internal val methodRevision: ApplicationMethodRevision? = methodView.methodRevision
 
     private val storedOutcomes: PersistentList<Outcome> = outcomes.toPersistentList()
 
@@ -35,32 +35,30 @@ class ExecutionGraph internal constructor(
      * whether other feasible paths were omitted; a partial graph still reports ended paths despite aborts on
      * other paths. This list contract does not imply deep immutability of [Outcome] payloads.
      */
-    val outcomes: List<Outcome> get() = storedOutcomes
+    public val outcomes: List<Outcome> get() = storedOutcomes
 
     /** The value queries over the paths this run walked, with no completion gate. */
-    val explored: ExploredPaths = ExploredPaths(this)
+    internal val explored: ExploredPaths = ExploredPaths(this)
 
     private val trustedView: TrustedGraphView by lazy { TrustedGraphView(this) }
 
-    // --- structure ---
-
     /** Every code address in the method, ascending; a fresh array on every call. */
-    fun addresses(): IntArray = methodView.addresses
+    internal fun addresses(): IntArray = methodView.addresses
 
     /**
      * True when a node at [address] ran its op. Ungated, for coverage on a truncated run: a `false` proves
      * nothing until the run completes, and never for a payload. [TrustedGraphView.isDead] is the dead-code proof.
      */
-    fun wasReached(address: Int): Boolean = nodePile(address).any { it.progress is OpProgress.Executed }
+    internal fun wasReached(address: Int): Boolean = nodePile(address).any { it.progress is OpProgress.Executed }
 
     /** True when the scheduler ever dequeued a node at [address], whether or not its op ran. */
-    fun wasAttempted(address: Int): Boolean = nodePile(address).isNotEmpty()
+    internal fun wasAttempted(address: Int): Boolean = nodePile(address).isNotEmpty()
 
     /**
      * The op decoded at [address]. Recorded on every attempted node, including one a bound stopped before it ran,
      * so this answers where [wasAttempted] does; it throws where it does not.
      */
-    fun getOp(address: Int): Op =
+    internal fun getOp(address: Int): Op =
         requireNotNull(opOrNull(address)) { "Address $address was never attempted; no op recorded" }
 
     /**
@@ -68,7 +66,7 @@ class ExecutionGraph internal constructor(
      * includes a node a bound stopped before its op ran, whose frame is not this address's post-op state; the
      * value queries skip such nodes.
      */
-    fun nodePile(address: Int): List<ExecutionNode> = addressToNodes[address].orEmpty()
+    internal fun nodePile(address: Int): List<ExecutionNode> = addressToNodes[address].orEmpty()
 
     /** [nodePile] restricted to nodes whose op ran: the only nodes whose frame is this address's post-op state. */
     internal fun executedPile(address: Int): List<ExecutionNode> =
@@ -82,18 +80,16 @@ class ExecutionGraph internal constructor(
         .flatMap { addressToNodesInThisRunsActivation[it].orEmpty() }
         .filter { it.outcome is Outcome.Returned }
 
-    // --- liveness ---
-
-    fun registersAssigned(address: Int): Set<Int> =
+    internal fun registersAssigned(address: Int): Set<Int> =
         opOrNull(address)?.registersAssigned?.toSortedSet() ?: emptySet()
 
     /** Registers the op at [address] reads; a wide source is named by its low half only. */
-    fun registersRead(address: Int): Set<Int> =
+    internal fun registersRead(address: Int): Set<Int> =
         opOrNull(address)?.registersRead?.toSortedSet() ?: emptySet()
 
-    fun wasRegisterAssigned(address: Int, register: Int): Boolean = register in registersAssigned(address)
+    internal fun wasRegisterAssigned(address: Int, register: Int): Boolean = register in registersAssigned(address)
 
-    fun wasRegisterRead(address: Int, register: Int): Boolean = register in registersRead(address)
+    internal fun wasRegisterRead(address: Int, register: Int): Boolean = register in registersRead(address)
 
     /** Every register some op in the method reads or assigns, or that holds a parameter, both halves of wide ones. */
     private val usedRegisters: Set<Int> by lazy {
@@ -107,24 +103,22 @@ class ExecutionGraph internal constructor(
 
     /**
      * Registers free for scratch use anywhere in the method: those no op touches and no parameter holds. Both
-     * halves of a wide value count as used, because [Op.destinationRegisters] names both halves of a wide
+     * halves of a wide value count as used, because an op's `registersAssigned` names both halves of a wide
      * result. [address] is unused: this is whole-method, coarser than per-point liveness, and never fails on an
      * unreached address.
      */
-    fun availableRegisters(address: Int): IntArray =
+    internal fun availableRegisters(address: Int): IntArray =
         (0 until methodView.registerCount).filterNot { it in usedRegisters }.toIntArray()
 
-    // --- completion and the trust gate ---
-
     /** Whether exploration completed, aborted, or has not finished yet. */
-    fun completion(): CompletionStatus = completion
+    public fun completion(): CompletionStatus = completion
 
     /**
      * The value queries as a [TrustedGraphView], or null when [completion] is not `canTrustConsensus`: a run that
      * stopped at a bound, hit an unimplemented opcode or a host failure, or has not finished yet. [completion]
      * says why.
      */
-    fun trusted(): TrustedGraphView? = if (completion.canTrustConsensus) trustedView else null
+    public fun trusted(): TrustedGraphView? = if (completion.canTrustConsensus) trustedView else null
 
     override fun toString(): String =
         "ExecutionGraph(${methodView.signature}, " +

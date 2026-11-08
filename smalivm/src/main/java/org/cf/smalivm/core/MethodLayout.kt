@@ -14,7 +14,7 @@ internal data class LaidOutInstruction(
 )
 
 /** Complete validated encoding for one logical method body. */
-class MethodLayout internal constructor(
+internal class MethodLayout internal constructor(
     internal val registerCount: Int,
     internal val instructions: PersistentList<LaidOutInstruction>,
     internal val codeAddressesByPosition: PersistentMap<LogicalCodePosition, Int>,

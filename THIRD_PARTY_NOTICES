@@ -11,7 +11,7 @@ names such as LICENSE and META-INF/NOTICE.txt cannot overwrite each other.
 
 The host-runtime inventory below covers the resolved coordinates recorded in the
 existing SmaliVM/Simplify/SDBG/Demo runtime artifacts and launchers. Test/build-only
-dependencies (JUnit, Mockito, MockK, JaCoCo, ProGuard, Gradle plugins, etc.) are not
+dependencies (JUnit, JaCoCo, ProGuard, Gradle plugins, etc.) are not
 represented as host-runtime components. Source fixture/tooling notices are a
 separate section. Shipping this legal bundle does not itself ship every component
 listed: the component's terms apply when that component is included.

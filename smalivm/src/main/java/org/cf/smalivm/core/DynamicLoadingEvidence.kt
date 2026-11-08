@@ -12,10 +12,10 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
  * Each application method definition stores its own body-derived value. A program snapshot aggregates those
  * stored values; publication never rescans an unrelated method body.
  */
-class DynamicLoadingEvidence private constructor(
-    val methodSignatures: PersistentSet<String>,
+internal class DynamicLoadingEvidence private constructor(
+    internal val methodSignatures: PersistentSet<String>,
 ) {
-    val isPresent: Boolean get() = methodSignatures.isNotEmpty()
+    internal val isPresent: Boolean get() = methodSignatures.isNotEmpty()
 
     internal fun plus(other: DynamicLoadingEvidence): DynamicLoadingEvidence =
         DynamicLoadingEvidence(methodSignatures.addingAll(other.methodSignatures))

@@ -3,16 +3,16 @@ package org.cf.smalivm.core
 import kotlinx.collections.immutable.PersistentMap
 
 /** Complete immutable execution and output state for one program revision. */
-class ProgramSnapshot private constructor(
+public class ProgramSnapshot private constructor(
     internal val programIdentity: ProgramIdentity,
-    val programRevision: ProgramRevision,
-    val applicationClasses: PersistentMap<String, ApplicationClassDefinition>,
-    val outputApiPolicy: OutputApiPolicy,
-    val stringInstructionEncoding: StringInstructionEncoding,
+    internal val programRevision: ProgramRevision,
+    internal val applicationClasses: PersistentMap<String, ApplicationClassDefinition>,
+    internal val outputApiPolicy: OutputApiPolicy,
+    internal val stringInstructionEncoding: StringInstructionEncoding,
     internal val hierarchy: HierarchySnapshot,
-    val dynamicLoadingEvidence: DynamicLoadingEvidence,
+    internal val dynamicLoadingEvidence: DynamicLoadingEvidence,
     internal val dexReferenceClosure: DexReferenceClosure,
-    val frameworkCatalog: FrameworkCatalog,
+    public val frameworkCatalog: FrameworkCatalog,
     internal val predecessorRevision: ProgramRevision?,
 ) {
     private val concreteApplicationMethodSignatures = java.util.Collections.unmodifiableList(
@@ -21,13 +21,14 @@ class ProgramSnapshot private constructor(
             .sorted(),
     )
 
-    fun applicationClass(type: String): ApplicationClassDefinition? = applicationClasses[type]
+    /** The application class [type], or null when absent. */
+    public fun applicationClass(type: String): ApplicationClassDefinition? = applicationClasses[type]
 
     /**
      * Full signatures of application methods with a body, in deterministic lexical order. Verifier-rejected code
      * has no body.
      */
-    fun concreteApplicationMethodSignatures(): List<MethodSignature> = concreteApplicationMethodSignatures
+    public fun concreteApplicationMethodSignatures(): List<MethodSignature> = concreteApplicationMethodSignatures
 
     internal fun applicationMethod(method: MethodSignature): ApplicationMethodDefinition? =
         applicationClasses[method.definingClass.descriptor]?.methodsByDescriptor?.get(method.nameAndProto)
@@ -81,12 +82,12 @@ class ProgramSnapshot private constructor(
                 "Application class map key does not match its class definition"
             }
             require(applicationClasses.keys == current.applicationClasses.keys) {
-                "Plan 13 cannot add or remove application classes"
+                "A program revision cannot add or remove application classes"
             }
             for ((type, definition) in applicationClasses) {
                 val previous = requireNotNull(current.applicationClasses[type])
                 require(definition.hasSameStructureAs(previous)) {
-                    "Plan 13 cannot change application class structure: $type"
+                    "A program revision cannot change application class structure: $type"
                 }
                 for (method in definition.methods) {
                     val previousMethod = requireNotNull(previous.methodsByDescriptor[method.methodSignature.nameAndProto])

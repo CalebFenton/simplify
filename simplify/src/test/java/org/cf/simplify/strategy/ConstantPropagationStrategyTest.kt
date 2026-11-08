@@ -20,7 +20,7 @@ class ConstantPropagationStrategyTest {
     @Test fun equalStringContentsFromLiteralAndFreshPathsDoNotProveCanonicalIdentity() {
         val services = services()
         for (name in listOf("mergedLiteralFirst", "mergedFreshFirst")) {
-            val method = "Ltask65/ConstantIdentity;->$name(I)Ljava/lang/String;"
+            val method = "Lconstants/ConstantIdentity;->$name(I)Ljava/lang/String;"
             val original = view(services, method)
             val move = original.instructionAddresses.single { original.opcodeAt(it) == Opcode.MOVE_OBJECT }
             val graph = services.newSession(original, LIMITS).run()
@@ -36,7 +36,7 @@ class ConstantPropagationStrategyTest {
 
     @Test fun linearStringOriginProofFollowsCopiesAndIgnoresUnrelatedWrites() {
         val services = services()
-        val method = "Ltask65/ConstantIdentity;->linearCopies()Ljava/lang/String;"
+        val method = "Lconstants/ConstantIdentity;->linearCopies()Ljava/lang/String;"
         val before = returned(services, method, 2).raw
         optimize(services, method)
         assertFalse(has(view(services, method), Opcode.MOVE_OBJECT))
@@ -47,20 +47,20 @@ class ConstantPropagationStrategyTest {
     @Test fun stringOriginProofCrossesTheFallThroughArmOfABranchButNotAJoin() {
         val services = services()
         // The fall-through arm of if-eqz is entered only from the if, so the const-string reaches it unchanged.
-        val fallthrough = "Ltask65/ConstantIdentity;->copyOnIfFallthrough(I)Ljava/lang/String;"
+        val fallthrough = "Lconstants/ConstantIdentity;->copyOnIfFallthrough(I)Ljava/lang/String;"
         optimize(services, fallthrough)
         val edited = view(services, fallthrough)
         assertEquals(1, edited.instructionAddresses.count { edited.opcodeAt(it) == Opcode.MOVE_OBJECT })
         assertEquals("branch literal", returned(services, fallthrough, 1).raw)
         // Two definitions meet at the join; neither alone proves the register's identity there.
-        val join = "Ltask65/ConstantIdentity;->copyAtBranchJoin(I)Ljava/lang/String;"
+        val join = "Lconstants/ConstantIdentity;->copyAtBranchJoin(I)Ljava/lang/String;"
         optimize(services, join)
         assertTrue(has(view(services, join), Opcode.MOVE_OBJECT))
     }
 
     @Test fun constructedStringIdentityIsNotReplacedByAnInternedLiteral() {
         val services = services()
-        val method = "Ltask65/ConstantIdentity;->run()I"
+        val method = "Lconstants/ConstantIdentity;->run()I"
         assertEquals(1, returned(services, method, 0).raw)
         optimize(services, method)
         assertTrue(has(view(services, method), Opcode.MOVE_RESULT_OBJECT))
@@ -70,7 +70,7 @@ class ConstantPropagationStrategyTest {
 
     @Test fun freshHostReturnedStringIsNotAssumedCanonical() {
         val services = services()
-        val method = "Ltask65/ConstantIdentity;->hostString()Ljava/lang/String;"
+        val method = "Lconstants/ConstantIdentity;->hostString()Ljava/lang/String;"
         val before = returned(services, method, 0).raw
         assertTrue(before is String)
         assertEquals(123456789, (before as String).toInt())
@@ -105,7 +105,7 @@ class ConstantPropagationStrategyTest {
         assertEquals(6L, returned(services, method, 2).raw)
     }
 
-    @Test fun originalUnaryAndBinaryFamiliesFoldAndPreserveExecutedResults() {
+    @Test fun unaryAndBinaryFamiliesFoldAndPreserveExecutedResults() {
         val services = services()
         for ((name, register) in listOf("allBinaryOpcodes()D" to 4, "allUnaryOpcodes()S" to 1)) {
             val method = OWNER + name
@@ -272,6 +272,8 @@ class ConstantPropagationStrategyTest {
             "knownArrayLength()I" to Opcode.ARRAY_LENGTH,
             "computedMutableArray()[I" to Opcode.MOVE_RESULT_OBJECT,
             "caughtMoveExceptionRemains()Ljava/lang/Throwable;" to Opcode.MOVE_EXCEPTION,
+            // Code that runs before the method may have written the non-final static.
+            "mutableStaticRead()Ljava/lang/String;" to Opcode.SGET_OBJECT,
         )) {
             val method = OWNER + name
             optimize(services, method)
@@ -283,16 +285,27 @@ class ConstantPropagationStrategyTest {
         val services = services()
         for ((name, opcode) in listOf(
             "mixedNormalThrowDivision(I)I" to Opcode.DIV_INT,
-            "knownVolatileRead()I" to Opcode.SGET,
+            "volatileRead()I" to Opcode.SGET,
             "classForNameMoveResultMustRemain()Ljava/lang/Class;" to Opcode.MOVE_RESULT_OBJECT,
         )) {
-            val method = "LFx_ConstantPropagationGuards;->$name"
+            val method = GUARDS + name
             optimize(services, method)
             assertTrue(has(view(services, method), opcode), name)
         }
-        assertEquals(7, returned(services, "LFx_ConstantPropagationGuards;->knownVolatileRead()I", 0).raw)
-        assertEquals(String::class.java, returned(services,
-            "LFx_ConstantPropagationGuards;->classForNameMoveResultMustRemain()Ljava/lang/Class;", 1).raw)
+        assertEquals(String::class.java, returned(services, GUARDS + "classForNameMoveResultMustRemain()Ljava/lang/Class;", 1).raw)
+    }
+
+    @Test fun divisionThatThrowsOnOnePathKeepsBothCallersOutcomes() {
+        val services = services()
+        val run = GUARDS + "run()Ljava/lang/Object;"
+        // Hand-traced from the fixture: 0 / 1 returns 0, and 0 / 0 throws the ArithmeticException that
+        // throwingBehavior() catches, so run() boxes 162.
+        assertEquals(162, returned(services, run, 0).raw)
+        for (name in listOf("mixedNormalThrowDivision(I)I", "normalBehavior()I", "throwingBehavior()I")) {
+            optimize(services, GUARDS + name)
+        }
+        assertEquals(162, returned(services, run, 0).raw)
+        assertEquals(162, returned(reload(services), run, 0).raw)
     }
 
     @Test fun partialExecutionCannotPublishAnyEdits() {
@@ -317,14 +330,15 @@ class ConstantPropagationStrategyTest {
     private fun has(view: MethodView, opcode: Opcode) = view.instructionAddresses.any { view.opcodeAt(it) == opcode }
     private fun floatBits(raw: Any?) = if (raw is Float) raw.toRawBits() else (raw as Number).toInt()
     private fun doubleBits(raw: Any?) = if (raw is Double) raw.toRawBits() else (raw as Number).toLong()
-    private fun services() = VmServices(ClassIndex.open(File("src/test/resources/task65"), 20))
+    private fun services() = VmServices(ClassIndex.open(File("src/test/resources/constants"), 20))
     private fun reload(services: VmServices): VmServices {
         val dex = temporaryDirectory.resolve("constants.dex").toFile()
         ProgramDexWriter().write(services.currentSnapshot, dex)
         return VmServices(ClassIndex.open(dex, 20))
     }
     companion object {
-        private const val OWNER = "Ltask65/Constants;->"
+        private const val OWNER = "Lconstants/Constants;->"
+        private const val GUARDS = "LConstantPropagationGuards;->"
         private val LIMITS = Limits(500, 1_000_000, 0, 20)
     }
 }

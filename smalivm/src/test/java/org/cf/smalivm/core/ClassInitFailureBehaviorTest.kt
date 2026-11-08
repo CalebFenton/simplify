@@ -8,7 +8,10 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 
-/** JLS 12.4.2 steps 5, 7, and 11-12 plus ART ThrowEarlierClassFailure behavior. */
+/**
+ * JLS 12.4.2 steps 5, 7, and 11-12 plus ART ThrowEarlierClassFailure behavior. A fixture that counts initializer
+ * attempts in a non-final static runs as a fresh process, where the count starts at 0.
+ */
 class ClassInitFailureBehaviorTest {
     @TestFactory
     fun firstAndLaterFailureUseTheRequiredProtocolForEveryTrigger(): List<DynamicTest> =
@@ -139,7 +142,7 @@ class ClassInitFailureBehaviorTest {
 
     @Test
     fun staticWritesBeforeFailureRemainVisibleToTheCatchPath() {
-        val graph = CoreTester.execute(CLASS_NAME, "writesBeforeFailureRemainVisible()I")
+        val graph = CoreTester.execute(CLASS_NAME, "writesBeforeFailureRemainVisible()I", entryClassState = FRESH)
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, INT))), graph.outcomes)
@@ -229,7 +232,7 @@ class ClassInitFailureBehaviorTest {
 
     @Test
     fun unsupportedInitializerStaysPartialAndDoesNotBecomeGuestFailure() {
-        val graph = CoreTester.execute("Linvoke_review;", "readAbortedClinit()I")
+        val graph = CoreTester.execute("Linvoke_call;", "readAbortedClinit()I")
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), graph.completion())
         assertEquals(emptyList<Outcome.Threw>(), graph.outcomes.filterIsInstance<Outcome.Threw>())
@@ -252,7 +255,7 @@ class ClassInitFailureBehaviorTest {
     }
 
     private fun assertReturnsOne(method: String) {
-        val graph = CoreTester.execute(CLASS_NAME, method)
+        val graph = CoreTester.execute(CLASS_NAME, method, entryClassState = FRESH)
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, INT))), graph.outcomes)
     }
@@ -263,6 +266,7 @@ class ClassInitFailureBehaviorTest {
         const val CLASS_NAME = "Lclass_init_failure/triggers;"
         const val TRANSFORM_BOUNDARY = "Lclass_init_failure/transform_boundary;"
         const val ESCAPES = "Lclass_init_failure/escapes;"
+        val FRESH = EntryClassState.FRESH_PROCESS
         val INT: VirtualType = VirtualType.of("I")
         val THROWABLE: VirtualType = VirtualType.of("Ljava/lang/Throwable;")
         val EXCEPTION_IN_INITIALIZER_ERROR: VirtualType =

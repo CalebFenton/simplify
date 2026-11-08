@@ -118,7 +118,6 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         val version = Opcodes.V1_8
         val access = classDef.accessFlags
         val name = stripName(classDef.type)
-        // Signature should be type signature for the class, which is uncommon.
         val signature = buildASMSignature(classDef)
         var superName: String? = null
         if (classDef.superclass != null) {
@@ -149,11 +148,7 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
 
     private fun visitFields(fields: Iterable<Field>, classWriter: ClassWriter, classAccessFlags: Int) {
         for (field in fields) {
-            /*
-             * It's possible to declare a Smali interface with private fields. Android doesn't seem to mind, but
-             * the Java class loader will complain. To get around this, just set them public, which is what they
-             * should be anyway.
-             */
+            // ART accepts private fields on an interface; the JVM refuses them, so they become public.
             var fieldAccessFlags = field.accessFlags
             if (classAccessFlags and Opcodes.ACC_INTERFACE != 0) {
                 if (fieldAccessFlags and Opcodes.ACC_PRIVATE != 0) {
@@ -195,7 +190,6 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         val fieldList: MutableList<Field> = LinkedList()
         fields.forEach { fieldList.add(it) }
 
-        // Set the fields for each enum value
         val fieldNames = fieldList.stream().filter { f: Field -> f.accessFlags and Opcodes.ACC_ENUM != 0 }
             .map { obj: Field -> obj.name }
             .collect(Collectors.toList())
@@ -211,11 +205,9 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
             mv.visitFieldInsn(Opcodes.PUTSTATIC, name, fieldName, classDef.type)
         }
 
-        // Create array to hold values destined for $VALUES
         pushInt(mv, fieldCount)
         mv.visitTypeInsn(Opcodes.ANEWARRAY, name)
 
-        // Set elements of $VALUES
         for (i in 0 until fieldCount) {
             val fieldName = fieldNames[i]
             mv.visitInsn(Opcodes.DUP)
@@ -225,12 +217,7 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         }
         var valuesFieldName = "\$VALUES"
         for (field in fieldList) {
-            /*
-             * Enums must contain an array field which holds instances of the enum initialized with
-             * their string value. This is normally called $VALUES, but it's not safe to assume this
-             * is always true. For example, Proguard may change the name. Instead, look for a field
-             * which looks right and use that name.
-             */
+            // The values array is usually `$VALUES`, but shrinkers rename it, so find it by its flags and type.
             val fieldFlags = field.accessFlags
             if (fieldFlags and Opcodes.ACC_SYNTHETIC != 0 && fieldFlags and Opcodes.ACC_PRIVATE != 0 && fieldFlags and Opcodes.ACC_STATIC != 0 && fieldFlags and Opcodes.ACC_FINAL != 0 && field
                     .type[0] == '['
@@ -301,12 +288,8 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         if (!hasDefaultConstructor) {
             val isInterface = Opcodes.ACC_INTERFACE and classDef.accessFlags != 0
             if (!isInterface) {
-                /*
-                 * Every class gets a default constructor. This is a give-away but it simplifies things. Right now,
-                 * <init> stubs just call the empty arg / default constructor of the super, which may not exist. To do
-                 * this properly, would need to maybe randomly pick a constructor and call that one, which may kind of
-                 * one day affect correctness.
-                 */
+                // Every class gets a no-arg constructor stub; it calls the superclass's no-arg constructor,
+                // which may not exist.
                 val mods = Opcodes.ACC_PUBLIC
                 val mv = classWriter.visitMethod(mods, "<init>", "()V", null, null)
                 visitInitStub(classDef, mv)

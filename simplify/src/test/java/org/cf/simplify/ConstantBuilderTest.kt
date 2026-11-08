@@ -10,32 +10,37 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 class ConstantBuilderTest {
+    // Expected opcodes follow the dex format's signed literal ranges: const/4 s4, const/16 s16, const s32, and
+    // const-wide/16 s16, const-wide/32 s32, const-wide s64. The builder does not emit the high16 forms.
     @Test fun integralAndBooleanCarriersPreserveTheirLiteralWords() {
-        for ((raw, type, bits) in listOf(
-            Triple(false, "Z", 0), Triple(true, "Z", 1), Triple(1, "Z", 1),
-            Triple(7.toByte(), "B", 7), Triple(Byte.MAX_VALUE, "B", 127),
-            Triple(7.toShort(), "S", 7), Triple(Short.MAX_VALUE, "S", 32767),
-            Triple('A', "C", 65), Triple(7, "I", 7), Triple(-8, "I", -8),
-            Triple(32767, "I", 32767), Triple(-32768, "I", -32768),
-            Triple(50000, "I", 50000), Triple(Int.MAX_VALUE, "I", Int.MAX_VALUE),
-            Triple(Int.MIN_VALUE, "I", Int.MIN_VALUE),
+        for ((raw, type, bits, opcode) in listOf(
+            Literal(false, "Z", 0, Opcode.CONST_4), Literal(true, "Z", 1, Opcode.CONST_4), Literal(1, "Z", 1, Opcode.CONST_4),
+            Literal(7.toByte(), "B", 7, Opcode.CONST_4), Literal(Byte.MAX_VALUE, "B", 127, Opcode.CONST_16),
+            Literal(7.toShort(), "S", 7, Opcode.CONST_4), Literal(Short.MAX_VALUE, "S", 32767, Opcode.CONST_16),
+            Literal('A', "C", 65, Opcode.CONST_16), Literal(7, "I", 7, Opcode.CONST_4), Literal(-8, "I", -8, Opcode.CONST_4),
+            Literal(8, "I", 8, Opcode.CONST_16), Literal(-9, "I", -9, Opcode.CONST_16),
+            Literal(32767, "I", 32767, Opcode.CONST_16), Literal(-32768, "I", -32768, Opcode.CONST_16),
+            Literal(50000, "I", 50000, Opcode.CONST), Literal(Int.MAX_VALUE, "I", Int.MAX_VALUE, Opcode.CONST),
+            Literal(Int.MIN_VALUE, "I", Int.MIN_VALUE, Opcode.CONST),
         )) {
             val instruction = replace(raw, type, false)
-            assertEquals(bits, (instruction as NarrowLiteralInstruction).narrowLiteral)
-            assertEquals(when (bits) { in -8..7 -> Opcode.CONST_4; in -32768..32767 -> Opcode.CONST_16; else -> Opcode.CONST }, instruction.opcode)
+            assertEquals(bits, (instruction as NarrowLiteralInstruction).narrowLiteral, "$raw")
+            assertEquals(opcode, instruction.opcode, "$raw")
         }
     }
 
     @Test fun wideIntegerBoundariesUseSignedEncodingsWithoutTruncation() {
-        for (bits in listOf(7L, -8L, 32767L, -32768L, 32768L, -32769L, Int.MAX_VALUE.toLong(),
-            Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong() + 1, Long.MAX_VALUE, Long.MIN_VALUE)) {
+        for ((bits, opcode) in listOf(
+            7L to Opcode.CONST_WIDE_16, -8L to Opcode.CONST_WIDE_16,
+            32767L to Opcode.CONST_WIDE_16, -32768L to Opcode.CONST_WIDE_16,
+            32768L to Opcode.CONST_WIDE_32, -32769L to Opcode.CONST_WIDE_32,
+            Int.MAX_VALUE.toLong() to Opcode.CONST_WIDE_32, Int.MIN_VALUE.toLong() to Opcode.CONST_WIDE_32,
+            Int.MAX_VALUE.toLong() + 1 to Opcode.CONST_WIDE, Long.MAX_VALUE to Opcode.CONST_WIDE,
+            Long.MIN_VALUE to Opcode.CONST_WIDE,
+        )) {
             val instruction = replace(bits, "J", true)
             assertEquals(bits, (instruction as WideLiteralInstruction).wideLiteral)
-            assertEquals(when (bits) {
-                in -32768L..32767L -> Opcode.CONST_WIDE_16
-                in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() -> Opcode.CONST_WIDE_32
-                else -> Opcode.CONST_WIDE
-            }, instruction.opcode)
+            assertEquals(opcode, instruction.opcode, "$bits")
         }
     }
 
@@ -104,6 +109,7 @@ class ConstantBuilderTest {
         return requireNotNull(services.classIndex.methodView(OWNER + method)).instructionAt(0)
     }
 
-    private fun services() = VmServices(ClassIndex.open(File("src/test/resources/task65"), 20))
-    companion object { private const val OWNER = "Ltask65/Constants;->" }
+    private fun services() = VmServices(ClassIndex.open(File("src/test/resources/constants"), 20))
+    companion object { private const val OWNER = "Lconstants/Constants;->" }
+    private data class Literal(val raw: Any?, val type: String, val bits: Int, val opcode: Opcode)
 }

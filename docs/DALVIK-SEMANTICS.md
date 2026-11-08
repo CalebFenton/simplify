@@ -766,7 +766,7 @@ why `check-cast` and `instance-of` on a missing class throw at execution instead
 **SPEC** [BC]: "Throw the indicated exception."
 
 `ThrowOp` (`core/op/ThrowOp.kt`) carries the register's value as it is, so its identity survives to the
-handler, and the session normalizes it (`ExecutionSession`):
+handler, and the session normalizes it (`normalizeThrow`, `core/ThrowNormalization.kt`):
 
 | Thrown value | Engine | Tier |
 |---|---|---|
@@ -875,11 +875,44 @@ Each path carries its own lifecycle (`ClassStore` in `core/ClassInit.kt`):
 - `Failed` is terminal (steps 5 and 12): the initializer never runs again.
 
 The state is per path because a class initialized on only some paths must stay uninitialized on the others.
-Incompatible lifecycle maps are never joined: `INITIALIZED` and `UNINITIALIZED` stay on separate caller paths.
+Incompatible lifecycle maps are never joined: `INITIALIZED` and an untriggered class stay on separate caller
+paths.
+
+**Entry state.** `VmServices.newSession` takes an `EntryClassState` that sets what a class the path has not
+triggered reads as:
+
+- `ARBITRARY`, the default and the state Simplify analyses every method in: the entry is reached from arbitrary
+  program state, so an untriggered class is `Unknown`. It may be initialized, with any value in each non-final
+  static, or not yet initialized.
+- `FRESH_PROCESS`: the entry is the first code a new process runs, so an untriggered class is `Uninitialized`.
+  Class-initialization semantics tests and comparisons against a device run that starts at process start use
+  it.
+
+In both, a run whose entry is a `<clinit>` finds that class `Initializing` over its prepared statics, because
+nothing can initialize a class before its own initializer runs.
+
+**A trigger on an `Unknown` class** may or may not run `<clinit>` on a device. The engine (**ENGINE CHOICE**):
+
+- runs a guest `<clinit>` exactly as for an `Uninitialized` class, so the initializer's effects are recorded on
+  the trigger and its throw paths remain;
+- after a successful return, marks the class `Initialized` and makes every non-final static cell that the
+  initializer changed, in any class, `Unknown`: the class may have been initialized before the entry, and the
+  field written since;
+- keeps the initializer's value in a `final` static, because only `<clinit>` writes one. JNI and ART reflection
+  (`Field.set` after `setAccessible(true)`) can write a final static; the engine treats final as fixed, and
+  reads an object a final static refers to as the initializer left it unless the path writes it;
+- settles a class with no runnable initializer (none declared, or a framework class) with every non-final
+  static `Unknown`, even when the dex encodes a literal for it.
+
+Two cases stay outside this model. A class whose initialization failed before the entry throws
+`NoClassDefFoundError` on a device; the engine runs the initializer and reports its outcome. And a write the
+initializer makes to an object that existed before the trigger stays known, as if the initializer ran at the
+trigger.
 
 **Preparation** ([JVMS] §5.4.2) seeds every declared static before `<clinit>` runs: a dex-encoded literal
 (`.field static x:I = 0x42`) is that literal, otherwise the type default when the initializer runs or the class
-has none, otherwise `Unknown` (a framework initializer that does not run may compute anything).
+has none, otherwise `Unknown` (a framework initializer that does not run may compute anything). Under
+`ARBITRARY` entry, a non-final static of a class settled without running an initializer is `Unknown` instead.
 
 **Order.** A trigger walks the superclass chain and runs the topmost class that still needs initialization;
 the trigger asks again when that `<clinit>` returns, so a superclass always runs before its subclass.
@@ -903,8 +936,10 @@ device initializes such a class. A trigger that reaches one ends its path as `MA
 (`ClassInitHostileInputTest`).
 
 **Framework classes** (bundled, non-application classes) are never initialized by running their `<clinit>`:
-the class is marked initialized, statics hold their dex literal or `Unknown`, and the trigger records a
-`STRONG` effect when a skipped class declares an initializer (**ENGINE CHOICE**). `new-instance` of a
+the class is marked initialized and the trigger records a `STRONG` effect when the class declares an
+initializer (**ENGINE CHOICE**). A final static holds its dex literal, or `Unknown` that a static read may
+project from the host class when the reflection policy allows it. A non-final static is `Unknown` under
+`ARBITRARY` entry, and holds its literal or a projectable `Unknown` under `FRESH_PROCESS`. `new-instance` of a
 framework class still yields a tracked uninitialized object.
 
 ---
@@ -927,6 +962,19 @@ cell and every spelling of one inherited field shares a cell. A class absent any
 `NoClassDefFoundError`; a present search with no match is `NoSuchFieldError`. Instance-field resolution and
 both errors precede the receiver null check. Instance-field ops trigger no initialization; static ones trigger
 the declaring class after resolution (`SFieldOp` preamble).
+
+### Static fields
+
+A static cell exists on a path from the trigger that prepares its class. `core/op/SFieldOp.kt`:
+
+| Read of | Value | Tier |
+|---|---|---|
+| a static the path wrote | the written value | **ART** |
+| a final static | its literal, or the value its class's initializer leaves | **INHERITED** ([JVMS] §5.4.2, [JLS] §12.4.2) + **ENGINE CHOICE** (final is fixed) |
+| a non-final static of a class first triggered as `Unknown`, not written by the path | `Unknown` | **ENGINE CHOICE**, see [Lifecycle](#lifecycle) |
+| a non-final static of a class first triggered as `Uninitialized` | its prepared value or the initializer's write | **INHERITED** ([JVMS] §5.4.2) |
+
+Field reflection (`Field.get` on a static) reads the same cell.
 
 ### Instance fields
 

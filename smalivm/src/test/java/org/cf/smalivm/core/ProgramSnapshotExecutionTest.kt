@@ -190,7 +190,7 @@ class ProgramSnapshotExecutionTest {
             ImmutableInstruction21c(
                 Opcode.SPUT,
                 0,
-                ImmutableFieldReference("Ltask54/Init;", "value", "I"),
+                ImmutableFieldReference("Lexecution/Init;", "value", "I"),
             ),
             ImmutableInstruction10x(Opcode.RETURN_VOID),
         ),
@@ -200,21 +200,21 @@ class ProgramSnapshotExecutionTest {
 
     private companion object {
         val INT = VirtualType.of("I")
-        const val CALLER = "Ltask54/Main;->caller()I"
-        const val CALLEE = "Ltask54/Main;->callee()I"
-        const val INIT_TRIGGER = "Ltask54/Init;->trigger()I"
-        const val CLASS_INITIALIZER = "Ltask54/Init;-><clinit>()V"
-        const val RECURSIVE = "Ltask54/Main;->recursiveOnce(I)I"
+        const val CALLER = "Lexecution/Main;->caller()I"
+        const val CALLEE = "Lexecution/Main;->callee()I"
+        const val INIT_TRIGGER = "Lexecution/Init;->trigger()I"
+        const val CLASS_INITIALIZER = "Lexecution/Init;-><clinit>()V"
+        const val RECURSIVE = "Lexecution/Main;->recursiveOnce(I)I"
 
         val SOURCES = listOf(
             """
-                .class public Ltask54/Main;
+                .class public Lexecution/Main;
                 .super Ljava/lang/Object;
 
                 .method public static caller()I
                     .registers 1
                     nop
-                    invoke-static {}, Ltask54/Main;->callee()I
+                    invoke-static {}, Lexecution/Main;->callee()I
                     move-result v0
                     return v0
                 .end method
@@ -229,28 +229,28 @@ class ProgramSnapshotExecutionTest {
                     .registers 1
                     if-eqz p0, :done
                     add-int/lit8 p0, p0, -0x1
-                    invoke-static {p0}, Ltask54/Main;->recursiveOnce(I)I
+                    invoke-static {p0}, Lexecution/Main;->recursiveOnce(I)I
                     move-result p0
                     :done
                     return p0
                 .end method
             """,
             """
-                .class public Ltask54/Init;
+                .class public Lexecution/Init;
                 .super Ljava/lang/Object;
-                .field public static value:I
+                .field public static final value:I
 
                 .method static constructor <clinit>()V
                     .registers 1
                     const/4 v0, 0x1
-                    sput v0, Ltask54/Init;->value:I
+                    sput v0, Lexecution/Init;->value:I
                     return-void
                 .end method
 
                 .method public static trigger()I
                     .registers 1
                     nop
-                    sget v0, Ltask54/Init;->value:I
+                    sget v0, Lexecution/Init;->value:I
                     return v0
                 .end method
             """,

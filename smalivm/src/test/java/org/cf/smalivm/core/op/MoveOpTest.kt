@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * `move*` behavior on the clean core, over `ops/move_test.smali`.
+ * `move*` behavior over `ops/move_test.smali`.
  *
  * The register-move methods are two one-unit instructions: `@0` the move, `@1` `return-void`.
  * `moveResult` takes its slot from a real static call and `moveException` from a real caught `throw`.
@@ -30,7 +30,7 @@ class MoveOpTest {
     }
 
     @Test
-    fun canMoveRegisterPrimitive() {
+    fun movingAPrimitiveCopiesItIntoTheDestination() {
         initial.setRegisters(0, 42, "I")
         expected.setRegisters(0, 42, "I", 1, 42, "I")
         CoreTester.test(CLASS_NAME, "moveRegisterPrimitive()V", initial, expected)
@@ -41,7 +41,7 @@ class MoveOpTest {
      * reference, so the caught register and the thrown register hold the same tracked object.
      */
     @Test
-    fun canMoveException() {
+    fun moveExceptionBindsTheThrownObject() {
         val graph = CoreTester.execute(CLASS_NAME, "moveException()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(null)), graph.outcomes, "the throw is caught, so nothing escapes")
@@ -54,24 +54,15 @@ class MoveOpTest {
     }
 
     @Test
-    fun canMoveResult() {
+    fun moveResultTakesTheCalleesReturnValue() {
         expected.setRegisters(0, 42, "I")
         CoreTester.test(CLASS_NAME, "moveResult()V", initial, expected)
     }
 
     /**
-     * A `move` of an UNKNOWN propagates the unknown to both registers rather than inventing a value.
-     *
-     * Also the only end-to-end witness for [CoreState.UNKNOWN] and its `raw === UNKNOWN ->
-     * Value.Unknown(type)` mapping, which every ambiguity test in the later opcode tasks depends on.
-     * Oracle: spec §4.1 -- an unknown operand stays unknown, and information may only decrease.
-     *
-     * The expected value is a literal [Value.Unknown], NOT `expected.setRegisters(0,
-     * CoreState.UNKNOWN, "I")`. That matters, and it was found by mutation rather than by reasoning:
-     * routing both sides through `CoreState`'s own sentinel mapping makes the mapping
-     * self-consistent, so a sentinel that fell through to `Value.Known(UNKNOWN, I)` compared equal to
-     * itself and the test passed while asserting nonsense. Verified: replacing that mapping with a
-     * bare `Value.Known(raw, type)` now fails here, and left the whole suite green before this shape.
+     * A `move` of an unknown copies the unknown rather than inventing a value. The expected value is a
+     * literal [Value.Unknown], not `CoreState.UNKNOWN`, so the harness's sentinel mapping is checked here
+     * instead of being applied to both sides of the comparison.
      */
     @Test
     fun movingAnUnknownYieldsAnUnknownInBothRegisters() {
@@ -85,13 +76,7 @@ class MoveOpTest {
         assertEquals(unknownInt, trusted.terminatingConsensus(1), "and so is the register moved into")
     }
 
-    /**
-     * REWRITTEN, not ported. The original asserted `assertSame` on the two registers' consensus
-     * values -- host identity, which the new lattice deliberately replaced with structural equality
-     * plus heap ids for tracked mutables (spec §4.1; host identity is the audit's
-     * "equal mutables collapse" defect). The behavior it was protecting -- both registers hold the
-     * same value after the move, and the method terminates where expected -- is what is asserted.
-     */
+    /** Both registers hold the same tracked object after the move, and the path ends at the `return-void`. */
     @Test
     fun movingAnObjectLeavesBothRegistersHoldingTheSameValue() {
         val objectType = VirtualType.of("Ljava/lang/Object;")
@@ -101,16 +86,10 @@ class MoveOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         val trusted = graph.trusted()
         assertNotNull(trusted, "a Complete exploration must yield a trusted view")
-        // Address 1 is the `return-void`, so this reads the state after the whole method ran -- the
-        // same address the original asserted through the oracle's `getRegisterConsensus(1, …)`.
         val source = trusted!!.consensus(1, 0) as Value.Known
         val alias = trusted.consensus(1, 1) as Value.Known
         assertEquals(source, alias)
         assertTrue(source.raw is HeapRef)
-        // The "terminates where expected" half of the claim above, which `consensus(1, …)` alone does
-        // not make: it proves address 1 EXECUTED (only executed nodes vote) but not that the path ended
-        // there. The original asserted `getConnectedTerminatingAddresses() == {1}`; the analogue here is
-        // that the sole outcome is the `return-void` at @1 returning no value.
         assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
     }
 

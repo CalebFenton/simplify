@@ -96,14 +96,9 @@
     return-void
 .end method
 
-# ---------------------------------------------------------------------------------------------
-# Plan 9 Task 19: the ported TestFieldInheritance's triggers (core/FieldInheritanceTest.kt). The
-# original ran stubMethod()V and relied on the oracle harness initializing the ENTRY class; the
-# core models entry as part of invocation (Tasks 20+ own the top-level entry trigger), so each
-# ported claim reads its field through an explicit sget -- the same re-expression
-# StaticFieldAccessTest.canGetFieldsWhileInitializing records. One method per (field x referencing
-# class), because the resolution WALK from each level is itself half of the original's claim.
-# ---------------------------------------------------------------------------------------------
+# Triggers for FieldInheritanceTest. Each reads its field through an explicit sget, which is the
+# initialization trigger. One method per (field, referencing class), because the resolution walk
+# from each level is part of the claim.
 
 .method public static getParentFieldThroughChild()I
     .locals 1

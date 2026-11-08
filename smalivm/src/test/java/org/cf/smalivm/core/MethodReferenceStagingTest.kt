@@ -48,13 +48,13 @@ class MethodReferenceStagingTest {
         assertSame(edit.stageType("Ljava/lang/String;"), edit.stageType("Ljava/lang/String;"))
         assertSame(edit.stageString("value"), edit.stageString("value"))
         assertSame(
-            edit.stageField("Ltask59/References;", "field", "I"),
-            edit.stageField("Ltask59/References;", "field", "I"),
+            edit.stageField("Lstaging/References;", "field", "I"),
+            edit.stageField("Lstaging/References;", "field", "I"),
         )
-        val method = edit.stageMethod("Ltask59/References;", "method", parameters, "V")
+        val method = edit.stageMethod("Lstaging/References;", "method", parameters, "V")
         val prototype = edit.stagePrototype(parameters, "V")
         parameters.clear()
-        assertSame(method, edit.stageMethod("Ltask59/References;", "method", listOf("I"), "V"))
+        assertSame(method, edit.stageMethod("Lstaging/References;", "method", listOf("I"), "V"))
         assertSame(prototype, edit.stagePrototype(listOf("I"), "V"))
 
         assertSame(MethodEditCommitResult.Unchanged, edit.commit())
@@ -106,17 +106,17 @@ class MethodReferenceStagingTest {
             { edit: MethodEditTransaction -> edit.stageType("[V") } to MethodEditRejectionReason.MalformedDescriptor("[V"),
             { edit: MethodEditTransaction -> edit.stageField("I", "field", "I") } to
                 MethodEditRejectionReason.MalformedDescriptor("I"),
-            { edit: MethodEditTransaction -> edit.stageField("Ltask59/References;", "bad/name", "I") } to
+            { edit: MethodEditTransaction -> edit.stageField("Lstaging/References;", "bad/name", "I") } to
                 MethodEditRejectionReason.MalformedMemberName("bad/name"),
-            { edit: MethodEditTransaction -> edit.stageField("Ltask59/References;", "field", "V") } to
+            { edit: MethodEditTransaction -> edit.stageField("Lstaging/References;", "field", "V") } to
                 MethodEditRejectionReason.MalformedDescriptor("V"),
             { edit: MethodEditTransaction -> edit.stageMethod("I", "method", emptyList(), "V") } to
                 MethodEditRejectionReason.MalformedDescriptor("I"),
-            { edit: MethodEditTransaction -> edit.stageMethod("Ltask59/References;", "bad/name", emptyList(), "V") } to
+            { edit: MethodEditTransaction -> edit.stageMethod("Lstaging/References;", "bad/name", emptyList(), "V") } to
                 MethodEditRejectionReason.MalformedMemberName("bad/name"),
-            { edit: MethodEditTransaction -> edit.stageMethod("Ltask59/References;", "method", listOf("V"), "V") } to
+            { edit: MethodEditTransaction -> edit.stageMethod("Lstaging/References;", "method", listOf("V"), "V") } to
                 MethodEditRejectionReason.MalformedDescriptor("V"),
-            { edit: MethodEditTransaction -> edit.stageMethod("Ltask59/References;", "method", emptyList(), "[V") } to
+            { edit: MethodEditTransaction -> edit.stageMethod("Lstaging/References;", "method", emptyList(), "[V") } to
                 MethodEditRejectionReason.MalformedDescriptor("[V"),
             { edit: MethodEditTransaction -> edit.stagePrototype(listOf("Q"), "V") } to
                 MethodEditRejectionReason.MalformedDescriptor("Q"),
@@ -195,7 +195,7 @@ class MethodReferenceStagingTest {
         )
 
         val unstagedOperand = editor.beginEdit(view)
-        unstagedOperand.stageMethod("Ltask59/References;", "transitive-only", emptyList(), "V")
+        unstagedOperand.stageMethod("Lstaging/References;", "transitive-only", emptyList(), "V")
         unstagedOperand.insertInstructionsBefore(
             0,
             listOf(
@@ -221,7 +221,7 @@ class MethodReferenceStagingTest {
         val writer = ProgramDexWriter()
         val output = writer.writeToBytes(snapshot)
         val edit = VmServices(index).methodEditor.beginEdit(requireNotNull(index.methodView(TARGET)))
-        val field = edit.stageField("Ltask59/overflow/NewOwner;", "newField", "Ltask59/overflow/NewType;")
+        val field = edit.stageField("Lstaging/overflow/NewOwner;", "newField", "Lstaging/overflow/NewType;")
         edit.insertInstructionsBefore(
             0,
             listOf(
@@ -424,7 +424,7 @@ class MethodReferenceStagingTest {
 
     private fun index(source: String): ClassIndex {
         val directory = Files.createDirectory(root.resolve("fixture-${fixtureSequence++}"))
-        return task53ClassIndex(directory, source)
+        return classIndexFromSource(directory, source)
     }
 
     private fun api30Index(): ClassIndex {
@@ -461,7 +461,7 @@ class MethodReferenceStagingTest {
 
     /** A fresh import of [SOURCE] whose string section holds exactly 65,536 entries. */
     private fun stringBoundaryIndex(): ClassIndex {
-        val annotationType = "Ltask59/StringBoundary;"
+        val annotationType = "Lstaging/StringBoundary;"
         val existingStrings = index(SOURCE).currentSnapshot.dexReferenceClosure.strings
         var stringCount = existingStrings.size + if (annotationType in existingStrings) 0 else 1
         val annotation = StringBuilder("\n.annotation runtime $annotationType\n")
@@ -481,11 +481,11 @@ class MethodReferenceStagingTest {
 
     /** A fresh import of [SOURCE] whose field section holds exactly 65,536 entries. */
     private fun fieldBoundaryIndex(): ClassIndex {
-        val annotation = StringBuilder("\n.annotation runtime Ltask59/FieldBoundary;\nvalues = {\n")
+        val annotation = StringBuilder("\n.annotation runtime Lstaging/FieldBoundary;\nvalues = {\n")
         for (sequence in 0 until 65_536) {
-            val owner = "Ltask59/overflow/Owner${sequence % 41};"
+            val owner = "Lstaging/overflow/Owner${sequence % 41};"
             val name = "field${sequence / 41 % 41}"
-            val type = "Ltask59/overflow/Type${sequence / (41 * 41)};"
+            val type = "Lstaging/overflow/Type${sequence / (41 * 41)};"
             if (sequence > 0) annotation.append(",\n")
             annotation.append(owner).append("->").append(name).append(':').append(type)
         }
@@ -496,20 +496,20 @@ class MethodReferenceStagingTest {
     }
 
     private companion object {
-        const val CLASS_TYPE = "Ltask59/References;"
-        const val TARGET = "Ltask59/References;->target()V"
-        const val COLLATERAL = "Ltask59/References;->collateral()V"
-        const val UNAFFECTED = "Ltask59/References;->unaffected()V"
-        const val API30_CLASS = "Ltask59/Api30References;"
-        const val API30_TARGET = "Ltask59/Api30References;->run()V"
-        const val STAGED_STRING = "task59-staged-string"
-        const val STAGED_OWNER = "Ltask59/StagedOwner;"
-        const val STAGED_TYPE = "[Ltask59/StagedOwner;"
+        const val CLASS_TYPE = "Lstaging/References;"
+        const val TARGET = "Lstaging/References;->target()V"
+        const val COLLATERAL = "Lstaging/References;->collateral()V"
+        const val UNAFFECTED = "Lstaging/References;->unaffected()V"
+        const val API30_CLASS = "Lstaging/Api30References;"
+        const val API30_TARGET = "Lstaging/Api30References;->run()V"
+        const val STAGED_STRING = "staging-staged-string"
+        const val STAGED_OWNER = "Lstaging/StagedOwner;"
+        const val STAGED_TYPE = "[Lstaging/StagedOwner;"
         const val STAGED_FIELD = "stagedField"
         const val STAGED_METHOD = "stagedMethod"
-        const val OBSOLETE_STRING = "task59-obsolete-only"
+        const val OBSOLETE_STRING = "staging-obsolete-only"
         const val SOURCE = """
-            .class public Ltask59/References;
+            .class public Lstaging/References;
             .super Ljava/lang/Object;
 
             .method public static target()V

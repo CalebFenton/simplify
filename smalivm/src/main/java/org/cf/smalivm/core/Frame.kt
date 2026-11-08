@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
+import java.util.IdentityHashMap
 
 internal data class CallCompatibilityKey(
     val classInit: ClassInitCompatibilityKey,
@@ -33,7 +34,7 @@ internal data class CallCompatibilityKey(
  * Registers and slots hold [FrameValue]s, so a throwable's refinement survives moves within the method; the
  * [Value] accessors project it away.
  */
-class Frame private constructor(
+public class Frame private constructor(
     internal val view: MethodView,
     private var slots: PersistentList<RegisterSlot?>,
     private var assigned: PersistentSet<Int>,
@@ -60,7 +61,7 @@ class Frame private constructor(
     // --- registers ---
 
     /** Assigns [value] to [register], reserving the following register when the value is wide. */
-    fun assign(register: Int, value: Value) = assign(register, FrameValue.plain(value))
+    public fun assign(register: Int, value: Value): Unit = assign(register, FrameValue.plain(value))
 
     internal fun assign(register: Int, value: FrameValue) {
         seed(register, value)
@@ -82,13 +83,13 @@ class Frame private constructor(
     }
 
     /** Null for a register never assigned on this path and for the high half of a wide pair. */
-    fun peek(register: Int): Value? {
+    internal fun peek(register: Int): Value? {
         requireInRange(register)
         return (slots[register] as? RegisterSlot.Held)?.value?.value
     }
 
     /** Total read: [Value.Top] for an unassigned register or the high half of a wide pair. */
-    fun read(register: Int): Value = readFrameValue(register).value
+    internal fun read(register: Int): Value = readFrameValue(register).value
 
     /** [read] keeping the register's throwable refinement. */
     internal fun readFrameValue(register: Int): FrameValue {
@@ -112,7 +113,8 @@ class Frame private constructor(
 
     override fun registersAssigned(): Set<Int> = assigned.toSortedSet()
 
-    fun registersRead(): Set<Int> = read.toSortedSet()
+    /** Registers read in this frame, in ascending order. */
+    public fun registersRead(): Set<Int> = read.toSortedSet()
 
     internal fun recordAddressVisit(address: Int): Int {
         val visits = (addressVisits[address] ?: 0) + 1
@@ -139,17 +141,17 @@ class Frame private constructor(
 
     // --- special slots (produced once, consumed once) ---
 
-    fun setResult(value: Value) = setResult(FrameValue.plain(value))
+    internal fun setResult(value: Value) = setResult(FrameValue.plain(value))
     internal fun setResult(value: FrameValue) { result = value }
     internal fun takeResult(): FrameValue? = result.also { result = null }
-    fun setCaught(value: Value) = setCaught(FrameValue.plain(value))
+    internal fun setCaught(value: Value) = setCaught(FrameValue.plain(value))
     internal fun setCaught(value: FrameValue) { caught = value }
     internal fun takeCaught(): FrameValue? = caught.also { caught = null }
     internal fun setReturnValue(value: FrameValue?) { returnValue = value }
-    fun returnValueOrNull(): Value? = returnValue?.value
-    fun setThrown(value: Value) { thrown = value }
+    internal fun returnValueOrNull(): Value? = returnValue?.value
+    internal fun setThrown(value: Value) { thrown = value }
 
-    fun thrownOrNull(): Value? = thrown
+    internal fun thrownOrNull(): Value? = thrown
 
     // --- ExecutionState facade ---
 
@@ -180,6 +182,21 @@ class Frame private constructor(
     }
 
     /**
+     * Starts a run at this frame's method under [entryState]. A run whose entry is a `<clinit>` finds that class
+     * [ClassInitState.INITIALIZING] over its prepared statics, because nothing can initialize a class before its
+     * own initializer runs.
+     */
+    internal fun enterSession(entryState: EntryClassState, planner: ClassInitPlanner) {
+        classes.enter(entryState)
+        val type = view.definingClass
+        if (view.signature.isClassInitializer && classInitAction(type) == ClassInitAction.StartInitialization) {
+            val preparation = planner.ownInitializerPreparation(type)
+            classes.prepare(preparation.staticSeeds, preparation.finalStatics)
+            classes.start(type)
+        }
+    }
+
+    /**
      * Applies everything [plan] settled without running anything, then marks the class whose guest `<clinit>` is
      * about to run [ClassInitState.INITIALIZING]. The mark lands on the callee's own entry frame, so a `<clinit>`
      * that transitively triggers its own class sees `INITIALIZING` from inside the nested call.
@@ -187,13 +204,13 @@ class Frame private constructor(
     internal fun applyClassInit(plan: ClassInitPlan) {
         // JVMS §5.4.2: preparation precedes every mark and the initializer, so a `<clinit>` reading a static of
         // its own class sees the prepared value.
-        classes.prepare(plan.staticSeeds)
+        classes.prepare(plan.staticSeeds, plan.finalStatics)
         for (settled in plan.settled) classes.complete(settled)
         plan.context?.activeInitializer?.type?.let(classes::start)
     }
 
     internal fun completeClassInit(context: ClassInitContext) {
-        classes.complete(context.activeInitializer.type)
+        classes.completeInitializer(context.activeInitializer.type, context.triggerState)
     }
 
     internal fun failClassInit(context: ClassInitContext, failure: ThrownSubject, hierarchy: ThrowableHierarchy) {
@@ -242,6 +259,48 @@ class Frame private constructor(
 
     internal fun admitReturnedHostArray(raw: Any, type: VirtualType): Value.Known =
         Value.Known(heap.importReturnedArray(raw), type)
+
+    /** A host value no selected call produced, such as a framework static, as a guest value on this path. */
+    internal fun importHostValue(value: HostValue): Value.Known = when (value) {
+        is HostValue.Primitive -> Value.Known(value.value, value.type)
+        is HostValue.TypedNull -> Value.Known(null, value.type)
+        is HostValue.Reference -> {
+            val raw = value.value
+            requireHostOwned(raw)
+            when {
+                raw is Throwable -> importHostThrowable(HostThrowable(value.type, raw))
+                raw.isDirectHostImmutable() -> Value.Known(raw, value.type)
+                raw.javaClass.isArray -> admitReturnedHostArray(raw, value.type)
+                else -> admitReturnedHostValue(raw, value.type)
+            }
+        }
+    }
+
+    /**
+     * Imports one host throwable graph, cause chain included, preserving identity, aliases, and cycles. Each object
+     * keeps the ref [selectedRef] maps it to, then the ref this heap already tracks it at, else gets a new one.
+     */
+    internal fun importHostThrowable(
+        throwable: HostThrowable,
+        selectedRef: (Throwable, VirtualType) -> HeapRef? = { _, _ -> null },
+    ): Value.Known {
+        val imported = IdentityHashMap<Throwable, HeapRef>()
+
+        fun importOne(raw: Throwable, type: VirtualType): Value.Known {
+            imported[raw]?.let { return Value.Known(it, type) }
+            val ref = selectedRef(raw, type)
+                ?: heap.findHostObject(raw)
+                ?: heap.hostNodeId(raw)?.let { heap.importHostNode(it, type, raw) }
+                ?: allocateThrowable(type, raw).raw as HeapRef
+            imported[raw] = ref
+            val cause = raw.cause?.let { importOne(it, virtualTypeOfHostClass(it.javaClass)) }
+                ?: Value.Known(null, GuestThrowables.THROWABLE)
+            heap.setThrowableCause(ref, cause)
+            return Value.Known(ref, type)
+        }
+
+        return importOne(throwable.throwable, virtualTypeOfHostClass(throwable.throwable.javaClass))
+    }
 
     internal fun throwableCause(ref: HeapRef): Value =
         (heap.objectAt(ref) as? HeapObject.GuestThrowable)?.cause
@@ -314,7 +373,7 @@ class Frame private constructor(
     )
 
     /** A constant-time snapshot over the same immutable roots. Later writes replace only one frame's roots. */
-    fun copy(): Frame = derive(heap.copy(), classes.copy())
+    internal fun copy(): Frame = derive(heap.copy(), classes.copy())
 
     /** Copies a caller-supplied public entry frame and removes all internal throwable refinements. */
     internal fun sanitizedCopyForPublicEntry(): Frame = copy().also { sanitized ->
@@ -417,12 +476,12 @@ class Frame private constructor(
     override fun toString(): String =
         "Frame(${view.signature}, assigned=${registersAssigned()})"
 
-    companion object {
+    public companion object {
         /**
          * A run's own entry frame: a new heap id space and empty class state. A callee frame comes from
          * [calleeEntryFrame], which shares its caller's.
          */
-        fun entryFrame(view: MethodView): Frame = entryFrame(view, HeapStore(HeapIds()), ClassStore())
+        public fun entryFrame(view: MethodView): Frame = entryFrame(view, HeapStore(HeapIds()), ClassStore())
 
         /** Default session input; a constructor's receiver is a fresh object when its field layout is known. */
         internal fun entryFrame(view: MethodView, resolver: ProgramSnapshotResolver): Frame {
@@ -441,8 +500,9 @@ class Frame private constructor(
          * type (a caller's argument is not known to the method being analyzed in isolation). Seeding is not an
          * assignment by the method, so it does not appear in [registersAssigned].
          *
-         * [classes] starts empty for a run's own entry frame, so the entry method's own defining class is not
-         * initialized; the first trigger inside the method initializes it, as one inside a callee would.
+         * [classes] starts empty for a run's own entry frame: no class is triggered yet, and [enterSession] sets
+         * what an untriggered class reads as. The first trigger inside the method handles the entry method's own
+         * class, as one inside a callee would.
          */
         private fun entryFrame(view: MethodView, heap: HeapStore, classes: ClassStore): Frame {
             val frame = Frame(

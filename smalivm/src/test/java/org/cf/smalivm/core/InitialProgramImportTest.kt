@@ -61,23 +61,23 @@ class InitialProgramImportTest {
 
     @Test
     fun initialImportOwnsCompleteApplicationDeclarationsAndBodies() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val snapshot = index.currentSnapshot
-        val definition = requireNotNull(snapshot.applicationClass("Ltask53/Fixture;"))
+        val definition = requireNotNull(snapshot.applicationClass("Lprogram/Fixture;"))
 
         assertEquals("Ljava/lang/Object;", definition.superclass)
-        assertEquals("task53.smali", definition.sourceFile)
+        assertEquals("program.smali", definition.sourceFile)
         assertEquals(1, definition.annotations.size)
         assertEquals(7, (definition.staticFields.single().declaration.initialValue as IntEncodedValue).value)
-        assertNotNull(snapshot.applicationMethod("Ltask53/Fixture;->value()I")?.body)
-        assertNull(snapshot.applicationMethod("Ltask53/Fixture;->nativeValue()I")?.body)
+        assertNotNull(snapshot.applicationMethod("Lprogram/Fixture;->value()I")?.body)
+        assertNull(snapshot.applicationMethod("Lprogram/Fixture;->nativeValue()I")?.body)
         assertTrue(snapshot.dexReferenceClosure.strings.contains("fixture-value"))
         assertEquals(20, snapshot.outputApiPolicy.apiLevel)
     }
 
     @Test
     fun initialSnapshotKeepsTheRequestedOutputApi() {
-        Files.writeString(root.resolve("task53.smali"), SOURCE.trimIndent())
+        Files.writeString(root.resolve("fixture.smali"), SOURCE.trimIndent())
 
         val snapshot = ClassIndex.open(root.toFile(), 28).currentSnapshot
 
@@ -101,7 +101,7 @@ class InitialProgramImportTest {
             emptyList(),
         )
         val method = ImmutableMethod(
-            "Ltask53/ExistingJumbo;",
+            "Lprogram/ExistingJumbo;",
             "run",
             emptyList(),
             "V",
@@ -111,7 +111,7 @@ class InitialProgramImportTest {
             implementation,
         )
         val definition = ImmutableClassDef(
-            "Ltask53/ExistingJumbo;",
+            "Lprogram/ExistingJumbo;",
             Modifier.PUBLIC,
             "Ljava/lang/Object;",
             emptyList(),
@@ -132,19 +132,19 @@ class InitialProgramImportTest {
 
     @Test
     fun importedSnapshotDoesNotRereadItsSourceFiles() {
-        val source = root.resolve("task53.smali")
+        val source = root.resolve("fixture.smali")
         Files.writeString(source, SOURCE.trimIndent())
         val index = ClassIndex.open(root.toFile())
-        val imported = requireNotNull(index.methodView("Ltask53/Fixture;->value()I"))
+        val imported = requireNotNull(index.methodView("Lprogram/Fixture;->value()I"))
 
         Files.writeString(source, SOURCE.trimIndent().replace("const/4 v0, 0x1", "const/4 v0, 0x2"))
 
-        val current = requireNotNull(index.methodView("Ltask53/Fixture;->value()I"))
+        val current = requireNotNull(index.methodView("Lprogram/Fixture;->value()I"))
         assertEquals(imported.addresses.toList(), current.addresses.toList())
         val graph = VmServices(index).newSession(current).run()
         assertEquals(Value.Known(1, VirtualType.of("I")), graph.trusted()!!.terminatingConsensus(0))
         val reimported = ClassIndex.open(root.toFile())
-        val reimportedView = requireNotNull(reimported.methodView("Ltask53/Fixture;->value()I"))
+        val reimportedView = requireNotNull(reimported.methodView("Lprogram/Fixture;->value()I"))
         val reimportedGraph = VmServices(reimported).newSession(reimportedView).run()
         assertEquals(Value.Known(2, VirtualType.of("I")), reimportedGraph.trusted()!!.terminatingConsensus(0))
     }
@@ -166,7 +166,7 @@ class InitialProgramImportTest {
             emptyList(),
         )
         val method = ImmutableMethod(
-            "Ltask53/SharedSwitch;",
+            "Lprogram/SharedSwitch;",
             "shared",
             listOf(ImmutableMethodParameter("I", emptySet(), null)),
             "V",
@@ -176,7 +176,7 @@ class InitialProgramImportTest {
             implementation,
         )
         val classDefinition = ImmutableClassDef(
-            "Ltask53/SharedSwitch;",
+            "Lprogram/SharedSwitch;",
             Modifier.PUBLIC,
             "Ljava/lang/Object;",
             emptyList(),
@@ -190,8 +190,8 @@ class InitialProgramImportTest {
             ImmutableDexFile(Opcodes.forApi(SmaliParser.DEX_API_LEVEL), listOf(classDefinition)),
         )
         val index = ClassIndex.open(dexFile.toFile())
-        val originalClass = requireNotNull(index.currentSnapshot.applicationClass("Ltask53/SharedSwitch;"))
-        val originalMethod = requireNotNull(index.currentSnapshot.applicationMethod("Ltask53/SharedSwitch;->shared(I)V"))
+        val originalClass = requireNotNull(index.currentSnapshot.applicationClass("Lprogram/SharedSwitch;"))
+        val originalMethod = requireNotNull(index.currentSnapshot.applicationMethod("Lprogram/SharedSwitch;->shared(I)V"))
         val relaidBody = MethodBodyAssembler.assemble(
             MethodLayoutSolver.solve(
                 requireNotNull(originalMethod.body),
@@ -221,7 +221,7 @@ class InitialProgramImportTest {
             StringInstructionEncoding.CONST_STRING_JUMBO,
         )
         index.programWorkspace.publish(candidate)
-        val view = requireNotNull(index.methodView("Ltask53/SharedSwitch;->shared(I)V"))
+        val view = requireNotNull(index.methodView("Lprogram/SharedSwitch;->shared(I)V"))
 
         assertEquals(listOf(0 to 6), view.switchCasesAt(0))
         assertEquals(listOf(0 to 10), view.switchCasesAt(3))
@@ -230,7 +230,7 @@ class InitialProgramImportTest {
         val output = root.resolve("shared-switch-output.dex").toFile()
         ProgramDexWriter().write(candidate, output)
         val reloaded = ClassIndex.open(output)
-        val outputView = requireNotNull(reloaded.methodView("Ltask53/SharedSwitch;->shared(I)V"))
+        val outputView = requireNotNull(reloaded.methodView("Lprogram/SharedSwitch;->shared(I)V"))
         assertEquals(listOf(0 to 6), outputView.switchCasesAt(0))
         assertEquals(listOf(0 to 10), outputView.switchCasesAt(3))
         assertEquals(2, outputView.payloadAddresses.size)
@@ -538,9 +538,9 @@ class InitialProgramImportTest {
 
     private companion object {
         const val SOURCE = """
-            .class public abstract Ltask53/Fixture;
+            .class public abstract Lprogram/Fixture;
             .super Ljava/lang/Object;
-            .source "task53.smali"
+            .source "program.smali"
 
             .annotation runtime Ljava/lang/Deprecated;
             .end annotation

@@ -7,16 +7,29 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.cf.smalivm.dex.SmaliParser
 import com.android.tools.smali.dexlib2.DexFileFactory
+import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
+import com.android.tools.smali.dexlib2.immutable.ImmutableExceptionHandler
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
+import com.android.tools.smali.dexlib2.immutable.ImmutableTryBlock
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 
@@ -129,6 +142,68 @@ class ProgramInputTest {
             val failure = assertThrows<ProgramInputException> { ClassIndex.open(dex.toFile()) }
 
             assertTrue(failure.message!!.contains("malformed signature"), failure.message)
+        }
+    }
+
+    /**
+     * ART's DEX file verifier refuses a file any of whose type ids is not a TypeDescriptor (`dex_file_verifier.cc`,
+     * CheckInterTypeIdItem via `IsValidDescriptor`), whichever item uses it: a class, its superclass, a field or
+     * method id, or an instruction operand.
+     */
+    @TestFactory
+    fun aDexUsingAMalformedTypeDescriptorIsAnInputError(): List<DynamicTest> {
+        val plain = "Linput/Plain;"
+        fun definition(
+            type: String = plain,
+            superclass: String = "Ljava/lang/Object;",
+            interfaces: List<String> = emptyList(),
+            fields: List<ImmutableField> = emptyList(),
+            methods: List<ImmutableMethod> = emptyList(),
+        ) = ImmutableClassDef(type, Modifier.PUBLIC, superclass, interfaces, null, emptySet(), fields, methods)
+        fun staticMethod(parameters: List<String>, vararg instructions: ImmutableInstruction) = ImmutableMethod(
+            plain, "run", parameters.map { ImmutableMethodParameter(it, null, null) }, "V",
+            Modifier.PUBLIC or Modifier.STATIC, null, null,
+            ImmutableMethodImplementation(1 + parameters.size, instructions.toList() + ImmutableInstruction10x(Opcode.RETURN_VOID), null, null),
+        )
+        return listOf(
+            "class descriptor" to definition(type = "Linput//Bad;"),
+            "superclass descriptor" to definition(superclass = "Linput/Bad<1>;"),
+            "field type" to definition(fields = listOf(ImmutableField(plain, "f", "Linput/Bad<1>;", Modifier.PUBLIC, null, null, null))),
+            "method parameter type" to definition(methods = listOf(staticMethod(listOf("Linput/Bad<1>;")))),
+            "interface descriptor" to definition(interfaces = listOf("Linput/Bad<1>;")),
+            "catch type" to definition(
+                methods = listOf(
+                    ImmutableMethod(
+                        plain, "run", emptyList(), "V", Modifier.PUBLIC or Modifier.STATIC, null, null,
+                        ImmutableMethodImplementation(
+                            1,
+                            listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                            listOf(ImmutableTryBlock(0, 1, listOf(ImmutableExceptionHandler("Linput/Bad<1>;", 0)))),
+                            null,
+                        ),
+                    ),
+                ),
+            ),
+            "const-class operand" to definition(
+                methods = listOf(staticMethod(emptyList(), ImmutableInstruction21c(Opcode.CONST_CLASS, 0, ImmutableTypeReference("Linput/Bad<1>;")))),
+            ),
+            "invoke-static owner" to definition(
+                methods = listOf(
+                    staticMethod(
+                        emptyList(),
+                        ImmutableInstruction35c(Opcode.INVOKE_STATIC, 0, 0, 0, 0, 0, 0, ImmutableMethodReference("Linput/Bad<1>;", "m", emptyList(), "V")),
+                    ),
+                ),
+            ),
+        ).map { (where, definition) ->
+            DynamicTest.dynamicTest(where) {
+                val dex = Files.createTempFile(root, "malformed-type", ".dex")
+                DexFileFactory.writeDexFile(dex.toString(), ImmutableDexFile(Opcodes.forApi(SmaliParser.DEX_API_LEVEL), listOf(definition)))
+
+                val failure = assertThrows<ProgramInputException> { ClassIndex.open(dex.toFile()) }
+
+                assertTrue(failure.message!!.contains("Bad"), failure.message)
+            }
         }
     }
 

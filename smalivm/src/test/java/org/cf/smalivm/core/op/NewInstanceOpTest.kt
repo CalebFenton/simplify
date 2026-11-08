@@ -20,62 +20,29 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 /**
- * `new-instance` (spec §4.2): a fresh, **uninitialized** tracked object -- a `Known(HeapRef, T)` into
- * the shared heap, never a live host instance. Migrated from `org.cf.smalivm.opcode.NewInstanceOpTest`
- * -- both of its tests, per Task 13 Step 5's triage (2 of 2 re-express) -- plus the cases the corpus
- * never covered: the absent-class resolution failure (Task 15's family; the plan's Task 15 Step 4
- * explicitly deferred `new-instance`'s case to this task), the class-init trigger through the REAL op
- * rather than `ClassInitTest`'s stub, and adjudication 8's two-unrelated-allocations distinctness.
- *
- * **What "uninitialized" is in the new model** (resolved decision 8): the oracle expressed it as a
- * register holding `type/UninitializedInstance(type)`; the core expresses it as the heap object's own
- * flag -- `HeapObject.TrackedObject(type, uninitialized = true)`. The flag is SET here and cleared
- * nowhere in this build: clearing happens when an `<init>` whose receiver is this ref returns, which
- * needs `invoke-direct` and is therefore Task 20's (see `NewInstanceOp`'s KDoc). Values are
- * byte-identical to the oracle's claims; only the harness-inexpressible mechanism changed.
- *
- * **Adjudication 8 (the alias divergence) is deliberately NOT ported.** The oracle propagates
- * initialization to alias registers through `ExecutionState.update`, which matches by `equals`, and
- * `type/UninitializedInstance.java:17-29` compares TYPE ONLY -- so initializing one `new-instance
- * Lfoo;` rewrites every register holding any uninitialized `Lfoo;`, including an unrelated
- * allocation's. The core's heap identity is the id ([HeapRef]), which
- * [twoAllocationsOfOneTypeAreDistinctUnrelatedObjects] pins; the registry half is
- * `Fixtures.intendedDivergences`' `ratchet-alias-unrelated-allocation`, and the oracle's defective
- * answer is measured (not described) by
- * `NewCoreDifferentialTest.theOraclesTypeEqualityAliasingRewritesAnUnrelatedAllocation`.
+ * `new-instance` allocates a fresh tracked object, a `Known(HeapRef, T)` into the shared heap rather than a host
+ * instance, flagged uninitialized until an `<init>` whose receiver is that ref returns (see `NewInstanceOp`).
  */
 class NewInstanceOpTest {
 
-    @Test
-    fun canCreateLocalInstance() {
-        // Migrated: the oracle seeded r0 with an int and asserted it ends as
-        // `UninitializedInstance(Lnew_instance_test;)` under tag `Lnew_instance_test;`. Same claim,
-        // heap-indirected: the register tag is the consensus VALUE's type, the "uninitialized
-        // instance" is the tracked object's own type + flag.
-        val initial = CoreState().apply { setRegisters(0, 1, "I") }
-        val graph = CoreTester.execute(CLASS_NAME, "newLocalInstance()V", initial)
-        assertUninitializedInstance(graph, register = 0, type = VirtualType.of(CLASS_NAME))
+    @TestFactory
+    fun anAllocationIsAnUninitializedTrackedObjectOfItsTypeOperand(): List<DynamicTest> = listOf(
+        "newLocalInstance()V" to CLASS_NAME,
+        "newNonLocalInstance()V" to "Ljava/lang/Integer;",
+    ).map { (method, type) ->
+        DynamicTest.dynamicTest(type) {
+            val initial = CoreState().apply { setRegisters(0, 1, "I") }
+            val graph = CoreTester.execute(CLASS_NAME, method, initial)
+            assertUninitializedInstance(graph, register = 0, type = VirtualType.of(type))
+        }
     }
 
-    @Test
-    fun canCreateNonLocalInstance() {
-        // Integer has a framework <clinit>, so allocation uses conservative initialization.
-        // This test checks the instance; theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit
-        // separately checks the initialization policy.
-        val initial = CoreState().apply { setRegisters(0, 1, "I") }
-        val graph = CoreTester.execute(CLASS_NAME, "newNonLocalInstance()V", initial)
-        assertUninitializedInstance(graph, register = 0, type = VirtualType.of("Ljava/lang/Integer;"))
-    }
-
-    /**
-     * The migrated pair's shared claim: [register] holds a `Known(HeapRef, [type])` whose heap object
-     * is a [HeapObject.TrackedObject] of [type] with the uninitialized flag SET. Read through
-     * `trusted()` + heap consensus, the same consumer path `NewArrayOpTest`'s local-instance
-     * migrations read through.
-     */
+    /** [register] holds a `Known(HeapRef, [type])` whose heap object is an uninitialized [type]. */
     private fun assertUninitializedInstance(graph: ExecutionGraph, register: Int, type: VirtualType) {
         assertEquals(CompletionStatus.Complete, graph.completion())
         val trusted = graph.trusted()
@@ -86,20 +53,13 @@ class NewInstanceOpTest {
         val obj = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(obj is HeapObject.TrackedObject, "no tracked object behind the ref; got $obj")
         assertEquals(type, (obj as HeapObject.TrackedObject).type)
-        assertTrue(
-            obj.uninitialized,
-            "a fresh allocation is UNINITIALIZED until an <init> whose receiver is this ref returns " +
-                "(resolved decision 8; the clearing is Task 20's, with invoke-direct)",
-        )
+        assertTrue(obj.uninitialized, "a fresh allocation is uninitialized until its <init> returns")
     }
 
     /**
-     * Side effects: NONE, pinned rather than assumed -- the [FilledNewArrayOp]/[ThrowOp] precedent. A
-     * fresh allocation perturbs nothing the engine does not model exactly, and `NewInstanceOp` declares
-     * no effect on any arm. The fixture class declares no `<clinit>` and extends
-     * `Ljava/lang/Object;` (which declares none either), so the class-init prelude settles with
-     * nothing skipped and the SCHEDULER declares nothing -- a spurious STRONG here would stop every
-     * fold in any method that allocates.
+     * The fixture class and its superclass `Ljava/lang/Object;` declare no `<clinit>`, so the class-init
+     * prelude skips nothing and the allocation records no effect; a spurious `STRONG` would stop every fold
+     * in a method that allocates.
      */
     @Test
     fun aFreshAllocationOfAClassWithNoInitializerDeclaresNoSideEffect() {
@@ -109,19 +69,17 @@ class NewInstanceOpTest {
     }
 
     /**
-     * Resolved decision 7 through the REAL op (ClassInitTest pins it at the planner and through a
-     * stub): a framework class is marked initialized and its `<clinit>` is NEVER run, and because a
-     * real initializer was skipped, the triggering address is STRONG -- whatever `Integer.<clinit>`
-     * would have written is unmodelled state (spec §2.2 errs upward).
+     * A framework class is marked initialized without running its `<clinit>`. The skipped initializer's
+     * writes are unmodelled state, so the triggering address is `STRONG`.
      */
     @Test
     fun theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit() {
         val graph = CoreTester.execute(CLASS_NAME, "newNonLocalInstance()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(emptyList<String>(), initializersRun(graph), "a framework <clinit> is NEVER run")
+        assertEquals(emptyList<String>(), initializersRun(graph), "a framework <clinit> is never run")
         assertEquals(
             ClassInitState.INITIALIZED, initStateAtReturn(graph, VirtualType.of("Ljava/lang/Integer;")),
-            "but the class IS marked initialized, so a second trigger has nothing to do",
+            "but the class is marked initialized, so a second trigger has nothing to do",
         )
         assertEquals(
             SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
@@ -130,13 +88,9 @@ class NewInstanceOpTest {
     }
 
     /**
-     * THE CLASS-INIT INTEGRATION PROOF: `new-instance` of an app class WITH a guest `<clinit>` runs
-     * the initializer through the real op's `OpArm.InitClass`. `Lclass_init/witness;` is the
-     * ordinary-`<clinit>` fixture; the trigger
-     * protocol re-executes the op at its own address once the prelude returns, so the pile at the
-     * `new-instance` address holds TWO nodes (first pass asks, second pass allocates) -- asserted
-     * exactly, because a wrong count in either direction is a broken trigger (0 re-executions means
-     * the init never ran; 2+ means the op did not see INITIALIZED on its second pass and looped).
+     * An app class with a guest `<clinit>` runs it as a prelude, then the op re-executes at its own address
+     * and allocates. Exactly two nodes sit at that address: one means the init never ran, three or more means
+     * the second pass did not see `INITIALIZED`.
      */
     @Test
     fun aNewInstanceOfAClassWithAGuestClinitRunsTheInitializerThenAllocates() {
@@ -149,21 +103,15 @@ class NewInstanceOpTest {
         )
         assertEquals(ClassInitState.INITIALIZED, initStateAtReturn(graph, witness))
         assertEquals(2, graph.nodePile(0).size, "the trigger re-executes once the prelude returns")
-        // ...and the second pass did the op's real work: r0 holds the uninitialized instance.
+        // The second pass did the op's work: r0 holds the uninitialized instance.
         assertUninitializedInstance(graph, register = 0, type = witness)
     }
 
     /**
-     * `new-instance` of a class absent from the loaded set throws a guest `NoClassDefFoundError` --
-     * `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)` cross-validated
-     * `[DEVICE](Tier B, nterp default, API 36)`, fixture `Fx_NewInstanceAbsentType` (Task 16 Step 0).
-     * The message is ART's `DoResolveType` text, `"Failed resolution of: %s"` over the descriptor, as the
-     * Tier-A recording shows for `Fx_NewInstanceAbsentType`.
-     *
-     * The resolution failure must come BEFORE the class-init trigger, and that ordering is what the
-     * completion gate below actually discriminates: an op that asked to initialize `Ldoes/not/exist;`
-     * would send `ClassInitPlanner` walking `superclassOf` on an absent class, which raises
-     * `ClassLoadFailure` and ABORTS the path (`Partial`) instead of throwing the guest error.
+     * An absent class throws a guest `NoClassDefFoundError` with ART's `"Failed resolution of: <descriptor>"`
+     * (DALVIK-SEMANTICS.md, `Fx_NewInstanceAbsentType`). Resolution fails before the class-init trigger;
+     * triggering init of an absent class would raise `ClassLoadFailure` and abort the path as `Partial`, which
+     * the completion assertion rules out.
      */
     @Test
     fun anAbsentClassThrowsNoClassDefFoundErrorWithoutFallingThrough() {
@@ -172,10 +120,8 @@ class NewInstanceOpTest {
             exceptionType = "Ljava/lang/NoClassDefFoundError;",
             message = "Failed resolution of: Ldoes/not/exist;",
         )
-        // The negative halves, NewArrayOpTest.nonExistentClassNameThrowsException's shape: the
-        // fall-through is only provably unexplored on a run that explored everything, and a throwing
-        // new-instance must leave its destination register untouched (the STATIC declaration is
-        // still {0} -- registersAssigned reads off the op, not a frame).
+        // Same shape as NewArrayOpTest.anAbsentComponentClassThrowsNoClassDefFoundError. The assignment set is
+        // static, read off the op, so it is {0} even though the throwing path writes nothing.
         val graph = CoreTester.execute(CLASS_NAME, "newAbsentClassInstance()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(2), "a definite throw must not also explore the fall-through")
@@ -187,15 +133,8 @@ class NewInstanceOpTest {
     }
 
     /**
-     * ADJUDICATION 8's core half: two `new-instance` of ONE type are two DISTINCT objects. Under the
-     * oracle's type-equality identity (`UninitializedInstance.equals` compares type only) the two
-     * registers hold "the same" value, so a later mark on one rewrites the other; under id-based heap
-     * identity each register keeps its own object -- the refs differ, the heap holds two objects, and
-     * the two values do NOT agree (their join answers `Unknown`, never a single `Known`).
-     *
-     * Also the mutate-to-prove target for allocation identity: an `allocateObject` minting anything
-     * but a fresh id from the shared [org.cf.smalivm.core.HeapIds] counter (a bare constant, a
-     * per-store counter) hands both registers one ref and dies here.
+     * Heap identity is the allocation id ([HeapRef]), not the type: two allocations of one type are distinct
+     * objects whose values never agree, so marking one initialized cannot touch the other.
      */
     @Test
     fun twoAllocationsOfOneTypeAreDistinctUnrelatedObjects() {
@@ -213,25 +152,21 @@ class NewInstanceOpTest {
         assertNotEquals(firstRef, secondRef, "two allocations of one type must be two heap identities")
         assertNotSame(
             trusted.terminatingHeapObject(firstRef).agreed(), trusted.terminatingHeapObject(secondRef).agreed(),
-            "and two objects -- a mark on one must be invisible to the other",
+            "and two objects, so a mark on one is invisible to the other",
         )
         assertFalse(
             first.agreesWith(second),
-            "two unrelated allocations must never agree -- type-equality identity is the oracle's " +
-                "alias defect (adjudication 8), registered in Fixtures.intendedDivergences",
+            "two unrelated allocations must never agree",
         )
-        // Both are the same kind of thing to every OTHER query: same type, both uninitialized.
+        // To every other query they are alike: same type, both uninitialized.
         for (ref in listOf(firstRef, secondRef)) {
             val obj = trusted.terminatingHeapObject(ref).agreed()
             assertTrue(obj is HeapObject.TrackedObject && obj.type == type && obj.uninitialized)
         }
     }
 
-    // ------------------------------------------------------------------------------------------
-    // Harness -- the minimal subset of ClassInitTest's activation-walking helpers. Walked down
-    // ExecutionNode.children because a graph describes ONE activation by design and a <clinit>'s
-    // nodes are invisible to its queries; see ClassInitTest.allNodes for the full argument.
-    // ------------------------------------------------------------------------------------------
+    // A graph's piles describe the entry activation only, so a `<clinit>`'s nodes are found by walking
+    // `ExecutionNode.children`, as in ClassInitTest.
 
     private fun allNodes(graph: ExecutionGraph): List<ExecutionNode> {
         val out = mutableListOf<ExecutionNode>()
@@ -243,14 +178,14 @@ class NewInstanceOpTest {
         return out
     }
 
-    /** Classes whose `<clinit>` RAN as a class-init prelude, in run order; see ClassInitTest.initializersRun. */
+    /** Classes whose `<clinit>` ran as a class-init prelude, in run order. */
     private fun initializersRun(graph: ExecutionGraph): List<String> {
         val seen = mutableListOf<org.cf.smalivm.core.Activation>()
         for (node in allNodes(graph)) if (seen.none { it === node.activation }) seen.add(node.activation)
         return seen.mapNotNull { it.classInitContext?.activeInitializer?.type?.descriptor }
     }
 
-    /** [type]'s lifecycle state on the entry method's returning path; see ClassInitTest.initStateAtReturn. */
+    /** [type]'s lifecycle state on the entry method's returning path. */
     private fun initStateAtReturn(graph: ExecutionGraph, type: VirtualType): ClassInitState {
         val returning = allNodes(graph).filter { it.outcome is Outcome.Returned && it.activation.caller == null }
         assertTrue(returning.isNotEmpty(), "no returning node in the entry activation")

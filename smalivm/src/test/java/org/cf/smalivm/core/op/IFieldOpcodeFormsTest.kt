@@ -7,41 +7,39 @@ import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.DynamicTest
+import org.junit.jupiter.api.TestFactory
 
 /** Executable routing matrix. Set membership alone cannot prove an opcode reached the correct builder branch. */
 class IFieldOpcodeFormsTest {
 
-    @Test
-    fun everyIGetFormDecodesAsAReadAndReturnsItsDeclaredTypeDefault() {
-        for (case in cases) {
+    @TestFactory
+    fun everyIGetFormDecodesAsAReadAndReturnsItsDeclaredTypeDefault(): List<DynamicTest> = cases.map { case ->
+        DynamicTest.dynamicTest(case.iget + " " + case.field) {
             val graph = CoreTester.execute(CLASS_NAME, case.getter)
-            assertEquals(CompletionStatus.Complete, graph.completion(), case.getter)
+            assertEquals(CompletionStatus.Complete, graph.completion())
             val op = graph.getOp(2)
-            assertEquals(IGetOp::class, op::class, "${case.iget} must route to IGetOp")
-            assertEquals(
-                "${case.iget} r${case.resultRegister}, r0, $CLASS_NAME->${case.field}",
-                op.toString(),
-            )
-            assertEquals(case.defaultValue, graph.trusted()!!.terminatingConsensus(case.resultRegister), case.getter)
-            assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(2), case.getter)
+            assertEquals(IGetOp::class, op::class)
+            assertEquals("${case.iget} r${case.resultRegister}, r0, $CLASS_NAME->${case.field}", op.toString())
+            assertEquals(case.defaultValue, graph.trusted()!!.terminatingConsensus(case.resultRegister))
+            assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(2))
         }
     }
 
-    @Test
-    fun everyIPutFormDecodesAsAWriteStoresTheValueAndReportsWeak() {
-        for (case in cases) {
+    @TestFactory
+    fun everyIPutFormDecodesAsAWriteStoresTheValueAndReportsWeak(): List<DynamicTest> = cases.map { case ->
+        DynamicTest.dynamicTest(case.iput + " " + case.field) {
             val graph = CoreTester.execute(CLASS_NAME, case.putter, CoreState().apply {
                 setRegister(2, case.writtenValue)
             })
-            assertEquals(CompletionStatus.Complete, graph.completion(), case.putter)
+            assertEquals(CompletionStatus.Complete, graph.completion())
             val op = graph.getOp(2)
-            assertEquals(IPutOp::class, op::class, "${case.iput} must route to IPutOp")
+            assertEquals(IPutOp::class, op::class)
             assertEquals("${case.iput} r2, r0, $CLASS_NAME->${case.field}", op.toString())
-            assertEquals(case.writtenValue, graph.trusted()!!.terminatingConsensus(case.resultRegister), case.putter)
-            assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(2), case.putter)
-            assertEquals(setOf(0, 2), graph.registersRead(2), case.putter)
-            assertEquals(emptySet<Int>(), graph.registersAssigned(2), case.putter)
+            assertEquals(case.writtenValue, graph.trusted()!!.terminatingConsensus(case.resultRegister))
+            assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(2))
+            assertEquals(setOf(0, 2), graph.registersRead(2))
+            assertEquals(emptySet<Int>(), graph.registersAssigned(2))
         }
     }
 

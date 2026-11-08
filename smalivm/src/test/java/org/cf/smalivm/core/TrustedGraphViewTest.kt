@@ -1,15 +1,16 @@
 package org.cf.smalivm.core
 
+import com.android.tools.smali.dexlib2.Opcode
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import java.io.File
 
 /**
- * Bug class: acting on an answer from a run that did not explore every path. The value queries a consumer acts
- * on are reachable as a [TrustedGraphView] only through [ExecutionGraph.trusted], which is null unless the run's
- * completion is `canTrustConsensus`; the same queries over a truncated run are spelled `graph.explored`.
- *
- * Oracle: spec §9 (completion-gated trust) and `CompletionStatus.canTrustConsensus`.
+ * The value queries a consumer acts on are reachable as a [TrustedGraphView] only through
+ * [ExecutionGraph.trusted], which is null unless the run's completion is `canTrustConsensus`; the same queries
+ * over a truncated or unfinished run are spelled `graph.explored`.
  */
 class TrustedGraphViewTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
@@ -21,11 +22,6 @@ class TrustedGraphViewTest {
 
     private fun graphOf(descriptor: String, limits: Limits = Limits()): ExecutionGraph =
         sessionOf(descriptor, limits).run()
-
-    @Test
-    fun aCompleteRunYieldsATrustedView() {
-        assertNotNull(graphOf("returnFive()I").trusted(), "a Complete exploration is exactly what may be trusted")
-    }
 
     @Test
     fun normalContinuationRejectsCaughtAndEscapingExceptions() {
@@ -50,80 +46,42 @@ class TrustedGraphViewTest {
         assertNull(partial.trusted())
     }
 
-    @Test
-    fun aPartialRunYieldsNoTrustedView() {
-        // The gate itself. Mutation that must fail here: `trusted()` returning the view
-        // unconditionally, or testing anything other than CompletionStatus.canTrustConsensus.
-        val g = graphOf("spinForever()V", Limits(maxAddressVisits = 1, maxSteps = 100))
-        assertEquals(CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)), g.completion())
-        assertNull(g.trusted(), "a truncated exploration must not hand out a view whose answers look actionable")
-        // Why `trusted()` needs no reason channel of its own (the design decision this pins): the
-        // refusal reason is already one non-optional call away on the same object, and duplicating it
-        // into the gate's return type would be a second representation of the same fact.
-        assertEquals(
-            setOf(AbortReason.ADDRESS_LIMIT),
-            (g.completion() as CompletionStatus.Partial).reasons,
-            "completion() already explains the refusal, so the gate itself stays a nullable view",
-        )
-    }
-
-    @Test
-    fun everyAbortReasonRefusesTrustNotJustLimits() {
-        // Trust is all-or-nothing (CompletionStatus's own KDoc: no boolean that could be read as
-        // "mostly done"). Bug class: a gate that special-cased one abort reason -- e.g. treating
-        // UNSUPPORTED_OP as harmless because "that opcode does not matter here" -- would hand out a
-        // trusted view for a run that never walked the rest of the method.
-        assertNull(
-            graphOf("unsupportedWideFilledArray()I").trusted(),
-            "an unimplemented opcode truncated a path, so nothing about this run is actionable",
-        )
-        assertNull(
-            graphOf("nopThenConst()I", Limits(maxSteps = 1)).trusted(),
-            "a step budget truncated the run just as surely as an address budget",
-        )
+    /** Trust is all-or-nothing: no abort reason is treated as harmless. */
+    @TestFactory
+    fun everyAbortReasonRefusesTrust(): List<DynamicTest> = listOf(
+        Triple("spinForever()V", Limits(maxAddressVisits = 1, maxSteps = 100), AbortReason.ADDRESS_LIMIT),
+        Triple("nopThenConst()I", Limits(maxSteps = 1), AbortReason.METHOD_LIMIT),
+        Triple("unsupportedWideFilledArray()I", Limits(), AbortReason.UNSUPPORTED_OP),
+    ).map { (descriptor, limits, reason) ->
+        DynamicTest.dynamicTest(reason.name) {
+            val graph = graphOf(descriptor, limits)
+            assertEquals(CompletionStatus.Partial(setOf(reason)), graph.completion())
+            assertNull(graph.trusted(), "a truncated exploration must not hand out an actionable view")
+        }
     }
 
     @Test
     fun aPartialRunStillComputesAConfidentAnswerReachableOnlyThroughTheRawAccessor() {
-        // The exact scenario from Task 6's review that motivated this gate, kept as its permanent
-        // witness: on a run that stopped at a bound, consensus genuinely still reports a confident
-        // Known and the method still reports NO side effects. Both answers are correct ABOUT THE
-        // PATHS THAT WERE WALKED and wrong to act on, which is why the fix had to be about
-        // reachability rather than about the values. Oracle: the fixture's Dalvik semantics -- the one
-        // executed visit to the move genuinely assigned v1 = 1, and none of this method's opcodes has
-        // any observable effect.
+        // On a run stopped at a bound, consensus still reports a confident Known and the method still reports no
+        // side effects. Both are correct about the walked paths and wrong to act on, which is why the gate is on
+        // reachability rather than on the values. The one executed visit to the move assigns v1 = 1, and no
+        // opcode in this method has an observable effect.
         val g = graphOf("loopRevisitChangesRegister()V", Limits(maxAddressVisits = 1, maxSteps = 100))
-        val moveAddress = g.methodView.addresses.first { g.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.MOVE }
+        val moveAddress = g.methodView.addresses.first { g.methodView.opcodeAt(it) == Opcode.MOVE }
         assertNull(g.trusted(), "the run stopped at the address budget, so no query on it is actionable")
-        assertEquals(
-            Value.Known(1, int), g.explored.consensus(moveAddress, 1),
-            "the truncated picture is still available -- a consumer must just name it deliberately",
-        )
-        assertEquals(
-            SideEffectLevel.NONE, g.explored.methodSideEffectLevel(),
-            "and so is the effect level, which is the query that would wrongly authorize deleting this method",
-        )
+        assertEquals(Value.Known(1, int), g.explored.consensus(moveAddress, 1))
+        assertEquals(SideEffectLevel.NONE, g.explored.methodSideEffectLevel())
     }
-
-    // --- the gate in TIME, not just in kind: a mid-run snapshot ---
 
     @Test
     fun aMidRunSnapshotHandsOutNoTrustedViewEvenWhenNothingHasAborted() {
-        // Bug class: a gate that only refuses ABORTED runs, so it is bypassable in TIME. Every query on
-        // an `ExecutionGraph` reads the nodes recorded SO FAR, and `ExecutionSession.graph()` is
-        // documented as safe to call mid-run because Plan 10's debugger is that consumer -- so with
-        // completion computed from the abort set alone, a snapshot taken before the frontier drained
-        // reported `Complete` and handed out a fully actionable view of a partial walk. Nothing had
-        // aborted, which is exactly why the abort set could not see it. Oracle: spec §9 -- consensus is
-        // trustworthy only when the relevant paths were explored, and a path still sitting in the
-        // frontier has not been.
+        // `ExecutionSession.graph()` is safe to call mid-run. A path still in the frontier has not been explored,
+        // so completion must consult the frontier, not only the abort set.
         val s = sessionOf("returnFive()I")
-        s.step()                            // const/4 v0, 0x5 ran; the `return v0` at address 1 has not
+        s.step() // const/4 v0, 0x5 ran; the `return v0` at address 1 has not
         val midRun = s.graph()
         assertEquals(CompletionStatus.InProgress, midRun.completion(), "one path is still scheduled")
         assertNull(midRun.trusted(), "a snapshot of an unfinished walk must not look actionable")
-        // The same run, finished, IS trustworthy -- so this refusal is about WHEN the snapshot was
-        // taken, not a gate that has become permanently paranoid.
         val finished = s.run()
         assertNotNull(finished.trusted(), "draining the frontier is what earns trust")
         assertEquals(Value.Known(5, int), finished.trusted()!!.terminatingConsensus(0))
@@ -131,48 +89,21 @@ class TrustedGraphViewTest {
 
     @Test
     fun aMidRunSnapshotNeverAuthorizesWhatTheFinishedRunRefuses() {
-        // THE DEMONSTRATED CASE, kept as its permanent witness -- the only path found by which a
-        // confident wrong answer could reach a consumer, and it went THROUGH the gate rather than
-        // around it. Step `unsupportedWideFilledArray()I` exactly ONCE and snapshot it: the abort set is still
-        // empty (the wide `filled-new-array` that poisons the run is scheduled, not executed), so before this
-        // fix `completion()` said Complete, `trusted()` was non-null, and it answered
-        // `methodSideEffectLevel() == NONE` plus `consensus(0, 0) == Known(3, I)` -- "no side effects,
-        // safe to delete", from an exploration that demonstrably had not finished. The finished run
-        // refuses both. Oracle: spec §6.4/§9 plus the fixture's own decode status --
-        // wide-component `filled-new-array` is unsupported in this build, so the effect is unknowable and must err
-        // upward (spec §4.5).
-        //
-        // The single step still executes `const/4 v0, 0x3` at address 0. The old capability ratchet is
-        // retired; this clearly named malformed-input fixture keeps the same leading const, so `Known(3, I)` below is
-        // the same fact it always was (verified against the assembled layout, not assumed).
-        //
-        // Written so it fails if `completion()` ever stops consulting the frontier: every assertion
-        // below is about the SPECIFIC answers a mid-run trusted view used to hand out, so recovering
-        // one of them fails here rather than merely changing a status enum.
+        // After one step the unsupported wide `filled-new-array` is scheduled, not executed, so the abort set is
+        // empty while the explored view says "no side effects" and folds `const/4 v0, 0x3`. The finished run
+        // aborts, and an unsupported opcode's effect errs upward to STRONG.
         val s = sessionOf("unsupportedWideFilledArray()I")
         assertNotNull(s.step(), "const/4 v0, 0x3")
         val midRun = s.graph()
         assertEquals(CompletionStatus.InProgress, midRun.completion())
-        assertNull(
-            midRun.trusted(),
-            "a snapshot whose frontier still holds the aborting op must not authorize anything",
-        )
-        assertEquals(
-            SideEffectLevel.NONE, midRun.explored.methodSideEffectLevel(),
-            "the dangerous answer is genuinely still computable -- it just has to be asked for by its ungated name",
-        )
-        assertEquals(
-            Value.Known(3, int), midRun.explored.consensus(0, 0),
-            "so is the constant, which is what a propagation pass would have folded",
-        )
+        assertNull(midRun.trusted(), "a snapshot whose frontier still holds the aborting op must not authorize anything")
+        assertEquals(SideEffectLevel.NONE, midRun.explored.methodSideEffectLevel())
+        assertEquals(Value.Known(3, int), midRun.explored.consensus(0, 0))
 
         val finished = s.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), finished.completion())
-        assertNull(finished.trusted(), "and the finished run refuses what the snapshot was handing out")
-        assertEquals(
-            SideEffectLevel.STRONG, finished.explored.methodSideEffectLevel(),
-            "an unimplemented opcode could have done anything, so effects err upward",
-        )
+        assertNull(finished.trusted())
+        assertEquals(SideEffectLevel.STRONG, finished.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -180,9 +111,7 @@ class TrustedGraphViewTest {
         // gotoSkip()I jumps over one const/4, so on this complete run that instruction alone is dead.
         val graph = graphOf("gotoSkip()I")
         val trusted = requireNotNull(graph.trusted())
-        val skipped = graph.methodView.addresses.first {
-            it > 0 && graph.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.CONST_4
-        }
+        val skipped = graph.methodView.addresses.first { it > 0 && graph.methodView.opcodeAt(it) == Opcode.CONST_4 }
         assertTrue(trusted.isDead(skipped), "the jumped-over const never ran")
         assertEquals(
             listOf(skipped),

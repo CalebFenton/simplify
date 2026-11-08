@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-/** Port of the four formerly-commented `TestMethodInheritance` behaviors. */
+/** Invocation through a class hierarchy: abstract methods, inherited methods and `invoke-super`. */
 class MethodInheritanceTest {
     @Test
     fun canInvokeAbstractMethodThroughParentReference() {

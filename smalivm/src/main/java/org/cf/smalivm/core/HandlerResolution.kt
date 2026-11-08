@@ -4,10 +4,10 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentSet
 
 /** One typed catch clause. */
-data class CatchClause(val exceptionType: VirtualType, val handlerAddress: Int)
+public data class CatchClause(val exceptionType: VirtualType, val handlerAddress: Int)
 
 /** One public try range. The range is start-inclusive and end-exclusive. */
-data class TryBlock(
+public data class TryBlock(
     val startAddress: Int,
     val endAddress: Int,
     val catches: List<CatchClause>,
@@ -19,7 +19,7 @@ data class TryBlock(
         }
     }
 
-    fun covers(address: Int): Boolean = address in startAddress until endAddress
+    internal fun covers(address: Int): Boolean = address in startAddress until endAddress
 }
 
 internal enum class TypeRelation { YES, NO, UNKNOWN }
@@ -39,8 +39,8 @@ internal data class ThrowableTypeFacts(
 )
 
 /**
- * Throwable routing facts. Total over classes the program lacks: where [TypeHierarchy] throws [ClassLoadFailure],
- * this answers [TypeRelation.UNKNOWN]. Any other failure propagates.
+ * Throwable routing facts. Total over every imported program: where [TypeHierarchy] throws [ClassLoadFailure],
+ * this answers [TypeRelation.UNKNOWN], and the importer refuses a malformed type descriptor before any is asked.
  */
 internal fun interface ThrowableHierarchy {
     fun facts(type: VirtualType): ThrowableTypeFacts
@@ -117,9 +117,6 @@ internal sealed interface HandlerResolution {
     ) : HandlerResolution
 
     data object MalformedMetadata : HandlerResolution
-
-    /** The class model failed while answering. The caller ends only the throwing path. */
-    data class HostFailure(val failure: Throwable) : HandlerResolution
 }
 
 private data class DomainPartition(
@@ -147,21 +144,10 @@ internal fun partitionThrowableDomain(
 }
 
 /**
- * Resolves one subject without frame access, allocation, host import, or route reordering. Every throwable the
- * class model raises becomes [HandlerResolution.HostFailure], so local and caller lookup contain it alike.
+ * Resolves one subject without frame access, allocation, host import, or route reordering. Total over every
+ * imported program, so a throw from here is an engine defect, never an outcome of the input.
  */
 internal fun resolveHandlers(
-    throwAddress: Int,
-    subject: ThrownSubject,
-    methodView: MethodView,
-    hierarchy: ThrowableHierarchy,
-): HandlerResolution = try {
-    route(throwAddress, subject, methodView, hierarchy)
-} catch (failure: Throwable) {
-    HandlerResolution.HostFailure(failure)
-}
-
-private fun route(
     throwAddress: Int,
     subject: ThrownSubject,
     methodView: MethodView,

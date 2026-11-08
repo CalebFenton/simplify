@@ -1,13 +1,13 @@
 package org.cf.smalivm.core
 
 /** Result of joining two types: a common upper bound, or proof there is none. */
-sealed interface JoinedType {
+internal sealed interface JoinedType {
     data class Joined(val type: VirtualType) : JoinedType
     data object Incompatible : JoinedType
 }
 
 /**
- * The type half of the reconciliation operator ⊔ (spec §4.1). Rules, in order:
+ * The type half of the reconciliation operator ⊔. Rules, in order:
  *  - equal types join to themselves;
  *  - anything that is not a reference on both sides is [JoinedType.Incompatible] -- differing
  *    primitives, primitive vs reference, `void` vs anything;
@@ -16,7 +16,7 @@ sealed interface JoinedType {
  *  - two other references join to their **nearest common superclass**, or `Ljava/lang/Object;` when the
  *    chains share nothing else.
  *
- * **Every answer is a true upper bound (spec §2.2).** A nearest common superclass is a supertype of both
+ * Every answer is a true upper bound. A nearest common superclass is a supertype of both
  * operands by construction, and array covariance keeps that property (JLS §4.10.3). Going too high costs
  * precision; going too low would claim a type relationship a device does not agree with, so every
  * degradation goes up.
@@ -24,19 +24,19 @@ sealed interface JoinedType {
  * [JoinedType.Incompatible] is reserved for non-reference operands, because it produces [Value.Top]. Two
  * arrays with incompatible components are still two references and join to `Object`.
  *
- * **A failed walk degrades to `Object` instead of propagating**, unlike [TypeHierarchy.isSubtypeOf]. For a
+ * A failed walk degrades to `Object` instead of propagating, unlike [TypeHierarchy.isSubtypeOf]. For a
  * subtype question there is no safe default, so [ClassLoadFailure] propagates there. For a join, `Object` is
  * still a true upper bound, so a missing superclass costs precision only; the chain is kept as far as it
  * resolved. Missing ancestors can only remove candidates from the two chains' intersection, so the answer
- * moves up, never down. That holds while **one descriptor resolves to at most one class def in the loaded
- * set**, which the importer guarantees by defining the first application class of each name and none that
+ * moves up, never down. That holds while one descriptor resolves to at most one class def in the loaded
+ * set, which the importer guarantees by defining the first application class of each name and none that
  * a framework class already defines.
  *
- * **Interfaces are excluded** (spec §3: full interface lattices are not a deobfuscation requirement). Two
+ * Interfaces are excluded: deobfuscation does not need full interface lattices. Two
  * types sharing only interfaces join to `Object`. `instance-of` and `check-cast` do consult interfaces --
  * see [TypeHierarchy.isInstanceOf].
  */
-fun joinTypes(a: VirtualType, b: VirtualType, hierarchy: TypeHierarchy): JoinedType {
+internal fun joinTypes(a: VirtualType, b: VirtualType, hierarchy: TypeHierarchy): JoinedType {
     if (a == b) return JoinedType.Joined(a)
     if (!a.isReference || !b.isReference) return JoinedType.Incompatible
     val sharedDimensions = minOf(a.arrayDimensions(), b.arrayDimensions())

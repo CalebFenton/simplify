@@ -1,13 +1,14 @@
 package org.cf.smalivm.core
 
 /** One VM's invocation configuration: its reflection policy and its emulator registry. */
-class InvocationServices internal constructor(
-    val classIndex: ClassIndex,
-    val reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults(),
+public class InvocationServices internal constructor(
+    internal val classIndex: ClassIndex,
+    internal val reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults(),
 ) {
     private val defaultRegistrations =
         defaultEmulatorRegistrations(classIndex.resolver(classIndex.currentSnapshot), reflectionPolicy)
-    val emulators = EmulatorRegistry(defaultRegistrations)
+    /** Emulator registrations, defaults included. */
+    public val emulators: EmulatorRegistry = EmulatorRegistry(defaultRegistrations)
 
     /**
      * The registrations one session runs with. Default emulators read the class model, so they are rebuilt over
