@@ -5,17 +5,17 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 
 /** Which Dalvik invoke instruction family a call site uses; resolution rules differ per kind (spec §5.3). */
-enum class InvokeKind { STATIC, DIRECT, SUPER, VIRTUAL, INTERFACE }
+internal enum class InvokeKind { STATIC, DIRECT, SUPER, VIRTUAL, INTERFACE }
 
 /**
  * A method or field signature that does not follow the smali member reference syntax. [offset] is how far into
  * [input] reading got before [reason] stopped it, so a caller trying several grammars can report the one that
  * matched the most text.
  */
-class MalformedSignatureException internal constructor(
-    val input: String,
-    val offset: Int,
-    val reason: String,
+public class MalformedSignatureException internal constructor(
+    internal val input: String,
+    public val offset: Int,
+    public val reason: String,
     cause: Throwable? = null,
 ) : IllegalArgumentException("Malformed signature '$input': $reason", cause)
 
@@ -24,19 +24,19 @@ class MalformedSignatureException internal constructor(
  * return type. [toString] is the smali spelling `Lpkg/Owner;->name(I[J)V`, which [parse] reads back; two signatures
  * are equal when that spelling is.
  */
-class MethodSignature(
-    val definingClass: VirtualType,
-    val name: String,
+public class MethodSignature(
+    public val definingClass: VirtualType,
+    internal val name: String,
     parameterTypes: List<VirtualType>,
-    val returnType: VirtualType,
+    internal val returnType: VirtualType,
 ) : Comparable<MethodSignature> {
-    val parameterTypes: List<VirtualType> = java.util.Collections.unmodifiableList(parameterTypes.toList())
+    internal val parameterTypes: List<VirtualType> = java.util.Collections.unmodifiableList(parameterTypes.toList())
 
     /** The dex proto, `(I[J)V`. */
-    val proto: String = this.parameterTypes.joinToString("", "(", ")") { it.descriptor } + returnType.descriptor
+    internal val proto: String = this.parameterTypes.joinToString("", "(", ")") { it.descriptor } + returnType.descriptor
 
     /** [name] followed by [proto], e.g. `bar(I)V`: the key one class declares a method under. */
-    val nameAndProto: String = name + proto
+    internal val nameAndProto: String = name + proto
 
     private val text = "${definingClass.descriptor}->$nameAndProto"
 
@@ -49,17 +49,17 @@ class MethodSignature(
     }
 
     /** Parses [proto], `(I[J)V`, into parameter and return types; throws [MalformedSignatureException]. */
-    constructor(definingClass: VirtualType, name: String, proto: String) :
+    public constructor(definingClass: VirtualType, name: String, proto: String) :
         this(definingClass, name, SignatureReader(proto).wholeProto())
 
     private constructor(definingClass: VirtualType, name: String, proto: ParsedProto) :
         this(definingClass, name, proto.parameterTypes, proto.returnType)
 
     /** An instance initializer, `<init>`. */
-    val isConstructor: Boolean get() = name == CONSTRUCTOR_NAME
+    public val isConstructor: Boolean get() = name == CONSTRUCTOR_NAME
 
     /** A static initializer, `<clinit>`. */
-    val isClassInitializer: Boolean get() = name == CLASS_INITIALIZER_NAME
+    internal val isClassInitializer: Boolean get() = name == CLASS_INITIALIZER_NAME
 
     /**
      * The invoke register words of a call to this method: the receiver first unless [kind] is static, then each
@@ -81,18 +81,18 @@ class MethodSignature(
     override fun compareTo(other: MethodSignature): Int = text.compareTo(other.text)
     override fun toString(): String = text
 
-    companion object {
+    public companion object {
         internal const val CONSTRUCTOR_NAME = "<init>"
         internal const val CLASS_INITIALIZER_NAME = "<clinit>"
 
         /** Parses `Lpkg/Owner;->name(params)return`; throws [MalformedSignatureException]. */
-        fun parse(text: String): MethodSignature = SignatureReader(text).wholeMethod(owner = null)
+        public fun parse(text: String): MethodSignature = SignatureReader(text).wholeMethod(owner = null)
 
         /** Parses `name(params)return` as a member of [owner]; throws [MalformedSignatureException]. */
-        fun parseMember(owner: VirtualType, text: String): MethodSignature = SignatureReader(text).wholeMethod(owner)
+        public fun parseMember(owner: VirtualType, text: String): MethodSignature = SignatureReader(text).wholeMethod(owner)
 
         /** The signature of a dexlib2 method reference; throws [MalformedSignatureException] for a malformed one. */
-        fun of(reference: MethodReference): MethodSignature {
+        public fun of(reference: MethodReference): MethodSignature {
             val input = "${reference.definingClass}->${reference.name}" +
                 reference.parameterTypes.joinToString("", "(", ")") + reference.returnType
             return MethodSignature(
@@ -112,7 +112,7 @@ class MethodSignature(
  * A field as dex references it: the class the reference names, the field name and its type. [toString] is the
  * smali spelling `Lpkg/Owner;->name:I`, which [parse] reads back.
  */
-data class FieldSignature(val definingClass: VirtualType, val name: String, val type: VirtualType) {
+public data class FieldSignature(val definingClass: VirtualType, val name: String, val type: VirtualType) {
     init {
         if (!isMemberName(name) || type.isVoid) {
             throw MalformedSignatureException(
@@ -123,16 +123,16 @@ data class FieldSignature(val definingClass: VirtualType, val name: String, val 
         }
     }
 
-    fun toFieldReference(): FieldReference = ImmutableFieldReference(definingClass.descriptor, name, type.descriptor)
+    internal fun toFieldReference(): FieldReference = ImmutableFieldReference(definingClass.descriptor, name, type.descriptor)
 
     override fun toString(): String = ClassIndex.fieldDescriptorOf(definingClass, name, type.descriptor)
 
-    companion object {
+    public companion object {
         /** Parses `Lpkg/Owner;->name:type`; throws [MalformedSignatureException]. */
-        fun parse(text: String): FieldSignature = SignatureReader(text).wholeField()
+        public fun parse(text: String): FieldSignature = SignatureReader(text).wholeField()
 
         /** The signature of a dexlib2 field reference; throws [MalformedSignatureException] for a malformed one. */
-        fun of(reference: FieldReference): FieldSignature {
+        public fun of(reference: FieldReference): FieldSignature {
             val input = "${reference.definingClass}->${reference.name}:${reference.type}"
             return FieldSignature(
                 referenceType(reference.definingClass, input),

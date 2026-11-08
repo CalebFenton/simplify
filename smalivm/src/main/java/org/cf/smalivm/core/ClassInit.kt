@@ -4,8 +4,8 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 /** Immutable class-initialization status supplied to a selected emulator. */
-class ClassInitStatusSnapshot internal constructor(private val classes: ClassStore) {
-    fun stateOf(type: VirtualType): ClassInitState = classes.initState(type)
+internal class ClassInitStatusSnapshot internal constructor(private val classes: ClassStore) {
+    internal fun stateOf(type: VirtualType): ClassInitState = classes.initState(type)
 
     internal fun actionFor(type: VirtualType): ClassInitAction = classes.actionFor(type)
 }

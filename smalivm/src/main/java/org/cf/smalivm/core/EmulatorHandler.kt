@@ -3,18 +3,21 @@ package org.cf.smalivm.core
 import java.util.Collections
 
 /** One emulator-only argument. Scheduler values and heap references never cross this boundary. */
-sealed interface EmulatorValue {
-    val type: VirtualType
+public sealed interface EmulatorValue {
+    /** The argument's declared type. */
+    public val type: VirtualType
 
-    data class Known(
+    /** A known argument carried as [javaValue]. */
+    public data class Known(
         override val type: VirtualType,
         val javaValue: Any?,
     ) : EmulatorValue
 
-    data class Unknown(override val type: VirtualType) : EmulatorValue
+    /** An argument whose value is not known. */
+    public data class Unknown(override val type: VirtualType) : EmulatorValue
 
     /** A heap-backed value exposing only its tracked runtime type. */
-    data class TrackedReference(override val type: VirtualType) : EmulatorValue
+    public data class TrackedReference(override val type: VirtualType) : EmulatorValue
 
 }
 
@@ -33,23 +36,25 @@ internal data class TrackedFieldEmulatorValue(
 }
 
 /** Immutable input for one emulator handler. */
-class EmulatorInvocation internal constructor(
-    val target: MethodSignature,
-    val callerClass: VirtualType,
-    val kind: InvokeKind,
-    val returnType: VirtualType,
+public class EmulatorInvocation internal constructor(
+    internal val target: MethodSignature,
+    internal val callerClass: VirtualType,
+    internal val kind: InvokeKind,
+    internal val returnType: VirtualType,
     parameterTypes: List<VirtualType>,
-    val receiver: EmulatorValue?,
+    internal val receiver: EmulatorValue?,
     arguments: List<EmulatorValue>,
-    val classInitStatus: ClassInitStatusSnapshot,
+    internal val classInitStatus: ClassInitStatusSnapshot,
 ) {
-    val parameterTypes: List<VirtualType> = Collections.unmodifiableList(parameterTypes.toList())
-    val arguments: List<EmulatorValue> = Collections.unmodifiableList(arguments.toList())
+    internal val parameterTypes: List<VirtualType> = Collections.unmodifiableList(parameterTypes.toList())
+    /** The call arguments, receiver first for instance methods. */
+    public val arguments: List<EmulatorValue> = Collections.unmodifiableList(arguments.toList())
 }
 
 /** Trusted synchronous emulator code with no scheduler or mutable VM state access. */
-fun interface EmulatorHandler {
-    fun execute(call: EmulatorInvocation): SynchronousCallResult
+public fun interface EmulatorHandler {
+    /** Runs [call] and reports its result. */
+    public fun execute(call: EmulatorInvocation): SynchronousCallResult
 }
 
 internal fun defaultEmulatorRegistrations(

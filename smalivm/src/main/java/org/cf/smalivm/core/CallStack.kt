@@ -13,11 +13,11 @@ package org.cf.smalivm.core
  * The [caller] edge is a call edge, separate from the control-flow edge [ExecutionNode.parent], so a caller's
  * handler never inherits a callee's locals.
  */
-class Activation private constructor(
+internal class Activation private constructor(
     /** Which method this activation is running. [ExecutionNode.view] reads it from here. */
-    val view: MethodView,
+    internal val view: MethodView,
     /** The activation that called this one; null for the run's own entry activation. */
-    val caller: Activation?,
+    internal val caller: Activation?,
     /** Where the caller continues when this activation returns; null for the entry activation. */
     internal val returnSite: ReturnSite?,
     /**
@@ -41,10 +41,10 @@ class Activation private constructor(
     ) : this(view, caller, returnSite, classInitContext, CallCompletion(), constructing)
 
     /** Frames deep this activation sits, 0-based: 0 for the entry activation, as [ExecutionNode.callDepth]. */
-    val depth: Int = caller?.depth?.plus(1) ?: 0
+    internal val depth: Int = caller?.depth?.plus(1) ?: 0
 
     /** How many frames the call stack holds at this activation, 1-based; [Limits.maxCallDepth] bounds this. */
-    val frameCount: Int get() = depth + 1
+    internal val frameCount: Int get() = depth + 1
 
     /**
      * Every node this activation ever dequeued, by address. A caller's address and a callee's address are
@@ -121,7 +121,7 @@ class Activation private constructor(
 
     override fun toString(): String = "Activation(${view.signature}, depth=$depth)"
 
-    companion object {
+    internal companion object {
         /** The run's outermost activation: no caller, and each of its ended paths is one of [outcomes]. */
         internal fun entry(view: MethodView, outcomes: RunOutcomes, constructing: HeapRef? = null): Activation =
             Activation(view, caller = null, returnSite = null, classInitContext = null, sink = outcomes, constructing)
@@ -270,7 +270,7 @@ internal class ReturnSite(
  * ancestry, because depth cannot distinguish sibling or recursive activations. An immutable snapshot built when
  * asked for, so an observer never perturbs the run it measures.
  */
-class CallStack internal constructor(
+internal class CallStack internal constructor(
     /** Innermost activation first, the run's entry activation last. Never empty. */
     val frames: List<Activation>,
 ) {

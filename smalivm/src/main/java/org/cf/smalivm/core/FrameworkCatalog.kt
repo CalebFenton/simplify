@@ -11,7 +11,7 @@ import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
  * Immutable bundled-framework meaning. Class and method definitions materialize lazily, once per catalog and under
  * its lock, so sessions on different threads share one definition, and one [FrameworkMethodIdentity], per method.
  */
-class FrameworkCatalog private constructor(
+public class FrameworkCatalog private constructor(
     internal val artifact: FrameworkArtifact,
 ) {
     private sealed interface MaterializedClass {
@@ -22,13 +22,11 @@ class FrameworkCatalog private constructor(
     private val materializedClasses = HashMap<String, MaterializedClass>()
     private val materializedMethods = HashMap<String, FrameworkMethodDefinition?>()
 
-    val classCount: Int get() = artifact.classes.size
-
-    val dynamicLoadingEvidence: DynamicLoadingEvidence = DynamicLoadingEvidence.ofAll(
+    internal val dynamicLoadingEvidence: DynamicLoadingEvidence = DynamicLoadingEvidence.ofAll(
         artifact.classes.values.flatMap(FrameworkClassArtifact::dynamicLoadingMethods),
     )
 
-    fun method(signature: MethodSignature): FrameworkMethodDefinition? =
+    internal fun method(signature: MethodSignature): FrameworkMethodDefinition? =
         declaredMethod(signature.definingClass.descriptor, signature.nameAndProto)
 
     @Synchronized
@@ -46,7 +44,7 @@ class FrameworkCatalog private constructor(
 
     /** Immutable framework source for consumer disassembly; materialized once per catalog. */
     @Synchronized
-    fun classDefinition(type: String): ImmutableClassDef? {
+    public fun classDefinition(type: String): ImmutableClassDef? {
         when (val cached = materializedClasses[type]) {
             is MaterializedClass.Loaded -> return cached.definition
             is MaterializedClass.Failed -> throw cached.failure

@@ -12,7 +12,7 @@ import java.util.SortedMap
 import java.util.SortedSet
 
 /** Exact result of comparing two detached Java identity graphs. */
-sealed interface HostGraphComparison {
+internal sealed interface HostGraphComparison {
     data object Equal : HostGraphComparison
     data object Different : HostGraphComparison
 
