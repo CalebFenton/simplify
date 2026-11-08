@@ -916,8 +916,8 @@ class ExecutionSession internal constructor(
     private inline fun planContained(node: ExecutionNode, body: () -> Committable): Committable =
         hostBoundary({ hostFailureArm(node, it) }, body)
 
-    private fun hostFailureArm(node: ExecutionNode, failure: Throwable, frame: Frame = node.frame): Committable =
-        Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(frame, hostFailureOutcome(failure))))
+    private fun hostFailureArm(node: ExecutionNode, failure: Throwable): Committable =
+        Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(node.frame, hostFailureOutcome(failure))))
 
     /** Raises [node]'s own effect, and its activation chain's declared effect, to at least [level]. */
     private fun raiseEffect(node: ExecutionNode, level: SideEffectLevel) {
@@ -1038,7 +1038,6 @@ class ExecutionSession internal constructor(
         val resolution = when (val result = resolveHandlers(throwAddress, path.subject, node.view, hierarchy)) {
             is HandlerResolution.Routed -> result
             HandlerResolution.MalformedMetadata -> return abortedTransition(path.frame, AbortReason.MALFORMED_INPUT)
-            is HandlerResolution.HostFailure -> return hostFailureArm(node, result.failure, path.frame)
         }
         return Committable(
             successors = resolution.routes.map { route ->
