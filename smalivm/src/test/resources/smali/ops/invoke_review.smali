@@ -227,3 +227,16 @@
     invoke-direct {v0}, Linvoke_abort_ctor;-><init>()V
     return-object v1
 .end method
+
+# Catches the outer constructor's throw and returns the receiver it failed to construct.
+.method public static leakFailedConstruction()Linvoke_ctor_outer;
+    .locals 1
+    new-instance v0, Linvoke_ctor_outer;
+    :try_start
+    invoke-direct {v0}, Linvoke_ctor_outer;-><init>()V
+    :try_end
+    .catchall {:try_start .. :try_end} :handler
+    return-object v0
+    :handler
+    return-object v0
+.end method

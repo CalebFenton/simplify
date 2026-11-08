@@ -203,6 +203,22 @@ class InvokeReviewTest {
         assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
+    /**
+     * The outer constructor's guest super.<init> returns, its own base Object.<init> included, and then the outer
+     * constructor throws. Construction never completed (JLS 12.5: an object is initialized when its constructor
+     * completes normally), so the leaked receiver stays uninitialized whatever the inner calls returned.
+     */
+    @Test
+    fun aSuperConstructorReturningInsideAThrowingOuterConstructorDoesNotCompleteTheReceiver() {
+        val graph = CoreTester.execute(REVIEW, "leakFailedConstruction()Linvoke_ctor_outer;")
+        val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
+        val receiver = graph.explored.terminatingHeapObject(returned.raw as HeapRef).agreed() as HeapObject.TrackedObject
+
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(VirtualType.of("Linvoke_ctor_outer;"), receiver.type)
+        assertTrue(receiver.uninitialized, "only the outer constructor's normal completion initializes its receiver")
+    }
+
     @Test
     fun ambiguousDispatchCandidatesAreOrderedCopiedAndImmutable() {
         val lookup = CoreTester.classIndex.currentResolver().resolveInvocation(

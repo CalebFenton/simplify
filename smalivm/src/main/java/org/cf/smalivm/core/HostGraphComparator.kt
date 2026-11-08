@@ -2,7 +2,7 @@ package org.cf.smalivm.core
 
 import java.lang.reflect.Array as ReflectArray
 import java.lang.reflect.Field
-import java.lang.reflect.Method
+import java.lang.reflect.Executable
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.util.Deque
@@ -119,10 +119,7 @@ internal class HostGraphComparator {
 
             return when {
                 left.javaClass.isArray -> visitArray(left, right)
-                left is Method -> {
-                    right as Method
-                    exact(left == right && left.isAccessible == right.isAccessible)
-                }
+                left is Executable -> exact(left == right && left.isAccessible == (right as Executable).isAccessible)
                 left is StringBuilder -> compareCharacterSequence(left, right as StringBuilder)
                 left is StringBuffer -> compareCharacterSequence(left, right as StringBuffer)
                 left is Map.Entry<*, *> -> {

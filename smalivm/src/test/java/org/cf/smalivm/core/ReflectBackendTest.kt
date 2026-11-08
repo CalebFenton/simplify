@@ -453,6 +453,38 @@ class ReflectBackendTest {
         }
     }
 
+    /**
+     * `Constructor.newInstance` runs the reflected constructor, so it returns a new instance and its effect is that
+     * constructor's effect. A path-local copy of the guest's `Constructor` must stay a working constructor.
+     */
+    @Test
+    fun aReflectiveConstructionTakesItsEffectFromTheReflectedConstructor() {
+        val constructorType = type("Ljava/lang/reflect/Constructor;")
+        val newInstance = method(constructorType, "newInstance", "([Ljava/lang/Object;)Ljava/lang/Object;")
+        val pureConstructor = method("Ljava/lang/StringBuilder;", "<init>", "()V")
+        val vm = VmServices(
+            classIndex,
+            ReflectionPolicy(
+                exactSafeMethods = setOf(newInstance, pureConstructor),
+                methodEffects = mapOf(newInstance to SideEffectLevel.STRONG, pureConstructor to SideEffectLevel.NONE),
+            ),
+        )
+        val frame = Frame.entryFrame(callerView())
+        val hostConstructor = StringBuilder::class.java.getConstructor()
+        frame.assign(0, Value.Known(frame.heap.allocateHostObject(constructorType, hostConstructor), constructorType))
+        frame.assign(1, Value.Known(null, type("[Ljava/lang/Object;")))
+
+        val session = invoke(vm, newInstance, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1))
+        val graph = session.run()
+
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        val outcome = graph.outcomes.single()
+        assertTrue(outcome is Outcome.Returned, "newInstance of a public no-argument constructor returns: $outcome")
+        val returned = outcome.returnedValue() as Value.Known
+        assertTrue(session.currentNode!!.terminalFrame!!.heap.hostObjectAt(returned.raw as HeapRef) is StringBuilder)
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
+    }
+
     @Test
     fun exactUnsafeClassInitializerBlocksStaticAndConstructorBeforeHostClassResolution() {
         ReflectionExternalSentinel.reset()

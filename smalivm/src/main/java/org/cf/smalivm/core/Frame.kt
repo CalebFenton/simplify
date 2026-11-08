@@ -6,6 +6,7 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
+import java.util.IdentityHashMap
 
 internal data class CallCompatibilityKey(
     val classInit: ClassInitCompatibilityKey,
@@ -242,6 +243,48 @@ class Frame private constructor(
 
     internal fun admitReturnedHostArray(raw: Any, type: VirtualType): Value.Known =
         Value.Known(heap.importReturnedArray(raw), type)
+
+    /** A host value no selected call produced, such as a framework static, as a guest value on this path. */
+    internal fun importHostValue(value: HostValue): Value.Known = when (value) {
+        is HostValue.Primitive -> Value.Known(value.value, value.type)
+        is HostValue.TypedNull -> Value.Known(null, value.type)
+        is HostValue.Reference -> {
+            val raw = value.value
+            requireHostOwned(raw)
+            when {
+                raw is Throwable -> importHostThrowable(HostThrowable(value.type, raw))
+                raw.isDirectHostImmutable() -> Value.Known(raw, value.type)
+                raw.javaClass.isArray -> admitReturnedHostArray(raw, value.type)
+                else -> admitReturnedHostValue(raw, value.type)
+            }
+        }
+    }
+
+    /**
+     * Imports one host throwable graph, cause chain included, preserving identity, aliases, and cycles. Each object
+     * keeps the ref [selectedRef] maps it to, then the ref this heap already tracks it at, else gets a new one.
+     */
+    internal fun importHostThrowable(
+        throwable: HostThrowable,
+        selectedRef: (Throwable, VirtualType) -> HeapRef? = { _, _ -> null },
+    ): Value.Known {
+        val imported = IdentityHashMap<Throwable, HeapRef>()
+
+        fun importOne(raw: Throwable, type: VirtualType): Value.Known {
+            imported[raw]?.let { return Value.Known(it, type) }
+            val ref = selectedRef(raw, type)
+                ?: heap.findHostObject(raw)
+                ?: heap.hostNodeId(raw)?.let { heap.importHostNode(it, type, raw) }
+                ?: allocateThrowable(type, raw).raw as HeapRef
+            imported[raw] = ref
+            val cause = raw.cause?.let { importOne(it, virtualTypeOfHostClass(it.javaClass)) }
+                ?: Value.Known(null, GuestThrowables.THROWABLE)
+            heap.setThrowableCause(ref, cause)
+            return Value.Known(ref, type)
+        }
+
+        return importOne(throwable.throwable, virtualTypeOfHostClass(throwable.throwable.javaClass))
+    }
 
     internal fun throwableCause(ref: HeapRef): Value =
         (heap.objectAt(ref) as? HeapObject.GuestThrowable)?.cause

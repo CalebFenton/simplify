@@ -6,7 +6,14 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import com.android.tools.smali.dexlib2.Opcodes
+import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
+import com.android.tools.smali.dexlib2.writer.io.FileDataStore
+import org.cf.smalivm.dex.SmaliParser
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.lang.reflect.Modifier
+import java.nio.file.Path
 
 /**
  * Bug classes (audit + spec §7): (a) a guest throwable rebuilt from (class, message) and a
@@ -578,5 +585,88 @@ class ThrowRoutingTest {
         val graph = vmServices.newSession(view, Limits(), frame).run()
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)
         assertFalse(graph.wasReached(1), "the well-formed handler must not have been committed either")
+    }
+
+    /**
+     * A dex can name any string as a type. Here a catch type declares the interface `Lhostile.bad;`, which no
+     * type descriptor can spell, so the class model fails while deciding whether that handler catches the throw.
+     * Handler lookup turns the failure into a host-failure abort of the throwing path alone, both for a local
+     * throw and for a callee's throw routed through the caller's handlers; the sibling path still returns 7.
+     */
+    @Test
+    fun aCatchTypeTheClassModelCannotDescribeAbortsOnlyTheThrowingPath(@TempDir root: Path) {
+        val index = hostileCatchTypeIndex(root)
+        for (method in listOf("local(I)I", "caller(I)I")) {
+            val graph = VmServices(index).newSession(index.requireMethodView("Lhostile/Thrower;", method)).run()
+
+            assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion(), method)
+            val returned = graph.outcomes.filterIsInstance<Outcome.Returned>()
+            assertEquals(listOf(Outcome.Returned(Value.Known(7, int))), returned, method)
+            val abort = graph.outcomes.filterIsInstance<Outcome.Aborted>().single()
+            assertEquals(AbortReason.HOST_FAILURE, abort.reason, method)
+            assertTrue(abort.cause is IllegalArgumentException && "Lhostile.bad;" in abort.cause!!.message!!, method)
+        }
+    }
+
+    private fun hostileCatchTypeIndex(root: Path): ClassIndex {
+        val builder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
+        SmaliParser.parse("Thrower.smali", HOSTILE_THROWER.trimIndent().byteInputStream(), builder)
+        builder.internClassDef(
+            "Lhostile/Catch;",
+            Modifier.PUBLIC,
+            "Ljava/lang/RuntimeException;",
+            listOf("Lhostile.bad;"),
+            null,
+            emptySet(),
+            emptyList(),
+            emptyList(),
+        )
+        val dex = root.resolve("hostile.dex").toFile()
+        builder.writeTo(FileDataStore(dex))
+        return ClassIndex.open(dex)
+    }
+
+    private companion object {
+        const val HOSTILE_THROWER = """
+            .class public Lhostile/Thrower;
+            .super Ljava/lang/Object;
+
+            .method public static local(I)I
+                .locals 1
+                if-eqz p0, :normal
+                const/4 v0, 0x0
+                :try_start
+                throw v0
+                :try_end
+                .catch Lhostile/Catch; {:try_start .. :try_end} :handler
+                :normal
+                const/4 v0, 0x7
+                return v0
+                :handler
+                const/4 v0, 0x1
+                return v0
+            .end method
+
+            .method public static fails()V
+                .locals 1
+                const/4 v0, 0x0
+                throw v0
+            .end method
+
+            .method public static caller(I)I
+                .locals 1
+                if-eqz p0, :normal
+                :try_start
+                invoke-static {}, Lhostile/Thrower;->fails()V
+                :try_end
+                .catch Lhostile/Catch; {:try_start .. :try_end} :handler
+                :normal
+                const/4 v0, 0x7
+                return v0
+                :handler
+                const/4 v0, 0x1
+                return v0
+            .end method
+        """
     }
 }

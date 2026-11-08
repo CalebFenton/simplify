@@ -157,6 +157,34 @@ class Invoker internal constructor(
 internal fun receiverIsNull(kind: InvokeKind, receiver: Value?): Boolean =
     kind != InvokeKind.STATIC && receiver?.readsAsNullReference == true
 
+/** The runtime type dispatch selects by: the tracked receiver object's type, or null for a static call. */
+internal fun receiverRuntimeType(kind: InvokeKind, receiver: Value?, frame: Frame): VirtualType? =
+    if (kind == InvokeKind.STATIC) null
+    else ((receiver as? Value.Known)?.raw as? HeapRef)?.let { frame.heapObject(it)?.type }
+
+/**
+ * What a linked method that cannot be invoked throws after the receiver null check (ART's
+ * `ThrowInvocationTimeError`), or null when the call proceeds.
+ */
+internal fun InvocationPreparation.Ready.invocationTimeError(receiverType: VirtualType?): ThrowableRecipe? =
+    when (lookup) {
+        is MethodLookup.DefaultConflict -> GuestThrowables.conflictingDefaultMethods(invocation.target)
+        is MethodLookup.AbstractSelection -> GuestThrowables.abstractMethod(lookup.method.target, receiverType)
+        else -> null
+    }
+
+/** The values an opaque call can reach: the receiver, then the arguments. */
+internal fun PreparedInvocation.opaqueArguments(): List<Value> = listOfNotNull(receiver) + arguments
+
+internal fun PreparedInvocation.opaqueArgumentTypes(): List<VirtualType> =
+    (if (receiver == null) emptyList() else listOf(target.definingClass)) + parameterTypes
+
+/** The declared type of each of [valueCount] register words of a call site whose target never bound. */
+internal fun OpArm.Invoke.opaqueArgumentTypes(valueCount: Int): List<VirtualType> {
+    val words = target.argumentWords(kind)
+    return List(valueCount) { word -> words.typeAt(word) ?: VirtualType.OBJECT }
+}
+
 /** Pure result of invocation resolution and logical binding. */
 sealed interface InvocationPreparation {
     class Ready internal constructor(
