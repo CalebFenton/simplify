@@ -23,7 +23,10 @@ class ProgramSnapshot private constructor(
 
     fun applicationClass(type: String): ApplicationClassDefinition? = applicationClasses[type]
 
-    /** Full signatures of concrete application methods, in deterministic lexical order. */
+    /**
+     * Full signatures of application methods with a body, in deterministic lexical order. Verifier-rejected code
+     * has no body.
+     */
     fun concreteApplicationMethodSignatures(): List<String> = concreteApplicationMethodSignatures
 
     internal fun applicationMethod(methodSignature: String): ApplicationMethodDefinition? {

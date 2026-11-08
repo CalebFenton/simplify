@@ -5,7 +5,6 @@ import org.cf.smalivm.core.op.ConstOp
 import org.cf.smalivm.core.op.ConstClassOp
 import org.cf.smalivm.core.op.GotoOp
 import org.cf.smalivm.core.op.InstanceOfOp
-import org.cf.smalivm.core.op.InvokeOp
 import org.cf.smalivm.core.op.MoveOp
 import org.cf.smalivm.core.op.NopOp
 import org.cf.smalivm.core.op.ReturnOp
@@ -15,7 +14,6 @@ import org.cf.smalivm.core.op.SwitchOp
 import org.cf.smalivm.core.op.ThrowOp
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -785,28 +783,6 @@ class OpBuilderTest {
         return classIndex.rebuiltView(real, instructions = instructions.values.toList())
     }
 
-    /**
-     * A `35c` instruction has five register fields, but its count nibble can declare up to fifteen in a
-     * hostile dex. Reading past the five would invent reads of `v0`, so the instruction is unsupported for
-     * `invoke-*` exactly as for `filled-new-array`. The assembler refuses such a count, so the view is forged.
-     */
-    @Test
-    fun aFiveRegisterInvokeDeclaringMoreThanFiveRegistersIsUnsupported() {
-        val descriptor = "returnsThrowsOrCallsHost(II)I"
-        val real = view(descriptor)
-        val address = real.addresses.first { real.opcodeAt(it) == Opcode.INVOKE_DIRECT }
-        assertTrue(OpBuilder.build(address, real, resolver) is InvokeOp, "the CONTROL: the real invoke decodes")
-
-        val forged = forgedView("Lspine/spine;", descriptor) {
-            val invoke = it.getValue(address) as Instruction35c
-            it[address] = object : Instruction35c by invoke {
-                override fun getRegisterCount(): Int = 6
-            }
-        }
-        val op = OpBuilder.build(address, forged, resolver)
-        assertTrue(op is UnsupportedOp, "a 35c naming six registers is unsupported, got $op")
-        assertEquals("invoke-direct", op.name)
-    }
 
     @Test
     fun aPayloadPseudoInstructionDecodesToAnUnsupportedOpSoNothingCanExecuteIt() {

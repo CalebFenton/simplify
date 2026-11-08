@@ -56,7 +56,8 @@ class ProgramDexWriter {
                     declaration.accessFlags,
                     declaration.annotations,
                     declaration.hiddenApiRestrictions,
-                    method.body?.let { reboundImplementation(builder, it) },
+                    (method.body?.implementation ?: method.rejectedCode?.implementation)
+                        ?.let { reboundImplementation(builder, it) },
                 )
             }
             builder.internClassDef(
@@ -174,8 +175,7 @@ class ProgramDexWriter {
         }
     }
 
-    private fun reboundImplementation(builder: DexBuilder, body: MethodBody): MethodImplementation {
-        val source = body.implementation
+    private fun reboundImplementation(builder: DexBuilder, source: MethodImplementation): MethodImplementation {
         val instructions = source.instructions.map { instruction -> reboundInstruction(builder, instruction) }
         val tryBlocks = source.tryBlocks.map { tryBlock -> reboundTryBlock(builder, tryBlock) }
         return object : MethodImplementation {
@@ -262,7 +262,12 @@ class ProgramDexWriter {
 
     private fun reboundInstruction(builder: DexBuilder, instruction: Instruction): Instruction {
         val references = instruction.referenceOperands()
-        return if (references.isEmpty()) instruction else instruction.withReferences(references.map(builder::internReference))
+        if (references.isEmpty()) return instruction
+        val rebound = references.map(builder::internReference)
+        return when (instruction) {
+            is OverCountInstruction -> instruction.rebound(rebound)
+            else -> instruction.withReferences(rebound)
+        }
     }
 
     private fun reboundDebugItem(builder: DexBuilder, item: DebugItem): DebugItem = when (item) {
