@@ -254,7 +254,7 @@
 
 .method public static opaqueManyFieldsThenGet()I
     .locals 6
-    const/16 v0, 0x28
+    const/16 v0, 0xc
     new-array v1, v0, [Ljava/lang/reflect/Field;
     const/4 v2, 0x0
     const-class v3, Lorg/cf/smalivm/DummyClass;

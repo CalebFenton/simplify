@@ -1,12 +1,10 @@
 package org.cf.smalivm.core
 
-import java.time.Duration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertTimeoutPreemptively
 
 /** Op-arm ownership of frames and fresh throwables, and footprint-scoped reconciliation. */
 class OpArmStateTest {
@@ -92,25 +90,20 @@ class OpArmStateTest {
     @Test
     fun forkReconciliationCostFollowsNamedCellsNotStateSize() {
         // Bug class: reconciling a fork joins the whole written array, or the whole frame state, instead of the
-        // cells the arms' updates name. Oracle: each fork writes one cell of a 2^20-element array, so joining that
-        // array visits 2 * 2^20 cells per fork and 2,000 forks take far beyond the bound; named-cell
-        // reconciliation visits four cells per fork. The value checks catch a footprint that drops a named cell.
-        val (view, frame, ref) = largeForkFrame()
-        val arrayRef = frame.allocateArray(INT_ARRAY, MAX_TRACKED_ARRAY_LENGTH).raw as HeapRef
-        val fork = namedCellFork(ref, arrayRef)
+        // cells the arms' updates name. Oracle: both frames hold the same written object, and the large one adds
+        // a 2^20-element written array, 10,000 registers, and 60,000 unrelated objects, arrays and statics.
+        // Named-cell reconciliation joins the same four cells in both, so a fork costs about the same; joining the
+        // written array alone visits 2^20 cells per fork. The value checks catch a footprint that drops a named cell.
+        val small = forkFrame(registers = 16, unrelated = 0, arrayLength = 1)
+        val large = forkFrame(registers = 10_000, unrelated = 20_000, arrayLength = MAX_TRACKED_ARRAY_LENGTH)
 
-        val source = assertTimeoutPreemptively(Duration.ofSeconds(30)) {
-            lateinit var last: ExecutionNode
-            repeat(2_000) {
-                val session = CoreTester.vmServices.newSession(view, Limits(), frame) { address, current, resolver ->
-                    if (address == 0) fork else OpBuilder.build(address, current, resolver)
-                }
-                last = session.step()!!
-            }
-            last
+        assertCostRatio(4.0, { List(FORKS) { forkSession(small) } }, { List(FORKS) { forkSession(large) } }) { sessions ->
+            sessions.forEach { it.step() }
         }
 
-        assertEquals(Value.Unknown(INT), source.frame.getField(ref, "field0:I"))
+        val source = forkSession(large).step()!!
+        val arrayRef = large.arrayRef!!
+        assertEquals(Value.Unknown(INT), source.frame.getField(large.objectRef, "field0:I"))
         assertEquals(Value.Unknown(INT), source.frame.getStaticField(OWNER, NAMED_STATIC))
         assertEquals(Value.Unknown(INT), source.frame.heap.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Known(0, INT), source.frame.heap.arrayAt(arrayRef)!!.element(1))
@@ -178,7 +171,7 @@ class OpArmStateTest {
 
     @Test
     fun objectAndStaticReconciliationJoinOnlyNamedCells() {
-        val (view, frame, ref) = largeForkFrame()
+        val (view, frame, ref) = forkFrame()
         val session = CoreTester.vmServices.newSession(view, Limits(), frame) { address, current, resolver ->
             if (address == 0) namedCellFork(ref, arrayRef = null) else OpBuilder.build(address, current, resolver)
         }
@@ -235,22 +228,32 @@ class OpArmStateTest {
     private fun guestThrowables(frame: Frame): List<HeapRef> =
         heapRefsOf(frame).filter { frame.heapObject(it) is HeapObject.GuestThrowable }
 
-    private data class LargeForkFrame(val view: MethodView, val frame: Frame, val objectRef: HeapRef)
+    private data class ForkFrame(val view: MethodView, val frame: Frame, val objectRef: HeapRef, val arrayRef: HeapRef?)
 
-    private fun largeForkFrame(): LargeForkFrame {
-        val view = CoreTester.classIndex.rebuiltView(view("Lspine/spine;", "returnWide()J"), registerCount = 10_000)
+    /** A frame holding one 1,000-field object, [unrelated] unrelated cells of each kind and an optional int array. */
+    private fun forkFrame(registers: Int = 10_000, unrelated: Int = 1_000, arrayLength: Int? = null): ForkFrame {
+        val view = CoreTester.classIndex.rebuiltView(view("Lspine/spine;", "returnWide()J"), registerCount = registers)
         val fields = (0 until 1_000).associate { "field$it:I" to Value.Known(it, INT) }
         val frame = Frame.entryFrame(view).also { large ->
-            repeat(10_000) { large.assign(it, Value.Known(it, INT)) }
+            repeat(registers) { large.assign(it, Value.Known(it, INT)) }
         }
         val ref = frame.allocateObject(OWNER, fields).raw as HeapRef
-        repeat(1_000) {
+        repeat(unrelated) {
             frame.allocateArray(INT_ARRAY, 8)
             frame.allocateObject(OWNER, mapOf("unrelated:I" to Value.Known(it, INT)))
             frame.classes.setStaticField("Lspine/spine;->unrelated$it:I", Value.Known(it, INT))
         }
         frame.classes.setStaticField(NAMED_STATIC, Value.Known(1, INT))
-        return LargeForkFrame(view, frame, ref)
+        val arrayRef = arrayLength?.let { frame.allocateArray(INT_ARRAY, it).raw as HeapRef }
+        return ForkFrame(view, frame, ref, arrayRef)
+    }
+
+    /** A session whose entry op is [namedCellFork] over [fork]'s object and array. */
+    private fun forkSession(fork: ForkFrame): ExecutionSession {
+        val op = namedCellFork(fork.objectRef, fork.arrayRef)
+        return CoreTester.vmServices.newSession(fork.view, Limits(), fork.frame) { address, current, resolver ->
+            if (address == 0) op else OpBuilder.build(address, current, resolver)
+        }
     }
 
     /** A two-arm op whose normal arm writes one field, one static and optionally one array cell. */
@@ -279,5 +282,6 @@ class OpArmStateTest {
         val STRING = VirtualType.of("Ljava/lang/String;")
         val OWNER = VirtualType.of("Lspine/spine;")
         const val NAMED_STATIC = "Lspine/spine;->named:I"
+        const val FORKS = 100
     }
 }

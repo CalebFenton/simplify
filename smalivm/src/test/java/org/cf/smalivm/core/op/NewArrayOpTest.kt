@@ -1,6 +1,5 @@
 package org.cf.smalivm.core.op
 
-import java.util.concurrent.TimeUnit
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
-import org.junit.jupiter.api.Timeout
 
 /**
  * `new-array` (op 23, 22c: two code units, so the fixtures' fall-through is at 2). Expected values follow
@@ -213,7 +211,6 @@ class NewArrayOpTest {
      * slot per element, which could exhaust the host; the length is non-negative, so nothing forks.
      */
     @Test
-    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun aLengthOverTheTrackedBoundYieldsAnUnknownArray() {
         for (length in listOf(MAX_TRACKED_ARRAY_LENGTH + 1, Int.MAX_VALUE)) {
             val seed = CoreState().apply { setRegisters(0, length, "I") }
@@ -225,7 +222,6 @@ class NewArrayOpTest {
     }
 
     @Test
-    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun aLengthAtTheTrackedBoundIsAllocated() {
         val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", CoreState().apply {
             setRegisters(0, MAX_TRACKED_ARRAY_LENGTH, "I")

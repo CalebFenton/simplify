@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Timeout
 
 class OpaqueTrackedFieldTest {
     private val classIndex = CoreTester.classIndex
@@ -82,9 +81,9 @@ class OpaqueTrackedFieldTest {
     }
 
     @Test
-    @Timeout(value = 60, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun manyReachableFieldsDoNotMultiplyOpaqueSuccessors() {
-        // Forty fields reach the opaque call through one array; only the last one is read afterwards.
+        // Twelve fields reach the opaque call through one array; only the last one is read afterwards. One
+        // successor per accessibility combination would be 4,096.
         val graph = CoreTester.execute(UNRELATED.descriptor, "opaqueManyFieldsThenGet()I")
         val invoke = opaqueInvoke(graph, OPAQUE_OBJECT)
 

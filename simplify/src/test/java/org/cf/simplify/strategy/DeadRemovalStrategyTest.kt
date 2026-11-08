@@ -15,6 +15,7 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.cf.simplify.assertCostRatio
 import org.cf.simplify.methodView
 import org.cf.simplify.optimize
 
@@ -253,34 +254,53 @@ class DeadRemovalStrategyTest {
         assertEquals(7, returned(services, "LScale;->run()I", 0).raw)
     }
 
-    @Test fun livenessOverAMaximumSizeLoopWithThousandsOfLiveRegistersFinishesPromptly() {
+    @Test fun livenessOverALoopWithThousandsOfLiveRegistersIsQuadraticInMethodSize() {
         // Every loop move reads a distinct register, so each loop position carries all of them live, and the
         // initializing prologue produces one distinct shrinking set per instruction: quadratic in method size.
-        val registers = 10_900
-        val root = temporaryDirectory.resolve("worst")
-        Files.createDirectories(root)
-        val smali = buildString {
-            append(".class public LWorst;\n.super Ljava/lang/Object;\n.method public static run()I\n.registers ${registers + 2}\n")
-            append("const/4 v0, 0x0\nconst/4 v1, 0x1\n")
-            for (register in 2..registers + 1) append("move/16 v$register, v0\n")
-            append(":top\n")
-            for (register in 2..registers + 1) append("move/16 v0, v$register\n")
-            append("if-eqz v1, :exit\nconst/4 v1, 0x0\ngoto/32 :top\n:exit\nreturn v0\n.end method\n")
-        }
-        Files.writeString(root.resolve("Worst.smali"), smali)
-        val services = services(root.toString())
+        // Four times the registers costs liveness about 16 times as much. A worklist that moves liveness back one
+        // instruction per pass is cubic and costs about 64 times as much.
+        val small = WorstCaseLoop(LIVENESS_REGISTERS)
+        val large = WorstCaseLoop(4 * LIVENESS_REGISTERS)
         val strategy = DeadRemovalStrategy()
-        var performNanos = 0L
-        val timed = OptimizationStrategy { input ->
-            val start = System.nanoTime()
-            strategy.perform(input)
-            performNanos += System.nanoTime() - start
+
+        assertCostRatio(32.0, { small.input() }, { large.input() }) { input ->
+            try {
+                strategy.perform(input)
+            } finally {
+                input.transaction.discard()
+            }
         }
-        Optimizer(services, LIMITS, 1, listOf(timed)).optimize("LWorst;->run()I")
-        val edited = view(services, "LWorst;->run()I")
-        assertEquals(registers + 1, count(edited, Opcode.MOVE_16))
-        assertEquals(0, returned(services, "LWorst;->run()I", 0).raw)
-        assertTrue(performNanos < 30_000_000_000L, "liveness took ${performNanos / 1_000_000} ms")
+
+        // The largest such loop a method holds still optimizes and keeps its value.
+        val registers = 10_900
+        val worst = WorstCaseLoop(registers)
+        Optimizer(worst.services, LIMITS, 1, listOf(strategy)).optimize(WORST)
+        assertEquals(registers + 1, count(view(worst.services, WORST), Opcode.MOVE_16))
+        assertEquals(0, returned(worst.services, WORST, 0).raw)
+    }
+
+    /** A method whose loop reads each of [registers] registers once per lap, after a prologue that sets them all. */
+    private inner class WorstCaseLoop(registers: Int) {
+        val services: VmServices
+        private val trusted: TrustedGraphView by lazy { requireNotNull(execute(services, WORST).trusted()) }
+
+        init {
+            val root = temporaryDirectory.resolve("worst$registers")
+            Files.createDirectories(root)
+            val smali = buildString {
+                append(".class public LWorst;\n.super Ljava/lang/Object;\n.method public static run()I\n.registers ${registers + 2}\n")
+                append("const/4 v0, 0x0\nconst/4 v1, 0x1\n")
+                for (register in 2..registers + 1) append("move/16 v$register, v0\n")
+                append(":top\n")
+                for (register in 2..registers + 1) append("move/16 v0, v$register\n")
+                append("if-eqz v1, :exit\nconst/4 v1, 0x0\ngoto/32 :top\n:exit\nreturn v0\n.end method\n")
+            }
+            Files.writeString(root.resolve("Worst.smali"), smali)
+            services = services(root.toString())
+        }
+
+        /** A fresh edit of the analysed method; the caller discards it. */
+        fun input() = StrategyInput(trusted, services.methodEditor.beginEdit(trusted))
     }
 
     private data class UnusedResult(val name: String, val call: Opcode, val result: Opcode, val expected: Any)
@@ -319,5 +339,7 @@ class DeadRemovalStrategyTest {
         private const val OWNER = "Ldeadcode/DeadCode;->"
         private const val GUARDS = "LDeadRemovalGuards;->"
         private val LIMITS = Limits(500, 1_000_000, 0, 20)
+        private const val WORST = "LWorst;->run()I"
+        private const val LIVENESS_REGISTERS = 300
     }
 }

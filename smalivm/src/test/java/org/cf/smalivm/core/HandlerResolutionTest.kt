@@ -5,7 +5,6 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
-import java.time.Duration
 import kotlinx.collections.immutable.persistentSetOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.assertTimeoutPreemptively
 
 /** Independent EX-03 first-match, EX-04 range, EX-13 metadata, EX-14 uncertainty, and cost checks. */
 class HandlerResolutionTest {
@@ -312,19 +310,22 @@ class HandlerResolutionTest {
     fun `adversarial missing tables route every clause in near linear time`() {
         // Bug class: each missing catch type re-walks or copies the residual's excluded roots, which is
         // quadratic in the clause count. Oracle: every missing type may match, so each clause routes and the
-        // residual stays unhandled. 100,000 clauses finish within the bound only when per-clause work is
-        // logarithmic; a quadratic walk visits about 5 * 10^9 roots.
+        // residual stays unhandled. Logarithmic per-clause work costs about eight times as much for eight times
+        // the clauses; walking every earlier excluded root costs about sixty-four times as much.
         for (handlerCount in listOf(1, 8, 64, 512, 2048)) {
             val resolution = resolve(symbolic(ThrowableDomain.any()), *missingCatches(handlerCount))
 
             assertEquals((100 until 100 + handlerCount).toList(), resolution.routes.map { it.handlerAddress })
             assertTrue(resolution.unhandled != null, "H=$handlerCount")
         }
-        val large = missingCatches(100_000)
-        val resolution = assertTimeoutPreemptively(Duration.ofSeconds(20)) {
-            resolve(symbolic(ThrowableDomain.any()), *large)
-        }
-        assertEquals(large.size, resolution.routes.size)
+        val subject = symbolic(ThrowableDomain.any())
+        val small = view(listOf(block(*missingCatches(COST_CLAUSES))))
+        val large = view(listOf(block(*missingCatches(8 * COST_CLAUSES))))
+
+        assertCostRatio(24.0, { small }, { large }) { routed(resolveHandlers(5, subject, it, hierarchy)) }
+
+        val resolution = routed(resolveHandlers(5, subject, large, hierarchy))
+        assertEquals(8 * COST_CLAUSES, resolution.routes.size)
         assertTrue(resolution.unhandled != null)
     }
 
@@ -418,4 +419,8 @@ class HandlerResolutionTest {
     )
 
     private fun type(descriptor: String): VirtualType = VirtualType.of(descriptor)
+
+    private companion object {
+        const val COST_CLAUSES = 2_000
+    }
 }
