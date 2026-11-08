@@ -72,7 +72,7 @@ object ConstantBuilder {
         }
     }
 
-    // Matches this engine's integer coercion: floating carriers are not proven integer reads.
+    // A floating carrier is not a proven integer read.
     private fun integerBits(raw: Any): Int? = when (raw) {
         is Float, is Double -> null
         is Number -> raw.toInt()

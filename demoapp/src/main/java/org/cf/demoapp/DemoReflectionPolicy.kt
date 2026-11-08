@@ -22,7 +22,7 @@ internal fun demoReflectionPolicy(): ReflectionPolicy {
             MethodSignature(VirtualType.of("Ljava/lang/Integer;"), "parseInt", "(Ljava/lang/String;)I"),
             MethodSignature(VirtualType.of("Ljava/lang/Long;"), "parseLong", "(Ljava/lang/String;)J"),
         ),
-        // A non-null System.out avoids null-receiver paths at println, which PrintlnEmulator handles.
+        // Reading the host System.out gives println a non-null receiver; PrintlnEmulator handles the call.
         exactSafeStaticFields = setOf(
             FieldSignature(
                 VirtualType.of("Ljava/lang/System;"),
